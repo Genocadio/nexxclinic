@@ -12,6 +12,15 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import InlineTryAgain from "@/components/inline-try-again"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid } from "lucide-react"
 import { toast } from "react-toastify"
 
@@ -26,6 +35,9 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+  const [mobileSearchActive, setMobileSearchActive] = useState(false)
+  const [showMetrics, setShowMetrics] = useState(true)
+  const [showMobileActionSheet, setShowMobileActionSheet] = useState(false)
 
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
   const hasReceptionistRole = roles.includes("RECEPTIONIST")
@@ -205,10 +217,15 @@ export default function DashboardPage() {
           <div className="flex-1 overflow-y-auto p-6">
             <div className="max-w-6xl mx-auto">
               {/* Header with date */}
-              <div className="mb-8 space-y-4">
-                <div className="text-center">
-                  <h1 className="text-3xl font-bold text-foreground mb-2">Today</h1>
-                  <p className="text-muted-foreground inline-flex items-center gap-2">
+              <div className="mb-8">
+                <div className="text-center space-y-2">
+                  <button
+                    onClick={() => setShowMetrics(!showMetrics)}
+                    className="text-3xl font-bold text-foreground hover:text-primary transition-colors duration-200 cursor-pointer block w-full"
+                  >
+                    Today
+                  </button>
+                  <p className="text-muted-foreground flex items-center justify-center gap-2">
                       <Calendar className="w-4 h-4" />
                       {new Date().toLocaleDateString("en-US", {
                         weekday: "long",
@@ -217,75 +234,95 @@ export default function DashboardPage() {
                       })}
                   </p>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto sm:ml-auto">
+                <div className="hidden md:flex flex-row gap-3 w-full justify-end">
                     {canSeeRegisterAndCreate && (
                       <Button
                         onClick={() => setShowPatientRegistrationModal(true)}
-                        className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-2 sm:px-6 py-1.5 sm:py-2.5 shadow-lg hover:shadow-xl transition-all duration-200 text-xs sm:text-sm font-medium flex items-center justify-center gap-1 sm:gap-2"
+                        className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-6 py-2.5 shadow-lg hover:shadow-xl transition-all duration-200 text-sm font-medium flex items-center justify-center gap-2"
                       >
                         <UserPlus className="w-4 h-4" />
-                        <span className="hidden sm:inline">Register New Patient</span>
+                        <span>Register New Patient</span>
                       </Button>
                     )}
                     {canSeeRegisterAndCreate && (
                       <Button
                         onClick={openVisitCreationModal}
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white rounded-full px-2 sm:px-6 py-1.5 sm:py-2.5 shadow-lg hover:shadow-xl transition-all duration-200 text-xs sm:text-sm font-medium flex items-center justify-center gap-1 sm:gap-2"
+                        className="bg-yellow-500 hover:bg-yellow-600 text-white rounded-full px-6 py-2.5 shadow-lg hover:shadow-xl transition-all duration-200 text-sm font-medium flex items-center justify-center gap-2"
                       >
                         <Stethoscope className="w-4 h-4" />
-                        <span className="hidden sm:inline">Create Visit</span>
+                        <span>Create Visit</span>
                       </Button>
                     )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-200">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-2 font-medium">Open</p>
-                      {dashboardStatsLoading ? (
-                        <Skeleton className="h-9 w-16" />
-                      ) : (
-                        <p className="text-3xl font-bold text-foreground">{dashboardStats?.totalOpen ?? 0}</p>
-                      )}
-                    </div>
-                    <div className="bg-orange-500/10 p-3 rounded-2xl">
-                      <AlertCircle className="w-6 h-6 text-orange-500" />
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-200">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-2 font-medium">Completed</p>
-                      {dashboardStatsLoading ? (
-                        <Skeleton className="h-9 w-16" />
-                      ) : (
-                        <p className="text-3xl font-bold text-foreground">{dashboardStats?.totalCompleted ?? 0}</p>
-                      )}
-                    </div>
-                    <div className="bg-primary/10 p-3 rounded-2xl">
-                      <Clock className="w-6 h-6 text-primary" />
+              {showMetrics && (
+              <div className="grid grid-cols-3 gap-2 md:gap-4 mb-8">
+                {/* Open metric */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-lg hover:shadow-xl transition-all duration-200">
+                    <div className="flex items-start justify-between gap-2 md:gap-3">
+                      <div className="min-w-0 w-full md:w-auto">
+                        <p className="hidden md:block text-xs md:text-sm text-muted-foreground mb-1 md:mb-2 font-medium truncate">Open</p>
+                        {dashboardStatsLoading ? (
+                          <Skeleton className="h-7 md:h-9 w-12 md:w-16" />
+                        ) : (
+                          <p className="text-xl md:text-3xl font-bold text-foreground text-center md:text-left">{dashboardStats?.totalOpen ?? 0}</p>
+                        )}
+                      </div>
+                      <div className="hidden md:block bg-orange-500/10 p-2 md:p-3 rounded-xl md:rounded-2xl flex-shrink-0">
+                        <AlertCircle className="w-4 h-4 md:w-6 md:h-6 text-orange-500" />
+                      </div>
                     </div>
                   </div>
+                  <div className="md:hidden text-center">
+                    <span className="inline-block px-2.5 py-1 bg-orange-500/10 text-orange-700 dark:text-orange-400 text-xs font-semibold rounded-full border border-orange-200 dark:border-orange-900/50">Open</span>
+                  </div>
                 </div>
-                <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-200">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-2 font-medium">Waiting Billing</p>
-                      {dashboardStatsLoading ? (
-                        <Skeleton className="h-9 w-16" />
-                      ) : (
-                        <p className="text-3xl font-bold text-foreground">{dashboardStats?.totalWaitingForBilling ?? 0}</p>
-                      )}
+                {/* Completed metric */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-lg hover:shadow-xl transition-all duration-200">
+                    <div className="flex items-start justify-between gap-2 md:gap-3">
+                      <div className="min-w-0 w-full md:w-auto">
+                        <p className="hidden md:block text-xs md:text-sm text-muted-foreground mb-1 md:mb-2 font-medium truncate">Completed</p>
+                        {dashboardStatsLoading ? (
+                          <Skeleton className="h-7 md:h-9 w-12 md:w-16" />
+                        ) : (
+                          <p className="text-xl md:text-3xl font-bold text-foreground text-center md:text-left">{dashboardStats?.totalCompleted ?? 0}</p>
+                        )}
+                      </div>
+                      <div className="hidden md:block bg-primary/10 p-2 md:p-3 rounded-xl md:rounded-2xl flex-shrink-0">
+                        <Clock className="w-4 h-4 md:w-6 md:h-6 text-primary" />
+                      </div>
                     </div>
-                    <div className="bg-green-500/10 p-3 rounded-2xl">
-                      <CheckCircle className="w-6 h-6 text-green-500" />
+                  </div>
+                  <div className="md:hidden text-center">
+                    <span className="inline-block px-2.5 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full border border-primary/20">Completed</span>
+                  </div>
+                </div>
+                {/* Waiting metric */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-lg hover:shadow-xl transition-all duration-200">
+                    <div className="flex items-start justify-between gap-2 md:gap-3">
+                      <div className="min-w-0 w-full md:w-auto">
+                        <p className="hidden md:block text-xs md:text-sm text-muted-foreground mb-1 md:mb-2 font-medium truncate">Waiting</p>
+                        {dashboardStatsLoading ? (
+                          <Skeleton className="h-7 md:h-9 w-12 md:w-16" />
+                        ) : (
+                          <p className="text-xl md:text-3xl font-bold text-foreground text-center md:text-left">{dashboardStats?.totalWaitingForBilling ?? 0}</p>
+                        )}
+                      </div>
+                      <div className="hidden md:block bg-green-500/10 p-2 md:p-3 rounded-xl md:rounded-2xl flex-shrink-0">
+                        <CheckCircle className="w-4 h-4 md:w-6 md:h-6 text-green-500" />
+                      </div>
                     </div>
+                  </div>
+                  <div className="md:hidden text-center">
+                    <span className="inline-block px-2.5 py-1 bg-green-500/10 text-green-700 dark:text-green-400 text-xs font-semibold rounded-full border border-green-200 dark:border-green-900/50">Waiting</span>
                   </div>
                 </div>
               </div>
+              )}
 
                 <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl shadow-lg overflow-hidden">
                 {/* Status filters */}
@@ -354,46 +391,72 @@ export default function DashboardPage() {
                     </button>
                   </div>
 
-                  {/* Mobile filter dropdown */}
+                  {/* Mobile filter, layout switch, and search controls */}
                   <div className="md:hidden">
-                    <div className="relative inline-block w-full">
-                      <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="w-full px-4 py-2 rounded-full bg-primary text-primary-foreground border-none shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/50 font-medium appearance-none cursor-pointer"
-                        style={{
-                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                          backgroundRepeat: 'no-repeat',
-                          backgroundPosition: 'right 1rem center',
-                          paddingRight: '2.5rem'
-                        }}
-                      >
-                        <option value="all">All Visits</option>
-                        <option value="CREATED">Created</option>
-                        <option value="IN_PROGRESS">In Progress</option>
-                        <option value="COMPLETED">Completed</option>
-                        <option value="CANCELLED">Cancelled</option>
-                        <option value="BILLING">Billing</option>
-                      </select>
-                    </div>
+                    {!mobileSearchActive ? (
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="w-full px-3 py-2 rounded-full bg-primary text-primary-foreground border-none shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/50 font-medium appearance-none cursor-pointer text-sm"
+                            style={{
+                              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                              backgroundRepeat: 'no-repeat',
+                              backgroundPosition: 'right 0.75rem center',
+                              paddingRight: '2rem'
+                            }}
+                          >
+                            <option value="all">All Visits</option>
+                            <option value="CREATED">Created</option>
+                            <option value="IN_PROGRESS">In Progress</option>
+                            <option value="COMPLETED">Completed</option>
+                            <option value="CANCELLED">Cancelled</option>
+                            <option value="BILLING">Billing</option>
+                          </select>
+                        </div>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          className="rounded-full h-10 w-10 flex-shrink-0"
+                          onClick={() => setViewMode((prev) => (prev === "list" ? "grid" : "list"))}
+                          title={viewMode === "list" ? "Switch to grid view" : "Switch to list view"}
+                          aria-label={viewMode === "list" ? "Switch to grid view" : "Switch to list view"}
+                        >
+                          {viewMode === "list" ? <LayoutGrid className="w-4 h-4" /> : <List className="w-4 h-4" />}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          className="rounded-full h-10 w-10 flex-shrink-0"
+                          onClick={() => setMobileSearchActive(true)}
+                          title="Search"
+                          aria-label="Search"
+                        >
+                          <Search className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
                 {/* Visits list */}
-                <div className="p-6">
-                  {/* Search bar */}
-                  <div className="mb-4 flex flex-col md:flex-row gap-3 md:items-center">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-4 top-3 w-4 h-4 text-muted-foreground" />
-                      <input
-                        type="text"
-                        placeholder="Search by patient name..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 bg-card/80 dark:bg-slate-900/70 backdrop-blur-sm border border-border/50 dark:border-slate-800 rounded-full text-foreground dark:text-slate-100 placeholder-muted-foreground dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 shadow-sm"
-                      />
-                    </div>
-                    <div className="flex items-center justify-end gap-2">
+                <div className={`p-6 ${mobileSearchActive ? "hidden md:block" : ""}`}>
+                  {/* Search bar - Desktop and expanded mobile */}
+                  {!mobileSearchActive ? (
+                    <div className="hidden md:flex mb-4 gap-3 items-center">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-4 top-3 w-4 h-4 text-muted-foreground" />
+                        <input
+                          type="text"
+                          placeholder="Search by patient name..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full pl-11 pr-4 py-3 bg-card/80 dark:bg-slate-900/70 backdrop-blur-sm border border-border/50 dark:border-slate-800 rounded-full text-foreground dark:text-slate-100 placeholder-muted-foreground dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 shadow-sm"
+                        />
+                      </div>
                       <Button
                         type="button"
                         size="icon"
@@ -406,7 +469,7 @@ export default function DashboardPage() {
                         {viewMode === "list" ? <LayoutGrid className="w-4 h-4" /> : <List className="w-4 h-4" />}
                       </Button>
                     </div>
-                  </div>
+                  ) : null}
 
                   {/* Visits / Patients view */}
                   <TooltipProvider>
@@ -596,11 +659,132 @@ export default function DashboardPage() {
           </div>
         </div>
 
+      {/* Mobile Search Overlay - Full Screen */}
+      {mobileSearchActive && (
+        <div className="md:hidden fixed inset-0 top-16 z-50 bg-background/95 backdrop-blur-sm flex flex-col">
+          {/* Search Bar */}
+          <div className="flex items-center gap-2 p-4 border-b border-border/30">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search patients..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoFocus
+                className="w-full pl-11 pr-4 py-3 bg-card/80 dark:bg-slate-900/70 backdrop-blur-sm border border-border/50 dark:border-slate-800 rounded-full text-foreground dark:text-slate-100 placeholder-muted-foreground dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 shadow-sm"
+              />
+            </div>
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              className="rounded-full h-10 w-10 flex-shrink-0"
+              onClick={() => {
+                setMobileSearchActive(false)
+                setSearchQuery("")
+              }}
+              title="Close"
+              aria-label="Close search"
+            >
+              ✕
+            </Button>
+          </div>
+
+          {/* Search Results */}
+          <div className="flex-1 overflow-y-auto">
+            {searchQuery ? (
+              <div className="divide-y divide-border/30">
+                {allVisits
+                  .filter(
+                    (visit) =>
+                      `${visit.patient.firstName} ${visit.patient.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
+                  )
+                  .map((visit) => (
+                    <button
+                      key={visit.id}
+                      onClick={() => {
+                        setSearchQuery(`${visit.patient.firstName} ${visit.patient.lastName}`)
+                        setMobileSearchActive(false)
+                      }}
+                      className="w-full px-4 py-4 text-left hover:bg-muted/50 active:bg-muted/70 transition-colors"
+                    >
+                      <p className="font-medium text-foreground text-base">
+                        {visit.patient.firstName} {visit.patient.lastName}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {new Date(visit.visitDate).toLocaleDateString()}
+                      </p>
+                    </button>
+                  ))}
+                {allVisits.filter((visit) =>
+                  `${visit.patient.firstName} ${visit.patient.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
+                ).length === 0 && (
+                  <p className="px-4 py-8 text-center text-muted-foreground">No patients found</p>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground text-center">Start typing to search patients</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Button for mobile reception */}
+      {canSeeRegisterAndCreate && !mobileSearchActive && (
+        <div className="md:hidden fixed bottom-6 right-6 z-40">
+          <button
+            onClick={() => setShowMobileActionSheet(true)}
+            className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
+        </div>
+      )}
+
+      {/* Mobile Action Sheet - Choose New or Existing Patient */}
+      <AlertDialog open={showMobileActionSheet} onOpenChange={setShowMobileActionSheet}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>What would you like to do?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Create a new patient record or start a visit for an existing patient.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-3">
+            <AlertDialogAction
+              onClick={() => {
+                setShowMobileActionSheet(false)
+                setShowPatientRegistrationModal(true)
+              }}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Register New Patient
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={() => {
+                setShowMobileActionSheet(false)
+                openVisitCreationModal()
+              }}
+              className="bg-yellow-500 hover:bg-yellow-600 text-white"
+            >
+              <Stethoscope className="w-4 h-4 mr-2" />
+              Create Visit
+            </AlertDialogAction>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Modals */}
       <PatientRegistrationModal
         isOpen={showPatientRegistrationModal}
         onClose={() => setShowPatientRegistrationModal(false)}
         onPatientRegistered={handlePatientRegistered}
+        hideSearchPanel={typeof window !== "undefined" && window.innerWidth < 768}
       />
 
       <VisitCreationModal

@@ -41,9 +41,10 @@ interface PatientRegistrationModalProps {
   isOpen: boolean
   onClose: () => void
   onPatientRegistered?: (patientId: string, patientInsurances: any[], proceedToVisit: boolean) => void
+  hideSearchPanel?: boolean
 }
 
-export default function PatientRegistrationModal({ isOpen, onClose, onPatientRegistered }: PatientRegistrationModalProps) {
+export default function PatientRegistrationModal({ isOpen, onClose, onPatientRegistered, hideSearchPanel = false }: PatientRegistrationModalProps) {
   const { registerPatient, loading } = useRegisterPatient()
   const { insurances, loading: insurancesLoading } = useInsurances()
   const solidFieldClass = "w-full bg-background dark:bg-gray-900 border-border/70"
@@ -697,11 +698,11 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
             </div>
           </div>
         </form>
-          </div>
+        </div>
 
           {/* Potential Matches Panel (hidden on mobile) */}
-          <div className="hidden md:block border-l border-border/50 pl-6 overflow-y-auto scrollbar-hide pb-20 rounded-2xl bg-background/90 dark:bg-gray-900/85 p-4">
-            {hasSearchCriteria ? (
+          {!hideSearchPanel && (
+            <div className="hidden md:block border-l border-border/50 pl-6 overflow-y-auto scrollbar-hide pb-20 rounded-2xl bg-background/90 dark:bg-gray-900/85 p-4">
               <>
                 <div className="sticky top-0 bg-background dark:bg-gray-900 pb-4 border-b border-border/50 mb-4 rounded-2xl p-4 shadow-sm">
                   <h3 className="text-lg font-semibold text-foreground">Potential Matches</h3>
@@ -805,15 +806,8 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                   </div>
                 )}
               </>
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center text-muted-foreground">
-                  <div className="text-sm mb-2">Start typing patient information</div>
-                  <div className="text-xs">Potential matches will appear here</div>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

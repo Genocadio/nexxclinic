@@ -797,7 +797,7 @@ const LOGIN_MUTATION = gql`
 `
 
 const REGISTER_MUTATION = gql`
-  mutation Register($name: String!, $email: String!, $password: String!, $phoneNumber: String!, $title: String!) {
+  mutation Register($name: String!, $email: String!, $password: String!, $phoneNumber: String!, $title: String) {
     register(name: $name, email: $email, password: $password, phoneNumber: $phoneNumber, title: $title) {
       status
       data {
@@ -1480,10 +1480,10 @@ export function useLogin() {
 export function useRegister() {
   const [registerMutation, { loading, error }] = useMutation(REGISTER_MUTATION)
 
-  const register = async (name: string, email: string, password: string, phoneNumber: string, title: string) => {
+  const register = async (name: string, email: string, password: string, phoneNumber: string, title?: string) => {
     try {
       const result = await registerMutation({
-        variables: { name, email, password, phoneNumber, title }
+        variables: { name, email, password, phoneNumber, title: title || null }
       })
       return result.data.register as RegisterResponse
     } catch (err) {

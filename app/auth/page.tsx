@@ -84,7 +84,6 @@ function AuthPageContent() {
     if (currentMode === "register") {
       if (!name.trim()) nextErrors.name = "Full name is required"
       if (!phoneNumber.trim()) nextErrors.phoneNumber = "Phone number is required"
-      if (!title.trim()) nextErrors.title = "Title is required"
     }
 
     return nextErrors
