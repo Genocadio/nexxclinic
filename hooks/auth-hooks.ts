@@ -1,5 +1,6 @@
 import { gql, useMutation, useQuery } from '@apollo/client'
 import React from 'react'
+import { getErrorMessage } from '@/lib/error-utils'
 
 export interface LoginResponse {
   status: string
@@ -1454,10 +1455,22 @@ export function useLogin() {
       const result = await loginMutation({
         variables: { email, password }
       })
-      return result.data.login as LoginResponse
+      const payload = result?.data?.login as LoginResponse | undefined
+      if (payload) {
+        return payload
+      }
+
+      const fallbackMessage = result?.errors?.[0]?.message || 'Login failed'
+      return {
+        status: 'ERROR',
+        messages: [{ text: fallbackMessage, type: 'ERROR' }],
+      } as LoginResponse
     } catch (err) {
-      console.error('Login error:', err)
-      throw err
+      const errorMessage = getErrorMessage(err) || 'Network error occurred'
+      return {
+        status: 'ERROR',
+        messages: [{ text: errorMessage, type: 'ERROR' }],
+      } as LoginResponse
     }
   }
 

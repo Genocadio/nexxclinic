@@ -18,20 +18,8 @@ export const metadata: Metadata = {
   description: "Professional clinic management system",
   authors: [{ name: "NexxServe", url: "https://nexxserve.tech" }],
   icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
+    icon: [{ url: "/favicon.ico", sizes: "any" }],
+    shortcut: [{ url: "/favicon.ico" }],
     apple: "/apple-icon.png",
   },
 }
@@ -90,7 +78,10 @@ export default function RootLayout({
           pauseOnFocusLoss
           draggable
           pauseOnHover
-          theme="light"
+          theme="colored"
+          className="nexx-toast-container"
+          toastClassName="nexx-toast"
+          progressClassName="nexx-toast-progress"
         />
         <Analytics />
       </body>

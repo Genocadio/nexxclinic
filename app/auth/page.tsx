@@ -88,6 +88,29 @@ function AuthPageContent() {
     return nextErrors
   }
 
+  const getWelcomeName = () => {
+    if (typeof window !== "undefined") {
+      try {
+        const storedDoctor = localStorage.getItem("doctor")
+        if (storedDoctor) {
+          const parsedDoctor = JSON.parse(storedDoctor) as { name?: string }
+          if (parsedDoctor?.name?.trim()) {
+            return parsedDoctor.name.trim()
+          }
+        }
+      } catch {
+        // Fallback to email-derived name below.
+      }
+    }
+
+    const emailPrefix = email.split("@")[0]?.trim()
+    if (!emailPrefix) return "Doctor"
+
+    return emailPrefix
+      .replace(/[._-]+/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase())
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -100,6 +123,17 @@ function AuthPageContent() {
 
     const result = await login(email, password)
     if (result.success) {
+      const welcomeName = getWelcomeName()
+      toast.success(`Welcome back, ${welcomeName}`, {
+        position: "top-center",
+        autoClose: 2200,
+        closeOnClick: false,
+        draggable: false,
+        pauseOnHover: false,
+        pauseOnFocusLoss: false,
+        closeButton: false,
+        className: "nexx-toast-welcome",
+      })
       router.replace("/")
       return
     }
