@@ -9,6 +9,7 @@ import { toast } from "react-toastify"
 
 import { useAuth } from "@/lib/auth-context"
 import { getPostLoginPath } from "@/lib/role-utils"
+import { validateEmailOrPhone } from "@/lib/validation-utils"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -69,12 +70,10 @@ function AuthPageContent() {
 
   const validateForm = (currentMode: "login" | "register"): FieldErrors => {
     const nextErrors: FieldErrors = {}
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-    if (!email.trim()) {
-      nextErrors.email = "Email is required"
-    } else if (!emailPattern.test(email.trim())) {
-      nextErrors.email = "Enter a valid email address"
+    const emailOrPhoneValidation = validateEmailOrPhone(email)
+    if (!emailOrPhoneValidation.valid) {
+      nextErrors.email = emailOrPhoneValidation.error
     }
 
     if (!password.trim()) {
@@ -83,7 +82,7 @@ function AuthPageContent() {
 
     if (currentMode === "register") {
       if (!name.trim()) nextErrors.name = "Full name is required"
-      if (!phoneNumber.trim()) nextErrors.phoneNumber = "Phone number is required"
+      // Phone number is now optional (can be provided in Email field as phone)
     }
 
     return nextErrors
@@ -104,12 +103,17 @@ function AuthPageContent() {
       }
     }
 
-    const emailPrefix = email.split("@")[0]?.trim()
-    if (!emailPrefix) return "Doctor"
+    // If input is email, extract name from email prefix
+    if (email.includes("@")) {
+      const emailPrefix = email.split("@")[0]?.trim()
+      if (emailPrefix) {
+        return emailPrefix
+          .replace(/[._-]+/g, " ")
+          .replace(/\b\w/g, (char) => char.toUpperCase())
+      }
+    }
 
-    return emailPrefix
-      .replace(/[._-]+/g, " ")
-      .replace(/\b\w/g, (char) => char.toUpperCase())
+    return "Doctor"
   }
 
   const getStoredRoles = () => {
@@ -234,15 +238,15 @@ function AuthPageContent() {
             {mode === "login" ? (
               <form onSubmit={handleLogin} className="space-y-4 fly-in fly-in-7">
                 <div>
-                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Email Address</label>
+                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Email or Phone</label>
                   <Input
-                    type="email"
+                    type="text"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value)
                       clearError("email")
                     }}
-                    placeholder="dr.name@eyecare.com"
+                    placeholder="dr.name@eyecare.com or +256701234567 or 0712345678"
                     className={`w-full ${baseInputClass} ${errors.email ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
                   />
                   {errors.email && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.email}</p>}
@@ -289,21 +293,21 @@ function AuthPageContent() {
                   {errors.name && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.name}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Email Address</label>
+                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Email or Phone</label>
                   <Input
-                    type="email"
+                    type="text"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value)
                       clearError("email")
                     }}
-                    placeholder="dr.name@eyecare.com"
+                    placeholder="dr.name@eyecare.com or +256701234567 or 0712345678"
                     className={`${baseInputClass} ${errors.email ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
                   />
                   {errors.email && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.email}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Phone Number</label>
+                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Phone Number (Optional)</label>
                   <Input
                     type="tel"
                     value={phoneNumber}

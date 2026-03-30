@@ -13,6 +13,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { AlertCircle, Check, ChevronsUpDown, Edit } from "lucide-react"
 import { toast } from "react-toastify"
 import { cn } from "@/lib/utils"
+import { validateEmailOrPhone } from "@/lib/validation-utils"
 import PatientEditModal from "@/components/patient-edit-modal"
 
 const calculateAge = (dateOfBirth: string): number => {
@@ -211,6 +212,15 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
       return
     }
 
+    // Validate email or phone if provided
+    if (formData.contactInfo?.email) {
+      const emailOrPhoneValidation = validateEmailOrPhone(formData.contactInfo.email)
+      if (!emailOrPhoneValidation.valid) {
+        toast.error(`Email/Phone validation: ${emailOrPhoneValidation.error}`)
+        return
+      }
+    }
+
     // Validate dominant member requirement for patients <= 18 with insurance
     const hasInsurance = (formData.insurances?.length ?? 0) > 0
     const dominantMemberRequired = isDominantMemberRequired(formData.dateOfBirth, hasInsurance)
@@ -401,13 +411,13 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Email
+                  Email or Phone
                 </label>
                 <Input
-                  type="email"
+                  type="text"
                   value={formData.contactInfo?.email}
                   onChange={(e) => handleInputChange('contactInfo.email', e.target.value)}
-                  placeholder="Enter email address"
+                  placeholder="Email (user@domain.com) or Phone (+256701234567 or 0712345678)"
                   className={solidFieldClass}
                 />
               </div>
