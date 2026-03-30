@@ -2,9 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { gql, useMutation } from '@apollo/client';
-import { BillingHeader } from '@/components/BillingHeader';
 import { BillingItemsList } from '@/components/BillingItemsList';
-import { BillingPaymentSummary } from '@/components/BillingPaymentSummary';
 import { BillingExemptions } from '@/components/BillingExemptions';
 import { Button } from '@/components/ui/button';
 import { BillingData, BillingItem, getEffectiveCoveragePercentage } from '@/lib/billing-utils';
@@ -17,10 +15,9 @@ import { useUpdateVisitDepartmentStatus } from '@/hooks/auth-hooks';
 import { useAddVisitNote } from '@/hooks/auth-hooks';
 import { Spinner } from '@/components/ui/spinner';
 import { Skeleton } from '@/components/ui/skeleton';
-import PaymentSummaryModal from '@/components/payment-summary-modal';
 import AddActionConsumableModal from '@/components/add-action-consumable-modal';
 import VisitNotesFloating from '@/components/visit-notes-floating';
-import { Plus, Layers, List, Receipt, CheckCircle } from 'lucide-react';
+import { Plus, Layers, List, Receipt, Pencil, Printer } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'react-toastify';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -65,6 +62,7 @@ const ADD_INSURANCE_TO_VISIT = gql`
 function BillingPageContent() {
   const searchParams = useSearchParams();
   const visitId = searchParams.get('visitId');
+  const autoPrint = searchParams.get('autoprint') === '1';
   const { visit, loading, error, refetch: refetchVisit } = useVisit(visitId);
   const { insurances: availableInsurances } = useInsurances();
   const [addInsuranceToVisit, { loading: addingVisitInsurance }] = useMutation(
@@ -74,8 +72,9 @@ function BillingPageContent() {
   const { bill: existingBill, loading: loadingBill, refetch: refetchBill } = useGetBillByVisit(visitId);
   const { updatePatient } = useUpdatePatient();
   const [billingData, setBillingData] = useState<BillingData | null>(null);
-  const [showPaymentSummary, setShowPaymentSummary] = useState(false);
-  const [billingScope, setBillingScope] = useState<'all' | 'selected'>('all');
+  const [billJustCreated, setBillJustCreated] = useState(false);
+  const [showCompleteBillConfirm, setShowCompleteBillConfirm] = useState(false);
+  const [didAutoPrint, setDidAutoPrint] = useState(false);
   const [viewMode, setViewMode] = useState<'all' | 'service'>('service');
   const [activeService, setActiveService] = useState<string>('');
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
@@ -85,6 +84,9 @@ function BillingPageContent() {
   const [dominantFirstName, setDominantFirstName] = useState('');
   const [dominantLastName, setDominantLastName] = useState('');
   const [dominantPhone, setDominantPhone] = useState('');
+  const [showDiscountControls, setShowDiscountControls] = useState(false);
+  const [discountInputType, setDiscountInputType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
+  const [discountInputValue, setDiscountInputValue] = useState(0);
   const { doctor } = useAuth();
     const [showAddActionConsumableModal, setShowAddActionConsumableModal] = useState(false);
   const [addingBillingItem, setAddingBillingItem] = useState(false);
@@ -167,6 +169,24 @@ function BillingPageContent() {
     const age = patient?.dateOfBirth ? (new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()) : 0;
 
     const nationalId = (patient as any)?.nationalId || ''
+    const discountPercentage =
+      existingBill?.globalDiscount?.type === 'PERCENTAGE'
+        ? Number(existingBill?.globalDiscount?.value || 0)
+        : 0
+
+    // Default amount paid to patient's contribution (after insurance and discount) when no bill exists yet.
+    const patientContribution = items.reduce((total, item) => {
+      const itemTotal = item.quantity * item.price
+      const selectedInsurance = insurances.find((ins) => String(ins.id) === item.selectedInsuranceId)
+      const coveragePct = selectedInsurance?.coveragePercentage || 0
+      const coverageAmount = (itemTotal * coveragePct) / 100
+      return total + (itemTotal - coverageAmount)
+    }, 0)
+
+    const patientContributionAfterDiscount = Math.max(
+      0,
+      patientContribution - (patientContribution * discountPercentage) / 100,
+    )
 
     return {
       visitId: visitData.id,
@@ -184,10 +204,17 @@ function BillingPageContent() {
         coveragePercentage: ins.coveragePercentage,
       })),
       items,
-      discountPercentage: 0,
-      paymentMethod: 'pending',
-      amountPaid: 0,
-      notes: '',
+      discountPercentage,
+      paymentMethod:
+        existingBill?.payments?.[existingBill.payments.length - 1]?.method?.toLowerCase() === 'cash'
+          ? 'cash'
+          : existingBill?.payments?.[existingBill.payments.length - 1]?.method?.toLowerCase() === 'momo'
+            ? 'momo'
+            : existingBill?.payments?.[existingBill.payments.length - 1]?.method?.toLowerCase() === 'airtel-money'
+              ? 'airtel-money'
+              : 'momo',
+      amountPaid: Number(existingBill?.totals?.patientTotalPaid ?? patientContributionAfterDiscount),
+      notes: existingBill?.note || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -360,12 +387,19 @@ function BillingPageContent() {
   })();
 
   const selectedItems = billingData ? billingData.items.filter((it) => selectedItemIds.includes(it.id)) : [];
-  const selectedTotals = selectedItems.length ? calculateTotalsForItems(selectedItems) : totals;
   const hasRemainingToBill = Boolean(billingData?.items.some((item) => item.paymentStatus !== 'paid'));
-  const showBillingDock = !existingBill && hasRemainingToBill;
+  const canEditBilling = Boolean(existingBill) || billJustCreated;
+  const showBillingDock = canEditBilling || (!existingBill && hasRemainingToBill);
   
   // Compute service-specific totals when in service view
   const displayTotals = viewMode === 'service' ? calculateTotalsForItems(itemsToDisplay) : totals;
+
+  useEffect(() => {
+    if (!billingData) return
+    setDiscountInputType('PERCENTAGE')
+    setDiscountInputValue(Number(billingData.discountPercentage || 0))
+    setShowDiscountControls(Boolean((billingData.discountPercentage || 0) > 0))
+  }, [billingData?.discountPercentage])
 
   // Get all service names from visit departments (not just those with items)
   const allServiceNames = visit?.departments
@@ -531,6 +565,7 @@ function BillingPageContent() {
       const response = await createBill(input);
       
       if (response.status === 'SUCCESS') {
+        setBillJustCreated(true)
         // Refetch visit and bill data
         await refetchVisit();
         await refetchBill();
@@ -555,9 +590,157 @@ function BillingPageContent() {
     }
   }, [billingData, activeService, unbilledServiceNames, allServiceNames, hasMultipleUnbilledServices, viewMode]);
 
-  const handlePrint = () => {
-    window.print();
-  };
+  useEffect(() => {
+    setBillJustCreated(false)
+  }, [visitId])
+
+  useEffect(() => {
+    if (!autoPrint || didAutoPrint || !existingBill || !billingData) return
+    setDidAutoPrint(true)
+    // Small delay ensures print window content is ready after query hydration.
+    const timer = setTimeout(() => {
+      handlePrintBillingInvoice()
+    }, 150)
+
+    return () => clearTimeout(timer)
+  }, [autoPrint, didAutoPrint, existingBill, billingData])
+
+  const handlePrintBillingInvoice = () => {
+    if (!billingData) return
+
+    const escapeHtml = (value: string) =>
+      value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+
+    const invoiceItems = existingBill?.billingItems?.flatMap((billingItem) =>
+      (billingItem.items || []).map((item) => ({
+        description: item.name,
+        quantity: item.quantity,
+        unitPrice: item.basePriceAtBilling,
+        lineTotal: item.finalAmountCharged,
+      })),
+    ) || billingData.items.map((item) => ({
+      description: item.name,
+      quantity: item.quantity,
+      unitPrice: item.price,
+      lineTotal: item.price * item.quantity,
+    }))
+
+    const totals = {
+      subtotal: existingBill?.totals?.beforeDiscount ?? displayTotals.subtotal,
+      discount: existingBill?.totals?.discount ?? displayTotals.discount,
+      totalDue: existingBill?.totals?.patientTotalDue ?? displayTotals.totalAmount,
+      paid: existingBill?.totals?.patientTotalPaid ?? (billingData.amountPaid || 0),
+      balance: existingBill?.totals?.patientBalance ?? Math.max(0, displayTotals.totalAmount - (billingData.amountPaid || 0)),
+    }
+
+    const invoiceHtml = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Invoice ${escapeHtml(existingBill?.billingDisplayId || billingData.visitId || 'N/A')}</title>
+    <style>
+      @page { size: A4; margin: 16mm; }
+      body { font-family: Arial, Helvetica, sans-serif; color: #1f2937; margin: 0; }
+      .invoice { width: 100%; }
+      .header { display: flex; justify-content: space-between; border-bottom: 2px solid #111827; padding-bottom: 12px; margin-bottom: 18px; }
+      .title { font-size: 24px; font-weight: 700; margin: 0; letter-spacing: .3px; }
+      .muted { color: #6b7280; font-size: 12px; margin: 2px 0; }
+      .section { margin-bottom: 16px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .box { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+      th, td { border: 1px solid #e5e7eb; padding: 8px; font-size: 12px; }
+      th { background: #f3f4f6; text-align: left; }
+      .right { text-align: right; }
+      .totals { width: 320px; margin-left: auto; margin-top: 14px; }
+      .totals td { border: none; padding: 4px 0; }
+      .grand td { border-top: 1px solid #d1d5db; font-weight: 700; padding-top: 8px; }
+      .footer { margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 10px; font-size: 11px; color: #6b7280; }
+    </style>
+  </head>
+  <body>
+    <div class="invoice">
+      <div class="header">
+        <div>
+          <h1 class="title">NexxMed Invoice</h1>
+          <p class="muted">Formal Billing Statement</p>
+        </div>
+        <div>
+          <p class="muted"><strong>Invoice #:</strong> ${escapeHtml(existingBill?.billingDisplayId || billingData.visitId || 'N/A')}</p>
+          <p class="muted"><strong>Date:</strong> ${new Date(existingBill?.billedAt || billingData.updatedAt || new Date().toISOString()).toLocaleString()}</p>
+        </div>
+      </div>
+
+      <div class="section grid">
+        <div class="box">
+          <p class="muted"><strong>Patient</strong></p>
+          <p>${escapeHtml(billingData.patientName || 'N/A')}</p>
+          <p class="muted">Patient ID: ${escapeHtml(billingData.patientId || 'N/A')}</p>
+        </div>
+        <div class="box">
+          <p class="muted"><strong>Payment</strong></p>
+          <p class="muted">Method: ${escapeHtml((billingData.paymentMethod || 'momo').toUpperCase())}</p>
+          <p class="muted">Visit Date: ${new Date(billingData.visitDate).toLocaleDateString()}</p>
+        </div>
+      </div>
+
+      <div class="section">
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th class="right">Qty</th>
+              <th class="right">Unit Price</th>
+              <th class="right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${invoiceItems
+              .map(
+                (item) => `<tr>
+                  <td>${escapeHtml(item.description || 'Item')}</td>
+                  <td class="right">${item.quantity}</td>
+                  <td class="right">${Number(item.unitPrice || 0).toLocaleString()} RWF</td>
+                  <td class="right">${Number(item.lineTotal || 0).toLocaleString()} RWF</td>
+                </tr>`,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <table class="totals">
+        <tr><td>Subtotal</td><td class="right">${Number(totals.subtotal || 0).toLocaleString()} RWF</td></tr>
+        <tr><td>Discount</td><td class="right">-${Number(totals.discount || 0).toLocaleString()} RWF</td></tr>
+        <tr class="grand"><td>Total Due</td><td class="right">${Number(totals.totalDue || 0).toLocaleString()} RWF</td></tr>
+        <tr><td>Paid</td><td class="right">${Number(totals.paid || 0).toLocaleString()} RWF</td></tr>
+        <tr><td>Balance</td><td class="right">${Number(totals.balance || 0).toLocaleString()} RWF</td></tr>
+      </table>
+
+      <div class="footer">
+        Generated by NexxMed Billing Module.
+      </div>
+    </div>
+  </body>
+</html>`
+
+    const printWindow = window.open('', '_blank', 'width=900,height=1100')
+    if (!printWindow) {
+      toast.error('Unable to open print window. Please allow pop-ups and try again.')
+      return
+    }
+
+    printWindow.document.open()
+    printWindow.document.write(invoiceHtml)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+  }
 
   const resetAddInsuranceForm = () => {
     setSelectedInsuranceId('');
@@ -933,6 +1116,123 @@ function BillingPageContent() {
 
               {!existingBill && (
                 <div className="mt-3 space-y-2 border-t border-slate-200 dark:border-slate-700 pt-3">
+                  <div className="grid grid-cols-1 gap-2">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-600 dark:text-slate-400">Discount</span>
+                        {!showDiscountControls ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 rounded-full text-xs"
+                            onClick={() => {
+                              setShowDiscountControls(true)
+                              setDiscountInputType('PERCENTAGE')
+                              setDiscountInputValue(Number(billingData.discountPercentage || 0))
+                            }}
+                          >
+                            Apply Discount
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 rounded-full text-xs"
+                            onClick={() => {
+                              setShowDiscountControls(false)
+                              setDiscountInputType('PERCENTAGE')
+                              setDiscountInputValue(0)
+                              handleDiscountChange(0)
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+
+                      {showDiscountControls && (
+                        <div className="mt-1 grid grid-cols-[140px_1fr] gap-2">
+                          <Select
+                            value={discountInputType}
+                            onValueChange={(value) => {
+                              const nextType = value as 'PERCENTAGE' | 'FIXED'
+                              setDiscountInputType(nextType)
+
+                              if (nextType === 'FIXED') {
+                                const fixed = (displayTotals.patientResponsibility * (billingData.discountPercentage || 0)) / 100
+                                setDiscountInputValue(Math.max(0, fixed))
+                              } else {
+                                setDiscountInputValue(Number(billingData.discountPercentage || 0))
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="PERCENTAGE">Percentage (%)</SelectItem>
+                              <SelectItem value="FIXED">Fixed (RWF)</SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          <Input
+                            type="number"
+                            min={0}
+                            max={discountInputType === 'PERCENTAGE' ? 100 : Math.max(0, displayTotals.patientResponsibility)}
+                            value={discountInputValue}
+                            onChange={(e) => {
+                              const rawValue = Math.max(0, Number(e.target.value || 0))
+                              setDiscountInputValue(rawValue)
+
+                              if (discountInputType === 'PERCENTAGE') {
+                                handleDiscountChange(Math.min(100, rawValue))
+                              } else {
+                                const cappedAmount = Math.min(rawValue, Math.max(0, displayTotals.patientResponsibility))
+                                const percent = displayTotals.patientResponsibility > 0
+                                  ? (cappedAmount / displayTotals.patientResponsibility) * 100
+                                  : 0
+                                handleDiscountChange(percent)
+                              }
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <span className="text-xs text-slate-600 dark:text-slate-400">Payment Method</span>
+                      <Select
+                        value={billingData.paymentMethod && billingData.paymentMethod !== 'pending' ? billingData.paymentMethod : 'momo'}
+                        onValueChange={(value) =>
+                          handlePaymentMethodChange(value as 'cash' | 'momo' | 'airtel-money')
+                        }
+                      >
+                        <SelectTrigger className="mt-1 h-9">
+                          <SelectValue placeholder="Select payment method" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">Cash</SelectItem>
+                          <SelectItem value="momo">MoMo</SelectItem>
+                          <SelectItem value="airtel-money">Airtel Money</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <span className="text-xs text-slate-600 dark:text-slate-400">Amount Paid</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={billingData.amountPaid || 0}
+                        onChange={(e) => handleAmountPaidChange(Math.max(0, Number(e.target.value || 0)))}
+                        className="mt-1 h-9"
+                      />
+                    </div>
+                  </div>
+
                   <div className="flex justify-between">
                     <span className="text-xs text-slate-600 dark:text-slate-400">Amount entered as paid:</span>
                     <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
@@ -944,32 +1244,6 @@ function BillingPageContent() {
                     <span className="text-xs font-bold text-orange-600 dark:text-orange-400">
                       {Math.max(0, displayTotals.totalAmount - (billingData.amountPaid || 0)).toLocaleString()} RWF
                     </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-full"
-                      onClick={() => {
-                        setBillingScope('all');
-                        setShowPaymentSummary(true);
-                      }}
-                    >
-                      Add Discount / Payment (All Items)
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-full"
-                      disabled={selectedItems.length === 0}
-                      onClick={() => {
-                        setBillingScope('selected');
-                        setShowPaymentSummary(true);
-                      }}
-                    >
-                      Add Discount / Payment (Selected)
-                    </Button>
                   </div>
                 </div>
               )}
@@ -1084,25 +1358,29 @@ function BillingPageContent() {
                 <TooltipProvider>
                   <div className="flex items-center gap-2">
                     {/* Add Action/Consumable */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          onClick={() => setShowAddActionConsumableModal(true)}
-                          size="icon"
-                          className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg"
-                          aria-label="Add Action or Consumable"
-                        >
-                          <Plus className="h-5 w-5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Add Action or Consumable</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    <div className="w-px h-6 bg-white/20" />
+                    {!canEditBilling && hasRemainingToBill && (
+                      <>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              onClick={() => setShowAddActionConsumableModal(true)}
+                              size="icon"
+                              className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg"
+                              aria-label="Add Action or Consumable"
+                            >
+                              <Plus className="h-5 w-5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Add Action or Consumable</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <div className="w-px h-6 bg-white/20" />
+                      </>
+                    )}
 
                     {/* View Toggle (only if multiple unbilled services) */}
-                    {hasMultipleUnbilledServices && (
+                    {!canEditBilling && hasRemainingToBill && hasMultipleUnbilledServices && (
                       <>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -1128,7 +1406,7 @@ function BillingPageContent() {
                     )}
 
                     {/* Exemptions Button - only visible if there are exemptions */}
-                    {exemptionCount > 0 && (
+                    {!canEditBilling && hasRemainingToBill && exemptionCount > 0 && (
                       <>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -1154,22 +1432,61 @@ function BillingPageContent() {
                       </>
                     )}
 
-                     <Tooltip>
-                       <TooltipTrigger asChild>
-                         <Button
-                           onClick={handleGenerateBill}
-                           size="icon"
-                           disabled={creatingBill}
-                           className="rounded-full h-12 w-12 bg-[#FF6900] hover:bg-[#e05f00] text-white shadow-lg disabled:opacity-50"
-                           aria-label={canDischargeVisit ? 'Discharge Patient' : 'Generate Bill'}
-                         >
-                           {canDischargeVisit ? <CheckCircle className="h-5 w-5" /> : <Receipt className="h-5 w-5" />}
-                         </Button>
-                       </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{creatingBill ? 'Creating bill...' : canDischargeVisit ? 'Discharge Patient' : 'Generate Bill'}</p>
-                      </TooltipContent>
-                    </Tooltip>
+                    {!canEditBilling && hasRemainingToBill && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={() => setShowCompleteBillConfirm(true)}
+                            size="icon"
+                            disabled={creatingBill}
+                            className="rounded-full h-12 w-12 bg-[#FF6900] hover:bg-[#e05f00] text-white shadow-lg disabled:opacity-50"
+                            aria-label="Complete Bill"
+                          >
+                            <Receipt className="h-5 w-5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{creatingBill ? 'Creating bill...' : 'Complete Bill'}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+
+                    {canEditBilling && (
+                      <>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              onClick={() => {
+                                setShowDiscountControls(true)
+                              }}
+                              size="icon"
+                              className="rounded-full h-12 w-12 bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
+                              aria-label="Edit Billing"
+                            >
+                              <Pencil className="h-5 w-5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Edit Billing</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              onClick={handlePrintBillingInvoice}
+                              size="icon"
+                              className="rounded-full h-12 w-12 bg-slate-700 hover:bg-slate-800 text-white shadow-lg"
+                              aria-label="Print Billing"
+                            >
+                              <Printer className="h-5 w-5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Print Billing (PDF)</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </>
+                    )}
                   </div>
                 </TooltipProvider>
         </div>
@@ -1178,21 +1495,62 @@ function BillingPageContent() {
 
           {/* Removed separate bottom-left buttons; consolidated into center pill */}
 
-      {/* Payment Summary Modal */}
-      {showPaymentSummary && (
-        <PaymentSummaryModal
-          billingData={{
-            ...(billingData as BillingData),
-            items: billingScope === 'selected' ? selectedItems : ((billingData?.items) || []),
-          } as BillingData}
-          totals={billingScope === 'selected' ? selectedTotals : totals}
-          onDiscountChange={handleDiscountChange}
-          onPaymentMethodChange={handlePaymentMethodChange}
-          onAmountPaidChange={handleAmountPaidChange}
-          onNotesChange={handleNotesChange}
-          onClose={() => setShowPaymentSummary(false)}
-        />
-      )}
+      {/* Complete Bill Confirmation */}
+      <Dialog open={showCompleteBillConfirm} onOpenChange={setShowCompleteBillConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Bill Completion</DialogTitle>
+            <DialogDescription>
+              Review billing summary before completing this bill.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Patient Responsibility:</span>
+              <span className="font-semibold">{displayTotals.patientResponsibility.toLocaleString()} RWF</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Discount:</span>
+              <span className="font-semibold">{(displayTotals.discount || 0).toLocaleString()} RWF</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total Due:</span>
+              <span className="font-semibold">{displayTotals.totalAmount.toLocaleString()} RWF</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Amount Paid:</span>
+              <span className="font-semibold">{(billingData?.amountPaid || 0).toLocaleString()} RWF</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Payment Method:</span>
+              <span className="font-semibold uppercase">{billingData?.paymentMethod || 'pending'}</span>
+            </div>
+            <div className="flex justify-between border-t pt-2">
+              <span className="text-muted-foreground">Remaining:</span>
+              <span className="font-semibold text-orange-600 dark:text-orange-400">
+                {Math.max(0, displayTotals.totalAmount - (billingData?.amountPaid || 0)).toLocaleString()} RWF
+              </span>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={() => setShowCompleteBillConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={creatingBill}
+              onClick={async () => {
+                setShowCompleteBillConfirm(false)
+                await handleGenerateBill()
+              }}
+            >
+              {creatingBill ? 'Completing...' : 'Confirm Complete Bill'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
         {/* Add Action/Consumable Modal */}
         <AddActionConsumableModal

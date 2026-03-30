@@ -21,7 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid } from "lucide-react"
+import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid, Printer } from "lucide-react"
 import { toast } from "react-toastify"
 
 export default function DashboardPage() {
@@ -155,6 +155,10 @@ export default function DashboardPage() {
 
   const handleGoToBilling = (visit: Visit) => {
     router.push(`/billing?visitId=${visit.id}&patientId=${visit.patient.id}`)
+  }
+
+  const handlePrintInvoice = (visit: Visit) => {
+    window.open(`/billing?visitId=${visit.id}&patientId=${visit.patient.id}&autoprint=1`, "_blank")
   }
 
   const handleViewConsultation = (visit: Visit) => {
@@ -557,11 +561,6 @@ export default function DashboardPage() {
                               </div>
                             </div>
                             <div className={`flex items-center gap-2 flex-wrap ${viewMode === "grid" ? "justify-start" : "justify-end lg:justify-start lg:flex-nowrap"}`}>
-                              {isDischarged(visit) && !hasNoBillables(visit) && (
-                                <span className="px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">
-                                  Discharged
-                                </span>
-                              )}
                               {canSeeVisitActionButtons && canSeeConsultButton && (visit.visitStatus === 'CREATED' || visit.visitStatus === 'IN_PROGRESS') && (
                                 <button
                                   onClick={(e) => {
@@ -619,32 +618,71 @@ export default function DashboardPage() {
                                 </button>
                               )}
                               {canSeeVisitActionButtons && canSeeBillButton && hasUnbilledItems(visit) && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleGoToBilling(visit)
-                                  }}
-                                  title="Bill Visit"
-                                  className="px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
-                                >
-                                  <ReceiptText className="w-4 h-4 flex-shrink-0" />
-                                  <span className="hidden sm:inline lg:hidden">Bill</span>
-                                  <span className="hidden lg:inline">Bill Visit</span>
-                                </button>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleGoToBilling(visit)
+                                      }}
+                                      title="Bill Visit"
+                                      className="h-9 w-9 sm:h-10 sm:w-10 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                    >
+                                      <ReceiptText className="w-4 h-4 flex-shrink-0" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Bill Visit</p>
+                                  </TooltipContent>
+                                </Tooltip>
                               )}
                               {canSeeVisitActionButtons && canSeeBillButton && visit.billingStatus === 'BILLED' && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleGoToBilling(visit)
-                                  }}
-                                  title="View Billing"
-                                  className="px-2 sm:px-4 py-1.5 sm:py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
-                                >
-                                  <ReceiptText className="w-4 h-4 flex-shrink-0" />
-                                  <span className="hidden sm:inline lg:hidden">View Bill</span>
-                                  <span className="hidden lg:inline">View Billing</span>
-                                </button>
+                                <>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="relative">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleGoToBilling(visit)
+                                          }}
+                                          title="View Billing"
+                                          className="h-9 w-9 sm:h-10 sm:w-10 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                        >
+                                          <ReceiptText className="w-4 h-4 flex-shrink-0" />
+                                        </button>
+                                        <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center border border-white">
+                                          ✓
+                                        </span>
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>View Billing</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="relative">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handlePrintInvoice(visit)
+                                          }}
+                                          title="Print Invoice"
+                                          className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-700 hover:bg-slate-800 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                        >
+                                          <Printer className="w-4 h-4 flex-shrink-0" />
+                                        </button>
+                                        <span className="absolute -top-1.5 -right-2 px-1.5 h-4 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center border border-white leading-none">
+                                          PDF
+                                        </span>
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Print Invoice</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </>
                               )}
                             </div>
                           </div>
