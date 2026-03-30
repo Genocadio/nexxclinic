@@ -68,6 +68,28 @@ function AuthPageContent() {
     })
   }
 
+  const validateEmailField = (value: string) => {
+    let error = ""
+    if (value.trim()) {
+      if (!value.includes("@") || !value.includes(".")) {
+        error = "Please enter a valid email address"
+      }
+    }
+    setErrors((prev) => ({ ...prev, email: error || undefined }))
+  }
+
+  const validatePhoneField = (value: string) => {
+    let error = ""
+    if (value.trim()) {
+      if (value.includes("@")) {
+        error = "Please enter a valid phone number, not email"
+      } else if (!value.match(/^\+?[0-9\s\-().]+$/)) {
+        error = "Please enter a valid phone number"
+      }
+    }
+    setErrors((prev) => ({ ...prev, phone: error || undefined }))
+  }
+
   const validateForm = (currentMode: "login" | "register"): FieldErrors => {
     const nextErrors: FieldErrors = {}
 
@@ -324,7 +346,7 @@ function AuthPageContent() {
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value)
-                      clearError("email")
+                      validateEmailField(e.target.value)
                     }}
                     placeholder="dr.name@eyecare.com"
                     className={`${baseInputClass} ${errors.email ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
@@ -338,7 +360,7 @@ function AuthPageContent() {
                     value={phoneNumber}
                     onChange={(e) => {
                       setPhoneNumber(e.target.value)
-                      clearError("phone")
+                      validatePhoneField(e.target.value)
                     }}
                     placeholder="+256701234567 or 0712345678"
                     className={`${baseInputClass} ${errors.phone ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
