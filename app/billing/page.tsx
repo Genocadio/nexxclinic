@@ -361,6 +361,8 @@ function BillingPageContent() {
 
   const selectedItems = billingData ? billingData.items.filter((it) => selectedItemIds.includes(it.id)) : [];
   const selectedTotals = selectedItems.length ? calculateTotalsForItems(selectedItems) : totals;
+  const hasRemainingToBill = Boolean(billingData?.items.some((item) => item.paymentStatus !== 'paid'));
+  const showBillingDock = !existingBill && hasRemainingToBill;
   
   // Compute service-specific totals when in service view
   const displayTotals = viewMode === 'service' ? calculateTotalsForItems(itemsToDisplay) : totals;
@@ -928,6 +930,49 @@ function BillingPageContent() {
                   </div>
                 </div>
               )}
+
+              {!existingBill && (
+                <div className="mt-3 space-y-2 border-t border-slate-200 dark:border-slate-700 pt-3">
+                  <div className="flex justify-between">
+                    <span className="text-xs text-slate-600 dark:text-slate-400">Amount entered as paid:</span>
+                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                      {(billingData.amountPaid || 0).toLocaleString()} RWF
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-slate-600 dark:text-slate-400">Estimated remaining:</span>
+                    <span className="text-xs font-bold text-orange-600 dark:text-orange-400">
+                      {Math.max(0, displayTotals.totalAmount - (billingData.amountPaid || 0)).toLocaleString()} RWF
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-full"
+                      onClick={() => {
+                        setBillingScope('all');
+                        setShowPaymentSummary(true);
+                      }}
+                    >
+                      Add Discount / Payment (All Items)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-full"
+                      disabled={selectedItems.length === 0}
+                      onClick={() => {
+                        setBillingScope('selected');
+                        setShowPaymentSummary(true);
+                      }}
+                    >
+                      Add Discount / Payment (Selected)
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1033,6 +1078,7 @@ function BillingPageContent() {
       />
 
           {/* Floating Dock at Bottom (glassy pill) */}
+      {showBillingDock && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
               <div className="glass-gray rounded-full shadow-xl px-2 py-2 flex items-center justify-center gap-2">
                 <TooltipProvider>
@@ -1128,6 +1174,7 @@ function BillingPageContent() {
                 </TooltipProvider>
         </div>
       </div>
+      )}
 
           {/* Removed separate bottom-left buttons; consolidated into center pill */}
 

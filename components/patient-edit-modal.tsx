@@ -12,6 +12,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { AlertCircle, Check, ChevronsUpDown } from "lucide-react"
 import { toast } from "react-toastify"
 import { cn } from "@/lib/utils"
+import { sanitizeEmailInput, sanitizePhoneInput } from "@/lib/validation-utils"
 
 const calculateAge = (dateOfBirth: string): number => {
   if (!dateOfBirth) return 0
@@ -115,6 +116,13 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
   }, [patient, isOpen])
 
   const handleInputChange = (field: string, value: string) => {
+    const sanitizedValue =
+      field === 'contactInfo.email'
+        ? sanitizeEmailInput(value)
+        : field === 'contactInfo.phone' || field === 'emergencyContact.phone'
+          ? sanitizePhoneInput(value)
+          : value
+
     setFormData(prev => {
       const keys = field.split('.')
       const updated = { ...prev }
@@ -127,12 +135,13 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
         current = current[keys[i]]
       }
 
-      current[keys[keys.length - 1]] = value
+      current[keys[keys.length - 1]] = sanitizedValue
       return updated
     })
   }
 
   const updateInsurance = (index: number, field: string, value: any) => {
+    const sanitizedValue = field === 'dominantMember.phone' ? sanitizePhoneInput(String(value)) : value
     setFormData(prev => {
       const newInsurances = [...(prev.insurances || [])]
       const keys = field.split('.')
@@ -143,7 +152,7 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
         }
         current = current[keys[i]]
       }
-      current[keys[keys.length - 1]] = value
+      current[keys[keys.length - 1]] = sanitizedValue
       return { ...prev, insurances: newInsurances }
     })
   }

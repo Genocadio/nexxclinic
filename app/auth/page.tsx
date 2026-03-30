@@ -9,7 +9,7 @@ import { toast } from "react-toastify"
 
 import { useAuth } from "@/lib/auth-context"
 import { getPostLoginPath } from "@/lib/role-utils"
-import { validateEmailOrPhone } from "@/lib/validation-utils"
+import { sanitizeEmailInput, sanitizeEmailOrPhoneInput, sanitizePhoneInput, validateEmailOrPhone } from "@/lib/validation-utils"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -83,11 +83,25 @@ function AuthPageContent() {
     if (value.trim()) {
       if (value.includes("@")) {
         error = "Please enter a valid phone number, not email"
-      } else if (!value.match(/^\+?[0-9\s\-().]+$/)) {
-        error = "Please enter a valid phone number"
+      } else {
+        const phoneValidation = validateEmailOrPhone(value)
+        if (!phoneValidation.valid) {
+          error = "Please enter a valid phone number"
+        }
       }
     }
     setErrors((prev) => ({ ...prev, phone: error || undefined }))
+  }
+
+  const validateLoginIdentifierField = (value: string) => {
+    const trimmedValue = value.trim()
+    if (!trimmedValue) {
+      setErrors((prev) => ({ ...prev, email: undefined }))
+      return
+    }
+
+    const validation = validateEmailOrPhone(trimmedValue)
+    setErrors((prev) => ({ ...prev, email: validation.valid ? undefined : validation.error }))
   }
 
   const validateForm = (currentMode: "login" | "register"): FieldErrors => {
@@ -113,18 +127,17 @@ function AuthPageContent() {
         nextErrors.phone = "Phone number is required"
       } else {
         const phoneValidation = validateEmailOrPhone(phoneNumber)
-        if (!phoneValidation.valid || !phoneValidation.error?.includes("phone")) {
-          // Ensure it's a phone, not an email
+        if (!phoneValidation.valid) {
           if (phoneNumber.includes("@")) {
             nextErrors.phone = "Please enter a valid phone number, not email"
-          } else if (!phoneNumber.match(/^\+?[0-9\s\-().]+$/)) {
+          } else {
             nextErrors.phone = "Please enter a valid phone number"
           }
         }
       }
     }
 
-    if (!password.trim()) {
+    if (currentMode === "register" && !password.trim()) {
       nextErrors.password = "Password is required"
     }
 
@@ -290,8 +303,9 @@ function AuthPageContent() {
                     type="text"
                     value={email}
                     onChange={(e) => {
-                      setEmail(e.target.value)
-                      clearError("email")
+                      const cleanedValue = sanitizeEmailOrPhoneInput(e.target.value)
+                      setEmail(cleanedValue)
+                      validateLoginIdentifierField(cleanedValue)
                     }}
                     placeholder="dr.name@eyecare.com or +256701234567 or 0712345678"
                     className={`w-full ${baseInputClass} ${errors.email ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
@@ -345,8 +359,9 @@ function AuthPageContent() {
                     type="email"
                     value={email}
                     onChange={(e) => {
-                      setEmail(e.target.value)
-                      validateEmailField(e.target.value)
+                      const cleanedValue = sanitizeEmailInput(e.target.value)
+                      setEmail(cleanedValue)
+                      validateEmailField(cleanedValue)
                     }}
                     placeholder="dr.name@eyecare.com"
                     className={`${baseInputClass} ${errors.email ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
@@ -359,8 +374,9 @@ function AuthPageContent() {
                     type="tel"
                     value={phoneNumber}
                     onChange={(e) => {
-                      setPhoneNumber(e.target.value)
-                      validatePhoneField(e.target.value)
+                      const cleanedValue = sanitizePhoneInput(e.target.value)
+                      setPhoneNumber(cleanedValue)
+                      validatePhoneField(cleanedValue)
                     }}
                     placeholder="+256701234567 or 0712345678"
                     className={`${baseInputClass} ${errors.phone ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}

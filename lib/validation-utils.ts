@@ -1,3 +1,43 @@
+export function sanitizeEmailInput(input: string): string {
+  return input
+    .replace(/\s+/g, "")
+    .replace(/[;,]/g, "")
+    .replace(/[^a-zA-Z0-9@._%+-]/g, "")
+}
+
+export function sanitizePhoneInput(input: string): string {
+  const noSpacesOrSeparators = input.replace(/\s+/g, "").replace(/[;,]/g, "")
+  let result = ""
+
+  for (let i = 0; i < noSpacesOrSeparators.length; i++) {
+    const char = noSpacesOrSeparators[i]
+    if (i === 0 && char === "+") {
+      result += char
+      continue
+    }
+    if (/\d/.test(char)) {
+      result += char
+    }
+  }
+
+  return result
+}
+
+export function sanitizeEmailOrPhoneInput(input: string): string {
+  const compact = input.replace(/\s+/g, "").replace(/[;,]/g, "")
+
+  if (compact.includes("@")) {
+    return sanitizeEmailInput(compact)
+  }
+
+  const looksLikePhone = compact.startsWith("+") || compact.startsWith("07") || /^\d+$/.test(compact)
+  if (looksLikePhone) {
+    return sanitizePhoneInput(compact)
+  }
+
+  return sanitizeEmailInput(compact)
+}
+
 /**
  * Validates email or phone number format
  * - Email: standard email format

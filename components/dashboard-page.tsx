@@ -46,7 +46,7 @@ export default function DashboardPage() {
   const hasConsultationRole = roles.some((role) => ["DOCTOR", "OPHTHALMOLOGIST", "NURSE", "SPECIALIST", "ADMIN"].includes(role))
   const canSeeConsultButton = !isReceptionistOnly
   const canSeeBillButton = hasFinanceRole && !isReceptionistOnly
-  const canSeeRegisterAndCreate = hasReceptionistRole || hasFinanceRole
+  const canSeeRegisterAndCreate = hasReceptionistRole
   const canSeeVisitActionButtons = !isReceptionistOnly
 
   // Modal states
@@ -82,7 +82,7 @@ export default function DashboardPage() {
   }
 
   const getBillingDisplayStatus = (visit: Visit) => {
-    return hasNoBillables(visit) ? "NOT BILLABLE" : visit.billingStatus
+    return hasNoBillables(visit) ? "0 to bill" : visit.billingStatus
   }
 
   const hasIncompleteDepartments = (visit: Visit) => {
@@ -557,7 +557,7 @@ export default function DashboardPage() {
                               </div>
                             </div>
                             <div className={`flex items-center gap-2 flex-wrap ${viewMode === "grid" ? "justify-start" : "justify-end lg:justify-start lg:flex-nowrap"}`}>
-                              {isDischarged(visit) && (
+                              {isDischarged(visit) && !hasNoBillables(visit) && (
                                 <span className="px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">
                                   Discharged
                                 </span>

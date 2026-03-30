@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useChangePassword, useUpdateMyProfile } from "@/hooks/auth-hooks"
 import { useAuth } from "@/lib/auth-context"
+import { sanitizeEmailInput, sanitizePhoneInput } from "@/lib/validation-utils"
 
 const roleDisallowsTitle = (roles: string[]) => {
   if (roles.includes("RECEPTIONIST") || roles.includes("FINANCE")) return true
@@ -122,8 +123,8 @@ export default function AccountPage() {
           <form onSubmit={handleUpdateProfile} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Input placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
-              <Input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-              <Input placeholder="Phone number" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
+              <Input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(sanitizeEmailInput(e.target.value))} />
+              <Input placeholder="Phone number" value={phoneNumber} onChange={(e) => setPhoneNumber(sanitizePhoneInput(e.target.value))} />
               {titleAllowedForCurrentUser ? (
                 <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
               ) : (

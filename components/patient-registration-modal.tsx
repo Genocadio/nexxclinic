@@ -13,7 +13,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { AlertCircle, Check, ChevronsUpDown, Edit } from "lucide-react"
 import { toast } from "react-toastify"
 import { cn } from "@/lib/utils"
-import { validateEmailOrPhone } from "@/lib/validation-utils"
+import { sanitizeEmailOrPhoneInput, sanitizePhoneInput, validateEmailOrPhone } from "@/lib/validation-utils"
 import PatientEditModal from "@/components/patient-edit-modal"
 
 const calculateAge = (dateOfBirth: string): number => {
@@ -103,6 +103,13 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
   })
 
   const handleInputChange = (field: string, value: string) => {
+    const sanitizedValue =
+      field === 'contactInfo.email'
+        ? sanitizeEmailOrPhoneInput(value)
+        : field === 'contactInfo.phone' || field === 'emergencyContact.phone'
+          ? sanitizePhoneInput(value)
+          : value
+
     setFormData(prev => {
       const keys = field.split('.')
       const updated = { ...prev }
@@ -112,7 +119,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
         if (!current[keys[i]]) current[keys[i]] = {}
         current = current[keys[i]]
       }
-      current[keys[keys.length - 1]] = value
+      current[keys[keys.length - 1]] = sanitizedValue
 
       return updated
     })
@@ -129,18 +136,18 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
 
         if (field === 'firstName' || field === 'lastName') {
           // Combine first and last name for the name filter
-          const firstName = field === 'firstName' ? value : formData.firstName
-          const lastName = field === 'lastName' ? value : formData.lastName
+          const firstName = field === 'firstName' ? sanitizedValue : formData.firstName
+          const lastName = field === 'lastName' ? sanitizedValue : formData.lastName
           const fullName = [firstName, lastName].filter(Boolean).join(' ')
           // Only search if we have at least 2 characters
           newFilters.name = fullName.length >= 2 ? fullName : undefined
         } else if (field === 'dateOfBirth') {
-          newFilters.dob = value || undefined
+          newFilters.dob = sanitizedValue || undefined
         } else if (field === 'gender') {
           // Gender is not directly in the filter, but we can keep it for potential future use
         } else if (field === 'contactInfo.phone') {
           // Only search if we have at least 3 characters for phone
-          newFilters.phoneNumber = value && value.length >= 3 ? value : undefined
+          newFilters.phoneNumber = sanitizedValue && sanitizedValue.length >= 3 ? sanitizedValue : undefined
         }
 
         // Remove empty filters
@@ -647,7 +654,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                       <Input
                         type="tel"
                         value={insurance.dominantMember?.phone || ""}
-                        onChange={(e) => updateInsurance(index, 'dominantMember.phone', e.target.value)}
+                        onChange={(e) => updateInsurance(index, 'dominantMember.phone', sanitizePhoneInput(e.target.value))}
                         placeholder="Phone number"
                         className={solidFieldClass}
                         required={isDominantMemberRequired(formData.dateOfBirth, true)}

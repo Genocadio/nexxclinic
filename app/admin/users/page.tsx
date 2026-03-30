@@ -20,6 +20,7 @@ import {
 import { ArrowLeft, LockKeyhole, Pencil, Power, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { ADMIN_ROLE, canManageAdminUsers, hasAdminAccess, isManagerWithoutAdmin } from "@/lib/role-utils"
+import { sanitizeEmailInput, sanitizePhoneInput } from "@/lib/validation-utils"
 
 const ALL_ROLES = ["ADMIN", "MANAGER", "RECEPTIONIST", "OPHTHALMOLOGIST", "NURSE", "DOCTOR", "SPECIALIST", "FINANCE"]
 
@@ -317,10 +318,10 @@ export default function ManageUsersPage() {
                 placeholder="Email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail(sanitizeEmailInput(e.target.value))}
                 disabled={Boolean(editingUserId)}
               />
-              <Input placeholder="Phone number" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
+              <Input placeholder="Phone number" value={phoneNumber} onChange={(e) => setPhoneNumber(sanitizePhoneInput(e.target.value))} />
               {titleAllowedForSelectedRoles ? (
                 <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
               ) : (
