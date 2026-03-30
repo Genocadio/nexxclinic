@@ -1,0 +1,343 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { BillingHeader } from '@/components/BillingHeader';
+import { BillingItemsList } from '@/components/BillingItemsList';
+import { BillingPaymentSummary } from '@/components/BillingPaymentSummary';
+import { BillingExemptions } from '@/components/BillingExemptions';
+import { Button } from '@/components/ui/button';
+import { BillingData, BillingItem, getEffectiveCoveragePercentage } from '@/lib/billing-utils';
+import Header from '@/components/header';
+import { useAuth } from '@/lib/auth-context';
+import { useSearchParams } from 'next/navigation';
+import { useVisit, type Visit } from '@/hooks/auth-hooks';
+import { Spinner } from '@/components/ui/spinner';
+
+export default function BillingPage() {
+  const searchParams = useSearchParams();
+  const visitId = searchParams.get('visitId');
+  const { visit, loading, error } = useVisit(visitId);
+  const [billingData, setBillingData] = useState<BillingData | null>(null);
+  const { doctor } = useAuth();
+
+  const mapPaymentStatus = (status?: string): BillingItem['paymentStatus'] => {
+    if (status === 'BILLED') return 'paid';
+    return 'pending';
+  };
+
+  const mapVisitToBilling = (visitData: Visit): BillingData => {
+    const patient = visitData.patient;
+    const insurances = visitData.insurances || [];
+    const defaultInsuranceId = insurances[0]?.id ? String(insurances[0].id) : undefined;
+
+    const items: BillingItem[] = [];
+
+    visitData.departments?.forEach((dept) => {
+      const deptName = dept.department?.name || 'Department';
+      const deptId = dept.department?.id;
+      const deptCompletedTime = dept.completedTime;
+      const deptStatus = dept.status;
+
+      dept.actions?.forEach((act) => {
+        items.push({
+          id: act.id,
+          name: act.action?.name || 'Action',
+          quantity: act.quantity || 1,
+          price: act.action?.privatePrice || 0,
+          type: 'action',
+          departmentId: deptId,
+          departmentName: deptName,
+          departmentCompletedTime: deptCompletedTime,
+          departmentStatus: deptStatus,
+          paymentStatus: mapPaymentStatus(act.paymentStatus),
+          exempted: false,
+          exemptionType: 'none',
+          selectedInsuranceId: defaultInsuranceId,
+          doneBy: {
+            name: act.doneBy?.name || 'Staff',
+            title: act.doneBy?.title || '',
+          },
+        });
+      });
+
+      dept.consumables?.forEach((cons) => {
+        items.push({
+          id: cons.id,
+          name: cons.consumable?.name || 'Consumable',
+          quantity: cons.quantity || 1,
+          price: cons.consumable?.privatePrice || 0,
+          type: 'consumable',
+          departmentId: deptId,
+          departmentName: deptName,
+          departmentCompletedTime: deptCompletedTime,
+          departmentStatus: deptStatus,
+          paymentStatus: mapPaymentStatus(cons.paymentStatus),
+          exempted: false,
+          exemptionType: 'none',
+          selectedInsuranceId: defaultInsuranceId,
+          doneBy: {
+            name: cons.doneBy?.name || 'Staff',
+            title: cons.doneBy?.title || '',
+          },
+        });
+      });
+    });
+
+    const age = patient?.dateOfBirth ? (new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()) : 0;
+
+    const nationalId = (patient as any)?.nationalId || ''
+
+    return {
+      visitId: visitData.id,
+      patientId: patient?.id || '',
+      patientName: `${patient?.firstName || ''} ${patient?.lastName || ''}`.trim(),
+      patientAge: age,
+      patientId_Number: nationalId,
+      gender: patient?.gender || '',
+      visitDate: visitData.visitDate,
+      currency: 'RWF',
+      insurances: insurances.map((ins) => ({
+        id: ins.id ? String(ins.id) : undefined,
+        name: ins.name,
+        acronym: ins.acronym,
+        coveragePercentage: ins.coveragePercentage,
+      })),
+      items,
+      discountPercentage: 0,
+      paymentMethod: 'pending',
+      amountPaid: 0,
+      notes: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  };
+
+  useEffect(() => {
+    if (visit) {
+      setBillingData(mapVisitToBilling(visit));
+    }
+  }, [visit]);
+
+  // Calculate totals based on per-item insurance
+  const calculateTotals = () => {
+    if (!billingData) return { subtotal: 0, insuranceCoverage: 0, patientResponsibility: 0, discount: 0, totalAmount: 0 };
+    let subtotal = 0;
+    let insuranceCoverage = 0;
+    let patientResponsibility = 0;
+    
+    billingData.items.forEach(item => {
+      const itemTotal = item.quantity * item.price;
+      const selectedInsurance = billingData.insurances?.find(
+        ins => (ins.id || ins.acronym) === item.selectedInsuranceId
+      );
+      const coveragePct = selectedInsurance?.coveragePercentage || 0;
+      const coverageAmount = (itemTotal * coveragePct) / 100;
+      const patientPortion = itemTotal - coverageAmount;
+      const exemption = item.exemptionType || (item.exempted ? 'full' : 'none');
+
+      if (exemption === 'full') {
+        // Fully waived: neither patient nor insurance pays
+        return;
+      }
+
+      // Always count toward subtotal unless fully waived
+      subtotal += itemTotal;
+
+      if (exemption === 'patient-share') {
+        // Patient share waived; insurance still pays its portion
+        insuranceCoverage += coverageAmount;
+        return;
+      }
+
+      // No exemption
+      insuranceCoverage += coverageAmount;
+      patientResponsibility += patientPortion;
+    });
+    
+    const discount = (patientResponsibility * billingData.discountPercentage) / 100;
+    const totalAmount = patientResponsibility - discount;
+    
+    return { subtotal, insuranceCoverage, patientResponsibility, discount, totalAmount };
+  };
+
+  const totals = calculateTotals();
+  const effectiveCoverage = getEffectiveCoveragePercentage(billingData?.insurances);
+
+  const handleItemChange = (updatedItem: BillingItem) => {
+    setBillingData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        items: prev.items.map((item) =>
+          item.id === updatedItem.id ? updatedItem : item
+        ),
+        updatedAt: new Date().toISOString(),
+      };
+    });
+  };
+
+  const handleItemRemove = (itemId: string) => {
+    setBillingData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        items: prev.items.filter((item) => item.id !== itemId),
+        updatedAt: new Date().toISOString(),
+      };
+    });
+  };
+
+  const handleDiscountChange = (discount: number) => {
+    setBillingData((prev) => prev ? ({
+      ...prev,
+      discountPercentage: discount,
+      updatedAt: new Date().toISOString(),
+    }) : prev);
+  };
+
+  const handleExemptionChange = (itemId: string, reason: string) => {
+    setBillingData((prev) => prev ? ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.id === itemId ? { ...item, exemptionReason: reason } : item
+      ),
+      updatedAt: new Date().toISOString(),
+    }) : prev);
+  };
+
+  const handlePaymentMethodChange = (
+    method: 'cash' | 'momo' | 'airtel-money' | 'pending'
+  ) => {
+    setBillingData((prev) => prev ? ({
+      ...prev,
+      paymentMethod: method,
+      updatedAt: new Date().toISOString(),
+    }) : prev);
+  };
+
+  const handleAmountPaidChange = (amount: number) => {
+    setBillingData((prev) => prev ? ({
+      ...prev,
+      amountPaid: amount,
+      updatedAt: new Date().toISOString(),
+    }) : prev);
+  };
+
+  const handleNotesChange = (notes: string) => {
+    setBillingData((prev) => prev ? ({
+      ...prev,
+      notes,
+      updatedAt: new Date().toISOString(),
+    }) : prev);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  if (!visitId) {
+    return (
+      <div className="min-h-screen bg-muted/20 flex items-center justify-center">
+        <p className="text-muted-foreground">No visit selected for billing.</p>
+      </div>
+    );
+  }
+
+  if (loading || !billingData) {
+    return (
+      <div className="min-h-screen bg-muted/20">
+        <Header doctor={doctor} />
+        <div className="flex items-center justify-center h-[calc(100vh-64px)]">
+          <Spinner />
+        </div>
+      </div>
+    );
+  }
+
+  if (!visit) {
+    return (
+      <div className="min-h-screen bg-muted/20 flex flex-col items-center justify-center gap-2">
+        <p className="text-muted-foreground">Visit not found.</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-muted/20 flex flex-col items-center justify-center gap-2">
+        <p className="text-destructive">Failed to load visit billing data.</p>
+        <p className="text-sm text-muted-foreground">{String(error)}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+      <Header doctor={doctor} />
+      <div className="w-full space-y-6 px-10 pt-2">
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-[calc(100vh-200px)] overflow-hidden">
+          {/* Left Column - Patient Header, Items and Exemptions */}
+          <div className="lg:col-span-2 flex flex-col gap-6 lg:overflow-hidden lg:pr-2 lg:pb-4 lg:h-full min-h-0">
+            {/* Billing Header - Compact Width */}
+            <div className="w-full">
+              <BillingHeader billing={billingData} />
+            </div>
+            <div className="flex-1 min-h-0">
+              <BillingItemsList
+                items={billingData.items}
+                onItemChange={handleItemChange}
+                onItemRemove={handleItemRemove}
+                insuranceCoveragePercentage={effectiveCoverage}
+                availableInsurances={billingData.insurances?.map(ins => ({
+                  id: ins.id || ins.acronym,
+                  name: ins.name,
+                  acronym: ins.acronym,
+                  coveragePercentage: ins.coveragePercentage
+                }))}
+              />
+            </div>
+
+            {billingData.items.some((item) => (item.exemptionType || (item.exempted ? 'full' : 'none')) !== 'none') && (
+              <BillingExemptions
+                items={billingData.items}
+                onExemptionChange={handleExemptionChange}
+              />
+            )}
+          </div>
+
+          {/* Right Column - Summary and Payment Combined */}
+          <div className="space-y-6 lg:sticky lg:top-24 lg:h-[calc(100vh-200px)] lg:overflow-hidden lg:self-start">
+            <BillingPaymentSummary
+              items={billingData.items}
+              discountPercentage={billingData.discountPercentage}
+              onDiscountChange={handleDiscountChange}
+              subtotal={totals.subtotal}
+              insuranceCoverage={totals.insuranceCoverage}
+              patientResponsibility={totals.patientResponsibility}
+              totalAmount={totals.totalAmount}
+              availableInsurances={billingData.insurances?.map(ins => ({
+                id: ins.id || ins.acronym,
+                name: ins.name,
+                acronym: ins.acronym,
+                coveragePercentage: ins.coveragePercentage
+              }))}
+              onPaymentMethodChange={handlePaymentMethodChange}
+              paymentMethod={billingData.paymentMethod}
+              onAmountPaidChange={handleAmountPaidChange}
+              amountPaid={billingData.amountPaid}
+              notes={billingData.notes}
+              onNotesChange={handleNotesChange}
+              onPrint={handlePrint}
+            />
+          </div>
+        </div>
+
+        {/* Demo Badge */}
+        <div className="fixed bottom-4 right-10 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg text-sm font-semibold">
+          Demo Mode
+        </div>
+      </div>
+    </div>
+  );
+}
