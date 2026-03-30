@@ -8,6 +8,7 @@ import { Eye, EyeOff } from "lucide-react"
 import { toast } from "react-toastify"
 
 import { useAuth } from "@/lib/auth-context"
+import { getPostLoginPath } from "@/lib/role-utils"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,7 +18,7 @@ type FieldErrors = Partial<Record<"email" | "password" | "name" | "phoneNumber" 
 function AuthPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { isAuthenticated, login, register } = useAuth()
+  const { isAuthenticated, doctor, login, register } = useAuth()
 
   const initialMode = useMemo(() => (searchParams.get("mode") === "register" ? "register" : "login"), [searchParams])
   const [mode, setMode] = useState<"login" | "register">(initialMode)
@@ -46,9 +47,10 @@ function AuthPageContent() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace("/")
+      const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
+      router.replace(getPostLoginPath(roles))
     }
-  }, [isAuthenticated, router])
+  }, [doctor, isAuthenticated, router])
 
   const switchMode = (next: "login" | "register") => {
     setMode(next)
@@ -111,6 +113,21 @@ function AuthPageContent() {
       .replace(/\b\w/g, (char) => char.toUpperCase())
   }
 
+  const getStoredRoles = () => {
+    if (typeof window === "undefined") {
+      return [] as string[]
+    }
+
+    try {
+      const storedDoctor = localStorage.getItem("doctor")
+      if (!storedDoctor) return []
+      const parsedDoctor = JSON.parse(storedDoctor) as { roles?: string[] } | null
+      return parsedDoctor?.roles || []
+    } catch {
+      return []
+    }
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -134,7 +151,7 @@ function AuthPageContent() {
         closeButton: false,
         className: "nexx-toast-welcome",
       })
-      router.replace("/")
+      router.replace(getPostLoginPath(getStoredRoles()))
       return
     }
 

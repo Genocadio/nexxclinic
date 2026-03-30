@@ -5,6 +5,8 @@ import { usePathname, useRouter } from 'next/navigation'
 import { LayoutDashboard, Building2, Package, ShieldCheck, Users } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/lib/auth-context'
+import { isManagerWithoutAdmin } from '@/lib/role-utils'
 
 const adminDockItems = [
   { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
@@ -17,6 +19,12 @@ const adminDockItems = [
 export default function AdminBottomDock() {
   const pathname = usePathname()
   const router = useRouter()
+  const { doctor } = useAuth()
+  const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
+  const managerOnlyAdminAccess = isManagerWithoutAdmin(roles)
+  const visibleDockItems = managerOnlyAdminAccess
+    ? adminDockItems.filter((item) => item.path === '/admin' || item.path === '/admin/users')
+    : adminDockItems
 
   const shouldHide = useMemo(() => {
     if (!pathname?.startsWith('/admin')) return true
@@ -31,7 +39,7 @@ export default function AdminBottomDock() {
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30">
       <div className="glass-gray rounded-full shadow-xl px-3 py-2 flex items-center gap-2">
         <TooltipProvider>
-          {adminDockItems.map(({ label, path, icon: Icon }) => {
+          {visibleDockItems.map(({ label, path, icon: Icon }) => {
             const isActive = pathname === path
             return (
               <Tooltip key={path}>

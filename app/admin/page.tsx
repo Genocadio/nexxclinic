@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { Package, ShieldCheck, Building2, Users } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { isManagerWithoutAdmin } from "@/lib/role-utils"
 
 const adminActions = [
   { label: "Manage Insurances", icon: ShieldCheck, path: "/admin/insurances" },
@@ -16,6 +17,11 @@ const adminActions = [
 export default function AdminDashboardPage() {
   const { doctor } = useAuth()
   const router = useRouter()
+  const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
+  const managerOnlyAdminAccess = isManagerWithoutAdmin(roles)
+  const visibleAdminActions = managerOnlyAdminAccess
+    ? adminActions.filter((action) => action.path === "/admin/users")
+    : adminActions
 
   return (
     <div className="min-h-screen bg-background">
@@ -28,7 +34,7 @@ export default function AdminDashboardPage() {
 
         {/* Admin action cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {adminActions.map(({ label, icon: Icon, path }) => (
+          {visibleAdminActions.map(({ label, icon: Icon, path }) => (
             <div
               key={label}
               className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-5 shadow-lg flex items-center justify-between cursor-pointer hover:border-primary/50 transition-colors"

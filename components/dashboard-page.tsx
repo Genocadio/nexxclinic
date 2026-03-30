@@ -205,20 +205,19 @@ export default function DashboardPage() {
           <div className="flex-1 overflow-y-auto p-6">
             <div className="max-w-6xl mx-auto">
               {/* Header with date */}
-              <div className="mb-8">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
-                  <div>
-                    <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
-                    <p className="text-muted-foreground flex items-center gap-2">
+              <div className="mb-8 space-y-4">
+                <div className="text-center">
+                  <h1 className="text-3xl font-bold text-foreground mb-2">Today</h1>
+                  <p className="text-muted-foreground inline-flex items-center gap-2">
                       <Calendar className="w-4 h-4" />
                       {new Date().toLocaleDateString("en-US", {
                         weekday: "long",
                         month: "long",
                         day: "numeric",
                       })}
-                    </p>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto sm:ml-auto">
                     {canSeeRegisterAndCreate && (
                       <Button
                         onClick={() => setShowPatientRegistrationModal(true)}
@@ -237,7 +236,6 @@ export default function DashboardPage() {
                         <span className="hidden sm:inline">Create Visit</span>
                       </Button>
                     )}
-                  </div>
                 </div>
               </div>
 
@@ -245,7 +243,7 @@ export default function DashboardPage() {
                 <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-200">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground mb-2 font-medium">Open Today</p>
+                      <p className="text-sm text-muted-foreground mb-2 font-medium">Open</p>
                       {dashboardStatsLoading ? (
                         <Skeleton className="h-9 w-16" />
                       ) : (
@@ -260,7 +258,7 @@ export default function DashboardPage() {
                 <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-200">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground mb-2 font-medium">Completed Today</p>
+                      <p className="text-sm text-muted-foreground mb-2 font-medium">Completed</p>
                       {dashboardStatsLoading ? (
                         <Skeleton className="h-9 w-16" />
                       ) : (

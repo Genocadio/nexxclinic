@@ -2,7 +2,7 @@
 // ENUMS
 // ============================================
 
-export type Role = "ADMIN" | "RECEPTIONIST" | "OPHTHALMOLOGIST" | "NURSE" | "DOCTOR" | "SPECIALIST" | "FINANCE"
+export type Role = "ADMIN" | "MANAGER" | "RECEPTIONIST" | "OPHTHALMOLOGIST" | "NURSE" | "DOCTOR" | "SPECIALIST" | "FINANCE"
 export type Status = "SUCCESS" | "ERROR" | "WARNING" | "UNAUTHENTICATED" | "UNAUTHORIZED" | "RESET_PASSWORD"
 export type VisitStatus = "CREATED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
 export type VisitType = "INPATIENT" | "OUTPATIENT" | "TELEMEDICINE"

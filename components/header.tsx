@@ -7,6 +7,7 @@ import { LogOut, Moon, Sun, UserCog } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { hasAdminAccess } from "@/lib/role-utils"
 
 interface HeaderProps {
   doctor: Doctor | null
@@ -17,7 +18,8 @@ export default function Header({ doctor }: HeaderProps) {
   const { logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
-  const hasAdminRole = Boolean((doctor as unknown as { roles?: string[] } | null)?.roles?.includes("ADMIN"))
+  const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
+  const canAccessAdmin = hasAdminAccess(roles)
 
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/)
@@ -71,7 +73,7 @@ export default function Header({ doctor }: HeaderProps) {
                     <p className="text-sm font-semibold text-card-foreground">{doctor.name}</p>
                     <p className="text-xs text-muted-foreground mt-1">{doctor.specialization}</p>
                   </div>
-                  {hasAdminRole && (
+                  {canAccessAdmin && (
                     <button
                       onClick={() => {
                         router.push('/admin')

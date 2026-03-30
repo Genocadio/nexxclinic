@@ -19,8 +19,9 @@ import {
 } from "@/hooks/auth-hooks"
 import { ArrowLeft, LockKeyhole, Pencil, Power, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { ADMIN_ROLE, canManageAdminUsers, hasAdminAccess, isManagerWithoutAdmin } from "@/lib/role-utils"
 
-const ALL_ROLES = ["ADMIN", "RECEPTIONIST", "OPHTHALMOLOGIST", "NURSE", "DOCTOR", "SPECIALIST", "FINANCE"]
+const ALL_ROLES = ["ADMIN", "MANAGER", "RECEPTIONIST", "OPHTHALMOLOGIST", "NURSE", "DOCTOR", "SPECIALIST", "FINANCE"]
 
 const roleDisallowsTitle = (roles: string[]) => {
   if (roles.includes("RECEPTIONIST") || roles.includes("FINANCE")) return true
@@ -50,7 +51,10 @@ export default function ManageUsersPage() {
 
   const isBusy = creating || activating || deactivating || updatingRoles || updatingUser || forcingReset
 
-  const isAdmin = Boolean((doctor as unknown as { roles?: string[] } | null)?.roles?.includes("ADMIN"))
+  const currentUserRoles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
+  const canAccessUserManagement = hasAdminAccess(currentUserRoles)
+  const canManageAdminUserAccounts = canManageAdminUsers(currentUserRoles)
+  const managerLimitedMode = isManagerWithoutAdmin(currentUserRoles)
   const currentUserId = (doctor as unknown as { id?: string } | null)?.id || ""
   const currentUserEmail = (doctor as unknown as { email?: string } | null)?.email?.toLowerCase() || ""
 
@@ -88,8 +92,15 @@ export default function ManageUsersPage() {
   }
 
   const startEdit = (user: UserAccount) => {
+    const userIsAdmin = (user.roles || []).includes(ADMIN_ROLE)
+
     if (isCurrentUser(user)) {
       toast.info("Edit your own profile from My Account")
+      return
+    }
+
+    if (userIsAdmin && !canManageAdminUserAccounts) {
+      toast.info("You can view admin users but cannot manage them")
       return
     }
 
@@ -139,10 +150,20 @@ export default function ManageUsersPage() {
     try {
       const sanitizedTitle = titleAllowedForSelectedRoles ? title : ""
 
+      if (!canManageAdminUserAccounts && selectedRoles.includes(ADMIN_ROLE)) {
+        toast.error("Manager cannot assign admin role")
+        return
+      }
+
       if (editingUserId) {
         const editingUser = users.find((u) => u.id === editingUserId)
         if ((editingUser && isCurrentUser(editingUser)) || editingUserId === currentUserId) {
           toast.error("You cannot edit your own roles here. Use My Account for profile and password updates.")
+          return
+        }
+
+        if (editingUser && (editingUser.roles || []).includes(ADMIN_ROLE) && !canManageAdminUserAccounts) {
+          toast.error("You can view admin users but cannot manage them")
           return
         }
 
@@ -192,8 +213,15 @@ export default function ManageUsersPage() {
   }
 
   const handleToggleActive = async (user: UserAccount) => {
+    const userIsAdmin = (user.roles || []).includes(ADMIN_ROLE)
+
     if (isCurrentUser(user)) {
       toast.error("You cannot deactivate your own account")
+      return
+    }
+
+    if (userIsAdmin && !canManageAdminUserAccounts) {
+      toast.error("You can view admin users but cannot manage them")
       return
     }
 
@@ -211,8 +239,15 @@ export default function ManageUsersPage() {
   }
 
   const handleRequirePasswordSetup = async (user: UserAccount) => {
+    const userIsAdmin = (user.roles || []).includes(ADMIN_ROLE)
+
     if (isCurrentUser(user)) {
       toast.error("Update your own password from My Account")
+      return
+    }
+
+    if (userIsAdmin && !canManageAdminUserAccounts) {
+      toast.error("You can view admin users but cannot manage them")
       return
     }
 
@@ -228,7 +263,7 @@ export default function ManageUsersPage() {
     }
   }
 
-  if (!isAdmin) {
+  if (!canAccessUserManagement) {
     return (
       <div className="min-h-screen bg-background">
         <Header doctor={doctor} />
@@ -257,7 +292,11 @@ export default function ManageUsersPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Manage Users</h1>
-            <p className="text-muted-foreground">Create users, activate/deactivate, update roles and profile fields.</p>
+            <p className="text-muted-foreground">
+              {managerLimitedMode
+                ? "Manage non-admin users. Admin users are visible but read-only."
+                : "Create users, activate/deactivate, update roles and profile fields."}
+            </p>
           </div>
         </div>
 
@@ -295,6 +334,9 @@ export default function ManageUsersPage() {
               <p className="text-sm font-medium text-foreground">Roles</p>
               <div className="flex flex-wrap gap-2">
                 {ALL_ROLES.map((role) => {
+                  if (role === ADMIN_ROLE && !canManageAdminUserAccounts) {
+                    return null
+                  }
                   const selected = selectedRoles.includes(role)
                   return (
                     <button
@@ -374,7 +416,8 @@ export default function ManageUsersPage() {
             <div className="space-y-2">
               {filteredUsers.map((user) => {
                 const selfUser = isCurrentUser(user)
-                const userIsAdmin = (user.roles || []).includes("ADMIN")
+                const userIsAdmin = (user.roles || []).includes(ADMIN_ROLE)
+                const canManageThisUser = !selfUser && (canManageAdminUserAccounts || !userIsAdmin)
 
                 return (
                 <div
@@ -413,7 +456,7 @@ export default function ManageUsersPage() {
                       size="sm"
                       className="rounded-full"
                       onClick={() => startEdit(user)}
-                      disabled={isBusy || selfUser}
+                      disabled={isBusy || !canManageThisUser}
                     >
                       <Pencil className="h-3.5 w-3.5 mr-1" />
                       Edit
@@ -423,7 +466,7 @@ export default function ManageUsersPage() {
                       size="sm"
                       className="rounded-full"
                       onClick={() => handleToggleActive(user)}
-                      disabled={isBusy || selfUser}
+                      disabled={isBusy || !canManageThisUser}
                     >
                       <Power className="h-3.5 w-3.5 mr-1" />
                       {user.active ? "Deactivate" : "Activate"}
@@ -433,7 +476,7 @@ export default function ManageUsersPage() {
                       size="sm"
                       className="rounded-full"
                       onClick={() => handleRequirePasswordSetup(user)}
-                      disabled={isBusy || selfUser}
+                      disabled={isBusy || !canManageThisUser}
                     >
                       <LockKeyhole className="h-3.5 w-3.5 mr-1" />
                       Require Password Setup
