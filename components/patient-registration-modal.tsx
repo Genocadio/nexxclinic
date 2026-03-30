@@ -281,16 +281,16 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-7xl max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/20 border border-white/20 rounded-3xl shadow-2xl">
+      <DialogContent className="sm:max-w-7xl max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/20 border border-white/20 rounded-3xl shadow-2xl p-2 sm:p-4">
         <DialogTitle className="sr-only">Register New Patient</DialogTitle>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full max-h-[calc(90vh-180px)] overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-6 h-full max-h-[calc(90vh-180px)] overflow-hidden">
           {/* Registration Form */}
-          <div className="overflow-y-auto scrollbar-hide pr-2 pb-20 rounded-2xl border border-border/50 bg-background/90 dark:bg-gray-900/85 p-4">
-            <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="overflow-y-auto scrollbar-hide pr-2 pb-20 rounded-2xl border border-border/50 bg-background/90 dark:bg-gray-900/85 p-2 sm:p-4">
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-6">
           {/* Basic Information */}
-          <div className={`${solidPanelClass} p-4 grid grid-cols-1 md:grid-cols-2 gap-4`}>
+          <div className={`${solidPanelClass} p-2 sm:p-4 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4`}>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                 First Name *
               </label>
               <Input
@@ -323,7 +323,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                 Last Name
               </label>
               <Input
@@ -335,7 +335,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                 Middle Name
               </label>
               <Input
@@ -347,7 +347,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                 Date of Birth *
               </label>
               <Input
@@ -359,18 +359,18 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                 Gender
               </label>
-              <div className="grid grid-cols-2 gap-3 rounded-xl border border-border/70 bg-background dark:bg-gray-900 p-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 rounded-xl border border-border/70 bg-background dark:bg-gray-900 p-2 sm:p-3">
+                <label className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium text-foreground cursor-pointer">
                   <Checkbox
                     checked={formData.gender === 'M'}
                     onCheckedChange={(checked) => handleInputChange('gender', checked ? 'M' : '')}
                   />
                   Male
                 </label>
-                <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+                <label className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium text-foreground cursor-pointer">
                   <Checkbox
                     checked={formData.gender === 'F'}
                     onCheckedChange={(checked) => handleInputChange('gender', checked ? 'F' : '')}
@@ -380,7 +380,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                 National ID
               </label>
               <Input
@@ -394,11 +394,11 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
           </div>
 
           {/* Contact Information */}
-          <div className={`${solidPanelClass} border-t pt-6 px-4 pb-4`}>
-            <h3 className="text-lg font-semibold mb-4">Contact Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}>
+            <h4 className="text-sm sm:text-md font-medium mb-2 sm:mb-3">Contact Information</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
+                <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                   Phone
                 </label>
                 <Input
@@ -410,7 +410,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
+                <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                   Email or Phone
                 </label>
                 <Input
@@ -424,9 +424,9 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
             </div>
 
             {/* Address */}
-            <div className="mt-4">
-              <h4 className="text-md font-medium mb-2">Address</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="mt-2 sm:mt-4">
+            <h4 className="text-sm sm:text-md font-medium mb-2 sm:mb-2">Address</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
                 <Input
                   type="text"
                   value={formData.contactInfo?.address?.street}
@@ -460,9 +460,9 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
           </div>
 
           {/* Emergency Contact */}
-          <div className={`${solidPanelClass} border-t pt-6 px-4 pb-4`}>
-            <h3 className="text-lg font-semibold mb-4">Emergency Contact</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}>
+            <h3 className="text-sm sm:text-lg font-semibold mb-2 sm:mb-4">Emergency Contact</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
               <Input
                 type="text"
                 value={formData.emergencyContact?.name}
@@ -488,31 +488,30 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
           </div>
 
           {/* Insurance Information */}
-          <div className={`${solidPanelClass} border-t pt-6 px-4 pb-4`}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Insurance Information</h3>
-              <Button type="button" onClick={addInsurance} className="rounded-full px-4 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md" size="sm">
-                Add Insurance
-              </Button>
+          <div className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <h3 className="text-sm sm:text-lg font-semibold">Insurance</h3>
+              <button type="button" onClick={addInsurance} className="rounded-full px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md text-xs sm:text-base inline-block w-fit">
+                + Add
+              </button>
             </div>
 
             {formData.insurances?.map((insurance, index) => (
-              <div key={index} className="border border-border/60 rounded-2xl p-4 mb-4 bg-background dark:bg-gray-900 shadow-sm">
-                <div className="flex justify-between items-start mb-4">
-                  <h4 className="font-medium">Insurance #{index + 1}</h4>
-                  <Button
+              <div key={index} className="border border-border/60 rounded-xl sm:rounded-2xl p-2 sm:p-4 mb-2 sm:mb-4 bg-background dark:bg-gray-900 shadow-sm">
+                <div className="flex justify-between items-start mb-2 sm:mb-4">
+                  <h4 className="font-medium text-xs sm:text-base">Insurance #{index + 1}</h4>
+                  <button
                     type="button"
                     onClick={() => removeInsurance(index)}
-                    size="sm"
-                    className="rounded-full bg-red-500 hover:bg-red-600 text-white"
+                    className="rounded-full px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs"
                   >
                     Remove
-                  </Button>
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">
+                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                       Insurance Provider
                     </label>
                     <Popover
@@ -561,7 +560,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                     </Popover>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">
+                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                       Card Number
                     </label>
                     <Input
@@ -574,9 +573,9 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">
+                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                       Insurance Status
                     </label>
                     <Select
@@ -595,8 +594,8 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                   </div>
                 </div>
 
-                <div className="mt-4">
-                  <h5 className="text-sm font-medium text-foreground mb-2">
+                <div className="mt-2 sm:mt-4">
+                  <h5 className="text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-2">
                     Dominant Member Information
                     {isDominantMemberRequired(formData.dateOfBirth, true) && (
                       <span className="text-red-500 ml-1">*</span>
@@ -605,9 +604,9 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                       ({isDominantMemberRequired(formData.dateOfBirth, true) ? 'Required' : 'Optional'} for patients ≤18 years)
                     </span>
                   </h5>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-foreground mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                         First Name
                         {isDominantMemberRequired(formData.dateOfBirth, true) && (
                           <span className="text-red-500 ml-1">*</span>
@@ -623,7 +622,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-foreground mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                         Last Name
                         {isDominantMemberRequired(formData.dateOfBirth, true) && (
                           <span className="text-red-500 ml-1">*</span>
@@ -639,7 +638,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-foreground mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                         Phone
                         {isDominantMemberRequired(formData.dateOfBirth, true) && (
                           <span className="text-red-500 ml-1">*</span>
@@ -661,20 +660,19 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
           </div>
 
           {/* Notes */}
-          <div className={`${solidPanelClass} border-t pt-6 px-4 pb-4`}>
+          <div className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}>
             {!showNotes ? (
-              <Button
+              <button
                 type="button"
-                variant="outline"
                 onClick={() => setShowNotes(true)}
-                className="rounded-full px-4 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md"
+                className="rounded-full px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md text-xs sm:text-base"
               >
-                Add Notes
-              </Button>
+                + Notes
+              </button>
             ) : (
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-foreground">
+                <div className="flex justify-between items-center mb-2 sm:mb-3">
+                  <label className="block text-xs sm:text-sm font-medium text-foreground">
                     Notes
                   </label>
                   <Button
@@ -697,16 +695,14 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
             )}
           </div>
 
-            <div className="absolute bottom-6 left-6 right-[50%] flex justify-center pointer-events-none">
-            <div className="flex gap-3 pointer-events-auto">
-              <Button type="button" variant="outline" onClick={onClose} className="rounded-full px-6 bg-background dark:bg-gray-900 border border-border/70 text-foreground hover:bg-muted/40 dark:hover:bg-muted/50 shadow-lg">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-8 pt-3 sm:pt-6 border-t border-border/30 sticky md:sticky bottom-0 left-0 right-0 bg-gradient-to-t from-background dark:from-gray-900 to-background/95 dark:to-gray-900/95 -mx-2 sm:-mx-4 px-2 sm:px-4 pb-2 sm:pb-4 z-50">
+              <button type="button" onClick={onClose} className="rounded-full px-4 py-2 sm:py-2.5 bg-background dark:bg-gray-900 border border-border/70 text-foreground hover:bg-muted/40 dark:hover:bg-muted/50 shadow-lg text-xs sm:text-base flex-1 sm:flex-initial">
                 Cancel
-              </Button>
-              <Button type="submit" disabled={loading} className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-lg hover:opacity-90 transition-all duration-200">
-                {loading ? "Registering..." : "Register Patient"}
-              </Button>
+              </button>
+              <button type="submit" disabled={loading} className="rounded-full px-4 py-2 sm:py-2.5 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-lg hover:opacity-90 transition-all duration-200 text-xs sm:text-base flex-1">
+                {loading ? "Registering..." : "Register"}
+              </button>
             </div>
-          </div>
         </form>
         </div>
 

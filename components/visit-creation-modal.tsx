@@ -255,7 +255,7 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
     <>
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent showCloseButton={false} className="sm:max-w-[600px] backdrop-blur-xl bg-white/10 dark:bg-black/20 rounded-3xl border border-white/20 shadow-2xl">
-        <DialogHeader className="text-center space-y-2">
+        <DialogHeader className="text-center space-y-2 sticky top-0 bg-white/10 dark:bg-black/20 z-40 -mx-6 px-6 pb-4">
           <DialogTitle className="text-center">
             {currentStep === "patient-selection"
               ? preSelectedPatientId ? "Create Visit for New Patient" : "Create Visit - Select Patient"
@@ -263,7 +263,8 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
           </DialogTitle>
         </DialogHeader>
 
-        {currentStep === "patient-selection" && (
+        <div className="max-h-[calc(90vh-220px)] overflow-y-auto pr-2 pb-2">
+          {currentStep === "patient-selection" && (
           <div className="space-y-4">
             {/* macOS Spotlight-style Search Box */}
             <div className="relative bg-white dark:bg-gray-900 rounded-2xl border border-border shadow-md overflow-hidden">
@@ -434,7 +435,7 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
               </div>
             )}
           </div>
-        )}
+          )}
 
         {currentStep === "visit-details" && selectedPatient && (
           <div className="space-y-4 bg-[#F6EEE9] dark:bg-[#2a2520] p-4 rounded-2xl">
@@ -587,8 +588,9 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
             </div>
           </div>
         )}
+        </div>
 
-        <DialogFooter className="justify-center">
+        <DialogFooter className="sticky md:sticky bottom-0 left-0 right-0 justify-center bg-gradient-to-t from-white/20 dark:from-black/30 to-white/10 dark:to-black/20 border-t border-white/20 -mx-6 px-6 pb-4 pt-4 z-50">
           {currentStep === "visit-details" && (
             <>
               <Button variant="outline" onClick={handleBackToPatientSelection} className="rounded-full px-6 border-red-500 text-red-600 hover:bg-red-50">

@@ -14,7 +14,7 @@ import { ThemeSwitcher } from "@/components/theme-switcher"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-type FieldErrors = Partial<Record<"email" | "password" | "name" | "phoneNumber" | "title", string>>
+type FieldErrors = Partial<Record<"email" | "password" | "name" | "phoneNumber" | "phone" | "title", string>>
 
 function AuthPageContent() {
   const router = useRouter()
@@ -71,9 +71,35 @@ function AuthPageContent() {
   const validateForm = (currentMode: "login" | "register"): FieldErrors => {
     const nextErrors: FieldErrors = {}
 
-    const emailOrPhoneValidation = validateEmailOrPhone(email)
-    if (!emailOrPhoneValidation.valid) {
-      nextErrors.email = emailOrPhoneValidation.error
+    if (currentMode === "login") {
+      // Login: combined email or phone input
+      const emailOrPhoneValidation = validateEmailOrPhone(email)
+      if (!emailOrPhoneValidation.valid) {
+        nextErrors.email = emailOrPhoneValidation.error
+      }
+    } else {
+      // Register: separate email and phone, both required
+      // Validate email
+      if (!email.trim()) {
+        nextErrors.email = "Email is required"
+      } else if (!email.includes("@") || !email.includes(".")) {
+        nextErrors.email = "Please enter a valid email address"
+      }
+
+      // Validate phone
+      if (!phoneNumber.trim()) {
+        nextErrors.phone = "Phone number is required"
+      } else {
+        const phoneValidation = validateEmailOrPhone(phoneNumber)
+        if (!phoneValidation.valid || !phoneValidation.error?.includes("phone")) {
+          // Ensure it's a phone, not an email
+          if (phoneNumber.includes("@")) {
+            nextErrors.phone = "Please enter a valid phone number, not email"
+          } else if (!phoneNumber.match(/^\+?[0-9\s\-().]+$/)) {
+            nextErrors.phone = "Please enter a valid phone number"
+          }
+        }
+      }
     }
 
     if (!password.trim()) {
@@ -82,7 +108,6 @@ function AuthPageContent() {
 
     if (currentMode === "register") {
       if (!name.trim()) nextErrors.name = "Full name is required"
-      // Phone number is now optional (can be provided in Email field as phone)
     }
 
     return nextErrors
@@ -293,32 +318,32 @@ function AuthPageContent() {
                   {errors.name && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.name}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Email or Phone</label>
+                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Email Address *</label>
                   <Input
-                    type="text"
+                    type="email"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value)
                       clearError("email")
                     }}
-                    placeholder="dr.name@eyecare.com or +256701234567 or 0712345678"
+                    placeholder="dr.name@eyecare.com"
                     className={`${baseInputClass} ${errors.email ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
                   />
                   {errors.email && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.email}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Phone Number (Optional)</label>
+                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Phone Number *</label>
                   <Input
                     type="tel"
                     value={phoneNumber}
                     onChange={(e) => {
                       setPhoneNumber(e.target.value)
-                      clearError("phoneNumber")
+                      clearError("phone")
                     }}
-                    placeholder="Enter your phone number"
-                    className={`${baseInputClass} ${errors.phoneNumber ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
+                    placeholder="+256701234567 or 0712345678"
+                    className={`${baseInputClass} ${errors.phone ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
                   />
-                  {errors.phoneNumber && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.phoneNumber}</p>}
+                  {errors.phone && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.phone}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Title</label>
