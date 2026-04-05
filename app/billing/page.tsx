@@ -9,7 +9,7 @@ import { BillingData, BillingItem, getEffectiveCoveragePercentage } from '@/lib/
 import Header from '@/components/header';
 import { useAuth } from '@/lib/auth-context';
 import { useSearchParams } from 'next/navigation';
-import { useVisit, type Visit, useUpdatePatient, useInsurances, useCreateBill, useGetBillByVisit } from '@/hooks/auth-hooks';
+import { useVisit, type Visit, useUpdatePatient, useInsurances, useCreateBill, useGetBillByVisit, useGenerateInvoice } from '@/hooks/auth-hooks';
 import { useAddActionToVisitDepartment, useAddConsumableToVisitDepartment } from '@/hooks/auth-hooks';
 import { useUpdateVisitDepartmentStatus } from '@/hooks/auth-hooks';
 import { useAddVisitNote } from '@/hooks/auth-hooks';
@@ -69,6 +69,7 @@ function BillingPageContent() {
     ADD_INSURANCE_TO_VISIT,
   );
   const { createBill, loading: creatingBill } = useCreateBill();
+  const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice();
   const { bill: existingBill, loading: loadingBill, refetch: refetchBill } = useGetBillByVisit(visitId);
   const { updatePatient } = useUpdatePatient();
   const [billingData, setBillingData] = useState<BillingData | null>(null);
@@ -85,6 +86,8 @@ function BillingPageContent() {
   const [dominantLastName, setDominantLastName] = useState('');
   const [dominantPhone, setDominantPhone] = useState('');
   const [showDiscountControls, setShowDiscountControls] = useState(false);
+  const [isEditingBill, setIsEditingBill] = useState(false);
+  const [invoicePdfBase64, setInvoicePdfBase64] = useState<string | null>(null);
   const [discountInputType, setDiscountInputType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
   const [discountInputValue, setDiscountInputValue] = useState(0);
   const { doctor } = useAuth();
@@ -390,6 +393,34 @@ function BillingPageContent() {
   const hasRemainingToBill = Boolean(billingData?.items.some((item) => item.paymentStatus !== 'paid'));
   const canEditBilling = Boolean(existingBill) || billJustCreated;
   const showBillingDock = canEditBilling || (!existingBill && hasRemainingToBill);
+
+  const openInvoicePdfFromBase64 = (pdfBase64: string) => {
+    const byteCharacters = atob(pdfBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i += 1) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/pdf' });
+    const blobUrl = URL.createObjectURL(blob);
+    const previewWindow = window.open(blobUrl, '_blank');
+    if (!previewWindow) {
+      URL.revokeObjectURL(blobUrl);
+      throw new Error('Unable to open invoice preview window. Please allow pop-ups.');
+    }
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+  };
+
+  const refreshInvoicePdf = async () => {
+    if (!visitId) return null;
+    const response = await generateInvoice(String(visitId));
+    if (response.status !== 'SUCCESS' || !response.pdfBase64) {
+      const errorMsg = response.messages?.map((m) => m.text).join(', ') || 'Failed to generate invoice PDF';
+      throw new Error(errorMsg);
+    }
+    setInvoicePdfBase64(response.pdfBase64);
+    return response.pdfBase64;
+  };
   
   // Compute service-specific totals when in service view
   const displayTotals = viewMode === 'service' ? calculateTotalsForItems(itemsToDisplay) : totals;
@@ -569,6 +600,12 @@ function BillingPageContent() {
         // Refetch visit and bill data
         await refetchVisit();
         await refetchBill();
+        try {
+          await refreshInvoicePdf();
+        } catch (invoiceErr: any) {
+          console.error('Invoice generation after billing failed:', invoiceErr);
+          toast.warning(invoiceErr?.message || 'Bill created but invoice PDF could not be generated yet.');
+        }
         toast.success('Bill created successfully!');
       } else {
         const errorMsg = response.messages?.map(m => m.text).join(', ') || 'Failed to create bill';
@@ -599,14 +636,40 @@ function BillingPageContent() {
     setDidAutoPrint(true)
     // Small delay ensures print window content is ready after query hydration.
     const timer = setTimeout(() => {
-      handlePrintBillingInvoice()
+      void handlePrintBillingInvoice()
     }, 150)
 
     return () => clearTimeout(timer)
   }, [autoPrint, didAutoPrint, existingBill, billingData])
 
-  const handlePrintBillingInvoice = () => {
+  useEffect(() => {
+    if (!existingBill || isEditingBill) return;
+    if (invoicePdfBase64) return;
+
+    void (async () => {
+      try {
+        await refreshInvoicePdf();
+      } catch (err) {
+        console.error('Initial invoice fetch failed:', err);
+      }
+    })();
+  }, [existingBill, isEditingBill, invoicePdfBase64]);
+
+  const handlePrintBillingInvoice = async () => {
     if (!billingData) return
+
+    if (existingBill) {
+      try {
+        const pdf = invoicePdfBase64 || await refreshInvoicePdf();
+        if (pdf) {
+          openInvoicePdfFromBase64(pdf);
+          return;
+        }
+      } catch (err: any) {
+        console.error('Backend invoice preview failed, falling back to HTML print:', err);
+        toast.warning(err?.message || 'Using local print preview because backend invoice is unavailable.');
+      }
+    }
 
     const escapeHtml = (value: string) =>
       value
@@ -1457,6 +1520,7 @@ function BillingPageContent() {
                           <TooltipTrigger asChild>
                             <Button
                               onClick={() => {
+                                setIsEditingBill(true)
                                 setShowDiscountControls(true)
                               }}
                               size="icon"
@@ -1473,18 +1537,48 @@ function BillingPageContent() {
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
-                              onClick={handlePrintBillingInvoice}
+                              onClick={() => {
+                                void handlePrintBillingInvoice()
+                              }}
                               size="icon"
                               className="rounded-full h-12 w-12 bg-slate-700 hover:bg-slate-800 text-white shadow-lg"
+                              disabled={generatingInvoice}
                               aria-label="Print Billing"
                             >
                               <Printer className="h-5 w-5" />
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Print Billing (PDF)</p>
+                            <p>{generatingInvoice ? 'Loading invoice PDF...' : 'Print Billing (PDF)'}</p>
                           </TooltipContent>
                         </Tooltip>
+                        {isEditingBill && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                onClick={async () => {
+                                  setShowDiscountControls(false)
+                                  setIsEditingBill(false)
+                                  try {
+                                    await refreshInvoicePdf();
+                                    toast.success('Invoice preview refreshed from backend');
+                                  } catch (err: any) {
+                                    console.error('Refresh invoice after edit failed:', err);
+                                    toast.warning(err?.message || 'Changes saved, but invoice PDF refresh failed.');
+                                  }
+                                }}
+                                size="icon"
+                                className="rounded-full h-12 w-12 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg"
+                                aria-label="Done Editing Billing"
+                              >
+                                <span className="text-lg font-bold">✓</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Done Editing</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                       </>
                     )}
                   </div>

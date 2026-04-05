@@ -1440,6 +1440,19 @@ const UPSERT_CONSULTATION_ANSWERS_MUTATION = gql`
   }
 `
 
+const GENERATE_CONSULTATION_PDF_MUTATION = gql`
+  mutation GenerateConsultationPdf($consultationId: ID!, $departmentId: ID!, $formId: ID!) {
+    generateConsultationPdf(consultationId: $consultationId, departmentId: $departmentId, formId: $formId) {
+      status
+      pdfBase64
+      messages {
+        text
+        type
+      }
+    }
+  }
+`
+
 // Note: According to the GraphQL schema, CreateVisitInput includes:
 // patientId: ID!
 // insuranceIds: [ID]
@@ -1923,6 +1936,32 @@ export function useUpsertConsultationAnswers() {
   }
 
   return { upsertConsultationAnswers, loading, error }
+}
+
+export function useGenerateConsultationPdf() {
+  const [generatePdfMutation, { loading, error }] = useMutation(GENERATE_CONSULTATION_PDF_MUTATION)
+
+  const generateConsultationPdf = async (input: {
+    consultationId: string
+    departmentId: string
+    formId: string
+  }) => {
+    try {
+      const result = await generatePdfMutation({
+        variables: {
+          consultationId: input.consultationId,
+          departmentId: input.departmentId,
+          formId: input.formId,
+        },
+      })
+      return result.data?.generateConsultationPdf as InvoiceResponse
+    } catch (err) {
+      console.error('Generate consultation PDF error:', err)
+      throw err
+    }
+  }
+
+  return { generateConsultationPdf, loading, error }
 }
 
 // Process visit department (move department to IN_PROGRESS)
@@ -2486,6 +2525,19 @@ const CREATE_BILL_MUTATION = gql`
   }
 `
 
+const GENERATE_INVOICE_MUTATION = gql`
+  mutation GenerateInvoice($visitId: ID!) {
+    generateInvoice(visitId: $visitId) {
+      status
+      pdfBase64
+      messages {
+        text
+        type
+      }
+    }
+  }
+`
+
 export interface BillResponse {
   status: string
   data?: {
@@ -2572,6 +2624,15 @@ export interface BillResponse {
   }[]
 }
 
+export interface InvoiceResponse {
+  status: string
+  pdfBase64?: string
+  messages?: {
+    text: string
+    type: string
+  }[]
+}
+
 export function useGetBillByVisit(visitId: string | null) {
   const { data, loading, error, refetch } = useQuery(GET_BILL_BY_VISIT_QUERY, {
     variables: { visitId },
@@ -2626,6 +2687,24 @@ export function useCreateBill() {
   }
 
   return { createBill, loading, error }
+}
+
+export function useGenerateInvoice() {
+  const [generateInvoiceMutation, { loading, error }] = useMutation(GENERATE_INVOICE_MUTATION)
+
+  const generateInvoice = async (visitId: string) => {
+    try {
+      const result = await generateInvoiceMutation({
+        variables: { visitId }
+      })
+      return result.data.generateInvoice as InvoiceResponse
+    } catch (err) {
+      console.error('Generate invoice error:', err)
+      throw err
+    }
+  }
+
+  return { generateInvoice, loading, error }
 }
 
 // Insurance Coverage Management for Actions

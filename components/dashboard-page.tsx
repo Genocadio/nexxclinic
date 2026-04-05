@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import { gql, useLazyQuery } from "@apollo/client"
 import { useAuth } from "@/lib/auth-context"
-import { useVisits, useDepartments, type Visit, useProcessVisitDepartment, useUpdateVisitDepartmentStatus, useDashboardStats } from "@/hooks/auth-hooks"
+import { useVisits, useDepartments, type Visit, useProcessVisitDepartment, useUpdateVisitDepartmentStatus, useDashboardStats, useGenerateConsultationPdf, useGenerateInvoice } from "@/hooks/auth-hooks"
 import Header from "@/components/header"
 import PatientRegistrationModal from "@/components/patient-registration-modal"
 import VisitCreationModal from "@/components/visit-creation-modal"
@@ -21,8 +22,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid, Printer } from "lucide-react"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid, Printer, FilePenLine, Eye } from "lucide-react"
 import { toast } from "react-toastify"
+
+const GET_FORMS_FOR_DEPARTMENT_QUERY = gql`
+  query DashboardGetFormsForConsultation($departmentId: ID!) {
+    getForms(departmentId: $departmentId) {
+      data {
+        id
+        status
+        updatedAt
+        createdAt
+      }
+    }
+  }
+`
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -32,12 +47,20 @@ export default function DashboardPage() {
   const { departments, refetch: refetchDepartments } = useDepartments()
   const { processDepartment } = useProcessVisitDepartment()
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
+  const { generateConsultationPdf, loading: generatingConsultationPdf } = useGenerateConsultationPdf()
+  const [loadFormsForDepartment] = useLazyQuery(GET_FORMS_FOR_DEPARTMENT_QUERY)
+  const { generateInvoice } = useGenerateInvoice()
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
   const [mobileSearchActive, setMobileSearchActive] = useState(false)
   const [showMetrics, setShowMetrics] = useState(true)
   const [showMobileActionSheet, setShowMobileActionSheet] = useState(false)
+  const [printingVisitId, setPrintingVisitId] = useState<string | null>(null)
+  const [previewingConsultationVisitId, setPreviewingConsultationVisitId] = useState<string | null>(null)
+  const [consultationPreviewOpen, setConsultationPreviewOpen] = useState(false)
+  const [consultationPreviewUrl, setConsultationPreviewUrl] = useState<string | null>(null)
+  const [consultationPreviewVisit, setConsultationPreviewVisit] = useState<Visit | null>(null)
 
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
   const hasReceptionistRole = roles.includes("RECEPTIONIST")
@@ -157,11 +180,110 @@ export default function DashboardPage() {
     router.push(`/billing?visitId=${visit.id}&patientId=${visit.patient.id}`)
   }
 
-  const handlePrintInvoice = (visit: Visit) => {
-    window.open(`/billing?visitId=${visit.id}&patientId=${visit.patient.id}&autoprint=1`, "_blank")
+  const handlePrintInvoice = async (visit: Visit) => {
+    try {
+      setPrintingVisitId(visit.id)
+      const response = await generateInvoice(String(visit.id))
+
+      if (response.status !== 'SUCCESS' || !response.pdfBase64) {
+        const errorMsg = response.messages?.map((m) => m.text).join(', ') || 'Failed to fetch invoice PDF'
+        toast.error(errorMsg)
+        return
+      }
+
+      const byteCharacters = atob(response.pdfBase64)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i += 1) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: 'application/pdf' })
+      const blobUrl = URL.createObjectURL(blob)
+      const previewWindow = window.open(blobUrl, '_blank')
+
+      if (!previewWindow) {
+        URL.revokeObjectURL(blobUrl)
+        toast.error('Unable to open invoice preview. Please allow pop-ups and try again.')
+        return
+      }
+
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+    } catch (err: any) {
+      console.error('Print invoice error:', err)
+      toast.error(err?.message || 'Failed to fetch invoice PDF')
+    } finally {
+      setPrintingVisitId(null)
+    }
   }
 
-  const handleViewConsultation = (visit: Visit) => {
+  const handleViewConsultation = async (visit: Visit) => {
+    const firstDepartmentId = String(visit.departments?.[0]?.department?.id || visit.departments?.[0]?.id || '')
+    if (!firstDepartmentId) {
+      toast.error('No consultation department found for this visit')
+      return
+    }
+
+    try {
+      setPreviewingConsultationVisitId(visit.id)
+
+      const formsResult = await loadFormsForDepartment({
+        variables: { departmentId: firstDepartmentId },
+        fetchPolicy: 'network-only',
+      })
+
+      const forms = formsResult?.data?.getForms?.data || []
+      const latestFinalForm = [...forms]
+        .filter((form: any) => form?.status === 'FINAL')
+        .sort((a: any, b: any) => {
+          const aTime = new Date(a?.updatedAt || a?.createdAt || 0).getTime()
+          const bTime = new Date(b?.updatedAt || b?.createdAt || 0).getTime()
+          return bTime - aTime
+        })[0]
+
+      if (!latestFinalForm?.id) {
+        toast.error('No finalized consultation form found for this department')
+        return
+      }
+
+      const pdfResult = await generateConsultationPdf({
+        consultationId: visit.id,
+        departmentId: firstDepartmentId,
+        formId: String(latestFinalForm.id),
+      })
+
+      if (pdfResult?.status !== 'SUCCESS' || !pdfResult?.pdfBase64) {
+        const message = pdfResult?.messages?.map((m) => m?.text).filter(Boolean).join(' | ') || 'Failed to generate consultation PDF'
+        toast.error(message)
+        return
+      }
+
+      const byteCharacters = atob(pdfResult.pdfBase64)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i += 1) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: 'application/pdf' })
+      const blobUrl = URL.createObjectURL(blob)
+
+      if (consultationPreviewUrl) {
+        URL.revokeObjectURL(consultationPreviewUrl)
+      }
+
+      setConsultationPreviewUrl(blobUrl)
+      setConsultationPreviewVisit(visit)
+      setConsultationPreviewOpen(true)
+    } catch (err: any) {
+      console.error('Consultation preview error:', err)
+      toast.error(err?.message || 'Failed to open consultation PDF preview')
+    } finally {
+      setPreviewingConsultationVisitId(null)
+    }
+  }
+
+  const handleEditConsultation = (visit: Visit) => {
     router.push(`/consultation/${visit.id}`)
   }
 
@@ -562,32 +684,65 @@ export default function DashboardPage() {
                             </div>
                             <div className={`flex items-center gap-2 flex-wrap ${viewMode === "grid" ? "justify-start" : "justify-end lg:justify-start lg:flex-nowrap"}`}>
                               {canSeeVisitActionButtons && canSeeConsultButton && (visit.visitStatus === 'CREATED' || visit.visitStatus === 'IN_PROGRESS') && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleConsultVisit(visit)
-                                  }}
-                                  title="Start Consult"
-                                  className="px-2 sm:px-4 py-1.5 sm:py-2 bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
-                                >
-                                  <Stethoscope className="w-4 h-4 flex-shrink-0" />
-                                  <span className="hidden sm:inline lg:hidden">Consult</span>
-                                  <span className="hidden lg:inline">Start Consult</span>
-                                </button>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleConsultVisit(visit)
+                                      }}
+                                      title="Start Consult"
+                                      aria-label="Start Consult"
+                                      className="h-9 w-9 sm:h-10 sm:w-10 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                    >
+                                      <Stethoscope className="w-4 h-4 flex-shrink-0" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Start Consult</p>
+                                  </TooltipContent>
+                                </Tooltip>
                               )}
                               {canSeeVisitActionButtons && hasConsultationRole && (visit.visitStatus === 'COMPLETED' || visit.visitStatus === 'CANCELLED') && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleViewConsultation(visit)
-                                  }}
-                                  title="View Consultation"
-                                  className="px-2 sm:px-4 py-1.5 sm:py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
-                                >
-                                  <Stethoscope className="w-4 h-4 flex-shrink-0" />
-                                  <span className="hidden sm:inline lg:hidden">View</span>
-                                  <span className="hidden lg:inline">View Consultation</span>
-                                </button>
+                                <>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          void handleViewConsultation(visit)
+                                        }}
+                                        disabled={previewingConsultationVisitId === visit.id}
+                                        title="Preview Consultation PDF"
+                                        aria-label="Preview Consultation"
+                                        className="h-9 w-9 sm:h-10 sm:w-10 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                      >
+                                        <Eye className="w-4 h-4 flex-shrink-0" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Preview Consultation</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleEditConsultation(visit)
+                                        }}
+                                        title="Edit Consultation"
+                                        aria-label="Edit Consultation"
+                                        className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-700 hover:bg-slate-800 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                      >
+                                        <FilePenLine className="w-4 h-4 flex-shrink-0" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Edit Consultation</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </>
                               )}
                               {canSeeVisitActionButtons && canAddDepartment(visit) && !isDischarged(visit) && (
                                 <button
@@ -666,12 +821,13 @@ export default function DashboardPage() {
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
-                                            handlePrintInvoice(visit)
+                                            void handlePrintInvoice(visit)
                                           }}
                                           title="Print Invoice"
+                                          disabled={printingVisitId === visit.id}
                                           className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-700 hover:bg-slate-800 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
                                         >
-                                          <Printer className="w-4 h-4 flex-shrink-0" />
+                                          <Printer className={`w-4 h-4 flex-shrink-0 ${printingVisitId === visit.id ? 'animate-pulse' : ''}`} />
                                         </button>
                                         <span className="absolute -top-1.5 -right-2 px-1.5 h-4 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center border border-white leading-none">
                                           PDF
@@ -816,6 +972,36 @@ export default function DashboardPage() {
           </div>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={consultationPreviewOpen}
+        onOpenChange={(open) => {
+          setConsultationPreviewOpen(open)
+          if (!open && consultationPreviewUrl) {
+            URL.revokeObjectURL(consultationPreviewUrl)
+            setConsultationPreviewUrl(null)
+            setConsultationPreviewVisit(null)
+          }
+        }}
+      >
+        <DialogContent className="w-[96vw] md:w-[80vw] md:max-w-[80vw] h-[90dvh] max-h-[calc(100dvh-5rem)] !top-[calc(50%+2.5rem)] p-0 overflow-hidden [&>button]:hidden">
+          <DialogTitle className="sr-only">Consultation PDF Preview</DialogTitle>
+          <div className="h-full w-full relative bg-muted/20">
+            {consultationPreviewUrl ? (
+              <iframe
+                src={consultationPreviewUrl}
+                title="Consultation PDF Preview"
+                className="w-full h-full"
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                {generatingConsultationPdf ? 'Generating consultation PDF...' : 'No PDF preview available'}
+              </div>
+            )}
+
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modals */}
       <PatientRegistrationModal

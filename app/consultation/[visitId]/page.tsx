@@ -1,7 +1,7 @@
 "use client"
 
 import { useParams, useRouter } from "next/navigation"
-import { useAddDepartmentNote, useUpsertConsultationAnswers, useUpdateVisitDepartmentStatus, useVisits } from "@/hooks/auth-hooks"
+import { useAddDepartmentNote, useGenerateConsultationPdf, useUpsertConsultationAnswers, useUpdateVisitDepartmentStatus, useVisits } from "@/hooks/auth-hooks"
 import { useAuth } from "@/lib/auth-context"
 import ConsultationViewBackbone from "@/components/consultation-view-backbone"
 import VisitNotesFloating from "@/components/visit-notes-floating"
@@ -21,6 +21,7 @@ export default function ConsultationPage() {
   const { doctor } = useAuth()
   const { visits, loading, error, refetch } = useVisits()
   const { upsertConsultationAnswers } = useUpsertConsultationAnswers()
+  const { generateConsultationPdf } = useGenerateConsultationPdf()
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
   const { addDepartmentNote } = useAddDepartmentNote()
 
@@ -227,6 +228,18 @@ export default function ConsultationPage() {
             }
 
             if (updatedConsultation.status === 'finalized') {
+              const pdfResult = await generateConsultationPdf({
+                consultationId: updatedConsultation.consultationId || visit.id,
+                departmentId: departmentToSave,
+                formId: String(formId),
+              })
+
+              if (pdfResult?.status !== 'SUCCESS' || !pdfResult?.pdfBase64) {
+                const pdfError = pdfResult?.messages?.map((m) => m?.text).filter(Boolean).join(' | ') || 'Failed to generate consultation PDF'
+                toast.error(pdfError)
+                return
+              }
+
               const completeResult = await updateDepartmentStatus(visit.id, departmentToSave, 'COMPLETED')
               if (completeResult?.status !== 'SUCCESS') {
                 console.error('Consultation answers saved, but completing department failed', completeResult?.messages)
