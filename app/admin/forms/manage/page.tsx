@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { gql, useLazyQuery, useMutation } from '@apollo/client'
+import { useForms, useForm, useFinalizeForm } from '@/hooks/forms'
 import Header from '@/components/header'
 import { useAuth } from '@/lib/auth-context'
 import { useDepartments } from '@/hooks/auth-hooks'
@@ -30,6 +30,8 @@ interface BackendFormListItem {
   currentVersionNumber?: string
   createdAt?: string
   updatedAt?: string
+  fields?: any[]
+  sections?: any[]
 }
 
 interface BackendFormPreview {
@@ -42,135 +44,28 @@ interface BackendFormPreview {
   sections?: FormSection[]
 }
 
-const GET_FORMS_QUERY = gql`
-  query GetFormsForDepartment($departmentId: ID!) {
-    getForms(departmentId: $departmentId) {
-      status
-      messages {
-        text
-        type
-      }
-      data {
-        id
-        title
-        status
-        currentVersionNumber
-        createdAt
-        updatedAt
-      }
-    }
-  }
-`
 
-const GET_FORM_QUERY = gql`
-  query GetFormForPreview($departmentId: ID!, $formId: ID!) {
-    getForm(departmentId: $departmentId, formId: $formId) {
-      status
-      messages {
-        text
-        type
-      }
-      data {
-        id
-        title
-        description
-        status
-        currentVersionNumber
-        fields {
-          id
-          label
-          type
-          placeholder
-          required
-          options
-          hideLabel
-          boldLabel
-          italicLabel
-          underlineLabel
-          centerLabel
-          order
-          tableConfig {
-            mode
-            rows
-            columns
-            headerPlacement
-            columnHeaders
-            rowHeaders
-          }
-          conditionalRendering {
-            dependsOn
-            condition
-            value
-            itemType
-          }
-        }
-        sections {
-          id
-          title
-          columns
-          order
-          fields {
-            id
-            label
-            type
-            placeholder
-            required
-            options
-            hideLabel
-            boldLabel
-            italicLabel
-            underlineLabel
-            centerLabel
-            order
-            tableConfig {
-              mode
-              rows
-              columns
-              headerPlacement
-              columnHeaders
-              rowHeaders
-            }
-            conditionalRendering {
-              dependsOn
-              condition
-              value
-              itemType
-            }
-          }
-        }
-      }
-    }
-  }
-`
 
-const FINALIZE_FORM_MUTATION = gql`
-  mutation FinalizeFormFromManage($departmentId: ID!, $formId: ID!) {
-    finalizeForm(departmentId: $departmentId, formId: $formId) {
-      status
-      messages {
-        text
-        type
-      }
-      data {
-        id
-        status
-        currentVersionNumber
-      }
-    }
-  }
-`
+
+const hasContent = (form: BackendFormListItem) => {
+  const fieldCount = form.fields?.length || 0
+  const sectionCount = form.sections?.length || 0
+  return fieldCount > 0 || sectionCount > 0
+}
 
 const mapFormList = (raw: any[]): BackendFormListItem[] => {
-  const items = (raw || []).map((form) => ({
+  const items = (raw || []).map((form: any) => ({
     id: String(form?.id || ''),
     title: form?.title || 'Untitled Form',
     status: (form?.status === 'FINAL' ? 'FINAL' : 'DRAFT') as BackendFormStatus,
     currentVersionNumber: form?.currentVersionNumber || undefined,
     createdAt: form?.createdAt || undefined,
     updatedAt: form?.updatedAt || undefined,
+    fields: form?.fields || [],
+    sections: form?.sections || [],
   }))
 
-  items.sort((a, b) => {
+  items.sort((a: any, b: any) => {
     const aDate = new Date(a.updatedAt || a.createdAt || 0).getTime()
     const bDate = new Date(b.updatedAt || b.createdAt || 0).getTime()
     return bDate - aDate
@@ -251,9 +146,10 @@ export default function FormsManagePage() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewForm, setPreviewForm] = useState<BackendFormPreview | null>(null)
 
-  const [loadForms] = useLazyQuery(GET_FORMS_QUERY)
-  const [loadForm] = useLazyQuery(GET_FORM_QUERY)
-  const [finalizeForm] = useMutation(FINALIZE_FORM_MUTATION)
+  const { forms: formsData, loading: formsLoading, error: formsError, loadForms } = useForms(departmentId)
+  const { form: formData, loading: formLoading, loadForm } = useForm(departmentId, null)
+  const { finalizeForm, loading: finalizeLoading, error: finalizeError } = useFinalizeForm()
+
 
   const selectedDepartmentName = useMemo(() => {
     const found = departments?.find((d: any) => String(d.id) === String(departmentId))
@@ -267,9 +163,8 @@ export default function FormsManagePage() {
     }
     setLoading(true)
     try {
-      const result = await loadForms({ variables: { departmentId: deptId }, fetchPolicy: 'network-only' })
-      const raw = result?.data?.getForms?.data || []
-      setForms(mapFormList(raw))
+      await loadForms({ variables: { departmentId: deptId } })
+      // The formsData will be updated by Apollo, and the second useEffect will handle setForms
     } catch (err: any) {
       setForms([])
       toast({ title: 'Failed to load forms', description: err?.message || 'Unexpected error' })
@@ -277,6 +172,13 @@ export default function FormsManagePage() {
       setLoading(false)
     }
   }
+
+  // Also update forms when formsData changes
+  useEffect(() => {
+    if (formsData) {
+      setForms(mapFormList(formsData))
+    }
+  }, [formsData])
 
   useEffect(() => {
     refreshForms(departmentId)
@@ -300,14 +202,13 @@ export default function FormsManagePage() {
     if (!departmentId) return
     try {
       setFinalizingFormId(formId)
-      const result = await finalizeForm({ variables: { departmentId, formId } })
-      const payload = result?.data?.finalizeForm
-      if (payload?.status !== 'SUCCESS') {
-        const message = payload?.messages?.[0]?.text || 'Unable to finalize form'
-        throw new Error(message)
+      const result = await finalizeForm(departmentId, formId)
+      if (result && result.status === 'FINAL') {
+        toast({ title: 'Form finalized' })
+        await refreshForms(departmentId)
+      } else {
+        throw new Error('Unable to finalize form')
       }
-      toast({ title: 'Form finalized' })
-      await refreshForms(departmentId)
     } catch (err: any) {
       toast({ title: 'Finalize failed', description: err?.message || 'Unexpected error' })
     } finally {
@@ -319,7 +220,7 @@ export default function FormsManagePage() {
     if (!departmentId) return
     try {
       setLoading(true)
-      const result = await loadForm({ variables: { departmentId, formId }, fetchPolicy: 'network-only' })
+      const result = await loadForm({ variables: { departmentId, formId } })
       const raw = result?.data?.getForm?.data
       if (!raw) throw new Error('Unable to load form preview')
       setPreviewForm(mapFormPreview(raw))
@@ -399,9 +300,22 @@ export default function FormsManagePage() {
                     <Button size="sm" variant="outline" className="rounded-full" onClick={() => openBuilderForEdit(form.id)}>
                       Edit
                     </Button>
-                    <Button size="sm" variant="outline" className="rounded-full" onClick={() => handlePreview(form.id)}>
-                      Preview
-                    </Button>
+                    {hasContent(form) ? (
+                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => handlePreview(form.id)}>
+                        Preview
+                      </Button>
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm" variant="outline" className="rounded-full" disabled>
+                            Preview
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Can't preview an empty form</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                     {form.status !== 'FINAL' && (
                       <Button
                         size="sm"

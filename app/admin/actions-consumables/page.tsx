@@ -5,7 +5,7 @@ import Header from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth-context"
-import { useActions, useConsumables, useInsurances, useCreateActions, useUpdateAction, useDeleteAction, useCreateConsumables, useUpdateConsumable, useDeleteConsumable, useAddActionInsuranceCoverage, useRemoveActionInsuranceCoverage, useAddConsumableInsuranceCoverage, useRemoveConsumableInsuranceCoverage } from "@/hooks/auth-hooks"
+import { useActions, useProducts, useInsurances, useCreateProduct, useUpdateProduct, useDeleteProduct, useAddProductInsuranceCoverage, useRemoveProductInsuranceCoverage } from "@/hooks/auth-hooks"
 import { Pencil, Trash2, ArrowLeft, Plus, X, Shield } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -15,23 +15,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "react-toastify"
 
+const PRODUCT_TYPE_OPTIONS = ["DRUG", "MEDICAL_ACT", "BIOLOGICAL_ACT", "CONSUMABLE_DEVICE"] as const
+type ProductTypeOption = typeof PRODUCT_TYPE_OPTIONS[number]
+
+const ACTION_PRODUCT_TYPE_OPTIONS: ProductTypeOption[] = ["DRUG", "MEDICAL_ACT", "BIOLOGICAL_ACT"]
+const CONSUMABLE_PRODUCT_TYPE_OPTIONS: ProductTypeOption[] = ["CONSUMABLE_DEVICE"]
+
 export default function ManageActionsConsumablesPage() {
   const router = useRouter()
   const { doctor } = useAuth()
   const { actions, loading: actionsLoading, error: actionsError, refetch: refetchActions } = useActions()
-  const { consumables, loading: consumablesLoading, error: consumablesError, refetch: refetchConsumables } = useConsumables()
+  const { products, loading: productsLoading, error: productsError, refetch: refetchProducts } = useProducts()
   const { insurances, loading: insurancesLoading } = useInsurances()
   
-  const { createActions } = useCreateActions()
-  const { updateAction } = useUpdateAction()
-  const { deleteAction } = useDeleteAction()
-  const { createConsumables } = useCreateConsumables()
-  const { updateConsumable } = useUpdateConsumable()
-  const { deleteConsumable } = useDeleteConsumable()
-  const { addCoverage: addActionCoverage } = useAddActionInsuranceCoverage()
-  const { removeCoverage: removeActionCoverage } = useRemoveActionInsuranceCoverage()
-  const { addCoverage: addConsumableCoverage } = useAddConsumableInsuranceCoverage()
-  const { removeCoverage: removeConsumableCoverage } = useRemoveConsumableInsuranceCoverage()
+  const { createProduct } = useCreateProduct()
+  const { updateProduct } = useUpdateProduct()
+  const { deleteProduct } = useDeleteProduct()
+  const { addCoverage } = useAddProductInsuranceCoverage()
+  const { removeCoverage } = useRemoveProductInsuranceCoverage()
   
   const [itemMode, setItemMode] = useState<"action" | "consumable">("action")
   const [saving, setSaving] = useState(false)
@@ -47,7 +48,8 @@ export default function ManageActionsConsumablesPage() {
   const [addEditModalOpen, setAddEditModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<"add" | "edit">("add")
   const [itemName, setItemName] = useState("")
-  const [itemType, setItemType] = useState("")
+  const [itemDescription, setItemDescription] = useState("")
+  const [itemType, setItemType] = useState<ProductTypeOption>("MEDICAL_ACT")
   const [itemPrice, setItemPrice] = useState("")
   const [itemClinicPrice, setItemClinicPrice] = useState("")
   const [itemQuantifiable, setItemQuantifiable] = useState(true)
@@ -59,7 +61,8 @@ export default function ManageActionsConsumablesPage() {
 
   const resetItemForm = () => {
     setItemName("")
-    setItemType("")
+    setItemDescription("")
+    setItemType(itemMode === "action" ? "MEDICAL_ACT" : "CONSUMABLE_DEVICE")
     setItemPrice("")
     setItemClinicPrice("")
     setItemQuantifiable(true)
@@ -73,9 +76,13 @@ export default function ManageActionsConsumablesPage() {
   }
 
   const openEditModal = (item: any, mode: "action" | "consumable") => {
+    const allowedTypes = mode === "action" ? ACTION_PRODUCT_TYPE_OPTIONS : CONSUMABLE_PRODUCT_TYPE_OPTIONS
+    const incomingType = String(item.type || "").toUpperCase() as ProductTypeOption
+
     setEditingItemId(item.id)
     setItemName(item.name)
-    setItemType(item.type)
+    setItemDescription(item.description || "")
+    setItemType(allowedTypes.includes(incomingType) ? incomingType : (mode === "action" ? "MEDICAL_ACT" : "CONSUMABLE_DEVICE"))
     setItemPrice(String(item.privatePrice))
     setItemClinicPrice(item.clinicPrice ? String(item.clinicPrice) : "")
     setItemQuantifiable(item.quantifiable)
@@ -88,27 +95,19 @@ export default function ManageActionsConsumablesPage() {
     if (!itemName || !itemType || !itemPrice) return
     setSaving(true)
     try {
-      if (itemMode === "action") {
-        await createActions([{
-          name: itemName,
-          type: itemType,
-          privatePrice: Number(itemPrice),
-          clinicPrice: itemClinicPrice ? Number(itemClinicPrice) : undefined,
-          quantifiable: itemQuantifiable
-        }])
-        await refetchActions()
-        toast.success("Action created successfully!")
-      } else {
-        await createConsumables([{
-          name: itemName,
-          type: itemType,
-          privatePrice: Number(itemPrice),
-          clinicPrice: itemClinicPrice ? Number(itemClinicPrice) : undefined,
-          quantifiable: itemQuantifiable
-        }])
-        await refetchConsumables()
-        toast.success("Consumable created successfully!")
-      }
+      await createProduct({
+        name: itemName,
+        code: itemName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || `product-${Date.now()}`,
+        description: itemDescription || itemName,
+        type: itemType,
+        unit: 'PCS',
+        privateRhicPrice: Number(itemPrice),
+        clinicPrice: itemClinicPrice ? Number(itemClinicPrice) : undefined,
+        insuranceCoverages: [],
+      })
+      await refetchActions()
+      await refetchProducts()
+      toast.success("Product created successfully!")
       resetItemForm()
       setAddEditModalOpen(false)
     } catch (err) {
@@ -122,33 +121,24 @@ export default function ManageActionsConsumablesPage() {
     if (!editingItemId || !itemName || !itemType || !itemPrice) return
     setSaving(true)
     try {
-      if (itemMode === "action") {
-        await updateAction(editingItemId, {
-          name: itemName,
-          type: itemType,
-          privatePrice: Number(itemPrice),
-          clinicPrice: itemClinicPrice ? Number(itemClinicPrice) : undefined,
-          quantifiable: itemQuantifiable
-        })
-        await refetchActions()
-        toast.success("Action updated successfully!")
-      } else {
-        await updateConsumable(editingItemId, {
-          name: itemName,
-          type: itemType,
-          privatePrice: Number(itemPrice),
-          clinicPrice: itemClinicPrice ? Number(itemClinicPrice) : undefined,
-          quantifiable: itemQuantifiable
-        })
-        await refetchConsumables()
-        toast.success("Consumable updated successfully!")
-      }
+      await updateProduct(editingItemId, {
+        name: itemName,
+        code: itemName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || `product-${editingItemId}`,
+        description: itemDescription || itemName,
+        type: itemType,
+        unit: 'PCS',
+        privateRhicPrice: Number(itemPrice),
+        clinicPrice: itemClinicPrice ? Number(itemClinicPrice) : undefined,
+      })
+      await refetchActions()
+      await refetchProducts()
+      toast.success("Product updated successfully!")
       
       // Update selected item if it's the one being edited
       if (selectedItem && selectedItem.id === editingItemId) {
         const updatedItem = itemMode === "action"
           ? actions.find((a: any) => a.id === editingItemId)
-          : consumables.find((c: any) => c.id === editingItemId)
+          : products.find((c: any) => c.id === editingItemId)
         if (updatedItem) {
           setSelectedItem(updatedItem)
         }
@@ -167,15 +157,10 @@ export default function ManageActionsConsumablesPage() {
     if (!confirm("Are you sure you want to delete this item?")) return
     setSaving(true)
     try {
-      if (mode === "action") {
-        await deleteAction(id)
-        await refetchActions()
-        toast.success("Action deleted successfully!")
-      } else {
-        await deleteConsumable(id)
-        await refetchConsumables()
-        toast.success("Consumable deleted successfully!")
-      }
+      await deleteProduct(id)
+      await refetchActions()
+      await refetchProducts()
+      toast.success("Product deleted successfully!")
       
       // Clear selected item if it's the one being deleted
       if (selectedItem && selectedItem.id === id) {
@@ -199,7 +184,7 @@ export default function ManageActionsConsumablesPage() {
     if (itemMode === "action") {
       await refetchActions(searchQuery || undefined, 0, 100)
     } else {
-      await refetchConsumables(searchQuery || undefined, 0, 100)
+      await refetchProducts({ name: searchQuery || undefined, page: 1, size: 100 })
     }
   }
 
@@ -208,20 +193,21 @@ export default function ManageActionsConsumablesPage() {
     if (itemMode === "action") {
       await refetchActions(undefined, 0, 100)
     } else {
-      await refetchConsumables(undefined, 0, 100)
+      await refetchProducts({ name: undefined, page: 1, size: 100 })
     }
   }
 
   // Also clear search when switching modes
   const handleModeSwitch = async (mode: "action" | "consumable") => {
     setItemMode(mode)
+    setItemType(mode === "action" ? "MEDICAL_ACT" : "CONSUMABLE_DEVICE")
     setSelectedItem(null)
     setSearchQuery("")
     // Refresh the list for the new mode
     if (mode === "action") {
       await refetchActions(undefined, 0, 100)
     } else {
-      await refetchConsumables(undefined, 0, 100)
+      await refetchProducts({ name: undefined, page: 1, size: 100 })
     }
   }
 
@@ -232,22 +218,15 @@ export default function ManageActionsConsumablesPage() {
     }
     setSaving(true)
     try {
-      let result
-      if (selectedItemMode === "action") {
-        result = await addActionCoverage(selectedItem.id, newCoverageInsuranceId, Number(newCoveragePrice))
-        await refetchActions()
-      } else {
-        result = await addConsumableCoverage(selectedItem.id, newCoverageInsuranceId, Number(newCoveragePrice))
-        await refetchConsumables()
-      }
+      const result = await addCoverage(selectedItem.id, newCoverageInsuranceId, Number(newCoveragePrice))
+      await refetchActions()
+      await refetchProducts()
       toast.success("Insurance coverage added successfully!")
       setNewCoverageInsuranceId("")
       setNewCoveragePrice("")
       
       // Update the selected item immediately with the result from mutation
-      if (result?.status === 'SUCCESS' && result?.data) {
-        setSelectedItem(result.data)
-      }
+      if (result) setSelectedItem(result)
     } catch (err) {
       toast.error('Failed to add coverage')
     } finally {
@@ -259,20 +238,10 @@ export default function ManageActionsConsumablesPage() {
     if (!selectedItem) return
     setSaving(true)
     try {
-      let result
-      if (selectedItemMode === "action") {
-        result = await removeActionCoverage(selectedItem.id, insuranceId)
-        await refetchActions()
-      } else {
-        result = await removeConsumableCoverage(selectedItem.id, insuranceId)
-        await refetchConsumables()
-      }
+      await removeCoverage(selectedItem.insuranceCoverages?.find((coverage: any) => String(coverage.insurance.id) === String(insuranceId))?.id || '')
+      await refetchActions()
+      await refetchProducts()
       toast.success("Insurance coverage removed successfully!")
-      
-      // Update the selected item immediately with the result from mutation
-      if (result?.status === 'SUCCESS' && result?.data) {
-        setSelectedItem(result.data)
-      }
     } catch (err) {
       toast.error('Failed to remove coverage')
     } finally {
@@ -294,8 +263,8 @@ export default function ManageActionsConsumablesPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Manage Actions & Consumables</h1>
-            <p className="text-muted-foreground">Create, edit, and manage actions, consumables & insurance coverages.</p>
+            <h1 className="text-2xl font-bold text-foreground">Manage Products</h1>
+            <p className="text-muted-foreground">Create, edit, and manage products and insurance coverages.</p>
           </div>
         </div>
 
@@ -306,14 +275,14 @@ export default function ManageActionsConsumablesPage() {
             className="rounded-full"
             onClick={() => handleModeSwitch("action")}
           >
-            Actions
+            Services
           </Button>
           <Button
             variant={itemMode === "consumable" ? "default" : "outline"}
             className="rounded-full"
             onClick={() => handleModeSwitch("consumable")}
           >
-            Consumables
+            Consumable Devices
           </Button>
         </div>
 
@@ -323,7 +292,7 @@ export default function ManageActionsConsumablesPage() {
           <section className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-foreground">
-                {itemMode === "action" ? "Actions" : "Consumables"} List
+                {itemMode === "action" ? "Service Products" : "Consumable Products"} List
               </p>
               <Button
                 onClick={openAddModal}
@@ -332,14 +301,14 @@ export default function ManageActionsConsumablesPage() {
                 size="sm"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add {itemMode === "action" ? "Action" : "Consumable"}
+                Add {itemMode === "action" ? "Service Product" : "Consumable Product"}
               </Button>
             </div>
 
             {/* Search input */}
             <div className="flex gap-2">
               <Input
-                placeholder={`Search ${itemMode === "action" ? "actions" : "consumables"}...`}
+                placeholder={`Search ${itemMode === "action" ? "service products" : "consumable products"}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -357,7 +326,7 @@ export default function ManageActionsConsumablesPage() {
               </Button>
             </div>
 
-            {/* Actions list */}
+            {/* Service products list */}
             {itemMode === "action" && (
               <>
                 {actionsLoading ? (
@@ -368,10 +337,10 @@ export default function ManageActionsConsumablesPage() {
                   </div>
                 ) : actionsError ? (
                   <p className="text-destructive text-sm">
-                    {typeof actionsError === 'string' ? actionsError : 'Failed to load actions'}
+                    {typeof actionsError === 'string' ? actionsError : 'Failed to load service products'}
                   </p>
                 ) : actions.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No actions yet.</p>
+                  <p className="text-sm text-muted-foreground">No service products yet.</p>
                 ) : (
                   <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
                     {actions.map((act: any) => (
@@ -411,24 +380,24 @@ export default function ManageActionsConsumablesPage() {
               </>
             )}
 
-            {/* Consumables list */}
+            {/* Consumable products list */}
             {itemMode === "consumable" && (
               <>
-                {consumablesLoading ? (
+                {productsLoading ? (
                   <div className="space-y-2">
                     {[...Array(5)].map((_, idx) => (
                       <Skeleton key={idx} className="h-16 w-full rounded-xl" />
                     ))}
                   </div>
-                ) : consumablesError ? (
+                ) : productsError ? (
                   <p className="text-destructive text-sm">
-                    {typeof consumablesError === 'string' ? consumablesError : 'Failed to load consumables'}
+                    {typeof productsError === 'string' ? productsError : 'Failed to load consumable products'}
                   </p>
-                ) : consumables.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No consumables yet.</p>
+                ) : products.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No consumable products yet.</p>
                 ) : (
                   <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
-                    {consumables.map((cons: any) => (
+                    {products.map((cons: any) => (
                       <div
                         key={cons.id}
                         className={`flex items-center justify-between bg-card/60 dark:bg-slate-900/60 border rounded-xl px-4 py-3 cursor-pointer transition-all hover:border-primary ${
@@ -512,7 +481,7 @@ export default function ManageActionsConsumablesPage() {
                           <div>
                             <p className="font-medium text-sm">{coverage.insurance.name} ({coverage.insurance.acronym})</p>
                             <p className="text-xs text-muted-foreground">
-                              Price: {coverage.price} RWF • Coverage: {coverage.insurance.coveragePercentage}%
+                              Cost: {(coverage.cost ?? coverage.price ?? 0)} RWF • Coverage: {coverage.insurance.coveragePercentage}%
                             </p>
                           </div>
                           <Button
@@ -581,7 +550,7 @@ export default function ManageActionsConsumablesPage() {
               <div className="flex items-center justify-center h-full min-h-[400px]">
                 <div className="text-center text-muted-foreground">
                   <Shield className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">Select an item to view details and manage insurance coverages</p>
+                  <p className="text-sm">Select a product to view details and manage insurance coverages</p>
                 </div>
               </div>
             )}
@@ -593,10 +562,10 @@ export default function ManageActionsConsumablesPage() {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>
-                {modalMode === "add" ? "Add" : "Edit"} {itemMode === "action" ? "Action" : "Consumable"}
+                {modalMode === "add" ? "Add" : "Edit"} {itemMode === "action" ? "Service Product" : "Consumable Product"}
               </DialogTitle>
               <DialogDescription>
-                {modalMode === "add" ? "Create a new" : "Update the"} {itemMode === "action" ? "action" : "consumable"}
+                {modalMode === "add" ? "Create a new" : "Update the"} {itemMode === "action" ? "service product" : "consumable product"}
               </DialogDescription>
             </DialogHeader>
 
@@ -606,8 +575,23 @@ export default function ManageActionsConsumablesPage() {
                 <Input placeholder="Name" value={itemName} onChange={(e) => setItemName(e.target.value)} />
               </div>
               <div>
-                <Label>Type</Label>
-                <Input placeholder="Type (e.g., Surgery, Diagnostic)" value={itemType} onChange={(e) => setItemType(e.target.value)} />
+                <Label>Description <span className="text-xs text-muted-foreground">(Optional)</span></Label>
+                <Input placeholder="Description" value={itemDescription} onChange={(e) => setItemDescription(e.target.value)} />
+              </div>
+              <div>
+                <Label>Product Type</Label>
+                <Select value={itemType} onValueChange={(value) => setItemType(value as ProductTypeOption)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select product type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(itemMode === "action" ? ACTION_PRODUCT_TYPE_OPTIONS : CONSUMABLE_PRODUCT_TYPE_OPTIONS).map((typeOption) => (
+                      <SelectItem key={typeOption} value={typeOption}>
+                        {typeOption}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>Private Price (RWF)</Label>

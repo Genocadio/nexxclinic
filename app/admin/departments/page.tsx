@@ -9,20 +9,20 @@ import {
   useCreateDepartment,
   useUpdateDepartment,
   useDeleteDepartment,
-  useActions,
-  useConsumables,
+  useAddDepartmentInsurance,
+  useRemoveDepartmentInsurance,
+  useAddDepartmentProduct,
+  useRemoveDepartmentProduct,
+  useProducts,
   useInsurances,
-  useLinkActionToDepartment,
-  useUnlinkActionFromDepartment,
-  useLinkConsumableToDepartment,
-  useUnlinkConsumableFromDepartment,
-  useAddExemptedInsuranceToDepartment,
-  useRemoveExemptedInsuranceFromDepartment,
 } from '@/hooks/auth-hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { ProductAutocomplete } from '@/components/ui/product-autocomplete'
+import { InsuranceAutocomplete } from '@/components/ui/insurance-autocomplete'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft, Plus, Pencil, Trash, X, FileText } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -33,79 +33,213 @@ export default function DepartmentsPage() {
   const { toast } = useToast()
 
   const { departments, loading: departmentsLoading, refetch: refetchDepartments } = useDepartments()
-  const { actions, loading: actionsLoading } = useActions()
-  const { consumables, loading: consumablesLoading } = useConsumables()
+  const { products, loading: productsLoading } = useProducts()
   const { insurances, loading: insurancesLoading } = useInsurances()
 
   const { createDepartment } = useCreateDepartment()
   const { updateDepartment } = useUpdateDepartment()
   const { deleteDepartment } = useDeleteDepartment()
-  const { linkActionToDepartment } = useLinkActionToDepartment()
-  const { unlinkActionFromDepartment } = useUnlinkActionFromDepartment()
-  const { linkConsumableToDepartment } = useLinkConsumableToDepartment()
-  const { unlinkConsumableFromDepartment } = useUnlinkConsumableFromDepartment()
-  const { addExemptedInsuranceToDepartment } = useAddExemptedInsuranceToDepartment()
-  const { removeExemptedInsuranceFromDepartment } = useRemoveExemptedInsuranceFromDepartment()
-
+  const { addDepartmentInsurance } = useAddDepartmentInsurance()
+  const { removeDepartmentInsurance } = useRemoveDepartmentInsurance()
+  const { addDepartmentProduct } = useAddDepartmentProduct()
+  const { removeDepartmentProduct } = useRemoveDepartmentProduct()
   const [selectedDepartment, setSelectedDepartment] = useState<any | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuDepartment, setMenuDepartment] = useState<any>(null)
   const [departmentName, setDepartmentName] = useState('')
+  const [departmentInsurancePolicyMode, setDepartmentInsurancePolicyMode] = useState('')
+  const [departmentProductIds, setDepartmentProductIds] = useState<string[]>([])
+  const [departmentInsuranceIds, setDepartmentInsuranceIds] = useState<string[]>([])
+  const [pendingProductId, setPendingProductId] = useState('')
+  const [pendingInsuranceId, setPendingInsuranceId] = useState('')
   const [saving, setSaving] = useState(false)
 
   // Linking states
-  const [selectedActionId, setSelectedActionId] = useState<string>('')
-  const [selectedConsumableId, setSelectedConsumableId] = useState<string>('')
+  const [selectedProductId, setSelectedProductId] = useState<string>('')
   const [selectedInsuranceId, setSelectedInsuranceId] = useState<string>('')
 
-  const availableActions = useMemo(() => {
-    if (!selectedDepartment) return actions
-    const linkedIds = new Set((selectedDepartment.actions || []).map((a: any) => String(a.id)))
-    return actions.filter((a: any) => !linkedIds.has(String(a.id)))
-  }, [actions, selectedDepartment])
-
-  const availableConsumables = useMemo(() => {
-    if (!selectedDepartment) return consumables
-    const linkedIds = new Set((selectedDepartment.consumables || []).map((c: any) => String(c.id)))
-    return consumables.filter((c: any) => !linkedIds.has(String(c.id)))
-  }, [consumables, selectedDepartment])
+  const availableProducts = useMemo(() => {
+    if (!selectedDepartment) return products
+    const linkedIds = new Set((selectedDepartment.defaultProducts || []).map((product: any) => String(product.id)))
+    return products.filter((product: any) => !linkedIds.has(String(product.id)))
+  }, [products, selectedDepartment])
 
   const availableInsurances = useMemo(() => {
     if (!selectedDepartment) return insurances
-    const linkedIds = new Set((selectedDepartment.exemptedInsurances || []).map((i: any) => String(i.id)))
+    const linkedIds = new Set((selectedDepartment.insurancePolicies || []).map((i: any) => String(i.id)))
     return insurances.filter((i: any) => !linkedIds.has(String(i.id)))
   }, [insurances, selectedDepartment])
 
+  const modalAvailableProducts = useMemo(() => {
+    const linkedIds = new Set(departmentProductIds)
+    return products.filter((product: any) => !linkedIds.has(String(product.id)))
+  }, [departmentProductIds, products])
+
+  const modalAvailableInsurances = useMemo(() => {
+    const linkedIds = new Set(departmentInsuranceIds)
+    return insurances.filter((insurance: any) => !linkedIds.has(String(insurance.id)))
+  }, [departmentInsuranceIds, insurances])
+
+  const resetDepartmentForm = () => {
+    setDepartmentName('')
+    setDepartmentInsurancePolicyMode('')
+    setDepartmentProductIds([])
+    setDepartmentInsuranceIds([])
+    setPendingProductId('')
+    setPendingInsuranceId('')
+  }
+
+  const handleAddModalProduct = () => {
+    if (!pendingProductId || departmentProductIds.includes(pendingProductId)) return
+    setDepartmentProductIds((current) => [...current, pendingProductId])
+    setPendingProductId('')
+  }
+
+  const handleRemoveModalProduct = (productId: string) => {
+    setDepartmentProductIds((current) => current.filter((id) => id !== productId))
+  }
+
+  const handleAddModalInsurance = () => {
+    if (!pendingInsuranceId || departmentInsuranceIds.includes(pendingInsuranceId)) return
+    setDepartmentInsuranceIds((current) => [...current, pendingInsuranceId])
+    setPendingInsuranceId('')
+  }
+
+  const handleRemoveModalInsurance = (insuranceId: string) => {
+    setDepartmentInsuranceIds((current) => current.filter((id) => id !== insuranceId))
+  }
+
   const openAddModal = () => {
     setModalMode('add')
-    setDepartmentName('')
+    resetDepartmentForm()
     setIsModalOpen(true)
   }
 
   const openEditModal = () => {
     if (!selectedDepartment) return
     setModalMode('edit')
-    setDepartmentName(selectedDepartment.name || '')
+    setDepartmentName(selectedDepartment.name)
+    setDepartmentInsurancePolicyMode('')
+    setDepartmentProductIds([])
+    setDepartmentInsuranceIds([])
+    setPendingProductId('')
+    setPendingInsuranceId('')
     setIsModalOpen(true)
+  }
+
+  const openDepartmentMenu = (department: any) => {
+    setMenuDepartment(department)
+    setMenuOpen(true)
+  }
+
+  const closeDepartmentMenu = () => {
+    setMenuOpen(false)
+    setMenuDepartment(null)
+  }
+
+  const handlePolicyModeChange = async (department: any, newMode: string) => {
+    if (!department || department.insurancePolicyMode === newMode) return
+    
+    try {
+      // If switching from ALL to another mode, clear existing insurance policies first
+      const updateData: any = {
+        insurancePolicyMode: newMode,
+      }
+      
+      // Clear existing insurance policies when switching from ALL
+      if (department.insurancePolicyMode === 'ALL' && newMode !== 'ALL') {
+        updateData.insuranceProviderIds = []
+      }
+      
+      const updated = await updateDepartment(department.id, updateData)
+      
+      // Update both selectedDepartment and menuDepartment if they exist
+      if (selectedDepartment?.id === department.id) {
+        setSelectedDepartment(updated)
+      }
+      if (menuDepartment?.id === department.id) {
+        setMenuDepartment(updated)
+      }
+      
+      await refetchDepartments()
+      
+      if (department.insurancePolicyMode === 'ALL' && newMode !== 'ALL') {
+        toast({ 
+          title: 'Policy mode changed', 
+          description: 'Switched from "All insurances apply" to selective mode. You can now add specific insurance policies.' 
+        })
+      } else {
+        toast({ 
+          title: 'Policy mode updated', 
+          description: `Insurance policy mode changed to ${newMode}` 
+        })
+      }
+    } catch (err: any) {
+      console.error('Policy mode change error:', err)
+      toast({ 
+        title: 'Failed to update policy mode', 
+        description: err?.message || 'Please try again.',
+        variant: 'destructive'
+      })
+    }
   }
 
   const handleCreateOrUpdate = async () => {
     try {
       setSaving(true)
       if (modalMode === 'add') {
-        const created = await createDepartment(departmentName.trim())
+        const created = await createDepartment(departmentName.trim(), {
+          insurancePolicyMode: departmentInsurancePolicyMode || undefined,
+          insuranceProviderIds: departmentInsuranceIds,
+          defaultProductIds: departmentProductIds,
+        })
         toast({ title: 'Department created', description: created?.name })
-        await refetchDepartments()
         setSelectedDepartment(created)
+        await refetchDepartments()
       } else if (selectedDepartment) {
-        const updated = await updateDepartment(selectedDepartment.id, departmentName.trim())
-        toast({ title: 'Department updated', description: updated?.name })
+        // Edit mode - only update the name
+        const updated = await updateDepartment(selectedDepartment.id, {
+          name: departmentName.trim(),
+        })
+        toast({ title: 'Department name updated', description: updated?.name })
         setSelectedDepartment(updated)
         await refetchDepartments()
       }
       setIsModalOpen(false)
     } catch (err: any) {
-      toast({ title: 'Operation failed', description: err?.message || 'Unexpected error' })
+      console.error('Create/Update error:', err)
+      
+      // Extract the actual error message from various possible error structures
+      let errorMessage = modalMode === 'add' ? 'Failed to create department' : 'Failed to update department name'
+      
+      if (err?.message) {
+        errorMessage = err.message
+      } else if (err?.graphQLErrors?.length > 0) {
+        const gqlError = err.graphQLErrors[0]
+        if (gqlError?.message) {
+          errorMessage = gqlError.message
+        } else if (gqlError?.extensions?.exception?.message) {
+          errorMessage = gqlError.extensions.exception.message
+        }
+      } else if (err?.networkError?.result?.errors?.length > 0) {
+        const networkError = err.networkError.result.errors[0]
+        errorMessage = networkError.message || errorMessage
+      }
+      
+      // Check for specific database constraint violations
+      if (errorMessage.includes('duplicate key value violates unique constraint') || 
+          errorMessage.includes('uk_department_insurance_policy')) {
+        errorMessage = 'This insurance policy is already linked to the department'
+      }
+      
+      toast({ 
+        title: 'Operation failed', 
+        description: errorMessage,
+        variant: 'destructive'
+      })
+      // Don't close modal on error
     } finally {
       setSaving(false)
     }
@@ -131,78 +265,171 @@ export default function DepartmentsPage() {
     }
   }
 
-  const handleLinkAction = async () => {
-    if (!selectedDepartment || !selectedActionId) return
+  const handleAddProduct = async () => {
+    const department = menuDepartment || selectedDepartment
+    if (!department || !selectedProductId) return
     try {
-      const updated = await linkActionToDepartment(selectedDepartment.id, selectedActionId)
-      setSelectedDepartment(updated)
-      setSelectedActionId('')
-      toast({ title: 'Action linked' })
+      const currentProductIds = (department.defaultProducts || []).map((p: any) => String(p.id))
+      const updated = await updateDepartment(department.id, {
+        defaultProductIds: [...currentProductIds, selectedProductId]
+      })
+      
+      // Update both selectedDepartment and menuDepartment if they exist
+      if (selectedDepartment?.id === department.id) {
+        setSelectedDepartment(updated)
+      }
+      if (menuDepartment?.id === department.id) {
+        setMenuDepartment(updated)
+      }
+      
       await refetchDepartments()
+      setSelectedProductId('')
+      toast({ title: 'Product added successfully', description: 'The product has been linked to the department.' })
     } catch (err: any) {
-      toast({ title: 'Link failed', description: err?.message || 'Unexpected error' })
+      console.error('Add product error:', err)
+      
+      // Extract the actual error message from various possible error structures
+      let errorMessage = 'Failed to add product to department'
+      
+      if (err?.message) {
+        errorMessage = err.message
+      } else if (err?.graphQLErrors?.length > 0) {
+        const gqlError = err.graphQLErrors[0]
+        if (gqlError?.message) {
+          errorMessage = gqlError.message
+        } else if (gqlError?.extensions?.exception?.message) {
+          errorMessage = gqlError.extensions.exception.message
+        }
+      } else if (err?.networkError?.result?.errors?.length > 0) {
+        const networkError = err.networkError.result.errors[0]
+        errorMessage = networkError.message || errorMessage
+      }
+      
+      // Check for specific database constraint violations
+      if (errorMessage.includes('duplicate key value violates unique constraint') || 
+          errorMessage.includes('uk_department_product')) {
+        errorMessage = 'This product is already linked to the department'
+      }
+      
+      toast({ 
+        title: 'Failed to add product', 
+        description: errorMessage,
+        variant: 'destructive'
+      })
     }
   }
 
-  const handleUnlinkAction = async (actionId: string | number) => {
-    if (!selectedDepartment) return
+  const handleRemoveProduct = async (productId: string | number) => {
+    const department = menuDepartment || selectedDepartment
+    if (!department) return
     try {
-      const updated = await unlinkActionFromDepartment(selectedDepartment.id, actionId)
-      setSelectedDepartment(updated)
-      toast({ title: 'Action unlinked' })
+      const currentProductIds = (department.defaultProducts || []).map((p: any) => String(p.id))
+      const updated = await updateDepartment(department.id, {
+        defaultProductIds: currentProductIds.filter((id: string) => id !== String(productId))
+      })
+      
+      // Update both selectedDepartment and menuDepartment if they exist
+      if (selectedDepartment?.id === department.id) {
+        setSelectedDepartment(updated)
+      }
+      if (menuDepartment?.id === department.id) {
+        setMenuDepartment(updated)
+      }
+      
       await refetchDepartments()
+      toast({ title: 'Product removed successfully', description: 'The product has been unlinked from the department.' })
     } catch (err: any) {
-      toast({ title: 'Unlink failed', description: err?.message || 'Unexpected error' })
+      console.error('Remove product error:', err)
+      const errorMessage = err?.message || 'Failed to remove product from department'
+      toast({ 
+        title: 'Failed to remove product', 
+        description: errorMessage,
+        variant: 'destructive'
+      })
     }
   }
 
-  const handleLinkConsumable = async () => {
-    if (!selectedDepartment || !selectedConsumableId) return
+  const handleAddInsurancePolicy = async () => {
+    const department = menuDepartment || selectedDepartment
+    if (!department || !selectedInsuranceId) return
     try {
-      const updated = await linkConsumableToDepartment(selectedDepartment.id, selectedConsumableId)
-      setSelectedDepartment(updated)
-      setSelectedConsumableId('')
-      toast({ title: 'Consumable linked' })
+      const currentInsuranceIds = (department.insurancePolicies || []).map((i: any) => String(i.id))
+      const updated = await updateDepartment(department.id, {
+        insuranceProviderIds: [...currentInsuranceIds, selectedInsuranceId]
+      })
+      
+      // Update both selectedDepartment and menuDepartment if they exist
+      if (selectedDepartment?.id === department.id) {
+        setSelectedDepartment(updated)
+      }
+      if (menuDepartment?.id === department.id) {
+        setMenuDepartment(updated)
+      }
+      
       await refetchDepartments()
-    } catch (err: any) {
-      toast({ title: 'Link failed', description: err?.message || 'Unexpected error' })
-    }
-  }
-
-  const handleUnlinkConsumable = async (consumableId: string | number) => {
-    if (!selectedDepartment) return
-    try {
-      const updated = await unlinkConsumableFromDepartment(selectedDepartment.id, consumableId)
-      setSelectedDepartment(updated)
-      toast({ title: 'Consumable unlinked' })
-      await refetchDepartments()
-    } catch (err: any) {
-      toast({ title: 'Unlink failed', description: err?.message || 'Unexpected error' })
-    }
-  }
-
-  const handleAddExemptedInsurance = async () => {
-    if (!selectedDepartment || !selectedInsuranceId) return
-    try {
-      const updated = await addExemptedInsuranceToDepartment(selectedDepartment.id, selectedInsuranceId)
-      setSelectedDepartment(updated)
       setSelectedInsuranceId('')
-      toast({ title: 'Exempted insurance added' })
-      await refetchDepartments()
+      toast({ title: 'Insurance policy added successfully', description: 'The insurance policy has been linked to the department.' })
     } catch (err: any) {
-      toast({ title: 'Operation failed', description: err?.message || 'Unexpected error' })
+      console.error('Add insurance error:', err)
+      
+      // Extract the actual error message from various possible error structures
+      let errorMessage = 'Failed to add insurance policy to department'
+      
+      if (err?.message) {
+        errorMessage = err.message
+      } else if (err?.graphQLErrors?.length > 0) {
+        const gqlError = err.graphQLErrors[0]
+        if (gqlError?.message) {
+          errorMessage = gqlError.message
+        } else if (gqlError?.extensions?.exception?.message) {
+          errorMessage = gqlError.extensions.exception.message
+        }
+      } else if (err?.networkError?.result?.errors?.length > 0) {
+        const networkError = err.networkError.result.errors[0]
+        errorMessage = networkError.message || errorMessage
+      }
+      
+      // Check for specific database constraint violations
+      if (errorMessage.includes('duplicate key value violates unique constraint') || 
+          errorMessage.includes('uk_department_insurance_policy')) {
+        errorMessage = 'This insurance policy is already linked to the department'
+      }
+      
+      toast({ 
+        title: 'Failed to add insurance policy', 
+        description: errorMessage,
+        variant: 'destructive'
+      })
     }
   }
 
-  const handleRemoveExemptedInsurance = async (insuranceId: string | number) => {
-    if (!selectedDepartment) return
+  const handleRemoveInsurancePolicy = async (insuranceId: string | number) => {
+    const department = menuDepartment || selectedDepartment
+    if (!department) return
     try {
-      const updated = await removeExemptedInsuranceFromDepartment(selectedDepartment.id, insuranceId)
-      setSelectedDepartment(updated)
-      toast({ title: 'Exempted insurance removed' })
+      const currentInsuranceIds = (department.insurancePolicies || []).map((i: any) => String(i.id))
+      const updated = await updateDepartment(department.id, {
+        insuranceProviderIds: currentInsuranceIds.filter((id: string) => id !== String(insuranceId))
+      })
+      
+      // Update both selectedDepartment and menuDepartment if they exist
+      if (selectedDepartment?.id === department.id) {
+        setSelectedDepartment(updated)
+      }
+      if (menuDepartment?.id === department.id) {
+        setMenuDepartment(updated)
+      }
+      
       await refetchDepartments()
+      toast({ title: 'Insurance policy removed successfully', description: 'The insurance policy has been unlinked from the department.' })
     } catch (err: any) {
-      toast({ title: 'Operation failed', description: err?.message || 'Unexpected error' })
+      console.error('Remove insurance error:', err)
+      const errorMessage = err?.message || 'Failed to remove insurance policy from department'
+      toast({ 
+        title: 'Failed to remove insurance policy', 
+        description: errorMessage,
+        variant: 'destructive'
+      })
     }
   }
 
@@ -240,17 +467,46 @@ export default function DepartmentsPage() {
             </div>
           ) : (
             <div className="space-y-2 max-h-[60vh] overflow-auto pr-1">
-              {departments.map((dept: any) => (
-                <button
+              {departments.map((dept) => (
+                <div
                   key={dept.id}
-                  onClick={() => setSelectedDepartment(dept)}
-                  className={`w-full text-left p-3 rounded-xl border ${selectedDepartment?.id === dept.id ? 'bg-muted' : 'bg-background/60'} hover:bg-muted`}
+                  className={`w-full p-3 rounded-xl border ${selectedDepartment?.id === dept.id ? 'bg-muted' : 'bg-background/60'} hover:bg-muted`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">{dept.name}</span>
-                    <span className="text-xs text-muted-foreground">{(dept.actions?.length || 0) + (dept.consumables?.length || 0)} items linked</span>
+                    <button
+                      onClick={() => setSelectedDepartment(dept)}
+                      className="flex-1 text-left"
+                    >
+                      <span className="font-medium">{dept.name}</span>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {dept.defaultProducts?.length || 0} products • {(dept.insurancePolicies || []).length} insurances
+                      </div>
+                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                          </svg>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openDepartmentMenu(dept)}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          Manage Products & Insurances
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSelectedDepartment(dept); openEditModal(); }}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Edit Name
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSelectedDepartment(dept); handleDelete(); }} className="text-destructive">
+                          <Trash className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                </button>
+                </div>
               ))}
               {departments.length === 0 && (
                 <p className="text-sm text-muted-foreground">No departments yet.</p>
@@ -269,7 +525,7 @@ export default function DepartmentsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-foreground">{selectedDepartment.name}</h2>
-                  <p className="text-xs text-muted-foreground">Manage default actions, consumables & exempted insurances</p>
+                  <p className="text-xs text-muted-foreground">Manage default products and insurance policies</p>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -289,116 +545,135 @@ export default function DepartmentsPage() {
                 </div>
               </div>
 
-              {/* Actions section */}
+              {/* Products section */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">Default Actions</h3>
+                  <h3 className="text-sm font-semibold">Default Products</h3>
                   <div className="flex items-center gap-2">
-                    <Select value={selectedActionId} onValueChange={setSelectedActionId}>
-                      <SelectTrigger className="w-56">
-                        <SelectValue placeholder={actionsLoading ? 'Loading...' : 'Select action'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableActions.map((a: any) => (
-                          <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>
-                        ))}
-                        {availableActions.length === 0 && (
-                          <div className="px-2 py-2 text-xs text-muted-foreground">No actions available</div>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <Button size="sm" onClick={handleLinkAction} disabled={!selectedActionId}>Add</Button>
+                    <ProductAutocomplete
+                      products={availableProducts}
+                      selectedProductId={selectedProductId}
+                      onProductSelect={setSelectedProductId}
+                      placeholder={productsLoading ? 'Loading...' : 'Search products...'}
+                      disabled={productsLoading}
+                      className="w-56"
+                    />
+                    <Button size="sm" onClick={handleAddProduct} disabled={!selectedProductId}>Add</Button>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  {(selectedDepartment.actions || []).map((a: any) => (
-                    <div key={a.id} className="flex items-center justify-between p-2 rounded-lg border">
-                      <span className="text-sm">{a.name}</span>
-                      <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleUnlinkAction(a.id)}>
+                  {(selectedDepartment.defaultProducts || []).map((product: any) => (
+                    <div key={product.id} className="flex items-center justify-between p-2 rounded-lg border">
+                      <span className="text-sm">{product.name}</span>
+                      <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleRemoveProduct(product.id)}>
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
                   ))}
-                  {(selectedDepartment.actions || []).length === 0 && (
-                    <p className="text-xs text-muted-foreground">No actions linked.</p>
+                  {(selectedDepartment.defaultProducts || []).length === 0 && (
+                    <p className="text-xs text-muted-foreground">No products linked.</p>
                   )}
                 </div>
               </div>
 
-              {/* Consumables section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">Default Consumables</h3>
+              {/* Insurance policies section - moved under products */}
+              <div className="space-y-4">
+                <div className="flex flex-col space-y-3">
                   <div className="flex items-center gap-2">
-                    <Select value={selectedConsumableId} onValueChange={setSelectedConsumableId}>
-                      <SelectTrigger className="w-56">
-                        <SelectValue placeholder={consumablesLoading ? 'Loading...' : 'Select consumable'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableConsumables.map((c: any) => (
-                          <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                        ))}
-                        {availableConsumables.length === 0 && (
-                          <div className="px-2 py-2 text-xs text-muted-foreground">No consumables available</div>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <Button size="sm" onClick={handleLinkConsumable} disabled={!selectedConsumableId}>Add</Button>
+                    <h3 className="text-sm font-semibold">Insurance Policies</h3>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs bg-muted/50 hover:bg-muted/70 rounded-full">
+                          {selectedDepartment.insurancePolicyMode === 'ALL' 
+                            ? 'All insurances apply' 
+                            : selectedDepartment.insurancePolicyMode === 'ONLY' 
+                            ? 'Only selected insurances apply' 
+                            : 'Selected insurances exempted'}
+                          <svg className="h-3 w-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem onClick={() => handlePolicyModeChange(selectedDepartment, 'ALL')}>
+                          All insurances apply
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handlePolicyModeChange(selectedDepartment, 'ONLY')}>
+                          Only selected insurances apply
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handlePolicyModeChange(selectedDepartment, 'EXCEPT')}>
+                          Selected insurances exempted
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
+
+                  {selectedDepartment.insurancePolicyMode === 'ALL' && (
+                    <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>All insurance policies apply</strong> to this department. Click the policy badge above to change this setting and enable selective insurance management.
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedDepartment.insurancePolicyMode !== 'ALL' && (
+                    <div className="space-y-3">
+                      <div className="bg-muted/30 rounded-lg p-3">
+                        <p className="text-xs text-muted-foreground mb-2">Add Insurance Policy</p>
+                        <div className="flex flex-col space-y-2">
+                          <InsuranceAutocomplete
+                            insurances={availableInsurances.filter(insurance => 
+                              !(selectedDepartment.insurancePolicies || []).some((existing: any) => 
+                                String(existing.id) === String(insurance.id)
+                              )
+                            )}
+                            selectedInsuranceId={selectedInsuranceId}
+                            onInsuranceSelect={setSelectedInsuranceId}
+                            placeholder={insurancesLoading ? 'Loading...' : 'Search insurances...'}
+                            disabled={insurancesLoading}
+                            className="w-full"
+                          />
+                          <Button 
+                            size="sm" 
+                            onClick={handleAddInsurancePolicy} 
+                            disabled={!selectedInsuranceId}
+                            className="w-full"
+                          >
+                            Add Insurance Policy
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
-                  {(selectedDepartment.consumables || []).map((c: any) => (
-                    <div key={c.id} className="flex items-center justify-between p-2 rounded-lg border">
-                      <span className="text-sm">{c.name}</span>
-                      <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleUnlinkConsumable(c.id)}>
-                        <X className="h-4 w-4" />
-                      </Button>
+                  {(selectedDepartment.insurancePolicies || []).map((insurance: any) => (
+                    <div key={insurance.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                      <div className="flex-1">
+                        <span className="text-sm font-medium">{insurance.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">({insurance.acronym})</span>
+                      </div>
+                      {selectedDepartment.insurancePolicyMode !== 'ALL' && (
+                        <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleRemoveInsurancePolicy(insurance.id)}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   ))}
-                  {(selectedDepartment.consumables || []).length === 0 && (
-                    <p className="text-xs text-muted-foreground">No consumables linked.</p>
+                  {(selectedDepartment.insurancePolicies || []).length === 0 && (
+                    <div className="text-center py-4">
+                      <p className="text-xs text-muted-foreground">
+                        {selectedDepartment.insurancePolicyMode === 'ALL' 
+                          ? 'All insurance policies apply to this department.' 
+                          : 'No insurance policies linked. Add your first policy above.'}
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* Exempted insurances section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">Exempted Insurances</h3>
-                  <div className="flex items-center gap-2">
-                    <Select value={selectedInsuranceId} onValueChange={setSelectedInsuranceId}>
-                      <SelectTrigger className="w-56">
-                        <SelectValue placeholder={insurancesLoading ? 'Loading...' : 'Select insurance'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableInsurances.map((i: any) => (
-                          <SelectItem key={i.id} value={String(i.id)}>{i.name}</SelectItem>
-                        ))}
-                        {availableInsurances.length === 0 && (
-                          <div className="px-2 py-2 text-xs text-muted-foreground">No insurances available</div>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <Button size="sm" onClick={handleAddExemptedInsurance} disabled={!selectedInsuranceId}>Add</Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {(selectedDepartment.exemptedInsurances || []).map((i: any) => (
-                    <div key={i.id} className="flex items-center justify-between p-2 rounded-lg border">
-                      <span className="text-sm">{i.name} <span className="text-xs text-muted-foreground">({i.acronym})</span></span>
-                      <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleRemoveExemptedInsurance(i.id)}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  {(selectedDepartment.exemptedInsurances || []).length === 0 && (
-                    <p className="text-xs text-muted-foreground">No exempted insurances.</p>
-                  )}
-                </div>
-              </div>
             </>
           )}
         </section>
@@ -410,15 +685,264 @@ export default function DepartmentsPage() {
           <DialogHeader>
             <DialogTitle>{modalMode === 'add' ? 'Add Department' : 'Edit Department'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-5">
             <label className="text-sm">Name</label>
             <Input value={departmentName} onChange={(e) => setDepartmentName(e.target.value)} placeholder="Department name" />
+            
+            {modalMode === 'add' && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm">Insurance Policy Mode</label>
+                  <Select value={departmentInsurancePolicyMode} onValueChange={setDepartmentInsurancePolicyMode}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Optional policy mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All insurances apply</SelectItem>
+                      <SelectItem value="ONLY">Only selected insurances apply</SelectItem>
+                      <SelectItem value="EXCEPT">Selected insurances are exempted</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3 rounded-xl border border-border/60 p-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Initial Products</label>
+                    <span className="text-xs text-muted-foreground">Optional</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ProductAutocomplete
+                      products={modalAvailableProducts}
+                      selectedProductId={pendingProductId}
+                      onProductSelect={setPendingProductId}
+                      placeholder={productsLoading ? 'Loading products...' : 'Search products...'}
+                      disabled={productsLoading}
+                      className="flex-1"
+                    />
+                    <Button type="button" size="sm" onClick={handleAddModalProduct} disabled={!pendingProductId}>Add</Button>
+                  </div>
+                  <div className="space-y-2">
+                    {departmentProductIds.map((productId) => {
+                      const product = products.find((item: any) => String(item.id) === productId)
+                      return (
+                        <div key={productId} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                          <span className="text-sm">{product?.name || productId}</span>
+                          <Button type="button" variant="outline" size="icon" className="rounded-full" onClick={() => handleRemoveModalProduct(productId)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )
+                    })}
+                    {departmentProductIds.length === 0 && <p className="text-xs text-muted-foreground">No products selected.</p>}
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-xl border border-border/60 p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm font-medium">Initial Insurances</label>
+                      {departmentInsurancePolicyMode === 'ALL' && (
+                        <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">
+                          All insurances apply - no additions needed
+                        </span>
+                      )}
+                    </div>
+                    {departmentInsurancePolicyMode !== 'ALL' && (
+                      <span className="text-xs text-muted-foreground">Optional</span>
+                    )}
+                  </div>
+                  {departmentInsurancePolicyMode !== 'ALL' && (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <InsuranceAutocomplete
+                          insurances={modalAvailableInsurances.filter((insurance: any) => 
+                            !departmentInsuranceIds.includes(String(insurance.id))
+                          )}
+                          selectedInsuranceId={pendingInsuranceId}
+                          onInsuranceSelect={setPendingInsuranceId}
+                          placeholder={insurancesLoading ? 'Loading insurances...' : 'Search insurances...'}
+                          disabled={insurancesLoading}
+                          className="flex-1"
+                        />
+                        <Button type="button" size="sm" onClick={handleAddModalInsurance} disabled={!pendingInsuranceId}>Add</Button>
+                      </div>
+                    </>
+                  )}
+                  <div className="space-y-2">
+                    {departmentInsuranceIds.map((insuranceId) => {
+                      const insurance = insurances.find((item: any) => String(item.id) === insuranceId)
+                      return (
+                        <div key={insuranceId} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                          <span className="text-sm">{insurance?.name || insuranceId}</span>
+                          {departmentInsurancePolicyMode !== 'ALL' && (
+                            <Button type="button" variant="outline" size="icon" className="rounded-full" onClick={() => handleRemoveModalInsurance(insuranceId)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      )
+                    })}
+                    {departmentInsuranceIds.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {departmentInsurancePolicyMode === 'ALL' 
+                          ? 'All insurance policies will apply to this department.' 
+                          : 'No insurances selected.'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsModalOpen(false)} className="rounded-full">Cancel</Button>
             <Button onClick={handleCreateOrUpdate} disabled={saving || !departmentName.trim()} className="rounded-full">
               {modalMode === 'add' ? 'Create' : 'Save'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Department Management Menu */}
+      <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Department: {menuDepartment?.name}</DialogTitle>
+          </DialogHeader>
+          {menuDepartment && (
+            <div className="space-y-6">
+              {/* Products section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Default Products</h3>
+                  <div className="flex items-center gap-2">
+                    <ProductAutocomplete
+                      products={availableProducts}
+                      selectedProductId={selectedProductId}
+                      onProductSelect={setSelectedProductId}
+                      placeholder={productsLoading ? 'Loading...' : 'Search products...'}
+                      disabled={productsLoading}
+                      className="w-56"
+                    />
+                    <Button size="sm" onClick={handleAddProduct} disabled={!selectedProductId}>Add</Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {(menuDepartment.defaultProducts || []).map((product: any) => (
+                    <div key={product.id} className="flex items-center justify-between p-2 rounded-lg border">
+                      <span className="text-sm">{product.name}</span>
+                      <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleRemoveProduct(product.id)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {(menuDepartment.defaultProducts || []).length === 0 && (
+                    <p className="text-xs text-muted-foreground">No products linked.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Insurance policies section */}
+              <div className="space-y-4">
+                <div className="flex flex-col space-y-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold">Insurance Policies</h3>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs bg-muted/50 hover:bg-muted/70 rounded-full">
+                          {menuDepartment.insurancePolicyMode === 'ALL' 
+                            ? 'All insurances apply' 
+                            : menuDepartment.insurancePolicyMode === 'ONLY' 
+                            ? 'Only selected insurances apply' 
+                            : 'Selected insurances exempted'}
+                          <svg className="h-3 w-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem onClick={() => handlePolicyModeChange(menuDepartment, 'ALL')}>
+                          All insurances apply
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handlePolicyModeChange(menuDepartment, 'ONLY')}>
+                          Only selected insurances apply
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handlePolicyModeChange(menuDepartment, 'EXCEPT')}>
+                          Selected insurances exempted
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  {menuDepartment.insurancePolicyMode === 'ALL' && (
+                    <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>All insurance policies apply</strong> to this department. Click the policy badge above to change this setting and enable selective insurance management.
+                      </p>
+                    </div>
+                  )}
+
+                  {menuDepartment.insurancePolicyMode !== 'ALL' && (
+                    <div className="space-y-3">
+                      <div className="bg-muted/30 rounded-lg p-3">
+                        <p className="text-xs text-muted-foreground mb-2">Add Insurance Policy</p>
+                        <div className="flex flex-col space-y-2">
+                          <InsuranceAutocomplete
+                            insurances={availableInsurances.filter(insurance => 
+                              !(menuDepartment.insurancePolicies || []).some((existing: any) => 
+                                String(existing.id) === String(insurance.id)
+                              )
+                            )}
+                            selectedInsuranceId={selectedInsuranceId}
+                            onInsuranceSelect={setSelectedInsuranceId}
+                            placeholder={insurancesLoading ? 'Loading...' : 'Search insurances...'}
+                            disabled={insurancesLoading}
+                            className="w-full"
+                          />
+                          <Button 
+                            size="sm" 
+                            onClick={handleAddInsurancePolicy} 
+                            disabled={!selectedInsuranceId}
+                            className="w-full"
+                          >
+                            Add Insurance Policy
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {(menuDepartment.insurancePolicies || []).map((insurance: any) => (
+                    <div key={insurance.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                      <div className="flex-1">
+                        <span className="text-sm font-medium">{insurance.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">({insurance.acronym})</span>
+                      </div>
+                      {menuDepartment.insurancePolicyMode !== 'ALL' && (
+                        <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleRemoveInsurancePolicy(insurance.id)}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  {(menuDepartment.insurancePolicies || []).length === 0 && (
+                    <div className="text-center py-4">
+                      <p className="text-xs text-muted-foreground">
+                        {menuDepartment.insurancePolicyMode === 'ALL' 
+                          ? 'All insurance policies apply to this department.' 
+                          : 'No insurance policies linked. Add your first policy above.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={closeDepartmentMenu} className="rounded-full">Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

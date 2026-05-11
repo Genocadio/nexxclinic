@@ -5,6 +5,8 @@ export interface BillingItem {
   name: string;
   quantity: number;
   price: number;
+  basePrice?: number;
+  insuranceCoverageCosts?: Record<string, number>;
   type: 'action' | 'consumable';
   departmentId?: string;
   departmentName?: string;

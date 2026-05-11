@@ -283,9 +283,14 @@ export function BillingItemsList({
                             <Select
                               value={item.selectedInsuranceId || 'none'}
                               onValueChange={(value) => {
+                                const nextInsuranceId = value === 'none' ? undefined : value;
+                                const fallbackBasePrice = item.basePrice ?? item.price;
+                                const coverageCost = nextInsuranceId ? item.insuranceCoverageCosts?.[nextInsuranceId] : undefined;
+
                                 onItemChange({
                                   ...item,
-                                  selectedInsuranceId: value === 'none' ? undefined : value,
+                                  selectedInsuranceId: nextInsuranceId,
+                                  price: Number.isFinite(coverageCost as number) ? (coverageCost as number) : fallbackBasePrice,
                                 });
                               }}
                               disabled={availableInsurances.length === 0 || item.paymentStatus === 'paid'}

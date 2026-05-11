@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { gql, useMutation } from '@apollo/client';
 import { BillingItemsList } from '@/components/BillingItemsList';
 import { BillingExemptions } from '@/components/BillingExemptions';
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,7 @@ import { useVisit, type Visit, useUpdatePatient, useInsurances, useCreateBill, u
 import { useAddActionToVisitDepartment, useAddConsumableToVisitDepartment } from '@/hooks/auth-hooks';
 import { useUpdateVisitDepartmentStatus } from '@/hooks/auth-hooks';
 import { useAddVisitNote } from '@/hooks/auth-hooks';
+import { useAddInsuranceToVisit } from '@/hooks/auth-hooks';
 import { Spinner } from '@/components/ui/spinner';
 import { Skeleton } from '@/components/ui/skeleton';
 import AddActionConsumableModal from '@/components/add-action-consumable-modal';
@@ -38,36 +38,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 
-const ADD_INSURANCE_TO_VISIT = gql`
-  mutation AddInsuranceToVisit($visitId: ID!, $insuranceId: ID!) {
-    addInsuranceToVisit(visitId: $visitId, insuranceId: $insuranceId) {
-      status
-      data {
-        id
-        insurances {
-          id
-          name
-          acronym
-          coveragePercentage
-        }
-      }
-      messages {
-        text
-        type
-      }
-    }
-  }
-`;
-
 function BillingPageContent() {
   const searchParams = useSearchParams();
   const visitId = searchParams.get('visitId');
   const autoPrint = searchParams.get('autoprint') === '1';
   const { visit, loading, error, refetch: refetchVisit } = useVisit(visitId);
   const { insurances: availableInsurances } = useInsurances();
-  const [addInsuranceToVisit, { loading: addingVisitInsurance }] = useMutation(
-    ADD_INSURANCE_TO_VISIT,
-  );
+  const { addInsuranceToVisit, loading: addingVisitInsurance } = useAddInsuranceToVisit();
   const { createBill, loading: creatingBill } = useCreateBill();
   const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice();
   const { bill: existingBill, loading: loadingBill, refetch: refetchBill } = useGetBillByVisit(visitId);
@@ -116,6 +93,27 @@ function BillingPageContent() {
     const insurances = visitData.insurances || [];
     const defaultInsuranceId = insurances[0]?.id ? String(insurances[0].id) : undefined;
 
+    const buildCoverageCostMap = (coverages?: Array<{ insurance?: { id?: string | number }; cost?: number; price?: number }>) =>
+      (coverages || []).reduce<Record<string, number>>((acc, coverage) => {
+        const insuranceId = coverage?.insurance?.id;
+        if (insuranceId === undefined || insuranceId === null) return acc;
+        const numericCost = Number(coverage?.cost ?? coverage?.price);
+        if (Number.isFinite(numericCost)) {
+          acc[String(insuranceId)] = numericCost;
+        }
+        return acc;
+      }, {});
+
+    const resolvePrice = (
+      basePrice: number,
+      coverageCosts: Record<string, number>,
+      insuranceId?: string,
+    ) => {
+      if (!insuranceId) return basePrice;
+      const coverageCost = coverageCosts[insuranceId];
+      return Number.isFinite(coverageCost) ? coverageCost : basePrice;
+    };
+
     const items: BillingItem[] = [];
 
     visitData.departments?.forEach((dept) => {
@@ -125,11 +123,15 @@ function BillingPageContent() {
       const deptStatus = dept.status;
 
       dept.actions?.forEach((act) => {
+        const basePrice = Number(act.action?.privatePrice ?? 0);
+        const coverageCosts = buildCoverageCostMap(act.action?.insuranceCoverages);
         items.push({
           id: act.id,
           name: act.action?.name || 'Action',
           quantity: act.quantity || 1,
-          price: act.action?.privatePrice || 0,
+          price: resolvePrice(basePrice, coverageCosts, defaultInsuranceId),
+          basePrice,
+          insuranceCoverageCosts: coverageCosts,
           type: 'action',
           departmentId: deptId,
           departmentName: deptName,
@@ -147,11 +149,15 @@ function BillingPageContent() {
       });
 
       dept.consumables?.forEach((cons) => {
+        const basePrice = Number(cons.consumable?.privatePrice ?? 0);
+        const coverageCosts = buildCoverageCostMap(cons.consumable?.insuranceCoverages);
         items.push({
           id: cons.id,
           name: cons.consumable?.name || 'Consumable',
           quantity: cons.quantity || 1,
-          price: cons.consumable?.privatePrice || 0,
+          price: resolvePrice(basePrice, coverageCosts, defaultInsuranceId),
+          basePrice,
+          insuranceCoverageCosts: coverageCosts,
           type: 'consumable',
           departmentId: deptId,
           departmentName: deptName,
@@ -513,10 +519,10 @@ function BillingPageContent() {
 
       if (notCompleted.length > 0) {
         for (const dept of notCompleted) {
-          const deptId = String(dept.department?.id || dept.id || '');
-          if (!deptId) continue;
+          const visitDeptId = String(dept.id || '');
+          if (!visitDeptId) continue;
 
-          const res = await updateDepartmentStatus(String(visit.id), deptId, 'COMPLETED');
+          const res = await updateDepartmentStatus(visitDeptId, 'COMPLETED');
           if (res?.status !== 'SUCCESS') {
             toast.error(res?.messages?.[0]?.text || 'Failed to complete department during discharge');
             return;
@@ -525,9 +531,9 @@ function BillingPageContent() {
       } else {
         // Re-apply completed status to last department to trigger backend visit completion aggregation.
         const fallbackDepartment = allDepartments[allDepartments.length - 1];
-        const fallbackId = String(fallbackDepartment?.department?.id || fallbackDepartment?.id || '');
+        const fallbackId = String(fallbackDepartment?.id || '');
         if (fallbackId) {
-          await updateDepartmentStatus(String(visit.id), fallbackId, 'COMPLETED');
+          await updateDepartmentStatus(fallbackId, 'COMPLETED');
         }
       }
 
@@ -860,12 +866,7 @@ function BillingPageContent() {
     if (!visitId) return;
 
     try {
-      await addInsuranceToVisit({
-        variables: {
-          visitId,
-          insuranceId,
-        },
-      });
+      await addInsuranceToVisit(visitId, insuranceId);
       await refetchVisit();
     } catch (err) {
       console.error('Failed to add insurance to visit:', err);

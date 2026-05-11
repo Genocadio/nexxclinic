@@ -2,7 +2,7 @@
 
 import type { Patient, Consultation } from "@/lib/types"
 import { Calendar, Eye, AlertCircle, TrendingUp, FileText } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 
 interface MedicalHistoryProps {
@@ -12,7 +12,20 @@ interface MedicalHistoryProps {
 
 export default function MedicalHistory({ patient, onConsultationSelect }: MedicalHistoryProps) {
   const [expandedConsultation, setExpandedConsultation] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<"timeline" | "list">("timeline")
+  const [viewMode, setViewMode] = useState<"timeline" | "list">(() => {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('medical-history-view-mode')
+    return saved === 'list' ? 'list' : 'timeline'
+  }
+  return 'timeline'
+})
+
+  // Save view mode to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('medical-history-view-mode', viewMode)
+    }
+  }, [viewMode])
 
   const sortedConsultations = [...patient.consultations].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),

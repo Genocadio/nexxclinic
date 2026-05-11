@@ -1,18 +1,23 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useRef, type UIEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { Search, X, Pill } from "lucide-react"
+import { Search, X, Pill, Filter } from "lucide-react"
+import { useProductSearch } from "@/hooks/products"
+
+type ProductTypeFilter = 'ALL' | 'DRUG' | 'MEDICAL_ACT' | 'BIOLOGICAL_ACT' | 'CONSUMABLE_DEVICE'
 
 interface ActionOrConsumable {
   id: string
   name: string
   privatePrice: number
   isQuantifiable?: boolean
+  type?: ProductTypeFilter
+  description?: string
 }
 
 interface AddActionConsumableModalProps {
@@ -34,82 +39,66 @@ export default function AddActionConsumableModal({
   onAdd,
   isSubmitting = false,
 }: AddActionConsumableModalProps) {
-  const [type, setType] = useState<'action' | 'consumable'>('action')
+  const filterOptions: ProductTypeFilter[] = ['ALL', 'DRUG', 'MEDICAL_ACT', 'BIOLOGICAL_ACT', 'CONSUMABLE_DEVICE']
+  const [productType, setProductType] = useState<ProductTypeFilter>('ALL')
+  const [showFilterOptions, setShowFilterOptions] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [suggestions, setSuggestions] = useState<ActionOrConsumable[]>([])
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null)
   const [selectedItem, setSelectedItem] = useState<ActionOrConsumable | null>(null)
   const [quantity, setQuantity] = useState('1')
   const [selectedDepartmentId, setSelectedDepartmentId] = useState(currentDepartmentId || '')
-  const [loading, setLoading] = useState(false)
+  const isFetchingMoreRef = useRef(false)
+  const {
+    products: searchedProducts,
+    loading,
+    hasMore,
+    loadMore,
+  } = useProductSearch(debouncedSearchQuery, { type: productType, size: 10 })
 
   // Keep department selection in sync with the view's current department
   useEffect(() => {
-    if (currentDepartmentId) {
+    if (currentDepartmentId && currentDepartmentId !== selectedDepartmentId) {
       setSelectedDepartmentId(currentDepartmentId)
     }
-  }, [currentDepartmentId, isOpen])
+  }, [currentDepartmentId, selectedDepartmentId])
 
-  // Search function - call backend API
-  const handleSearch = useCallback(async (query: string) => {
-    if (query.trim().length < 2) {
-      setSuggestions([])
+  // Debounce the search input before querying the shared products hook.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim().length >= 2 ? searchQuery.trim() : '')
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  useEffect(() => {
+    if (!debouncedSearchQuery) {
+      setSuggestions((prev) => (prev && prev.length ? [] : prev))
       return
     }
 
-    setLoading(true)
-    try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'
-      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') || '' : ''
-      const isAction = type === 'action'
-      const gqlQuery = isAction
-        ? `query SearchActions($name: String, $page: Int, $size: Int) { getActions(name: $name, page: $page, size: $size) { data { content { id name quantifiable privatePrice } } } }`
-        : `query SearchConsumables($name: String, $page: Int, $size: Int) { getConsumables(name: $name, page: $page, size: $size) { data { content { id name quantifiable privatePrice } } } }`
-      const variables = { name: query, page: 0, size: 10 }
-
-      const response = await fetch(`${baseUrl}/graphql`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : '',
-        },
-        body: JSON.stringify({ query: gqlQuery, variables }),
-      })
-      
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
-      }
-      
-      const data = await response.json()
-      const items = isAction
-        ? data?.data?.getActions?.data?.content || []
-        : data?.data?.getConsumables?.data?.content || []
-      const results = items.map((item: any) => ({
-        id: String(item.id), // Preserve search result ID (used for addActionToVisitDepartment)
+    const results = (searchedProducts || [])
+      .map((item: any) => ({
+        id: String(item.id),
         name: item.name,
-        privatePrice: item.privatePrice || 0,
-        isQuantifiable: item.quantifiable !== false,
-        // Preserve complete item data for later reference
-        ...item, // Include all fields from backend response
+        privatePrice: Number(item.privateRhicPrice ?? item.clinicPrice ?? 0),
+        isQuantifiable: true,
+        type: item.type,
+        description: item.description,
+        ...item,
       }))
-      
-      console.log('Search results:', results)
-      setSuggestions(results)
-    } catch (err) {
-      console.error('Search error:', err)
-      setSuggestions([])
-    } finally {
-      setLoading(false)
-    }
-  }, [type])
 
-  // Debounced search effect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      handleSearch(searchQuery)
-    }, 300) // Wait 300ms after user stops typing
-
-    return () => clearTimeout(timer)
-  }, [searchQuery, type, handleSearch])
+    // Only update suggestions if results changed (avoid repeated identical setState)
+    setSuggestions((prev) => {
+      const prevIds = (prev || []).map((p) => p.id).join(',')
+      const nextIds = (results || []).map((r) => r.id).join(',')
+      if (prevIds === nextIds) return prev
+      return results
+    })
+  }, [debouncedSearchQuery, searchedProducts, productType])
 
   const handleSelectItem = (item: ActionOrConsumable) => {
     setSelectedItem(item)
@@ -119,7 +108,8 @@ export default function AddActionConsumableModal({
     if (!selectedItem || !selectedDepartmentId) return
 
     const qty = parseInt(quantity, 10) || 1
-    onAdd(type, selectedItem, qty, selectedDepartmentId)
+    const itemType = selectedItem.type === 'CONSUMABLE_DEVICE' ? 'consumable' : 'action'
+    onAdd(itemType, selectedItem, qty, selectedDepartmentId)
 
     // Reset form
     setSelectedItem(null)
@@ -134,7 +124,26 @@ export default function AddActionConsumableModal({
     setQuantity('1')
     setSearchQuery('')
     setSuggestions([])
+    setShowFilterOptions(false)
     onClose()
+  }
+
+  const handleSuggestionsScroll = async (e: UIEvent<HTMLDivElement>) => {
+    const element = e.currentTarget
+    const nearBottom = element.scrollTop + element.clientHeight >= element.scrollHeight - 24
+
+    if (!nearBottom) return
+    if (!hasMore) return
+    if (loading || loadingMore || isFetchingMoreRef.current) return
+
+    try {
+      isFetchingMoreRef.current = true
+      setLoadingMore(true)
+      await loadMore()
+    } finally {
+      setLoadingMore(false)
+      isFetchingMoreRef.current = false
+    }
   }
 
   return (
@@ -143,71 +152,87 @@ export default function AddActionConsumableModal({
     }}>
       <DialogContent showCloseButton={false} className="sm:max-w-[600px] backdrop-blur-xl bg-white/10 dark:bg-black/20 rounded-3xl border border-white/20 shadow-2xl">
         <DialogHeader className="text-center space-y-2">
-          <DialogTitle className="text-center">Add {type === 'action' ? 'Action' : 'Consumable'}</DialogTitle>
+          <DialogTitle className="text-center">Add Product</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Spotlight-style Search Box - Hidden when item selected */}
           {!selectedItem && (
           <div className="relative bg-white dark:bg-gray-900 rounded-2xl border border-border shadow-md overflow-hidden">
-            {/* Type Selection Pills - Replaces filter pills */}
-            <div className="px-4 pt-3 pb-2 border-b border-border/30 transition-opacity opacity-60 hover:opacity-100">
-              <div className="flex gap-2 items-center justify-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setType('action')
-                    setSearchQuery('')
-                    setSuggestions([])
-                    setSelectedItem(null)
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
-                    type === 'action'
-                      ? "bg-primary text-primary-foreground shadow-md scale-105"
-                      : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Action
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setType('consumable')
-                    setSearchQuery('')
-                    setSuggestions([])
-                    setSelectedItem(null)
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
-                    type === 'consumable'
-                      ? "bg-primary text-primary-foreground shadow-md scale-105"
-                      : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Consumable
-                </button>
+            {/* Search Input */}
+            <div className="px-4 py-3 flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setShowFilterOptions(false)}
+                  className="pl-10 pr-10 h-12 text-base bg-transparent border border-gray-300 dark:border-gray-700 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
               </div>
+
+              <Button
+                type="button"
+                variant={productType === 'ALL' ? 'outline' : 'default'}
+                size="icon"
+                className="h-12 w-12"
+                onClick={() => setShowFilterOptions((prev) => !prev)}
+                aria-label="Toggle filters"
+              >
+                <Filter className="h-4 w-4" />
+              </Button>
             </div>
 
-            {/* Search Input */}
-            <div className="relative px-4 py-3">
-              <Search className="absolute left-7 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 pr-10 h-12 text-base bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-7 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              )}
-            </div>
+            {(showFilterOptions || productType !== 'ALL') && (
+              <div className="px-4 pb-3 space-y-2 border-t border-border/30">
+                {showFilterOptions && (
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {filterOptions.map((option) => (
+                      <Button
+                        key={option}
+                        type="button"
+                        size="sm"
+                        variant={productType === option ? 'default' : 'outline'}
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          setProductType(option)
+                          if (option !== 'ALL') {
+                            setShowFilterOptions(false)
+                          }
+                        }}
+                      >
+                        {option}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+
+                {productType !== 'ALL' && (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setProductType('ALL')}
+                      className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-1 text-xs text-primary hover:bg-primary/20"
+                    >
+                      <Filter className="h-3 w-3" />
+                      {productType}
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           )}
 
@@ -228,11 +253,13 @@ export default function AddActionConsumableModal({
 
               {/* Results List */}
               {!loading && suggestions.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1" onScroll={handleSuggestionsScroll}>
                   {suggestions.map((item) => (
                     <div
                       key={item.id}
                       onClick={() => handleSelectItem(item)}
+                      onMouseEnter={() => setHoveredItemId(item.id)}
+                      onMouseLeave={() => setHoveredItemId((prev) => (prev === item.id ? null : prev))}
                       className="p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 bg-background border-border/40 hover:border-primary/50 hover:shadow-sm hover:scale-[1.01]"
                     >
                       <div className="flex items-center justify-between">
@@ -241,10 +268,17 @@ export default function AddActionConsumableModal({
                           <div className="text-sm text-muted-foreground">
                             {item.privatePrice.toLocaleString()} RWF
                           </div>
+                          {hoveredItemId === item.id && (
+                            <div className="mt-2 rounded-md border border-border/50 bg-muted/30 p-2 text-xs text-muted-foreground">
+                              {item.description?.trim() || 'No description available'}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
                   ))}
+                  {loadingMore && <div className="text-center text-xs text-muted-foreground py-1">Loading more...</div>}
+                  {!loadingMore && hasMore && <div className="text-center text-xs text-muted-foreground py-1">Scroll to load more</div>}
                 </div>
               )}
             </div>
@@ -257,7 +291,7 @@ export default function AddActionConsumableModal({
               <div className="bg-primary/5 border border-primary/20 rounded-xl p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <Pill className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">Selected Item</span>
+                  <span className="text-sm font-medium">Selected Product</span>
                 </div>
                 <div className="text-sm text-muted-foreground mb-2">{selectedItem.name}</div>
                 <div className="flex justify-between text-xs">

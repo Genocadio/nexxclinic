@@ -22,12 +22,8 @@ import { useRouter } from "next/navigation"
 import { ADMIN_ROLE, canManageAdminUsers, hasAdminAccess, isManagerWithoutAdmin } from "@/lib/role-utils"
 import { sanitizeEmailInput, sanitizePhoneInput } from "@/lib/validation-utils"
 
-const ALL_ROLES = ["ADMIN", "MANAGER", "RECEPTIONIST", "OPHTHALMOLOGIST", "NURSE", "DOCTOR", "SPECIALIST", "FINANCE"]
+const ALL_ROLES = ["ADMIN", "MANAGER", "CLINIC_ADMIN", "FINANCE", "STAFF", "RECEPTION", "NURSE", "CLINICIAN"]
 
-const roleDisallowsTitle = (roles: string[]) => {
-  if (roles.includes("RECEPTIONIST") || roles.includes("FINANCE")) return true
-  return roles.length === 1 && roles[0] === "ADMIN"
-}
 
 export default function ManageUsersPage() {
   const { doctor } = useAuth()
@@ -43,11 +39,15 @@ export default function ManageUsersPage() {
 
   const [query, setQuery] = useState("")
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
-  const [name, setName] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [gender, setGender] = useState("")
+  const [dateOfBirth, setDateOfBirth] = useState("")
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState("")
   const [email, setEmail] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
-  const [title, setTitle] = useState("")
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(["DOCTOR"])
+  const [username, setUsername] = useState("")
+  const [selectedRoles, setSelectedRoles] = useState<string[]>(["CLINICIAN"])
   const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<string[]>([])
 
   const isBusy = creating || activating || deactivating || updatingRoles || updatingUser || forcingReset
@@ -69,26 +69,24 @@ export default function ManageUsersPage() {
     if (!query.trim()) return users
     const q = query.trim().toLowerCase()
     return users.filter((u) => {
-      const pool = [u.name, u.email, u.phoneNumber, u.title || "", ...(u.roles || []), ...(u.departments?.map((d) => d.name) || [])]
+      const fullName = `${u.firstName || ""} ${u.lastName || ""}`.trim()
+      const pool = [fullName, u.email, u.phoneNumber, ...(u.roles || []), u.department?.name || ""]
       return pool.some((v) => v.toLowerCase().includes(q))
     })
   }, [query, users])
 
-  const titleAllowedForSelectedRoles = !roleDisallowsTitle(selectedRoles)
-
-  useEffect(() => {
-    if (!titleAllowedForSelectedRoles && title) {
-      setTitle("")
-    }
-  }, [titleAllowedForSelectedRoles, title])
-
+  
   const resetForm = () => {
     setEditingUserId(null)
-    setName("")
+    setFirstName("")
+    setLastName("")
     setEmail("")
     setPhoneNumber("")
-    setTitle("")
-    setSelectedRoles(["DOCTOR"])
+    setGender("")
+    setDateOfBirth("")
+    setProfilePhotoUrl("")
+    setUsername("")
+    setSelectedRoles(["CLINICIAN"])
     setSelectedDepartmentIds([])
   }
 
@@ -106,13 +104,17 @@ export default function ManageUsersPage() {
     }
 
     setEditingUserId(user.id)
-    setName(user.name || "")
+    setFirstName(user.firstName || "")
+    setLastName(user.lastName || "")
     setEmail(user.email || "")
     setPhoneNumber(user.phoneNumber || "")
-    const nextRoles = user.roles?.length ? user.roles : ["DOCTOR"]
+    setGender(user.gender || "")
+    setDateOfBirth(user.dateOfBirth || "")
+    setProfilePhotoUrl(user.profilePhotoUrl || "")
+    setUsername(user.username || "")
+    const nextRoles = user.roles?.length ? user.roles : ["CLINICIAN"]
     setSelectedRoles(nextRoles)
-    setTitle(roleDisallowsTitle(nextRoles) ? "" : (user.title || ""))
-    setSelectedDepartmentIds((user.departments || []).map((d) => d.id))
+    setSelectedDepartmentIds(user.department ? [user.department.id] : [])
   }
 
   const toggleRole = (role: string) => {
@@ -129,7 +131,7 @@ export default function ManageUsersPage() {
   const toggleDepartment = (departmentId: string) => {
     setSelectedDepartmentIds((prev) => {
       if (prev.includes(departmentId)) {
-        return prev.filter((id) => id !== departmentId)
+        return prev.filter((id: string) => id !== departmentId)
       }
       return [...prev, departmentId]
     })
@@ -138,8 +140,8 @@ export default function ManageUsersPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!name || !phoneNumber || selectedRoles.length === 0) {
-      toast.error("Name, phone number, and at least one role are required")
+    if (!firstName || selectedRoles.length === 0) {
+      toast.error("First name and at least one role are required")
       return
     }
 
@@ -149,7 +151,6 @@ export default function ManageUsersPage() {
     }
 
     try {
-      const sanitizedTitle = titleAllowedForSelectedRoles ? title : ""
 
       if (!canManageAdminUserAccounts && selectedRoles.includes(ADMIN_ROLE)) {
         toast.error("Manager cannot assign admin role")
@@ -170,10 +171,13 @@ export default function ManageUsersPage() {
 
         const updateResp = await adminUpdateUser({
           userId: editingUserId,
-          name,
+          firstName,
+          lastName,
           phoneNumber,
-          title: sanitizedTitle,
           departmentIds: selectedDepartmentIds,
+          gender,
+          dateOfBirth,
+          profilePhotoUrl,
         })
 
         if (updateResp?.status !== "SUCCESS") {
@@ -190,12 +194,16 @@ export default function ManageUsersPage() {
         toast.success("User updated")
       } else {
         const createResp = await adminCreateUser({
-          name,
+          firstName,
+          lastName,
           email,
           phoneNumber,
-          title: sanitizedTitle,
+          username,
           roles: selectedRoles,
           departmentIds: selectedDepartmentIds,
+          gender,
+          dateOfBirth,
+          profilePhotoUrl,
         })
 
         if (createResp?.status !== "SUCCESS") {
@@ -227,12 +235,12 @@ export default function ManageUsersPage() {
     }
 
     try {
-      const response = user.active ? await deactivateUser(user.id) : await activateUser(user.id)
+      const response = user.accountStatus === 'ACTIVE' ? await deactivateUser(user.id) : await activateUser(user.id)
       if (response?.status !== "SUCCESS") {
         toast.error(response?.messages?.[0]?.text || "Could not update activation")
         return
       }
-      toast.success(user.active ? "User deactivated" : "User activated")
+      toast.success(user.accountStatus === 'ACTIVE' ? "User deactivated" : "User activated")
       await refetch()
     } catch {
       toast.error("Could not update activation")
@@ -313,7 +321,8 @@ export default function ManageUsersPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Input placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+              <Input placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
               <Input
                 placeholder="Email"
                 type="email"
@@ -322,13 +331,33 @@ export default function ManageUsersPage() {
                 disabled={Boolean(editingUserId)}
               />
               <Input placeholder="Phone number" value={phoneNumber} onChange={(e) => setPhoneNumber(sanitizePhoneInput(e.target.value))} />
-              {titleAllowedForSelectedRoles ? (
-                <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-              ) : (
-                <div className="md:col-span-1 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-                  Title is not allowed for selected roles.
-                </div>
-              )}
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                className="px-3 py-2 border border-border rounded-md bg-background text-foreground"
+              >
+                <option value="">Select Gender</option>
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+                <option value="OTHER">Other</option>
+              </select>
+              <Input
+                placeholder="Date of Birth"
+                type="date"
+                value={dateOfBirth}
+                onChange={(e) => setDateOfBirth(e.target.value)}
+              />
+              <Input
+                placeholder="Profile Photo URL"
+                value={profilePhotoUrl}
+                onChange={(e) => setProfilePhotoUrl(e.target.value)}
+              />
+              <Input
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={Boolean(editingUserId)}
+              />
             </div>
 
             <div className="space-y-2">
@@ -360,7 +389,7 @@ export default function ManageUsersPage() {
             <div className="space-y-2">
               <p className="text-sm font-medium text-foreground">Departments</p>
               <div className="flex flex-wrap gap-2">
-                {departments.map((department) => {
+                {departments.map((department: any) => {
                   const selected = selectedDepartmentIds.includes(String(department.id))
                   return (
                     <button
@@ -410,7 +439,7 @@ export default function ManageUsersPage() {
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading users...</p>
           ) : error ? (
-            <p className="text-sm text-destructive">{String(error.message || error)}</p>
+            <p className="text-sm text-destructive">{String(error)}</p>
           ) : filteredUsers.length === 0 ? (
             <p className="text-sm text-muted-foreground">No users found.</p>
           ) : (
@@ -427,7 +456,7 @@ export default function ManageUsersPage() {
                 >
                   <div>
                     <div className="flex items-center flex-wrap gap-2">
-                      <p className="font-semibold text-foreground">{user.name}</p>
+                      <p className="font-semibold text-foreground">{user.firstName} {user.lastName}</p>
                       {selfUser && (
                         <span className="px-2 h-6 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs inline-flex items-center">
                           You
@@ -436,9 +465,18 @@ export default function ManageUsersPage() {
                       <span className={`px-2 h-6 rounded-full border text-xs inline-flex items-center ${userIsAdmin ? "border-primary/30 bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
                         {userIsAdmin ? "Admin" : "Non-admin"}
                       </span>
+                      <span className={`px-2 h-6 rounded-full border text-xs inline-flex items-center ${
+                        user.accountStatus === 'ACTIVE' 
+                          ? "border-green-500/30 bg-green-500/10 text-green-700" 
+                          : user.accountStatus === 'PENDING' 
+                          ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-700"
+                          : "border-red-500/30 bg-red-500/10 text-red-700"
+                      }`}>
+                        {user.accountStatus}
+                      </span>
                     </div>
                     <p className="text-sm text-muted-foreground">{user.email} • {user.phoneNumber}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{user.title || "No title"}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Username: {user.username || "Not set"}</p>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {(user.roles || []).map((role) => (
                         <span key={`${user.id}-${role}`} className="px-2 h-6 rounded-full border border-border text-xs inline-flex items-center">
@@ -447,7 +485,7 @@ export default function ManageUsersPage() {
                       ))}
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
-                      Departments: {(user.departments || []).map((d) => d.name).join(", ") || "None"}
+                      Department: {user.department?.name || "None"}
                     </p>
                   </div>
 
@@ -462,16 +500,30 @@ export default function ManageUsersPage() {
                       <Pencil className="h-3.5 w-3.5 mr-1" />
                       Edit
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full"
-                      onClick={() => handleToggleActive(user)}
-                      disabled={isBusy || !canManageThisUser}
-                    >
-                      <Power className="h-3.5 w-3.5 mr-1" />
-                      {user.active ? "Deactivate" : "Activate"}
-                    </Button>
+                    {!selfUser && user.accountStatus === 'ACTIVE' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full"
+                        onClick={() => handleToggleActive(user)}
+                        disabled={isBusy || !canManageThisUser}
+                      >
+                        <Power className="h-3.5 w-3.5 mr-1" />
+                        Deactivate
+                      </Button>
+                    )}
+                    {!selfUser && user.accountStatus !== 'ACTIVE' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full"
+                        onClick={() => handleToggleActive(user)}
+                        disabled={isBusy || !canManageThisUser}
+                      >
+                        <Power className="h-3.5 w-3.5 mr-1" />
+                        Activate
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

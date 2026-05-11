@@ -9,7 +9,7 @@ import { isManagerWithoutAdmin } from "@/lib/role-utils"
 
 const adminActions = [
   { label: "Manage Insurances", icon: ShieldCheck, path: "/admin/insurances" },
-  { label: "Manage Actions & Consumables", icon: Package, path: "/admin/actions-consumables" },
+  { label: "Manage Products", icon: Package, path: "/admin/actions-consumables" },
   { label: "Manage Departments", icon: Building2, path: "/admin/departments" },
   { label: "Manage Users", icon: Users, path: "/admin/users" },
 ]
@@ -48,7 +48,7 @@ export default function AdminDashboardPage() {
                   <p className="text-sm font-semibold text-foreground">{label}</p>
                   <p className="text-xs text-muted-foreground">
                     {label === "Manage Insurances" ? "Create, edit, and delete insurances" : 
-                     label === "Manage Actions & Consumables" ? "Create, edit, and delete actions & consumables" :
+                     label === "Manage Products" ? "Create, edit, and delete products" :
                      label === "Manage Departments" ? "Organize hospital departments" :
                      "Manage system users and permissions"}
                   </p>

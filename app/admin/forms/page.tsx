@@ -23,7 +23,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { ArrowLeft, Plus, Trash2, Upload, Download, Copy, Eye, ArrowUp, ArrowDown, ArrowRight, Bold, Italic, Underline, AlignCenter, Pill } from 'lucide-react'
-import { gql, useLazyQuery, useMutation } from '@apollo/client'
+import { useForms, useForm as useFormsHook, useFormVersionHistory, useCreateForm, useUpdateForm, useFinalizeForm } from '@/hooks/forms'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -76,7 +76,7 @@ interface BackendForm {
   title: string
   description?: string
   status: BackendFormStatus
-  currentVersionNumber?: string
+  version?: string
   sections?: FormSection[]
   fields?: FormField[]
   actions?: FormAction[]
@@ -86,204 +86,17 @@ interface BackendFormListItem {
   id: string
   title: string
   status: BackendFormStatus
-  currentVersionNumber?: string
+  version?: string
   createdAt?: string
   updatedAt?: string
 }
 
-const FORM_SCHEMA_VERSION = 1
 
-const FORM_FRAGMENT = gql`
-  fragment FormBuilderData on Form {
-    id
-    departmentId
-    title
-    description
-    status
-    currentVersionNumber
-    currentSchemaVersion
-    createdAt
-    updatedAt
-    sections {
-      id
-      title
-      boldTitle
-      italicTitle
-      underlineTitle
-      centerTitle
-      columns
-      order
-      fields {
-        id
-        label
-        type
-        placeholder
-        required
-        order
-        hideLabel
-        boldLabel
-        italicLabel
-        underlineLabel
-        centerLabel
-        options
-        tableConfig {
-          mode
-          rows
-          columns
-          headerPlacement
-          columnHeaders
-          rowHeaders
-        }
-        conditionalRendering {
-          dependsOn
-          condition
-          value
-          itemType
-        }
-      }
-    }
-    fields {
-      id
-      label
-      type
-      placeholder
-      required
-      order
-      hideLabel
-      boldLabel
-      italicLabel
-      underlineLabel
-      centerLabel
-      options
-      tableConfig {
-        mode
-        rows
-        columns
-        headerPlacement
-        columnHeaders
-        rowHeaders
-      }
-      conditionalRendering {
-        dependsOn
-        condition
-        value
-        itemType
-      }
-    }
-    actions {
-      id
-      name
-      type
-      quantity
-      price
-      isQuantifiable
-      backendId
-    }
-  }
-`
 
-const GET_FORMS_QUERY = gql`
-  query GetFormsForDepartment($departmentId: ID!) {
-    getForms(departmentId: $departmentId) {
-      status
-      messages {
-        text
-        type
-      }
-      data {
-        id
-        departmentId
-        title
-        status
-        currentVersionNumber
-        createdAt
-        updatedAt
-      }
-    }
-  }
-`
 
-const GET_FORM_QUERY = gql`
-  query GetForm($departmentId: ID!, $formId: ID!) {
-    getForm(departmentId: $departmentId, formId: $formId) {
-      status
-      messages {
-        text
-        type
-      }
-      data {
-        ...FormBuilderData
-      }
-    }
-  }
-  ${FORM_FRAGMENT}
-`
 
-const GET_FORM_VERSION_HISTORY_QUERY = gql`
-  query GetFormVersionHistory($departmentId: ID!, $formId: ID!) {
-    getFormVersionHistory(departmentId: $departmentId, formId: $formId) {
-      status
-      messages {
-        text
-        type
-      }
-      data {
-        id
-        versionNumber
-        status
-        createdAt
-      }
-    }
-  }
-`
 
-const CREATE_FORM_MUTATION = gql`
-  mutation CreateForm($departmentId: ID!, $input: FormInput!) {
-    createForm(departmentId: $departmentId, input: $input) {
-      status
-      messages {
-        text
-        type
-      }
-      data {
-        ...FormBuilderData
-      }
-    }
-  }
-  ${FORM_FRAGMENT}
-`
 
-const UPDATE_FORM_MUTATION = gql`
-  mutation UpdateForm($departmentId: ID!, $formId: ID!, $input: FormInput!) {
-    updateForm(departmentId: $departmentId, formId: $formId, input: $input) {
-      status
-      messages {
-        text
-        type
-      }
-      data {
-        ...FormBuilderData
-      }
-    }
-  }
-  ${FORM_FRAGMENT}
-`
-
-const FINALIZE_FORM_MUTATION = gql`
-  mutation FinalizeForm($departmentId: ID!, $formId: ID!) {
-    finalizeForm(departmentId: $departmentId, formId: $formId) {
-      status
-      messages {
-        text
-        type
-      }
-      data {
-        ...FormBuilderData
-      }
-    }
-  }
-  ${FORM_FRAGMENT}
-`
 
 const toIntColumns = (value?: number) => {
   if (value === 1 || value === 2 || value === 3 || value === 4) return value
@@ -352,7 +165,7 @@ const mapBackendForm = (form: any): BackendForm => ({
   title: form?.title || '',
   description: form?.description || '',
   status: form?.status === 'FINAL' ? 'FINAL' : 'DRAFT',
-  currentVersionNumber: form?.currentVersionNumber || undefined,
+  version: form?.version || undefined,
   fields: Array.isArray(form?.fields) ? form.fields.map((field: any, idx: number) => normalizeFormField(field, idx)) : [],
   sections: Array.isArray(form?.sections) ? form.sections.map((section: any, idx: number) => normalizeFormSection(section, idx)) : [],
   actions: Array.isArray(form?.actions) ? form.actions.map((action: any, idx: number) => normalizeFormAction(action, idx)) : [],
@@ -361,7 +174,7 @@ const mapBackendForm = (form: any): BackendForm => ({
 const buildFormInput = (title: string, description: string | undefined, fields: FormField[], sections: FormSection[], actions: FormAction[]) => ({
   title,
   description,
-  schemaVersion: FORM_SCHEMA_VERSION,
+  
   fields,
   sections,
   actions,
@@ -402,7 +215,6 @@ export default function FormsPage() {
   const [editingConditionalCondition, setEditingConditionalCondition] = useState<ConditionalRendering['condition']>('notEmpty')
   const [editingConditionalValue, setEditingConditionalValue] = useState('')
   const [editingConditionalItemType, setEditingConditionalItemType] = useState<'action' | 'consumable'>('action')
-  const [mode, setMode] = useState<'meta' | 'edit'>('meta')
   const [typePickerOpen, setTypePickerOpen] = useState(false)
   const [sectionEditorOpen, setSectionEditorOpen] = useState(false)
   const [editingSection, setEditingSection] = useState<FormSection | null>(null)
@@ -436,12 +248,14 @@ export default function FormsPage() {
   const defaultDeptName = searchParams.get('departmentName') || ''
   const requestedFormId = searchParams.get('formId') || ''
 
-  const [loadForms] = useLazyQuery(GET_FORMS_QUERY)
-  const [loadForm] = useLazyQuery(GET_FORM_QUERY)
-  const [loadVersionHistory] = useLazyQuery(GET_FORM_VERSION_HISTORY_QUERY)
-  const [createFormMutation] = useMutation(CREATE_FORM_MUTATION)
-  const [updateFormMutation] = useMutation(UPDATE_FORM_MUTATION)
-  const [finalizeFormMutation] = useMutation(FINALIZE_FORM_MUTATION)
+  const [mode, setMode] = useState<'meta' | 'edit'>(requestedFormId ? 'edit' : 'meta')
+
+  const { forms, loading: formsQueryLoading, error: formsError, loadForms } = useForms(defaultDeptId)
+  const { form, loading: formQueryLoading, error: formError, loadForm } = useFormsHook(defaultDeptId, requestedFormId)
+  const { versions, loading: versionsQueryLoading, error: versionsError, loadVersionHistory } = useFormVersionHistory(defaultDeptId, requestedFormId)
+  const { createForm, loading: createLoading, error: createError } = useCreateForm()
+  const { updateForm, loading: updateLoading, error: updateError } = useUpdateForm()
+  const { finalizeForm, loading: finalizeLoading, error: finalizeError } = useFinalizeForm()
 
   const {
     register,
@@ -509,15 +323,19 @@ export default function FormsPage() {
       setValue('title', '')
       setValue('description', '')
       setJsonPreview('')
-      setMode('meta')
+      // Only set mode to 'meta' if we're not editing an existing form
+      if (!requestedFormId) {
+        setMode('meta')
+      }
       return
     }
 
     setActiveFormId(form.id)
     setActiveFormStatus(form.status)
-    setActiveVersionNumber(form.currentVersionNumber || null)
+    setActiveVersionNumber(form.version || null)
     setValue('title', form.title)
     setValue('description', form.description || '')
+    setValue('departmentId', defaultDeptId || selectedDeptId)
     setFields(form.fields || [])
     setSections(form.sections || [])
     setActions(form.actions || [])
@@ -525,6 +343,19 @@ export default function FormsPage() {
     setJsonPreview(JSON.stringify(form, null, 2))
     setMode('edit')
   }
+
+  useEffect(() => {
+    if (form && requestedFormId) {
+      applyBackendFormToEditor(form)
+      setValue('title', form.title || '')
+      setValue('description', form.description || '')
+      setSavedSnapshot(getBuilderSnapshot(form.title || '', form.description || '', form.fields || [], form.sections || [], form.actions || []))
+      setActiveFormId(form.id)
+      setActiveFormStatus(form.status)
+      setActiveVersionNumber(form.version)
+      setMode('edit')
+    }
+  }, [form, requestedFormId, setValue])
 
   const refreshFormsCatalog = async (departmentId: string) => {
     const formsResult = await loadForms({ variables: { departmentId }, fetchPolicy: 'network-only' })
@@ -534,7 +365,7 @@ export default function FormsPage() {
           id: String(form?.id || ''),
           title: form?.title || 'Untitled Form',
           status: form?.status === 'FINAL' ? 'FINAL' : 'DRAFT',
-          currentVersionNumber: form?.currentVersionNumber || undefined,
+          version: form?.version || undefined,
           createdAt: form?.createdAt || undefined,
           updatedAt: form?.updatedAt || undefined,
         }))
@@ -601,29 +432,13 @@ export default function FormsPage() {
     if (!selectedDeptId || !formId) return
     try {
       setFinalizing(true)
-      const result = await finalizeFormMutation({
-        variables: { departmentId: selectedDeptId, formId },
-      })
-      const payload = result?.data?.finalizeForm
-      if (payload?.status !== 'SUCCESS' || !payload?.data) {
-        const message = payload?.messages?.[0]?.text || 'Unable to finalize form'
-        throw new Error(message)
+      const result = await finalizeForm(selectedDeptId, formId)
+      if (result && result.status === 'FINAL') {
+        toast({ title: 'Form finalized' })
+        await loadForms()
+      } else {
+        throw new Error('Unable to finalize form')
       }
-
-      await refreshFormsCatalog(String(selectedDeptId))
-
-      if (activeFormId === formId) {
-        const mapped = mapBackendForm(payload.data)
-        applyBackendFormToEditor(mapped)
-        const versionResult = await loadVersionHistory({
-          variables: { departmentId: selectedDeptId, formId: mapped.id },
-          fetchPolicy: 'network-only',
-        })
-        const versions = versionResult?.data?.getFormVersionHistory?.data || []
-        setVersionHistoryCount(Array.isArray(versions) ? versions.length : 0)
-      }
-
-      toast({ title: 'Form finalized' })
     } catch (err: any) {
       toast({ title: 'Finalize failed', description: err?.message || 'Unexpected error' })
     } finally {
@@ -1436,6 +1251,8 @@ export default function FormsPage() {
   }
 
   const onSave = async (meta: MetaSchema) => {
+    console.log('🔍 onSave called with:', { meta, fieldsCount: fields.length, sectionsCount: sections.length })
+    
     if (fields.length === 0 && sections.length === 0) {
       toast({ title: 'Add at least one field or section' })
       return
@@ -1445,48 +1262,36 @@ export default function FormsPage() {
 
     try {
       setSaving(true)
+      console.log('💾 Saving form:', { isUpdate: !!activeFormId, departmentId: meta.departmentId, formId: activeFormId })
 
       const result = activeFormId
-        ? await updateFormMutation({
-            variables: {
-              departmentId: meta.departmentId,
-              formId: activeFormId,
-              input,
-            },
-          })
-        : await createFormMutation({
-            variables: {
-              departmentId: meta.departmentId,
-              input,
-            },
-          })
+        ? await updateForm(meta.departmentId, activeFormId, input)
+        : await createForm(meta.departmentId, input)
 
-      const payload = activeFormId ? result?.data?.updateForm : result?.data?.createForm
-      if (payload?.status !== 'SUCCESS' || !payload?.data) {
-        const message = payload?.messages?.[0]?.text || 'Unable to save form'
-        throw new Error(message)
+      if (!result) {
+        throw new Error('Unable to save form')
       }
 
-      const mapped = mapBackendForm(payload.data)
-      applyBackendFormToEditor(mapped)
-      setSavedSnapshot(getBuilderSnapshot(mapped.title || '', mapped.description || '', mapped.fields || [], mapped.sections || [], mapped.actions || []))
+      console.log('✅ Form saved successfully:', result)
+
+      // result is already mapped from the hooks, no need to map again
+      applyBackendFormToEditor(result)
+      setSavedSnapshot(getBuilderSnapshot(result.title || '', result.description || '', result.fields || [], result.sections || [], result.actions || []))
 
       await refreshFormsCatalog(String(meta.departmentId))
 
-      const versionResult = await loadVersionHistory({
-        variables: { departmentId: meta.departmentId, formId: mapped.id },
-        fetchPolicy: 'network-only',
-      })
-      const versions = versionResult?.data?.getFormVersionHistory?.data || []
+      const versionResult = await loadVersionHistory(String(meta.departmentId), result.id)
+      const versions = versionResult || []
       setVersionHistoryCount(Array.isArray(versions) ? versions.length : 0)
 
       toast({
         title: activeFormStatus === 'FINAL' ? 'New version created' : activeFormId ? 'Form updated' : 'Form created',
-        description: mapped.currentVersionNumber
-          ? `Current version ${mapped.currentVersionNumber}`
+        description: result.version
+          ? `Current version ${result.version}`
           : 'Draft saved successfully',
       })
     } catch (err: any) {
+      console.error('❌ Save failed:', err)
       toast({ title: 'Save failed', description: err?.message || 'Unexpected error' })
     } finally {
       setSaving(false)
@@ -1501,25 +1306,19 @@ export default function FormsPage() {
 
     try {
       setFinalizing(true)
-      const result = await finalizeFormMutation({
-        variables: { departmentId: selectedDeptId, formId: activeFormId },
-      })
-      const payload = result?.data?.finalizeForm
-      if (payload?.status !== 'SUCCESS' || !payload?.data) {
-        const message = payload?.messages?.[0]?.text || 'Unable to finalize form'
-        throw new Error(message)
+      const result = await finalizeForm(selectedDeptId, activeFormId)
+      
+      if (!result || result.status !== 'FINAL') {
+        throw new Error('Unable to finalize form')
       }
 
-      const mapped = mapBackendForm(payload.data)
-      applyBackendFormToEditor(mapped)
+      // result is already mapped from the hook, no need to map again
+      applyBackendFormToEditor(result)
 
       await refreshFormsCatalog(String(selectedDeptId))
 
-      const versionResult = await loadVersionHistory({
-        variables: { departmentId: selectedDeptId, formId: mapped.id },
-        fetchPolicy: 'network-only',
-      })
-      const versions = versionResult?.data?.getFormVersionHistory?.data || []
+      const versionResult = await loadVersionHistory(String(selectedDeptId), result.id)
+      const versions = versionResult || []
       setVersionHistoryCount(Array.isArray(versions) ? versions.length : 0)
 
       toast({
@@ -2305,60 +2104,58 @@ export default function FormsPage() {
                     </>
                   )}
 
-                  {activeFormStatus === 'FINAL' ? (
-                    hasUnsavedChanges && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            onClick={handleSubmit(onSave)}
-                            disabled={saving || formsLoading || !selectedDeptId}
-                            className="rounded-full h-12 px-5 border-2 border-white/30 bg-[#FF6900] hover:bg-[#e05f00] text-white shadow-lg disabled:opacity-50"
-                            aria-label="Create New Version"
-                          >
-                            <Upload className="h-5 w-5 mr-2" /> {saving ? 'Creating...' : 'Create New Version'}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Save your edits as a new version from this finalized form</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )
-                  ) : (
-                    <>
-                      {hasUnsavedChanges && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              onClick={handleSubmit(onSave)}
-                              disabled={saving || formsLoading || !selectedDeptId}
-                              className="rounded-full h-12 px-5 border-2 border-white/30 bg-[#FF6900] hover:bg-[#e05f00] text-white shadow-lg disabled:opacity-50"
-                              aria-label="Save Draft"
-                            >
-                              <Eye className="h-5 w-5 mr-2" /> {saving ? 'Saving...' : 'Save Draft'}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Save current draft changes</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
+                  {activeFormStatus === 'FINAL' && hasUnsavedChanges && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={() => handleSubmit(onSave)()}
+                          disabled={saving || formsLoading || !selectedDeptId}
+                          className="rounded-full h-12 px-5 border-2 border-white/30 bg-[#FF6900] hover:bg-[#e05f00] text-white shadow-lg disabled:opacity-50"
+                          aria-label="Create New Version"
+                        >
+                          <Upload className="h-5 w-5 mr-2" /> {saving ? 'Creating...' : 'Create New Version'}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Save your edits as a new version from this finalized form</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
 
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            onClick={onFinalize}
-                            disabled={finalizing || !activeFormId || hasUnsavedChanges}
-                            className="rounded-full h-12 px-5 border-2 border-white/30 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg disabled:opacity-50"
-                            aria-label="Finalize Form"
-                          >
-                            <Upload className="h-5 w-5 mr-2" /> {finalizing ? 'Finalizing...' : 'Finalize'}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{hasUnsavedChanges ? 'Save draft changes before finalizing' : 'Finalize this draft form'}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </>
+                  {activeFormStatus !== 'FINAL' && hasUnsavedChanges && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={() => handleSubmit(onSave)()}
+                          disabled={saving || formsLoading || !selectedDeptId}
+                          className="rounded-full h-12 px-5 border-2 border-white/30 bg-[#FF6900] hover:bg-[#e05f00] text-white shadow-lg disabled:opacity-50"
+                          aria-label="Save Draft"
+                        >
+                          <Eye className="h-5 w-5 mr-2" /> {saving ? 'Saving...' : 'Save Draft'}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Save current draft changes</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+
+                  {activeFormStatus !== 'FINAL' && !hasUnsavedChanges && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={onFinalize}
+                          disabled={finalizing || !activeFormId || formsLoading || !selectedDeptId}
+                          className="rounded-full h-12 px-5 border-2 border-white/30 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg disabled:opacity-50"
+                          aria-label="Finalize Form"
+                        >
+                          <Upload className="h-5 w-5 mr-2" /> {finalizing ? 'Finalizing...' : 'Finalize'}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Finalize this draft form</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
               </TooltipProvider>
@@ -2400,7 +2197,7 @@ function FormCatalogPreview({ form }: { form: BackendForm | null }) {
         <Badge variant={form.status === 'FINAL' ? 'secondary' : 'default'}>
           {form.status === 'FINAL' ? 'Final' : 'Draft'}
         </Badge>
-        {form.currentVersionNumber && <Badge variant="outline">Version {form.currentVersionNumber}</Badge>}
+        {form.version && <Badge variant="outline">Version {form.version}</Badge>}
       </div>
 
       {orderedItems.length === 0 ? (

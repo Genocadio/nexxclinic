@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Pill, Trash2, Minus, Plus } from "lucide-react"
 import type { FormAction } from "@/lib/form-storage"
-import { useUpdateActionQuantity, useUpdateConsumableQuantity, useRemoveActionFromVisitDepartment, useRemoveConsumableFromVisitDepartment } from "@/hooks/auth-hooks"
+import { useUpdateProductQuantity, useUpdateProductStatus } from "@/hooks/visits"
 
 interface FormActionsDisplayProps {
   items: FormAction[]
@@ -37,10 +37,8 @@ export default function FormActionsDisplay({
 }: FormActionsDisplayProps) {
   const actions = items.filter(item => item.type === 'action')
   const consumables = items.filter(item => item.type === 'consumable')
-  const { updateQuantity: updateActionQty } = useUpdateActionQuantity()
-  const { updateQuantity: updateConsumableQty } = useUpdateConsumableQuantity()
-  const { removeAction } = useRemoveActionFromVisitDepartment()
-  const { removeConsumable } = useRemoveConsumableFromVisitDepartment()
+  const { updateQuantity } = useUpdateProductQuantity()
+  const { updateStatus } = useUpdateProductStatus()
 
   const canUseServer = Boolean(visitId && departmentId)
 
@@ -51,26 +49,17 @@ export default function FormActionsDisplay({
     }
 
     try {
-      console.log('=== Update Quantity Request ===')
-      console.log('Item ID (internal):', item.id)
-      console.log('Item Name:', item.name)
-      console.log('Item Type:', item.type)
-      console.log('Using backendId:', item.backendId)
+      console.log('=== Update Product Quantity ===')
+      console.log('Product:', item.name)
+      console.log('Using visitDepartmentProductId:', item.backendId)
       console.log('Next Quantity:', nextQty)
-      console.log('VisitId:', visitId)
-      console.log('DepartmentId:', departmentId)
-      console.log('Raw Data stored:', item.rawData)
       console.log('==============================')
 
       if (!item.backendId) {
         throw new Error(`No backendId found for item: ${item.name}. This item may not have been properly added to the visit.`)
       }
 
-      if (item.type === 'action') {
-        await updateActionQty(visitId!, departmentId!, item.backendId, nextQty)
-      } else {
-        await updateConsumableQty(visitId!, departmentId!, item.backendId, nextQty)
-      }
+      await updateQuantity(item.backendId, nextQty)
       onUpdateQuantity && onUpdateQuantity(item.id, nextQty)
     } catch (e) {
       console.error('update quantity error', e)
@@ -84,11 +73,12 @@ export default function FormActionsDisplay({
     }
 
     try {
-      if (item.type === 'action') {
-        await removeAction(visitId!, departmentId!, item.backendId)
-      } else {
-        await removeConsumable(visitId!, departmentId!, item.backendId)
+      if (!item.backendId) {
+        throw new Error(`No backendId found for item: ${item.name}`)
       }
+      
+      // Set quantity to 0 to remove the product
+      await updateQuantity(item.backendId, 0)
       onRemove && onRemove(item.id)
     } catch (e) {
       console.error('remove item error', e)

@@ -1,36 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation } from '@apollo/client';
-import { gql } from '@apollo/client';
 import { X, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Visit, Department } from '@/hooks/auth-hooks';
-
-const ADD_DEPARTMENT_TO_VISIT = gql`
-  mutation AddDepartmentToVisit($input: AddDepartmentInput!) {
-    addDepartmentToVisit(input: $input) {
-      status
-      messages {
-        text
-        type
-      }
-      data {
-        id
-        visitStatus
-        departments {
-          id
-          department {
-            id
-            name
-          }
-          status
-        }
-      }
-    }
-  }
-`;
+import { useAddDepartmentToVisit } from '@/hooks/auth-hooks';
 
 interface AddDepartmentModalProps {
   visit: Visit;
@@ -48,7 +23,7 @@ export function AddDepartmentModal({
   onSuccess,
 }: AddDepartmentModalProps) {
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
-  const [addDepartment, { loading }] = useMutation(ADD_DEPARTMENT_TO_VISIT);
+  const { addDepartmentToVisit, loading } = useAddDepartmentToVisit();
 
   // Filter out departments already in the visit
   const existingDepartmentIds = visit.departments?.map(d => String(d.department?.id)) || [];
@@ -60,23 +35,14 @@ export function AddDepartmentModal({
     if (!selectedDepartmentId) return;
 
     try {
-      const result = await addDepartment({
-        variables: {
-          input: {
-            visitId: visit.id,
-            departmentId: selectedDepartmentId,
-          },
-        },
-        refetchQueries: ['GetVisits', 'GetVisit'],
-        awaitRefetchQueries: true,
-      });
+      const result = await addDepartmentToVisit(visit.id, selectedDepartmentId);
 
-      if (result.data?.addDepartmentToVisit?.status === 'SUCCESS') {
+      if (result?.status === 'SUCCESS') {
         onSuccess?.();
         onClose();
         setSelectedDepartmentId('');
       } else {
-        const errorMessage = result.data?.addDepartmentToVisit?.messages?.[0]?.text || 'Failed to add department';
+        const errorMessage = result?.message || result?.messages?.[0]?.text || 'Failed to add department';
         alert(errorMessage);
       }
     } catch (error) {

@@ -56,9 +56,9 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
   const [editPatientModal, setEditPatientModal] = useState(false)
   const [selectedPatientForEdit, setSelectedPatientForEdit] = useState<Patient | null>(null)
 
-  const getInsuranceName = (insuranceId: number) => {
-    if (!insuranceId || insuranceId === 0) return "Select insurance..."
-    const insurance = insurances.find((ins) => ins.id === insuranceId)
+  const getInsuranceName = (insuranceId: string | number) => {
+    if (!insuranceId || String(insuranceId) === '0') return "Select insurance..."
+    const insurance = insurances.find((ins) => String(ins.id) === String(insuranceId))
     return insurance ? `${insurance.name} (${insurance.acronym})` : "Select insurance..."
   }
 
@@ -97,7 +97,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
       relation: "",
       phone: ""
     },
-    nationalId: "",
+    nationalIdNumber: "",
     insurances: [],
     notes: ""
   })
@@ -168,7 +168,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
       insurances: [
         ...(prev.insurances || []),
         {
-          insuranceId: 0,
+          insuranceId: '0',
           insuranceCardNumber: "",
           dominantMember: {
             firstName: "",
@@ -271,13 +271,13 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
             relation: "",
             phone: ""
           },
-          nationalId: "",
+          nationalIdNumber: "",
           insurances: [],
           notes: ""
         })
         onClose()
       } else {
-        const message = result.messages?.[0]?.text || 'Patient registration failed'
+        const message = result.message || result.messages?.[0]?.text || 'Patient registration failed'
         toast.error(message)
       }
     } catch (error) {
@@ -392,8 +392,8 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
               </label>
               <Input
                 type="text"
-                value={formData.nationalId}
-                onChange={(e) => handleInputChange('nationalId', e.target.value)}
+                value={formData.nationalIdNumber}
+                onChange={(e) => handleInputChange('nationalIdNumber', e.target.value)}
                 placeholder="Enter national ID"
                 className={solidFieldClass}
               />
@@ -554,7 +554,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                                   <Check
                                     className={cn(
                                       "mr-2 h-4 w-4",
-                                      insurance.insuranceId === ins.id ? "opacity-100" : "opacity-0"
+                                      String(insurance.insuranceId) === String(ins.id) ? "opacity-100" : "opacity-0"
                                     )}
                                   />
                                   {ins.name} ({ins.acronym})

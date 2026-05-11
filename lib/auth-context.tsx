@@ -24,6 +24,16 @@ function getStoredDoctor(): Doctor | null {
   const token = localStorage.getItem("authToken")
   const storedDoctor = localStorage.getItem("doctor")
 
+  // Debug: log what's in localStorage during initialization
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      // eslint-disable-next-line no-console
+      console.debug('getStoredDoctor: localStorage snapshot', { tokenPresent: Boolean(token), storedDoctorRaw: storedDoctor })
+    } catch (e) {
+      // ignore
+    }
+  }
+
   if (!token || !storedDoctor) {
     return null
   }
@@ -56,9 +66,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { token, user } = response.data
         localStorage.removeItem('pendingResetIdentifier')
         localStorage.setItem('authToken', token)
-        localStorage.setItem('doctor', JSON.stringify(user))
+        // Store user object (now includes department from login hook)
+        const userToStore = JSON.stringify(user)
+        localStorage.setItem('doctor', userToStore)
+        console.log('=== AUTH CONTEXT STORED TO LOCALSTORAGE ===', {
+          doctor: JSON.parse(userToStore),
+          storedString: userToStore,
+        })
+        console.log('=== AUTH CONTEXT RETRIEVED FROM LOCALSTORAGE ===', {
+          retrieved: JSON.parse(localStorage.getItem('doctor') || '{}'),
+        })
         setDoctor(user)
         return { success: true }
+      } else if (response.status === 'PARTIAL_SUCCESS' && response.data?.needsPasswordSetup) {
+        localStorage.removeItem('authToken')
+        localStorage.removeItem('doctor')
+        localStorage.setItem('pendingResetIdentifier', email)
+        setDoctor(null)
+        const message = response.messages?.[0]?.text || 'Password not set. Complete initial password setup.'
+        return { success: false, message, requiresPasswordSetup: true }
       } else if (response.status === 'RESET_PASSWORD') {
         localStorage.removeItem('authToken')
         localStorage.removeItem('doctor')
@@ -99,12 +125,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Listen for global logout events (triggered by Apollo error link)
   useEffect(() => {
     const handleExternalLogout = () => logout()
+    const handleExternalProfileUpdate = () => setDoctor(getStoredDoctor())
     if (typeof window !== 'undefined') {
       window.addEventListener('auth-logout', handleExternalLogout as EventListener)
+      window.addEventListener('auth-user-updated', handleExternalProfileUpdate as EventListener)
     }
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('auth-logout', handleExternalLogout as EventListener)
+        window.removeEventListener('auth-user-updated', handleExternalProfileUpdate as EventListener)
       }
     }
   }, [])

@@ -182,15 +182,15 @@ export default function ConsultationPage() {
           try {
             const dynamicFormResponse = (updatedConsultation.specialtyExtensions as any)?.dynamicFormResponse
             const formId = dynamicFormResponse?.formId
-            const formSchemaVersion = dynamicFormResponse?.formSchemaVersion
+            const formVersion = dynamicFormResponse?.formVersion
             const departmentToSave = String(dynamicFormResponse?.departmentId || firstDepartmentId || '')
             const existingSubmissionStatus = dynamicFormResponse?.existingSubmissionStatus as 'DRAFT' | 'FINAL' | undefined
             let answersAlreadyFinal = existingSubmissionStatus === 'FINAL'
 
-            if (!formId || !departmentToSave || formSchemaVersion === undefined || formSchemaVersion === null) {
+            if (!formId || !departmentToSave || formVersion === undefined || formVersion === null) {
               console.warn('Skipping consultation answers save: missing form context', {
                 formId,
-                formSchemaVersion,
+                formVersion,
                 departmentToSave,
               })
               toast.error('Form context is missing. Please refresh and try again.')
@@ -205,7 +205,7 @@ export default function ConsultationPage() {
                 patientId: visit.patient.id,
                 departmentId: departmentToSave,
                 formId: String(formId),
-                formSchemaVersion: String(formSchemaVersion),
+                formVersion: String(formVersion),
                 status: updatedConsultation.status === 'finalized' ? 'FINAL' : 'DRAFT',
                 answers: JSON.stringify(answersMap),
               })
@@ -240,7 +240,7 @@ export default function ConsultationPage() {
                 return
               }
 
-              const completeResult = await updateDepartmentStatus(visit.id, departmentToSave, 'COMPLETED')
+              const completeResult = await updateDepartmentStatus(departmentToSave, 'COMPLETED')
               if (completeResult?.status !== 'SUCCESS') {
                 console.error('Consultation answers saved, but completing department failed', completeResult?.messages)
                 toast.error(completeResult?.messages?.[0]?.text || 'Failed to complete department status')

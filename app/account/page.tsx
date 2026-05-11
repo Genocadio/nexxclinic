@@ -12,11 +12,6 @@ import { useChangePassword, useUpdateMyProfile } from "@/hooks/auth-hooks"
 import { useAuth } from "@/lib/auth-context"
 import { sanitizeEmailInput, sanitizePhoneInput } from "@/lib/validation-utils"
 
-const roleDisallowsTitle = (roles: string[]) => {
-  if (roles.includes("RECEPTIONIST") || roles.includes("FINANCE")) return true
-  return roles.length === 1 && roles[0] === "ADMIN"
-}
-
 export default function AccountPage() {
   const router = useRouter()
   const { doctor } = useAuth()
@@ -26,22 +21,17 @@ export default function AccountPage() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
-  const [title, setTitle] = useState("")
 
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-
-  const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
-  const titleAllowedForCurrentUser = !roleDisallowsTitle(roles)
 
   useEffect(() => {
     if (!doctor) return
     setName(doctor.name || "")
     setEmail(doctor.email || "")
     setPhoneNumber(doctor.phoneNumber || "")
-    setTitle(titleAllowedForCurrentUser ? (doctor.title || "") : "")
-  }, [doctor, titleAllowedForCurrentUser])
+  }, [doctor])
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -52,9 +42,10 @@ export default function AccountPage() {
     }
 
     try {
-      const response = await updateMyProfile({ name, email, phoneNumber, title: titleAllowedForCurrentUser ? title : "" })
+      const response = await updateMyProfile({ name, email, phoneNumber })
       if (response?.status === "SUCCESS" && response.data) {
         localStorage.setItem("doctor", JSON.stringify(response.data))
+        window.dispatchEvent(new Event("auth-user-updated"))
         toast.success("Profile updated")
         return
       }
@@ -125,13 +116,9 @@ export default function AccountPage() {
               <Input placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
               <Input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(sanitizeEmailInput(e.target.value))} />
               <Input placeholder="Phone number" value={phoneNumber} onChange={(e) => setPhoneNumber(sanitizePhoneInput(e.target.value))} />
-              {titleAllowedForCurrentUser ? (
-                <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-              ) : (
-                <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-                  Title is not editable for your role.
-                </div>
-              )}
+              <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground md:col-span-1">
+                Title editing is not supported in the current account settings.
+              </div>
             </div>
             <Button type="submit" className="rounded-full" disabled={updatingProfile}>
               {updatingProfile ? "Updating..." : "Update Profile"}

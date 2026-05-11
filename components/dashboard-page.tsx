@@ -2,10 +2,13 @@
 
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { gql, useLazyQuery } from "@apollo/client"
 import { useAuth } from "@/lib/auth-context"
-import { useVisits, useDepartments, type Visit, useProcessVisitDepartment, useUpdateVisitDepartmentStatus, useDashboardStats, useGenerateConsultationPdf, useGenerateInvoice } from "@/hooks/auth-hooks"
+import { useVisits, useDepartments, type Visit, useUpdateVisitDepartmentStatus, useDashboardStats, useGenerateConsultationPdf, useGenerateInvoice } from "@/hooks/auth-hooks"
+import { useForms } from "@/hooks/forms"
 import Header from "@/components/header"
+import { DashboardHeader } from "@/components/dashboard/dashboard-header"
+import { DashboardStats } from "@/components/dashboard/dashboard-stats"
+import { DashboardMobileUi } from "@/components/dashboard/dashboard-mobile-ui"
 import PatientRegistrationModal from "@/components/patient-registration-modal"
 import VisitCreationModal from "@/components/visit-creation-modal"
 import { AddDepartmentModal } from "@/components/add-department-modal"
@@ -13,31 +16,8 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import InlineTryAgain from "@/components/inline-try-again"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid, Printer, FilePenLine, Eye } from "lucide-react"
 import { toast } from "react-toastify"
-
-const GET_FORMS_FOR_DEPARTMENT_QUERY = gql`
-  query DashboardGetFormsForConsultation($departmentId: ID!) {
-    getForms(departmentId: $departmentId) {
-      data {
-        id
-        status
-        updatedAt
-        createdAt
-      }
-    }
-  }
-`
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -45,10 +25,10 @@ export default function DashboardPage() {
   const { visits, loading, error, refetch: refetchVisits } = useVisits()
   const { stats: dashboardStats, loading: dashboardStatsLoading } = useDashboardStats(1)
   const { departments, refetch: refetchDepartments } = useDepartments()
-  const { processDepartment } = useProcessVisitDepartment()
+
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
   const { generateConsultationPdf, loading: generatingConsultationPdf } = useGenerateConsultationPdf()
-  const [loadFormsForDepartment] = useLazyQuery(GET_FORMS_FOR_DEPARTMENT_QUERY)
+  const { loadForms: loadFormsForDepartment } = useForms(null)
   const { generateInvoice } = useGenerateInvoice()
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -63,10 +43,12 @@ export default function DashboardPage() {
   const [consultationPreviewVisit, setConsultationPreviewVisit] = useState<Visit | null>(null)
 
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
+  const userDepartment = (doctor as unknown as { department?: { id: string; name: string } } | null)?.department
   const hasReceptionistRole = roles.includes("RECEPTIONIST")
   const hasFinanceRole = roles.includes("FINANCE")
   const isReceptionistOnly = hasReceptionistRole && roles.length === 1
   const hasConsultationRole = roles.some((role) => ["DOCTOR", "OPHTHALMOLOGIST", "NURSE", "SPECIALIST", "ADMIN"].includes(role))
+  const hasClinicianOrDoctorRole = roles.some((role) => ["CLINICIAN", "DOCTOR"].includes(role))
   const canSeeConsultButton = !isReceptionistOnly
   const canSeeBillButton = hasFinanceRole && !isReceptionistOnly
   const canSeeRegisterAndCreate = hasReceptionistRole
@@ -120,6 +102,43 @@ export default function DashboardPage() {
 
   const isDischarged = (visit: Visit) => visit.visitStatus === 'COMPLETED' && !hasUnbilledItems(visit)
 
+  const canConsultVisit = (visit: Visit) => {
+    // Check if user has CLINICIAN or DOCTOR role
+    if (!hasClinicianOrDoctorRole) return false
+    
+    // Check if user has a department assigned
+    if (!userDepartment?.id) return false
+    
+    // Check if visit has departments
+    if (!visit.departments || visit.departments.length === 0) return false
+    
+    // Find the active/current department of the visit
+    // Active departments are those with status 'CREATED', 'IN_PROGRESS', or not 'COMPLETED'/'CANCELLED'
+    const activeDepartment = visit.departments.find(
+      dept => dept.status !== 'COMPLETED' && dept.status !== 'CANCELLED'
+    )
+    
+    if (!activeDepartment) return false
+    
+    const match = userDepartment.id === activeDepartment.department.id
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        // eslint-disable-next-line no-console
+        console.debug('DashboardPage canConsultVisit:', {
+          hasClinicianOrDoctorRole,
+          userDepartment,
+          activeDepartment: { id: activeDepartment.department.id, name: activeDepartment.department.name },
+          match,
+        })
+      } catch (e) {
+        // ignore
+      }
+    }
+    
+    // Check if the user's department matches the visit's active department
+    return match
+  }
+
   const formatDepartmentTime = (time?: string) => {
     if (!time) return "-"
     return new Date(time).toLocaleString()
@@ -144,17 +163,17 @@ export default function DashboardPage() {
   }, [visits, searchQuery, statusFilter])
 
   const handleConsultVisit = async (visit: Visit) => {
-    // Process first department before navigating to consultation
+    // Mark first department as ACTIVE before navigating to consultation
     try {
-      const firstDeptId = visit.departments?.[0]?.department?.id || visit.departments?.[0]?.id
-      if (firstDeptId) {
-        await processDepartment(visit.id, firstDeptId)
+      const firstVisitDeptId = visit.departments?.[0]?.id
+      if (firstVisitDeptId) {
+        await updateDepartmentStatus(firstVisitDeptId, 'ACTIVE')
         // Optionally refetch visits to update department status
         refetchVisits()
       }
     } catch (err) {
-      // Continue to consultation even if processing fails
-      console.error('Failed to process department:', err)
+      // Continue to consultation even if updating status fails
+      console.error('Failed to update department status:', err)
     }
     
     // Navigate to consultation page
@@ -185,30 +204,19 @@ export default function DashboardPage() {
       setPrintingVisitId(visit.id)
       const response = await generateInvoice(String(visit.id))
 
-      if (response.status !== 'SUCCESS' || !response.pdfBase64) {
-        const errorMsg = response.messages?.map((m) => m.text).join(', ') || 'Failed to fetch invoice PDF'
+      const invoiceUrl = response.data?.invoiceUrl
+      if (response.status !== 'SUCCESS' || !invoiceUrl) {
+        const errorMsg = response.message || response.messages?.map((m: { text: string }) => m.text).join(', ') || 'Failed to fetch invoice PDF'
         toast.error(errorMsg)
         return
       }
 
-      const byteCharacters = atob(response.pdfBase64)
-      const byteNumbers = new Array(byteCharacters.length)
-      for (let i = 0; i < byteCharacters.length; i += 1) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i)
-      }
-
-      const byteArray = new Uint8Array(byteNumbers)
-      const blob = new Blob([byteArray], { type: 'application/pdf' })
-      const blobUrl = URL.createObjectURL(blob)
-      const previewWindow = window.open(blobUrl, '_blank')
+      const previewWindow = window.open(invoiceUrl, '_blank')
 
       if (!previewWindow) {
-        URL.revokeObjectURL(blobUrl)
         toast.error('Unable to open invoice preview. Please allow pop-ups and try again.')
         return
       }
-
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
     } catch (err: any) {
       console.error('Print invoice error:', err)
       toast.error(err?.message || 'Failed to fetch invoice PDF')
@@ -252,23 +260,16 @@ export default function DashboardPage() {
         formId: String(latestFinalForm.id),
       })
 
-      if (pdfResult?.status !== 'SUCCESS' || !pdfResult?.pdfBase64) {
-        const message = pdfResult?.messages?.map((m) => m?.text).filter(Boolean).join(' | ') || 'Failed to generate consultation PDF'
+      const consultationPdfUrl = pdfResult?.data?.pdfUrl || pdfResult?.pdfUrl
+      if (pdfResult?.status !== 'SUCCESS' || !consultationPdfUrl) {
+        const message = pdfResult?.message || pdfResult?.messages?.map((m: { text?: string }) => m?.text).filter(Boolean).join(' | ') || 'Failed to generate consultation PDF'
         toast.error(message)
         return
       }
 
-      const byteCharacters = atob(pdfResult.pdfBase64)
-      const byteNumbers = new Array(byteCharacters.length)
-      for (let i = 0; i < byteCharacters.length; i += 1) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i)
-      }
+      const blobUrl = consultationPdfUrl
 
-      const byteArray = new Uint8Array(byteNumbers)
-      const blob = new Blob([byteArray], { type: 'application/pdf' })
-      const blobUrl = URL.createObjectURL(blob)
-
-      if (consultationPreviewUrl) {
+      if (consultationPreviewUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(consultationPreviewUrl)
       }
 
@@ -297,10 +298,10 @@ export default function DashboardPage() {
 
       if (notCompleted.length > 0) {
         for (const dept of notCompleted) {
-          const deptId = String(dept.department?.id || dept.id || '')
-          if (!deptId) continue
+          const visitDeptId = String(dept.id || '')
+          if (!visitDeptId) continue
 
-          const res = await updateDepartmentStatus(String(visit.id), deptId, 'COMPLETED')
+          const res = await updateDepartmentStatus(visitDeptId, 'COMPLETED')
           if (res?.status !== 'SUCCESS') {
             toast.error(res?.messages?.[0]?.text || 'Failed to complete department during discharge')
             return
@@ -309,9 +310,9 @@ export default function DashboardPage() {
       } else {
         // Trigger backend completion aggregation if all departments are already marked completed.
         const fallbackDepartment = allDepartments[allDepartments.length - 1]
-        const fallbackId = String(fallbackDepartment?.department?.id || fallbackDepartment?.id || '')
+        const fallbackId = String(fallbackDepartment?.id || '')
         if (fallbackId) {
-          await updateDepartmentStatus(String(visit.id), fallbackId, 'COMPLETED')
+          await updateDepartmentStatus(fallbackId, 'COMPLETED')
         }
       }
 
@@ -342,113 +343,21 @@ export default function DashboardPage() {
           {/* Main content area */}
           <div className="flex-1 overflow-y-auto p-6">
             <div className="max-w-6xl mx-auto">
-              {/* Header with date */}
-              <div className="mb-8">
-                <div className="text-center space-y-2">
-                  <button
-                    onClick={() => setShowMetrics(!showMetrics)}
-                    className="text-3xl font-bold text-foreground hover:text-primary transition-colors duration-200 cursor-pointer block w-full"
-                  >
-                    Today
-                  </button>
-                  <p className="text-muted-foreground flex items-center justify-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      {new Date().toLocaleDateString("en-US", {
-                        weekday: "long",
-                        month: "long",
-                        day: "numeric",
-                      })}
-                  </p>
-                </div>
-                <div className="hidden md:flex flex-row gap-3 w-full justify-end">
-                    {canSeeRegisterAndCreate && (
-                      <Button
-                        onClick={() => setShowPatientRegistrationModal(true)}
-                        className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-6 py-2.5 shadow-lg hover:shadow-xl transition-all duration-200 text-sm font-medium flex items-center justify-center gap-2"
-                      >
-                        <UserPlus className="w-4 h-4" />
-                        <span>Register New Patient</span>
-                      </Button>
-                    )}
-                    {canSeeRegisterAndCreate && (
-                      <Button
-                        onClick={openVisitCreationModal}
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white rounded-full px-6 py-2.5 shadow-lg hover:shadow-xl transition-all duration-200 text-sm font-medium flex items-center justify-center gap-2"
-                      >
-                        <Stethoscope className="w-4 h-4" />
-                        <span>Create Visit</span>
-                      </Button>
-                    )}
-                </div>
-              </div>
+              <DashboardHeader
+                showMetrics={showMetrics}
+                onToggleMetrics={() => setShowMetrics(!showMetrics)}
+                canSeeRegisterAndCreate={canSeeRegisterAndCreate}
+                onRegisterNewPatient={() => setShowPatientRegistrationModal(true)}
+                onCreateVisit={openVisitCreationModal}
+              />
 
-              {showMetrics && (
-              <div className="grid grid-cols-3 gap-2 md:gap-4 mb-8">
-                {/* Open metric */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-lg hover:shadow-xl transition-all duration-200">
-                    <div className="flex items-start justify-between gap-2 md:gap-3">
-                      <div className="min-w-0 w-full md:w-auto">
-                        <p className="hidden md:block text-xs md:text-sm text-muted-foreground mb-1 md:mb-2 font-medium truncate">Open</p>
-                        {dashboardStatsLoading ? (
-                          <Skeleton className="h-7 md:h-9 w-12 md:w-16" />
-                        ) : (
-                          <p className="text-xl md:text-3xl font-bold text-foreground text-center md:text-left">{dashboardStats?.totalOpen ?? 0}</p>
-                        )}
-                      </div>
-                      <div className="hidden md:block bg-orange-500/10 p-2 md:p-3 rounded-xl md:rounded-2xl flex-shrink-0">
-                        <AlertCircle className="w-4 h-4 md:w-6 md:h-6 text-orange-500" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="md:hidden text-center">
-                    <span className="inline-block px-2.5 py-1 bg-orange-500/10 text-orange-700 dark:text-orange-400 text-xs font-semibold rounded-full border border-orange-200 dark:border-orange-900/50">Open</span>
-                  </div>
-                </div>
-                {/* Completed metric */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-lg hover:shadow-xl transition-all duration-200">
-                    <div className="flex items-start justify-between gap-2 md:gap-3">
-                      <div className="min-w-0 w-full md:w-auto">
-                        <p className="hidden md:block text-xs md:text-sm text-muted-foreground mb-1 md:mb-2 font-medium truncate">Completed</p>
-                        {dashboardStatsLoading ? (
-                          <Skeleton className="h-7 md:h-9 w-12 md:w-16" />
-                        ) : (
-                          <p className="text-xl md:text-3xl font-bold text-foreground text-center md:text-left">{dashboardStats?.totalCompleted ?? 0}</p>
-                        )}
-                      </div>
-                      <div className="hidden md:block bg-primary/10 p-2 md:p-3 rounded-xl md:rounded-2xl flex-shrink-0">
-                        <Clock className="w-4 h-4 md:w-6 md:h-6 text-primary" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="md:hidden text-center">
-                    <span className="inline-block px-2.5 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full border border-primary/20">Completed</span>
-                  </div>
-                </div>
-                {/* Waiting metric */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-lg hover:shadow-xl transition-all duration-200">
-                    <div className="flex items-start justify-between gap-2 md:gap-3">
-                      <div className="min-w-0 w-full md:w-auto">
-                        <p className="hidden md:block text-xs md:text-sm text-muted-foreground mb-1 md:mb-2 font-medium truncate">Waiting</p>
-                        {dashboardStatsLoading ? (
-                          <Skeleton className="h-7 md:h-9 w-12 md:w-16" />
-                        ) : (
-                          <p className="text-xl md:text-3xl font-bold text-foreground text-center md:text-left">{dashboardStats?.totalWaitingForBilling ?? 0}</p>
-                        )}
-                      </div>
-                      <div className="hidden md:block bg-green-500/10 p-2 md:p-3 rounded-xl md:rounded-2xl flex-shrink-0">
-                        <CheckCircle className="w-4 h-4 md:w-6 md:h-6 text-green-500" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="md:hidden text-center">
-                    <span className="inline-block px-2.5 py-1 bg-green-500/10 text-green-700 dark:text-green-400 text-xs font-semibold rounded-full border border-green-200 dark:border-green-900/50">Waiting</span>
-                  </div>
-                </div>
-              </div>
-              )}
+              <DashboardStats
+                showMetrics={showMetrics}
+                loading={dashboardStatsLoading}
+                totalOpen={dashboardStats?.totalOpen ?? 0}
+                totalCompleted={dashboardStats?.totalCompleted ?? 0}
+                totalWaitingForBilling={dashboardStats?.totalWaitingForBilling ?? 0}
+              />
 
                 <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl shadow-lg overflow-hidden">
                 {/* Status filters */}
@@ -621,7 +530,7 @@ export default function DashboardPage() {
                     ) : error ? (
                       <div className="text-center py-8">
                         <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-2" />
-                        <InlineTryAgain onTryAgain={() => refetchVisits()} />
+                        <InlineTryAgain onTryAgain={() => { void refetchVisits() }} />
                       </div>
                     ) : allVisits.length === 0 ? (
                       <div className={`text-center py-8 ${viewMode === "grid" ? "col-span-full" : ""}`}>
@@ -629,7 +538,19 @@ export default function DashboardPage() {
                         <p className="text-muted-foreground">No visits found</p>
                       </div>
                     ) : (
-                      allVisits.map((visit) => (
+                      allVisits.map((visit: Visit) => {
+                        const consultButtonDebug = {
+                          canSeeVisitActionButtons,
+                          canSeeConsultButton,
+                          canConsultVisit: canConsultVisit(visit),
+                          visitStatus: visit.visitStatus,
+                          statusCheck: visit.visitStatus === 'CREATED' || visit.visitStatus === 'IN_PROGRESS',
+                        }
+                        if (process.env.NODE_ENV !== 'production') {
+                          // eslint-disable-next-line no-console
+                          console.debug(`[ConsultButton check for ${visit.patient.firstName} ${visit.patient.lastName}]:`, consultButtonDebug)
+                        }
+                        return (
                         <div
                           key={visit.id}
                           className={`p-4 bg-card/80 dark:bg-slate-900/70 backdrop-blur-sm border border-border/50 dark:border-slate-800 rounded-2xl hover:bg-card/90 dark:hover:bg-slate-900/90 hover:shadow-md transition-all duration-200 ${viewMode === "grid" ? "h-full" : ""}`}
@@ -683,7 +604,7 @@ export default function DashboardPage() {
                               </div>
                             </div>
                             <div className={`flex items-center gap-2 flex-wrap ${viewMode === "grid" ? "justify-start" : "justify-end lg:justify-start lg:flex-nowrap"}`}>
-                              {canSeeVisitActionButtons && canSeeConsultButton && (visit.visitStatus === 'CREATED' || visit.visitStatus === 'IN_PROGRESS') && (
+                              {canSeeVisitActionButtons && canSeeConsultButton && canConsultVisit(visit) && (visit.visitStatus === 'CREATED' || visit.visitStatus === 'IN_PROGRESS') && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <button
@@ -744,7 +665,7 @@ export default function DashboardPage() {
                                   </Tooltip>
                                 </>
                               )}
-                              {canSeeVisitActionButtons && canAddDepartment(visit) && !isDischarged(visit) && (
+                              {canSeeVisitActionButtons && canAddDepartment(visit) && !isDischarged(visit) && !hasClinicianOrDoctorRole && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
@@ -843,7 +764,8 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         </div>
-                      ))
+                        )
+                      })
                     )}
                   </div>
                   </TooltipProvider>
@@ -853,155 +775,24 @@ export default function DashboardPage() {
           </div>
         </div>
 
-      {/* Mobile Search Overlay - Full Screen */}
-      {mobileSearchActive && (
-        <div className="md:hidden fixed inset-0 top-16 z-50 bg-background/95 backdrop-blur-sm flex flex-col">
-          {/* Search Bar */}
-          <div className="flex items-center gap-2 p-4 border-b border-border/30">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search patients..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoFocus
-                className="w-full pl-11 pr-4 py-3 bg-card/80 dark:bg-slate-900/70 backdrop-blur-sm border border-border/50 dark:border-slate-800 rounded-full text-foreground dark:text-slate-100 placeholder-muted-foreground dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 shadow-sm"
-              />
-            </div>
-            <Button
-              type="button"
-              size="icon"
-              variant="outline"
-              className="rounded-full h-10 w-10 flex-shrink-0"
-              onClick={() => {
-                setMobileSearchActive(false)
-                setSearchQuery("")
-              }}
-              title="Close"
-              aria-label="Close search"
-            >
-              ✕
-            </Button>
-          </div>
-
-          {/* Search Results */}
-          <div className="flex-1 overflow-y-auto">
-            {searchQuery ? (
-              <div className="divide-y divide-border/30">
-                {allVisits
-                  .filter(
-                    (visit) =>
-                      `${visit.patient.firstName} ${visit.patient.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
-                  )
-                  .map((visit) => (
-                    <button
-                      key={visit.id}
-                      onClick={() => {
-                        setSearchQuery(`${visit.patient.firstName} ${visit.patient.lastName}`)
-                        setMobileSearchActive(false)
-                      }}
-                      className="w-full px-4 py-4 text-left hover:bg-muted/50 active:bg-muted/70 transition-colors"
-                    >
-                      <p className="font-medium text-foreground text-base">
-                        {visit.patient.firstName} {visit.patient.lastName}
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {new Date(visit.visitDate).toLocaleDateString()}
-                      </p>
-                    </button>
-                  ))}
-                {allVisits.filter((visit) =>
-                  `${visit.patient.firstName} ${visit.patient.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
-                ).length === 0 && (
-                  <p className="px-4 py-8 text-center text-muted-foreground">No patients found</p>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-muted-foreground text-center">Start typing to search patients</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Floating Action Button for mobile reception */}
-      {canSeeRegisterAndCreate && !mobileSearchActive && (
-        <div className="md:hidden fixed bottom-6 right-6 z-40">
-          <button
-            onClick={() => setShowMobileActionSheet(true)}
-            className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center"
-          >
-            <Plus className="w-6 h-6" />
-          </button>
-        </div>
-      )}
-
-      {/* Mobile Action Sheet - Choose New or Existing Patient */}
-      <AlertDialog open={showMobileActionSheet} onOpenChange={setShowMobileActionSheet}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>What would you like to do?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Create a new patient record or start a visit for an existing patient.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex flex-col gap-3">
-            <AlertDialogAction
-              onClick={() => {
-                setShowMobileActionSheet(false)
-                setShowPatientRegistrationModal(true)
-              }}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Register New Patient
-            </AlertDialogAction>
-            <AlertDialogAction
-              onClick={() => {
-                setShowMobileActionSheet(false)
-                openVisitCreationModal()
-              }}
-              className="bg-yellow-500 hover:bg-yellow-600 text-white"
-            >
-              <Stethoscope className="w-4 h-4 mr-2" />
-              Create Visit
-            </AlertDialogAction>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog
-        open={consultationPreviewOpen}
-        onOpenChange={(open) => {
-          setConsultationPreviewOpen(open)
-          if (!open && consultationPreviewUrl) {
-            URL.revokeObjectURL(consultationPreviewUrl)
-            setConsultationPreviewUrl(null)
-            setConsultationPreviewVisit(null)
-          }
-        }}
-      >
-        <DialogContent className="w-[96vw] md:w-[80vw] md:max-w-[80vw] h-[90dvh] max-h-[calc(100dvh-5rem)] !top-[calc(50%+2.5rem)] p-0 overflow-hidden [&>button]:hidden">
-          <DialogTitle className="sr-only">Consultation PDF Preview</DialogTitle>
-          <div className="h-full w-full relative bg-muted/20">
-            {consultationPreviewUrl ? (
-              <iframe
-                src={consultationPreviewUrl}
-                title="Consultation PDF Preview"
-                className="w-full h-full"
-              />
-            ) : (
-              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                {generatingConsultationPdf ? 'Generating consultation PDF...' : 'No PDF preview available'}
-              </div>
-            )}
-
-          </div>
-        </DialogContent>
-      </Dialog>
+      <DashboardMobileUi
+        canSeeRegisterAndCreate={canSeeRegisterAndCreate}
+        allVisits={allVisits}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        mobileSearchActive={mobileSearchActive}
+        setMobileSearchActive={setMobileSearchActive}
+        showMobileActionSheet={showMobileActionSheet}
+        setShowMobileActionSheet={setShowMobileActionSheet}
+        setShowPatientRegistrationModal={setShowPatientRegistrationModal}
+        openVisitCreationModal={openVisitCreationModal}
+        consultationPreviewOpen={consultationPreviewOpen}
+        setConsultationPreviewOpen={setConsultationPreviewOpen}
+        consultationPreviewUrl={consultationPreviewUrl}
+        setConsultationPreviewUrl={setConsultationPreviewUrl}
+        setConsultationPreviewVisit={setConsultationPreviewVisit}
+        generatingConsultationPdf={generatingConsultationPdf}
+      />
 
       {/* Modals */}
       <PatientRegistrationModal
@@ -1015,7 +806,7 @@ export default function DashboardPage() {
         isOpen={showVisitCreationModal}
         onClose={closeVisitCreationModal}
         onVisitCreated={handleVisitCreated}
-        preSelectedPatientId={registeredPatientId}
+        preSelectedPatientId={registeredPatientId ?? undefined}
       />
 
       {selectedVisitForDepartment && (

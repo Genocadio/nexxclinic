@@ -5,6 +5,7 @@ import { useVisits, useDepartments, type Visit } from "@/hooks/auth-hooks"
 import { useRouter } from "next/navigation"
 import { Search, Calendar, Clock, CheckCircle, AlertCircle, User, ReceiptText, Plus, Stethoscope } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
+import { useAuth } from "@/lib/auth-context"
 import { AddDepartmentModal } from "./add-department-modal"
 
 interface VisitsListViewProps {
@@ -28,6 +29,7 @@ export default function VisitsListView({
   const { departments, refetch: refetchDepartments } = useDepartments()
   const { theme } = useTheme()
   const isDark = theme === "dark"
+  const { doctor } = useAuth()
   const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false)
   const [selectedVisitForDepartment, setSelectedVisitForDepartment] = useState<Visit | null>(null)
 
@@ -43,7 +45,7 @@ export default function VisitsListView({
   }
 
   const canAddDepartment = (visit: Visit) => {
-    return visit.billingStatus !== 'BILLED' && visit.visitStatus !== 'IN_PROGRESS'
+    return visit.billingStatus !== 'BILLED' && visit.status !== 'IN_PROGRESS'
   }
 
   const handleAddDepartment = (visit: Visit) => {
@@ -60,6 +62,22 @@ export default function VisitsListView({
   const handleGoToBilling = (visit: Visit) => {
     router.push(`/billing?visitId=${visit.id}&patientId=${visit.patient.id}`)
   }
+
+  const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
+  const isClinicianLike = roles.includes("CLINICIAN") || roles.includes("DOCTOR")
+
+  const getUserDepartmentIds = () => {
+    if (!doctor) return []
+    const anyDoc = doctor as any
+    // Extract department from stored user object
+    const dept = anyDoc.department
+    if (dept && dept.id) {
+      return [String(dept.id)]
+    }
+    return []
+  }
+
+  const userDepartmentIds = getUserDepartmentIds()
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -127,7 +145,7 @@ export default function VisitsListView({
             >
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-3">
                 <div className="flex items-center gap-3 flex-1">
-                  {getStatusIcon(visit.visitStatus)}
+                  {getStatusIcon(visit.status)}
                   <div className="min-w-0">
                     <h3 className="font-medium text-foreground truncate">
                       {visit.patient.firstName} {visit.patient.lastName}
@@ -135,55 +153,105 @@ export default function VisitsListView({
                     <p className="text-sm text-muted-foreground dark:text-slate-300 truncate">
                       Visit #{visit.id.slice(-8)} • {new Date(visit.visitDate).toLocaleDateString()}
                     </p>
+                    {/* Show active department for progress tracking when visit is not completed/cancelled */}
+                    {visit.status !== 'COMPLETED' && visit.status !== 'CANCELLED' && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                        Active Department: {visit.departments?.find(dept => dept.status === 'ACTIVE')?.department?.name || 'None'}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap justify-end lg:justify-start lg:flex-nowrap">
-                  {(visit.visitStatus === 'CREATED' || visit.visitStatus === 'IN_PROGRESS') && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onConsultVisit(visit)
-                      }}
-                      title="Start Consult"
-                      className="px-2 sm:px-4 py-1.5 sm:py-2 bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
-                    >
-                      <Stethoscope className="w-4 h-4 flex-shrink-0" />
-                      <span className="hidden sm:inline lg:hidden">Consult</span>
-                      <span className="hidden lg:inline">Start Consult</span>
-                    </button>
-                  )}
-                  {canAddDepartment(visit) && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleAddDepartment(visit)
-                      }}
-                      title="Add Department"
-                      className="px-2 sm:px-4 py-1.5 sm:py-2 bg-purple-500 hover:bg-purple-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
-                    >
-                      <Plus className="w-4 h-4 flex-shrink-0" />
-                      <span className="hidden sm:inline lg:hidden">Dept</span>
-                      <span className="hidden lg:inline">Add Department</span>
-                    </button>
-                  )}
-                  {hasUnbilledItems(visit) && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleGoToBilling(visit)
-                      }}
-                      title="Bill Visit"
-                      className="px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
-                    >
-                      <ReceiptText className="w-4 h-4 flex-shrink-0" />
-                      <span className="hidden sm:inline lg:hidden">Bill</span>
-                      <span className="hidden lg:inline">Bill Visit</span>
-                    </button>
-                  )}
+                  {(() => {
+                    // Match any department on the visit against user's departments (not only ACTIVE)
+                    const matchingDept = visit.departments?.find((d) => {
+                      const deptId = String(d?.department?.id || d?.id || '')
+                      return deptId && userDepartmentIds.includes(deptId)
+                    })
+
+                    const canUserConsultThisVisit = isClinicianLike && Boolean(matchingDept)
+                    const showConsultButton = (visit.status === 'CREATED' || visit.status === 'IN_PROGRESS') && canUserConsultThisVisit
+
+                    if (process.env.NODE_ENV !== 'production') {
+                      try {
+                        // eslint-disable-next-line no-console
+                        console.debug('VisitsListView debug:', {
+                          doctor,
+                          roles,
+                          userDepartmentIds,
+                          visitId: visit.id,
+                          matchingDeptId: matchingDept?.department?.id || matchingDept?.id,
+                          canUserConsultThisVisit,
+                          showConsultButton,
+                        })
+                      } catch (e) {
+                        // ignore
+                      }
+                    }
+
+                    return (
+                      <>
+                        {showConsultButton && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onConsultVisit(visit)
+                            }}
+                            title="Start Consult"
+                            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
+                          >
+                            <Stethoscope className="w-4 h-4 flex-shrink-0" />
+                            <span className="hidden sm:inline lg:hidden">Consult</span>
+                            <span className="hidden lg:inline">Start Consult</span>
+                          </button>
+                        )}
+
+                        {/* Only show add-department for non-clinicians */}
+                        {!isClinicianLike && canAddDepartment(visit) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleAddDepartment(visit)
+                            }}
+                            title="Add Department"
+                            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-purple-500 hover:bg-purple-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
+                          >
+                            <Plus className="w-4 h-4 flex-shrink-0" />
+                            <span className="hidden sm:inline lg:hidden">Dept</span>
+                            <span className="hidden lg:inline">Add Department</span>
+                          </button>
+                        )}
+                        {!isClinicianLike && (
+                          {hasUnbilledItems(visit) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleGoToBilling(visit)
+                              }}
+                              title="Bill Visit"
+                              className="px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
+                            >
+                              <ReceiptText className="w-4 h-4 flex-shrink-0" />
+                              <span className="hidden sm:inline lg:hidden">Bill</span>
+                              <span className="hidden lg:inline">Bill Visit</span>
+                            </button>
+                          )}
+                        )}
+                      </>
+                    )
+                  })()}
+                  
                   <div className="text-right text-xs sm:text-sm ml-auto lg:ml-0 dark:text-slate-100">
-                    <span className={`font-medium ${getStatusColor(visit.visitStatus)}`}>
-                      {visit.visitStatus === 'IN_PROGRESS' ? 'In Progress' : visit.visitStatus}
-                    </span>
+                    {/* Only show visit status if COMPLETED or CANCELLED */}
+                    {visit.status === 'COMPLETED' || visit.status === 'CANCELLED' ? (
+                      <span className={`font-medium ${getStatusColor(visit.status)}`}>
+                        {visit.status}
+                      </span>
+                    ) : (
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">
+                        In Progress
+                      </span>
+                    )}
                     <p className="text-xs text-muted-foreground dark:text-slate-300 mt-1">
                       {visit.patient.gender} • {new Date().getFullYear() - new Date(visit.patient.dateOfBirth).getFullYear()} years old
                     </p>

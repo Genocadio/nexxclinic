@@ -71,7 +71,7 @@ const statusLink = new ApolloLink((operation, forward) => {
       return result
     }
 
-    // Most operations return one top-level field e.g. { getUsers: { status, ... } }
+    // Most operations return one top-level field e.g. { listUsers: { status, ... } }
     const topLevelResults = Object.values(data as Record<string, unknown>)
     const statuses = topLevelResults
       .map(extractStatusFromPayload)

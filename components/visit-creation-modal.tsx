@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useCallback } from "react"
-import { usePatients, useDepartments, useCreateVisit, usePatient, useAddDepartmentNote, type Patient, type PatientFilterInput } from "@/hooks/auth-hooks"
+import { usePatients, useDepartments, useCreateVisit, usePatient, type Patient, type PatientFilterInput } from "@/hooks/auth-hooks"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -19,17 +19,17 @@ interface VisitCreationModalProps {
 }
 
 type ModalStep = "patient-selection" | "visit-details"
-type SearchFilterType = "name" | "phoneNumber" | "nationalId" | "insuranceName"
+type SearchFilterType = "name" | "phoneNumber" | "insuranceName"
 
 export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, preSelectedPatientId }: VisitCreationModalProps) {
-  const { patient: preSelectedPatientData, loading: _patientLoading } = usePatient(preSelectedPatientId || null)
-  const { departments, loading: departmentsLoading } = useDepartments()
-  const { createVisit, loading: visitLoading } = useCreateVisit()
-  const { addDepartmentNote } = useAddDepartmentNote()
-  
   const [currentStep, setCurrentStep] = useState<ModalStep>("patient-selection")
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(preSelectedPatientId || null)
   const [selectedPatient, setSelectedPatient] = useState<any>(null)
+
+  const { patient: preSelectedPatientData, loading: _patientLoading } = usePatient(preSelectedPatientId || null)
+  const { patient: selectedPatientDetails } = usePatient(selectedPatientId && !preSelectedPatientId ? selectedPatientId : null)
+  const { departments, loading: departmentsLoading } = useDepartments()
+  const { createVisit, loading: visitLoading } = useCreateVisit()
   
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState("")
@@ -37,11 +37,12 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
   const [patientFilter, setPatientFilter] = useState<PatientFilterInput>({})
   const [shouldSearch, setShouldSearch] = useState(false)
   
-  const [selectedDepartments, setSelectedDepartments] = useState<number[]>([])
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([])
   const [selectedInsuranceIds, setSelectedInsuranceIds] = useState<string[]>([])
   const [visitNoteText, setVisitNoteText] = useState("")
   const [visitNoteDepartment, setVisitNoteDepartment] = useState<string>("visit")
   const [queuedNotes, setQueuedNotes] = useState<Array<{ id: string; text: string; departmentId?: string }>>([])
+  const [showNotesSection, setShowNotesSection] = useState(false)
   const [editPatientModal, setEditPatientModal] = useState(false)
   const [selectedPatientForEdit, setSelectedPatientForEdit] = useState<Patient | null>(null)
   const [hoveredPatientId, setHoveredPatientId] = useState<string | null>(null)
@@ -63,26 +64,20 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
       return
     }
 
-    const filter: PatientFilterInput = {}
-    
-    switch (searchFilterType) {
-      case "name":
-        filter.name = searchQuery.trim()
-        break
-      case "phoneNumber":
-        filter.phoneNumber = searchQuery.trim()
-        break
-      case "nationalId":
-        // National ID is searched via name field in many systems, but we'll use phoneNumber as proxy
-        filter.name = searchQuery.trim()
-        break
-      case "insuranceName":
-        filter.insuranceName = searchQuery.trim()
-        break
+    const filter: PatientFilterInput = {};
+    switch(searchFilterType){
+        case "name":
+            filter.name = searchQuery.trim();
+            break;
+        case "phoneNumber":
+            filter.phoneNumber = searchQuery.trim();
+            break;
+        case "insuranceName":
+            filter.insuranceName = searchQuery.trim();
+            break;
     }
-
-    setPatientFilter(filter)
-    setShouldSearch(true)
+    setPatientFilter(filter);
+    setShouldSearch(true);
   }, [searchQuery, searchFilterType])
 
   // Debounced search effect
@@ -94,11 +89,24 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
     }
 
     const timeoutId = setTimeout(() => {
-      handleSearch()
+      const filter: PatientFilterInput = {};
+      switch(searchFilterType){
+        case "name":
+          filter.name = searchQuery.trim();
+          break;
+        case "phoneNumber":
+          filter.phoneNumber = searchQuery.trim();
+          break;
+        case "insuranceName":
+          filter.insuranceName = searchQuery.trim();
+          break;
+      }
+      setPatientFilter(filter);
+      setShouldSearch(true);
     }, 500)
 
     return () => clearTimeout(timeoutId)
-  }, [searchQuery, searchFilterType, handleSearch])
+  }, [searchQuery, searchFilterType])
 
   const displayedPatients = preSelectedPatientData && !patients.some((p: Patient) => p.id === preSelectedPatientData.id)
     ? [preSelectedPatientData, ...patients]
@@ -106,21 +114,29 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
 
   useEffect(() => {
     if (preSelectedPatientData) {
-      setSelectedPatient(preSelectedPatientData)
+      setSelectedPatient((current) => (current?.id === preSelectedPatientData.id ? current : preSelectedPatientData))
+      setSelectedPatientId((current) => (current === preSelectedPatientData.id ? current : preSelectedPatientData.id))
+      setCurrentStep((current) => (current === "visit-details" ? current : "visit-details"))
     }
   }, [preSelectedPatientData])
 
   useEffect(() => {
+    if (selectedPatientDetails && !preSelectedPatientId) {
+      setSelectedPatient((current) => (current?.id === selectedPatientDetails.id ? current : selectedPatientDetails))
+    }
+  }, [selectedPatientDetails, preSelectedPatientId])
+
+  useEffect(() => {
     if (preSelectedPatientId) {
-      setSelectedPatientId(preSelectedPatientId)
+      setSelectedPatientId((current) => (current === preSelectedPatientId ? current : preSelectedPatientId))
       // Skip patient-selection step entirely if preselected
       if (preSelectedPatientData) {
-        setSelectedPatient(preSelectedPatientData)
-        setCurrentStep("visit-details")
+        setSelectedPatient((current) => (current?.id === preSelectedPatientData.id ? current : preSelectedPatientData))
+        setCurrentStep((current) => (current === "visit-details" ? current : "visit-details"))
       }
     } else {
-      setSelectedPatientId(null)
-      setCurrentStep("patient-selection")
+      setSelectedPatientId((current) => (current === null ? current : null))
+      setCurrentStep((current) => (current === "patient-selection" ? current : "patient-selection"))
     }
   }, [preSelectedPatientId, preSelectedPatientData])
 
@@ -140,18 +156,38 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
       setVisitNoteDepartment("visit")
       setQueuedNotes([])
     }
-  }, [isOpen, preSelectedPatientId])
+  }, [isOpen])
 
-  const handlePatientSelect = (patient: any) => {
+  const canCreateNewVisit = useCallback((patient: any) => {
+    if (!patient.lastVisit) return true
+    
+    // Cannot create new visit if last visit is CREATED or IN_PROGRESS
+    const blockedStatuses = ['CREATED', 'IN_PROGRESS']
+    return !blockedStatuses.includes(patient.lastVisit.status)
+  }, [])
+
+  const handlePatientSelect = useCallback((patient: any) => {
+    if (!canCreateNewVisit(patient)) {
+      toast.error(`Cannot create new visit. Patient has an active visit (${patient.lastVisit.status.replace('_', ' ')}).`)
+      return
+    }
+    
     setSelectedPatientId(patient.id)
     setSelectedPatient(patient)
     setCurrentStep("visit-details")
-  }
+  }, [canCreateNewVisit])
 
   const handleProceedToDetails = () => {
     if (!selectedPatientId || (preSelectedPatientId && !selectedPatient)) return
     const patientFromList = displayedPatients.find((p: Patient) => p.id === selectedPatientId)
-    setSelectedPatient(patientFromList || selectedPatient)
+    const patient = patientFromList || selectedPatient
+    
+    if (!canCreateNewVisit(patient)) {
+      toast.error(`Cannot create new visit. Patient has an active visit (${patient.lastVisit.status.replace('_', ' ')}).`)
+      return
+    }
+    
+    setSelectedPatient(patient)
     setCurrentStep("visit-details")
   }
 
@@ -159,9 +195,15 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
     if (!selectedPatientId || selectedDepartments.length === 0) return
 
     try {
-      const visitLevelNotes = queuedNotes
-        .filter((note) => !note.departmentId)
-        .map((note) => ({ type: 'GENERAL', text: note.text }))
+      const visitLevelNotes = queuedNotes.map((note) => {
+        if (!note.departmentId) {
+          return { type: 'GENERAL', text: note.text }
+        }
+
+        const departmentName = departments.find((dept) => String(dept.id) === String(note.departmentId))?.name
+        const label = departmentName ? `[${departmentName}] ` : ''
+        return { type: 'GENERAL', text: `${label}${note.text}` }
+      })
 
       const visitInput: any = {
         patientId: selectedPatientId,
@@ -177,25 +219,13 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
       const result = await createVisit(visitInput)
 
       if (result.status === 'SUCCESS') {
-        const createdVisitId = result.data?.id
-        const departmentDedicatedNotes = queuedNotes.filter((note) => note.departmentId)
-
-        if (createdVisitId && departmentDedicatedNotes.length > 0) {
-          for (const note of departmentDedicatedNotes) {
-            const saveRes = await addDepartmentNote(String(createdVisitId), String(note.departmentId), 'GENERAL', note.text)
-            if (saveRes?.status !== 'SUCCESS') {
-              toast.warning('Visit created but a department-dedicated note could not be saved')
-            }
-          }
-        }
-
         toast.success("Visit created successfully!")
         if (onVisitCreated) {
           onVisitCreated()
         }
         handleClose()
       } else {
-        const message = result.messages?.[0]?.text || 'Visit creation failed'
+        const message = result.message || result.messages?.[0]?.text || 'Visit creation failed'
         toast.error(message)
       }
     } catch (error) {
@@ -253,28 +283,32 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogContent showCloseButton={false} className="sm:max-w-[600px] backdrop-blur-xl bg-white/10 dark:bg-black/20 rounded-3xl border border-white/20 shadow-2xl">
-        <DialogHeader className="text-center space-y-2 sticky top-0 bg-white/10 dark:bg-black/20 z-40 -mx-6 px-6 pb-4">
-          <DialogTitle className="text-center">
+      <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        handleClose()
+      }
+    }}>
+        <DialogContent showCloseButton={false} className="sm:max-w-[500px] overflow-hidden rounded-2xl border border-border/50 bg-background shadow-lg p-3">
+        <DialogHeader className="text-center space-y-1 pb-2">
+          <DialogTitle className="text-center text-base font-semibold">
             {currentStep === "patient-selection"
               ? preSelectedPatientId ? "Create Visit for New Patient" : "Create Visit - Select Patient"
               : "Create Visit - Visit Details"}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="max-h-[calc(90vh-220px)] overflow-y-auto pr-2 pb-2">
+        <div className="max-h-[calc(90vh-160px)] overflow-y-auto px-2 pb-2 pt-1">
           {currentStep === "patient-selection" && (
-          <div className="space-y-4">
-            {/* macOS Spotlight-style Search Box */}
-            <div className="relative bg-white dark:bg-gray-900 rounded-2xl border border-border shadow-md overflow-hidden">
-              {/* Filter Pills - Always visible on hover */}
-              <div className="px-4 pt-3 pb-2 border-b border-border/30 transition-opacity opacity-60 hover:opacity-100">
+          <div className="space-y-3">
+            {/* Search Box */}
+            <div className="relative rounded-lg border border-border/50 bg-card shadow-sm">
+              {/* Filter Pills */}
+              <div className="px-3 pt-2 pb-1">
                 <div className="flex gap-2 items-center justify-center flex-wrap">
                   <button
                     type="button"
                     onClick={() => setSearchFilterType("name")}
-                    className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
                       searchFilterType === "name"
                         ? "bg-primary text-primary-foreground shadow-md scale-105"
                         : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -285,7 +319,7 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
                   <button
                     type="button"
                     onClick={() => setSearchFilterType("phoneNumber")}
-                    className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
                       searchFilterType === "phoneNumber"
                         ? "bg-primary text-primary-foreground shadow-md scale-105"
                         : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -293,21 +327,10 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
                   >
                     Phone
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setSearchFilterType("nationalId")}
-                    className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
-                      searchFilterType === "nationalId"
-                        ? "bg-primary text-primary-foreground shadow-md scale-105"
-                        : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    National ID
-                  </button>
-                  <button
+                                    <button
                     type="button"
                     onClick={() => setSearchFilterType("insuranceName")}
-                    className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
                       searchFilterType === "insuranceName"
                         ? "bg-primary text-primary-foreground shadow-md scale-105"
                         : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -319,22 +342,22 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
               </div>
 
               {/* Search Input */}
-              <div className="relative px-4 py-3">
-                <Search className="absolute left-7 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <div className="relative px-3 py-2">
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder={`Search patients by ${searchFilterType === "name" ? "name" : searchFilterType === "phoneNumber" ? "phone number" : searchFilterType === "nationalId" ? "national ID" : "insurance"}...`}
+                  placeholder={`Search patients by ${searchFilterType === "name" ? "name" : searchFilterType === "phoneNumber" ? "phone number" : "insurance"}...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-12 pr-10 h-12 text-base bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="pl-10 pr-8 h-10 text-sm bg-transparent border-0 focus-visible:ring-0"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery("")}
-                    className="absolute right-7 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute right-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                   </button>
                 )}
               </div>
@@ -342,7 +365,7 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
 
             {/* Results Container - Separate card */}
             {(patientsLoading || (shouldSearch && !patientsLoading)) && (
-              <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-border shadow-sm p-4 min-h-[100px]">
+              <div className="min-h-[100px] rounded-2xl bg-white/18 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_14px_36px_rgba(15,23,42,0.08)] ring-1 ring-white/10 backdrop-blur-2xl dark:bg-black/15 dark:ring-white/5">
                 {/* Animated typing indicator when searching */}
                 {patientsLoading && (
                   <div className="flex items-center justify-center gap-0.5 text-sm text-muted-foreground">
@@ -355,90 +378,86 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
                   </div>
                 )}
 
-                {/* Patient List - Only show when there are results or no matches */}
-                {shouldSearch && !patientsLoading && (
-                  displayedPatients.length === 0 ? (
-                    <div className="text-center text-sm text-muted-foreground">
-                      No matches found
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                  {displayedPatients.map((patient: Patient) => (
-                    <div
-                      key={patient.id}
-                      onClick={() => handlePatientSelect(patient)}
-                      onMouseEnter={() => setHoveredPatientId(patient.id)}
-                      onMouseLeave={() => setHoveredPatientId(null)}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 ${
-                        selectedPatientId === patient.id
-                          ? "bg-primary/10 border-primary shadow-md scale-[1.01]"
-                          : hoveredPatientId === patient.id
-                            ? "bg-primary/5 border-primary/60 shadow-md scale-[1.01]"
-                            : "bg-background border-border/40 hover:border-primary/50 hover:shadow-sm"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                          <User className="w-5 h-5 text-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium">
-                            {patient.firstName} {patient.lastName}
+                {/* Patient Results */}
+                {displayedPatients.length > 0 && (
+                  <div className="space-y-2">
+                    {displayedPatients.map((patient: Patient) => (
+                      <div
+                        key={patient.id}
+                        className={`relative p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                          selectedPatientId === patient.id
+                            ? "border-primary bg-primary/5"
+                            : "border-border/50 hover:border-border"
+                        } ${!canCreateNewVisit(patient) ? "opacity-60 cursor-not-allowed" : ""}`}
+                        onClick={() => handlePatientSelect(patient)}
+                        onMouseEnter={() => setHoveredPatientId(patient.id)}
+                        onMouseLeave={() => setHoveredPatientId(null)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                            <User className="w-5 h-5 text-primary" />
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            {patient.contactInfo?.phone && `Phone: ${patient.contactInfo.phone}`}
-                            {patient.nationalId && ` • ID: ${patient.nationalId}`}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            DOB: {new Date(patient.dateOfBirth).toLocaleDateString()}
-                            {patient.insurances && patient.insurances.length > 0 && (
-                              <span className="ml-2">
-                                • {patient.insurances.length} insurance{patient.insurances.length > 1 ? 's' : ''}
-                              </span>
+                          <div className="flex-1">
+                            <div className="font-medium">
+                              {patient.firstName} {patient.lastName}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {patient.contactInfo?.phone && `Phone: ${patient.contactInfo.phone}`}
+                              {patient.nationalId && ` · ID: ${patient.nationalId}`}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              DOB: {new Date(patient.dateOfBirth).toLocaleDateString()}
+                              {patient.insurances && patient.insurances.length > 0 && (
+                                <span className="ml-2">
+                                  · {patient.insurances.length} insurance{patient.insurances.length > 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
+                            {hoveredPatientId === patient.id && (
+                              <div className="mt-2 space-y-1 text-[13px] text-foreground">
+                                <div className="text-xs text-muted-foreground">
+                                  Insurances: {patient.insurances && patient.insurances.length > 0
+                                    ? patient.insurances.map((ins: any) => `${ins.insurance.acronym}${ins.insuranceCardNumber ? ` - ${ins.insuranceCardNumber}` : ""}`).join(", ")
+                                    : "None"}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {patient.lastVisit && (patient.lastVisit.status === 'CREATED' || patient.lastVisit.status === 'IN_PROGRESS') ? (
+                                    <span className="text-orange-600 dark:text-orange-400 font-medium">
+                                      Patient has an open visit
+                                    </span>
+                                  ) : patient.lastVisit ? (
+                                    <span>Last visit: {new Date(patient.lastVisit.visitDate).toLocaleDateString()}</span>
+                                  ) : (
+                                    <span>No visit recorded</span>
+                                  )}
+                                </div>
+                              </div>
                             )}
                           </div>
-                          {hoveredPatientId === patient.id && (
-                            <div className="mt-2 space-y-1 text-[13px] text-foreground">
-                              <div className="text-xs text-muted-foreground">
-                                Insurances: {patient.insurances && patient.insurances.length > 0
-                                  ? patient.insurances.map((ins: any) => `${ins.insurance.acronym}${ins.insuranceCardNumber ? ` - ${ins.insuranceCardNumber}` : ""}`).join(", ")
-                                  : "None"}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Last visit: {patient.latestVisit?.visitDate
-                                  ? new Date(patient.latestVisit.visitDate).toLocaleString()
-                                  : "No visit recorded"}
-                              </div>
-                            </div>
-                          )}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setHoveredPatientId(patient.id)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelectedPatientForEdit(patient)
-                            setEditPatientModal(true)
-                          }}
-                          title="Edit patient"
-                          className="rounded-full opacity-60 hover:opacity-100"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
           )}
 
         {currentStep === "visit-details" && selectedPatient && (
-          <div className="space-y-4 bg-[#F6EEE9] dark:bg-[#2a2520] p-4 rounded-2xl">
+          <div className="space-y-4 bg-[#F2EAE5] dark:bg-[#2a2520] p-4 rounded-2xl">
             {/* Selected Patient Info */}
             <div className="bg-white/50 dark:bg-black/20 p-3 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
@@ -465,12 +484,12 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
                     <label key={insurance.id} className="flex items-center space-x-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={selectedInsuranceIds.includes(insurance.insurance.id)}
+                        checked={selectedInsuranceIds.includes(insurance.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedInsuranceIds(prev => [...prev, insurance.insurance.id])
+                            setSelectedInsuranceIds(prev => [...prev, insurance.id])
                           } else {
-                            setSelectedInsuranceIds(prev => prev.filter(id => id !== insurance.insurance.id))
+                            setSelectedInsuranceIds(prev => prev.filter(id => id !== insurance.id))
                           }
                         }}
                         className="rounded"
@@ -510,12 +529,12 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
                     <label key={dept.id} className="flex items-center space-x-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={selectedDepartments.includes(dept.id)}
+                        checked={selectedDepartments.includes(String(dept.id))}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedDepartments(prev => [...prev, dept.id])
+                            setSelectedDepartments(prev => [...prev, String(dept.id)])
                           } else {
-                            setSelectedDepartments(prev => prev.filter(id => id !== dept.id))
+                            setSelectedDepartments(prev => prev.filter(id => id !== String(dept.id)))
                           }
                         }}
                         className="rounded"
@@ -527,73 +546,94 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
               </div>
             </div>
 
-            {/* Reception Notes */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Reception Notes (General)</label>
-              <div className="space-y-2 border rounded-lg p-3 bg-white/40 dark:bg-black/20">
-                <div className="grid grid-cols-1 sm:grid-cols-[1fr_170px_auto] gap-2 items-center">
-                  <Input
-                    value={visitNoteText}
-                    onChange={(e) => setVisitNoteText(e.target.value)}
-                    placeholder="Write a general note..."
-                  />
-                  <Select value={visitNoteDepartment} onValueChange={setVisitNoteDepartment}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Applies to" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="visit">Visit (General)</SelectItem>
-                      {departments
-                        .filter((dept) => selectedDepartments.includes(dept.id))
-                        .map((dept) => (
-                          <SelectItem key={`dept-note-${dept.id}`} value={String(dept.id)}>
-                            Department: {dept.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" variant="outline" onClick={handleQueueNote}>
-                    Add Note
-                  </Button>
-                </div>
-
-                {queuedNotes.length > 0 && (
-                  <div className="space-y-2 max-h-32 overflow-y-auto pt-1">
-                    {queuedNotes.map((note) => {
-                      const departmentName = note.departmentId
-                        ? departments.find((dept) => String(dept.id) === String(note.departmentId))?.name
-                        : undefined
-
-                      return (
-                        <div key={note.id} className="rounded-md border border-border/70 bg-background/80 px-3 py-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                              {departmentName ? `Department: ${departmentName}` : 'Visit'}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveQueuedNote(note.id)}
-                              className="text-xs text-muted-foreground hover:text-foreground"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                          <p className="text-sm text-foreground whitespace-pre-wrap">{note.text}</p>
-                        </div>
-                      )
-                    })}
-                  </div>
+            {/* Notes Section Toggle */}
+            <div className="pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowNotesSection(!showNotesSection)}
+                className="w-full justify-center gap-2 text-sm"
+              >
+                {showNotesSection ? (
+                  <>
+                    <X className="w-4 h-4" />
+                    Hide Notes
+                  </>
+                ) : (
+                  <>
+                    <Edit className="w-4 h-4" />
+                    Add Notes {queuedNotes.length > 0 && `(${queuedNotes.length})`}
+                  </>
                 )}
-              </div>
+              </Button>
+
+              {showNotesSection && (
+                <div className="mt-2 space-y-2 border rounded-lg p-2 bg-white/40 dark:bg-black/20">
+                  <label className="block text-sm font-medium text-foreground mb-2">Reception Notes (General)</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_170px_auto] gap-2 items-center">
+                    <Input
+                      value={visitNoteText}
+                      onChange={(e) => setVisitNoteText(e.target.value)}
+                      placeholder="Write a general note..."
+                    />
+                    <Select value={visitNoteDepartment} onValueChange={setVisitNoteDepartment}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Applies to" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="visit">Visit (General)</SelectItem>
+                        {departments
+                          .filter((dept) => selectedDepartments.includes(dept.id))
+                          .map((dept) => (
+                            <SelectItem key={`dept-note-${dept.id}`} value={String(dept.id)}>
+                              Department: {dept.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" onClick={handleQueueNote}>
+                      Add Note
+                    </Button>
+                  </div>
+
+                  {queuedNotes.length > 0 && (
+                    <div className="space-y-2 max-h-32 overflow-y-auto pt-1">
+                      {queuedNotes.map((note) => {
+                        const departmentName = note.departmentId
+                          ? departments.find((dept) => String(dept.id) === String(note.departmentId))?.name
+                          : undefined
+
+                        return (
+                          <div key={note.id} className="rounded-md border border-border/70 bg-background/80 px-3 py-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                                {departmentName ? `Department: ${departmentName}` : 'Visit'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveQueuedNote(note.id)}
+                                className="text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                            <p className="text-sm text-foreground whitespace-pre-wrap">{note.text}</p>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
         </div>
 
-        <DialogFooter className="sticky md:sticky bottom-0 left-0 right-0 justify-center bg-gradient-to-t from-white/20 dark:from-black/30 to-white/10 dark:to-black/20 border-t border-white/20 -mx-6 px-6 pb-4 pt-4 z-50">
+        <DialogFooter className="mt-2 flex justify-center items-center gap-3 px-0 pb-1 pt-2">
           {currentStep === "visit-details" && (
-            <>
-              <Button variant="outline" onClick={handleBackToPatientSelection} className="rounded-full px-6 border-red-500 text-red-600 hover:bg-red-50">
+            <div className="flex justify-center items-center gap-3 w-full">
+              <Button variant="outline" onClick={handleBackToPatientSelection} className="rounded-full px-6 border-white/20 bg-white/10 text-red-600 hover:bg-white/20 dark:border-white/10 dark:bg-white/5">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 {preSelectedPatientId ? "Cancel" : "Back to Patient Selection"}
               </Button>
@@ -604,7 +644,7 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
               >
                 {visitLoading ? "Creating..." : "Create Visit"}
               </Button>
-            </>
+            </div>
           )}
         </DialogFooter>
         </DialogContent>

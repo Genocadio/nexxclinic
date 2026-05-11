@@ -4,45 +4,65 @@ import { useState } from "react"
 import Header from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useAuth } from "@/lib/auth-context"
-import { useInsurances } from "@/hooks/auth-hooks"
+import {
+  useCreateInsuranceProvider,
+  useDeleteInsuranceProvider,
+  useInsurances,
+  useUpdateInsuranceProvider,
+} from "@/hooks/auth-hooks"
 import { Pencil, Trash2, ArrowLeft } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 export default function ManageInsurancesPage() {
   const router = useRouter()
   const { doctor } = useAuth()
-  const { insurances, loading, error, refetch } = useInsurances()
+  const { toast } = useToast()
+  const { insurances, loading, error, refetch } = useInsurances({ supportedByClinic: null, page: 0, size: 200 })
+  const { createInsuranceProvider } = useCreateInsuranceProvider()
+  const { updateInsuranceProvider } = useUpdateInsuranceProvider()
+  const { deleteInsuranceProvider } = useDeleteInsuranceProvider()
   const [name, setName] = useState("")
   const [acronym, setAcronym] = useState("")
   const [coverage, setCoverage] = useState("")
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [iconUrl, setIconUrl] = useState("")
+  const [supportedByClinic, setSupportedByClinic] = useState(true)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const resetForm = () => {
     setName("")
     setAcronym("")
     setCoverage("")
+    setIconUrl("")
+    setSupportedByClinic(true)
     setEditingId(null)
   }
 
   const handleCreate = async () => {
     if (!name || !acronym || !coverage) return
+    const coverageValue = Number(coverage)
+    if (Number.isNaN(coverageValue) || coverageValue < 0 || coverageValue > 100) {
+      toast({ title: "Invalid coverage", description: "Coverage must be between 0 and 100." })
+      return
+    }
     setSaving(true)
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || ''
-      const endpoint = baseUrl ? `${baseUrl}/api/insurance` : '/api/insurance'
-      await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify([{ name, acronym, coveragePercentage: Number(coverage) }]),
+      await createInsuranceProvider({
+        insuranceName: name,
+        acronym,
+        defaultCoveragePercentage: coverageValue,
+        supportedByClinic,
+        iconUrl: iconUrl || undefined,
       })
       await refetch()
+      toast({ title: "Insurance created" })
       resetForm()
+    } catch (err: any) {
+      toast({ title: "Create failed", description: err?.message || "Unexpected error" })
     } finally {
       setSaving(false)
     }
@@ -50,38 +70,44 @@ export default function ManageInsurancesPage() {
 
   const handleUpdate = async () => {
     if (editingId == null || !name || !acronym || !coverage) return
+    const coverageValue = Number(coverage)
+    if (Number.isNaN(coverageValue) || coverageValue < 0 || coverageValue > 100) {
+      toast({ title: "Invalid coverage", description: "Coverage must be between 0 and 100." })
+      return
+    }
     setSaving(true)
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || ''
-      const endpoint = baseUrl ? `${baseUrl}/api/insurance/${editingId}` : `/api/insurance/${editingId}`
-      await fetch(endpoint, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ name, acronym, coveragePercentage: Number(coverage) }),
+      await updateInsuranceProvider(editingId, {
+        insuranceName: name,
+        acronym,
+        defaultCoveragePercentage: coverageValue,
+        supportedByClinic,
+        iconUrl: iconUrl || undefined,
       })
       await refetch()
+      toast({ title: "Insurance updated" })
       resetForm()
+    } catch (err: any) {
+      toast({ title: "Update failed", description: err?.message || "Unexpected error" })
     } finally {
       setSaving(false)
     }
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this insurance provider?")) return
     setSaving(true)
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || ''
-      const endpoint = baseUrl ? `${baseUrl}/api/insurance/${id}` : `/api/insurance/${id}`
-      await fetch(endpoint, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      })
-      await refetch()
-      if (editingId === id) resetForm()
+      const ok = await deleteInsuranceProvider(id)
+      if (ok) {
+        await refetch()
+        if (editingId === id) resetForm()
+        toast({ title: "Insurance deleted" })
+      } else {
+        toast({ title: "Delete failed", description: "Please try again." })
+      }
+    } catch (err: any) {
+      toast({ title: "Delete failed", description: err?.message || "Unexpected error" })
     } finally {
       setSaving(false)
     }
@@ -116,6 +142,11 @@ export default function ManageInsurancesPage() {
             <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
             <Input placeholder="Acronym" value={acronym} onChange={(e) => setAcronym(e.target.value)} />
             <Input placeholder="Coverage %" type="number" value={coverage} onChange={(e) => setCoverage(e.target.value)} />
+            <Input placeholder="Icon URL (optional)" value={iconUrl} onChange={(e) => setIconUrl(e.target.value)} className="sm:col-span-2" />
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <Checkbox checked={supportedByClinic} onCheckedChange={(checked) => setSupportedByClinic(Boolean(checked))} />
+              Supported by clinic
+            </label>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -152,7 +183,9 @@ export default function ManageInsurancesPage() {
                   >
                     <div>
                       <p className="font-medium text-foreground">{ins.name}</p>
-                      <p className="text-xs text-muted-foreground">{ins.acronym} • {ins.coveragePercentage}% coverage</p>
+                      <p className="text-xs text-muted-foreground">
+                        {ins.acronym} • {ins.coveragePercentage}% coverage • {ins.supportedByClinic ? "Clinic Supported" : "External"}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -164,6 +197,8 @@ export default function ManageInsurancesPage() {
                           setName(ins.name)
                           setAcronym(ins.acronym)
                           setCoverage(String(ins.coveragePercentage))
+                          setIconUrl(ins.iconUrl || "")
+                          setSupportedByClinic(Boolean(ins.supportedByClinic))
                         }}
                       >
                         <Pencil className="h-4 w-4" />

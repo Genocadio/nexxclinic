@@ -360,8 +360,7 @@ export interface Form {
   title: string
   description?: string
   status: FormStatus
-  currentVersionNumber?: string
-  currentSchemaVersion?: number
+  version?: string
   createdAt: string
   updatedAt: string
   createdBy?: string
@@ -377,7 +376,7 @@ export interface FormListItem {
   departmentId: string
   title: string
   status: FormStatus
-  currentVersionNumber?: string
+  version?: string
   createdAt: string
   updatedAt: string
 }
@@ -386,7 +385,6 @@ export interface FormVersionItem {
   id: string
   formId: string
   versionNumber: string
-  schemaVersion?: number
   status: FormStatus
   createdAt: string
   createdBy?: string
@@ -593,10 +591,10 @@ export interface VisitDepartmentInput {
 
 export interface CreateVisitInput {
   patientId: string
-  insuranceIds?: string[]
-  departmentIds?: string[]
+  visitDate?: string
+  linkedPatientInsuranceIds?: string[]
+  departments?: VisitDepartmentInput[]
   visitNotes?: VisitNoteInput[]
-  visitType: VisitType
 }
 
 export interface AddDepartmentInput {
@@ -693,23 +691,12 @@ export interface FormSectionInput {
   fields?: FormFieldInput[]
 }
 
-export interface FormActionInput {
-  id: string
-  name: string
-  type: string
-  quantity?: number
-  price: number
-  isQuantifiable?: boolean
-  backendId?: string
-}
-
 export interface FormInput {
   title: string
   description?: string
-  schemaVersion: number
   sections?: FormSectionInput[]
   fields?: FormFieldInput[]
-  actions?: FormActionInput[]
+  actions?: FormActionItem[]
 }
 
 export interface VisitFilterInput {
