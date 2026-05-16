@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Plus, Trash2 } from "lucide-react"
 import FormActionsDisplay from "@/components/form-actions-display"
-import type { FormField } from "@/lib/form-storage"
+import type { FormAction, FormField } from "@/lib/form-storage"
 
 interface DiagnosticRecordEntry {
   id: string
@@ -44,11 +44,13 @@ interface FormFieldRendererProps {
   setMedicationLongDrafts: (fn: (prev: Record<string, any>) => Record<string, any>) => void
   medicationMiniDrafts: Record<string, { name: string; notes: string }>
   setMedicationMiniDrafts: (fn: (prev: Record<string, any>) => Record<string, any>) => void
-  onActionListenerClick?: () => void
+  onActionListenerClick?: (fieldId: string) => void
   fieldActions?: FormAction[]
   onUpdateQuantity?: (actionId: string, quantity: number) => void
   onRemoveAction?: (actionId: string) => void
+  onRestoreAction?: (actionId: string) => void
   visitId?: string
+  departmentId?: string
 }
 
 export function FormFieldRenderer({
@@ -68,6 +70,7 @@ export function FormFieldRenderer({
   fieldActions = [],
   onUpdateQuantity,
   onRemoveAction,
+  onRestoreAction,
   visitId,
   departmentId,
 }: FormFieldRendererProps) {
@@ -462,12 +465,12 @@ export function FormFieldRenderer({
       <div className="space-y-3">
         <div className={shouldCenterActionButton ? 'flex justify-center' : 'flex'}>
           <Button 
-            onClick={onActionListenerClick}
+            onClick={() => onActionListenerClick?.(field.id)}
             className={`inline-flex h-9 px-4 rounded-xl gap-2 border-border/70 bg-card/70 hover:bg-card shadow-sm ${actionButtonTextStyle}`}
             variant="outline"
           >
             <Plus className="h-4 w-4" />
-            Add Action or Consumable
+            Add Product
           </Button>
         </div>
         {fieldActions && fieldActions.length > 0 && (
@@ -475,9 +478,10 @@ export function FormFieldRenderer({
             items={fieldActions}
             hideLabel={true}
             visitId={visitId}
-            departmentId={undefined}
+            departmentId={departmentId}
             onUpdateQuantity={onUpdateQuantity ? (id, qty) => onUpdateQuantity(id, qty) : undefined}
             onRemove={onRemoveAction ? (id) => onRemoveAction(id) : undefined}
+            onRestore={onRestoreAction ? (id) => onRestoreAction(id) : undefined}
           />
         )}
       </div>

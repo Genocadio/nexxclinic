@@ -463,7 +463,7 @@ function ManageFormPreview({ form }: { form: BackendFormPreview | null }) {
         return (
           <Button disabled className="w-full gap-2" variant="outline">
             <Plus className="h-4 w-4" />
-            Add Action or Consumable (Preview - Disabled)
+            Add Product (Preview - Disabled)
           </Button>
         )
       default:

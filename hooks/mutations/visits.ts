@@ -70,18 +70,17 @@ export const UPSERT_CONSULTATION_ANSWERS_MUTATION = gql`
     upsertConsultationAnswers(input: $input) {
       status
       message
-      errors {
-        field
-        message
-        code
-      }
-      
       data {
         id
         consultationId
-        answers
+        visitId
+        patientId
+        departmentId
+        formId
+        formVersion
         status
-        createdAt
+        answers
+        submittedAt
         updatedAt
       }
     }
@@ -93,13 +92,8 @@ export const GENERATE_CONSULTATION_PDF_MUTATION = gql`
     generateConsultationPdf(consultationId: $consultationId, departmentId: $departmentId) {
       status
       message
-      errors {
-        field
-        message
-        code
-      }
-      
       data {
+        pdfBase64
         pdfUrl
       }
     }
@@ -111,12 +105,6 @@ export const PROCESS_VISIT_DEPARTMENT_MUTATION = gql`
     processVisitDepartment(visitId: $visitId, departmentId: $departmentId) {
       status
       message
-      errors {
-        field
-        message
-        code
-      }
-      
       data {
         id
         status
@@ -273,6 +261,33 @@ export const UPDATE_VISIT_DEPARTMENT_PRODUCT_STATUS_MUTATION = gql`
       status
       message
       
+      data {
+        id
+        departments {
+          id
+          status
+          products {
+            id
+            product {
+              id
+              name
+              type
+            }
+            quantity
+            price
+            status
+          }
+        }
+      }
+    }
+  }
+`
+
+export const REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION = gql`
+  mutation RemoveVisitDepartmentProduct($visitDepartmentProductId: ID!) {
+    removeVisitDepartmentProduct(visitDepartmentProductId: $visitDepartmentProductId) {
+      status
+      message
       data {
         id
         departments {

@@ -27,6 +27,7 @@ interface AddActionConsumableModalProps {
   currentDepartmentId?: string
   viewMode: 'all' | 'service'
   onAdd: (type: 'action' | 'consumable', item: ActionOrConsumable, quantity: number, departmentId: string) => void
+  existingProductReferenceIds?: string[]
   isSubmitting?: boolean
 }
 
@@ -37,6 +38,7 @@ export default function AddActionConsumableModal({
   currentDepartmentId,
   viewMode,
   onAdd,
+  existingProductReferenceIds = [],
   isSubmitting = false,
 }: AddActionConsumableModalProps) {
   const filterOptions: ProductTypeFilter[] = ['ALL', 'DRUG', 'MEDICAL_ACT', 'BIOLOGICAL_ACT', 'CONSUMABLE_DEVICE']
@@ -51,6 +53,8 @@ export default function AddActionConsumableModal({
   const [quantity, setQuantity] = useState('1')
   const [selectedDepartmentId, setSelectedDepartmentId] = useState(currentDepartmentId || '')
   const isFetchingMoreRef = useRef(false)
+  const existingProductIdSet = new Set((existingProductReferenceIds || []).map(String))
+  const selectedAlreadyAdded = selectedItem ? existingProductIdSet.has(selectedItem.id) : false
   const {
     products: searchedProducts,
     loading,
@@ -254,29 +258,41 @@ export default function AddActionConsumableModal({
               {/* Results List */}
               {!loading && suggestions.length > 0 && (
                 <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1" onScroll={handleSuggestionsScroll}>
-                  {suggestions.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => handleSelectItem(item)}
-                      onMouseEnter={() => setHoveredItemId(item.id)}
-                      onMouseLeave={() => setHoveredItemId((prev) => (prev === item.id ? null : prev))}
-                      className="p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 bg-background border-border/40 hover:border-primary/50 hover:shadow-sm hover:scale-[1.01]"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="font-medium">{item.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {item.privatePrice.toLocaleString()} RWF
-                          </div>
-                          {hoveredItemId === item.id && (
-                            <div className="mt-2 rounded-md border border-border/50 bg-muted/30 p-2 text-xs text-muted-foreground">
-                              {item.description?.trim() || 'No description available'}
+                  {suggestions.map((item) => {
+                    const alreadyAdded = existingProductIdSet.has(item.id)
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handleSelectItem(item)}
+                        onMouseEnter={() => setHoveredItemId(item.id)}
+                        onMouseLeave={() => setHoveredItemId((prev) => (prev === item.id ? null : prev))}
+                        className={
+                          `p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 bg-background border-border/40 hover:border-primary/50 hover:shadow-sm hover:scale-[1.01] ${
+                            alreadyAdded ? 'opacity-90 border-amber-300 bg-amber-50/50' : ''
+                          }`
+                        }
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex-1">
+                            <div className="font-medium">{item.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {item.privatePrice.toLocaleString()} RWF
                             </div>
+                            {hoveredItemId === item.id && (
+                              <div className="mt-2 rounded-md border border-border/50 bg-muted/30 p-2 text-xs text-muted-foreground">
+                                {item.description?.trim() || 'No description available'}
+                              </div>
+                            )}
+                          </div>
+                          {alreadyAdded && (
+                            <span className="rounded-full bg-amber-100 text-amber-800 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em]">
+                              Already added
+                            </span>
                           )}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                   {loadingMore && <div className="text-center text-xs text-muted-foreground py-1">Loading more...</div>}
                   {!loadingMore && hasMore && <div className="text-center text-xs text-muted-foreground py-1">Scroll to load more</div>}
                 </div>
@@ -288,16 +304,23 @@ export default function AddActionConsumableModal({
           {selectedItem && (
             <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-border shadow-sm p-4 space-y-4">
               {/* Selected Item Summary */}
-              <div className="bg-primary/5 border border-primary/20 rounded-xl p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Pill className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">Selected Product</span>
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 space-y-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Pill className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">Selected Product</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground mb-2">{selectedItem.name}</div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Unit Price:</span>
+                    <span className="font-semibold">{selectedItem.privatePrice.toLocaleString()} RWF</span>
+                  </div>
                 </div>
-                <div className="text-sm text-muted-foreground mb-2">{selectedItem.name}</div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Unit Price:</span>
-                  <span className="font-semibold">{selectedItem.privatePrice.toLocaleString()} RWF</span>
-                </div>
+                {selectedAlreadyAdded && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    This product is already added to the consultation. Adding it again will update the quantity.
+                  </div>
+                )}
               </div>
 
               {/* Quantity Input (if quantifiable) */}
@@ -357,7 +380,7 @@ export default function AddActionConsumableModal({
             disabled={!selectedItem || !selectedDepartmentId || loading || isSubmitting}
             className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full"
           >
-            Add to Billing
+            Add Product
           </Button>
         </DialogFooter>
         )}

@@ -14,6 +14,7 @@ import {
   ADD_INSURANCE_TO_VISIT_MUTATION,
   REMOVE_ACTION_FROM_VISIT_DEPARTMENT_MUTATION,
   REMOVE_CONSUMABLE_FROM_VISIT_DEPARTMENT_MUTATION,
+  REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION,
   UPDATE_ACTION_QUANTITY_MUTATION,
   UPDATE_CONSUMABLE_QUANTITY_MUTATION,
   UPDATE_VISIT_DEPARTMENT_PRODUCT_QUANTITY_MUTATION,
@@ -81,6 +82,22 @@ const mapVisitDepartmentProducts = (departments: any[] = []) => departments.map(
     status: department.status,
     transferTime: department.transferTime || '',
     completedTime: department.completedTime || '',
+    products: products.map((item: any) => ({
+      id: item.id,
+      product: {
+        id: item.product?.id,
+        name: item.product?.name,
+        type: item.product?.type,
+        privatePrice: Number(item.product?.privateRhicPrice ?? item.product?.clinicPrice ?? 0),
+      },
+      quantity: item.quantity,
+      addedBy: item.addedBy ? {
+        id: item.addedBy.id,
+        name: [item.addedBy.firstName, item.addedBy.lastName].filter(Boolean).join(' ') || item.addedBy.email || '',
+        title: '',
+      } : undefined,
+      addedAt: item.createdAt,
+    })),
     department: {
       id: department.department?.id,
       name: department.department?.name,
@@ -433,11 +450,11 @@ export function useGenerateConsultationPdf() {
 }
 
 export function useRemoveActionFromVisitDepartment() {
-  const [mutation, { loading, error }] = useMutation(REMOVE_ACTION_FROM_VISIT_DEPARTMENT_MUTATION)
+  const [mutation, { loading, error }] = useMutation(REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION)
   const removeAction = async (visitId: string, departmentId: string, actionId: string) => {
     try {
-      const result = await mutation({ variables: { visitId, departmentId, itemId: actionId } })
-      return result.data.removeActionFromVisitDepartment as any
+      const result = await mutation({ variables: { visitDepartmentProductId: actionId } })
+      return result.data.removeVisitDepartmentProduct as any
     } catch (err) {
       console.error('Remove action error:', err)
       throw err
@@ -448,11 +465,11 @@ export function useRemoveActionFromVisitDepartment() {
 }
 
 export function useRemoveConsumableFromVisitDepartment() {
-  const [mutation, { loading, error }] = useMutation(REMOVE_CONSUMABLE_FROM_VISIT_DEPARTMENT_MUTATION)
+  const [mutation, { loading, error }] = useMutation(REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION)
   const removeConsumable = async (visitId: string, departmentId: string, consumableId: string) => {
     try {
-      const result = await mutation({ variables: { visitId, departmentId, itemId: consumableId } })
-      return result.data.removeConsumableFromVisitDepartment as any
+      const result = await mutation({ variables: { visitDepartmentProductId: consumableId } })
+      return result.data.removeVisitDepartmentProduct as any
     } catch (err) {
       console.error('Remove consumable error:', err)
       throw err
@@ -463,11 +480,11 @@ export function useRemoveConsumableFromVisitDepartment() {
 }
 
 export function useRemoveProductFromVisitDepartment() {
-  const [mutation, { loading, error }] = useMutation(REMOVE_CONSUMABLE_FROM_VISIT_DEPARTMENT_MUTATION)
-  const removeProduct = async (visitId: string, departmentId: string, productId: string) => {
+  const [mutation, { loading, error }] = useMutation(REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION)
+  const removeProduct = async (visitDepartmentProductId: string) => {
     try {
-      const result = await mutation({ variables: { visitId, departmentId, itemId: productId } })
-      return result.data.removeConsumableFromVisitDepartment as any
+      const result = await mutation({ variables: { visitDepartmentProductId } })
+      return result.data.removeVisitDepartmentProduct as any
     } catch (err) {
       console.error('Remove product error:', err)
       throw err

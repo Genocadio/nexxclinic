@@ -1,7 +1,7 @@
 "use client"
 
 import { useParams, useRouter } from "next/navigation"
-import { useAddDepartmentNote, useGenerateConsultationPdf, useUpsertConsultationAnswers, useUpdateVisitDepartmentStatus, useVisits } from "@/hooks/auth-hooks"
+import { useAddDepartmentNote, useGenerateConsultationPdf, useUpsertConsultationAnswers, useUpdateVisitDepartmentStatus, useVisit } from "@/hooks/auth-hooks"
 import { useAuth } from "@/lib/auth-context"
 import ConsultationViewBackbone from "@/components/consultation-view-backbone"
 import VisitNotesFloating from "@/components/visit-notes-floating"
@@ -19,14 +19,11 @@ export default function ConsultationPage() {
   const params = useParams()
   const visitId = params.visitId as string
   const { doctor } = useAuth()
-  const { visits, loading, error, refetch } = useVisits()
+  const { visit, loading, error, refetch } = useVisit(visitId)
   const { upsertConsultationAnswers } = useUpsertConsultationAnswers()
   const { generateConsultationPdf } = useGenerateConsultationPdf()
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
   const { addDepartmentNote } = useAddDepartmentNote()
-
-  // Find the visit from the fetched visits
-  const visit = visits.find(v => v.id === visitId)
 
   // Redirect to dashboard if visit not found after loading completes
   useEffect(() => {
@@ -167,9 +164,45 @@ export default function ConsultationPage() {
     }))),
   ]
   
-  // Extract existing actions and consumables from the first department
-  const existingActions = firstDepartment?.actions || []
-  const existingConsumables = firstDepartment?.consumables || []
+  // Extract existing products from the first department.
+  // Prefer raw products if present, otherwise rebuild from actions/consumables.
+  const rawDepartmentProducts = firstDepartment?.products || []
+  const fallbackProductsFromActions = (firstDepartment?.actions || []).map((item: any) => ({
+    id: item.id,
+    product: {
+      id: item.action?.id,
+      name: item.action?.name,
+      type: item.action?.type,
+      privatePrice: item.action?.privatePrice,
+    },
+    quantity: item.quantity,
+  }))
+  const fallbackProductsFromConsumables = (firstDepartment?.consumables || []).map((item: any) => ({
+    id: item.id,
+    product: {
+      id: item.consumable?.id,
+      name: item.consumable?.name,
+      type: item.consumable?.type,
+      privatePrice: item.consumable?.privatePrice,
+    },
+    quantity: item.quantity,
+  }))
+  const departmentProductsSource = rawDepartmentProducts.length > 0
+    ? rawDepartmentProducts
+    : [...fallbackProductsFromActions, ...fallbackProductsFromConsumables]
+
+  const existingProducts = departmentProductsSource.map((product: any) => ({
+    id: product.id,
+    name: product.product?.name || '',
+    type: product.product?.type === 'CONSUMABLE_DEVICE' ? 'consumable' : 'action',
+    quantity: product.quantity || 0,
+    privatePrice: Number(product.product?.privateRhicPrice ?? product.product?.clinicPrice ?? product.product?.privatePrice ?? 0),
+    isQuantifiable: true,
+    backendId: String(product.id),
+    rawData: product,
+  }))
+
+  console.log('[Consultation-Page] visitId:', visit.id, 'firstDepartmentId:', firstDepartment?.id, 'rawProducts:', rawDepartmentProducts.length, 'actions:', (firstDepartment?.actions || []).length, 'consumables:', (firstDepartment?.consumables || []).length, 'existingProductsMapped:', existingProducts.length)
 
   return (
     <div className="min-h-screen bg-background">
@@ -178,11 +211,12 @@ export default function ConsultationPage() {
         consultation={consultation}
         patient={patient}
         departmentId={firstDepartmentId ? String(firstDepartmentId) : undefined}
+        existingProducts={existingProducts}
         onSave={async (updatedConsultation) => {
           try {
             const dynamicFormResponse = (updatedConsultation.specialtyExtensions as any)?.dynamicFormResponse
             const formId = dynamicFormResponse?.formId
-            const formVersion = dynamicFormResponse?.formVersion
+            const formVersion = dynamicFormResponse?.formVersion || dynamicFormResponse?.formSchemaVersion || dynamicFormResponse?.formVersionNumber
             const departmentToSave = String(dynamicFormResponse?.departmentId || firstDepartmentId || '')
             const existingSubmissionStatus = dynamicFormResponse?.existingSubmissionStatus as 'DRAFT' | 'FINAL' | undefined
             let answersAlreadyFinal = existingSubmissionStatus === 'FINAL'

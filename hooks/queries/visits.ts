@@ -56,21 +56,6 @@ export const GET_VISIT_QUERY = gql`
             id
             name
             insurancePolicyMode
-            insurancePolicies {
-              id
-              insuranceName
-              acronym
-              defaultCoveragePercentage
-            }
-            defaultProducts {
-              id
-              name
-              code
-              type
-              unit
-              privateRhicPrice
-              clinicPrice
-            }
           }
           status
           completedAt

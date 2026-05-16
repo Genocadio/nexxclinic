@@ -2085,19 +2085,19 @@ export default function FormsPage() {
                     <>
                       <div className="w-px h-6 bg-white/20" />
 
-                      {/* Add Action/Consumable */}
+                      {/* Add Product */}
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
                             onClick={() => setShowAddActionModal(true)}
                             className="rounded-full h-12 px-5 border-2 border-white/30 bg-orange-500 hover:bg-orange-600 text-white shadow-lg"
-                            aria-label="Add Action/Consumable"
+                            aria-label="Add Product"
                           >
                             <Pill className="h-5 w-5" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Add Action or Consumable</p>
+                          <p>Add Product</p>
                         </TooltipContent>
                       </Tooltip>
                       <div className="w-px h-6 bg-white/20" />
@@ -2436,7 +2436,7 @@ function FieldEditor({
                     <SelectItem value="diagnosticRecord">Diagnostic Record</SelectItem>
                     <SelectItem value="medicationLongForm">Medication Long Form</SelectItem>
                     <SelectItem value="medicationMiniForm">Medication Mini Form</SelectItem>
-                    <SelectItem value="actionListener">Action Listener</SelectItem>
+                    <SelectItem value="actionListener">Product Listener</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

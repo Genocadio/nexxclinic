@@ -16,6 +16,8 @@ export interface FormAction {
   isQuantifiable?: boolean
   backendId?: string
   rawData?: Record<string, any> // Store complete backend response for accurate ID
+  source?: 'saved' | 'local'
+  removedFromVisit?: boolean
 }
 
 export type TableHeaderPlacement = 'none' | 'top' | 'left' | 'right' | 'both'

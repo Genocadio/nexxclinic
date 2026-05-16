@@ -25,7 +25,7 @@ interface ConsultationFormDisplayProps {
   setMedicationMiniDrafts: (fn: (prev: Record<string, any>) => Record<string, any>) => void
   fieldActions: Record<string, FormAction[]>
   onFormReload?: () => void
-  onActionListenerClick?: () => void
+  onActionListenerClick?: (fieldId: string) => void
   onUpdateQuantity?: (fieldId: string, actionId: string, quantity: number) => void
   onRemoveAction?: (fieldId: string, actionId: string) => void
   visitId?: string
@@ -51,6 +51,7 @@ export function ConsultationFormDisplay({
   onActionListenerClick,
   onUpdateQuantity,
   onRemoveAction,
+  onRestoreAction,
   visitId,
   currentDepartmentId,
 }: ConsultationFormDisplayProps) {
@@ -107,7 +108,9 @@ export function ConsultationFormDisplay({
                          fieldActions={fieldActions[field.id] || []}
                          onUpdateQuantity={onUpdateQuantity ? (actionId, qty) => onUpdateQuantity(field.id, actionId, qty) : undefined}
                          onRemoveAction={onRemoveAction ? (actionId) => onRemoveAction(field.id, actionId) : undefined}
+                         onRestoreAction={onRestoreAction ? (actionId) => onRestoreAction(field.id, actionId) : undefined}
                          visitId={visitId}
+                         departmentId={currentDepartmentId}
                        />
                     </div>
                   )
@@ -149,6 +152,7 @@ export function ConsultationFormDisplay({
                                  fieldActions={fieldActions[field.id] || []}
                                  onUpdateQuantity={onUpdateQuantity ? (actionId, qty) => onUpdateQuantity(field.id, actionId, qty) : undefined}
                                  onRemoveAction={onRemoveAction ? (actionId) => onRemoveAction(field.id, actionId) : undefined}
+                                 onRestoreAction={onRestoreAction ? (actionId) => onRestoreAction(field.id, actionId) : undefined}
                                  visitId={visitId}
                                />
                             </div>

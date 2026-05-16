@@ -179,6 +179,7 @@ export const hydrateSavedAnswers = (
           id: item?.catalogItemId,
           ...item,
         },
+        source: 'saved',
       }))
     }
   })
