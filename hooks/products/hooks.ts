@@ -21,6 +21,85 @@ export function useProducts() {
   return { products, loading, error: error?.message || null, refetch }
 }
 
+export function useProductsPaginated(options?: { name?: string; type?: ProductTypeFilter; size?: number }) {
+  const pageSize = options?.size ?? 30
+  const typeFilter = options?.type && options.type !== 'ALL' ? options.type : undefined
+  const searchQuery = options?.name
+
+  const { data, loading, error, fetchMore, refetch } = useQuery(GET_PRODUCTS_QUERY, {
+    variables: {
+      input: {
+        name: searchQuery || undefined,
+        type: typeFilter,
+        page: 0,
+        size: pageSize,
+      }
+    },
+    fetchPolicy: 'cache-and-network',
+  })
+
+  const products = data?.products?.data || []
+  const pagination = data?.products?.pagination
+  const hasMore = Boolean(
+    pagination &&
+      typeof pagination.currentPage === 'number' &&
+      typeof pagination.totalPages === 'number' &&
+      pagination.currentPage + 1 < pagination.totalPages,
+  )
+
+  const loadMore = async () => {
+    if (!hasMore || !pagination || loading) return false
+
+    const nextPage = pagination.currentPage + 1
+
+    await fetchMore({
+      variables: {
+        input: {
+          name: searchQuery || undefined,
+          type: typeFilter,
+          page: nextPage,
+          size: pageSize,
+        },
+      },
+      updateQuery: (previousResult, { fetchMoreResult }) => {
+        if (!fetchMoreResult?.products) return previousResult
+
+        const previousData = previousResult?.products?.data || []
+        const nextData = fetchMoreResult.products.data || []
+        const merged = [...previousData]
+
+        for (const item of nextData) {
+          if (!merged.some((existing: any) => String(existing.id) === String(item.id))) {
+            merged.push(item)
+          }
+        }
+
+        return {
+          ...fetchMoreResult,
+          products: {
+            ...fetchMoreResult.products,
+            data: merged,
+          },
+        }
+      },
+    })
+
+    return true
+  }
+
+  const refresh = () =>
+    refetch({
+      input: {
+        name: searchQuery || undefined,
+        type: typeFilter,
+        page: 0,
+        size: pageSize,
+      },
+    })
+
+  return { products, loading, error: error?.message || null, hasMore, loadMore, refresh, pagination }
+}
+
 export function useProductSearch(searchQuery: string, options?: UseProductSearchOptions) {
   const pageSize = options?.size ?? 20
   const typeFilter = options?.type && options.type !== 'ALL' ? options.type : undefined

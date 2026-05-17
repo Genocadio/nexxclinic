@@ -1,15 +1,47 @@
 import { gql } from '@apollo/client'
 
 export const CREATE_DEPARTMENT_MUTATION = gql`
-  mutation CreateDepartment($input: DepartmentInput!) {
+  mutation CreateDepartment($input: CreateDepartmentInput!) {
     createDepartment(input: $input) {
       status
       message
-      
       data {
         id
         name
-        description
+        insurancePolicyMode
+        insurancePolicies {
+          id
+          insuranceName
+          acronym
+          defaultCoveragePercentage
+          supportedByClinic
+          iconUrl
+        }
+        defaultProducts {
+          id
+          name
+          genericName
+          code
+          description
+          type
+          unit
+          privateRhicPrice
+          clinicPrice
+          insuranceCoverages {
+            id
+            insuranceProvider {
+              id
+              insuranceName
+              acronym
+              defaultCoveragePercentage
+              supportedByClinic
+              iconUrl
+            }
+            cost
+            covered
+            requireMedicalAdvisor
+          }
+        }
         createdAt
         updatedAt
       }
@@ -18,15 +50,47 @@ export const CREATE_DEPARTMENT_MUTATION = gql`
 `
 
 export const UPDATE_DEPARTMENT_MUTATION = gql`
-  mutation UpdateDepartment($id: ID!, $input: DepartmentInput!) {
-    updateDepartment(id: $id, input: $input) {
+  mutation UpdateDepartment($departmentId: ID!, $input: UpdateDepartmentInput!) {
+    updateDepartment(departmentId: $departmentId, input: $input) {
       status
       message
-      
       data {
         id
         name
-        description
+        insurancePolicyMode
+        insurancePolicies {
+          id
+          insuranceName
+          acronym
+          defaultCoveragePercentage
+          supportedByClinic
+          iconUrl
+        }
+        defaultProducts {
+          id
+          name
+          genericName
+          code
+          description
+          type
+          unit
+          privateRhicPrice
+          clinicPrice
+          insuranceCoverages {
+            id
+            insuranceProvider {
+              id
+              insuranceName
+              acronym
+              defaultCoveragePercentage
+              supportedByClinic
+              iconUrl
+            }
+            cost
+            covered
+            requireMedicalAdvisor
+          }
+        }
         createdAt
         updatedAt
       }

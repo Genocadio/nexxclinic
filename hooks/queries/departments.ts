@@ -21,11 +21,27 @@ export const GET_DEPARTMENTS_QUERY = gql`
         defaultProducts {
           id
           name
+          genericName
           code
+          description
           type
           unit
           privateRhicPrice
           clinicPrice
+          insuranceCoverages {
+            id
+            insuranceProvider {
+              id
+              insuranceName
+              acronym
+              defaultCoveragePercentage
+              supportedByClinic
+              iconUrl
+            }
+            cost
+            covered
+            requireMedicalAdvisor
+          }
         }
         createdAt
         updatedAt
@@ -61,11 +77,27 @@ export const GET_DEPARTMENT_QUERY = gql`
         defaultProducts {
           id
           name
+          genericName
           code
+          description
           type
           unit
           privateRhicPrice
           clinicPrice
+          insuranceCoverages {
+            id
+            insuranceProvider {
+              id
+              insuranceName
+              acronym
+              defaultCoveragePercentage
+              supportedByClinic
+              iconUrl
+            }
+            cost
+            covered
+            requireMedicalAdvisor
+          }
         }
         createdAt
         updatedAt

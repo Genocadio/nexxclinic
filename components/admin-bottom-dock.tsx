@@ -11,7 +11,7 @@ import { isManagerWithoutAdmin } from '@/lib/role-utils'
 const adminDockItems = [
   { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
   { label: 'Departments', path: '/admin/departments', icon: Building2 },
-  { label: 'Actions', path: '/admin/actions-consumables', icon: Package },
+  { label: 'Products', path: '/admin/products', icon: Package },
   { label: 'Insurances', path: '/admin/insurances', icon: ShieldCheck },
   { label: 'Users', path: '/admin/users', icon: Users },
 ]
