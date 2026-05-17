@@ -6,6 +6,7 @@ import Header from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth-context"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   useUsers,
   useAdminCreateUser,
@@ -47,8 +48,9 @@ export default function ManageUsersPage() {
   const [email, setEmail] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [username, setUsername] = useState("")
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(["CLINICIAN"])
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([])
   const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<string[]>([])
+  const [modalOpen, setModalOpen] = useState(false)
 
   const isBusy = creating || activating || deactivating || updatingRoles || updatingUser || forcingReset
 
@@ -86,8 +88,9 @@ export default function ManageUsersPage() {
     setDateOfBirth("")
     setProfilePhotoUrl("")
     setUsername("")
-    setSelectedRoles(["CLINICIAN"])
+    setSelectedRoles([])
     setSelectedDepartmentIds([])
+    setModalOpen(false)
   }
 
   const startEdit = (user: UserAccount) => {
@@ -112,17 +115,17 @@ export default function ManageUsersPage() {
     setDateOfBirth(user.dateOfBirth || "")
     setProfilePhotoUrl(user.profilePhotoUrl || "")
     setUsername(user.username || "")
-    const nextRoles = user.roles?.length ? user.roles : ["CLINICIAN"]
+    const nextRoles = user.roles?.length ? user.roles : []
     setSelectedRoles(nextRoles)
     setSelectedDepartmentIds(user.department ? [user.department.id] : [])
+    setModalOpen(true)
   }
 
   const toggleRole = (role: string) => {
     setSelectedRoles((prev) => {
       const exists = prev.includes(role)
       if (exists) {
-        const next = prev.filter((r) => r !== role)
-        return next.length ? next : prev
+        return prev.filter((r) => r !== role)
       }
       return [...prev, role]
     })
@@ -290,140 +293,200 @@ export default function ManageUsersPage() {
     <div className="min-h-screen bg-background">
       <Header doctor={doctor} />
       <main className="max-w-5xl mx-auto px-6 py-10 space-y-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            className="rounded-full"
-            onClick={() => router.push('/admin')}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Manage Users</h1>
-            <p className="text-muted-foreground">
-              {managerLimitedMode
-                ? "Manage non-admin users. Admin users are visible but read-only."
-                : "Create users, activate/deactivate, update roles and profile fields."}
-            </p>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full flex-shrink-0"
+              onClick={() => router.push('/admin')}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Manage Users</h1>
+              <p className="text-muted-foreground text-sm">
+                {managerLimitedMode
+                  ? "Manage non-admin users. Admin users are visible but read-only."
+                  : "Create users, activate/deactivate, update roles and profile fields."}
+              </p>
+            </div>
           </div>
+          <Button
+            onClick={() => {
+              resetForm()
+              setModalOpen(true)
+            }}
+            className="rounded-full bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md flex-shrink-0"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Register User
+          </Button>
         </div>
 
-        <section className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">{editingUserId ? "Edit User" : "Create User"}</h2>
-            {editingUserId && (
-              <Button variant="outline" className="rounded-full" onClick={resetForm} disabled={isBusy}>
-                Cancel Edit
-              </Button>
-            )}
-          </div>
+        {/* Floating Action Button (FAB) for Mobile/All screens */}
+        <div className="fixed bottom-24 right-6 z-[80] md:hidden">
+          <Button
+            onClick={() => {
+              resetForm()
+              setModalOpen(true)
+            }}
+            className="h-12 w-12 rounded-full bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Input placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-              <Input placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-              <Input
-                placeholder="Email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(sanitizeEmailInput(e.target.value))}
-                disabled={Boolean(editingUserId)}
-              />
-              <Input placeholder="Phone number" value={phoneNumber} onChange={(e) => setPhoneNumber(sanitizePhoneInput(e.target.value))} />
-              <select
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                className="px-3 py-2 border border-border rounded-md bg-background text-foreground"
-              >
-                <option value="">Select Gender</option>
-                <option value="MALE">Male</option>
-                <option value="FEMALE">Female</option>
-                <option value="OTHER">Other</option>
-              </select>
-              <Input
-                placeholder="Date of Birth"
-                type="date"
-                value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
-              />
-              <Input
-                placeholder="Profile Photo URL"
-                value={profilePhotoUrl}
-                onChange={(e) => setProfilePhotoUrl(e.target.value)}
-              />
-              <Input
-                placeholder="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                disabled={Boolean(editingUserId)}
-              />
-            </div>
+        {/* Register / Edit User Dialog Modal */}
+        <Dialog open={modalOpen} onOpenChange={(open) => {
+          setModalOpen(open)
+          if (!open) resetForm()
+        }}>
+          <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/25 border border-white/20 rounded-3xl shadow-2xl p-3 flex flex-col">
+            <div className="flex-1 overflow-hidden bg-[#FBF2ED] dark:bg-slate-900 border border-border/40 dark:border-slate-800 rounded-2xl p-6 flex flex-col shadow-lg">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold text-foreground">
+                  {editingUserId ? "Edit User Account" : "Register New User"}
+                </DialogTitle>
+                <DialogDescription>
+                  {editingUserId ? "Modify the fields below to update the user account." : "Fill in the details below to create and register a new system user."}
+                </DialogDescription>
+              </DialogHeader>
 
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">Roles</p>
-              <div className="flex flex-wrap gap-2">
-                {ALL_ROLES.map((role) => {
-                  if (role === ADMIN_ROLE && !canManageAdminUserAccounts) {
-                    return null
-                  }
-                  const selected = selectedRoles.includes(role)
-                  return (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => toggleRole(role)}
-                      className={`px-3 h-8 rounded-full border text-xs font-semibold transition-colors ${
-                        selected
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background text-foreground border-border hover:border-primary/60"
-                      }`}
+              <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto pr-2 space-y-6 my-4 scrollbar-thin">
+                {/* Form Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">First Name *</label>
+                    <Input placeholder="Enter first name" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Last Name</label>
+                    <Input placeholder="Enter last name" value={lastName} onChange={(e) => setLastName(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Email *</label>
+                    <Input
+                      placeholder="Enter email address"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(sanitizeEmailInput(e.target.value))}
+                      disabled={Boolean(editingUserId)}
+                      className="rounded-xl bg-white dark:bg-slate-950"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Phone Number</label>
+                    <Input placeholder="Enter phone number" value={phoneNumber} onChange={(e) => setPhoneNumber(sanitizePhoneInput(e.target.value))} className="rounded-xl bg-white dark:bg-slate-950" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Gender</label>
+                    <select
+                      value={gender}
+                      onChange={(e) => setGender(e.target.value)}
+                      className="w-full px-3 py-2 border border-border rounded-xl bg-white dark:bg-slate-950 text-foreground h-10 focus:ring-2 focus:ring-primary focus:outline-none"
                     >
-                      {role}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+                      <option value="">Select Gender</option>
+                      <option value="MALE">Male</option>
+                      <option value="FEMALE">Female</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Date of Birth</label>
+                    <Input
+                      placeholder="Date of Birth"
+                      type="date"
+                      value={dateOfBirth}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      className="rounded-xl bg-white dark:bg-slate-950"
+                    />
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-xs font-semibold text-muted-foreground">Profile Photo URL</label>
+                    <Input
+                      placeholder="Enter profile photo URL"
+                      value={profilePhotoUrl}
+                      onChange={(e) => setProfilePhotoUrl(e.target.value)}
+                      className="rounded-xl bg-white dark:bg-slate-950"
+                    />
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-xs font-semibold text-muted-foreground">Username</label>
+                    <Input
+                      placeholder="Enter unique username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      disabled={Boolean(editingUserId)}
+                      className="rounded-xl bg-white dark:bg-slate-950"
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">Departments</p>
-              <div className="flex flex-wrap gap-2">
-                {departments.map((department: any) => {
-                  const selected = selectedDepartmentIds.includes(String(department.id))
-                  return (
-                    <button
-                      key={department.id}
-                      type="button"
-                      onClick={() => toggleDepartment(String(department.id))}
-                      className={`px-3 h-8 rounded-full border text-xs font-semibold transition-colors ${
-                        selected
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background text-foreground border-border hover:border-primary/60"
-                      }`}
-                    >
-                      {department.name}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+                {/* Roles Selection */}
+                <div className="space-y-2 border-t border-border/30 pt-4">
+                  <p className="text-sm font-semibold text-foreground">Roles *</p>
+                  <div className="flex flex-wrap gap-2">
+                    {ALL_ROLES.map((role) => {
+                      if (role === ADMIN_ROLE && !canManageAdminUserAccounts) {
+                        return null
+                      }
+                      const selected = selectedRoles.includes(role)
+                      return (
+                        <button
+                          key={role}
+                          type="button"
+                          onClick={() => toggleRole(role)}
+                          className={`px-4 h-9 rounded-xl border text-xs font-bold transition-all duration-200 ${
+                            selected
+                              ? "bg-primary text-primary-foreground border-primary shadow-md"
+                              : "bg-white dark:bg-background text-foreground border-border hover:border-primary/50 hover:bg-muted/30"
+                          }`}
+                        >
+                          {role}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
 
-            <Button type="submit" className="rounded-full" disabled={isBusy}>
-              {editingUserId ? (
-                <>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Update User
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create User
-                </>
-              )}
-            </Button>
-          </form>
-        </section>
+                {/* Departments Selection */}
+                <div className="space-y-2 border-t border-border/30 pt-4">
+                  <p className="text-sm font-semibold text-foreground">Departments</p>
+                  <div className="flex flex-wrap gap-2">
+                    {departments.map((department: any) => {
+                      const selected = selectedDepartmentIds.includes(String(department.id))
+                      return (
+                        <button
+                          key={department.id}
+                          type="button"
+                          onClick={() => toggleDepartment(String(department.id))}
+                          className={`px-4 h-9 rounded-xl border text-xs font-bold transition-all duration-200 ${
+                            selected
+                              ? "bg-primary text-primary-foreground border-primary shadow-md"
+                              : "bg-white dark:bg-background text-foreground border-border hover:border-primary/50 hover:bg-muted/30"
+                          }`}
+                        >
+                          {department.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-border/30 sticky bottom-0 bg-background/95 dark:bg-slate-900/95 -mx-2 px-2 pb-2">
+                  <Button type="button" variant="outline" className="rounded-full px-5" onClick={() => setModalOpen(false)} disabled={isBusy}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md" disabled={isBusy}>
+                    {editingUserId ? "Update User" : "Register User"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <section className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
           <div className="flex items-center justify-between gap-3">

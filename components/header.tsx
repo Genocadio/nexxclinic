@@ -30,7 +30,7 @@ export default function Header({ doctor }: HeaderProps) {
   }
 
   return (
-    <header className="relative z-[90] h-16 bg-card/60 backdrop-blur-xl border-b border-border/30 flex items-center justify-between px-6 shadow-sm">
+    <header className="sticky top-0 z-[90] h-16 bg-card/60 backdrop-blur-xl border-b border-border/30 flex items-center justify-between px-6 shadow-sm">
       <button
         onClick={() => router.push("/")}
         className="flex items-center gap-3 hover:opacity-90 transition-all duration-200 cursor-pointer"

@@ -454,7 +454,7 @@ export default function DepartmentsPage() {
         <section className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-foreground">Departments</p>
-            <Button onClick={openAddModal} className="rounded-full" size="sm">
+            <Button onClick={openAddModal} className="rounded-full bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md" size="sm">
               <Plus className="h-4 w-4 mr-2" /> Add Department
             </Button>
           </div>
@@ -679,127 +679,142 @@ export default function DepartmentsPage() {
         </section>
       </div>
 
+      {/* Floating action button for mobile screens */}
+      <div className="fixed bottom-6 right-6 z-50 md:hidden">
+        <Button
+          onClick={openAddModal}
+          className="h-12 w-12 rounded-full bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      </div>
+
       {/* Add/Edit modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{modalMode === 'add' ? 'Add Department' : 'Edit Department'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-5">
-            <label className="text-sm">Name</label>
-            <Input value={departmentName} onChange={(e) => setDepartmentName(e.target.value)} placeholder="Department name" />
-            
-            {modalMode === 'add' && (
-              <>
-                <div className="space-y-2">
-                  <label className="text-sm">Insurance Policy Mode</label>
-                  <Select value={departmentInsurancePolicyMode} onValueChange={setDepartmentInsurancePolicyMode}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Optional policy mode" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All insurances apply</SelectItem>
-                      <SelectItem value="ONLY">Only selected insurances apply</SelectItem>
-                      <SelectItem value="EXCEPT">Selected insurances are exempted</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/25 border border-white/20 rounded-3xl shadow-2xl p-3 flex flex-col">
+          <div className="flex-1 overflow-hidden bg-[#FBF2ED] dark:bg-slate-900 border border-border/40 dark:border-slate-800 rounded-2xl p-6 flex flex-col shadow-lg">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-foreground">{modalMode === 'add' ? 'Add Department' : 'Edit Department'}</DialogTitle>
+              <DialogDescription>
+                {modalMode === 'add' ? 'Fill in the details below to create a new system department.' : 'Update the department name below.'}
+              </DialogDescription>
+            </DialogHeader>
 
-                <div className="space-y-3 rounded-xl border border-border/60 p-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">Initial Products</label>
-                    <span className="text-xs text-muted-foreground">Optional</span>
+            <div className="flex-1 overflow-y-auto pr-2 space-y-5 my-4 scrollbar-thin">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Name *</label>
+                <Input value={departmentName} onChange={(e) => setDepartmentName(e.target.value)} placeholder="Department name" className="rounded-xl bg-white dark:bg-slate-950" />
+              </div>
+              
+              {modalMode === 'add' && (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Insurance Policy Mode</label>
+                    <Select value={departmentInsurancePolicyMode} onValueChange={setDepartmentInsurancePolicyMode}>
+                      <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950">
+                        <SelectValue placeholder="Optional policy mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">All insurances apply</SelectItem>
+                        <SelectItem value="ONLY">Only selected insurances apply</SelectItem>
+                        <SelectItem value="EXCEPT">Selected insurances are exempted</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <ProductAutocomplete
-                      products={modalAvailableProducts}
-                      selectedProductId={pendingProductId}
-                      onProductSelect={setPendingProductId}
-                      placeholder={productsLoading ? 'Loading products...' : 'Search products...'}
-                      disabled={productsLoading}
-                      className="flex-1"
-                    />
-                    <Button type="button" size="sm" onClick={handleAddModalProduct} disabled={!pendingProductId}>Add</Button>
-                  </div>
-                  <div className="space-y-2">
-                    {departmentProductIds.map((productId) => {
-                      const product = products.find((item: any) => String(item.id) === productId)
-                      return (
-                        <div key={productId} className="flex items-center justify-between rounded-lg border px-3 py-2">
-                          <span className="text-sm">{product?.name || productId}</span>
-                          <Button type="button" variant="outline" size="icon" className="rounded-full" onClick={() => handleRemoveModalProduct(productId)}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )
-                    })}
-                    {departmentProductIds.length === 0 && <p className="text-xs text-muted-foreground">No products selected.</p>}
-                  </div>
-                </div>
 
-                <div className="space-y-3 rounded-xl border border-border/60 p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm font-medium">Initial Insurances</label>
-                      {departmentInsurancePolicyMode === 'ALL' && (
-                        <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">
-                          All insurances apply - no additions needed
-                        </span>
-                      )}
+                  <div className="space-y-3 rounded-xl border border-border/60 bg-white dark:bg-slate-950 p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-muted-foreground">Initial Products (Optional)</label>
                     </div>
-                    {departmentInsurancePolicyMode !== 'ALL' && (
-                      <span className="text-xs text-muted-foreground">Optional</span>
-                    )}
-                  </div>
-                  {departmentInsurancePolicyMode !== 'ALL' && (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <InsuranceAutocomplete
-                          insurances={modalAvailableInsurances.filter((insurance: any) => 
-                            !departmentInsuranceIds.includes(String(insurance.id))
-                          )}
-                          selectedInsuranceId={pendingInsuranceId}
-                          onInsuranceSelect={setPendingInsuranceId}
-                          placeholder={insurancesLoading ? 'Loading insurances...' : 'Search insurances...'}
-                          disabled={insurancesLoading}
-                          className="flex-1"
-                        />
-                        <Button type="button" size="sm" onClick={handleAddModalInsurance} disabled={!pendingInsuranceId}>Add</Button>
-                      </div>
-                    </>
-                  )}
-                  <div className="space-y-2">
-                    {departmentInsuranceIds.map((insuranceId) => {
-                      const insurance = insurances.find((item: any) => String(item.id) === insuranceId)
-                      return (
-                        <div key={insuranceId} className="flex items-center justify-between rounded-lg border px-3 py-2">
-                          <span className="text-sm">{insurance?.name || insuranceId}</span>
-                          {departmentInsurancePolicyMode !== 'ALL' && (
-                            <Button type="button" variant="outline" size="icon" className="rounded-full" onClick={() => handleRemoveModalInsurance(insuranceId)}>
+                    <div className="flex items-center gap-2">
+                      <ProductAutocomplete
+                        products={modalAvailableProducts}
+                        selectedProductId={pendingProductId}
+                        onProductSelect={setPendingProductId}
+                        placeholder={productsLoading ? 'Loading products...' : 'Search products...'}
+                        disabled={productsLoading}
+                        className="flex-1"
+                      />
+                      <Button type="button" size="sm" onClick={handleAddModalProduct} disabled={!pendingProductId}>Add</Button>
+                    </div>
+                    <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 scrollbar-thin">
+                      {departmentProductIds.map((productId) => {
+                        const product = products.find((item: any) => String(item.id) === productId)
+                        return (
+                          <div key={productId} className="flex items-center justify-between rounded-lg border px-3 py-2 bg-muted/20">
+                            <span className="text-sm font-medium">{product?.name || productId}</span>
+                            <Button type="button" variant="outline" size="icon" className="rounded-full h-7 w-7" onClick={() => handleRemoveModalProduct(productId)}>
                               <X className="h-4 w-4" />
                             </Button>
-                          )}
-                        </div>
-                      )
-                    })}
-                    {departmentInsuranceIds.length === 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        {departmentInsurancePolicyMode === 'ALL' 
-                          ? 'All insurance policies will apply to this department.' 
-                          : 'No insurances selected.'}
-                      </p>
-                    )}
+                          </div>
+                        )
+                      })}
+                      {departmentProductIds.length === 0 && <p className="text-xs text-muted-foreground">No products selected.</p>}
+                    </div>
                   </div>
-                </div>
-              </>
-            )}
+
+                  <div className="space-y-3 rounded-xl border border-border/60 bg-white dark:bg-slate-950 p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-semibold text-muted-foreground">Initial Insurances (Optional)</label>
+                        {departmentInsurancePolicyMode === 'ALL' && (
+                          <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                            All insurances apply
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {departmentInsurancePolicyMode !== 'ALL' && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <InsuranceAutocomplete
+                            insurances={modalAvailableInsurances.filter((insurance: any) => 
+                              !departmentInsuranceIds.includes(String(insurance.id))
+                            )}
+                            selectedInsuranceId={pendingInsuranceId}
+                            onInsuranceSelect={setPendingInsuranceId}
+                            placeholder={insurancesLoading ? 'Loading insurances...' : 'Search insurances...'}
+                            disabled={insurancesLoading}
+                            className="flex-1"
+                          />
+                          <Button type="button" size="sm" onClick={handleAddModalInsurance} disabled={!pendingInsuranceId}>Add</Button>
+                        </div>
+                      </>
+                    )}
+                    <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 scrollbar-thin">
+                      {departmentInsuranceIds.map((insuranceId) => {
+                        const insurance = insurances.find((item: any) => String(item.id) === insuranceId)
+                        return (
+                          <div key={insuranceId} className="flex items-center justify-between rounded-lg border px-3 py-2 bg-muted/20">
+                            <span className="text-sm font-medium">{insurance?.name || insuranceId}</span>
+                            {departmentInsurancePolicyMode !== 'ALL' && (
+                              <Button type="button" variant="outline" size="icon" className="rounded-full h-7 w-7" onClick={() => handleRemoveModalInsurance(insuranceId)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        )
+                      })}
+                      {departmentInsuranceIds.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          {departmentInsurancePolicyMode === 'ALL' 
+                            ? 'All insurance policies will apply.' 
+                            : 'No insurances selected.'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <div className="flex justify-end gap-3 pt-4 border-t border-border/30 sticky bottom-0 bg-background/95 dark:bg-slate-900/95 -mx-2 px-2 pb-2">
+              <Button variant="outline" onClick={() => setIsModalOpen(false)} className="rounded-full px-5">Cancel</Button>
+              <Button onClick={handleCreateOrUpdate} disabled={saving || !departmentName.trim()} className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md">
+                {modalMode === 'add' ? 'Create' : 'Save'}
+              </Button>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)} className="rounded-full">Cancel</Button>
-            <Button onClick={handleCreateOrUpdate} disabled={saving || !departmentName.trim()} className="rounded-full">
-              {modalMode === 'add' ? 'Create' : 'Save'}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -48,8 +48,8 @@ interface PatientRegistrationModalProps {
 export default function PatientRegistrationModal({ isOpen, onClose, onPatientRegistered, hideSearchPanel = false }: PatientRegistrationModalProps) {
   const { registerPatient, loading } = useRegisterPatient()
   const { insurances, loading: insurancesLoading } = useInsurances()
-  const solidFieldClass = "w-full bg-background dark:bg-gray-900 border-border/70"
-  const solidPanelClass = "rounded-2xl border border-border/60 bg-background/95 dark:bg-gray-900/90 shadow-sm"
+  const solidFieldClass = "w-full bg-white dark:bg-gray-900 border-border/70"
+  const solidPanelClass = "rounded-2xl border border-border/60 bg-white dark:bg-slate-950 shadow-sm"
   const [error, setError] = useState("")
   const [showNotes, setShowNotes] = useState(false)
   const [insurancePopoverOpen, setInsurancePopoverOpen] = useState<{ [key: number]: boolean }>({})
@@ -292,7 +292,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
         <DialogTitle className="sr-only">Register New Patient</DialogTitle>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-6 h-full max-h-[calc(90vh-180px)] overflow-hidden">
           {/* Registration Form */}
-          <div className="overflow-y-auto scrollbar-hide pr-2 pb-20 rounded-2xl border border-border/50 bg-background/90 dark:bg-gray-900/85 p-2 sm:p-4">
+          <div className="overflow-y-auto scrollbar-hide pr-2 pb-20 rounded-2xl border border-border/50 bg-[#FBF2ED] dark:bg-slate-900 shadow-lg p-2 sm:p-4">
             <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-6">
           {/* Basic Information */}
           <div className={`${solidPanelClass} p-2 sm:p-4 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4`}>
@@ -695,7 +695,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                   value={formData.notes}
                   onChange={(e) => handleInputChange('notes', e.target.value)}
                   placeholder="Enter any additional notes"
-                  className="w-full p-3 border border-border/70 rounded-lg bg-background dark:bg-gray-900 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                  className="w-full p-3 border border-border/70 rounded-lg bg-white dark:bg-gray-900 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                   rows={3}
                 />
               </div>
@@ -715,7 +715,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
 
           {/* Potential Matches Panel (hidden on mobile) */}
           {!hideSearchPanel && (
-            <div className="hidden md:block border-l border-border/50 pl-6 overflow-y-auto scrollbar-hide pb-20 rounded-2xl bg-background/90 dark:bg-gray-900/85 p-4">
+            <div className="hidden md:block border-l border-border/50 pl-6 overflow-y-auto scrollbar-hide pb-20 rounded-2xl bg-[#FBF2ED] dark:bg-slate-900 shadow-lg p-4">
               <>
                 <div className="sticky top-0 bg-background dark:bg-gray-900 pb-4 border-b border-border/50 mb-4 rounded-2xl p-4 shadow-sm">
                   <h3 className="text-lg font-semibold text-foreground">Potential Matches</h3>

@@ -290,7 +290,7 @@ export default function ManageProductsPage() {
           <Button
             onClick={openAddModal}
             disabled={saving}
-            className="rounded-full"
+            className="rounded-full bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Product
@@ -335,12 +335,12 @@ export default function ManageProductsPage() {
         </div>
 
         {/* Two-column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className={`grid grid-cols-1 ${selectedItem ? "lg:grid-cols-2" : ""} gap-6`}>
           
           {/* Left Column - Infinite Scroll List */}
           <section className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg flex flex-col min-h-[500px]">
             <p className="text-sm font-semibold text-foreground mb-4">
-              Products List ({products.length} loaded)
+              Products List
             </p>
 
             {productsError && (
@@ -386,14 +386,19 @@ export default function ManageProductsPage() {
                 </div>
               ))}
 
-              {productsLoading && (
+              {productsLoading && products.length === 0 && (
                 <div className="space-y-2 pt-2">
-                  {[...Array(3)].map((_, idx) => (
-                    <Skeleton key={idx} className="h-16 w-full rounded-xl" />
+                  {[...Array(5)].map((_, idx) => (
+                    <Skeleton key={idx} className="h-16 w-full rounded-xl animate-pulse" />
                   ))}
-                  <div className="text-center py-2">
-                    <RefreshCw className="h-4 w-4 animate-spin mx-auto text-muted-foreground" />
-                  </div>
+                </div>
+              )}
+
+              {productsLoading && products.length > 0 && (
+                <div className="py-4 flex justify-center items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                  <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                  <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce"></span>
                 </div>
               )}
 
@@ -410,8 +415,8 @@ export default function ManageProductsPage() {
           </section>
 
           {/* Right Column - Product details */}
-          <section className="bg-card/40 dark:bg-slate-900/40 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg min-h-[500px]">
-            {selectedItem ? (
+          {selectedItem && (
+            <section className="bg-card/40 dark:bg-slate-900/40 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg min-h-[500px]">
               <div className="space-y-6">
                 
                 {/* Details Header */}
@@ -545,79 +550,84 @@ export default function ManageProductsPage() {
                 </div>
 
               </div>
-            ) : (
-              <div className="flex items-center justify-center h-full min-h-[400px]">
-                <div className="text-center text-muted-foreground">
-                  <Shield className="h-12 w-12 mx-auto mb-3 opacity-30 text-blue-500" />
-                  <p className="text-sm">Select a product from the list to manage details and coverages.</p>
-                </div>
-              </div>
-            )}
-          </section>
+            </section>
+          )}
+        </div>
+
+        {/* Floating action button for mobile screens */}
+        <div className="fixed bottom-6 right-6 z-50 md:hidden">
+          <Button
+            onClick={openAddModal}
+            className="h-12 w-12 rounded-full bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
         </div>
 
         {/* Add/Edit Modal */}
         <Dialog open={addEditModalOpen} onOpenChange={setAddEditModalOpen}>
-          <DialogContent className="sm:max-w-md rounded-2xl">
-            <DialogHeader>
-              <DialogTitle>
-                {modalMode === "add" ? "Create Product" : "Edit Product"}
-              </DialogTitle>
-              <DialogDescription>
-                Fill in the details below to {modalMode === "add" ? "create a new" : "update the"} product.
-              </DialogDescription>
-            </DialogHeader>
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/25 border border-white/20 rounded-3xl shadow-2xl p-3 flex flex-col">
+            <div className="flex-1 overflow-hidden bg-[#FBF2ED] dark:bg-slate-900 border border-border/40 dark:border-slate-800 rounded-2xl p-6 flex flex-col shadow-lg">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold text-foreground">
+                  {modalMode === "add" ? "Create Product" : "Edit Product"}
+                </DialogTitle>
+                <DialogDescription>
+                  Fill in the details below to {modalMode === "add" ? "create a new" : "update the"} product.
+                </DialogDescription>
+              </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <Label>Name *</Label>
-                <Input placeholder="Product Name" value={itemName} onChange={(e) => setItemName(e.target.value)} className="rounded-xl" />
+              <div className="flex-1 overflow-y-auto pr-2 space-y-4 my-4 scrollbar-thin">
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-muted-foreground">Name *</Label>
+                  <Input placeholder="Product Name" value={itemName} onChange={(e) => setItemName(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-muted-foreground">Description (Optional)</Label>
+                  <Input placeholder="Description" value={itemDescription} onChange={(e) => setItemDescription(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-muted-foreground">Product Type *</Label>
+                  <Select value={itemType} onValueChange={(value) => setItemType(value as ProductTypeOption)}>
+                    <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRODUCT_TYPE_OPTIONS.map((typeOption) => (
+                        <SelectItem key={typeOption} value={typeOption}>
+                          {typeOption}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-muted-foreground">Private Price (RWF) *</Label>
+                  <Input placeholder="Private Price" type="number" value={itemPrice} onChange={(e) => setItemPrice(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-muted-foreground">Clinic Price (RWF) (Optional)</Label>
+                  <Input placeholder="Clinic Price" type="number" value={itemClinicPrice} onChange={(e) => setItemClinicPrice(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                </div>
+                <div className="flex items-center gap-2 pt-2">
+                  <Checkbox
+                    id="quantifiable-modal"
+                    checked={itemQuantifiable}
+                    onCheckedChange={(checked) => setItemQuantifiable(!!checked)}
+                  />
+                  <Label htmlFor="quantifiable-modal" className="text-sm font-semibold text-foreground cursor-pointer select-none">Quantifiable</Label>
+                </div>
               </div>
-              <div>
-                <Label>Description <span className="text-xs text-muted-foreground">(Optional)</span></Label>
-                <Input placeholder="Description" value={itemDescription} onChange={(e) => setItemDescription(e.target.value)} className="rounded-xl" />
-              </div>
-              <div>
-                <Label>Product Type *</Label>
-                <Select value={itemType} onValueChange={(value) => setItemType(value as ProductTypeOption)}>
-                  <SelectTrigger className="rounded-xl">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRODUCT_TYPE_OPTIONS.map((typeOption) => (
-                      <SelectItem key={typeOption} value={typeOption}>
-                        {typeOption}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Private Price (RWF) *</Label>
-                <Input placeholder="Private Price" type="number" value={itemPrice} onChange={(e) => setItemPrice(e.target.value)} className="rounded-xl" />
-              </div>
-              <div>
-                <Label>Clinic Price (RWF) <span className="text-xs text-muted-foreground">(Optional)</span></Label>
-                <Input placeholder="Clinic Price" type="number" value={itemClinicPrice} onChange={(e) => setItemClinicPrice(e.target.value)} className="rounded-xl" />
-              </div>
-              <div className="flex items-center gap-2 pt-2">
-                <Checkbox
-                  id="quantifiable-modal"
-                  checked={itemQuantifiable}
-                  onCheckedChange={(checked) => setItemQuantifiable(!!checked)}
-                />
-                <Label htmlFor="quantifiable-modal" className="text-sm cursor-pointer">Quantifiable</Label>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border/30 sticky bottom-0 bg-background/95 dark:bg-slate-900/95 -mx-2 px-2 pb-2">
+                <Button variant="outline" onClick={() => setAddEditModalOpen(false)} disabled={saving} className="rounded-full px-5">
+                  Cancel
+                </Button>
+                <Button onClick={modalMode === "add" ? handleCreateItem : handleUpdateItem} disabled={saving} className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md">
+                  {saving ? "Saving..." : modalMode === "add" ? "Create Product" : "Update Product"}
+                </Button>
               </div>
             </div>
-
-            <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setAddEditModalOpen(false)} disabled={saving} className="rounded-xl">
-                Cancel
-              </Button>
-              <Button onClick={modalMode === "add" ? handleCreateItem : handleUpdateItem} disabled={saving} className="rounded-xl">
-                {saving ? "Saving..." : modalMode === "add" ? "Create" : "Update"}
-              </Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
       </main>
