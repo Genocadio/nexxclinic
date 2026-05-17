@@ -10,7 +10,7 @@ export function useGetBillByVisit(visitId: string | null) {
     fetchPolicy: 'cache-and-network'
   })
 
-  const bill = data?.getBillByVisit?.data
+  const bill = data?.visitBillings?.data?.[data?.visitBillings?.data?.length - 1] || data?.visitBillings?.data?.[0]
 
   return {
     bill,
@@ -25,31 +25,21 @@ export function useCreateBill() {
 
   const createBill = async (input: {
     visitId: string
-    note?: string
-    globalDiscount?: {
-      type: 'NONE' | 'FIXED' | 'PERCENTAGE'
-      value: number
-    }
-    billingItems: {
-      departmentId: string
-      actionId?: string
-      items: {
-        itemType: string
-        itemId: string
-        quantity: number
-        insuranceId?: string
-        itemDiscount?: {
-          type: 'NONE' | 'FIXED' | 'PERCENTAGE'
-          value: number
-        }
-      }[]
+    billAllProducts?: boolean
+    items?: {
+      visitDepartmentProductId: string
+      patientInsuranceId?: string
+      quantity?: number
+      unitPrice?: number
+      isExempted?: boolean
     }[]
+    paidAmount?: number
   }) => {
     try {
       const result = await createBillMutation({
         variables: { input }
       })
-      return result.data.createBill as any
+      return result.data.billVisit as any
     } catch (err) {
       console.error('Create bill error:', err)
       throw err
@@ -62,10 +52,10 @@ export function useCreateBill() {
 export function useGenerateInvoice() {
   const [generateInvoiceMutation, { loading, error }] = useMutation(GENERATE_INVOICE_MUTATION)
 
-  const generateInvoice = async (visitId: string) => {
+  const generateInvoice = async (billId: string) => {
     try {
       const result = await generateInvoiceMutation({
-        variables: { visitId }
+        variables: { billId }
       })
       return result.data.generateInvoice as InvoiceResponse & {
         pdfBase64?: string

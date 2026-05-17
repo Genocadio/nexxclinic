@@ -65,6 +65,8 @@ export default function VisitsListView({
 
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
   const isClinicianLike = roles.includes("CLINICIAN") || roles.includes("DOCTOR")
+  const hasReceptionistRole = roles.includes("RECEPTIONIST") || roles.includes("RECEPTION")
+  const hasFinanceRole = roles.includes("FINANCE")
 
   const getUserDepartmentIds = () => {
     if (!doctor) return []
@@ -206,8 +208,8 @@ export default function VisitsListView({
                           </button>
                         )}
 
-                        {/* Only show add-department for non-clinicians */}
-                        {!isClinicianLike && canAddDepartment(visit) && (
+                        {/* Add Department: only for RECEPTIONIST role */}
+                        {hasReceptionistRole && canAddDepartment(visit) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -221,21 +223,20 @@ export default function VisitsListView({
                             <span className="hidden lg:inline">Add Department</span>
                           </button>
                         )}
-                        {!isClinicianLike && (
-                          {hasUnbilledItems(visit) && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleGoToBilling(visit)
-                              }}
-                              title="Bill Visit"
-                              className="px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
-                            >
-                              <ReceiptText className="w-4 h-4 flex-shrink-0" />
-                              <span className="hidden sm:inline lg:hidden">Bill</span>
-                              <span className="hidden lg:inline">Bill Visit</span>
-                            </button>
-                          )}
+                        {/* Bill Visit: only for FINANCE role */}
+                        {hasFinanceRole && hasUnbilledItems(visit) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleGoToBilling(visit)
+                            }}
+                            title="Bill Visit"
+                            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
+                          >
+                            <ReceiptText className="w-4 h-4 flex-shrink-0" />
+                            <span className="hidden sm:inline lg:hidden">Bill</span>
+                            <span className="hidden lg:inline">Bill Visit</span>
+                          </button>
                         )}
                       </>
                     )

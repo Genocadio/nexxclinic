@@ -1,27 +1,41 @@
 import { gql } from '@apollo/client'
 
 export const GET_BILL_BY_VISIT_QUERY = gql`
-  query GetBillByVisit($visitId: ID!) {
-    getBillByVisit(visitId: $visitId) {
+  query GetVisitBillings($visitId: ID!) {
+    visitBillings(visitId: $visitId) {
       status
       message
       
       data {
         id
         visitId
-        totalAmount
-        paidAmount
         status
+        billingDate
+        totalAmount
+        insuranceCoveredAmount
+        patientPayableAmount
+        paidAmount
+        outstandingAmount
+        fullyBilledVisit
+        billedBy {
+          id
+          firstName
+          lastName
+        }
         items {
           id
-          name
-          type
-          quantity
-          unitPrice
-          totalPrice
+          visitDepartmentProductId
+          productId
+          productName
+          unitPriceSnapshot
+          quantitySnapshot
+          lineTotal
+          insuranceCoveredAmount
+          patientPayableAmount
+          appliedPatientInsuranceId
+          createdAt
+          updatedAt
         }
-        createdAt
-        updatedAt
       }
     }
   }

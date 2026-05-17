@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { BillingItemsList } from '@/components/BillingItemsList';
 import { BillingExemptions } from '@/components/BillingExemptions';
 import { Button } from '@/components/ui/button';
@@ -80,9 +80,7 @@ function BillingPageContent() {
     if (status === 'BILLED') return 'paid';
     // Check if item is in existing bill
     if (existingBill && itemId) {
-      const isBilled = existingBill.billingItems?.some((billingItem: any) => 
-        billingItem.items.some((item: any) => item.itemId === itemId)
-      );
+      const isBilled = existingBill.items?.some((item: any) => item.visitDepartmentProductId === itemId);
       if (isBilled) return 'paid';
     }
     return 'pending';
@@ -178,10 +176,7 @@ function BillingPageContent() {
     const age = patient?.dateOfBirth ? (new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()) : 0;
 
     const nationalId = (patient as any)?.nationalId || ''
-    const discountPercentage =
-      existingBill?.globalDiscount?.type === 'PERCENTAGE'
-        ? Number(existingBill?.globalDiscount?.value || 0)
-        : 0
+    const discountPercentage = 0; // globalDiscount is no longer supported directly on VisitBilling
 
     // Default amount paid to patient's contribution (after insurance and discount) when no bill exists yet.
     const patientContribution = items.reduce((total, item) => {
@@ -214,16 +209,9 @@ function BillingPageContent() {
       })),
       items,
       discountPercentage,
-      paymentMethod:
-        existingBill?.payments?.[existingBill.payments.length - 1]?.method?.toLowerCase() === 'cash'
-          ? 'cash'
-          : existingBill?.payments?.[existingBill.payments.length - 1]?.method?.toLowerCase() === 'momo'
-            ? 'momo'
-            : existingBill?.payments?.[existingBill.payments.length - 1]?.method?.toLowerCase() === 'airtel-money'
-              ? 'airtel-money'
-              : 'momo',
-      amountPaid: Number(existingBill?.totals?.patientTotalPaid ?? patientContributionAfterDiscount),
-      notes: existingBill?.note || '',
+      paymentMethod: 'momo', // Payment tracking can be enhanced later
+      amountPaid: Number(existingBill?.paidAmount ?? patientContributionAfterDiscount),
+      notes: '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -262,6 +250,39 @@ function BillingPageContent() {
   }, [viewMode, activeService, billingData?.items.length]);
 
   // Calculate totals for a given items subset
+  const totals = useMemo(() => {
+    if (!billingData) return { subtotal: 0, insuranceCoverage: 0, patientResponsibility: 0, discount: 0, totalAmount: 0 };
+    
+    let subtotal = 0;
+    let insuranceCoverage = 0;
+    let patientResponsibility = 0;
+
+    billingData.items.forEach(item => {
+      const itemTotal = item.quantity * item.price;
+      const selectedInsurance = billingData.insurances?.find(
+        ins => (ins.id || ins.acronym) === item.selectedInsuranceId
+      );
+      const coveragePct = selectedInsurance?.coveragePercentage || 0;
+      const coverageAmount = (itemTotal * coveragePct) / 100;
+      const patientPortion = itemTotal - coverageAmount;
+      const exemption = item.exemptionType || (item.exempted ? 'full' : 'none');
+
+      if (exemption === 'full') return;
+      subtotal += itemTotal;
+      if (exemption === 'patient-share') {
+        insuranceCoverage += coverageAmount;
+        return;
+      }
+      insuranceCoverage += coverageAmount;
+      patientResponsibility += patientPortion;
+    });
+    
+    const discount = (patientResponsibility * (billingData.discountPercentage || 0)) / 100;
+    const totalAmount = patientResponsibility - discount;
+    
+    return { subtotal, insuranceCoverage, patientResponsibility, discount, totalAmount };
+  }, [billingData]);
+
   const calculateTotalsForItems = (items: BillingItem[]) => {
     let subtotal = 0;
     let insuranceCoverage = 0;
@@ -277,21 +298,12 @@ function BillingPageContent() {
       const patientPortion = itemTotal - coverageAmount;
       const exemption = item.exemptionType || (item.exempted ? 'full' : 'none');
 
-      if (exemption === 'full') {
-        // Fully waived: neither patient nor insurance pays
-        return;
-      }
-
-      // Always count toward subtotal unless fully waived
+      if (exemption === 'full') return;
       subtotal += itemTotal;
-
       if (exemption === 'patient-share') {
-        // Patient share waived; insurance still pays its portion
         insuranceCoverage += coverageAmount;
         return;
       }
-
-      // No exemption
       insuranceCoverage += coverageAmount;
       patientResponsibility += patientPortion;
     });
@@ -301,10 +313,9 @@ function BillingPageContent() {
     
     return { subtotal, insuranceCoverage, patientResponsibility, discount, totalAmount };
   };
-  const totals = billingData ? calculateTotalsForItems(billingData.items) : { subtotal: 0, insuranceCoverage: 0, patientResponsibility: 0, discount: 0, totalAmount: 0 };
-  const effectiveCoverage = getEffectiveCoveragePercentage(billingData?.insurances);
-  const patientInsurances = visit?.patient.insurances || [];
-  const visitInsuranceIds = new Set(visit?.insurances?.map((ins) => ins.id));
+  const effectiveCoverage = useMemo(() => getEffectiveCoveragePercentage(billingData?.insurances), [billingData?.insurances]);
+  const patientInsurances = useMemo(() => visit?.patient.insurances || [], [visit?.patient.insurances]);
+  const visitInsuranceIds = useMemo(() => new Set(visit?.insurances?.map((ins) => ins.id)), [visit?.insurances]);
 
   const handleItemChange = (updatedItem: BillingItem) => {
     setBillingData((prev) => {
@@ -382,26 +393,46 @@ function BillingPageContent() {
     });
   };
 
+  const handleSelectAll = (itemIds: string[], checked: boolean) => {
+    setSelectedItemIds((prev) => {
+      const set = new Set(prev);
+      itemIds.forEach(id => {
+        if (checked) set.add(id); else set.delete(id);
+      });
+      return Array.from(set);
+    });
+  };
+
   const itemsByService = (serviceName: string) => {
     if (!billingData) return [] as BillingItem[];
     return billingData.items.filter((item) => (item.departmentName || 'General') === serviceName);
   };
 
-  const itemsToDisplay: BillingItem[] = (() => {
-    if (!billingData) return [] as BillingItem[];
+  const itemsToDisplay = useMemo((): BillingItem[] => {
+    if (!billingData) return [];
     if (viewMode === 'service' && activeService) {
-      return itemsByService(activeService);
+      return billingData.items.filter((item) => (item.departmentName || 'General') === activeService);
     }
     return billingData.items;
-  })();
+  }, [billingData, viewMode, activeService]);
 
   const selectedItems = billingData ? billingData.items.filter((it) => selectedItemIds.includes(it.id)) : [];
   const hasRemainingToBill = Boolean(billingData?.items.some((item) => item.paymentStatus !== 'paid'));
   const canEditBilling = Boolean(existingBill) || billJustCreated;
   const showBillingDock = canEditBilling || (!existingBill && hasRemainingToBill);
 
-  const openInvoicePdfFromBase64 = (pdfBase64: string) => {
-    const byteCharacters = atob(pdfBase64);
+  const openInvoice = (urlOrBase64: string) => {
+    if (urlOrBase64.startsWith('http://') || urlOrBase64.startsWith('https://') || urlOrBase64.startsWith('/')) {
+      const previewWindow = window.open(urlOrBase64, '_blank');
+      if (!previewWindow) {
+        throw new Error('Unable to open invoice preview window. Please allow pop-ups.');
+      }
+      return;
+    }
+    
+    // Clean base64 string if it has data URI prefix
+    const base64Data = urlOrBase64.replace(/^data:application\/pdf;base64,/, '');
+    const byteCharacters = atob(base64Data);
     const byteNumbers = new Array(byteCharacters.length);
     for (let i = 0; i < byteCharacters.length; i += 1) {
       byteNumbers[i] = byteCharacters.charCodeAt(i);
@@ -417,15 +448,16 @@ function BillingPageContent() {
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
   };
 
-  const refreshInvoicePdf = async () => {
-    if (!visitId) return null;
-    const response = await generateInvoice(String(visitId));
-    if (response.status !== 'SUCCESS' || !response.pdfBase64) {
-      const errorMsg = response.messages?.map((m) => m.text).join(', ') || 'Failed to generate invoice PDF';
+  const refreshInvoicePdf = async (billId?: string) => {
+    const targetBillId = billId || existingBill?.id;
+    if (!targetBillId) return null;
+    const response = await generateInvoice(targetBillId);
+    if (response.status !== 'SUCCESS' || !response.data?.invoiceUrl) {
+      const errorMsg = response.messages?.map((m) => m.text).join(', ') || 'Failed to generate invoice';
       throw new Error(errorMsg);
     }
-    setInvoicePdfBase64(response.pdfBase64);
-    return response.pdfBase64;
+    setInvoicePdfBase64(response.data.invoiceUrl);
+    return response.data.invoiceUrl;
   };
   
   // Compute service-specific totals when in service view
@@ -439,16 +471,16 @@ function BillingPageContent() {
   }, [billingData?.discountPercentage])
 
   // Get all service names from visit departments (not just those with items)
-  const allServiceNames = visit?.departments
+  const allServiceNames = useMemo(() => visit?.departments
     ?.filter(dept => dept.status !== 'CANCELLED')
-    .map(dept => dept.department?.name || 'General') || [];
+    .map(dept => dept.department?.name || 'General') || [], [visit?.departments]);
   
   // Calculate exemption count
   const exemptionCount = billingData
     ? billingData.items.filter(item => (item.exemptionType || (item.exempted ? 'full' : 'none')) !== 'none').length
     : 0;
 
-  const unbilledServiceNames = billingData
+  const unbilledServiceNames = useMemo(() => billingData
     ? Array.from(
         new Set(
           billingData.items
@@ -456,7 +488,7 @@ function BillingPageContent() {
             .map((item) => item.departmentName || 'General')
         )
       )
-    : [];
+    : [], [billingData?.items]);
   const hasMultipleUnbilledServices = unbilledServiceNames.length > 1;
 
   const billingScopedNotes = [
@@ -571,32 +603,16 @@ function BillingPageContent() {
     }
     
     try {
-      // Group items by department
-      const itemsByDept = unbilledItems.reduce<Record<string, typeof unbilledItems>>((acc, item) => {
-        const deptId = item.departmentId || 'general';
-        if (!acc[deptId]) acc[deptId] = [];
-        acc[deptId].push(item);
-        return acc;
-      }, {});
-      
-      const billingItems = Object.entries(itemsByDept).map(([deptId, deptItems]) => ({
-        departmentId: deptId,
-        items: deptItems.map(item => ({
-          itemType: item.type === 'action' ? 'ACTION' : 'CONSUMABLE',
-          itemId: item.id,
-          quantity: item.quantity,
-          insuranceId: item.selectedInsuranceId,
-        }))
-      }));
-      
       const input = {
         visitId: billingData.visitId,
-        note: billingData.notes || undefined,
-        globalDiscount: billingData.discountPercentage ? {
-          type: 'PERCENTAGE' as const,
-          value: billingData.discountPercentage
-        } : undefined,
-        billingItems
+        items: unbilledItems.map(item => ({
+          visitDepartmentProductId: item.id,
+          patientInsuranceId: item.selectedInsuranceId,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          isExempted: item.exempted || item.exemptionType === 'full' || item.exemptionType === 'patient-share',
+        })),
+        paidAmount: billingData.amountPaid || 0,
       };
       
       const response = await createBill(input);
@@ -607,7 +623,11 @@ function BillingPageContent() {
         await refetchVisit();
         await refetchBill();
         try {
-          await refreshInvoicePdf();
+          if (response.data?.id) {
+            await refreshInvoicePdf(response.data.id);
+          } else {
+            await refreshInvoicePdf();
+          }
         } catch (invoiceErr: any) {
           console.error('Invoice generation after billing failed:', invoiceErr);
           toast.warning(invoiceErr?.message || 'Bill created but invoice PDF could not be generated yet.');
@@ -654,7 +674,9 @@ function BillingPageContent() {
 
     void (async () => {
       try {
-        await refreshInvoicePdf();
+        if (existingBill.id) {
+          await refreshInvoicePdf(existingBill.id);
+        }
       } catch (err) {
         console.error('Initial invoice fetch failed:', err);
       }
@@ -666,9 +688,9 @@ function BillingPageContent() {
 
     if (existingBill) {
       try {
-        const pdf = invoicePdfBase64 || await refreshInvoicePdf();
+        const pdf = invoicePdfBase64 || await refreshInvoicePdf(existingBill.id);
         if (pdf) {
-          openInvoicePdfFromBase64(pdf);
+          openInvoice(pdf);
           return;
         }
       } catch (err: any) {
@@ -685,14 +707,12 @@ function BillingPageContent() {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;')
 
-    const invoiceItems = existingBill?.billingItems?.flatMap((billingItem) =>
-      (billingItem.items || []).map((item) => ({
-        description: item.name,
-        quantity: item.quantity,
-        unitPrice: item.basePriceAtBilling,
-        lineTotal: item.finalAmountCharged,
-      })),
-    ) || billingData.items.map((item) => ({
+    const invoiceItems = existingBill?.items?.map((item) => ({
+      description: item.productName,
+      quantity: item.quantitySnapshot,
+      unitPrice: item.unitPriceSnapshot,
+      lineTotal: item.lineTotal,
+    })) || billingData.items.map((item) => ({
       description: item.name,
       quantity: item.quantity,
       unitPrice: item.price,
@@ -700,18 +720,18 @@ function BillingPageContent() {
     }))
 
     const totals = {
-      subtotal: existingBill?.totals?.beforeDiscount ?? displayTotals.subtotal,
-      discount: existingBill?.totals?.discount ?? displayTotals.discount,
-      totalDue: existingBill?.totals?.patientTotalDue ?? displayTotals.totalAmount,
-      paid: existingBill?.totals?.patientTotalPaid ?? (billingData.amountPaid || 0),
-      balance: existingBill?.totals?.patientBalance ?? Math.max(0, displayTotals.totalAmount - (billingData.amountPaid || 0)),
+      subtotal: existingBill?.totalAmount ?? displayTotals.subtotal,
+      discount: displayTotals.discount,
+      totalDue: existingBill?.patientPayableAmount ?? displayTotals.totalAmount,
+      paid: existingBill?.paidAmount ?? (billingData.amountPaid || 0),
+      balance: existingBill?.outstandingAmount ?? Math.max(0, displayTotals.totalAmount - (billingData.amountPaid || 0)),
     }
 
     const invoiceHtml = `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Invoice ${escapeHtml(existingBill?.billingDisplayId || billingData.visitId || 'N/A')}</title>
+    <title>Invoice ${escapeHtml(existingBill?.id || billingData.visitId || 'N/A')}</title>
     <style>
       @page { size: A4; margin: 16mm; }
       body { font-family: Arial, Helvetica, sans-serif; color: #1f2937; margin: 0; }
@@ -740,8 +760,8 @@ function BillingPageContent() {
           <p class="muted">Formal Billing Statement</p>
         </div>
         <div>
-          <p class="muted"><strong>Invoice #:</strong> ${escapeHtml(existingBill?.billingDisplayId || billingData.visitId || 'N/A')}</p>
-          <p class="muted"><strong>Date:</strong> ${new Date(existingBill?.billedAt || billingData.updatedAt || new Date().toISOString()).toLocaleString()}</p>
+          <p class="muted"><strong>Invoice #:</strong> ${escapeHtml(existingBill?.id || billingData.visitId || 'N/A')}</p>
+          <p class="muted"><strong>Date:</strong> ${new Date(existingBill?.billingDate || billingData.updatedAt || new Date().toISOString()).toLocaleString()}</p>
         </div>
       </div>
 
@@ -1005,6 +1025,7 @@ function BillingPageContent() {
                 selectable={true}
                 selectedItemIds={selectedItemIds}
                 onSelectionToggle={handleSelectionToggle}
+                onSelectAll={handleSelectAll}
                 hideDepartmentHeaders={viewMode === 'service'}
                 allDepartments={viewMode === 'all' ? allServiceNames : []}
               />
@@ -1094,7 +1115,7 @@ function BillingPageContent() {
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-slate-600 dark:text-slate-400">Bill Status:</span>
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
-                    Billed ({existingBill.billingDisplayId})
+                    Billed ({existingBill.id})
                   </span>
                 </div>
               </div>
@@ -1102,31 +1123,25 @@ function BillingPageContent() {
             
             <div className="space-y-1.5">
               {/* Already Billed Section */}
-              {existingBill?.totals && (
+              {existingBill && (
                 <>
                   <div className="bg-slate-100 dark:bg-slate-800/50 rounded-lg p-3 space-y-1 mb-2">
                     <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">Previously Billed:</div>
                     <div className="flex justify-between">
                       <span className="text-xs text-slate-600 dark:text-slate-400">Subtotal:</span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{existingBill.totals.beforeDiscount.toLocaleString()} RWF</span>
+                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{existingBill.totalAmount.toLocaleString()} RWF</span>
                     </div>
-                    {existingBill.totals.discount > 0 && (
-                      <div className="flex justify-between text-red-600 dark:text-red-400">
-                        <span className="text-xs">Discount:</span>
-                        <span className="text-xs font-bold">-{existingBill.totals.discount.toLocaleString()} RWF</span>
-                      </div>
-                    )}
                     <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-700">
                       <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Patient Due:</span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{existingBill.totals.patientTotalDue.toLocaleString()} RWF</span>
+                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{existingBill.patientPayableAmount.toLocaleString()} RWF</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Paid:</span>
-                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{existingBill.totals.patientTotalPaid.toLocaleString()} RWF</span>
+                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{existingBill.paidAmount.toLocaleString()} RWF</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Balance:</span>
-                      <span className="text-xs font-bold text-orange-600 dark:text-orange-400">{existingBill.totals.patientBalance.toLocaleString()} RWF</span>
+                      <span className="text-xs font-bold text-orange-600 dark:text-orange-400">{existingBill.outstandingAmount.toLocaleString()} RWF</span>
                     </div>
                   </div>
                   <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">New Items to Bill:</div>
@@ -1155,24 +1170,19 @@ function BillingPageContent() {
               )}
 
               {/* Total with Previous Bill */}
-              {existingBill?.totals && (
+              {existingBill && (
                 <div className="bg-slate-100 dark:bg-slate-800/50 rounded-lg p-3 space-y-1 mt-2 border-t-2 border-slate-300 dark:border-slate-600">
                   <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">Total After This Bill:</div>
                   <div className="flex justify-between">
                     <span className="text-xs text-slate-600 dark:text-slate-400">Combined Due:</span>
                     <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                      {(
-                        (existingBill.totals.beforeDiscount + displayTotals.subtotal) -
-                        (existingBill.totals.discount + displayTotals.discount)
-                      ).toLocaleString()} RWF
+                      {(existingBill.totalAmount + displayTotals.subtotal - displayTotals.discount).toLocaleString()} RWF
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-xs text-slate-600 dark:text-slate-400">Current Balance:</span>
                     <span className="text-xs font-bold text-orange-600 dark:text-orange-400">
-                      {(
-                        existingBill.totals.patientBalance + displayTotals.patientResponsibility - displayTotals.discount
-                      ).toLocaleString()} RWF
+                      {(existingBill.outstandingAmount + displayTotals.patientResponsibility - displayTotals.discount).toLocaleString()} RWF
                     </span>
                   </div>
                 </div>

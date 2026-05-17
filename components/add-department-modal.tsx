@@ -5,11 +5,10 @@ import { X, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Visit, Department } from '@/hooks/auth-hooks';
-import { useAddDepartmentToVisit } from '@/hooks/auth-hooks';
+import { useAddDepartmentToVisit, useDepartments } from '@/hooks/auth-hooks';
 
 interface AddDepartmentModalProps {
   visit: Visit;
-  departments: Department[];
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
@@ -17,11 +16,11 @@ interface AddDepartmentModalProps {
 
 export function AddDepartmentModal({
   visit,
-  departments,
   isOpen,
   onClose,
   onSuccess,
 }: AddDepartmentModalProps) {
+  const { departments } = useDepartments();
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
   const { addDepartmentToVisit, loading } = useAddDepartmentToVisit();
 

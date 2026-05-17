@@ -1,5 +1,7 @@
 "use client"
 
+import { useState, useRef } from "react"
+
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
@@ -39,6 +41,10 @@ export default function FormActionsDisplay({
 }: FormActionsDisplayProps) {
   const { updateQuantity } = useUpdateProductQuantity()
   const { removeProduct } = useRemoveProductFromVisitDepartment()
+  // Track which item's qty is being directly edited, and the draft string value
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draftQty, setDraftQty] = useState<string>('')
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const canUseServer = Boolean(visitId && departmentId)
 
@@ -101,42 +107,44 @@ export default function FormActionsDisplay({
 
   const renderItem = (item: FormAction) => {
     const isRemoved = item.removedFromVisit === true
-    const isConsumable = item.type === 'consumable'
+
     return (
       <div
         key={item.id}
-        className={`group p-3 rounded-lg border transition-colors ${
+        className={`group rounded-lg border transition-all duration-200 overflow-hidden ${
           isRemoved
-            ? 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-300 dark:border-amber-500/40 opacity-90'
-            : 'bg-white dark:bg-slate-900 border-orange-100 dark:border-orange-900/30'
+            ? 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-300 dark:border-amber-500/40'
+            : 'bg-white dark:bg-slate-900 border-orange-100 dark:border-orange-900/30 hover:border-orange-300 dark:hover:border-orange-700/50 hover:shadow-sm'
         }`}
       >
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0 space-y-1.5">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <p className="text-sm font-medium leading-tight break-words">{item.name}</p>
-              <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                isConsumable
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                  : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
-              }`}>
-                {isConsumable ? 'Consumable' : 'Act'}
-              </span>
-            </div>
-            {isRemoved ? (
-              <p className="text-xs text-amber-700 dark:text-amber-200 flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3 shrink-0" />
-                Removed from visit
-              </p>
-            ) : null}
-            {item.isQuantifiable !== false && (
-              <div className={`flex items-center gap-1.5 ${isRemoved ? 'opacity-60' : ''}`}>
-                <span className="text-xs text-muted-foreground">Qty:</span>
-                <div className="flex items-center gap-0.5">
+        {/* Always-visible compact row */}
+        <div className="flex items-center justify-between gap-2 px-3 py-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {isRemoved && (
+              <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
+            )}
+            <p className={`text-sm font-medium truncate leading-tight ${isRemoved ? 'line-through text-muted-foreground' : ''}`}>
+              {item.name}
+            </p>
+          </div>
+          {/* Quantity pill — always visible */}
+          <span className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground bg-muted/60 rounded-full px-2 py-0.5 leading-none">
+            ×{item.quantity}
+          </span>
+        </div>
+
+        {/* Hover-only controls — collapses to 0 height by default */}
+        <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-200">
+          <div className="overflow-hidden">
+            <div className={`flex items-center justify-between gap-2 px-3 pb-2 pt-0 ${isRemoved ? 'opacity-60' : ''}`}>
+              {/* Quantity stepper */}
+              {item.isQuantifiable !== false ? (
+                <div className="flex items-center gap-1">
                   <Button
                     variant="outline"
                     size="sm"
-                    className={`h-6 w-6 p-0 ${isRemoved ? 'cursor-not-allowed opacity-50' : ''}`}
+                    className="h-6 w-6 p-0 rounded-full"
+                    disabled={isRemoved}
                     onClick={() => {
                       if (isRemoved) return
                       const next = Math.max(1, item.quantity - 1)
@@ -147,11 +155,57 @@ export default function FormActionsDisplay({
                   >
                     <Minus className="h-3 w-3" />
                   </Button>
-                  <span className="text-xs font-medium px-1.5 tabular-nums">{item.quantity}</span>
+
+                  {/* Inline editable quantity — click to type directly */}
+                  {editingId === item.id ? (
+                    <input
+                      ref={inputRef}
+                      type="number"
+                      min={1}
+                      value={draftQty}
+                      onChange={(e) => setDraftQty(e.target.value)}
+                      onFocus={(e) => e.target.select()}
+                      onBlur={() => {
+                        const parsed = parseInt(draftQty, 10)
+                        const next = Number.isFinite(parsed) && parsed >= 1 ? parsed : item.quantity
+                        if (next !== item.quantity) {
+                          canUseServer && item.backendId
+                            ? updateServerQuantity(item, next)
+                            : onUpdateQuantity?.(item.id, next)
+                        }
+                        setEditingId(null)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          ;(e.target as HTMLInputElement).blur()
+                        }
+                        if (e.key === 'Escape') {
+                          setEditingId(null)
+                        }
+                      }}
+                      className="w-8 text-center text-xs font-medium tabular-nums bg-transparent border-b border-primary/60 outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                  ) : (
+                    <span
+                      className="text-xs tabular-nums font-medium w-8 text-center cursor-text hover:text-primary transition-colors select-none"
+                      title="Click to edit quantity"
+                      onClick={() => {
+                        if (isRemoved) return
+                        setDraftQty(String(item.quantity))
+                        setEditingId(item.id)
+                        // focus after render
+                        setTimeout(() => inputRef.current?.focus(), 0)
+                      }}
+                    >
+                      {item.quantity}
+                    </span>
+                  )}
+
                   <Button
                     variant="outline"
                     size="sm"
-                    className={`h-6 w-6 p-0 ${isRemoved ? 'cursor-not-allowed opacity-50' : ''}`}
+                    className="h-6 w-6 p-0 rounded-full"
+                    disabled={isRemoved}
                     onClick={() => {
                       if (isRemoved) return
                       const next = item.quantity + 1
@@ -163,33 +217,40 @@ export default function FormActionsDisplay({
                     <Plus className="h-3 w-3" />
                   </Button>
                 </div>
-              </div>
-            )}
-          </div>
+              ) : (
+                <div />
+              )}
 
-          {/* Action buttons — visible on hover */}
-          <div className="flex flex-col items-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-            {isRemoved && onRestore ? (
-              <Button variant="secondary" size="sm" className="h-7 px-2 text-xs" onClick={() => onRestore(item.id)}>
-                Restore
-              </Button>
-            ) : null}
-            <Button
-              variant="destructive"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => {
-                if (isRemoved) {
-                  onRemove?.(item.id)
-                  return
-                }
-                canUseServer && item.backendId
-                  ? removeServerItem(item)
-                  : onRemove?.(item.id)
-              }}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+              {/* Right-side actions */}
+              <div className="flex items-center gap-1">
+                {isRemoved && onRestore ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-6 px-2 text-[11px]"
+                    onClick={() => onRestore(item.id)}
+                  >
+                    Restore
+                  </Button>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => {
+                    if (isRemoved) {
+                      onRemove?.(item.id)
+                      return
+                    }
+                    canUseServer && item.backendId
+                      ? removeServerItem(item)
+                      : onRemove?.(item.id)
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -206,14 +267,13 @@ export default function FormActionsDisplay({
           {label}
         </label>
       )}
-      <Card className="p-4 bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900/30">
+      <Card className="p-3 bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900/30">
         {items.length > 0 ? (
-          /* Responsive grid: 1 col on small screens, 2 cols on md+ */
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {items.map(renderItem)}
           </div>
         ) : (
-          <div className="text-center py-6">
+          <div className="text-center py-5">
             <p className="text-sm text-muted-foreground">No products added yet</p>
           </div>
         )}

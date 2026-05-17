@@ -1,27 +1,34 @@
 import { gql } from '@apollo/client'
 
 export const CREATE_BILL_MUTATION = gql`
-  mutation CreateBill($visitId: ID!) {
-    createBill(visitId: $visitId) {
+  mutation BillVisit($input: BillVisitInput!) {
+    billVisit(input: $input) {
       status
       message
       
       data {
         id
         visitId
-        totalAmount
-        paidAmount
         status
+        billingDate
+        totalAmount
+        insuranceCoveredAmount
+        patientPayableAmount
+        paidAmount
+        outstandingAmount
+        fullyBilledVisit
         items {
           id
-          name
-          type
-          quantity
-          unitPrice
-          totalPrice
+          visitDepartmentProductId
+          productId
+          productName
+          unitPriceSnapshot
+          quantitySnapshot
+          lineTotal
+          insuranceCoveredAmount
+          patientPayableAmount
+          appliedPatientInsuranceId
         }
-        createdAt
-        updatedAt
       }
     }
   }

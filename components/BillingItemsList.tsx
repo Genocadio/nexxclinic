@@ -25,6 +25,7 @@ type BillingItemsListProps = {
   selectable?: boolean;
   selectedItemIds?: string[];
   onSelectionToggle?: (itemId: string, checked: boolean) => void;
+  onSelectAll?: (itemIds: string[], checked: boolean) => void;
   hideDepartmentHeaders?: boolean;
   allDepartments?: string[]; // All departments to show, even if they have 0 items
 };
@@ -52,6 +53,7 @@ export function BillingItemsList({
   selectable = false,
   selectedItemIds = [],
   onSelectionToggle,
+  onSelectAll,
   hideDepartmentHeaders = false,
   allDepartments = [],
 }: BillingItemsListProps) {
@@ -109,7 +111,9 @@ export function BillingItemsList({
                     <Checkbox
                       checked={items.length > 0 && items.every(item => selectedItemIds?.includes(item.id))}
                       onCheckedChange={(checked) => {
-                        items.forEach(item => onSelectionToggle && onSelectionToggle(item.id, Boolean(checked)));
+                        if (onSelectAll) {
+                          onSelectAll(items.map(item => item.id), Boolean(checked));
+                        }
                       }}
                       aria-label="Select all items"
                     />

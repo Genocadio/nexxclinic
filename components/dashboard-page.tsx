@@ -24,7 +24,6 @@ export default function DashboardPage() {
   const { doctor } = useAuth()
   const { visits, loading, error, refetch: refetchVisits } = useVisits()
   const { stats: dashboardStats, loading: dashboardStatsLoading } = useDashboardStats(1)
-  const { departments, refetch: refetchDepartments } = useDepartments()
 
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
   const { generateConsultationPdf, loading: generatingConsultationPdf } = useGenerateConsultationPdf()
@@ -44,13 +43,16 @@ export default function DashboardPage() {
 
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
   const userDepartment = (doctor as unknown as { department?: { id: string; name: string } } | null)?.department
-  const hasReceptionistRole = roles.includes("RECEPTIONIST")
+  const hasReceptionistRole = roles.includes("RECEPTIONIST") || roles.includes("RECEPTION")
   const hasFinanceRole = roles.includes("FINANCE")
   const isReceptionistOnly = hasReceptionistRole && roles.length === 1
   const hasConsultationRole = roles.some((role) => ["DOCTOR", "OPHTHALMOLOGIST", "NURSE", "SPECIALIST", "ADMIN"].includes(role))
   const hasClinicianOrDoctorRole = roles.some((role) => ["CLINICIAN", "DOCTOR"].includes(role))
   const canSeeConsultButton = !isReceptionistOnly
-  const canSeeBillButton = hasFinanceRole && !isReceptionistOnly
+  // Bill button: Finance role always sees billing, regardless of other roles
+  const canSeeBillButton = hasFinanceRole
+  // Add Department: only Receptionists can route a patient to a new department
+  const canSeeAddDepartment = hasReceptionistRole
   const canSeeRegisterAndCreate = hasReceptionistRole
   const canSeeVisitActionButtons = !isReceptionistOnly
 
@@ -192,7 +194,6 @@ export default function DashboardPage() {
   const handleAddDepartmentSuccess = () => {
     // Refresh visits data after successful department addition
     refetchVisits()
-    refetchDepartments()
   }
 
   const handleGoToBilling = (visit: Visit) => {
@@ -665,7 +666,7 @@ export default function DashboardPage() {
                                   </Tooltip>
                                 </>
                               )}
-                              {canSeeVisitActionButtons && canAddDepartment(visit) && !isDischarged(visit) && !hasClinicianOrDoctorRole && (
+                              {canSeeAddDepartment && canAddDepartment(visit) && !isDischarged(visit) && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
@@ -693,7 +694,7 @@ export default function DashboardPage() {
                                   <span className="hidden lg:inline">Discharge</span>
                                 </button>
                               )}
-                              {canSeeVisitActionButtons && canSeeBillButton && hasUnbilledItems(visit) && (
+                              {canSeeBillButton && hasUnbilledItems(visit) && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <button
@@ -712,7 +713,7 @@ export default function DashboardPage() {
                                   </TooltipContent>
                                 </Tooltip>
                               )}
-                              {canSeeVisitActionButtons && canSeeBillButton && visit.billingStatus === 'BILLED' && (
+                              {canSeeBillButton && visit.billingStatus === 'BILLED' && (
                                 <>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -795,24 +796,27 @@ export default function DashboardPage() {
       />
 
       {/* Modals */}
-      <PatientRegistrationModal
-        isOpen={showPatientRegistrationModal}
-        onClose={() => setShowPatientRegistrationModal(false)}
-        onPatientRegistered={handlePatientRegistered}
-        hideSearchPanel={typeof window !== "undefined" && window.innerWidth < 768}
-      />
+      {showPatientRegistrationModal && (
+        <PatientRegistrationModal
+          isOpen={showPatientRegistrationModal}
+          onClose={() => setShowPatientRegistrationModal(false)}
+          onPatientRegistered={handlePatientRegistered}
+          hideSearchPanel={typeof window !== "undefined" && window.innerWidth < 768}
+        />
+      )}
 
-      <VisitCreationModal
-        isOpen={showVisitCreationModal}
-        onClose={closeVisitCreationModal}
-        onVisitCreated={handleVisitCreated}
-        preSelectedPatientId={registeredPatientId ?? undefined}
-      />
+      {showVisitCreationModal && (
+        <VisitCreationModal
+          isOpen={showVisitCreationModal}
+          onClose={closeVisitCreationModal}
+          onVisitCreated={handleVisitCreated}
+          preSelectedPatientId={registeredPatientId ?? undefined}
+        />
+      )}
 
-      {selectedVisitForDepartment && (
+      {selectedVisitForDepartment && addDepartmentModalOpen && (
         <AddDepartmentModal
           visit={selectedVisitForDepartment}
-          departments={departments || []}
           isOpen={addDepartmentModalOpen}
           onClose={() => {
             setAddDepartmentModalOpen(false)

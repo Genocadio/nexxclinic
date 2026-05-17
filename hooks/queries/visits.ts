@@ -125,6 +125,33 @@ export const VISITS_QUERY = gql`
             name
           }
           status
+          products {
+            id
+            product {
+              id
+              name
+              code
+              type
+              unit
+              privateRhicPrice
+              clinicPrice
+            }
+            quantity
+            price
+            status
+            addedBy {
+              id
+              firstName
+              lastName
+            }
+            billedBy {
+              id
+              firstName
+              lastName
+            }
+            createdAt
+            updatedAt
+          }
         }
       }
       pagination {

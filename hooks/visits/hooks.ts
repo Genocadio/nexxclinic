@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from '@apollo/client'
+import { useMemo } from 'react'
 import { GET_VISIT_QUERY, VISITS_QUERY, DASHBOARD_STATS_QUERY } from '../queries'
 import { 
   CREATE_VISIT_MUTATION, 
@@ -189,6 +190,8 @@ export function useVisits(size?: number, page?: number, filter?: VisitFilterInpu
   const visits: Visit[] = (data?.visits?.data || []).map((v: any) => ({
     ...v,
     visitStatus: v.status, // Map 'status' from API to 'visitStatus' for type compatibility
+    billingStatus: 'PENDING',
+    departments: mapVisitDepartmentProducts(v.departments || []),
   }))
 
   return {
@@ -233,8 +236,9 @@ export function useVisit(id: string | null) {
   })
 
   const visitData = data?.visit?.data
-  const visit: Visit | undefined = visitData
-    ? {
+  const visit: Visit | undefined = useMemo(() => {
+    if (!visitData) return undefined
+    return {
         id: visitData.id,
         visitDate: visitData.visitDate,
         visitStatus: visitData.status,
@@ -273,7 +277,7 @@ export function useVisit(id: string | null) {
         visitNotes: [],
         departments: mapVisitDepartmentProducts(visitData.departments || []),
       }
-    : undefined
+  }, [visitData])
   const errorMessage = error?.message || null
 
   return {
