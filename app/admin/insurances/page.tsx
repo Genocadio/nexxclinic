@@ -15,12 +15,11 @@ import {
 import { Pencil, Trash2, ArrowLeft } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useRouter } from "next/navigation"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "react-toastify"
 
 export default function ManageInsurancesPage() {
   const router = useRouter()
   const { doctor } = useAuth()
-  const { toast } = useToast()
   const { insurances, loading, error, refetch } = useInsurances({ supportedByClinic: null, page: 0, size: 200 })
   const { createInsuranceProvider } = useCreateInsuranceProvider()
   const { updateInsuranceProvider } = useUpdateInsuranceProvider()
@@ -46,7 +45,7 @@ export default function ManageInsurancesPage() {
     if (!name || !acronym || !coverage) return
     const coverageValue = Number(coverage)
     if (Number.isNaN(coverageValue) || coverageValue < 0 || coverageValue > 100) {
-      toast({ title: "Invalid coverage", description: "Coverage must be between 0 and 100." })
+      toast.warn("Invalid coverage: Coverage must be between 0 and 100.")
       return
     }
     setSaving(true)
@@ -59,10 +58,10 @@ export default function ManageInsurancesPage() {
         iconUrl: iconUrl || undefined,
       })
       await refetch()
-      toast({ title: "Insurance created" })
+      toast.success("Insurance provider created successfully!")
       resetForm()
     } catch (err: any) {
-      toast({ title: "Create failed", description: err?.message || "Unexpected error" })
+      toast.error(err?.message || "Failed to create insurance provider")
     } finally {
       setSaving(false)
     }
@@ -72,7 +71,7 @@ export default function ManageInsurancesPage() {
     if (editingId == null || !name || !acronym || !coverage) return
     const coverageValue = Number(coverage)
     if (Number.isNaN(coverageValue) || coverageValue < 0 || coverageValue > 100) {
-      toast({ title: "Invalid coverage", description: "Coverage must be between 0 and 100." })
+      toast.warn("Invalid coverage: Coverage must be between 0 and 100.")
       return
     }
     setSaving(true)
@@ -85,10 +84,10 @@ export default function ManageInsurancesPage() {
         iconUrl: iconUrl || undefined,
       })
       await refetch()
-      toast({ title: "Insurance updated" })
+      toast.success("Insurance provider updated successfully!")
       resetForm()
     } catch (err: any) {
-      toast({ title: "Update failed", description: err?.message || "Unexpected error" })
+      toast.error(err?.message || "Failed to update insurance provider")
     } finally {
       setSaving(false)
     }
@@ -102,12 +101,12 @@ export default function ManageInsurancesPage() {
       if (ok) {
         await refetch()
         if (editingId === id) resetForm()
-        toast({ title: "Insurance deleted" })
+        toast.success("Insurance provider deleted successfully!")
       } else {
-        toast({ title: "Delete failed", description: "Please try again." })
+        toast.error("Delete failed: Please try again.")
       }
     } catch (err: any) {
-      toast({ title: "Delete failed", description: err?.message || "Unexpected error" })
+      toast.error(err?.message || "Failed to delete insurance provider")
     } finally {
       setSaving(false)
     }
