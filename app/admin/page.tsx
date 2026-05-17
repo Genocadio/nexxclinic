@@ -26,27 +26,32 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header doctor={doctor} />
-      <main className="max-w-5xl mx-auto px-6 py-10 space-y-6">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage system configuration and settings.</p>
+      <main className="max-w-4xl mx-auto px-6 py-12 space-y-8 flex flex-col justify-center items-center">
+        {/* Centered header aligned with dashboard-header */}
+        <div className="text-center space-y-2 mb-4 w-full">
+          <h1 className="text-3xl font-bold text-foreground block w-full">
+            Admin Dashboard
+          </h1>
+          <p className="text-muted-foreground">
+            Manage system configuration and settings.
+          </p>
         </div>
 
-        {/* Admin action cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Admin action cards centered and fully responsive */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-3xl">
           {visibleAdminActions.map(({ label, icon: Icon, path }) => (
             <div
               key={label}
-              className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-5 shadow-lg flex items-center justify-between cursor-pointer hover:border-primary/50 transition-colors"
+              className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl p-6 shadow-lg flex items-center justify-between cursor-pointer hover:border-primary/50 hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all duration-200"
               onClick={() => router.push(path)}
             >
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/15 text-primary flex items-center justify-center">
-                  <Icon className="h-5 w-5" />
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center shadow-inner">
+                  <Icon className="h-6 w-6" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-foreground">{label}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-base font-semibold text-foreground">{label}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {label === "Manage Insurances" ? "Create, edit, and delete insurances" :
                       label === "Manage Products" ? "Create, edit, and delete products" :
                         label === "Manage Departments" ? "Organize hospital departments" :
@@ -56,7 +61,7 @@ export default function AdminDashboardPage() {
               </div>
               <Button
                 variant="outline"
-                className="rounded-full"
+                className="rounded-full bg-white dark:bg-slate-950 font-medium"
               >
                 Open
               </Button>

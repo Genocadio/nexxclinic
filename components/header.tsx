@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context"
 import type { Doctor } from "@/lib/types"
 import { LogOut, Moon, Sun, UserCog } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useState } from "react"
 import { hasAdminAccess } from "@/lib/role-utils"
 
@@ -15,11 +15,13 @@ interface HeaderProps {
 
 export default function Header({ doctor }: HeaderProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const { logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
   const canAccessAdmin = hasAdminAccess(roles)
+  const isAdminPath = pathname?.startsWith("/admin")
 
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/)
@@ -32,7 +34,7 @@ export default function Header({ doctor }: HeaderProps) {
   return (
     <header className="sticky top-0 z-[90] h-16 bg-card/60 backdrop-blur-xl border-b border-border/30 flex items-center justify-between px-6 shadow-sm">
       <button
-        onClick={() => router.push("/")}
+        onClick={() => router.push(isAdminPath ? "/admin" : "/")}
         className="flex items-center gap-3 hover:opacity-90 transition-all duration-200 cursor-pointer"
       >
         <div className="relative h-10 w-10">
@@ -73,17 +75,30 @@ export default function Header({ doctor }: HeaderProps) {
                     <p className="text-sm font-semibold text-card-foreground">{doctor.name}</p>
                     <p className="text-xs text-muted-foreground mt-1">{doctor.specialization}</p>
                   </div>
-                  {canAccessAdmin && (
+                  {isAdminPath ? (
                     <button
                       onClick={() => {
-                        router.push('/admin')
+                        router.push('/')
                         setDropdownOpen(false)
                       }}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-all duration-200 text-left text-foreground"
                     >
-                      <span className="w-5 h-5 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[11px] font-semibold">A</span>
-                      <span className="text-sm font-medium">Admin Dashboard</span>
+                      <span className="w-5 h-5 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[11px] font-semibold">M</span>
+                      <span className="text-sm font-medium">Medical Dashboard</span>
                     </button>
+                  ) : (
+                    canAccessAdmin && (
+                      <button
+                        onClick={() => {
+                          router.push('/admin')
+                          setDropdownOpen(false)
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-all duration-200 text-left text-foreground"
+                      >
+                        <span className="w-5 h-5 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[11px] font-semibold">A</span>
+                        <span className="text-sm font-medium">Admin Dashboard</span>
+                      </button>
+                    )
                   )}
                   <button
                     onClick={() => {
