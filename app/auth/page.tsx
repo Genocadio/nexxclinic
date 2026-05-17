@@ -32,6 +32,7 @@ function AuthPageContent() {
   const [phoneNumber, setPhoneNumber] = useState("")
   const [title, setTitle] = useState("")
   const [errors, setErrors] = useState<FieldErrors>({})
+  const [isLoadingForm, setIsLoadingForm] = useState(false)
 
   const baseInputClass = "rounded-xl border-slate-300 bg-white/95 text-slate-900 placeholder:text-slate-500 shadow-sm focus-visible:border-slate-500 focus-visible:ring-slate-300/70 dark:border-input dark:bg-input/30 dark:text-foreground dark:placeholder:text-muted-foreground"
 
@@ -200,31 +201,38 @@ function AuthPageContent() {
       return
     }
     setErrors({})
+    setIsLoadingForm(true)
 
-    const result = await login(email, password)
-    if (result.success) {
-      const welcomeName = getWelcomeName()
-      toast.success(`Welcome back, ${welcomeName}`, {
-        position: "top-center",
-        autoClose: 2200,
-        closeOnClick: false,
-        draggable: false,
-        pauseOnHover: false,
-        pauseOnFocusLoss: false,
-        closeButton: false,
-        className: "nexx-toast-welcome",
-      })
-      router.replace(getPostLoginPath(getStoredRoles()))
-      return
+    try {
+      const result = await login(email, password)
+      if (result.success) {
+        const welcomeName = getWelcomeName()
+        toast.success(`Welcome back, ${welcomeName}`, {
+          position: "top-center",
+          autoClose: 2200,
+          closeOnClick: false,
+          draggable: false,
+          pauseOnHover: false,
+          pauseOnFocusLoss: false,
+          closeButton: false,
+          className: "nexx-toast-welcome",
+        })
+        router.replace(getPostLoginPath(getStoredRoles()))
+        return
+      }
+
+      if (result.requiresPasswordSetup) {
+        const params = new URLSearchParams({ identifier: email })
+        router.replace(`/create-password?${params.toString()}`)
+        return
+      }
+
+      toast.error(result.message || "Login failed")
+    } catch {
+      toast.error("Login failed")
+    } finally {
+      setIsLoadingForm(false)
     }
-
-    if (result.requiresPasswordSetup) {
-      const params = new URLSearchParams({ identifier: email })
-      router.replace(`/create-password?${params.toString()}`)
-      return
-    }
-
-    toast.error(result.message || "Login failed")
   }
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -236,15 +244,22 @@ function AuthPageContent() {
       return
     }
     setErrors({})
+    setIsLoadingForm(true)
 
-    const result = await register(name, email, password, phoneNumber, title)
-    if (result.success) {
-      toast.success(result.message || "Registration successful")
-      switchMode("login")
-      return
+    try {
+      const result = await register(name, email, password, phoneNumber, title)
+      if (result.success) {
+        toast.success(result.message || "Registration successful")
+        switchMode("login")
+        return
+      }
+
+      toast.error(result.message || "Registration failed")
+    } catch {
+      toast.error("Registration failed")
+    } finally {
+      setIsLoadingForm(false)
     }
-
-    toast.error(result.message || "Registration failed")
   }
 
   return (
@@ -281,6 +296,7 @@ function AuthPageContent() {
               variant={mode === "login" ? "default" : "ghost"}
               className={tabButtonClass(mode === "login")}
               onClick={() => switchMode("login")}
+              disabled={isLoadingForm}
             >
               Login
             </Button>
@@ -289,6 +305,7 @@ function AuthPageContent() {
               variant={mode === "register" ? "default" : "ghost"}
               className={tabButtonClass(mode === "register")}
               onClick={() => switchMode("register")}
+              disabled={isLoadingForm}
             >
               Register
             </Button>
@@ -301,6 +318,7 @@ function AuthPageContent() {
                   <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Email or Phone</label>
                   <Input
                     type="text"
+                    disabled={isLoadingForm}
                     value={email}
                     onChange={(e) => {
                       const cleanedValue = sanitizeEmailOrPhoneInput(e.target.value)
@@ -317,6 +335,7 @@ function AuthPageContent() {
                   <div className="relative">
                     <Input
                       type={showPassword ? "text" : "password"}
+                      disabled={isLoadingForm}
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value)
@@ -327,6 +346,7 @@ function AuthPageContent() {
                     />
                     <button
                       type="button"
+                      disabled={isLoadingForm}
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors"
                     >
@@ -335,7 +355,9 @@ function AuthPageContent() {
                   </div>
                   {errors.password && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.password}</p>}
                 </div>
-                <Button type="submit" className="w-full mt-2 rounded-xl">Sign In</Button>
+                <Button type="submit" disabled={isLoadingForm} className="w-full mt-2 rounded-xl">
+                  {isLoadingForm ? "Signing In..." : "Sign In"}
+                </Button>
               </form>
             ) : (
               <form onSubmit={handleRegister} className="space-y-4 fly-in fly-in-7">
@@ -343,6 +365,7 @@ function AuthPageContent() {
                   <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Full Name</label>
                   <Input
                     type="text"
+                    disabled={isLoadingForm}
                     value={name}
                     onChange={(e) => {
                       setName(e.target.value)
@@ -357,6 +380,7 @@ function AuthPageContent() {
                   <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Email Address *</label>
                   <Input
                     type="email"
+                    disabled={isLoadingForm}
                     value={email}
                     onChange={(e) => {
                       const cleanedValue = sanitizeEmailInput(e.target.value)
@@ -372,6 +396,7 @@ function AuthPageContent() {
                   <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Phone Number *</label>
                   <Input
                     type="tel"
+                    disabled={isLoadingForm}
                     value={phoneNumber}
                     onChange={(e) => {
                       const cleanedValue = sanitizePhoneInput(e.target.value)
@@ -387,6 +412,7 @@ function AuthPageContent() {
                   <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Title</label>
                   <Input
                     type="text"
+                    disabled={isLoadingForm}
                     value={title}
                     onChange={(e) => {
                       setTitle(e.target.value)
@@ -402,6 +428,7 @@ function AuthPageContent() {
                   <div className="relative">
                     <Input
                       type={showPassword ? "text" : "password"}
+                      disabled={isLoadingForm}
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value)
@@ -412,6 +439,7 @@ function AuthPageContent() {
                     />
                     <button
                       type="button"
+                      disabled={isLoadingForm}
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors"
                     >
@@ -420,7 +448,9 @@ function AuthPageContent() {
                   </div>
                   {errors.password && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.password}</p>}
                 </div>
-                <Button type="submit" className="w-full mt-2 rounded-xl">Register</Button>
+                <Button type="submit" disabled={isLoadingForm} className="w-full mt-2 rounded-xl">
+                  {isLoadingForm ? "Registering..." : "Register"}
+                </Button>
               </form>
             )}
 
