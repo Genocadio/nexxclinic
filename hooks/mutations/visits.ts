@@ -381,3 +381,17 @@ export const UPDATE_CONSUMABLE_QUANTITY_MUTATION = gql`
     }
   }
 `
+
+export const COMPLETE_VISIT_MUTATION = gql`
+  mutation CompleteVisit($visitId: ID!) {
+    completeVisit(visitId: $visitId) {
+      status
+      message
+      data {
+        id
+        status
+      }
+    }
+  }
+`
+

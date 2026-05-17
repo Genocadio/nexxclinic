@@ -41,17 +41,18 @@ export const SET_INITIAL_PASSWORD_MUTATION = gql`
 `
 
 export const REGISTER_MUTATION = gql`
-  mutation Register($input: RegisterInput!) {
-    register(input: $input) {
+  mutation Register($input: SelfRegisterInput!) {
+    selfRegister(input: $input) {
       status
       message
       
       data {
         id
-        name
+        firstName
+        lastName
         email
         phoneNumber
-        title
+        username
       }
     }
   }

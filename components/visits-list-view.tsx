@@ -1,7 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { useVisits, useDepartments, type Visit } from "@/hooks/auth-hooks"
+import { useVisits, useDepartments, type Visit, useGetInvoiceLazy } from "@/hooks/auth-hooks"
+import { useLazyQuery } from "@apollo/client"
+import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
+import { toast } from "react-toastify"
 import { useRouter } from "next/navigation"
 import { Search, Calendar, Clock, CheckCircle, AlertCircle, User, ReceiptText, Plus, Stethoscope } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
@@ -32,6 +35,61 @@ export default function VisitsListView({
   const { doctor } = useAuth()
   const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false)
   const [selectedVisitForDepartment, setSelectedVisitForDepartment] = useState<Visit | null>(null)
+  const { getInvoice } = useGetInvoiceLazy()
+  const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
+  const [previewingVisitId, setPreviewingVisitId] = useState<string | null>(null)
+
+  const handlePreviewInvoice = async (visit: Visit) => {
+    try {
+      setPreviewingVisitId(visit.id)
+      
+      const billRes = await getVisitBillings({ variables: { visitId: visit.id } })
+      const bill = billRes.data?.visitBillings?.data?.[billRes.data?.visitBillings?.data?.length - 1] || billRes.data?.visitBillings?.data?.[0]
+      
+      if (!bill?.id) {
+        toast.error("No bill found for this visit.")
+        return
+      }
+
+      const response = await getInvoice(bill.id)
+
+      const invoiceUrl = response?.data?.invoiceUrl
+      if (response?.status !== 'SUCCESS' || !invoiceUrl) {
+        const errorMsg = response?.message || 'Failed to fetch invoice PDF'
+        toast.error(errorMsg)
+        return
+      }
+
+      if (invoiceUrl.startsWith('http://') || invoiceUrl.startsWith('https://') || invoiceUrl.startsWith('/')) {
+        const previewWindow = window.open(invoiceUrl, '_blank')
+        if (!previewWindow) {
+          toast.error('Unable to open invoice preview. Please allow pop-ups and try again.')
+          return
+        }
+      } else {
+        // Clean base64 string if it has data URI prefix
+        const base64Data = invoiceUrl.replace(/^data:application\/pdf;base64,/, '')
+        const byteCharacters = atob(base64Data)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i += 1) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        const blob = new Blob([byteArray], { type: 'application/pdf' })
+        const blobUrl = URL.createObjectURL(blob)
+        const previewWindow = window.open(blobUrl, '_blank')
+        if (!previewWindow) {
+          toast.error('Unable to open invoice preview. Please allow pop-ups and try again.')
+          return
+        }
+      }
+    } catch (err: any) {
+      console.error('Preview invoice error:', err)
+      toast.error(err?.message || 'Failed to fetch invoice PDF')
+    } finally {
+      setPreviewingVisitId(null)
+    }
+  }
 
   const hasUnbilledItems = (visit: Visit) => {
     // Show bill button if not fully billed
@@ -238,9 +296,26 @@ export default function VisitsListView({
                             <span className="hidden lg:inline">Bill Visit</span>
                           </button>
                         )}
+                        {/* Preview Invoice: only for FINANCE role if billed */}
+                        {hasFinanceRole && visit.billingStatus === 'BILLED' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              void handlePreviewInvoice(visit)
+                            }}
+                            title="Preview Invoice"
+                            disabled={previewingVisitId === visit.id}
+                            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
+                          >
+                            <ReceiptText className={`w-4 h-4 flex-shrink-0 ${previewingVisitId === visit.id ? 'animate-spin' : ''}`} />
+                            <span className="hidden sm:inline lg:hidden">Invoice</span>
+                            <span className="hidden lg:inline">Preview Invoice</span>
+                          </button>
+                        )}
                       </>
                     )
                   })()}
+
                   
                   <div className="text-right text-xs sm:text-sm ml-auto lg:ml-0 dark:text-slate-100">
                     {/* Only show visit status if COMPLETED or CANCELLED */}

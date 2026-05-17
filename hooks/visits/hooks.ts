@@ -20,6 +20,7 @@ import {
   UPDATE_CONSUMABLE_QUANTITY_MUTATION,
   UPDATE_VISIT_DEPARTMENT_PRODUCT_QUANTITY_MUTATION,
   UPDATE_VISIT_DEPARTMENT_PRODUCT_STATUS_MUTATION,
+  COMPLETE_VISIT_MUTATION,
 } from '../mutations'
 import type { Visit, VisitFilterInput } from '../types'
 
@@ -785,4 +786,20 @@ export function useUpdateProductStatus() {
   }
 
   return { updateStatus, loading, error }
+}
+
+export function useCompleteVisit() {
+  const [mutation, { loading, error }] = useMutation(COMPLETE_VISIT_MUTATION)
+
+  const completeVisit = async (visitId: string) => {
+    try {
+      const result = await mutation({ variables: { visitId } })
+      return result.data.completeVisit as any
+    } catch (err) {
+      console.error('Complete visit error:', err)
+      throw err
+    }
+  }
+
+  return { completeVisit, loading, error }
 }

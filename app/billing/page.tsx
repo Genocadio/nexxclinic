@@ -8,7 +8,7 @@ import { BillingData, BillingItem, getEffectiveCoveragePercentage } from '@/lib/
 import Header from '@/components/header';
 import { useAuth } from '@/lib/auth-context';
 import { useSearchParams } from 'next/navigation';
-import { useVisit, type Visit, useUpdatePatient, useInsurances, useCreateBill, useGetBillByVisit, useGenerateInvoice } from '@/hooks/auth-hooks';
+import { useVisit, type Visit, useUpdatePatient, useInsurances, useCreateBill, useGetBillByVisit, useGenerateInvoice, useCompleteVisit, useGetInvoiceLazy } from '@/hooks/auth-hooks';
 import { useAddActionToVisitDepartment, useAddConsumableToVisitDepartment } from '@/hooks/auth-hooks';
 import { useUpdateVisitDepartmentStatus } from '@/hooks/auth-hooks';
 import { useAddVisitNote } from '@/hooks/auth-hooks';
@@ -75,6 +75,8 @@ function BillingPageContent() {
   const { addConsumable } = useAddConsumableToVisitDepartment();
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus();
   const { addVisitNote } = useAddVisitNote();
+  const { completeVisit } = useCompleteVisit();
+  const { getInvoice } = useGetInvoiceLazy();
 
   const mapPaymentStatus = (status?: string, itemId?: string): BillingItem['paymentStatus'] => {
     if (status === 'BILLED') return 'paid';
@@ -451,13 +453,26 @@ function BillingPageContent() {
   const refreshInvoicePdf = async (billId?: string) => {
     const targetBillId = billId || existingBill?.id;
     if (!targetBillId) return null;
-    const response = await generateInvoice(targetBillId);
-    if (response.status !== 'SUCCESS' || !response.data?.invoiceUrl) {
-      const errorMsg = response.messages?.map((m) => m.text).join(', ') || 'Failed to generate invoice';
-      throw new Error(errorMsg);
+
+    let invoiceUrl = '';
+    if (visit?.visitStatus === 'COMPLETED') {
+      const response = await getInvoice(targetBillId);
+      if (response?.status !== 'SUCCESS' || !response.data?.invoiceUrl) {
+        const errorMsg = response?.message || 'Failed to fetch invoice';
+        throw new Error(errorMsg);
+      }
+      invoiceUrl = response.data.invoiceUrl;
+    } else {
+      const response = await generateInvoice(targetBillId);
+      if (response.status !== 'SUCCESS' || !response.data?.invoiceUrl) {
+        const errorMsg = response.messages?.map((m) => m.text).join(', ') || 'Failed to generate invoice';
+        throw new Error(errorMsg);
+      }
+      invoiceUrl = response.data.invoiceUrl;
     }
-    setInvoicePdfBase64(response.data.invoiceUrl);
-    return response.data.invoiceUrl;
+
+    setInvoicePdfBase64(invoiceUrl);
+    return invoiceUrl;
   };
   
   // Compute service-specific totals when in service view
@@ -619,6 +634,29 @@ function BillingPageContent() {
       
       if (response.status === 'SUCCESS') {
         setBillJustCreated(true)
+        
+        // Check if all items in billingData are now billed
+        const allRemainingBilled = unbilledItems.length === billingData.items.filter(item => item.paymentStatus !== 'paid').length;
+        
+        if (allRemainingBilled) {
+          try {
+            // First, complete all incomplete departments
+            const allDepartments = visit?.departments || [];
+            const notCompleted = allDepartments.filter((dept) => dept.status !== 'COMPLETED' && dept.status !== 'CANCELLED');
+            for (const dept of notCompleted) {
+              const visitDeptId = String(dept.id || '');
+              if (visitDeptId) {
+                await updateDepartmentStatus(visitDeptId, 'COMPLETED');
+              }
+            }
+            
+            // Now, complete the visit
+            await completeVisit(billingData.visitId);
+          } catch (compErr) {
+            console.error('Error completing departments/visit:', compErr);
+          }
+        }
+
         // Refetch visit and bill data
         await refetchVisit();
         await refetchBill();

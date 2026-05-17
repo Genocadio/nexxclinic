@@ -40,3 +40,16 @@ export const GET_BILL_BY_VISIT_QUERY = gql`
     }
   }
 `
+
+export const GET_INVOICE_QUERY = gql`
+  query GetInvoice($billId: ID!) {
+    getInvoice(billId: $billId) {
+      status
+      message
+      data {
+        invoiceUrl
+      }
+    }
+  }
+`
+

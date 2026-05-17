@@ -3,7 +3,9 @@
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { useVisits, useDepartments, type Visit, useUpdateVisitDepartmentStatus, useDashboardStats, useGenerateConsultationPdf, useGenerateInvoice } from "@/hooks/auth-hooks"
+import { useVisits, useDepartments, type Visit, useUpdateVisitDepartmentStatus, useDashboardStats, useGenerateConsultationPdf, useGetInvoiceLazy } from "@/hooks/auth-hooks"
+import { useLazyQuery } from "@apollo/client"
+import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
 import { useForms } from "@/hooks/forms"
 import Header from "@/components/header"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
@@ -28,7 +30,8 @@ export default function DashboardPage() {
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
   const { generateConsultationPdf, loading: generatingConsultationPdf } = useGenerateConsultationPdf()
   const { loadForms: loadFormsForDepartment } = useForms(null)
-  const { generateInvoice } = useGenerateInvoice()
+  const { getInvoice } = useGetInvoiceLazy()
+  const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
@@ -200,26 +203,52 @@ export default function DashboardPage() {
     router.push(`/billing?visitId=${visit.id}&patientId=${visit.patient.id}`)
   }
 
-  const handlePrintInvoice = async (visit: Visit) => {
+  const handlePreviewInvoice = async (visit: Visit) => {
     try {
       setPrintingVisitId(visit.id)
-      const response = await generateInvoice(String(visit.id))
+      
+      const billRes = await getVisitBillings({ variables: { visitId: visit.id } })
+      const bill = billRes.data?.visitBillings?.data?.[billRes.data?.visitBillings?.data?.length - 1] || billRes.data?.visitBillings?.data?.[0]
+      
+      if (!bill?.id) {
+        toast.error("No bill found for this visit.")
+        return
+      }
 
-      const invoiceUrl = response.data?.invoiceUrl
-      if (response.status !== 'SUCCESS' || !invoiceUrl) {
-        const errorMsg = response.message || response.messages?.map((m: { text: string }) => m.text).join(', ') || 'Failed to fetch invoice PDF'
+      const response = await getInvoice(bill.id)
+
+      const invoiceUrl = response?.data?.invoiceUrl
+      if (response?.status !== 'SUCCESS' || !invoiceUrl) {
+        const errorMsg = response?.message || 'Failed to fetch invoice PDF'
         toast.error(errorMsg)
         return
       }
 
-      const previewWindow = window.open(invoiceUrl, '_blank')
-
-      if (!previewWindow) {
-        toast.error('Unable to open invoice preview. Please allow pop-ups and try again.')
-        return
+      if (invoiceUrl.startsWith('http://') || invoiceUrl.startsWith('https://') || invoiceUrl.startsWith('/')) {
+        const previewWindow = window.open(invoiceUrl, '_blank')
+        if (!previewWindow) {
+          toast.error('Unable to open invoice preview. Please allow pop-ups and try again.')
+          return
+        }
+      } else {
+        // Clean base64 string if it has data URI prefix
+        const base64Data = invoiceUrl.replace(/^data:application\/pdf;base64,/, '')
+        const byteCharacters = atob(base64Data)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i += 1) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        const blob = new Blob([byteArray], { type: 'application/pdf' })
+        const blobUrl = URL.createObjectURL(blob)
+        const previewWindow = window.open(blobUrl, '_blank')
+        if (!previewWindow) {
+          toast.error('Unable to open invoice preview. Please allow pop-ups and try again.')
+          return
+        }
       }
     } catch (err: any) {
-      console.error('Print invoice error:', err)
+      console.error('Preview invoice error:', err)
       toast.error(err?.message || 'Failed to fetch invoice PDF')
     } finally {
       setPrintingVisitId(null)
@@ -714,53 +743,27 @@ export default function DashboardPage() {
                                 </Tooltip>
                               )}
                               {canSeeBillButton && visit.billingStatus === 'BILLED' && (
-                                <>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="relative">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleGoToBilling(visit)
-                                          }}
-                                          title="View Billing"
-                                          className="h-9 w-9 sm:h-10 sm:w-10 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
-                                        >
-                                          <ReceiptText className="w-4 h-4 flex-shrink-0" />
-                                        </button>
-                                        <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center border border-white">
-                                          ✓
-                                        </span>
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>View Billing</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="relative">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            void handlePrintInvoice(visit)
-                                          }}
-                                          title="Print Invoice"
-                                          disabled={printingVisitId === visit.id}
-                                          className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-700 hover:bg-slate-800 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
-                                        >
-                                          <Printer className={`w-4 h-4 flex-shrink-0 ${printingVisitId === visit.id ? 'animate-pulse' : ''}`} />
-                                        </button>
-                                        <span className="absolute -top-1.5 -right-2 px-1.5 h-4 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center border border-white leading-none">
-                                          PDF
-                                        </span>
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Print Invoice</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        void handlePreviewInvoice(visit)
+                                      }}
+                                      title="Preview Invoice"
+                                      disabled={printingVisitId === visit.id}
+                                      className="h-9 w-9 sm:h-10 sm:w-10 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center relative"
+                                    >
+                                      <ReceiptText className={`w-4 h-4 flex-shrink-0 ${printingVisitId === visit.id ? 'animate-spin' : ''}`} />
+                                      <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center border border-white">
+                                        ✓
+                                      </span>
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Preview Invoice</p>
+                                  </TooltipContent>
+                                </Tooltip>
                               )}
                             </div>
                           </div>
