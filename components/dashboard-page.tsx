@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useVisits, useDepartments, type Visit, useUpdateVisitDepartmentStatus, useDashboardStats, useGenerateConsultationPdf, useGetInvoiceLazy } from "@/hooks/auth-hooks"
@@ -25,7 +25,13 @@ export default function DashboardPage() {
   const router = useRouter()
   const { doctor } = useAuth()
   const { visits, loading, error, refetch: refetchVisits } = useVisits()
-  const { stats: dashboardStats, loading: dashboardStatsLoading } = useDashboardStats(1)
+  const [isMounted, setIsMounted] = useState(false)
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+  const [showMetrics, setShowMetrics] = useState(true)
+
+  const { stats: dashboardStats, loading: dashboardStatsLoading } = useDashboardStats(1, {
+    skip: !isMounted || !showMetrics,
+  })
 
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
   const { generateConsultationPdf, loading: generatingConsultationPdf } = useGenerateConsultationPdf()
@@ -34,10 +40,34 @@ export default function DashboardPage() {
   const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list")
   const [mobileSearchActive, setMobileSearchActive] = useState(false)
-  const [showMetrics, setShowMetrics] = useState(true)
   const [showMobileActionSheet, setShowMobileActionSheet] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedViewMode = localStorage.getItem("dashboard_viewMode")
+      if (storedViewMode === "list" || storedViewMode === "grid") {
+        setViewMode(storedViewMode)
+      }
+      const storedShowMetrics = localStorage.getItem("dashboard_showMetrics")
+      if (storedShowMetrics !== null) {
+        setShowMetrics(storedShowMetrics === "true")
+      }
+      setIsMounted(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isMounted && typeof window !== "undefined") {
+      localStorage.setItem("dashboard_viewMode", viewMode)
+    }
+  }, [viewMode, isMounted])
+
+  useEffect(() => {
+    if (isMounted && typeof window !== "undefined") {
+      localStorage.setItem("dashboard_showMetrics", String(showMetrics))
+    }
+  }, [showMetrics, isMounted])
   const [printingVisitId, setPrintingVisitId] = useState<string | null>(null)
   const [previewingConsultationVisitId, setPreviewingConsultationVisitId] = useState<string | null>(null)
   const [consultationPreviewOpen, setConsultationPreviewOpen] = useState(false)

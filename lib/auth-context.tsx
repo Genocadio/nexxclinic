@@ -119,6 +119,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     localStorage.removeItem('authToken')
     localStorage.removeItem('doctor')
+    localStorage.removeItem('dashboard_viewMode')
+    localStorage.removeItem('dashboard_showMetrics')
     setDoctor(null)
   }
 

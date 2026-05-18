@@ -206,10 +206,11 @@ export function useVisits(size?: number, page?: number, filter?: VisitFilterInpu
   }
 }
 
-export function useDashboardStats(days: number = 1) {
+export function useDashboardStats(days: number = 1, options?: { skip?: boolean }) {
   const { data, loading, error, refetch } = useQuery(DASHBOARD_STATS_QUERY, {
     variables: { days },
     fetchPolicy: 'cache-and-network',
+    skip: options?.skip,
   })
 
   const stats = data?.getDashboardStats?.data || null

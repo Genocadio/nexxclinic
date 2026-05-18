@@ -9,15 +9,28 @@ export const CREATE_VISIT_MUTATION = gql`
       data {
         id
         visitDate
-        visitStatus
-        billingStatus
+        status
         patient {
           id
           firstName
           lastName
         }
-        createdAt
-        updatedAt
+        linkedInsurances {
+          id
+          insuranceProvider {
+            id
+            insuranceName
+            acronym
+            defaultCoveragePercentage
+          }
+        }
+        departments {
+          id
+          department {
+            id
+            name
+          }
+        }
       }
     }
   }
