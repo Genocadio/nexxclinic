@@ -1,3 +1,13 @@
+export interface ApiResponse<T> {
+  status: string
+  message?: string
+  data?: T
+  messages?: {
+    text: string
+    type: string
+  }[]
+}
+
 export interface LoginResponse {
   status: string
   message?: string
@@ -168,28 +178,44 @@ export interface VisitDepartment {
   notes?: VisitDepartmentNote[]
 }
 
+export interface InsuranceProvider {
+  id: string
+  insuranceName: string
+  acronym?: string
+  defaultCoveragePercentage: number
+  supportedByClinic: boolean
+  iconUrl?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface PatientInsurance {
+  id: string
+  insurance: Insurance
+  insuranceCardNumber: string
+  status: string
+  dominantMember?: {
+    firstName: string
+    lastName: string
+    phone: string
+  }
+  validFrom?: string
+  validUntil?: string
+  principalMember?: boolean
+  principalMemberName?: string
+  principalMemberPhoneNumber?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface Visit {
   id: string
   visitDate: string
   status: string
   visitStatus?: string
-  billingStatus: PaymentStatus
-  patient: {
-    id: string
-    firstName: string
-    lastName: string
-    middleName?: string
-    gender?: string
-    dateOfBirth?: string
-    nationalId?: string
-    contactInfo?: {
-      phoneNumber?: string
-      email?: string
-      address?: string
-    }
-    insurances?: any[]
-  }
-  insurances?: any[]
+  billingStatus: string
+  patient: Patient
+  insurances?: PatientInsurance[]
   visitNotes?: {
     id: string
     note: string
@@ -204,28 +230,71 @@ export interface Visit {
   updatedAt?: string
 }
 
+export interface Address {
+  street?: string
+  sector?: string
+  district?: string
+  country?: string
+}
+
+export interface ContactInfo {
+  phone?: string
+  phoneNumber?: string
+  email?: string
+  address?: Address
+}
+
+export interface EmergencyContact {
+  name?: string
+  relation?: string
+  phone?: string
+}
+
 export interface Patient {
   id: string
   firstName: string
-  lastName: string
+  lastName?: string
   middleName?: string
   gender?: string
   dateOfBirth?: string
   nationalId?: string
-  contactInfo?: {
-    phoneNumber?: string
-    email?: string
-    address?: string
-  }
-  insurances?: any[]
+  contactInfo?: ContactInfo
+  emergencyContact?: EmergencyContact
+  insurances?: PatientInsurance[]
+  registrationDate?: string
+  registeredBy?: string
+  notes?: string
+  lastVisit?: Visit
   createdAt?: string
   updatedAt?: string
+}
+
+export interface Product {
+  id: string
+  name: string
+  genericName?: string
+  code?: string
+  description?: string
+  type?: string
+  unit?: string
+  privateRhicPrice?: number
+  clinicPrice?: number
+  insuranceCoverages?: Array<{
+    id: string
+    insurance: Insurance
+    cost?: number
+    covered?: boolean
+    requireMedicalAdvisor?: boolean
+  }>
 }
 
 export interface Department {
   id: string
   name: string
   description?: string
+  insurancePolicyMode?: string
+  insurancePolicies?: Insurance[]
+  defaultProducts?: Product[]
   createdAt?: string
   updatedAt?: string
 }
@@ -234,7 +303,26 @@ export interface Insurance {
   id: string
   name: string
   type?: string
+  acronym?: string
+  coveragePercentage?: number
+  supportedByClinic?: boolean
+  iconUrl?: string
   privatePrice?: number
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface VisitBillingItem {
+  id: string
+  visitDepartmentProductId: string
+  productId: string
+  productName: string
+  unitPriceSnapshot: number
+  quantitySnapshot: number
+  lineTotal: number
+  insuranceCoveredAmount: number
+  patientPayableAmount: number
+  appliedPatientInsuranceId?: string
   createdAt?: string
   updatedAt?: string
 }
@@ -245,7 +333,7 @@ export interface Bill {
   totalAmount: number
   paidAmount: number
   status: string
-  items?: any[]
+  items?: VisitBillingItem[]
   createdAt?: string
   updatedAt?: string
 }
@@ -328,4 +416,12 @@ export interface BackendForm {
   actions: FormAction[]
   createdAt: string
   updatedAt: string
+}
+
+export interface PatientFilterInput {
+  name?: string
+  age?: number
+  dob?: string
+  phoneNumber?: string
+  insuranceName?: string
 }

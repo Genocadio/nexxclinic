@@ -1,11 +1,10 @@
 import { gql } from '@apollo/client'
 
 export const GET_PATIENTS_QUERY = gql`
-  query GetPatients($limit: Int, $offset: Int, $name: String) {
-    patients(limit: $limit, offset: $offset, name: $name) {
+  query SearchPatients($input: SearchPatientsInput) {
+    searchPatients(input: $input) {
       status
       message
-      
       data {
         id
         firstName
@@ -30,12 +29,9 @@ export const GET_PATIENTS_QUERY = gql`
           visitDate
         }
         createdAt
-        updatedAt
       }
       pagination {
         total
-        perPage
-        currentPage
         totalPages
       }
     }
@@ -43,11 +39,10 @@ export const GET_PATIENTS_QUERY = gql`
 `
 
 export const GET_PATIENT_QUERY = gql`
-  query GetPatient($id: ID!) {
-    patient(patientId: $id) {
+  query GetPatient($patientId: ID!) {
+    patient(patientId: $patientId) {
       status
       message
-      
       data {
         id
         firstName
@@ -72,8 +67,24 @@ export const GET_PATIENT_QUERY = gql`
           visitDate
         }
         createdAt
-        updatedAt
+      }
+    }
+    patientInsurances(patientId: $patientId) {
+      status
+      data {
+        id
+        insuranceCardNumber
+        principalMember
+        principalMemberName
+        principalMemberPhoneNumber
+        insuranceProvider {
+          id
+          insuranceName
+          acronym
+          defaultCoveragePercentage
+        }
       }
     }
   }
 `
+

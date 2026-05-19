@@ -288,7 +288,30 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
         handleClose()
       }
     }}>
-        <DialogContent showCloseButton={false} className="sm:max-w-[500px] overflow-hidden rounded-2xl border border-border/50 bg-background shadow-lg p-3">
+        <DialogContent
+          showCloseButton={false}
+          onPointerDownOutside={(e) => {
+            if (currentStep === "visit-details") {
+              e.preventDefault()
+            }
+          }}
+          onEscapeKeyDown={(e) => {
+            if (currentStep === "visit-details") {
+              e.preventDefault()
+            }
+          }}
+          className="sm:max-w-[500px] overflow-hidden rounded-2xl border border-border/50 bg-background shadow-lg p-3"
+        >
+          {currentStep === "visit-details" && (
+            <button
+              type="button"
+              onClick={handleClose}
+              className="absolute right-4 top-4 rounded-full p-1.5 bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-all duration-200 z-50"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </button>
+          )}
         <DialogHeader className="text-center space-y-1 pb-2">
           <DialogTitle className="text-center text-base font-semibold">
             {currentStep === "patient-selection"

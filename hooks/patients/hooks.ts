@@ -1,65 +1,128 @@
 import { useMutation, useQuery } from '@apollo/client'
 import { GET_PATIENTS_QUERY, GET_PATIENT_QUERY } from '../queries'
 import { REGISTER_PATIENT_MUTATION, CREATE_PATIENT_INSURANCE_MUTATION, UPDATE_PATIENT_MUTATION } from '../mutations'
-import { gql } from '@apollo/client'
 import React from 'react'
-import type { Patient } from '../types'
+import type { Patient, PatientFilterInput, PatientInsurance, Visit, ApiResponse } from '../types'
 
-export function usePatients(filter?: any, page: number = 0, size: number = 20) {
-  const GET_PATIENTS_V2_QUERY = gql`
-    query SearchPatients($input: SearchPatientsInput) {
-      searchPatients(input: $input) {
-        status
-        message
-        data {
-          id
-          firstName
-          middleName
-          lastName
-          dateOfBirth
-          gender
-          primaryPhoneNumber
-          alternativePhone
-          village
-          city
-          district
-          postalAddress
-          nationalIdNumber
-          passportNumber
-          emergencyContactName
-          emergencyContactRelationship
-          emergencyContactPhoneNumber
-          lastVisit {
-            id
-            status
-            visitDate
-          }
-          createdAt
-        }
-        pagination { total totalPages }
-      }
+export interface GqlPatient {
+  id: string
+  firstName: string
+  middleName?: string | null
+  lastName?: string | null
+  dateOfBirth: string
+  gender: string
+  primaryPhoneNumber?: string | null
+  alternativePhone?: string | null
+  village?: string | null
+  city?: string | null
+  district?: string | null
+  postalAddress?: string | null
+  nationalIdNumber?: string | null
+  passportNumber?: string | null
+  emergencyContactName?: string | null
+  emergencyContactRelationship?: string | null
+  emergencyContactPhoneNumber?: string | null
+  lastVisit?: {
+    id: string
+    status: string
+    visitDate: string
+  } | null
+  createdAt: string
+}
+
+export interface SearchPatientsQueryData {
+  searchPatients: {
+    status: string
+    message?: string
+    data: GqlPatient[]
+    pagination?: {
+      total: number
+      totalPages: number
     }
-  `
+  }
+}
 
+export interface GqlInsuranceProvider {
+  id: string
+  insuranceName: string
+  acronym?: string | null
+  defaultCoveragePercentage: number
+}
+
+export interface GqlPatientInsurance {
+  id: string
+  insuranceCardNumber: string
+  principalMember: boolean
+  principalMemberName?: string | null
+  principalMemberPhoneNumber?: string | null
+  insuranceProvider: GqlInsuranceProvider
+}
+
+export interface GetPatientQueryData {
+  patient: {
+    status: string
+    message?: string
+    data: GqlPatient
+  }
+  patientInsurances: {
+    status: string
+    data: GqlPatientInsurance[]
+  }
+}
+
+export interface RegisterPatientInput {
+  firstName: string
+  middleName?: string | null
+  lastName?: string | null
+  dateOfBirth: string
+  gender?: string | null
+  contactInfo?: {
+    phone?: string | null
+    email?: string | null
+    address?: {
+      street?: string | null
+      sector?: string | null
+      district?: string | null
+      country?: string | null
+    } | null
+  } | null
+  nationalIdNumber?: string | null
+  emergencyContact?: {
+    name?: string | null
+    relation?: string | null
+    phone?: string | null
+  } | null
+  insurances?: Array<{
+    insuranceId?: string | null
+    insuranceCardNumber?: string | null
+    dominantMember?: {
+      firstName?: string | null
+      lastName?: string | null
+      phone?: string | null
+    } | null
+  }> | null
+  notes?: string | null
+}
+
+export function usePatients(filter?: PatientFilterInput, page: number = 0, size: number = 20) {
   const input = {
     ...(filter?.name ? { name: filter.name } : {}),
     ...(filter?.phoneNumber ? { phoneNumber: filter.phoneNumber } : {}),
     ...(filter?.age != null ? { age: filter.age } : {}),
-    ...(filter?.dob ? { dob: filter.dob } : {}),
     page,
     size,
   }
   
-  const { data, loading, error, refetch } = useQuery(GET_PATIENTS_V2_QUERY, {
+  const { data, loading, error, refetch } = useQuery<SearchPatientsQueryData>(GET_PATIENTS_QUERY, {
     variables: { input },
     fetchPolicy: 'cache-and-network'
   })
 
-  const patients = (data?.searchPatients?.data || []).map((patient: any) => ({
+  const patients: Patient[] = (data?.searchPatients?.data || []).map((patient: GqlPatient) => ({
     id: patient.id,
     firstName: patient.firstName,
-    middleName: patient.middleName,
-    lastName: patient.lastName,
+    middleName: patient.middleName || undefined,
+    lastName: patient.lastName || undefined,
     dateOfBirth: patient.dateOfBirth,
     gender: patient.gender === 'MALE' ? 'M' : patient.gender === 'FEMALE' ? 'F' : (patient.gender || ''),
     contactInfo: {
@@ -80,7 +143,18 @@ export function usePatients(filter?: any, page: number = 0, size: number = 20) {
     nationalId: patient.nationalIdNumber || undefined,
     insurances: [],
     registrationDate: patient.createdAt,
-    lastVisit: patient.lastVisit || undefined,
+    lastVisit: patient.lastVisit
+      ? {
+          id: patient.lastVisit.id,
+          visitDate: patient.lastVisit.visitDate,
+          status: patient.lastVisit.status,
+          billingStatus: 'PENDING',
+          patient: {} as Patient,
+          registeredBy: { id: '', name: '' },
+          visitStatus: patient.lastVisit.status as any,
+          visitType: 'OUTPATIENT',
+        }
+      : undefined,
   }))
   const totalPages = data?.searchPatients?.pagination?.totalPages || 0
   const totalElements = data?.searchPatients?.pagination?.total || 0
@@ -96,57 +170,7 @@ export function usePatients(filter?: any, page: number = 0, size: number = 20) {
 }
 
 export function usePatient(id: string | null) {
-  const GET_PATIENT_V2_QUERY = gql`
-    query GetPatient($patientId: ID!) {
-      patient(patientId: $patientId) {
-        status
-        message
-        data {
-          id
-          firstName
-          middleName
-          lastName
-          dateOfBirth
-          gender
-          primaryPhoneNumber
-          alternativePhone
-          village
-          city
-          district
-          postalAddress
-          nationalIdNumber
-          passportNumber
-          emergencyContactName
-          emergencyContactRelationship
-          emergencyContactPhoneNumber
-          lastVisit {
-            id
-            status
-            visitDate
-          }
-          createdAt
-        }
-      }
-      patientInsurances(patientId: $patientId) {
-        status
-        data {
-          id
-          insuranceCardNumber
-          principalMember
-          principalMemberName
-          principalMemberPhoneNumber
-          insuranceProvider {
-            id
-            insuranceName
-            acronym
-            defaultCoveragePercentage
-          }
-        }
-      }
-    }
-  `
-
-  const { data, loading, error, refetch } = useQuery(GET_PATIENT_V2_QUERY, {
+  const { data, loading, error, refetch } = useQuery<GetPatientQueryData>(GET_PATIENT_QUERY, {
     variables: { patientId: id },
     skip: !id,
     fetchPolicy: 'cache-and-network'
@@ -154,7 +178,7 @@ export function usePatient(id: string | null) {
 
   const patientData = data?.patient?.data
   const patientInsurances = data?.patientInsurances?.data || []
-  const patient = React.useMemo(() => {
+  const patient = React.useMemo<Patient | undefined>(() => {
     if (!patientData) {
       return undefined
     }
@@ -162,8 +186,8 @@ export function usePatient(id: string | null) {
     return {
       id: patientData.id,
       firstName: patientData.firstName,
-      middleName: patientData.middleName,
-      lastName: patientData.lastName,
+      middleName: patientData.middleName || undefined,
+      lastName: patientData.lastName || undefined,
       dateOfBirth: patientData.dateOfBirth,
       gender: patientData.gender === 'MALE' ? 'M' : patientData.gender === 'FEMALE' ? 'F' : (patientData.gender || ''),
       contactInfo: {
@@ -182,14 +206,14 @@ export function usePatient(id: string | null) {
         phone: patientData.emergencyContactPhoneNumber || undefined,
       },
       nationalId: patientData.nationalIdNumber || undefined,
-      insurances: patientInsurances.map((insurance: any) => ({
+      insurances: patientInsurances.map((insurance: GqlPatientInsurance) => ({
         id: insurance.id,
         insuranceCardNumber: insurance.insuranceCardNumber,
         status: 'ACTIVE',
         insurance: {
           id: insurance.insuranceProvider.id,
           name: insurance.insuranceProvider.insuranceName,
-          acronym: insurance.insuranceProvider.acronym,
+          acronym: insurance.insuranceProvider.acronym || undefined,
           coveragePercentage: insurance.insuranceProvider.defaultCoveragePercentage,
         },
         dominantMember: insurance.principalMember
@@ -201,7 +225,18 @@ export function usePatient(id: string | null) {
           : undefined,
       })),
       registrationDate: patientData.createdAt,
-      lastVisit: patientData.lastVisit || undefined,
+      lastVisit: patientData.lastVisit
+        ? {
+            id: patientData.lastVisit.id,
+            visitDate: patientData.lastVisit.visitDate,
+            status: patientData.lastVisit.status,
+            billingStatus: 'PENDING',
+            patient: {} as Patient,
+            registeredBy: { id: '', name: '' },
+            visitStatus: patientData.lastVisit.status as any,
+            visitType: 'OUTPATIENT',
+          }
+        : undefined,
     }
   }, [patientData, patientInsurances])
 
@@ -217,7 +252,7 @@ export function useRegisterPatient() {
   const [registerPatientMutation, { loading, error }] = useMutation(REGISTER_PATIENT_MUTATION)
   const [createPatientInsuranceMutation] = useMutation(CREATE_PATIENT_INSURANCE_MUTATION)
 
-  const registerPatient = async (input: any) => {
+  const registerPatient = async (input: RegisterPatientInput): Promise<ApiResponse<Patient>> => {
     try {
       const patientInput = {
         firstName: input.firstName,
@@ -244,7 +279,7 @@ export function useRegisterPatient() {
 
       const created = result?.data?.createPatient
       const patientId = created?.data?.id
-      const insuranceResults: any[] = []
+      const insuranceResults: PatientInsurance[] = []
 
       if (patientId && input.insurances && input.insurances.length > 0) {
         const now = new Date()
@@ -295,7 +330,7 @@ export function useRegisterPatient() {
                     phone: createdInsurance.principalMemberPhoneNumber || '',
                   }
                 : undefined,
-            })
+            } as any)
           }
         }
       }
@@ -308,13 +343,13 @@ export function useRegisterPatient() {
           ? {
               id: created.data.id,
               firstName: created.data.firstName,
-              middleName: created.data.middleName,
-              lastName: created.data.lastName,
+              middleName: created.data.middleName || undefined,
+              lastName: created.data.lastName || undefined,
               dateOfBirth: created.data.dateOfBirth,
               gender: created.data.gender === 'MALE' ? 'M' : created.data.gender === 'FEMALE' ? 'F' : (created.data.gender || ''),
               contactInfo: {
                 phone: created.data.primaryPhoneNumber || undefined,
-                email: input.contactInfo?.email,
+                email: input.contactInfo?.email || undefined,
                 address: {
                   street: created.data.village || undefined,
                   sector: created.data.city || undefined,
@@ -330,10 +365,10 @@ export function useRegisterPatient() {
               nationalId: created.data.nationalIdNumber || undefined,
               insurances: insuranceResults,
               registrationDate: created.data.createdAt,
-              notes: input.notes,
+              notes: input.notes || undefined,
             }
           : undefined,
-      } as any
+      }
     } catch (err) {
       console.error('Patient registration error:', err)
       throw err
@@ -346,7 +381,7 @@ export function useRegisterPatient() {
 export function useUpdatePatient() {
   const [updatePatientMutation, { loading, error }] = useMutation(UPDATE_PATIENT_MUTATION)
 
-  const updatePatient = async (patientId: string, input: any) => {
+  const updatePatient = async (patientId: string, input: RegisterPatientInput): Promise<ApiResponse<Patient>> => {
     try {
       const patientInput = {
         firstName: input.firstName,
@@ -370,7 +405,7 @@ export function useUpdatePatient() {
       const result = await updatePatientMutation({
         variables: { patientId, input: patientInput }
       })
-      return result.data.updatePatient as any
+      return result.data.updatePatient
     } catch (err) {
       console.error('Patient update error:', err)
       throw err

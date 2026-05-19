@@ -1,11 +1,10 @@
 import { gql } from '@apollo/client'
 
 export const REGISTER_PATIENT_MUTATION = gql`
-  mutation RegisterPatient($input: RegisterPatientInput!) {
-    registerPatient(input: $input) {
+  mutation RegisterPatient($input: CreatePatientInput!) {
+    createPatient(input: $input) {
       status
       message
-      
       data {
         id
         firstName
@@ -13,21 +12,17 @@ export const REGISTER_PATIENT_MUTATION = gql`
         middleName
         gender
         dateOfBirth
-        nationalId
-        contactInfo {
-          phoneNumber
-          email
-          address
-        }
-        insurances {
-          id
-          provider {
-            id
-            name
-          }
-          policyNumber
-          memberNumber
-        }
+        primaryPhoneNumber
+        alternativePhone
+        village
+        city
+        district
+        postalAddress
+        nationalIdNumber
+        passportNumber
+        emergencyContactName
+        emergencyContactRelationship
+        emergencyContactPhoneNumber
         createdAt
         updatedAt
       }
@@ -36,30 +31,32 @@ export const REGISTER_PATIENT_MUTATION = gql`
 `
 
 export const CREATE_PATIENT_INSURANCE_MUTATION = gql`
-  mutation CreatePatientInsurance($patientId: ID!, $input: PatientInsuranceInput!) {
-    createPatientInsurance(patientId: $patientId, input: $input) {
+  mutation CreatePatientInsurance($input: CreatePatientInsuranceInput!) {
+    createPatientInsurance(input: $input) {
       status
       message
-      
       data {
         id
-        provider {
+        insuranceCardNumber
+        principalMember
+        principalMemberName
+        principalMemberPhoneNumber
+        insuranceProvider {
           id
-          name
+          insuranceName
+          acronym
+          defaultCoveragePercentage
         }
-        policyNumber
-        memberNumber
       }
     }
   }
 `
 
 export const UPDATE_PATIENT_MUTATION = gql`
-  mutation UpdatePatient($id: ID!, $input: UpdatePatientInput!) {
-    updatePatient(id: $id, input: $input) {
+  mutation UpdatePatient($patientId: ID!, $input: UpdatePatientInput!) {
+    updatePatient(patientId: $patientId, input: $input) {
       status
       message
-      
       data {
         id
         firstName
@@ -67,24 +64,21 @@ export const UPDATE_PATIENT_MUTATION = gql`
         middleName
         gender
         dateOfBirth
-        nationalId
-        contactInfo {
-          phoneNumber
-          email
-          address
-        }
-        insurances {
-          id
-          provider {
-            id
-            name
-          }
-          policyNumber
-          memberNumber
-        }
+        primaryPhoneNumber
+        alternativePhone
+        village
+        city
+        district
+        postalAddress
+        nationalIdNumber
+        passportNumber
+        emergencyContactName
+        emergencyContactRelationship
+        emergencyContactPhoneNumber
         createdAt
         updatedAt
       }
     }
   }
 `
+
