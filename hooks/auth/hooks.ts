@@ -406,7 +406,7 @@ export function useCreatePassword() {
 
   const createPassword = async (identifier: string, password: string) => {
     try {
-      const result = await mutation({ variables: { identifier, newPassword: password } })
+      const result = await mutation({ variables: { input: { identifier, newPassword: password } } })
       return result.data?.setInitialPassword as UserResponse
     } catch (err) {
       console.error('Create password error:', err)
