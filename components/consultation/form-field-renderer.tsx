@@ -1,5 +1,6 @@
 "use client"
 
+import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
@@ -96,12 +97,14 @@ export function FormFieldRenderer({
   if (field.type === 'select') {
     return (
       <Select value={currentValue || ''} onValueChange={(v) => setFormAnswers((prev) => ({ ...prev, [field.id]: v }))}>
-        <SelectTrigger className={contrastInputClass}>
-          <SelectValue placeholder={field.placeholder || 'Select option'} />
+        <SelectTrigger className={cn("w-full min-w-0 text-left truncate flex items-center justify-between", contrastInputClass)}>
+          <SelectValue placeholder={field.placeholder || 'Select option'} className="truncate" />
         </SelectTrigger>
         <SelectContent>
           {(field.options || []).map((opt) => (
-            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+            <SelectItem key={opt} value={opt} className="break-words max-w-full">
+              <span className="truncate break-words w-full" title={opt}>{opt}</span>
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -111,19 +114,58 @@ export function FormFieldRenderer({
     return (
       <div className="space-y-2">
         {(field.options || []).map((opt) => (
-          <label key={opt} className="flex items-center gap-2 text-sm rounded-md border border-border/70 bg-background/60 px-3 py-2">
-            <input type="radio" name={field.id} checked={currentValue === opt} onChange={() => setFormAnswers((prev) => ({ ...prev, [field.id]: opt }))} />
-            {opt}
+          <label key={opt} className="flex items-center gap-2 text-sm rounded-md border border-border/70 bg-background/60 px-3 py-2 cursor-pointer select-none hover:bg-accent/10 transition-colors w-full min-w-0">
+            <input type="radio" name={field.id} checked={currentValue === opt} onChange={() => setFormAnswers((prev) => ({ ...prev, [field.id]: opt }))} className="shrink-0" />
+            <span className="truncate break-words min-w-0 flex-1" title={opt}>{opt}</span>
           </label>
         ))}
       </div>
     )
   }
   if (field.type === 'checkbox') {
+    if (field.options && field.options.length > 0) {
+      const selectedValues: string[] = Array.isArray(currentValue)
+        ? currentValue
+        : typeof currentValue === 'string'
+        ? currentValue.split(',').map((v) => v.trim()).filter(Boolean)
+        : currentValue
+        ? [String(currentValue)]
+        : []
+
+      const handleToggle = (opt: string, checked: boolean) => {
+        let next: string[]
+        if (checked) {
+          next = [...selectedValues, opt]
+        } else {
+          next = selectedValues.filter((v) => v !== opt)
+        }
+        setFormAnswers((prev) => ({ ...prev, [field.id]: next }))
+      }
+
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
+          {field.options.map((opt) => (
+            <label
+              key={opt}
+              className="flex items-center gap-2 text-sm rounded-md border border-border/70 bg-background/60 px-3 py-2 cursor-pointer select-none hover:bg-accent/10 transition-colors w-full min-w-0"
+            >
+              <Checkbox
+                checked={selectedValues.includes(opt)}
+                onCheckedChange={(checked) => handleToggle(opt, Boolean(checked))}
+              />
+              <span className="truncate break-words min-w-0 flex-1" title={opt}>
+                {opt}
+              </span>
+            </label>
+          ))}
+        </div>
+      )
+    }
+
     return (
-      <div className="flex items-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 py-2">
+      <div className="flex items-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 py-2 cursor-pointer select-none w-full min-w-0">
         <Checkbox checked={Boolean(currentValue)} onCheckedChange={(checked) => setFormAnswers((prev) => ({ ...prev, [field.id]: Boolean(checked) }))} />
-        <span className="text-sm">{field.placeholder || 'Checked'}</span>
+        <span className="text-sm truncate break-words min-w-0 flex-1" title={field.placeholder || 'Checked'}>{field.placeholder || 'Checked'}</span>
       </div>
     )
   }

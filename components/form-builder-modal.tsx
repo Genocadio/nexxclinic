@@ -153,8 +153,8 @@ export function FormBuilderModal({ isOpen, departmentId, departmentName, onClose
                 </div>
                 <div>
                   <Select value={newFieldType} onValueChange={(v) => setNewFieldType(v as any)}>
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="w-full min-w-0 text-left truncate flex items-center justify-between">
+                      <SelectValue placeholder="Select type" className="truncate" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="text">Text</SelectItem>
@@ -188,7 +188,7 @@ export function FormBuilderModal({ isOpen, departmentId, departmentName, onClose
                     onChange={(e) => setNewFieldPlaceholder(e.target.value)}
                   />
                 </div>
-                {(newFieldType === 'select' || newFieldType === 'radio') && (
+                {(newFieldType === 'select' || newFieldType === 'radio' || newFieldType === 'checkbox') && (
                   <div className="col-span-2">
                     <textarea
                       placeholder="Options (one per line)"
@@ -308,28 +308,39 @@ function FormPreview({ title, description, fields, onBack }: FormPreviewProps) {
                 <textarea placeholder={field.placeholder} className="w-full px-3 py-2 border rounded-md text-sm" rows={3} disabled />
               )}
               {field.type === 'select' && (
-                <select className="w-full px-3 py-2 border rounded-md text-sm" disabled>
+                <select className="w-full px-3 py-2 border rounded-md text-sm truncate" disabled>
                   <option value="">{field.placeholder || 'Select...'}</option>
                   {field.options?.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
+                    <option key={opt} value={opt} className="truncate">{opt}</option>
                   ))}
                 </select>
               )}
               {field.type === 'radio' && (
                 <div className="space-y-2">
                   {field.options?.map((opt) => (
-                    <label key={opt} className="flex items-center gap-2 text-sm">
-                      <input type="radio" disabled />
-                      {opt}
+                    <label key={opt} className="flex items-center gap-2 text-sm w-full min-w-0">
+                      <input type="radio" disabled className="shrink-0" />
+                      <span className="truncate break-words min-w-0 flex-1" title={opt}>{opt}</span>
                     </label>
                   ))}
                 </div>
               )}
               {field.type === 'checkbox' && (
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" disabled />
-                  {field.placeholder || 'Option'}
-                </label>
+                field.options && field.options.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
+                    {field.options.map((opt) => (
+                      <label key={opt} className="flex items-center gap-2 text-sm rounded-md border p-2 bg-white dark:bg-slate-800 w-full min-w-0">
+                        <input type="checkbox" disabled className="shrink-0" />
+                        <span className="truncate break-words min-w-0 flex-1" title={opt}>{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-2 text-sm w-full min-w-0">
+                    <input type="checkbox" disabled className="shrink-0" />
+                    <span className="truncate break-words min-w-0 flex-1" title={field.placeholder || 'Option'}>{field.placeholder || 'Option'}</span>
+                  </label>
+                )
               )}
               {field.type === 'diagnosticRecord' && (
                 <div className="space-y-2 border rounded-md p-3">

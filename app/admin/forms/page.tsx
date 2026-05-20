@@ -909,16 +909,53 @@ export default function FormsPage() {
         return (
           <div className="flex flex-col gap-2">
             {f.options?.map(opt => (
-              <label key={opt} className="flex items-center gap-2 text-sm">
-                <input type="radio" name={f.id} checked={previewFormValues[f.id] === opt} onChange={() => setPreviewFormValues({ ...previewFormValues, [f.id]: opt })} /> {opt}
+              <label key={opt} className="flex items-center gap-2 text-sm select-none cursor-pointer w-full min-w-0">
+                <input type="radio" name={f.id} checked={previewFormValues[f.id] === opt} onChange={() => setPreviewFormValues({ ...previewFormValues, [f.id]: opt })} className="shrink-0" />
+                <span className="truncate break-words min-w-0 flex-1" title={opt}>{opt}</span>
               </label>
             ))}
           </div>
         )
       case 'checkbox':
+        if (f.options && f.options.length > 0) {
+          const selectedValues: string[] = Array.isArray(previewFormValues[f.id])
+            ? previewFormValues[f.id]
+            : typeof previewFormValues[f.id] === 'string'
+            ? previewFormValues[f.id].split(',').map((v: string) => v.trim()).filter(Boolean)
+            : previewFormValues[f.id]
+            ? [String(previewFormValues[f.id])]
+            : []
+
+          const handleToggle = (opt: string, checked: boolean) => {
+            let next: string[]
+            if (checked) {
+              next = [...selectedValues, opt]
+            } else {
+              next = selectedValues.filter((v) => v !== opt)
+            }
+            setPreviewFormValues({ ...previewFormValues, [f.id]: next })
+          }
+
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
+              {f.options.map((opt: string) => (
+                <label key={opt} className="flex items-center gap-2 text-sm rounded-md border border-border/70 bg-background/60 p-2 cursor-pointer select-none hover:bg-accent/10 transition-colors w-full min-w-0">
+                  <input
+                    type="checkbox"
+                    checked={selectedValues.includes(opt)}
+                    onChange={(e) => handleToggle(opt, e.target.checked)}
+                    className="shrink-0"
+                  />
+                  <span className="truncate break-words min-w-0 flex-1" title={opt}>{opt}</span>
+                </label>
+              ))}
+            </div>
+          )
+        }
         return (
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={Boolean(previewFormValues[f.id])} onChange={(e) => setPreviewFormValues({ ...previewFormValues, [f.id]: e.target.checked })} /> {f.placeholder || 'Checkbox'}
+          <label className="flex items-center gap-2 text-sm select-none cursor-pointer w-full min-w-0">
+            <input type="checkbox" checked={Boolean(previewFormValues[f.id])} onChange={(e) => setPreviewFormValues({ ...previewFormValues, [f.id]: e.target.checked })} className="shrink-0" />
+            <span className="truncate break-words min-w-0 flex-1" title={f.placeholder || 'Checkbox'}>{f.placeholder || 'Checkbox'}</span>
           </label>
         )
       case 'table':
@@ -2420,9 +2457,9 @@ function FieldEditor({
                     setTableRowHeaders('')
                   }
                 }}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="w-full min-w-0 text-left truncate flex items-center justify-between">
+                     <SelectValue className="truncate" />
+                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="text">Text</SelectItem>
                     <SelectItem value="email">Email</SelectItem>
@@ -2573,7 +2610,7 @@ function FieldEditor({
                 <p className="text-[11px] text-muted-foreground">Only one axis can be variable at a time; headers are configurable here and locked in the live preview.</p>
               </div>
             )}
-            {(type === 'select' || type === 'radio') && (
+            {(type === 'select' || type === 'radio' || type === 'checkbox') && (
               <div className="space-y-1">
                 <label className="text-xs font-medium">Options (one per line)</label>
                 <Textarea rows={3} value={options} onChange={(e) => setOptions(e.target.value)} />
