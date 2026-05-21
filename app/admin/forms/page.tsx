@@ -1541,7 +1541,7 @@ export default function FormsPage() {
                                       )}
                                     </div>
                                   </PopoverTrigger>
-                                  <PopoverContent className="w-80 rounded-xl" side="right" align="start" sideOffset={8}>
+                                  <PopoverContent className="w-80 rounded-2xl glass-gray" side="right" align="start" sideOffset={8}>
                                     <FieldEditor
                                       field={f}
                                       label={editingLabel}
@@ -1653,7 +1653,7 @@ export default function FormsPage() {
                                   <p className="text-xs text-muted-foreground">{s.columns} column(s)</p>
                                 </div>
                               </PopoverTrigger>
-                              <PopoverContent className="w-80 rounded-xl" side="right" align="start" sideOffset={8}>
+                              <PopoverContent className="w-80 rounded-2xl glass-gray" side="right" align="start" sideOffset={8}>
                                 <div className="space-y-3">
                                   <div className="space-y-1">
                                     <label className="text-xs font-medium">Title</label>
@@ -1811,7 +1811,7 @@ export default function FormsPage() {
                                               </div>
                                             </div>
                                           </PopoverTrigger>
-                                          <PopoverContent className="w-80 rounded-xl" side="right" align="start" sideOffset={8}>
+                                          <PopoverContent className="w-80 rounded-2xl glass-gray" side="right" align="start" sideOffset={8}>
                                             <FieldEditor
                                               field={f}
                                               label={editingLabel}
@@ -1982,7 +1982,7 @@ export default function FormsPage() {
           <Dialog open={fieldEditorOpen && !editingField} onOpenChange={(open) => {
             if (!open && !editingField) setFieldEditorOpen(false)
           }}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/20 border border-white/20 rounded-3xl shadow-2xl p-4">
               <DialogHeader>
                 <DialogTitle>Add New Field</DialogTitle>
               </DialogHeader>
@@ -2378,6 +2378,11 @@ function FieldEditor({
   onSave: () => void
   onClose: () => void
 }) {
+  const [step, setStep] = useState<'nameType' | 'config'>(field ? 'config' : 'nameType')
+
+  useEffect(() => {
+    setStep(field ? 'config' : 'nameType')
+  }, [field])
   const [itemSearch, setItemSearch] = useState(conditionalValue || '')
   const [itemOptions, setItemOptions] = useState<string[]>([])
   const [itemLoading, setItemLoading] = useState(false)
@@ -2438,6 +2443,43 @@ function FieldEditor({
   }, [itemSearch, conditionalCondition, conditionalItemType])
     return (
       <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+        {/** Step 1: name + type for new fields; Step 2: type-specific config. */}
+        {(!field && step === 'nameType') ? (
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Label</label>
+              <Input value={label} onChange={(e) => setLabel(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Type</label>
+              <Select value={type} onValueChange={(v) => setType(v as FormField['type'])}>
+                <SelectTrigger className="w-full min-w-0 text-left truncate flex items-center justify-between">
+                  <SelectValue className="truncate" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">Text</SelectItem>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="number">Number</SelectItem>
+                  <SelectItem value="textarea">Textarea</SelectItem>
+                  <SelectItem value="select">Select</SelectItem>
+                  <SelectItem value="radio">Radio</SelectItem>
+                  <SelectItem value="checkbox">Checkbox</SelectItem>
+                  <SelectItem value="date">Date</SelectItem>
+                  <SelectItem value="table">Table</SelectItem>
+                  <SelectItem value="diagnosticRecord">Diagnostic Record</SelectItem>
+                  <SelectItem value="medicationLongForm">Medication Long Form</SelectItem>
+                  <SelectItem value="medicationMiniForm">Medication Mini Form</SelectItem>
+                  <SelectItem value="actionListener">Product Listener</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button className="ml-auto" onClick={() => setStep('config')} disabled={!label || !label.trim()}>Next</Button>
+            </div>
+          </div>
+        ) : (
+          <div>
             <div className="space-y-1">
               <label className="text-xs font-medium">Label</label>
               <Input value={label} onChange={(e) => setLabel(e.target.value)} />
@@ -2458,8 +2500,8 @@ function FieldEditor({
                   }
                 }}>
                   <SelectTrigger className="w-full min-w-0 text-left truncate flex items-center justify-between">
-                     <SelectValue className="truncate" />
-                   </SelectTrigger>
+                    <SelectValue className="truncate" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="text">Text</SelectItem>
                     <SelectItem value="email">Email</SelectItem>
@@ -2725,9 +2767,11 @@ function FieldEditor({
               )}
             </div>
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={onClose} className="rounded-full">Cancel</Button>
+              <Button variant="outline" size="sm" onClick={() => { if (!field) { onClose() } else { setStep('nameType') } }} className="rounded-full">{field ? 'Back' : 'Cancel'}</Button>
               <Button size="sm" onClick={onSave} className="rounded-full">Save</Button>
             </div>
           </div>
+        )}
+      </div>
   )
 }

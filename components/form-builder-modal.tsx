@@ -25,12 +25,11 @@ export function FormBuilderModal({ isOpen, departmentId, departmentName, onClose
   const [showPreview, setShowPreview] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // Form field creation
-  const [newFieldLabel, setNewFieldLabel] = useState('')
-  const [newFieldType, setNewFieldType] = useState<FormField['type']>('text')
-  const [newFieldPlaceholder, setNewFieldPlaceholder] = useState('')
-  const [newFieldRequired, setNewFieldRequired] = useState(true)
-  const [newFieldOptions, setNewFieldOptions] = useState('')
+  // Field editor (two-step flow)
+  const [fieldEditorVisible, setFieldEditorVisible] = useState(false)
+  const [fieldEditorStep, setFieldEditorStep] = useState<'nameType' | 'config'>('nameType')
+  const [isEditingFieldId, setIsEditingFieldId] = useState<string | null>(null)
+  const [fieldDraft, setFieldDraft] = useState<Partial<FormField>>({ type: 'text', required: true })
 
   // Load existing form on mount
   React.useEffect(() => {
@@ -49,31 +48,52 @@ export function FormBuilderModal({ isOpen, departmentId, departmentName, onClose
   }, [isOpen, departmentId])
 
   const addField = () => {
-    if (!newFieldLabel.trim()) {
+    if (!fieldDraft.label || !String(fieldDraft.label).trim()) {
       toast({ title: 'Field label required' })
       return
     }
 
     const field: FormField = {
-      id: `field_${Date.now()}`,
-      label: newFieldLabel,
-      type: newFieldType,
-      placeholder: newFieldPlaceholder || undefined,
-      required: newFieldRequired,
-      options: newFieldOptions ? newFieldOptions.split('\n').filter(o => o.trim()) : undefined,
-      order: fields.length,
+      id: isEditingFieldId || `field_${Date.now()}`,
+      label: String(fieldDraft.label),
+      type: (fieldDraft.type as FormField['type']) || 'text',
+      placeholder: fieldDraft.placeholder || undefined,
+      required: fieldDraft.required ?? true,
+      options: Array.isArray(fieldDraft.options) ? fieldDraft.options : (fieldDraft.options ? String(fieldDraft.options).split('\n').filter(o => o.trim()) : undefined),
+      order: isEditingFieldId ? (fields.findIndex(f => f.id === isEditingFieldId) ?? fields.length - 1) : fields.length,
     }
 
-    setFields([...fields, field])
-    setNewFieldLabel('')
-    setNewFieldPlaceholder('')
-    setNewFieldOptions('')
-    setNewFieldRequired(true)
-    toast({ title: 'Field added' })
+    if (isEditingFieldId) {
+      setFields(fields.map((f) => f.id === isEditingFieldId ? { ...field, order: f.order } : f))
+      toast({ title: 'Field updated' })
+    } else {
+      setFields([...fields, field])
+      toast({ title: 'Field added' })
+    }
+
+    // reset editor
+    setFieldEditorVisible(false)
+    setFieldEditorStep('nameType')
+    setIsEditingFieldId(null)
+    setFieldDraft({ type: 'text', required: true })
   }
 
   const removeField = (fieldId: string) => {
     setFields(fields.filter(f => f.id !== fieldId).map((f, idx) => ({ ...f, order: idx })))
+  }
+
+  const startNewField = () => {
+    setIsEditingFieldId(null)
+    setFieldDraft({ type: 'text', required: true })
+    setFieldEditorStep('nameType')
+    setFieldEditorVisible(true)
+  }
+
+  const startEditField = (field: FormField) => {
+    setIsEditingFieldId(field.id)
+    setFieldDraft({ ...field })
+    setFieldEditorStep('config')
+    setFieldEditorVisible(true)
   }
 
   const handleSaveForm = async () => {
@@ -107,7 +127,7 @@ export function FormBuilderModal({ isOpen, departmentId, departmentName, onClose
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-7xl max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/20 border border-white/20 rounded-3xl shadow-2xl p-2 sm:p-4">
         <DialogHeader>
           <DialogTitle>Form Builder - {departmentName}</DialogTitle>
           <DialogDescription>Create custom forms for visit submissions</DialogDescription>
@@ -137,71 +157,147 @@ export function FormBuilderModal({ isOpen, departmentId, departmentName, onClose
               </div>
             </div>
 
-            {/* Field creation */}
+            {/* Field creation / editor (two-step) */}
             <div className="space-y-3 border-b pb-4">
-              <h3 className="font-semibold text-sm">Add Field</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <Input
-                    placeholder="Field label"
-                    value={newFieldLabel}
-                    onChange={(e) => setNewFieldLabel(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') addField()
-                    }}
-                  />
-                </div>
-                <div>
-                  <Select value={newFieldType} onValueChange={(v) => setNewFieldType(v as any)}>
-                    <SelectTrigger className="w-full min-w-0 text-left truncate flex items-center justify-between">
-                      <SelectValue placeholder="Select type" className="truncate" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="text">Text</SelectItem>
-                      <SelectItem value="email">Email</SelectItem>
-                      <SelectItem value="number">Number</SelectItem>
-                      <SelectItem value="textarea">Textarea</SelectItem>
-                      <SelectItem value="select">Select</SelectItem>
-                      <SelectItem value="radio">Radio</SelectItem>
-                      <SelectItem value="checkbox">Checkbox</SelectItem>
-                      <SelectItem value="date">Date</SelectItem>
-                      <SelectItem value="diagnosticRecord">Diagnostic Record</SelectItem>
-                      <SelectItem value="medicationLongForm">Medication Long Form</SelectItem>
-                      <SelectItem value="medicationMiniForm">Medication Mini Form</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={newFieldRequired}
-                      onChange={(e) => setNewFieldRequired(e.target.checked)}
-                    />
-                    <span className="text-xs">Required</span>
-                  </label>
-                </div>
-                <div className="col-span-2">
-                  <Input
-                    placeholder="Placeholder text"
-                    value={newFieldPlaceholder}
-                    onChange={(e) => setNewFieldPlaceholder(e.target.value)}
-                  />
-                </div>
-                {(newFieldType === 'select' || newFieldType === 'radio' || newFieldType === 'checkbox') && (
-                  <div className="col-span-2">
-                    <textarea
-                      placeholder="Options (one per line)"
-                      className="w-full px-3 py-2 border rounded-md text-sm"
-                      rows={3}
-                      value={newFieldOptions}
-                      onChange={(e) => setNewFieldOptions(e.target.value)}
-                    />
-                  </div>
-                )}
-                <Button onClick={addField} className="col-span-2 rounded-full" size="sm">
-                  <Plus className="h-4 w-4 mr-2" /> Add Field
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-sm">Fields</h3>
+                <Button size="sm" onClick={startNewField} className="rounded-full">
+                  <Plus className="h-4 w-4 mr-2" /> New Field
                 </Button>
+              </div>
+
+              {fieldEditorVisible && (
+                <div className="mt-3 bg-white dark:bg-slate-800 p-3 rounded-lg border">
+                  {fieldEditorStep === 'nameType' ? (
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs">Field Label</Label>
+                        <Input value={String(fieldDraft.label || '')} onChange={(e) => setFieldDraft(d => ({ ...d, label: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Field Type</Label>
+                        <Select value={String(fieldDraft.type || 'text')} onValueChange={(v) => setFieldDraft(d => ({ ...d, type: v as any }))}>
+                          <SelectTrigger className="w-full min-w-0 text-left truncate flex items-center justify-between">
+                            <SelectValue placeholder="Select type" className="truncate" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="text">Text</SelectItem>
+                            <SelectItem value="email">Email</SelectItem>
+                            <SelectItem value="number">Number</SelectItem>
+                            <SelectItem value="textarea">Textarea</SelectItem>
+                            <SelectItem value="select">Select</SelectItem>
+                            <SelectItem value="radio">Radio</SelectItem>
+                            <SelectItem value="checkbox">Checkbox</SelectItem>
+                            <SelectItem value="date">Date</SelectItem>
+                            <SelectItem value="diagnosticRecord">Diagnostic Record</SelectItem>
+                            <SelectItem value="medicationLongForm">Medication Long Form</SelectItem>
+                            <SelectItem value="medicationMiniForm">Medication Mini Form</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => { setFieldEditorVisible(false); setFieldEditorStep('nameType') }} >Cancel</Button>
+                        <Button onClick={() => setFieldEditorStep('config')} className="ml-auto" disabled={!fieldDraft.label || !String(fieldDraft.label).trim()}>Next</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs">Type</Label>
+                        <Select value={String(fieldDraft.type || 'text')} onValueChange={(v) => setFieldDraft(d => ({ ...d, type: v as any }))}>
+                          <SelectTrigger className="w-full min-w-0 text-left truncate flex items-center justify-between">
+                            <SelectValue placeholder="Select type" className="truncate" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="text">Text</SelectItem>
+                            <SelectItem value="email">Email</SelectItem>
+                            <SelectItem value="number">Number</SelectItem>
+                            <SelectItem value="textarea">Textarea</SelectItem>
+                            <SelectItem value="select">Select</SelectItem>
+                            <SelectItem value="radio">Radio</SelectItem>
+                            <SelectItem value="checkbox">Checkbox</SelectItem>
+                            <SelectItem value="date">Date</SelectItem>
+                            <SelectItem value="diagnosticRecord">Diagnostic Record</SelectItem>
+                            <SelectItem value="medicationLongForm">Medication Long Form</SelectItem>
+                            <SelectItem value="medicationMiniForm">Medication Mini Form</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Render type-specific config inputs */}
+                      {(fieldDraft.type === 'text' || fieldDraft.type === 'email' || fieldDraft.type === 'number' || fieldDraft.type === 'textarea' || fieldDraft.type === 'date') && (
+                        <div>
+                          <Label className="text-xs">Placeholder</Label>
+                          <Input value={String(fieldDraft.placeholder || '')} onChange={(e) => setFieldDraft(d => ({ ...d, placeholder: e.target.value }))} />
+                          <label className="flex items-center gap-2 mt-2">
+                            <input type="checkbox" checked={fieldDraft.required ?? true} onChange={(e) => setFieldDraft(d => ({ ...d, required: e.target.checked }))} />
+                            <span className="text-xs">Required</span>
+                          </label>
+                        </div>
+                      )}
+
+                      {(fieldDraft.type === 'select' || fieldDraft.type === 'radio' || fieldDraft.type === 'checkbox') && (
+                        <div>
+                          <Label className="text-xs">Options (one per line)</Label>
+                          <textarea className="w-full px-3 py-2 border rounded-md text-sm" rows={4} value={Array.isArray(fieldDraft.options) ? (fieldDraft.options as string[]).join('\n') : String(fieldDraft.options || '')} onChange={(e) => setFieldDraft(d => ({ ...d, options: e.target.value }))} />
+                          <label className="flex items-center gap-2 mt-2">
+                            <input type="checkbox" checked={fieldDraft.required ?? true} onChange={(e) => setFieldDraft(d => ({ ...d, required: e.target.checked }))} />
+                            <span className="text-xs">Required</span>
+                          </label>
+                        </div>
+                      )}
+
+                      {fieldDraft.type === 'diagnosticRecord' && (
+                        <div>
+                          <Label className="text-xs">Diagnostic Placeholder</Label>
+                          <Input value={String(fieldDraft.placeholder || '')} onChange={(e) => setFieldDraft(d => ({ ...d, placeholder: e.target.value }))} />
+                        </div>
+                      )}
+
+                      {(fieldDraft.type === 'medicationLongForm' || fieldDraft.type === 'medicationMiniForm') && (
+                        <div>
+                          <Label className="text-xs">Medication Placeholder</Label>
+                          <Input value={String(fieldDraft.placeholder || '')} onChange={(e) => setFieldDraft(d => ({ ...d, placeholder: e.target.value }))} />
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setFieldEditorStep('nameType')}>Back</Button>
+                        <Button onClick={addField} className="ml-auto">{isEditingFieldId ? 'Save' : 'Add Field'}</Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Current fields list */}
+              <div className="space-y-2 bg-slate-50 dark:bg-slate-900/30 rounded-lg p-3 max-h-[200px] overflow-y-auto mt-3">
+                {fields.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">No fields yet. Add one above.</p>
+                ) : (
+                  fields.map((field) => (
+                    <div key={field.id} className="flex items-center justify-between bg-white dark:bg-slate-800 p-2 rounded border text-xs">
+                      <div className="flex-1">
+                        <span className="font-medium">{field.label}</span>
+                        <span className="text-muted-foreground ml-2">({field.type})</span>
+                        {field.required && <span className="text-red-500 ml-2">*</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => startEditField(field)}>
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => removeField(field.id)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
