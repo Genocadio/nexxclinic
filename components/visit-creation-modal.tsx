@@ -10,6 +10,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Search, User, ArrowLeft, Edit, X } from "lucide-react"
 import { toast } from "react-toastify"
 import PatientEditModal from "@/components/patient-edit-modal"
+import { DepartmentAutocomplete } from "@/components/ui/department-autocomplete"
+
+const TRIAGE_SERVICE_ID = '__TRIAGE__'
 
 interface VisitCreationModalProps {
   isOpen: boolean
@@ -37,7 +40,7 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
   const [patientFilter, setPatientFilter] = useState<PatientFilterInput>({})
   const [shouldSearch, setShouldSearch] = useState(false)
   
-  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([])
+  const [selectedServiceId, setSelectedServiceId] = useState<string>(TRIAGE_SERVICE_ID)
   const [selectedInsuranceIds, setSelectedInsuranceIds] = useState<string[]>([])
   const [visitNoteText, setVisitNoteText] = useState("")
   const [visitNoteDepartment, setVisitNoteDepartment] = useState<string>("visit")
@@ -55,6 +58,9 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
   )
 
   const canContinueFromSelection = Boolean(selectedPatientId && (!preSelectedPatientId || selectedPatient))
+  const triageSelected = selectedServiceId === TRIAGE_SERVICE_ID
+  const hasSelectedDepartment = Boolean(selectedServiceId && !triageSelected)
+  const canCreateVisit = triageSelected || hasSelectedDepartment
 
   // Search handler with debouncing
   const handleSearch = useCallback(() => {
@@ -150,7 +156,7 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
       setSearchFilterType("name")
       setPatientFilter({})
       setShouldSearch(false)
-      setSelectedDepartments([])
+      setSelectedServiceId(TRIAGE_SERVICE_ID)
       setSelectedInsuranceIds([])
       setVisitNoteText("")
       setVisitNoteDepartment("visit")
@@ -192,7 +198,12 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
   }
 
   const handleCreateVisit = async () => {
-    if (!selectedPatientId || selectedDepartments.length === 0) return
+    if (!selectedPatientId) return
+
+    if (!canCreateVisit) {
+      toast.error('Select Triage or a department before creating the visit.')
+      return
+    }
 
     try {
       const visitLevelNotes = queuedNotes.map((note) => {
@@ -207,8 +218,11 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
 
       const visitInput: any = {
         patientId: selectedPatientId,
-        departmentIds: selectedDepartments,
         visitNotes: visitLevelNotes,
+      }
+
+      if (hasSelectedDepartment) {
+        visitInput.departmentIds = [selectedServiceId]
       }
 
       // Add insurance IDs if selected
@@ -219,7 +233,7 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
       const result = await createVisit(visitInput)
 
       if (result.status === 'SUCCESS') {
-        toast.success("Visit created successfully!")
+        toast.success(result.message || "Visit created successfully!")
         if (onVisitCreated) {
           onVisitCreated()
         }
@@ -241,7 +255,7 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
     setSearchFilterType("name")
     setPatientFilter({})
     setShouldSearch(false)
-    setSelectedDepartments([])
+    setSelectedServiceId(TRIAGE_SERVICE_ID)
     setSelectedInsuranceIds([])
     setVisitNoteText("")
     setVisitNoteDepartment("visit")
@@ -255,13 +269,19 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
       handleClose()
     } else {
       setCurrentStep("patient-selection")
-      setSelectedDepartments([])
+      setSelectedServiceId(TRIAGE_SERVICE_ID)
       setSelectedInsuranceIds([])
       setVisitNoteText("")
       setVisitNoteDepartment("visit")
       setQueuedNotes([])
     }
   }
+
+  const selectedDepartmentLabel = triageSelected
+    ? 'Triage'
+    : hasSelectedDepartment
+      ? departments.find((dept) => String(dept.id) === String(selectedServiceId))?.name || 'Selected department'
+      : ''
 
   const handleQueueNote = () => {
     const text = visitNoteText.trim()
@@ -314,10 +334,15 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
           )}
         <DialogHeader className="text-center space-y-1 pb-2">
           <DialogTitle className="text-center text-base font-semibold">
-            {currentStep === "patient-selection"
+                {currentStep === "patient-selection"
               ? preSelectedPatientId ? "Create Visit for New Patient" : "Create Visit - Select Patient"
               : "Create Visit - Visit Details"}
           </DialogTitle>
+          {currentStep === "visit-details" && (
+            <p className="text-xs text-muted-foreground px-2">
+                Choose a service to attach to the visit now.
+            </p>
+          )}
         </DialogHeader>
 
         <div className="max-h-[calc(90vh-160px)] overflow-y-auto px-2 pb-2 pt-1">
@@ -540,33 +565,21 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
             {/* Department Selection */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                Select Departments
+                Select Service
               </label>
-              <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-3">
-                {departmentsLoading ? (
-                  <div className="text-sm text-muted-foreground">Loading departments...</div>
-                ) : departments.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">No departments available</div>
-                ) : (
-                  departments.map((dept) => (
-                    <label key={dept.id} className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedDepartments.includes(String(dept.id))}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedDepartments(prev => [...prev, String(dept.id)])
-                          } else {
-                            setSelectedDepartments(prev => prev.filter(id => id !== String(dept.id)))
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      <span className="text-sm">{dept.name}</span>
-                    </label>
-                  ))
-                )}
-              </div>
+              <p className="text-xs text-muted-foreground mb-2">
+                Choose Triage or one or more departments for this visit.
+              </p>
+              <DepartmentAutocomplete
+                departments={[{ id: TRIAGE_SERVICE_ID, name: 'Triage' }, ...departments]}
+                selectedDepartmentId={selectedServiceId}
+                onDepartmentSelect={setSelectedServiceId}
+                placeholder={departmentsLoading ? 'Loading services...' : 'Choose service'}
+                disabled={departmentsLoading}
+              />
+              {selectedDepartmentLabel && (
+                <p className="text-xs text-muted-foreground mt-2">Selected service: {selectedDepartmentLabel}</p>
+              )}
             </div>
 
             {/* Notes Section Toggle */}
@@ -605,13 +618,15 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="visit">Visit (General)</SelectItem>
-                        {departments
-                          .filter((dept) => selectedDepartments.includes(dept.id))
-                          .map((dept) => (
-                            <SelectItem key={`dept-note-${dept.id}`} value={String(dept.id)}>
-                              Department: {dept.name}
-                            </SelectItem>
-                          ))}
+                        {hasSelectedDepartment
+                          ? departments
+                              .filter((dept) => String(dept.id) === String(selectedServiceId))
+                              .map((dept) => (
+                                <SelectItem key={`dept-note-${dept.id}`} value={String(dept.id)}>
+                                  Department: {dept.name}
+                                </SelectItem>
+                              ))
+                          : null}
                       </SelectContent>
                     </Select>
                     <Button type="button" variant="outline" onClick={handleQueueNote}>
@@ -662,7 +677,7 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
               </Button>
               <Button
                 onClick={handleCreateVisit}
-                disabled={visitLoading || selectedDepartments.length === 0}
+                disabled={visitLoading || !canCreateVisit}
                 className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-lg"
               >
                 {visitLoading ? "Creating..." : "Create Visit"}

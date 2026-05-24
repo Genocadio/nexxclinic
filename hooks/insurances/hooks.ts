@@ -131,17 +131,27 @@ export function useCreateInsuranceProvider() {
     defaultCoveragePercentage: number
     supportedByClinic?: boolean
     iconUrl?: string
-  }): Promise<InsuranceProvider | undefined> => {
-    const { data } = await mutation({ variables: { input } })
-    const created = data?.createInsuranceProvider?.data
-    if (!created) return undefined
-    return {
-      id: created.id,
-      insuranceName: created.insuranceName,
-      acronym: created.acronym || undefined,
-      defaultCoveragePercentage: created.defaultCoveragePercentage,
-      supportedByClinic: created.supportedByClinic,
-      iconUrl: created.iconUrl || undefined,
+  }): Promise<any> => {
+    try {
+      const { data } = await mutation({ variables: { input } })
+      const payload = data?.createInsuranceProvider
+      const created = payload?.data
+      
+      return {
+        status: payload?.status || 'ERROR',
+        message: payload?.message,
+        data: created ? {
+          id: created.id,
+          insuranceName: created.insuranceName,
+          acronym: created.acronym || undefined,
+          defaultCoveragePercentage: created.defaultCoveragePercentage,
+          supportedByClinic: created.supportedByClinic,
+          iconUrl: created.iconUrl || undefined,
+        } : undefined,
+      }
+    } catch (err) {
+      console.error('Create insurance provider error:', err)
+      throw err
     }
   }
   return { createInsuranceProvider, loading, error: error?.message || null }
@@ -155,17 +165,27 @@ export function useUpdateInsuranceProvider() {
     defaultCoveragePercentage?: number
     supportedByClinic?: boolean
     iconUrl?: string
-  }): Promise<InsuranceProvider | undefined> => {
-    const { data } = await mutation({ variables: { insuranceProviderId, input } })
-    const updated = data?.updateInsuranceProvider?.data
-    if (!updated) return undefined
-    return {
-      id: updated.id,
-      insuranceName: updated.insuranceName,
-      acronym: updated.acronym || undefined,
-      defaultCoveragePercentage: updated.defaultCoveragePercentage,
-      supportedByClinic: updated.supportedByClinic,
-      iconUrl: updated.iconUrl || undefined,
+  }): Promise<any> => {
+    try {
+      const { data } = await mutation({ variables: { insuranceProviderId, input } })
+      const payload = data?.updateInsuranceProvider
+      const updated = payload?.data
+      
+      return {
+        status: payload?.status || 'ERROR',
+        message: payload?.message,
+        data: updated ? {
+          id: updated.id,
+          insuranceName: updated.insuranceName,
+          acronym: updated.acronym || undefined,
+          defaultCoveragePercentage: updated.defaultCoveragePercentage,
+          supportedByClinic: updated.supportedByClinic,
+          iconUrl: updated.iconUrl || undefined,
+        } : undefined,
+      }
+    } catch (err) {
+      console.error('Update insurance provider error:', err)
+      throw err
     }
   }
   return { updateInsuranceProvider, loading, error: error?.message || null }
@@ -173,9 +193,20 @@ export function useUpdateInsuranceProvider() {
 
 export function useDeleteInsuranceProvider() {
   const [mutation, { loading, error }] = useMutation<DeleteInsuranceProviderPayload>(DELETE_INSURANCE_PROVIDER_MUTATION)
-  const deleteInsuranceProvider = async (insuranceProviderId: string | number): Promise<boolean> => {
-    const { data } = await mutation({ variables: { insuranceProviderId } })
-    return data?.deleteInsuranceProvider?.status === 'SUCCESS'
+  const deleteInsuranceProvider = async (insuranceProviderId: string | number): Promise<any> => {
+    try {
+      const { data } = await mutation({ variables: { insuranceProviderId } })
+      const payload = data?.deleteInsuranceProvider
+      
+      return {
+        status: payload?.status || 'ERROR',
+        message: payload?.message,
+        data: null,
+      }
+    } catch (err) {
+      console.error('Delete insurance provider error:', err)
+      throw err
+    }
   }
   return { deleteInsuranceProvider, loading, error: error?.message || null }
 }

@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import InlineTryAgain from "@/components/inline-try-again"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid, Printer, FilePenLine, Eye } from "lucide-react"
+import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid, Printer, FilePenLine, Eye, Activity } from "lucide-react"
 import { toast } from "react-toastify"
 
 export default function DashboardPage() {
@@ -79,7 +79,8 @@ export default function DashboardPage() {
   const hasReceptionistRole = roles.includes("RECEPTIONIST") || roles.includes("RECEPTION")
   const hasFinanceRole = roles.includes("FINANCE")
   const isReceptionistOnly = hasReceptionistRole && roles.length === 1
-  const hasConsultationRole = roles.some((role) => ["DOCTOR", "OPHTHALMOLOGIST", "NURSE", "SPECIALIST", "ADMIN"].includes(role))
+  const hasNurseRole = roles.includes("NURSE")
+  const hasConsultationRole = roles.some((role) => ["DOCTOR", "OPHTHALMOLOGIST", "SPECIALIST", "ADMIN"].includes(role))
   const hasClinicianOrDoctorRole = roles.some((role) => ["CLINICIAN", "DOCTOR"].includes(role))
   const canSeeConsultButton = !isReceptionistOnly
   // Bill button: Finance role always sees billing, regardless of other roles
@@ -88,6 +89,9 @@ export default function DashboardPage() {
   const canSeeAddDepartment = hasReceptionistRole
   const canSeeRegisterAndCreate = hasReceptionistRole
   const canSeeVisitActionButtons = !isReceptionistOnly
+
+  // Feature toggle to hide/show Discharge actions globally
+  const ENABLE_DISCHARGE = false
 
   // Modal states
   const [showPatientRegistrationModal, setShowPatientRegistrationModal] = useState(false)
@@ -179,6 +183,22 @@ export default function DashboardPage() {
     return new Date(time).toLocaleString()
   }
 
+  const getTriageDuration = (visit: Visit) => {
+    const startedAt = new Date(visit.visitDate).getTime()
+    if (Number.isNaN(startedAt)) return 'Triage'
+
+    const elapsedMs = Math.max(Date.now() - startedAt, 0)
+    const totalMinutes = Math.floor(elapsedMs / 60000)
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+
+    if (hours <= 0) {
+      return `Triage • ${minutes}m`
+    }
+
+    return `Triage • ${hours}h ${minutes}m`
+  }
+
   const allVisits = useMemo(() => {
     let filtered = visits
 
@@ -213,6 +233,10 @@ export default function DashboardPage() {
     
     // Navigate to consultation page
     router.push(`/consultation/${visit.id}`)
+  }
+
+  const handleTriageVisit = (visit: Visit) => {
+    router.push(`/triage/${visit.id}`)
   }
 
   const canAddDepartment = (visit: Visit) => {
@@ -320,7 +344,7 @@ export default function DashboardPage() {
         formId: String(latestFinalForm.id),
       })
 
-      const consultationPdfUrl = pdfResult?.data?.pdfUrl || pdfResult?.pdfUrl
+      const consultationPdfUrl = pdfResult?.data?.pdfUrl
       if (pdfResult?.status !== 'SUCCESS' || !consultationPdfUrl) {
         const message = pdfResult?.message || pdfResult?.messages?.map((m: { text?: string }) => m?.text).filter(Boolean).join(' | ') || 'Failed to generate consultation PDF'
         toast.error(message)
@@ -632,7 +656,7 @@ export default function DashboardPage() {
                                     <div className="space-y-2 text-xs">
                                       <p className="font-semibold">Departments history</p>
                                       {(visit.departments || []).length === 0 ? (
-                                        <p className="text-muted-foreground">No departments yet</p>
+                                        <p className="text-muted-foreground">Current service: {getTriageDuration(visit)}</p>
                                       ) : (
                                         (visit.departments || []).map((dept) => (
                                           <div key={dept.id} className="border-b border-border/30 pb-2 last:border-b-0 last:pb-0">
@@ -681,6 +705,26 @@ export default function DashboardPage() {
                                   </TooltipTrigger>
                                   <TooltipContent>
                                     <p>Start Consult</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                              {canSeeVisitActionButtons && hasNurseRole && (visit.visitStatus === 'CREATED' || visit.visitStatus === 'IN_PROGRESS') && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleTriageVisit(visit)
+                                      }}
+                                      title="Open Triage"
+                                      aria-label="Open Triage"
+                                      className="h-9 w-9 sm:h-10 sm:w-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                    >
+                                      <Activity className="w-4 h-4 flex-shrink-0" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Triage</p>
                                   </TooltipContent>
                                 </Tooltip>
                               )}
@@ -739,7 +783,7 @@ export default function DashboardPage() {
                                   <span className="hidden lg:inline">Add Department</span>
                                 </button>
                               )}
-                              {canSeeVisitActionButtons && canDischargeVisit(visit) && (
+                              {canSeeVisitActionButtons && canDischargeVisit(visit) && ENABLE_DISCHARGE && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()

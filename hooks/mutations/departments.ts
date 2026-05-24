@@ -8,6 +8,8 @@ export const CREATE_DEPARTMENT_MUTATION = gql`
       data {
         id
         name
+        nursing
+        supportRequests
         insurancePolicyMode
         insurancePolicies {
           id
@@ -57,6 +59,8 @@ export const UPDATE_DEPARTMENT_MUTATION = gql`
       data {
         id
         name
+        nursing
+        supportRequests
         insurancePolicyMode
         insurancePolicies {
           id

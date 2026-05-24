@@ -114,7 +114,7 @@ export default function ManageProductsPage() {
     }
     setSaving(true)
     try {
-      const created = await createProduct({
+      const createdResp = await createProduct({
         name: itemName,
         code: itemName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || `product-${Date.now()}`,
         description: itemDescription || itemName,
@@ -125,11 +125,16 @@ export default function ManageProductsPage() {
         insuranceCoverages: [],
       })
       await refresh()
-      toast.success("Product created successfully!")
-      resetItemForm()
-      setAddEditModalOpen(false)
-      if (created) setSelectedItem(created)
+      if (createdResp?.status === 'SUCCESS') {
+        toast.success(createdResp.message || 'Product created successfully!')
+        resetItemForm()
+        setAddEditModalOpen(false)
+        if (createdResp.data) setSelectedItem(createdResp.data)
+      } else {
+        toast.error(createdResp?.message || 'Failed to create product')
+      }
     } catch (err) {
+      console.error(err)
       toast.error('Failed to create product')
     } finally {
       setSaving(false)
@@ -143,7 +148,7 @@ export default function ManageProductsPage() {
     }
     setSaving(true)
     try {
-      const updated = await updateProduct(editingItemId, {
+      const updatedResp = await updateProduct(editingItemId, {
         name: itemName,
         code: itemName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || `product-${editingItemId}`,
         description: itemDescription || itemName,
@@ -153,13 +158,18 @@ export default function ManageProductsPage() {
         clinicPrice: itemClinicPrice ? Number(itemClinicPrice) : undefined,
       })
       await refresh()
-      toast.success("Product updated successfully!")
+      if (updatedResp?.status === 'SUCCESS') {
+        toast.success(updatedResp.message || 'Product updated successfully!')
+      } else {
+        toast.error(updatedResp?.message || 'Failed to update product')
+      }
       
       // Update selected item in view immediately
       if (selectedItem && selectedItem.id === editingItemId) {
+        const updatedData = updatedResp?.data
         setSelectedItem({
           ...selectedItem,
-          ...updated,
+          ...(updatedData || {}),
           name: itemName,
           description: itemDescription,
           type: itemType,
@@ -181,12 +191,15 @@ export default function ManageProductsPage() {
     if (!confirm("Are you sure you want to delete this product?")) return
     setSaving(true)
     try {
-      await deleteProduct(id)
+      const resp = await deleteProduct(id)
       await refresh()
-      toast.success("Product deleted successfully!")
-      
-      if (selectedItem && selectedItem.id === id) {
-        setSelectedItem(null)
+      if (resp?.status === 'SUCCESS') {
+        toast.success(resp.message || 'Product deleted successfully!')
+        if (selectedItem && selectedItem.id === id) {
+          setSelectedItem(null)
+        }
+      } else {
+        toast.error(resp?.message || 'Failed to delete product')
       }
     } catch (err) {
       toast.error('Failed to delete product')
@@ -227,13 +240,16 @@ export default function ManageProductsPage() {
     }
     setSaving(true)
     try {
-      const result = await addCoverage(selectedItem.id, newCoverageInsuranceId, Number(newCoveragePrice))
+      const resultResp = await addCoverage(selectedItem.id, newCoverageInsuranceId, Number(newCoveragePrice))
       await refresh()
-      toast.success("Insurance coverage added successfully!")
-      setNewCoverageInsuranceId("")
-      setNewCoveragePrice("")
-      
-      if (result) setSelectedItem(result)
+      if (resultResp?.status === 'SUCCESS') {
+        toast.success(resultResp.message || 'Insurance coverage added successfully!')
+        setNewCoverageInsuranceId("")
+        setNewCoveragePrice("")
+        if (resultResp.data) setSelectedItem(resultResp.data)
+      } else {
+        toast.error(resultResp?.message || 'Failed to add coverage')
+      }
     } catch (err) {
       toast.error('Failed to add coverage')
     } finally {
@@ -250,15 +266,19 @@ export default function ManageProductsPage() {
         toast.error("Coverage not found")
         return
       }
-      await removeCoverage(targetCov.id)
+      const resp = await removeCoverage(targetCov.id)
       await refresh()
-      toast.success("Insurance coverage removed successfully!")
-      
-      // Update local selection
-      setSelectedItem({
-        ...selectedItem,
-        insuranceCoverages: (selectedItem.insuranceCoverages || []).filter((cov: any) => String(cov.insuranceProvider?.id || cov.insurance?.id) !== String(insuranceId))
-      })
+      if (resp?.status === 'SUCCESS') {
+        toast.success(resp.message || 'Insurance coverage removed successfully!')
+
+        // Update local selection
+        setSelectedItem({
+          ...selectedItem,
+          insuranceCoverages: (selectedItem.insuranceCoverages || []).filter((cov: any) => String(cov.insuranceProvider?.id || cov.insurance?.id) !== String(insuranceId))
+        })
+      } else {
+        toast.error(resp?.message || 'Failed to remove coverage')
+      }
     } catch (err) {
       toast.error('Failed to remove coverage')
     } finally {

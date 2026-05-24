@@ -1,12 +1,70 @@
 "use client"
 
-import { User, HeartPulse, History as HistoryIcon } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { User, HeartPulse, History as HistoryIcon, ChevronLeft, ChevronRight } from "lucide-react"
 import { formatDateOnly } from "@/lib/utils"
 import type { Patient } from "@/lib/types"
+import { normalizeVisitVitalSigns } from "@/hooks/auth-hooks"
 
 interface PanelState {
   pinned: boolean
   hover: boolean
+}
+
+function VitalsPanel({ vitals, slotStyle, pinned }: { vitals: any[]; slotStyle: any; pinned: boolean }) {
+  const [index, setIndex] = useState(0)
+
+  const groups = useMemo(() => normalizeVisitVitalSigns(vitals), [vitals])
+
+  useEffect(() => {
+    setIndex((i) => Math.min(i, Math.max(0, groups.length - 1)))
+  }, [groups.length])
+
+  const current = groups[index]
+
+  return (
+    <div className="fixed z-40 w-80 bg-white/20 backdrop-blur-xl border border-white/30 rounded-xl shadow-2xl overflow-hidden transition-all duration-300" style={slotStyle}>
+      <div className="flex items-center justify-between p-3 border-b border-border">
+        <p className="text-sm font-semibold">Vital Signs</p>
+        {pinned && <span className="text-xs bg-white/30 px-2 py-1 rounded">Pinned</span>}
+      </div>
+      <div className="p-3">
+        {groups.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No vitals recorded</div>
+        ) : (
+          <>
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <div className="min-w-0 text-xs text-muted-foreground">
+                <div className="truncate font-medium text-foreground">
+                  {current?.createdAt && current.createdAt !== 'unknown' ? `Recorded ${new Date(current.createdAt).toLocaleString()}` : 'Recorded'}
+                  {current?.addedBy ? ` • ${current.addedBy.firstName || ''} ${current.addedBy.lastName || ''}` : ''}
+                </div>
+              </div>
+              {groups.length > 1 && (
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setIndex((i) => Math.max(0, i - 1))} className="p-1 rounded hover:bg-muted/40" disabled={index === 0} aria-label="Previous vitals"><ChevronLeft className="w-4 h-4" /></button>
+                  <button onClick={() => setIndex((i) => Math.min(groups.length - 1, i + 1))} className="p-1 rounded hover:bg-muted/40" disabled={index === groups.length - 1} aria-label="Next vitals"><ChevronRight className="w-4 h-4" /></button>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              {current.measurements.map((v: any) => (
+                <div key={v.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/20 px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-foreground">{v.measurementName}</div>
+                  </div>
+                  <div className="whitespace-nowrap text-right text-lg font-bold text-indigo-700 dark:text-indigo-300">
+                    {v.value} <span className="text-sm font-medium text-muted-foreground">{v.unit}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
 }
 
 interface ConsultationSidePanelsProps {
@@ -17,6 +75,7 @@ interface ConsultationSidePanelsProps {
   setIdPanel: (state: PanelState) => void
   setVitalsPanel: (state: PanelState) => void
   setHistoryPanel: (state: PanelState) => void
+  vitals?: any[]
 }
 
 export function ConsultationSidePanels({
@@ -27,6 +86,7 @@ export function ConsultationSidePanels({
   setIdPanel,
   setVitalsPanel,
   setHistoryPanel,
+  vitals = [],
 }: ConsultationSidePanelsProps) {
   const activePanels = [
     { key: 'id', active: idPanel.pinned || idPanel.hover },
@@ -126,39 +186,8 @@ export function ConsultationSidePanels({
         </div>
       )}
 
-      {/* Vital Signs Panel (placeholder) */}
       {showVitalsPanel && (
-        <div
-          className="fixed z-40 w-80 bg-white/20 backdrop-blur-xl border border-white/30 rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
-          style={getPositionStyle(getPanelSlot('vitals'), activePanels.length) as any}
-        >
-          <div className="flex items-center justify-between p-3 border-b border-border">
-            <p className="text-sm font-semibold">Vital Signs</p>
-            {vitalsPanel.pinned && <span className="text-xs bg-white/30 px-2 py-1 rounded">Pinned</span>}
-          </div>
-          <div className="p-4 grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <p className="text-muted-foreground">BP</p>
-              <p className="font-medium">120/80</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">HR</p>
-              <p className="font-medium">72 bpm</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Temp</p>
-              <p className="font-medium">36.8 °C</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">O2 Sat</p>
-              <p className="font-medium">98%</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">RR</p>
-              <p className="font-medium">16/min</p>
-            </div>
-          </div>
-        </div>
+        <VitalsPanel vitals={vitals} slotStyle={getPositionStyle(getPanelSlot('vitals'), activePanels.length) as any} pinned={vitalsPanel.pinned} />
       )}
 
       {/* History Panel */}

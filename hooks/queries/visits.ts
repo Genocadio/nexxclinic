@@ -29,6 +29,22 @@ export const GET_VISIT_QUERY = gql`
           emergencyContactRelationship
           emergencyContactPhoneNumber
         }
+        vitalSigns {
+          id
+          createdAt
+          addedBy {
+            id
+            firstName
+            lastName
+          }
+          measurements {
+            id
+            measurementName
+            value
+            unit
+            createdAt
+          }
+        }
         linkedInsurances {
           id
           patient {
@@ -59,6 +75,18 @@ export const GET_VISIT_QUERY = gql`
           }
           status
           completedAt
+          diagnostics {
+            id
+            diagnosisName
+            icd11Code
+            createdAt
+          }
+          medications {
+            id
+            medicationName
+            instructions
+            createdAt
+          }
           products {
             id
             product {

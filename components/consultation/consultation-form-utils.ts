@@ -51,6 +51,21 @@ export const normalizeField = (field: any, idx: number): FormField => ({
         rowHeaders: Array.isArray(field.tableConfig.rowHeaders) ? field.tableConfig.rowHeaders : [],
       }
     : undefined,
+  labRecordConfig: field?.labRecordConfig
+    ? {
+        layout: field.labRecordConfig.layout === 'result' ? 'result' : 'valueUnit',
+        rows: Array.isArray(field.labRecordConfig.rows)
+          ? field.labRecordConfig.rows.map((row: any, rowIndex: number) => ({
+              id: row?.id || `lab_row_${Date.now()}_${rowIndex}`,
+              name: row?.name || `Row ${rowIndex + 1}`,
+              unitMode: row?.unitMode === 'none' ? 'none' : 'dropdown',
+              unitOptions: Array.isArray(row?.unitOptions) ? row.unitOptions.filter(Boolean) : [],
+              defaultUnit: row?.defaultUnit || undefined,
+              resultOptions: Array.isArray(row?.resultOptions) ? row.resultOptions.filter(Boolean) : [],
+            }))
+          : [],
+      }
+    : undefined,
   conditionalRendering: field?.conditionalRendering
     ? {
         dependsOn: field.conditionalRendering.dependsOn,
@@ -210,17 +225,50 @@ export const shouldShowField = (field: FormField, formAnswers: Record<string, an
       const actionItemsFromAnswers = Array.isArray(dependentValue?.items) ? dependentValue.items : []
       const items = actionItemsFromState.length > 0 ? actionItemsFromState : actionItemsFromAnswers
 
-      const filteredByType = itemType
-        ? items.filter((item: any) => String(item?.type || '').toLowerCase() === String(itemType).toLowerCase())
+      const normalizedItemType = String(itemType || '').toLowerCase()
+      const filteredByType = normalizedItemType === 'action' || normalizedItemType === 'consumable'
+        ? items.filter((item: any) => String(item?.type || '').toLowerCase() === normalizedItemType)
         : items
 
-      if (!value) return filteredByType.length > 0
+      if (!value) {
+        const result = filteredByType.length > 0
+        console.log('[Consultation] hasItem no value', {
+          dependsOn,
+          itemType,
+          itemsCount: filteredByType.length,
+          result,
+        })
+        return result
+      }
 
-      return filteredByType.some((item: any) => {
-        const itemName = String(item?.name || '').toLowerCase()
-        const expected = String(value).toLowerCase()
-        return itemName.includes(expected)
+      const expected = String(value).trim().toLowerCase()
+      const matched = filteredByType.some((item: any) => {
+        const itemName = String(item?.name || '').trim().toLowerCase()
+        const itemIds = [
+          item?.id,
+          item?.backendId,
+          item?.rawData?.id,
+          item?.rawData?.product?.id,
+          item?.rawData?.action?.id,
+          item?.rawData?.consumable?.id,
+        ]
+          .filter(Boolean)
+          .map((id) => String(id).trim().toLowerCase())
+        return itemName.includes(expected) || itemIds.includes(expected)
       })
+
+      console.log('[Consultation] hasItem', {
+        dependsOn,
+        itemType,
+        value,
+        expected,
+        itemsCount: filteredByType.length,
+        matched,
+        itemNames: filteredByType.map((item: any) => item?.name || ''),
+        itemIds: filteredByType.map((item: any) => [item?.id, item?.backendId, item?.rawData?.id].filter(Boolean)),
+      })
+
+      return matched
     }
     default:
       return true

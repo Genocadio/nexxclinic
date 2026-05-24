@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useSetInitialPassword } from "@/hooks/auth-hooks"
-import { toast } from "sonner"
 import { Eye, EyeOff, Lock, CheckCircle } from "lucide-react"
+import { handleResponse } from "@/lib/response-handler"
 
 export default function SetupPasswordPage() {
   const router = useRouter()
@@ -22,22 +22,6 @@ export default function SetupPasswordPage() {
 
   // Get user identifier from URL params (passed from login)
   const identifier = searchParams.get("identifier") || ""
-
-  const validatePassword = (pwd: string) => {
-    if (pwd.length < 8) {
-      return "Password must be at least 8 characters long"
-    }
-    if (!/[a-z]/.test(pwd)) {
-      return "Password must contain at least one lowercase letter"
-    }
-    if (!/[A-Z]/.test(pwd)) {
-      return "Password must contain at least one uppercase letter"
-    }
-    if (!/\d/.test(pwd)) {
-      return "Password must contain at least one number"
-    }
-    return null
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,35 +42,30 @@ export default function SetupPasswordPage() {
       return
     }
 
-    const validationError = validatePassword(password)
-    if (validationError) {
-      toast.error(validationError)
-      return
-    }
-
     // Ensure both identifier and password are non-empty strings to avoid GraphQL null value error
     if (!identifier.trim() || !password.trim()) {
-      toast.error("Invalid input: identifier and password cannot be empty")
+      await handleResponse({ status: "ERROR", message: "Invalid input: identifier and password cannot be empty" }, { successMessage: false })
       return
     }
 
     try {
       const result = await setInitialPassword(identifier.trim(), password.trim())
-      
-      if (result.status === "SUCCESS") {
+
+      const succeeded = await handleResponse(result, {
+        successMessage: "Password set successfully! Redirecting to login...",
+        errorMessage: true,
+      })
+
+      if (succeeded) {
         setIsSuccess(true)
-        toast.success("Password set successfully! Redirecting to login...")
         
         // Redirect to login after 2 seconds
         setTimeout(() => {
           router.push("/login")
         }, 2000)
-      } else {
-        const errorMessage = result.message || result.messages?.[0]?.text || "Failed to set password"
-        toast.error(errorMessage)
       }
     } catch (error) {
-      toast.error("An error occurred while setting password")
+      await handleResponse({ status: "ERROR", message: "An error occurred while setting password" }, { successMessage: false })
     }
   }
 

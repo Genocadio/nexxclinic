@@ -57,6 +57,42 @@ export const ADD_VISIT_NOTE_MUTATION = gql`
   }
 `
 
+export const ADD_VISIT_VITAL_SIGNS_MUTATION = gql`
+  mutation AddVisitVitalSigns($input: AddVisitVitalSignsInput!) {
+    addVisitVitalSigns(input: $input) {
+      status
+      message
+
+      data {
+        id
+        visitDate
+        status
+        patient {
+          id
+          firstName
+          lastName
+        }
+        vitalSigns {
+          id
+          createdAt
+          addedBy {
+            id
+            firstName
+            lastName
+          }
+          measurements {
+            id
+            measurementName
+            value
+            unit
+            createdAt
+          }
+        }
+      }
+    }
+  }
+`
+
 export const ADD_DEPARTMENT_NOTE_MUTATION = gql`
   mutation AddDepartmentNote($visitId: ID!, $departmentId: ID!, $note: String!) {
     addDepartmentNote(visitId: $visitId, departmentId: $departmentId, note: $note) {
@@ -73,6 +109,56 @@ export const ADD_DEPARTMENT_NOTE_MUTATION = gql`
           email
         }
         createdAt
+      }
+    }
+  }
+`
+
+export const ADD_DIAGNOSIS_MUTATION = gql`
+  mutation AddDiagnosis($input: AddDiagnosisInput!) {
+    addDiagnosis(input: $input) {
+      status
+      message
+      data {
+        id
+        status
+        completedAt
+        updatedAt
+        department {
+          id
+          name
+        }
+        diagnostics {
+          id
+          diagnosisName
+          icd11Code
+          createdAt
+        }
+      }
+    }
+  }
+`
+
+export const ADD_MEDICATION_MUTATION = gql`
+  mutation AddMedication($input: AddMedicationInput!) {
+    addMedication(input: $input) {
+      status
+      message
+      data {
+        id
+        status
+        completedAt
+        updatedAt
+        department {
+          id
+          name
+        }
+        medications {
+          id
+          medicationName
+          instructions
+          createdAt
+        }
       }
     }
   }
@@ -189,9 +275,12 @@ export const UPDATE_VISIT_DEPARTMENT_STATUS_MUTATION = gql`
       
       data {
         id
-        departments {
+        status
+        completedAt
+        updatedAt
+        department {
           id
-          status
+          name
         }
       }
     }
@@ -200,21 +289,24 @@ export const UPDATE_VISIT_DEPARTMENT_STATUS_MUTATION = gql`
 
 export const ADD_DEPARTMENT_TO_VISIT_MUTATION = gql`
   mutation AddDepartmentToVisit($visitId: ID!, $departmentId: ID!) {
-    addDepartmentToVisit(visitId: $visitId, departmentId: $departmentId) {
+    addVisitDepartment(visitId: $visitId, departmentId: $departmentId) {
       status
       message
-      
       data {
         id
-        visit {
+        patient {
           id
-          visitDate
+          firstName
+          lastName
         }
-        department {
+        departments {
           id
-          name
+          department {
+            id
+            name
+          }
+          status
         }
-        status
       }
     }
   }

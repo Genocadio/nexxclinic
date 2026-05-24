@@ -116,9 +116,13 @@ export default function AccountPage() {
               <Input placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
               <Input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(sanitizeEmailInput(e.target.value))} />
               <Input placeholder="Phone number" value={phoneNumber} onChange={(e) => setPhoneNumber(sanitizePhoneInput(e.target.value))} />
-              <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground md:col-span-1">
-                Title editing is not supported in the current account settings.
-              </div>
+                <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground md:col-span-1 space-y-1">
+                  <div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Department</p>
+                    <p className="font-semibold text-sm text-foreground">{doctor?.department?.name || 'Not assigned'}</p>
+                  </div>
+                  <div className="text-xs text-muted-foreground">Title editing is not supported in the current account settings.</div>
+                </div>
             </div>
             <Button type="submit" className="rounded-full" disabled={updatingProfile}>
               {updatingProfile ? "Updating..." : "Update Profile"}

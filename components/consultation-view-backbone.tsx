@@ -7,6 +7,7 @@ import { useConsultationAnswers, useLatestForm, useFormVersionHistory } from "@/
 import AddActionConsumableModal from "@/components/add-action-consumable-modal"
 import FormActionsDisplay from "@/components/form-actions-display"
 import { ConsultationSidePanels } from "@/components/consultation/consultation-side-panels"
+import { useVisit } from "@/hooks/visits/hooks"
 import { ConsultationBottomDock } from "@/components/consultation/consultation-bottom-dock"
 import { ConsultationFormDisplay } from "@/components/consultation/consultation-form-display"
 import { useRemoveProductFromVisitDepartment, useUpdateProductQuantity } from "@/hooks/visits"
@@ -23,6 +24,7 @@ interface ConsultationViewBackboneProps {
   consultation: any
   patient: Patient
   departmentId?: string
+  visitDepartmentId?: string
   existingProducts?: FormAction[]
   onSave: (consultation: any) => void
   onBack: () => void
@@ -37,6 +39,7 @@ export default function ConsultationViewBackbone({
   consultation: initialConsultation,
   patient,
   departmentId,
+  visitDepartmentId,
   existingProducts = [],
   onSave,
   onBack: _onBack,
@@ -50,6 +53,7 @@ export default function ConsultationViewBackbone({
   const [formLoadFailed, setFormLoadFailed] = useState(false)
   const [formReloadKey, setFormReloadKey] = useState(0)
   const lastSavedFieldActionsRef = useRef<Record<string, string[]>>({}) // Store backendIds for comparison
+  const lastSavedClinicalFieldsRef = useRef<Record<string, string>>({})
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { loadLatestForm: loadForm } = useLatestForm(departmentId || null)
   const { loadConsultationAnswers: loadAnswers } = useConsultationAnswers(initialConsultation.consultationId || null, departmentId || null, departmentForm?.id || null)
@@ -109,10 +113,47 @@ export default function ConsultationViewBackbone({
   const { updateQuantity: updateProductQuantity } = useUpdateProductQuantity()
   const { removeProduct: removeVisitProduct } = useRemoveProductFromVisitDepartment()
 
+  const parseMedicationInstructions = (instructions: string) => {
+    const raw = String(instructions || '')
+    const frequency = (raw.match(/Frequency:\s*([^,]+)/i)?.[1] || '').trim()
+    const amount = (raw.match(/Amount:\s*([^,]+)/i)?.[1] || '').trim()
+    const days = (raw.match(/Days:\s*([^,]+)/i)?.[1] || '').trim()
+    const notes = (raw.match(/Extra notes:\s*(.+)$/i)?.[1] || '').trim()
+    return { frequency, amount, days, notes }
+  }
+
+  const snapshotClinicalField = (value: unknown): string => {
+    const arr = Array.isArray(value) ? value : []
+    return JSON.stringify(
+      arr.map((item: any) => ({
+        id: String(item?.id || ''),
+        diagnosis: String(item?.diagnosis || ''),
+        description: String(item?.description || ''),
+        name: String(item?.name || ''),
+        frequency: String(item?.frequency || ''),
+        amount: String(item?.amount || ''),
+        days: String(item?.days || ''),
+        notes: String(item?.notes || ''),
+      }))
+      .sort((a: any, b: any) => `${a.id}:${a.name}:${a.diagnosis}`.localeCompare(`${b.id}:${b.name}:${b.diagnosis}`))
+    )
+  }
+
   // Panel states
   const [idPanel, setIdPanel] = useState<PanelState>({ pinned: false, hover: false })
   const [vitalsPanel, setVitalsPanel] = useState<PanelState>({ pinned: false, hover: false })
   const [historyPanel, setHistoryPanel] = useState<PanelState>({ pinned: false, hover: false })
+  const autoPinnedVitalsRef = useRef(false)
+
+  // Load visit to get vitals for side panel
+  const { visit } = useVisit(initialConsultation?.consultationId || null)
+
+  useEffect(() => {
+    if (!visit?.vitalSigns?.length || autoPinnedVitalsRef.current) return
+
+    setVitalsPanel((current) => (current.pinned ? current : { ...current, pinned: true, hover: true }))
+    autoPinnedVitalsRef.current = true
+  }, [visit?.vitalSigns?.length])
 
   // Load form on department change
   useEffect(() => {
@@ -382,6 +423,106 @@ export default function ConsultationViewBackbone({
     })
   }, [departmentForm, existingProducts, fieldActions])
 
+  // Hydrate diagnostics/medications from visit department into form answers when missing.
+  useEffect(() => {
+    if (!departmentForm || !answersLoaded || !visit?.departments?.length) return
+
+    const activeDepartment = visit.departments.find((dep: any) => String(dep?.id) === String(visitDepartmentId || ''))
+      || visit.departments[0]
+    if (!activeDepartment) return
+
+    const allFields = [
+      ...departmentForm.fields,
+      ...(departmentForm.sections || []).flatMap((section) => section.fields || []),
+    ]
+
+    const diagnosticFields = allFields.filter((field) => field.type === 'diagnosticRecord')
+    const medicationLongFields = allFields.filter((field) => field.type === 'medicationLongForm')
+    const medicationMiniFields = allFields.filter((field) => field.type === 'medicationMiniForm')
+
+    const backendDiagnostics = Array.isArray(activeDepartment?.diagnostics) ? activeDepartment.diagnostics : []
+    const backendMedications = Array.isArray(activeDepartment?.medications) ? activeDepartment.medications : []
+
+    let changed = false
+    setFormAnswers((prev) => {
+      const next = { ...prev }
+      // Build a global set of medication IDs already present in any form field
+      const existingMedicationIds = new Set<string>()
+      Object.keys(next).forEach((k) => {
+        const val = next[k]
+        if (Array.isArray(val)) {
+          val.forEach((it: any) => {
+            if (it && it.id) existingMedicationIds.add(String(it.id))
+          })
+        }
+      })
+
+      diagnosticFields.forEach((field) => {
+        const current = Array.isArray(next[field.id]) ? next[field.id] : []
+        const existingKeys = new Set(current.map((item: any) => `${String(item?.id || '')}:${String(item?.diagnosis || '').toLowerCase()}:${String(item?.description || '').toLowerCase()}`))
+
+        const missing = backendDiagnostics
+          .map((item: any) => ({
+            id: String(item?.id || `diag_${Date.now()}`),
+            diagnosis: String(item?.diagnosisName || ''),
+            description: String(item?.icd11Code || '') || undefined,
+          }))
+          .filter((item: { id: string; diagnosis: string; description?: string }) => {
+            const key = `${item.id}:${item.diagnosis.toLowerCase()}:${String(item.description || '').toLowerCase()}`
+            return item.diagnosis && !existingKeys.has(key)
+          })
+
+        if (missing.length > 0) {
+          next[field.id] = [...current, ...missing]
+          changed = true
+        }
+      })
+
+      const hydrateLongMedicationField = medicationLongFields.length > 0
+      const targetMedicationFields = hydrateLongMedicationField ? medicationLongFields : medicationMiniFields
+
+      targetMedicationFields.forEach((field) => {
+        const current = Array.isArray(next[field.id]) ? next[field.id] : []
+        const existingKeys = new Set(current.map((item: any) => `${String(item?.id || '')}:${String(item?.name || '').toLowerCase()}:${String(item?.notes || '').toLowerCase()}`))
+
+        const missing = backendMedications
+          .map((item: any) => {
+            const parsed = parseMedicationInstructions(String(item?.instructions || ''))
+            if (field.type === 'medicationLongForm') {
+              return {
+                id: String(item?.id || `med_long_${Date.now()}`),
+                name: String(item?.medicationName || ''),
+                frequency: parsed.frequency,
+                amount: parsed.amount,
+                days: parsed.days,
+                notes: parsed.notes || undefined,
+              }
+            }
+            return {
+              id: String(item?.id || `med_mini_${Date.now()}`),
+              name: String(item?.medicationName || ''),
+              notes: String(item?.instructions || '') || undefined,
+            }
+          })
+          .filter((item: any) => {
+            const key = `${item.id}:${String(item.name || '').toLowerCase()}:${String(item.notes || '').toLowerCase()}`
+            // Skip if already present in this field OR anywhere in the form (global)
+            if (!item.name) return false
+            if (existingKeys.has(key)) return false
+            if (existingMedicationIds.has(String(item.id))) return false
+            return true
+          })
+
+        if (missing.length > 0) {
+          next[field.id] = [...current, ...missing]
+          changed = true
+        }
+      })
+
+      return changed ? next : prev
+    })
+  }, [departmentForm, answersLoaded, visitDepartmentId, visit?.departments])
+
   // Helper to create/persist answers for a given field -> products mapping
   const createAnswersForProducts = async (fieldId: string, products: FormAction[]) => {
     if (!departmentForm || !consultation.consultationId) return null
@@ -457,6 +598,16 @@ export default function ConsultationViewBackbone({
             .map((a) => `${a.backendId ?? a.id}:${a.quantity}`)
             .sort()
         })
+
+        const allFields = [
+          ...departmentForm.fields,
+          ...(departmentForm.sections || []).flatMap((section) => section.fields || []),
+        ]
+        allFields
+          .filter((field) => ['diagnosticRecord', 'medicationLongForm', 'medicationMiniForm', 'labRecord'].includes(field.type))
+          .forEach((field) => {
+            lastSavedClinicalFieldsRef.current[field.id] = snapshotClinicalField(formAnswers[field.id])
+          })
 
         const formSubmissionPayload = {
           consultationId: consultation.consultationId,
@@ -557,6 +708,52 @@ export default function ConsultationViewBackbone({
       }
     }
   }, [fieldActions, departmentForm, consultation, tableShapes, formAnswers, departmentId, onSave, patient.id, upsertConsultationAnswers])
+
+  useEffect(() => {
+    if (!departmentForm || !consultation.consultationId || !patient.id) {
+      return
+    }
+
+    const allFields = [
+      ...departmentForm.fields,
+      ...(departmentForm.sections || []).flatMap((section) => section.fields || []),
+    ]
+    const clinicalFieldIds = allFields
+      .filter((field) => ['diagnosticRecord', 'medicationLongForm', 'medicationMiniForm', 'labRecord'].includes(field.type))
+      .map((field) => field.id)
+
+    if (clinicalFieldIds.length === 0) {
+      return
+    }
+
+    const changed = clinicalFieldIds.some((fieldId) => {
+      const currentSnapshot = snapshotClinicalField(formAnswers[fieldId])
+      return (lastSavedClinicalFieldsRef.current[fieldId] || '') !== currentSnapshot
+    })
+
+    if (!changed) {
+      return
+    }
+
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current)
+    }
+
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      const saveResult = await saveCurrentAnswersDraft(fieldActions)
+      if (saveResult?.status === 'SUCCESS') {
+        clinicalFieldIds.forEach((fieldId) => {
+          lastSavedClinicalFieldsRef.current[fieldId] = snapshotClinicalField(formAnswers[fieldId])
+        })
+      }
+    }, 120)
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current)
+      }
+    }
+  }, [formAnswers, departmentForm, consultation.consultationId, patient.id, fieldActions])
   
   const handleStatusSave = (status: 'draft' | 'finalized') => {
     const normalizedAnswers = buildAnswersForSubmission(formAnswers, tableShapes, fieldActions, departmentForm)
@@ -857,12 +1054,14 @@ export default function ConsultationViewBackbone({
             onRestoreAction={handleRestoreRemovedAction}
             visitId={consultation.consultationId}
             currentDepartmentId={departmentId}
+            visitDepartmentId={visitDepartmentId}
           />
         </div>
       </div>
 
       <ConsultationSidePanels
         patient={patient}
+        vitals={visit?.vitalSigns || []}
         idPanel={idPanel}
         vitalsPanel={vitalsPanel}
         historyPanel={historyPanel}
@@ -873,8 +1072,7 @@ export default function ConsultationViewBackbone({
 
       <ConsultationBottomDock
         onSaveDraft={() => handleStatusSave('draft')}
-        onFinalize={() => handleStatusSave('finalized')}
-        onBack={handleBack}
+        onComplete={() => handleStatusSave('finalized')}
       />
 
       {showMissingProductsPrompt && (
@@ -921,7 +1119,7 @@ export default function ConsultationViewBackbone({
                           ...prev,
                           [fieldId]: mergeUniqueByBackendId(prev[fieldId] || [], prods),
                         }))
-                        lastSavedFieldActionsRef.current[fieldId] = (prods || []).map(p => p.backendId).sort()
+                        lastSavedFieldActionsRef.current[fieldId] = ((prods || []).map(p => p.backendId).filter(Boolean) as string[]).sort()
                         setExistingSubmissionStatus('DRAFT')
                       }
                     }

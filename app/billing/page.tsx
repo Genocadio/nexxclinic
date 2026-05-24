@@ -68,6 +68,8 @@ function BillingPageContent() {
   const [discountInputType, setDiscountInputType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
   const [discountInputValue, setDiscountInputValue] = useState(0);
   const { doctor } = useAuth();
+  // Feature toggle to disable Discharge actions in the UI and auto-discharge
+  const ENABLE_DISCHARGE = false;
     const [showAddActionConsumableModal, setShowAddActionConsumableModal] = useState(false);
   const [addingBillingItem, setAddingBillingItem] = useState(false);
   const [showExemptionsWindow, setShowExemptionsWindow] = useState(false);
@@ -609,7 +611,7 @@ function BillingPageContent() {
     const unbilledItems = items.filter(item => item.paymentStatus !== 'paid');
     
     if (unbilledItems.length === 0) {
-      if (canDischargeVisit) {
+      if (canDischargeVisit && ENABLE_DISCHARGE) {
         await handleDischargeVisit();
         return;
       }
@@ -646,12 +648,18 @@ function BillingPageContent() {
             for (const dept of notCompleted) {
               const visitDeptId = String(dept.id || '');
               if (visitDeptId) {
-                await updateDepartmentStatus(visitDeptId, 'COMPLETED');
+                const deptResult = await updateDepartmentStatus(visitDeptId, 'COMPLETED');
+                if (deptResult?.status !== 'SUCCESS') {
+                  console.warn('Failed to complete department:', deptResult?.message);
+                }
               }
             }
             
             // Now, complete the visit
-            await completeVisit(billingData.visitId);
+            const completeResult = await completeVisit(billingData.visitId);
+            if (completeResult?.status !== 'SUCCESS') {
+              console.warn('Failed to complete visit:', completeResult?.message);
+            }
           } catch (compErr) {
             console.error('Error completing departments/visit:', compErr);
           }
@@ -940,20 +948,29 @@ function BillingPageContent() {
     if (!visitId) return;
     try {
       setAddingBillingItem(true);
+      let response;
       if (type === 'action') {
-        await addAction(visitId, departmentId, item.id, quantity);
+        response = await addAction(visitId, departmentId, item.id, quantity);
       } else {
-        await addConsumable(visitId, departmentId, item.id, quantity);
+        response = await addConsumable(visitId, departmentId, item.id, quantity);
       }
 
-      // Refetch the visit data - this will trigger the useEffect to update billingData and selection
-      await refetchVisit();
-
-      setShowAddActionConsumableModal(false);
-      toast.success(`${type === 'action' ? 'Action' : 'Consumable'} added successfully`);
+      // Check response status before showing success
+      if (response?.status === 'SUCCESS') {
+        // Refetch the visit data - this will trigger the useEffect to update billingData and selection
+        await refetchVisit();
+        setShowAddActionConsumableModal(false);
+        toast.success(response?.message || `${type === 'action' ? 'Action' : 'Consumable'} added successfully`);
+      } else {
+        // Show error from backend response
+        const errorMsg = response?.message || response?.messages?.[0]?.text || `Failed to add ${type === 'action' ? 'action' : 'consumable'}`;
+        toast.error(errorMsg);
+        console.error('Add item failed with status:', response?.status, 'Message:', response?.message);
+      }
     } catch (err) {
       console.error('Failed to add billing item:', err);
-      toast.error(`Failed to add ${type === 'action' ? 'action' : 'consumable'}`);
+      const errorMsg = err instanceof Error ? err.message : `Failed to add ${type === 'action' ? 'action' : 'consumable'}`;
+      toast.error(errorMsg);
     } finally {
       setAddingBillingItem(false);
     }

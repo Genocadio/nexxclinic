@@ -27,12 +27,12 @@ import { useForms, useForm as useFormsHook, useFormVersionHistory, useCreateForm
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { FormField, FormSection, ConditionalRendering, TableConfig, TableHeaderPlacement, FormAction } from '@/lib/form-storage'
+import { FormField, FormSection, ConditionalRendering, TableConfig, TableHeaderPlacement, LabRecordConfig, LabRecordLayout, LabRecordRowConfig, FormAction } from '@/lib/form-storage'
 import { useToast } from '@/hooks/use-toast'
 
 const fieldSchema = z.object({
   label: z.string().min(1, 'Label required'),
-  type: z.enum(['text', 'email', 'number', 'textarea', 'select', 'radio', 'checkbox', 'date', 'table', 'diagnosticRecord', 'medicationLongForm', 'medicationMiniForm', 'actionListener']),
+  type: z.enum(['text', 'email', 'number', 'textarea', 'select', 'radio', 'checkbox', 'date', 'table', 'labRecord', 'diagnosticRecord', 'medicationLongForm', 'medicationMiniForm', 'actionListener']),
   placeholder: z.string().optional(),
   required: z.boolean().default(true),
   options: z.string().optional(),
@@ -59,6 +59,16 @@ interface MedicationMiniEntry {
   id: string
   name: string
   notes?: string
+}
+
+interface LabRecordValueEntry {
+  value?: string
+  unit?: string
+  result?: string
+}
+
+interface LabRecordValue {
+  rows: Record<string, LabRecordValueEntry>
 }
 
 const metaSchema = z.object({
@@ -123,6 +133,21 @@ const normalizeFormField = (field: any, index: number): FormField => ({
         headerPlacement: field.tableConfig.headerPlacement || 'none',
         columnHeaders: Array.isArray(field.tableConfig.columnHeaders) ? field.tableConfig.columnHeaders : [],
         rowHeaders: Array.isArray(field.tableConfig.rowHeaders) ? field.tableConfig.rowHeaders : [],
+      }
+    : undefined,
+  labRecordConfig: field?.labRecordConfig
+    ? {
+        layout: field.labRecordConfig.layout === 'result' ? 'result' : 'valueUnit',
+        rows: Array.isArray(field.labRecordConfig.rows)
+          ? field.labRecordConfig.rows.map((row: any, rowIndex: number) => ({
+              id: row?.id || `lab_row_${Date.now()}_${rowIndex}`,
+              name: row?.name || `Row ${rowIndex + 1}`,
+              unitMode: row?.unitMode === 'none' ? 'none' : 'dropdown',
+              unitOptions: Array.isArray(row?.unitOptions) ? row.unitOptions.filter(Boolean) : [],
+              defaultUnit: row?.defaultUnit || undefined,
+              resultOptions: Array.isArray(row?.resultOptions) ? row.resultOptions.filter(Boolean) : [],
+            }))
+          : [],
       }
     : undefined,
   conditionalRendering: field?.conditionalRendering
@@ -210,11 +235,13 @@ export default function FormsPage() {
   const [editingTableHeaderPlacement, setEditingTableHeaderPlacement] = useState<TableHeaderPlacement>('none')
   const [editingTableColumnHeaders, setEditingTableColumnHeaders] = useState('Column 1\nColumn 2\nColumn 3')
   const [editingTableRowHeaders, setEditingTableRowHeaders] = useState('Row 1\nRow 2\nRow 3')
+  const [editingLabRecordLayout, setEditingLabRecordLayout] = useState<LabRecordLayout>('valueUnit')
+  const [editingLabRecordRows, setEditingLabRecordRows] = useState<LabRecordRowConfig[]>([])
   const [editingConditionalEnabled, setEditingConditionalEnabled] = useState(false)
   const [editingConditionalDependsOn, setEditingConditionalDependsOn] = useState('')
   const [editingConditionalCondition, setEditingConditionalCondition] = useState<ConditionalRendering['condition']>('notEmpty')
   const [editingConditionalValue, setEditingConditionalValue] = useState('')
-  const [editingConditionalItemType, setEditingConditionalItemType] = useState<'action' | 'consumable'>('action')
+  const [editingConditionalItemType, setEditingConditionalItemType] = useState<'action' | 'consumable' | 'product'>('product')
   const [typePickerOpen, setTypePickerOpen] = useState(false)
   const [sectionEditorOpen, setSectionEditorOpen] = useState(false)
   const [editingSection, setEditingSection] = useState<FormSection | null>(null)
@@ -533,6 +560,44 @@ export default function FormsPage() {
     }
   }
 
+  const createDefaultLabRecordRows = (layout: LabRecordLayout): LabRecordRowConfig[] => {
+    const count = 3
+    return Array.from({ length: count }, (_, idx) => ({
+      id: `lab_row_${idx + 1}`,
+      name: `Row ${idx + 1}`,
+      unitMode: layout === 'valueUnit' ? 'dropdown' : 'none',
+      unitOptions: layout === 'valueUnit' ? ['mg/dL', 'mmol/L'] : [],
+      defaultUnit: layout === 'valueUnit' ? 'mg/dL' : undefined,
+      resultOptions: layout === 'result' ? ['+ve', '-ve'] : [],
+    }))
+  }
+
+  const applyLabRecordConfigToState = (cfg?: LabRecordConfig) => {
+    const layout = cfg?.layout === 'result' ? 'result' : 'valueUnit'
+    const rows = Array.isArray(cfg?.rows) && cfg.rows.length > 0 ? cfg.rows : createDefaultLabRecordRows(layout)
+    setEditingLabRecordLayout(layout)
+    setEditingLabRecordRows(rows.map((row, idx) => ({
+      id: row.id || `lab_row_${idx + 1}`,
+      name: row.name || `Row ${idx + 1}`,
+      unitMode: row.unitMode === 'none' ? 'none' : 'dropdown',
+      unitOptions: Array.isArray(row.unitOptions) ? row.unitOptions : [],
+      defaultUnit: row.defaultUnit || undefined,
+      resultOptions: Array.isArray(row.resultOptions) ? row.resultOptions : [],
+    })))
+  }
+
+  const buildLabRecordConfigFromEditing = (): LabRecordConfig => ({
+    layout: editingLabRecordLayout,
+    rows: (editingLabRecordRows.length > 0 ? editingLabRecordRows : createDefaultLabRecordRows(editingLabRecordLayout)).map((row, idx) => ({
+      id: row.id || `lab_row_${idx + 1}`,
+      name: row.name || `Row ${idx + 1}`,
+      unitMode: row.unitMode === 'none' ? 'none' : 'dropdown',
+      unitOptions: Array.isArray(row.unitOptions) ? row.unitOptions.filter(Boolean) : [],
+      defaultUnit: row.defaultUnit || undefined,
+      resultOptions: Array.isArray(row.resultOptions) ? row.resultOptions.filter(Boolean) : [],
+    })),
+  })
+
   const defaultTableConfig = (): TableConfig => ({
     mode: 'fixed',
     rows: 3,
@@ -586,7 +651,27 @@ export default function FormsPage() {
       tables.forEach(t => {
         const cfg = t.tableConfig!
         const existingShape = prev[t.id]
-        next[t.id] = existingShape || { rows: cfg.rows, columns: cfg.columns }
+        if (!existingShape) {
+          next[t.id] = { rows: cfg.rows, columns: cfg.columns }
+          return
+        }
+
+        if (cfg.mode === 'fixed') {
+          next[t.id] = { rows: cfg.rows, columns: cfg.columns }
+          return
+        }
+
+        if (cfg.mode === 'variableRows') {
+          next[t.id] = { rows: existingShape.rows, columns: cfg.columns }
+          return
+        }
+
+        if (cfg.mode === 'variableColumns') {
+          next[t.id] = { rows: cfg.rows, columns: existingShape.columns }
+          return
+        }
+
+        next[t.id] = existingShape
       })
       return next
     })
@@ -606,6 +691,7 @@ export default function FormsPage() {
       underlineLabel: false,
       options: data.options ? data.options.split('\n').filter(Boolean) : undefined,
       tableConfig: data.type === 'table' ? buildTableConfigFromEditing() : undefined,
+      labRecordConfig: data.type === 'labRecord' ? buildLabRecordConfigFromEditing() : undefined,
       order: fields.length + sections.length,
     }
     setFields([...fields, newField])
@@ -681,6 +767,7 @@ export default function FormsPage() {
       underlineLabel: false,
       options: undefined,
       tableConfig: fieldType === 'table' ? defaultTableConfig() : undefined,
+      labRecordConfig: fieldType === 'labRecord' ? buildLabRecordConfigFromEditing() : undefined,
       order: 0,
     }
     const updated = sections.map(s => s.id === sectionId ? {
@@ -799,8 +886,46 @@ export default function FormsPage() {
       case 'hasItem': {
         // Only meaningful when dependsOn is an action listener field; leverage current actions list
         const pool = actions.filter(a => !itemType || a.type === itemType)
-        if (!value) return pool.length > 0
-        return pool.some(a => a.name === value)
+        if (!value) {
+          const result = pool.length > 0
+          console.log('[Preview] hasItem no value', {
+            fieldId: field.id,
+            dependsOn,
+            itemType,
+            poolCount: pool.length,
+            result,
+          })
+          return result
+        }
+
+        const expected = String(value).trim().toLowerCase()
+        const matched = pool.some((a) => {
+          const name = String(a.name || '').trim().toLowerCase()
+          const ids = [
+            a.id,
+            a.backendId,
+            a.rawData?.id,
+            a.rawData?.product?.id,
+            a.rawData?.action?.id,
+            a.rawData?.consumable?.id,
+          ]
+            .filter(Boolean)
+            .map((id) => String(id).trim().toLowerCase())
+          return name.includes(expected) || ids.includes(expected)
+        })
+
+        console.log('[Preview] hasItem', {
+          fieldId: field.id,
+          dependsOn,
+          itemType,
+          value,
+          expected,
+          poolCount: pool.length,
+          matched,
+          poolPreview: pool.map((a) => ({ id: a.id, name: a.name, backendId: a.backendId, type: a.type })),
+        })
+
+        return matched
       }
       default:
         return true
@@ -878,6 +1003,10 @@ export default function FormsPage() {
         </div>
       </div>
     )
+  }
+
+  const logPreviewMutation = (kind: 'diagnosis' | 'medication', payload: Record<string, any>) => {
+    console.log(`[Form Preview] ${kind} payload`, payload)
   }
 
   const renderFieldPreviewControl = (f: FormField) => {
@@ -960,19 +1089,108 @@ export default function FormsPage() {
         )
       case 'table':
         return renderTablePreview(f)
+      case 'labRecord': {
+        const cfg = f.labRecordConfig || { layout: 'valueUnit' as LabRecordLayout, rows: createDefaultLabRecordRows('valueUnit') }
+        const rows = cfg.rows.length > 0 ? cfg.rows : createDefaultLabRecordRows(cfg.layout)
+        const currentValue: LabRecordValue = previewFormValues[f.id] || { rows: {} }
+        const updateLabRecordRow = (rowId: string, patch: LabRecordValueEntry) => {
+          const nextRows = {
+            ...(currentValue.rows || {}),
+            [rowId]: {
+              ...(currentValue.rows?.[rowId] || {}),
+              ...patch,
+            },
+          }
+          setPreviewFormValues({
+            ...previewFormValues,
+            [f.id]: { rows: nextRows },
+          })
+        }
+
+        const headerGridClass = cfg.layout === 'valueUnit' ? 'grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.9fr)]' : 'grid-cols-[minmax(0,1.6fr)_minmax(0,1.2fr)]'
+        return (
+          <div className="space-y-3 rounded-lg border p-3 bg-card/40">
+            <div className="overflow-hidden rounded-md border bg-background">
+              <div className={`grid ${headerGridClass} gap-0 border-b bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground`}>
+                <div className="px-3 py-2">Name</div>
+                {cfg.layout === 'valueUnit' ? <div className="px-3 py-2">Value</div> : <div className="px-3 py-2">Result</div>}
+                {cfg.layout === 'valueUnit' ? <div className="px-3 py-2">Unit</div> : null}
+              </div>
+              <div className="divide-y">
+                {rows.map((row) => {
+                  const rowValue = currentValue.rows?.[row.id] || {}
+                  const unitOptions = (row.unitOptions || []).length > 0 ? row.unitOptions! : ['mg/dL', 'mmol/L']
+                  const resultOptions = (row.resultOptions || []).length > 0 ? row.resultOptions! : ['+ve', '-ve']
+
+                  return (
+                    <div key={row.id} className={`grid ${headerGridClass} items-center gap-2 px-3 py-2`}>
+                      <div className="text-sm font-medium break-words">{row.name}</div>
+                      {cfg.layout === 'valueUnit' ? (
+                        <Input
+                          className="h-9"
+                          value={rowValue.value || ''}
+                          placeholder="Enter value"
+                          onChange={(e) => updateLabRecordRow(row.id, { value: e.target.value })}
+                        />
+                      ) : (
+                        <Select value={rowValue.result || ''} onValueChange={(v) => updateLabRecordRow(row.id, { result: v })}>
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Select result" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {resultOptions.map((option) => (
+                              <SelectItem key={option} value={option}>{option}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {cfg.layout === 'valueUnit' ? (
+                        row.unitMode === 'none' ? (
+                          <div className="text-xs text-muted-foreground">None</div>
+                        ) : (
+                          <Select
+                            value={rowValue.unit || row.defaultUnit || ''}
+                            onValueChange={(v) => updateLabRecordRow(row.id, { unit: v })}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {unitOptions.map((unit) => (
+                                <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )
+      }
       case 'diagnosticRecord': {
         const records: DiagnosticRecordEntry[] = Array.isArray(previewFormValues[f.id]) ? previewFormValues[f.id] : []
         const draft = diagnosticDrafts[f.id] || { diagnosis: '', description: '' }
 
         const addRecord = () => {
           const diagnosis = draft.diagnosis.trim()
-          const description = draft.description.trim()
+          const icd11Code = draft.description.trim()
           if (!diagnosis) return
+
+          logPreviewMutation('diagnosis', {
+            formId: previewForm?.id,
+            fieldId: f.id,
+            diagnosisName: diagnosis,
+            icd11Code: icd11Code || undefined,
+          })
 
           const nextRecord: DiagnosticRecordEntry = {
             id: `diag_${Date.now()}`,
             diagnosis,
-            description: description || undefined,
+            description: icd11Code || undefined,
           }
 
           setPreviewFormValues({
@@ -997,7 +1215,7 @@ export default function FormsPage() {
             />
             <Textarea
               rows={2}
-              placeholder="Optional description"
+              placeholder="Optional ICD-11 code"
               value={draft.description}
               onChange={(e) => setDiagnosticDrafts({
                 ...diagnosticDrafts,
@@ -1050,6 +1268,13 @@ export default function FormsPage() {
           const days = draft.days.trim()
           const notes = draft.notes.trim()
           if (!name || !frequency || !amount || !days) return
+
+          logPreviewMutation('medication', {
+            formId: previewForm?.id,
+            fieldId: f.id,
+            medicationName: name,
+            instructions: `Frequency: ${frequency}, Amount: ${amount}, Days: ${days}${notes ? `, Extra notes: ${notes}` : ''}`,
+          })
 
           const nextRecord: MedicationLongEntry = {
             id: `med_long_${Date.now()}`,
@@ -1108,7 +1333,7 @@ export default function FormsPage() {
             </div>
             <Textarea
               rows={2}
-              placeholder="Additional notes"
+              placeholder="Extra notes"
               value={draft.notes}
               onChange={(e) => setMedicationLongDrafts({
                 ...medicationLongDrafts,
@@ -1159,6 +1384,13 @@ export default function FormsPage() {
           const name = draft.name.trim()
           const notes = draft.notes.trim()
           if (!name) return
+
+          logPreviewMutation('medication', {
+            formId: previewForm?.id,
+            fieldId: f.id,
+            medicationName: name,
+            instructions: notes || 'No additional notes',
+          })
 
           const nextRecord: MedicationMiniEntry = {
             id: `med_mini_${Date.now()}`,
@@ -1274,6 +1506,7 @@ export default function FormsPage() {
         underlineLabel: editingUnderlineLabel,
         options: editingOptions ? editingOptions.split('\n').filter(Boolean) : undefined,
         tableConfig: editingType === 'table' ? buildTableConfigFromEditing() : undefined,
+        labRecordConfig: editingType === 'labRecord' ? buildLabRecordConfigFromEditing() : undefined,
         conditionalRendering: editingConditionalEnabled ? {
           dependsOn: editingConditionalDependsOn,
           condition: editingConditionalCondition,
@@ -1282,6 +1515,15 @@ export default function FormsPage() {
         } : undefined,
       } : f)
     } : s)
+
+    console.log('[FormBuilder] saving section field conditionalRendering', {
+      fieldId: editingSectionField.field.id,
+      dependsOn: editingConditionalDependsOn,
+      condition: editingConditionalCondition,
+      value: editingConditionalValue,
+      itemType: editingConditionalCondition === 'hasItem' ? editingConditionalItemType : undefined,
+    })
+
     setSections(updated)
     setEditingSectionField(null)
     setSectionFieldEditorOpen(false)
@@ -1520,12 +1762,13 @@ export default function FormsPage() {
                                       setEditingUnderlineLabel(Boolean(f.underlineLabel))
                                       setEditingOptions((f.options || []).join('\n'))
                                       applyTableConfigToState(f.tableConfig)
+                                        applyLabRecordConfigToState(f.labRecordConfig)
                                           setEditingConditionalEnabled(Boolean(f.conditionalRendering))
                                           setEditingConditionalDependsOn(f.conditionalRendering?.dependsOn || '')
                                           setEditingConditionalCondition(f.conditionalRendering?.condition || 'notEmpty')
                                           setEditingConditionalValue(f.conditionalRendering?.value || '')
-                                          setEditingConditionalItemType(f.conditionalRendering?.itemType || 'action')
-                                      setEditingConditionalItemType(f.conditionalRendering?.itemType || 'action')
+                                          setEditingConditionalItemType(f.conditionalRendering?.itemType || 'product')
+                                      setEditingConditionalItemType(f.conditionalRendering?.itemType || 'product')
                                       setFieldEditorOpen(true)
                                     }}>
                                       <div className="flex items-center gap-2">
@@ -1541,7 +1784,7 @@ export default function FormsPage() {
                                       )}
                                     </div>
                                   </PopoverTrigger>
-                                  <PopoverContent className="w-80 rounded-2xl glass-gray" side="right" align="start" sideOffset={8}>
+                                          <PopoverContent className="w-80 rounded-2xl bg-[#FDF4EF] text-foreground border border-border/60 shadow-2xl dark:bg-[#1f1b18] dark:border-border/40" side="right" align="start" sideOffset={8}>
                                     <FieldEditor
                                       field={f}
                                       label={editingLabel}
@@ -1576,6 +1819,10 @@ export default function FormsPage() {
                                       setTableColumnHeaders={setEditingTableColumnHeaders}
                                       tableRowHeaders={editingTableRowHeaders}
                                       setTableRowHeaders={setEditingTableRowHeaders}
+                                      labRecordLayout={editingLabRecordLayout}
+                                      setLabRecordLayout={setEditingLabRecordLayout}
+                                      labRecordRows={editingLabRecordRows}
+                                      setLabRecordRows={setEditingLabRecordRows}
                                       conditionalEnabled={editingConditionalEnabled}
                                       setConditionalEnabled={setEditingConditionalEnabled}
                                       conditionalDependsOn={editingConditionalDependsOn}
@@ -1601,6 +1848,7 @@ export default function FormsPage() {
                                           underlineLabel: editingUnderlineLabel,
                                           options: editingOptions ? editingOptions.split('\n').filter(Boolean) : undefined,
                                           tableConfig: editingType === 'table' ? buildTableConfigFromEditing() : undefined,
+                                          labRecordConfig: editingType === 'labRecord' ? buildLabRecordConfigFromEditing() : undefined,
                                           conditionalRendering: editingConditionalEnabled ? {
                                             dependsOn: editingConditionalDependsOn,
                                             condition: editingConditionalCondition,
@@ -1653,8 +1901,8 @@ export default function FormsPage() {
                                   <p className="text-xs text-muted-foreground">{s.columns} column(s)</p>
                                 </div>
                               </PopoverTrigger>
-                              <PopoverContent className="w-80 rounded-2xl glass-gray" side="right" align="start" sideOffset={8}>
-                                <div className="space-y-3">
+                              <PopoverContent className="w-96 rounded-2xl bg-background text-foreground border border-border/50 shadow-2xl" side="right" align="start" sideOffset={8}>
+                                <div className="space-y-4">
                                   <div className="space-y-1">
                                     <label className="text-xs font-medium">Title</label>
                                     <Input value={editingSectionTitle} onChange={(e) => setEditingSectionTitle(e.target.value)} />
@@ -1675,7 +1923,7 @@ export default function FormsPage() {
                                   </div>
                                   <div className="space-y-1">
                                     <label className="text-xs font-medium">Title Styling</label>
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex flex-wrap items-center gap-2">
                                       <Button
                                         type="button"
                                         variant={editingSectionBoldTitle ? "default" : "outline"}
@@ -1714,9 +1962,9 @@ export default function FormsPage() {
                                       </Button>
                                     </div>
                                   </div>
-                                  <div className="flex gap-2 pt-2">
-                                    <Button variant="outline" size="sm" onClick={() => setSectionEditorOpen(false)} className="rounded-full">Cancel</Button>
-                                    <Button size="sm" onClick={onSaveSection} className="rounded-full">Save</Button>
+                                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-8 pt-3 sm:pt-6 border-t border-border/30 bg-gradient-to-t from-background dark:from-gray-900 to-background/95 dark:to-gray-900/95 -mx-4 px-4 pb-2 sm:pb-4 z-50">
+                                    <button type="button" onClick={() => setSectionEditorOpen(false)} className="rounded-full px-4 py-2 sm:py-2.5 bg-background dark:bg-gray-900 border border-border/70 text-foreground hover:bg-muted/40 dark:hover:bg-muted/50 shadow-lg text-xs sm:text-base flex-1 sm:flex-initial">Cancel</button>
+                                    <button type="button" onClick={onSaveSection} className="rounded-full px-4 py-2 sm:py-2.5 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-lg hover:opacity-90 transition-all duration-200 text-xs sm:text-base flex-1">Save</button>
                                   </div>
                                 </div>
                               </PopoverContent>
@@ -1762,6 +2010,7 @@ export default function FormsPage() {
                                             setEditingUnderlineLabel(Boolean(f.underlineLabel))
                                             setEditingOptions((f.options || []).join('\n'))
                                             applyTableConfigToState(f.tableConfig)
+                                              applyLabRecordConfigToState(f.labRecordConfig)
                                             setEditingConditionalEnabled(Boolean(f.conditionalRendering))
                                             setEditingConditionalDependsOn(f.conditionalRendering?.dependsOn || '')
                                             setEditingConditionalCondition(f.conditionalRendering?.condition || 'notEmpty')
@@ -1811,7 +2060,7 @@ export default function FormsPage() {
                                               </div>
                                             </div>
                                           </PopoverTrigger>
-                                          <PopoverContent className="w-80 rounded-2xl glass-gray" side="right" align="start" sideOffset={8}>
+                                          <PopoverContent className="w-80 rounded-2xl glass-gray text-foreground shadow-2xl" side="right" align="start" sideOffset={8}>
                                             <FieldEditor
                                               field={f}
                                               label={editingLabel}
@@ -1846,6 +2095,10 @@ export default function FormsPage() {
                                               setTableColumnHeaders={setEditingTableColumnHeaders}
                                               tableRowHeaders={editingTableRowHeaders}
                                               setTableRowHeaders={setEditingTableRowHeaders}
+                                              labRecordLayout={editingLabRecordLayout}
+                                              setLabRecordLayout={setEditingLabRecordLayout}
+                                              labRecordRows={editingLabRecordRows}
+                                              setLabRecordRows={setEditingLabRecordRows}
                                               conditionalEnabled={editingConditionalEnabled}
                                               setConditionalEnabled={setEditingConditionalEnabled}
                                               conditionalDependsOn={editingConditionalDependsOn}
@@ -1878,7 +2131,7 @@ export default function FormsPage() {
                                     </PopoverTrigger>
                                     <PopoverContent className="w-64 rounded-2xl" side="right" align="start" sideOffset={4}>
                                       <div className="grid grid-cols-2 gap-2">
-                                        {(['text','email','number','textarea','select','radio','checkbox','date','table','diagnosticRecord','medicationLongForm','medicationMiniForm','actionListener'] as const).map(t => (
+                                        {(['text','email','number','textarea','select','radio','checkbox','date','table','labRecord','diagnosticRecord','medicationLongForm','medicationMiniForm','actionListener'] as const).map(t => (
                                           <Button key={t} variant="outline" size="sm" onClick={() => {
                                             onAddFieldToSection(s.id, t)
                                           }} className="text-xs">{t}</Button>
@@ -1982,7 +2235,7 @@ export default function FormsPage() {
           <Dialog open={fieldEditorOpen && !editingField} onOpenChange={(open) => {
             if (!open && !editingField) setFieldEditorOpen(false)
           }}>
-            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/20 border border-white/20 rounded-3xl shadow-2xl p-4">
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden bg-card/95 backdrop-blur-xl border-border/50 rounded-3xl shadow-2xl p-4">
               <DialogHeader>
                 <DialogTitle>Add New Field</DialogTitle>
               </DialogHeader>
@@ -2020,6 +2273,10 @@ export default function FormsPage() {
                 setTableColumnHeaders={setEditingTableColumnHeaders}
                 tableRowHeaders={editingTableRowHeaders}
                 setTableRowHeaders={setEditingTableRowHeaders}
+                labRecordLayout={editingLabRecordLayout}
+                setLabRecordLayout={setEditingLabRecordLayout}
+                labRecordRows={editingLabRecordRows}
+                setLabRecordRows={setEditingLabRecordRows}
                 conditionalEnabled={editingConditionalEnabled}
                 setConditionalEnabled={setEditingConditionalEnabled}
                 conditionalDependsOn={editingConditionalDependsOn}
@@ -2045,6 +2302,7 @@ export default function FormsPage() {
                     underlineLabel: editingUnderlineLabel,
                     options: editingOptions ? editingOptions.split('\n').filter(Boolean) : undefined,
                     tableConfig: editingType === 'table' ? buildTableConfigFromEditing() : undefined,
+                    labRecordConfig: editingType === 'labRecord' ? buildLabRecordConfigFromEditing() : undefined,
                     order: fields.length + sections.length,
                     conditionalRendering: editingConditionalEnabled ? {
                       dependsOn: editingConditionalDependsOn,
@@ -2053,6 +2311,15 @@ export default function FormsPage() {
                       itemType: editingConditionalCondition === 'hasItem' ? editingConditionalItemType : undefined,
                     } : undefined,
                   }
+
+                  console.log('[FormBuilder] adding new field conditionalRendering', {
+                    fieldId: newField.id,
+                    dependsOn: newField.conditionalRendering?.dependsOn,
+                    condition: newField.conditionalRendering?.condition,
+                    value: newField.conditionalRendering?.value,
+                    itemType: newField.conditionalRendering?.itemType,
+                  })
+
                   setFields([...fields, newField])
                   setFieldEditorOpen(false)
                 }}
@@ -2081,9 +2348,9 @@ export default function FormsPage() {
                             <Plus className="h-5 w-5" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-56 rounded-2xl glass-gray" side="top" align="center" sideOffset={8}>
+                        <PopoverContent className="w-56 rounded-2xl bg-background text-foreground border border-border/50 shadow-2xl" side="top" align="center" sideOffset={8}>
                           <div className="space-y-2">
-                            <p className="text-xs font-medium text-white/90">Add New</p>
+                            <p className="text-xs font-medium text-foreground">Add New</p>
                             <Button variant="outline" size="sm" onClick={() => {
                               setEditingField(null)
                               setEditingLabel('')
@@ -2097,6 +2364,7 @@ export default function FormsPage() {
                               setEditingUnderlineLabel(false)
                               setEditingOptions('')
                               applyTableConfigToState(undefined)
+                              applyLabRecordConfigToState(undefined)
                               setEditingConditionalEnabled(false)
                               setEditingConditionalDependsOn('')
                               setEditingConditionalCondition('notEmpty')
@@ -2104,10 +2372,10 @@ export default function FormsPage() {
                               setEditingConditionalItemType('action')
                               setFieldEditorOpen(true)
                               setTypePickerOpen(false)
-                            }} className="w-full text-xs">
+                            }} className="w-full text-xs rounded-full px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-md hover:opacity-90">
                               + Field
                             </Button>
-                            <Button variant="outline" size="sm" onClick={onCreateNewSection} className="w-full text-xs">
+                            <Button variant="outline" size="sm" onClick={onCreateNewSection} className="w-full text-xs rounded-full px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-md hover:opacity-90">
                               + Section
                             </Button>
                           </div>
@@ -2317,6 +2585,10 @@ function FieldEditor({
   setTableColumnHeaders,
   tableRowHeaders,
   setTableRowHeaders,
+  labRecordLayout,
+  setLabRecordLayout,
+  labRecordRows,
+  setLabRecordRows,
   conditionalEnabled,
   setConditionalEnabled,
   conditionalDependsOn,
@@ -2364,6 +2636,10 @@ function FieldEditor({
   setTableColumnHeaders: (v: string) => void
   tableRowHeaders: string
   setTableRowHeaders: (v: string) => void
+  labRecordLayout: LabRecordLayout
+  setLabRecordLayout: (v: LabRecordLayout) => void
+  labRecordRows: LabRecordRowConfig[]
+  setLabRecordRows: (v: LabRecordRowConfig[]) => void
   conditionalEnabled: boolean
   setConditionalEnabled: (v: boolean) => void
   conditionalDependsOn: string
@@ -2372,24 +2648,32 @@ function FieldEditor({
   setConditionalCondition: (v: ConditionalRendering['condition']) => void
   conditionalValue: string
   setConditionalValue: (v: string) => void
-  conditionalItemType: 'action' | 'consumable'
-  setConditionalItemType: (v: 'action' | 'consumable') => void
+  conditionalItemType: 'action' | 'consumable' | 'product'
+  setConditionalItemType: (v: 'action' | 'consumable' | 'product') => void
   availableFields: FormField[]
   onSave: () => void
   onClose: () => void
 }) {
   const [step, setStep] = useState<'nameType' | 'config'>(field ? 'config' : 'nameType')
+  const showPlaceholder = !['select', 'radio', 'checkbox', 'table', 'labRecord', 'actionListener'].includes(type)
 
   useEffect(() => {
     setStep(field ? 'config' : 'nameType')
   }, [field])
-  const [itemSearch, setItemSearch] = useState(conditionalValue || '')
-  const [itemOptions, setItemOptions] = useState<string[]>([])
+  const [itemSearch, setItemSearch] = useState('')
+  const [itemOptions, setItemOptions] = useState<{ id: string; name: string }[]>([])
   const [itemLoading, setItemLoading] = useState(false)
 
   useEffect(() => {
-    setItemSearch(conditionalValue || '')
-  }, [conditionalValue])
+    if (conditionalCondition !== 'hasItem') {
+      setItemSearch('')
+      return
+    }
+
+    if (!conditionalValue) {
+      setItemSearch('')
+    }
+  }, [conditionalValue, conditionalCondition])
 
   useEffect(() => {
     if (conditionalCondition !== 'hasItem') {
@@ -2407,10 +2691,7 @@ function FieldEditor({
         setItemLoading(true)
         const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'
         const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') || '' : ''
-        const isAction = conditionalItemType === 'action'
-        const query = isAction
-          ? `query SearchActions($name: String, $page: Int, $size: Int) { getActions(name: $name, page: $page, size: $size) { data { content { name } } } }`
-          : `query SearchConsumables($name: String, $page: Int, $size: Int) { getConsumables(name: $name, page: $page, size: $size) { data { content { name } } } }`
+        const query = `query SearchProducts($name: String, $page: Int, $size: Int) { products(input: { name: $name, page: $page, size: $size }) { data { id name type genericName } } }`
         const variables = { name: q, page: 0, size: 10 }
         const resp = await fetch(`${baseUrl}/graphql`, {
           method: 'POST',
@@ -2423,11 +2704,15 @@ function FieldEditor({
         })
         if (!resp.ok) throw new Error('search failed')
         const data = await resp.json()
-        const items = isAction
-          ? data?.data?.getActions?.data?.content || []
-          : data?.data?.getConsumables?.data?.content || []
-        const names = (items || []).map((it: any) => it?.name).filter(Boolean)
-        setItemOptions(names)
+        const items = data?.data?.products?.data || []
+        const uniqueItems = Array.from(
+          new Map(
+            (items || [])
+              .filter((it: any) => it?.id && it?.name)
+              .map((it: any) => [String(it.id), { id: String(it.id), name: String(it.name || '').trim() }])
+          ).values(),
+        )
+        setItemOptions(uniqueItems)
       } catch (e) {
         if (!(e instanceof DOMException && e.name === 'AbortError')) {
           setItemOptions([])
@@ -2440,12 +2725,13 @@ function FieldEditor({
       controller.abort()
       clearTimeout(timer)
     }
-  }, [itemSearch, conditionalCondition, conditionalItemType])
+  }, [itemSearch, conditionalCondition])
     return (
-      <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+      <div className="flex w-full justify-center">
+        <div className="w-full max-w-2xl space-y-5 max-h-[70vh] overflow-y-auto scrollbar-hide rounded-2xl border border-border/50 bg-[#FBF2ED] dark:bg-slate-900 shadow-lg p-2 sm:p-4">
         {/** Step 1: name + type for new fields; Step 2: type-specific config. */}
         {(!field && step === 'nameType') ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="space-y-1">
               <label className="text-xs font-medium">Label</label>
               <Input value={label} onChange={(e) => setLabel(e.target.value)} />
@@ -2466,6 +2752,7 @@ function FieldEditor({
                   <SelectItem value="checkbox">Checkbox</SelectItem>
                   <SelectItem value="date">Date</SelectItem>
                   <SelectItem value="table">Table</SelectItem>
+                  <SelectItem value="labRecord">Lab Record</SelectItem>
                   <SelectItem value="diagnosticRecord">Diagnostic Record</SelectItem>
                   <SelectItem value="medicationLongForm">Medication Long Form</SelectItem>
                   <SelectItem value="medicationMiniForm">Medication Mini Form</SelectItem>
@@ -2473,18 +2760,67 @@ function FieldEditor({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose}>Cancel</Button>
-              <Button className="ml-auto" onClick={() => setStep('config')} disabled={!label || !label.trim()}>Next</Button>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-8 pt-3 sm:pt-6 border-t border-border/30 sticky bottom-0 left-0 right-0 bg-gradient-to-t from-[#FBF2ED] dark:from-slate-900 to-[#FBF2ED]/95 dark:to-slate-900/95 -mx-2 sm:-mx-4 px-2 sm:px-4 pb-2 sm:pb-4 z-50">
+              <button type="button" onClick={onClose} className="rounded-full px-4 py-2 sm:py-2.5 bg-background dark:bg-gray-900 border border-border/70 text-foreground hover:bg-muted/40 dark:hover:bg-muted/50 shadow-lg text-xs sm:text-base flex-1 sm:flex-initial">
+                Cancel
+              </button>
+              <button type="button" onClick={() => setStep('config')} disabled={!label || !label.trim()} className="rounded-full px-4 py-2 sm:py-2.5 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-lg hover:opacity-90 transition-all duration-200 text-xs sm:text-base flex-1 disabled:opacity-50">
+                Next
+              </button>
             </div>
           </div>
         ) : (
-          <div>
+          <div className="space-y-5">
             <div className="space-y-1">
               <label className="text-xs font-medium">Label</label>
               <Input value={label} onChange={(e) => setLabel(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Label Styling</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant={boldLabel ? "default" : "outline"}
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setBoldLabel(!boldLabel)}
+                >
+                  <Bold className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant={italicLabel ? "default" : "outline"}
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setItalicLabel(!italicLabel)}
+                >
+                  <Italic className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant={underlineLabel ? "default" : "outline"}
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setUnderlineLabel(!underlineLabel)}
+                >
+                  <Underline className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant={centerLabel ? "default" : "outline"}
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setCenterLabel(!centerLabel)}
+                >
+                  <AlignCenter className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox checked={hideLabel} onCheckedChange={(v) => setHideLabel(Boolean(v))} />
+                <span className="text-xs">Hide Label</span>
+              </div>
+            </div>
+            <div className="space-y-4 border-t pt-4">
               <div className="space-y-1">
                 <label className="text-xs font-medium">Type</label>
                 <Select value={type} onValueChange={(v) => {
@@ -2497,6 +2833,9 @@ function FieldEditor({
                     setTableHeaderPlacement('none')
                     setTableColumnHeaders('')
                     setTableRowHeaders('')
+                  }
+                  if (nextType === 'labRecord') {
+                    applyLabRecordConfigToState(undefined)
                   }
                 }}>
                   <SelectTrigger className="w-full min-w-0 text-left truncate flex items-center justify-between">
@@ -2512,6 +2851,7 @@ function FieldEditor({
                     <SelectItem value="checkbox">Checkbox</SelectItem>
                     <SelectItem value="date">Date</SelectItem>
                     <SelectItem value="table">Table</SelectItem>
+                    <SelectItem value="labRecord">Lab Record</SelectItem>
                     <SelectItem value="diagnosticRecord">Diagnostic Record</SelectItem>
                     <SelectItem value="medicationLongForm">Medication Long Form</SelectItem>
                     <SelectItem value="medicationMiniForm">Medication Mini Form</SelectItem>
@@ -2527,58 +2867,111 @@ function FieldEditor({
                 </div>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 border-t pt-4">
               <div className="flex items-center gap-2">
-                <Checkbox checked={hideLabel} onCheckedChange={(v) => setHideLabel(Boolean(v))} />
-                <span className="text-xs">Hide Label</span>
+                <Checkbox checked={conditionalEnabled} onCheckedChange={(v) => setConditionalEnabled(Boolean(v))} />
+                <span className="text-xs font-medium">Conditional Rendering</span>
               </div>
-              {!hideLabel && (
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Label Styling</label>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      variant={boldLabel ? "default" : "outline"}
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setBoldLabel(!boldLabel)}
-                    >
-                      <Bold className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={italicLabel ? "default" : "outline"}
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setItalicLabel(!italicLabel)}
-                    >
-                      <Italic className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={underlineLabel ? "default" : "outline"}
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setUnderlineLabel(!underlineLabel)}
-                    >
-                      <Underline className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={centerLabel ? "default" : "outline"}
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setCenterLabel(!centerLabel)}
-                    >
-                      <AlignCenter className="h-4 w-4" />
-                    </Button>
+              {conditionalEnabled && (
+                <div className="space-y-3 pl-6 border-l-2 border-border/60">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium">Show when field:</label>
+                    <Select value={conditionalDependsOn} onValueChange={setConditionalDependsOn}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select field" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableFields.filter(f => f.id !== field?.id).map(f => (
+                          <SelectItem key={f.id} value={f.id}>{f.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium">Condition:</label>
+                    {(() => {
+                      const dependsOnField = availableFields.find(f => f.id === conditionalDependsOn)
+                      const isActionListener = dependsOnField?.type === 'actionListener'
+                      return (
+                        <Select value={conditionalCondition} onValueChange={(v) => setConditionalCondition(v as ConditionalRendering['condition'])}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="notEmpty">Is not empty</SelectItem>
+                            <SelectItem value="equals">Equals</SelectItem>
+                            <SelectItem value="checked">Is checked</SelectItem>
+                            <SelectItem value="includes">Includes option</SelectItem>
+                            <SelectItem value="hasItem" disabled={!isActionListener}>Has products</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )
+                    })()}
+                    {(() => {
+                      const dependsOnField = availableFields.find(f => f.id === conditionalDependsOn)
+                      const isActionListener = dependsOnField?.type === 'actionListener'
+                      if (conditionalCondition === 'hasItem' && !isActionListener) {
+                        return <p className="text-[11px] text-orange-600">Select an action listener field to enable this condition.</p>
+                      }
+                      return null
+                    })()}
+                  </div>
+                  {conditionalCondition !== 'notEmpty' && conditionalCondition !== 'checked' && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">
+                        {conditionalCondition === 'hasItem' ? 'Search product' : 'Value'}
+                      </label>
+                      {conditionalCondition === 'hasItem' && availableFields.find(f => f.id === conditionalDependsOn)?.type === 'actionListener' ? (
+                        <>
+                          <Input
+                            value={itemSearch}
+                            onChange={(e) => {
+                              setItemSearch(e.target.value)
+                              setConditionalValue('')
+                            }}
+                            placeholder="Type product name to search"
+                          />
+                          {itemLoading && <p className="text-[11px] text-muted-foreground">Searching products…</p>}
+                          {itemOptions.length > 0 && (
+                            <div className="grid gap-2">
+                              {itemOptions.map((item) => (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  className="w-full rounded-lg border border-border/60 px-3 py-2 text-left text-sm text-foreground hover:bg-muted/30"
+                                  onClick={() => {
+                                    setItemSearch(item.name)
+                                    setConditionalValue(item.id)
+                                    setItemOptions([])
+                                  }}
+                                >
+                                  {item.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <Input
+                          value={conditionalValue}
+                          onChange={(e) => setConditionalValue(e.target.value)}
+                          placeholder={conditionalCondition === 'includes' ? 'Option text' : 'Enter value'}
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Placeholder</label>
-              <Input value={placeholder} onChange={(e) => setPlaceholder(e.target.value)} />
+            <div className="space-y-2 border-t pt-4">
+              {showPlaceholder ? (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Placeholder</label>
+                  <Input value={placeholder} onChange={(e) => setPlaceholder(e.target.value)} />
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">This field type does not use a placeholder.</p>
+              )}
             </div>
             {type === 'table' && (
               <div className="space-y-3 border border-dashed rounded-lg p-3">
@@ -2652,126 +3045,141 @@ function FieldEditor({
                 <p className="text-[11px] text-muted-foreground">Only one axis can be variable at a time; headers are configurable here and locked in the live preview.</p>
               </div>
             )}
+            {type === 'labRecord' && (
+              <div className="space-y-3 border border-dashed rounded-lg p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold">Lab Record Settings</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs rounded-full"
+                    onClick={() => setLabRecordRows([...labRecordRows, {
+                      id: `lab_row_${Date.now()}`,
+                      name: `Row ${labRecordRows.length + 1}`,
+                      unitMode: labRecordLayout === 'valueUnit' ? 'dropdown' : 'none',
+                      unitOptions: labRecordLayout === 'valueUnit' ? ['mg/dL', 'mmol/L'] : [],
+                      defaultUnit: labRecordLayout === 'valueUnit' ? 'mg/dL' : undefined,
+                      resultOptions: labRecordLayout === 'result' ? ['+ve', '-ve'] : [],
+                    }])}
+                  >
+                    + Row
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Layout</label>
+                  <Select
+                    value={labRecordLayout}
+                    onValueChange={(v) => {
+                      const nextLayout = v as LabRecordLayout
+                      setLabRecordLayout(nextLayout)
+                      setLabRecordRows(Array.from({ length: 3 }, (_, idx) => ({
+                        id: `lab_row_${idx + 1}`,
+                        name: `Row ${idx + 1}`,
+                        unitMode: nextLayout === 'valueUnit' ? 'dropdown' : 'none',
+                        unitOptions: nextLayout === 'valueUnit' ? ['mg/dL', 'mmol/L'] : [],
+                        defaultUnit: nextLayout === 'valueUnit' ? 'mg/dL' : undefined,
+                        resultOptions: nextLayout === 'result' ? ['+ve', '-ve'] : [],
+                      })))
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="valueUnit">Name / Value / Unit</SelectItem>
+                      <SelectItem value="result">Name / Result</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  {(labRecordRows.length > 0 ? labRecordRows : []).map((row, index) => (
+                    <div key={row.id || `lab-row-${index}`} className="rounded-lg border bg-background p-3 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-muted-foreground">Row {index + 1}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-destructive rounded-full"
+                          onClick={() => setLabRecordRows(labRecordRows.filter((_, idx) => idx !== index))}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium">Name</label>
+                        <Input
+                          value={row.name}
+                          onChange={(e) => setLabRecordRows(labRecordRows.map((item, idx) => idx === index ? { ...item, name: e.target.value } : item))}
+                          placeholder="e.g. CRP"
+                        />
+                      </div>
+                      {labRecordLayout === 'valueUnit' ? (
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium">Unit mode</label>
+                            <Select
+                              value={row.unitMode || 'dropdown'}
+                              onValueChange={(v) => setLabRecordRows(labRecordRows.map((item, idx) => idx === index ? { ...item, unitMode: v as 'dropdown' | 'none' } : item))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="dropdown">Dropdown</SelectItem>
+                                <SelectItem value="none">None</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium">Default unit</label>
+                            <Input
+                              value={row.defaultUnit || ''}
+                              onChange={(e) => setLabRecordRows(labRecordRows.map((item, idx) => idx === index ? { ...item, defaultUnit: e.target.value } : item))}
+                              placeholder="e.g. mg/dL"
+                            />
+                          </div>
+                          <div className="space-y-1 sm:col-span-2">
+                            <label className="text-xs font-medium">Unit options</label>
+                            <Textarea
+                              rows={2}
+                              value={(row.unitOptions || []).join('\n')}
+                              onChange={(e) => setLabRecordRows(labRecordRows.map((item, idx) => idx === index ? { ...item, unitOptions: e.target.value.split('\n').map((value) => value.trim()).filter(Boolean) } : item))}
+                              placeholder="One unit per line"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">Result options</label>
+                          <Textarea
+                            rows={2}
+                            value={(row.resultOptions || []).join('\n')}
+                            onChange={(e) => setLabRecordRows(labRecordRows.map((item, idx) => idx === index ? { ...item, resultOptions: e.target.value.split('\n').map((value) => value.trim()).filter(Boolean) } : item))}
+                            placeholder="+ve\n-ve"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground">Use fixed names for the row labels. The value or result is captured as the answer for each row.</p>
+              </div>
+            )}
             {(type === 'select' || type === 'radio' || type === 'checkbox') && (
               <div className="space-y-1">
                 <label className="text-xs font-medium">Options (one per line)</label>
                 <Textarea rows={3} value={options} onChange={(e) => setOptions(e.target.value)} />
               </div>
             )}
-            <Separator />
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Checkbox checked={conditionalEnabled} onCheckedChange={(v) => setConditionalEnabled(Boolean(v))} />
-                <span className="text-xs font-medium">Conditional Rendering</span>
-              </div>
-              {conditionalEnabled && (
-                <div className="space-y-2 pl-6 border-l-2 border-blue-200">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">Show when field:</label>
-                    <Select value={conditionalDependsOn} onValueChange={setConditionalDependsOn}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select field" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableFields.filter(f => f.id !== field?.id).map(f => (
-                          <SelectItem key={f.id} value={f.id}>{f.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">Condition:</label>
-                    {(() => {
-                      const dependsOnField = availableFields.find(f => f.id === conditionalDependsOn)
-                      const isActionListener = dependsOnField?.type === 'actionListener'
-                      return (
-                        <Select value={conditionalCondition} onValueChange={(v) => setConditionalCondition(v as ConditionalRendering['condition'])}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="notEmpty">Is not empty</SelectItem>
-                            <SelectItem value="equals">Equals</SelectItem>
-                            <SelectItem value="checked">Is checked</SelectItem>
-                            <SelectItem value="includes">Includes option</SelectItem>
-                            <SelectItem value="hasItem" disabled={!isActionListener}>Has action/consumable</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )
-                    })()}
-                    {(() => {
-                      const dependsOnField = availableFields.find(f => f.id === conditionalDependsOn)
-                      const isActionListener = dependsOnField?.type === 'actionListener'
-                      if (conditionalCondition === 'hasItem' && !isActionListener) {
-                        return <p className="text-[11px] text-orange-600">Select an action listener field to enable this condition.</p>
-                      }
-                      return null
-                    })()}
-                  </div>
-                  {conditionalCondition === 'hasItem' && (
-                    <div className="space-y-2">
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium">Item type</label>
-                        <Select value={conditionalItemType} onValueChange={(v) => setConditionalItemType(v as 'action' | 'consumable')}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="action">Action</SelectItem>
-                            <SelectItem value="consumable">Consumable</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium">Item name to match</label>
-                        <Input
-                          value={itemSearch}
-                          onChange={(e) => {
-                            setItemSearch(e.target.value)
-                            setConditionalValue(e.target.value)
-                          }}
-                          placeholder="Search backend actions/consumables"
-                        />
-                        {itemLoading && <p className="text-[11px] text-muted-foreground">Searching...</p>}
-                        {!itemLoading && itemOptions.length > 0 && (
-                          <div className="border rounded-md bg-card shadow-sm max-h-40 overflow-y-auto text-xs">
-                            {itemOptions.map(name => (
-                              <button
-                                key={name}
-                                className="w-full text-left px-3 py-2 hover:bg-muted"
-                                onClick={() => {
-                                  setConditionalValue(name)
-                                  setItemSearch(name)
-                                  setItemOptions([])
-                                }}
-                              >
-                                {name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {itemSearch.trim().length < 2 && conditionalValue === '' && (
-                          <p className="text-[11px] text-muted-foreground">Type at least 2 characters to search backend.</p>
-                        )}
-                        <p className="text-[11px] text-muted-foreground">Select from backend search; matches against actions/consumables.</p>
-                      </div>
-                    </div>
-                  )}
-                  {(conditionalCondition === 'equals' || conditionalCondition === 'includes') && conditionalCondition !== 'hasItem' && (
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Value:</label>
-                      <Input value={conditionalValue} onChange={(e) => setConditionalValue(e.target.value)} placeholder="Enter value" />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={() => { if (!field) { onClose() } else { setStep('nameType') } }} className="rounded-full">{field ? 'Back' : 'Cancel'}</Button>
-              <Button size="sm" onClick={onSave} className="rounded-full">Save</Button>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-8 pt-3 sm:pt-6 border-t border-border/30 sticky bottom-0 left-0 right-0 bg-gradient-to-t from-[#FBF2ED] dark:from-slate-900 to-[#FBF2ED]/95 dark:to-slate-900/95 -mx-2 sm:-mx-4 px-2 sm:px-4 pb-2 sm:pb-4 z-50">
+              <button type="button" onClick={() => { if (!field) { onClose() } else { setStep('nameType') } }} className="rounded-full px-4 py-2 sm:py-2.5 bg-background dark:bg-gray-900 border border-border/70 text-foreground hover:bg-muted/40 dark:hover:bg-muted/50 shadow-lg text-xs sm:text-base flex-1 sm:flex-initial">{field ? 'Back' : 'Cancel'}</button>
+              <button type="button" onClick={onSave} className="rounded-full px-4 py-2 sm:py-2.5 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-lg hover:opacity-90 transition-all duration-200 text-xs sm:text-base flex-1">Save</button>
             </div>
           </div>
         )}
+        </div>
       </div>
   )
 }

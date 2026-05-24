@@ -1,6 +1,6 @@
 import { ApolloClient, InMemoryCache, HttpLink, ApolloLink } from '@apollo/client'
 import { onError } from '@apollo/client/link/error'
-import { toast } from 'react-toastify'
+import { toastResponseStatus, handleUnauthenticatedSession } from '@/lib/response-handler'
 
 const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'
 const uri = `${baseUrl}/graphql`
@@ -14,25 +14,7 @@ const notifyUnauthorized = () => {
     return
   }
 
-  toast.error('Action not allowed: no access available.', {
-    toastId: UNAUTHORIZED_TOAST_ID,
-  })
-}
-
-const handleUnauthenticated = () => {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  try {
-    localStorage.removeItem('authToken')
-    window.dispatchEvent(new Event('auth-logout'))
-    if (window.location.pathname !== '/auth') {
-      window.location.replace('/auth')
-    }
-  } catch {
-    // noop
-  }
+  toastResponseStatus('UNAUTHORISED', 'Action not allowed: no access available.',)
 }
 
 const handleResetPassword = () => {
@@ -78,11 +60,11 @@ const statusLink = new ApolloLink((operation, forward) => {
       .filter((status): status is string => Boolean(status))
 
     if (statuses.includes('UNAUTHENTICATED')) {
-      handleUnauthenticated()
+      handleUnauthenticatedSession('Your session has expired. Please login again.')
       return result
     }
 
-    if (statuses.includes('UNAUTHORIZED')) {
+    if (statuses.includes('UNAUTHORISED') || statuses.includes('UNAUTHORIZED')) {
       notifyUnauthorized()
     }
 
@@ -155,7 +137,7 @@ const errorLink = onError(({ graphQLErrors, networkError, operation }) => {
     })()
 
     if (unauthenticatedFromNetworkError) {
-      handleUnauthenticated()
+      handleUnauthenticatedSession('Your session has expired. Please login again.')
       return
     }
 
@@ -178,11 +160,11 @@ const errorLink = onError(({ graphQLErrors, networkError, operation }) => {
   const hasUnauthorizedGraphQLError = Array.isArray(graphQLErrors) && graphQLErrors.some(err => {
     const message = (err?.message || '').toLowerCase()
     const code = (err?.extensions as any)?.code
-    return code === 'UNAUTHORIZED' || message.includes('unauthorized')
+    return code === 'UNAUTHORIZED' || code === 'UNAUTHORISED' || message.includes('unauthorized') || message.includes('unauthorised')
   })
 
   if (hasUnauthenticatedGraphQLError) {
-    handleUnauthenticated()
+    handleUnauthenticatedSession('Your session has expired. Please login again.')
     return
   }
 

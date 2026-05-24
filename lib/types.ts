@@ -93,6 +93,8 @@ export interface DominantMember {
 export interface Department {
   id: string
   name: string
+  nursing?: boolean
+  supportRequests?: boolean
   actions?: Action[]
   consumables?: Consumable[]
   exemptedInsurances?: Insurance[]
@@ -325,6 +327,20 @@ export interface TableConfig {
   rowHeaders?: string[]
 }
 
+export interface LabRecordRowConfig {
+  id: string
+  name: string
+  unitMode?: 'dropdown' | 'none'
+  unitOptions?: string[]
+  defaultUnit?: string
+  resultOptions?: string[]
+}
+
+export interface LabRecordConfig {
+  layout: 'valueUnit' | 'result'
+  rows: LabRecordRowConfig[]
+}
+
 export interface FormField {
   id: string
   label: string
@@ -340,6 +356,7 @@ export interface FormField {
   conditionalRendering?: ConditionalRendering
   options?: string[]
   tableConfig?: TableConfig
+  labRecordConfig?: LabRecordConfig
 }
 
 export interface FormSection {

@@ -245,7 +245,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
     try {
       const result = await registerPatient(formData)
       if (result.status === 'SUCCESS') {
-        toast.success("Patient registered successfully!")
+        toast.success(result.message || "Patient registered successfully!")
         if (onPatientRegistered && result.data?.id) {
           onPatientRegistered(result.data.id, result.data.insurances || [], true)
         }

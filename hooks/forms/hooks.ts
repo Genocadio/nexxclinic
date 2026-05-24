@@ -26,6 +26,21 @@ const normalizeFormField = (field: any, index: number): FormField => ({
         rowHeaders: Array.isArray(field.tableConfig.rowHeaders) ? field.tableConfig.rowHeaders : [],
       }
     : undefined,
+  labRecordConfig: field?.labRecordConfig
+    ? {
+        layout: field.labRecordConfig.layout === 'result' ? 'result' : 'valueUnit',
+        rows: Array.isArray(field.labRecordConfig.rows)
+          ? field.labRecordConfig.rows.map((row: any, rowIndex: number) => ({
+              id: row?.id || `lab_row_${Date.now()}_${rowIndex}`,
+              name: row?.name || `Row ${rowIndex + 1}`,
+              unitMode: row?.unitMode === 'none' ? 'none' : 'dropdown',
+              unitOptions: Array.isArray(row?.unitOptions) ? row.unitOptions.filter(Boolean) : [],
+              defaultUnit: row?.defaultUnit || undefined,
+              resultOptions: Array.isArray(row?.resultOptions) ? row.resultOptions.filter(Boolean) : [],
+            }))
+          : [],
+      }
+    : undefined,
   conditionalRendering: field?.conditionalRendering
     ? {
         dependsOn: field.conditionalRendering.dependsOn,

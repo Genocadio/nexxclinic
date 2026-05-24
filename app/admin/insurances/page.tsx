@@ -57,17 +57,21 @@ export default function ManageInsurancesPage() {
     }
     setSaving(true)
     try {
-      await createInsuranceProvider({
+      const response = await createInsuranceProvider({
         insuranceName: name,
         acronym,
         defaultCoveragePercentage: coverageValue,
         supportedByClinic,
         iconUrl: iconUrl || undefined,
       })
-      await refetch()
-      toast.success("Insurance provider created successfully!")
-      resetForm()
-      setModalOpen(false)
+      if (response?.status === 'SUCCESS') {
+        await refetch()
+        toast.success(response?.message || "Insurance provider created successfully!")
+        resetForm()
+        setModalOpen(false)
+      } else {
+        toast.error(response?.message || "Failed to create insurance provider")
+      }
     } catch (err: any) {
       toast.error(err?.message || "Failed to create insurance provider")
     } finally {
@@ -84,17 +88,21 @@ export default function ManageInsurancesPage() {
     }
     setSaving(true)
     try {
-      await updateInsuranceProvider(editingId, {
+      const response = await updateInsuranceProvider(editingId, {
         insuranceName: name,
         acronym,
         defaultCoveragePercentage: coverageValue,
         supportedByClinic,
         iconUrl: iconUrl || undefined,
       })
-      await refetch()
-      toast.success("Insurance provider updated successfully!")
-      resetForm()
-      setModalOpen(false)
+      if (response?.status === 'SUCCESS') {
+        await refetch()
+        toast.success(response?.message || "Insurance provider updated successfully!")
+        resetForm()
+        setModalOpen(false)
+      } else {
+        toast.error(response?.message || "Failed to update insurance provider")
+      }
     } catch (err: any) {
       toast.error(err?.message || "Failed to update insurance provider")
     } finally {
@@ -106,13 +114,13 @@ export default function ManageInsurancesPage() {
     if (!confirm("Delete this insurance provider?")) return
     setSaving(true)
     try {
-      const ok = await deleteInsuranceProvider(id)
-      if (ok) {
+      const response = await deleteInsuranceProvider(id)
+      if (response?.status === 'SUCCESS') {
         await refetch()
         if (editingId === id) resetForm()
-        toast.success("Insurance provider deleted successfully!")
+        toast.success(response?.message || "Insurance provider deleted successfully!")
       } else {
-        toast.error("Delete failed: Please try again.")
+        toast.error(response?.message || "Delete failed: Please try again.")
       }
     } catch (err: any) {
       toast.error(err?.message || "Failed to delete insurance provider")

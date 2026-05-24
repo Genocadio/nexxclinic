@@ -122,7 +122,12 @@ export function useSetInitialPassword() {
       const result = await mutation({
         variables: { input: { identifier, newPassword } }
       })
-      return result.data?.setInitialPassword as { status: string; message?: string }
+      const payload = result.data?.setInitialPassword
+      return {
+        status: payload?.status || 'ERROR',
+        message: payload?.message,
+        messages: payload?.message ? [{ text: payload.message, type: payload.status || 'ERROR' }] : undefined,
+      }
     } catch (err) {
       const errorMessage = getErrorMessage(err) || 'Network error occurred'
       return {

@@ -56,6 +56,8 @@ export interface GqlDepartment {
   id: string
   name: string
   insurancePolicyMode?: string | null
+  nursing?: boolean | null
+  supportRequests?: boolean | null
   insurancePolicies?: GqlInsurance[] | null
   defaultProducts?: GqlProduct[] | null
 }
@@ -127,6 +129,8 @@ const mapDepartmentFromApi = (department: GqlDepartment): Department => ({
   id: department.id,
   name: department.name,
   insurancePolicyMode: department.insurancePolicyMode || undefined,
+  nursing: department.nursing ?? undefined,
+  supportRequests: department.supportRequests ?? undefined,
   insurancePolicies: (department.insurancePolicies || []).map((insurance: GqlInsurance) => ({
     id: insurance.id,
     name: insurance.insuranceName || 'Unknown Insurance',
@@ -176,7 +180,7 @@ export function useDepartments() {
 
 export function useCreateDepartment() {
   const [mutate, { loading, error }] = useMutation<CreateDepartmentPayload>(CREATE_DEPARTMENT_MUTATION)
-  const createDepartment = async (name: string, input?: { insuranceProviderIds?: string[]; defaultProductIds?: string[]; insurancePolicyMode?: string }): Promise<Department | null> => {
+  const createDepartment = async (name: string, input?: { insuranceProviderIds?: string[]; defaultProductIds?: string[]; insurancePolicyMode?: string; nursing?: boolean; supportRequests?: boolean }) => {
     const { data } = await mutate({
       variables: {
         input: {
@@ -184,64 +188,100 @@ export function useCreateDepartment() {
           insuranceProviderIds: input?.insuranceProviderIds,
           defaultProductIds: input?.defaultProductIds,
           insurancePolicyMode: input?.insurancePolicyMode,
+          nursing: input?.nursing,
+          supportRequests: input?.supportRequests,
         },
       },
     })
-    return data?.createDepartment?.data ? mapDepartmentFromApi(data.createDepartment.data) : null
+    const payload = data?.createDepartment
+    return {
+      status: payload?.status || 'ERROR',
+      message: payload?.message,
+      data: payload?.data ? mapDepartmentFromApi(payload.data) : null,
+    }
   }
   return { createDepartment, loading, error: error?.message || null }
 }
 
 export function useUpdateDepartment() {
   const [mutate, { loading, error }] = useMutation<UpdateDepartmentPayload>(UPDATE_DEPARTMENT_MUTATION)
-  const updateDepartment = async (id: number | string, input: { name?: string; insuranceProviderIds?: string[]; defaultProductIds?: string[]; insurancePolicyMode?: string }): Promise<Department | null> => {
+  const updateDepartment = async (id: number | string, input: { name?: string; insuranceProviderIds?: string[]; defaultProductIds?: string[]; insurancePolicyMode?: string; nursing?: boolean; supportRequests?: boolean }) => {
     const { data } = await mutate({ variables: { departmentId: id, input } })
-    return data?.updateDepartment?.data ? mapDepartmentFromApi(data.updateDepartment.data) : null
+    const payload = data?.updateDepartment
+    return {
+      status: payload?.status || 'ERROR',
+      message: payload?.message,
+      data: payload?.data ? mapDepartmentFromApi(payload.data) : null,
+    }
   }
   return { updateDepartment, loading, error: error?.message || null }
 }
 
 export function useDeleteDepartment() {
   const [mutate, { loading, error }] = useMutation<DeleteDepartmentPayload>(DELETE_DEPARTMENT_MUTATION)
-  const deleteDepartment = async (id: number | string): Promise<boolean> => {
+  const deleteDepartment = async (id: number | string) => {
     const { data } = await mutate({ variables: { id } })
-    return data?.deleteDepartment?.status === 'SUCCESS'
+    const payload = data?.deleteDepartment
+    return {
+      status: payload?.status || 'ERROR',
+      message: payload?.message,
+    }
   }
   return { deleteDepartment, loading, error: error?.message || null }
 }
 
 export function useAddDepartmentInsurance() {
   const [mutate, { loading, error }] = useMutation<AddDepartmentInsurancePayload>(ADD_DEPARTMENT_INSURANCE_MUTATION)
-  const addDepartmentInsurance = async (departmentId: number | string, insuranceId: number | string): Promise<Department | null> => {
+  const addDepartmentInsurance = async (departmentId: number | string, insuranceId: number | string) => {
     const { data } = await mutate({ variables: { departmentId, insuranceId } })
-    return data?.addDepartmentInsurance?.data ? mapDepartmentFromApi(data.addDepartmentInsurance.data) : null
+    const payload = data?.addDepartmentInsurance
+    return {
+      status: payload?.status || 'ERROR',
+      message: payload?.message,
+      data: payload?.data ? mapDepartmentFromApi(payload.data) : null,
+    }
   }
   return { addDepartmentInsurance, loading, error: error?.message || null }
 }
 
 export function useRemoveDepartmentInsurance() {
   const [mutate, { loading, error }] = useMutation<RemoveDepartmentInsurancePayload>(REMOVE_DEPARTMENT_INSURANCE_MUTATION)
-  const removeDepartmentInsurance = async (departmentId: number | string, insuranceId: number | string): Promise<Department | null> => {
+  const removeDepartmentInsurance = async (departmentId: number | string, insuranceId: number | string) => {
     const { data } = await mutate({ variables: { departmentId, insuranceId } })
-    return data?.removeDepartmentInsurance?.data ? mapDepartmentFromApi(data.removeDepartmentInsurance.data) : null
+    const payload = data?.removeDepartmentInsurance
+    return {
+      status: payload?.status || 'ERROR',
+      message: payload?.message,
+      data: payload?.data ? mapDepartmentFromApi(payload.data) : null,
+    }
   }
   return { removeDepartmentInsurance, loading, error: error?.message || null }
 }
 
 export function useAddDepartmentProduct() {
   const [mutate, { loading, error }] = useMutation<AddDepartmentProductPayload>(ADD_DEPARTMENT_PRODUCT_MUTATION)
-  const addDepartmentProduct = async (departmentId: number | string, productId: number | string): Promise<Department | null> => {
+  const addDepartmentProduct = async (departmentId: number | string, productId: number | string) => {
     const { data } = await mutate({ variables: { departmentId, productId } })
-    return data?.addDepartmentProduct?.data ? mapDepartmentFromApi(data.addDepartmentProduct.data) : null
+    const payload = data?.addDepartmentProduct
+    return {
+      status: payload?.status || 'ERROR',
+      message: payload?.message,
+      data: payload?.data ? mapDepartmentFromApi(payload.data) : null,
+    }
   }
   return { addDepartmentProduct, loading, error: error?.message || null }
 }
 
 export function useRemoveDepartmentProduct() {
   const [mutate, { loading, error }] = useMutation<RemoveDepartmentProductPayload>(REMOVE_DEPARTMENT_PRODUCT_MUTATION)
-  const removeDepartmentProduct = async (departmentId: number | string, productId: number | string): Promise<Department | null> => {
+  const removeDepartmentProduct = async (departmentId: number | string, productId: number | string) => {
     const { data } = await mutate({ variables: { departmentId, productId } })
-    return data?.removeDepartmentProduct?.data ? mapDepartmentFromApi(data.removeDepartmentProduct.data) : null
+    const payload = data?.removeDepartmentProduct
+    return {
+      status: payload?.status || 'ERROR',
+      message: payload?.message,
+      data: payload?.data ? mapDepartmentFromApi(payload.data) : null,
+    }
   }
   return { removeDepartmentProduct, loading, error: error?.message || null }
 }

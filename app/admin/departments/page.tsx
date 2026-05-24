@@ -18,6 +18,7 @@ import {
 } from '@/hooks/auth-hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -52,6 +53,8 @@ export default function DepartmentsPage() {
   const [departmentInsurancePolicyMode, setDepartmentInsurancePolicyMode] = useState('')
   const [departmentProductIds, setDepartmentProductIds] = useState<string[]>([])
   const [departmentInsuranceIds, setDepartmentInsuranceIds] = useState<string[]>([])
+  const [departmentNursing, setDepartmentNursing] = useState<boolean>(false)
+  const [departmentSupportRequests, setDepartmentSupportRequests] = useState<boolean>(false)
   const [pendingProductId, setPendingProductId] = useState('')
   const [pendingInsuranceId, setPendingInsuranceId] = useState('')
   const [saving, setSaving] = useState(false)
@@ -89,6 +92,8 @@ export default function DepartmentsPage() {
     setDepartmentInsuranceIds([])
     setPendingProductId('')
     setPendingInsuranceId('')
+    setDepartmentNursing(false)
+    setDepartmentSupportRequests(false)
   }
 
   const handleAddModalProduct = () => {
@@ -126,6 +131,8 @@ export default function DepartmentsPage() {
     setDepartmentInsuranceIds([])
     setPendingProductId('')
     setPendingInsuranceId('')
+    setDepartmentNursing(Boolean(selectedDepartment.nursing))
+    setDepartmentSupportRequests(Boolean(selectedDepartment.supportRequests))
     setIsModalOpen(true)
   }
 
@@ -153,28 +160,31 @@ export default function DepartmentsPage() {
         updateData.insuranceProviderIds = []
       }
       
-      const updated = await updateDepartment(department.id, updateData)
-      
-      // Update both selectedDepartment and menuDepartment if they exist
-      if (selectedDepartment?.id === department.id) {
-        setSelectedDepartment(updated)
-      }
-      if (menuDepartment?.id === department.id) {
-        setMenuDepartment(updated)
-      }
-      
-      await refetchDepartments()
-      
-      if (department.insurancePolicyMode === 'ALL' && newMode !== 'ALL') {
-        toast({ 
-          title: 'Policy mode changed', 
-          description: 'Switched from "All insurances apply" to selective mode. You can now add specific insurance policies.' 
-        })
+      const resp = await updateDepartment(department.id, updateData)
+
+      if (resp?.status === 'SUCCESS') {
+        const updated = resp.data
+        // Update both selectedDepartment and menuDepartment if they exist
+        if (selectedDepartment?.id === department.id) {
+          setSelectedDepartment(updated)
+        }
+        if (menuDepartment?.id === department.id) {
+          setMenuDepartment(updated)
+        }
+        await refetchDepartments()
+        if (department.insurancePolicyMode === 'ALL' && newMode !== 'ALL') {
+          toast({ 
+            title: 'Policy mode changed', 
+            description: 'Switched from "All insurances apply" to selective mode. You can now add specific insurance policies.' 
+          })
+        } else {
+          toast({ 
+            title: 'Policy mode updated', 
+            description: `Insurance policy mode changed to ${newMode}` 
+          })
+        }
       } else {
-        toast({ 
-          title: 'Policy mode updated', 
-          description: `Insurance policy mode changed to ${newMode}` 
-        })
+        toast({ title: 'Update failed', description: resp?.message || 'Failed to update policy mode', variant: 'destructive' })
       }
     } catch (err: any) {
       console.error('Policy mode change error:', err)
@@ -190,22 +200,34 @@ export default function DepartmentsPage() {
     try {
       setSaving(true)
       if (modalMode === 'add') {
-        const created = await createDepartment(departmentName.trim(), {
+        const createdResp = await createDepartment(departmentName.trim(), {
           insurancePolicyMode: departmentInsurancePolicyMode || undefined,
           insuranceProviderIds: departmentInsuranceIds,
           defaultProductIds: departmentProductIds,
+          nursing: departmentNursing,
+          supportRequests: departmentSupportRequests,
         })
-        toast({ title: 'Department created', description: created?.name })
-        setSelectedDepartment(created)
-        await refetchDepartments()
+        if (createdResp?.status === 'SUCCESS') {
+          toast({ title: 'Department created', description: createdResp.data?.name })
+          setSelectedDepartment(createdResp.data)
+          await refetchDepartments()
+        } else {
+          toast({ title: 'Create failed', description: createdResp?.message || 'Failed to create department', variant: 'destructive' })
+        }
       } else if (selectedDepartment) {
         // Edit mode - only update the name
-        const updated = await updateDepartment(selectedDepartment.id, {
+        const updatedResp = await updateDepartment(selectedDepartment.id, {
           name: departmentName.trim(),
+          nursing: departmentNursing,
+          supportRequests: departmentSupportRequests,
         })
-        toast({ title: 'Department name updated', description: updated?.name })
-        setSelectedDepartment(updated)
-        await refetchDepartments()
+        if (updatedResp?.status === 'SUCCESS') {
+          toast({ title: 'Department name updated', description: updatedResp.data?.name })
+          setSelectedDepartment(updatedResp.data)
+          await refetchDepartments()
+        } else {
+          toast({ title: 'Update failed', description: updatedResp?.message || 'Failed to update department', variant: 'destructive' })
+        }
       }
       setIsModalOpen(false)
     } catch (err: any) {
@@ -250,13 +272,13 @@ export default function DepartmentsPage() {
     if (!confirm('Delete this department?')) return
     try {
       setSaving(true)
-      const ok = await deleteDepartment(selectedDepartment.id)
-      if (ok) {
+      const resp = await deleteDepartment(selectedDepartment.id)
+      if (resp?.status === 'SUCCESS') {
         toast({ title: 'Department deleted' })
         setSelectedDepartment(null)
         await refetchDepartments()
       } else {
-        toast({ title: 'Delete failed', description: 'Please try again.' })
+        toast({ title: 'Delete failed', description: resp?.message || 'Please try again.' })
       }
     } catch (err: any) {
       toast({ title: 'Delete failed', description: err?.message || 'Unexpected error' })
@@ -270,21 +292,24 @@ export default function DepartmentsPage() {
     if (!department || !selectedProductId) return
     try {
       const currentProductIds = (department.defaultProducts || []).map((p: any) => String(p.id))
-      const updated = await updateDepartment(department.id, {
+      const resp = await updateDepartment(department.id, {
         defaultProductIds: [...currentProductIds, selectedProductId]
       })
-      
-      // Update both selectedDepartment and menuDepartment if they exist
-      if (selectedDepartment?.id === department.id) {
-        setSelectedDepartment(updated)
+      if (resp?.status === 'SUCCESS') {
+        const updated = resp.data
+        // Update both selectedDepartment and menuDepartment if they exist
+        if (selectedDepartment?.id === department.id) {
+          setSelectedDepartment(updated)
+        }
+        if (menuDepartment?.id === department.id) {
+          setMenuDepartment(updated)
+        }
+        await refetchDepartments()
+        setSelectedProductId('')
+        toast({ title: 'Product added successfully', description: resp.message || 'The product has been linked to the department.' })
+      } else {
+        toast({ title: 'Failed to add product', description: resp?.message || 'Failed to add product to department', variant: 'destructive' })
       }
-      if (menuDepartment?.id === department.id) {
-        setMenuDepartment(updated)
-      }
-      
-      await refetchDepartments()
-      setSelectedProductId('')
-      toast({ title: 'Product added successfully', description: 'The product has been linked to the department.' })
     } catch (err: any) {
       console.error('Add product error:', err)
       
@@ -324,20 +349,23 @@ export default function DepartmentsPage() {
     if (!department) return
     try {
       const currentProductIds = (department.defaultProducts || []).map((p: any) => String(p.id))
-      const updated = await updateDepartment(department.id, {
+      const resp = await updateDepartment(department.id, {
         defaultProductIds: currentProductIds.filter((id: string) => id !== String(productId))
       })
-      
-      // Update both selectedDepartment and menuDepartment if they exist
-      if (selectedDepartment?.id === department.id) {
-        setSelectedDepartment(updated)
+      if (resp?.status === 'SUCCESS') {
+        const updated = resp.data
+        // Update both selectedDepartment and menuDepartment if they exist
+        if (selectedDepartment?.id === department.id) {
+          setSelectedDepartment(updated)
+        }
+        if (menuDepartment?.id === department.id) {
+          setMenuDepartment(updated)
+        }
+        await refetchDepartments()
+        toast({ title: 'Product removed successfully', description: resp.message || 'The product has been unlinked from the department.' })
+      } else {
+        toast({ title: 'Failed to remove product', description: resp?.message || 'Failed to remove product from department', variant: 'destructive' })
       }
-      if (menuDepartment?.id === department.id) {
-        setMenuDepartment(updated)
-      }
-      
-      await refetchDepartments()
-      toast({ title: 'Product removed successfully', description: 'The product has been unlinked from the department.' })
     } catch (err: any) {
       console.error('Remove product error:', err)
       const errorMessage = err?.message || 'Failed to remove product from department'
@@ -354,21 +382,24 @@ export default function DepartmentsPage() {
     if (!department || !selectedInsuranceId) return
     try {
       const currentInsuranceIds = (department.insurancePolicies || []).map((i: any) => String(i.id))
-      const updated = await updateDepartment(department.id, {
+      const resp = await updateDepartment(department.id, {
         insuranceProviderIds: [...currentInsuranceIds, selectedInsuranceId]
       })
-      
-      // Update both selectedDepartment and menuDepartment if they exist
-      if (selectedDepartment?.id === department.id) {
-        setSelectedDepartment(updated)
+      if (resp?.status === 'SUCCESS') {
+        const updated = resp.data
+        // Update both selectedDepartment and menuDepartment if they exist
+        if (selectedDepartment?.id === department.id) {
+          setSelectedDepartment(updated)
+        }
+        if (menuDepartment?.id === department.id) {
+          setMenuDepartment(updated)
+        }
+        await refetchDepartments()
+        setSelectedInsuranceId('')
+        toast({ title: 'Insurance policy added successfully', description: resp.message || 'The insurance policy has been linked to the department.' })
+      } else {
+        toast({ title: 'Failed to add insurance policy', description: resp?.message || 'Failed to add insurance policy to department', variant: 'destructive' })
       }
-      if (menuDepartment?.id === department.id) {
-        setMenuDepartment(updated)
-      }
-      
-      await refetchDepartments()
-      setSelectedInsuranceId('')
-      toast({ title: 'Insurance policy added successfully', description: 'The insurance policy has been linked to the department.' })
     } catch (err: any) {
       console.error('Add insurance error:', err)
       
@@ -408,20 +439,23 @@ export default function DepartmentsPage() {
     if (!department) return
     try {
       const currentInsuranceIds = (department.insurancePolicies || []).map((i: any) => String(i.id))
-      const updated = await updateDepartment(department.id, {
+      const resp = await updateDepartment(department.id, {
         insuranceProviderIds: currentInsuranceIds.filter((id: string) => id !== String(insuranceId))
       })
-      
-      // Update both selectedDepartment and menuDepartment if they exist
-      if (selectedDepartment?.id === department.id) {
-        setSelectedDepartment(updated)
+      if (resp?.status === 'SUCCESS') {
+        const updated = resp.data
+        // Update both selectedDepartment and menuDepartment if they exist
+        if (selectedDepartment?.id === department.id) {
+          setSelectedDepartment(updated)
+        }
+        if (menuDepartment?.id === department.id) {
+          setMenuDepartment(updated)
+        }
+        await refetchDepartments()
+        toast({ title: 'Insurance policy removed successfully', description: resp.message || 'The insurance policy has been unlinked from the department.' })
+      } else {
+        toast({ title: 'Failed to remove insurance policy', description: resp?.message || 'Failed to remove insurance policy from department', variant: 'destructive' })
       }
-      if (menuDepartment?.id === department.id) {
-        setMenuDepartment(updated)
-      }
-      
-      await refetchDepartments()
-      toast({ title: 'Insurance policy removed successfully', description: 'The insurance policy has been unlinked from the department.' })
     } catch (err: any) {
       console.error('Remove insurance error:', err)
       const errorMessage = err?.message || 'Failed to remove insurance policy from department'
@@ -696,7 +730,7 @@ export default function DepartmentsPage() {
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-foreground">{modalMode === 'add' ? 'Add Department' : 'Edit Department'}</DialogTitle>
               <DialogDescription>
-                {modalMode === 'add' ? 'Fill in the details below to create a new system department.' : 'Update the department name below.'}
+                {modalMode === 'add' ? 'Fill in the details below to create a new system department. Operational flags like nursing and support requests are managed by the backend and shown after creation.' : 'Update the department name below.'}
               </DialogDescription>
             </DialogHeader>
 
@@ -705,9 +739,44 @@ export default function DepartmentsPage() {
                 <label className="text-xs font-semibold text-muted-foreground">Name *</label>
                 <Input value={departmentName} onChange={(e) => setDepartmentName(e.target.value)} placeholder="Department name" className="rounded-xl bg-white dark:bg-slate-950" />
               </div>
+
+              {modalMode === 'edit' && selectedDepartment && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-border/60 bg-white dark:bg-slate-950 p-4 shadow-sm items-center">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground">Nursing</p>
+                      <p className="text-sm text-foreground">Enable nursing features for this department</p>
+                    </div>
+                    <Switch checked={departmentNursing} onCheckedChange={(v: boolean) => setDepartmentNursing(v)} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground">Support Requests</p>
+                      <p className="text-sm text-foreground">Allow support request workflow for this department</p>
+                    </div>
+                    <Switch checked={departmentSupportRequests} onCheckedChange={(v: boolean) => setDepartmentSupportRequests(v)} />
+                  </div>
+                </div>
+              )}
               
               {modalMode === 'add' && (
                 <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-muted-foreground">Nursing</label>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-foreground">Enable nursing features for this department</p>
+                        <Switch checked={departmentNursing} onCheckedChange={(v: boolean) => setDepartmentNursing(v)} />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-muted-foreground">Support Requests</label>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-foreground">Allow support request workflow for this department</p>
+                        <Switch checked={departmentSupportRequests} onCheckedChange={(v: boolean) => setDepartmentSupportRequests(v)} />
+                      </div>
+                    </div>
+                  </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground">Insurance Policy Mode</label>
                     <Select value={departmentInsurancePolicyMode} onValueChange={setDepartmentInsurancePolicyMode}>
@@ -826,6 +895,15 @@ export default function DepartmentsPage() {
           </DialogHeader>
           {menuDepartment && (
             <div className="space-y-6">
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium">
+                  Nursing: {typeof menuDepartment.nursing === 'boolean' ? (menuDepartment.nursing ? 'Enabled' : 'Disabled') : 'Not available yet'}
+                </span>
+                <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium">
+                  Support Requests: {typeof menuDepartment.supportRequests === 'boolean' ? (menuDepartment.supportRequests ? 'Enabled' : 'Disabled') : 'Not available yet'}
+                </span>
+              </div>
+
               {/* Products section */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">

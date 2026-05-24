@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Visit, Department } from '@/hooks/auth-hooks';
 import { useAddDepartmentToVisit, useDepartments } from '@/hooks/auth-hooks';
+import { toast } from 'react-toastify';
+import { handleResponse } from '@/lib/response-handler';
+import { DepartmentAutocomplete } from '@/components/ui/department-autocomplete';
 
 interface AddDepartmentModalProps {
   visit: Visit;
@@ -20,9 +22,16 @@ export function AddDepartmentModal({
   onClose,
   onSuccess,
 }: AddDepartmentModalProps) {
-  const { departments } = useDepartments();
+  const { departments, error: departmentsError, loading: departmentsLoading } = useDepartments();
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
   const { addDepartmentToVisit, loading } = useAddDepartmentToVisit();
+
+  useEffect(() => {
+    if (!isOpen || !departmentsError) return;
+
+    toast.error(departmentsError || 'Failed to load departments for this visit');
+    onClose();
+  }, [departmentsError, isOpen, onClose]);
 
   // Filter out departments already in the visit
   const existingDepartmentIds = visit.departments?.map(d => String(d.department?.id)) || [];
@@ -30,23 +39,28 @@ export function AddDepartmentModal({
     dept => !existingDepartmentIds.includes(String(dept.id))
   );
 
+  if (departmentsError) {
+    return null;
+  }
+
   const handleSubmit = async () => {
-    if (!selectedDepartmentId) return;
+    if (!selectedDepartmentId) {
+      toast.error('Choose a department before adding it to the visit')
+      return
+    }
 
     try {
       const result = await addDepartmentToVisit(visit.id, selectedDepartmentId);
 
-      if (result?.status === 'SUCCESS') {
+      const ok = await handleResponse(result, { successMessage: 'Department added to visit', errorMessage: true })
+      if (ok) {
         onSuccess?.();
         onClose();
         setSelectedDepartmentId('');
-      } else {
-        const errorMessage = result?.message || result?.messages?.[0]?.text || 'Failed to add department';
-        alert(errorMessage);
       }
     } catch (error) {
       console.error('Error adding department:', error);
-      alert('Failed to add department to visit');
+      toast.error('Failed to add department to visit');
     }
   };
 
@@ -77,7 +91,11 @@ export function AddDepartmentModal({
             </p>
           </div>
 
-          {availableDepartments.length === 0 ? (
+          {departmentsLoading ? (
+            <div className="text-center py-6 text-slate-500 dark:text-slate-400">
+              <p className="text-sm">Loading departments...</p>
+            </div>
+          ) : availableDepartments.length === 0 ? (
             <div className="text-center py-6 text-slate-500 dark:text-slate-400">
               <p className="text-sm">All departments have been added to this visit</p>
             </div>
@@ -87,18 +105,13 @@ export function AddDepartmentModal({
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                   Select Department
                 </label>
-                <Select value={selectedDepartmentId} onValueChange={setSelectedDepartmentId}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose a department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableDepartments.map((dept) => (
-                      <SelectItem key={dept.id} value={String(dept.id)}>
-                        {dept.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <DepartmentAutocomplete
+                  departments={availableDepartments}
+                  selectedDepartmentId={selectedDepartmentId}
+                  onDepartmentSelect={setSelectedDepartmentId}
+                  placeholder="Choose a department"
+                  disabled={departmentsLoading}
+                />
               </div>
 
               <div className="flex gap-3 mt-6">

@@ -6,7 +6,7 @@ import { useLazyQuery } from "@apollo/client"
 import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
 import { toast } from "react-toastify"
 import { useRouter } from "next/navigation"
-import { Search, Calendar, Clock, CheckCircle, AlertCircle, User, ReceiptText, Plus, Stethoscope } from "lucide-react"
+import { Search, Calendar, Clock, CheckCircle, AlertCircle, User, ReceiptText, Plus, Stethoscope, Activity } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
 import { useAuth } from "@/lib/auth-context"
 import { AddDepartmentModal } from "./add-department-modal"
@@ -117,12 +117,33 @@ export default function VisitsListView({
     refetchDepartments()
   }
 
+  const getTriageDuration = (visit: Visit) => {
+    const startedAt = new Date(visit.visitDate).getTime()
+    if (Number.isNaN(startedAt)) return 'Triage'
+
+    const elapsedMs = Math.max(Date.now() - startedAt, 0)
+    const totalMinutes = Math.floor(elapsedMs / 60000)
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+
+    if (hours <= 0) {
+      return `Triage • ${minutes}m`
+    }
+
+    return `Triage • ${hours}h ${minutes}m`
+  }
+
   const handleGoToBilling = (visit: Visit) => {
     router.push(`/billing?visitId=${visit.id}&patientId=${visit.patient.id}`)
   }
 
+  const handleTriageVisit = (visit: Visit) => {
+    router.push(`/triage/${visit.id}`)
+  }
+
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
   const isClinicianLike = roles.includes("CLINICIAN") || roles.includes("DOCTOR")
+  const hasNurseRole = roles.includes("NURSE")
   const hasReceptionistRole = roles.includes("RECEPTIONIST") || roles.includes("RECEPTION")
   const hasFinanceRole = roles.includes("FINANCE")
 
@@ -216,7 +237,9 @@ export default function VisitsListView({
                     {/* Show active department for progress tracking when visit is not completed/cancelled */}
                     {visit.status !== 'COMPLETED' && visit.status !== 'CANCELLED' && (
                       <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                        Active Department: {visit.departments?.find(dept => dept.status === 'ACTIVE')?.department?.name || 'None'}
+                        {visit.departments?.length === 0
+                          ? `Active Department: ${getTriageDuration(visit)}`
+                          : `Active Department: ${visit.departments?.find(dept => dept.status === 'ACTIVE')?.department?.name || 'None'}`}
                       </p>
                     )}
                   </div>
@@ -231,6 +254,7 @@ export default function VisitsListView({
 
                     const canUserConsultThisVisit = isClinicianLike && Boolean(matchingDept)
                     const showConsultButton = (visit.status === 'CREATED' || visit.status === 'IN_PROGRESS') && canUserConsultThisVisit
+                    const showTriageButton = (visit.status === 'CREATED' || visit.status === 'IN_PROGRESS') && hasNurseRole
 
                     if (process.env.NODE_ENV !== 'production') {
                       try {
@@ -243,6 +267,7 @@ export default function VisitsListView({
                           matchingDeptId: matchingDept?.department?.id || matchingDept?.id,
                           canUserConsultThisVisit,
                           showConsultButton,
+                          showTriageButton,
                         })
                       } catch (e) {
                         // ignore
@@ -263,6 +288,21 @@ export default function VisitsListView({
                             <Stethoscope className="w-4 h-4 flex-shrink-0" />
                             <span className="hidden sm:inline lg:hidden">Consult</span>
                             <span className="hidden lg:inline">Start Consult</span>
+                          </button>
+                        )}
+
+                        {showTriageButton && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleTriageVisit(visit)
+                            }}
+                            title="Open Triage"
+                            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
+                          >
+                            <Activity className="w-4 h-4 flex-shrink-0" />
+                            <span className="hidden sm:inline lg:hidden">Triage</span>
+                            <span className="hidden lg:inline">Open Triage</span>
                           </button>
                         )}
 

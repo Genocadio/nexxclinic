@@ -28,8 +28,10 @@ interface ConsultationFormDisplayProps {
   onActionListenerClick?: (fieldId: string) => void
   onUpdateQuantity?: (fieldId: string, actionId: string, quantity: number) => void
   onRemoveAction?: (fieldId: string, actionId: string) => void
+  onRestoreAction?: (fieldId: string, actionId: string) => void
   visitId?: string
   currentDepartmentId?: string
+  visitDepartmentId?: string
 }
 
 export function ConsultationFormDisplay({
@@ -54,6 +56,7 @@ export function ConsultationFormDisplay({
   onRestoreAction,
   visitId,
   currentDepartmentId,
+  visitDepartmentId,
 }: ConsultationFormDisplayProps) {
   return (
     <Card>
@@ -111,6 +114,7 @@ export function ConsultationFormDisplay({
                          onRestoreAction={onRestoreAction ? (actionId) => onRestoreAction(field.id, actionId) : undefined}
                          visitId={visitId}
                          departmentId={currentDepartmentId}
+                         visitDepartmentId={visitDepartmentId}
                        />
                     </div>
                   )
@@ -154,6 +158,7 @@ export function ConsultationFormDisplay({
                                  onRemoveAction={onRemoveAction ? (actionId) => onRemoveAction(field.id, actionId) : undefined}
                                  onRestoreAction={onRestoreAction ? (actionId) => onRestoreAction(field.id, actionId) : undefined}
                                  visitId={visitId}
+                                 visitDepartmentId={visitDepartmentId}
                                />
                             </div>
                           )

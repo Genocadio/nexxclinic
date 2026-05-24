@@ -201,8 +201,18 @@ export function useCreateProduct() {
       authorizationRequestReasons?: string[]
     }[]
   }) => {
-    const { data } = await mutate({ variables: { input } })
-    return data?.createProduct?.data
+    try {
+      const { data } = await mutate({ variables: { input } })
+      const payload = data?.createProduct
+      return {
+        status: payload?.status || 'ERROR',
+        message: payload?.message,
+        data: payload?.data || undefined,
+      }
+    } catch (err) {
+      console.error('Create product error:', err)
+      throw err
+    }
   }
   return { createProduct, loading, error: error?.message || null }
 }
@@ -210,8 +220,18 @@ export function useCreateProduct() {
 export function useUpdateProduct() {
   const [mutate, { loading, error }] = useMutation(UPDATE_PRODUCT_MUTATION)
   const updateProduct = async (productId: string | number, input: any) => {
-    const { data } = await mutate({ variables: { productId, input } })
-    return data?.updateProduct?.data
+    try {
+      const { data } = await mutate({ variables: { productId, input } })
+      const payload = data?.updateProduct
+      return {
+        status: payload?.status || 'ERROR',
+        message: payload?.message,
+        data: payload?.data || undefined,
+      }
+    } catch (err) {
+      console.error('Update product error:', err)
+      throw err
+    }
   }
   return { updateProduct, loading, error: error?.message || null }
 }
@@ -219,8 +239,17 @@ export function useUpdateProduct() {
 export function useDeleteProduct() {
   const [mutate, { loading, error }] = useMutation(DELETE_PRODUCT_MUTATION)
   const deleteProduct = async (productId: string | number) => {
-    const { data } = await mutate({ variables: { productId } })
-    return data?.deleteProduct?.status === 'SUCCESS'
+    try {
+      const { data } = await mutate({ variables: { productId } })
+      const payload = data?.deleteProduct
+      return {
+        status: payload?.status || 'ERROR',
+        message: payload?.message,
+      }
+    } catch (err) {
+      console.error('Delete product error:', err)
+      throw err
+    }
   }
   return { deleteProduct, loading, error: error?.message || null }
 }
@@ -228,8 +257,18 @@ export function useDeleteProduct() {
 export function useAddProductInsuranceCoverage() {
   const [mutate, { loading, error }] = useMutation(ADD_PRODUCT_INSURANCE_COVERAGE_MUTATION)
   const addCoverage = async (productId: string | number, insuranceProviderId: string, cost: number) => {
-    const { data } = await mutate({ variables: { productId, input: { insuranceProviderId, cost } } })
-    return data?.createProductInsuranceCoverage?.data
+    try {
+      const { data } = await mutate({ variables: { productId, input: { insuranceProviderId, cost } } })
+      const payload = data?.addProductInsuranceCoverage
+      return {
+        status: payload?.status || 'ERROR',
+        message: payload?.message,
+        data: payload?.data || undefined,
+      }
+    } catch (err) {
+      console.error('Add product coverage error:', err)
+      throw err
+    }
   }
   return { addCoverage, loading, error: error?.message || null }
 }
@@ -237,8 +276,17 @@ export function useAddProductInsuranceCoverage() {
 export function useRemoveProductInsuranceCoverage() {
   const [mutate, { loading, error }] = useMutation(REMOVE_PRODUCT_INSURANCE_COVERAGE_MUTATION)
   const removeCoverage = async (productInsuranceCoverageId: string | number) => {
-    const { data } = await mutate({ variables: { productInsuranceCoverageId } })
-    return data?.deleteProductInsuranceCoverage?.status === 'SUCCESS'
+    try {
+      const { data } = await mutate({ variables: { productInsuranceCoverageId } })
+      const payload = data?.removeProductInsuranceCoverage
+      return {
+        status: payload?.status || 'ERROR',
+        message: payload?.message,
+      }
+    } catch (err) {
+      console.error('Remove product coverage error:', err)
+      throw err
+    }
   }
   return { removeCoverage, loading, error: error?.message || null }
 }

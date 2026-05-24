@@ -149,8 +149,9 @@ export default function ConsultationPage() {
     consultations: []
   }
 
-  const firstDepartmentId = visit.departments?.[0]?.department?.id || visit.departments?.[0]?.id
   const firstDepartment = visit.departments?.[0]
+  const firstDepartmentId = firstDepartment?.department?.id || firstDepartment?.id
+  const firstVisitDepartmentId = firstDepartment?.id
 
   const scopedNotes = [
     ...(visit.visitNotes || []).map((note) => ({
@@ -211,6 +212,7 @@ export default function ConsultationPage() {
         consultation={consultation}
         patient={patient}
         departmentId={firstDepartmentId ? String(firstDepartmentId) : undefined}
+        visitDepartmentId={firstVisitDepartmentId ? String(firstVisitDepartmentId) : undefined}
         existingProducts={existingProducts}
         onSave={async (updatedConsultation) => {
           try {

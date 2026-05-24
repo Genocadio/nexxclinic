@@ -214,13 +214,13 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
 
       const result = await updatePatient(patient.id, formData)
       if (result.status === 'SUCCESS') {
-        toast.success("Patient updated successfully!")
+        toast.success(result.message || "Patient updated successfully!")
         if (onPatientUpdated && result.data) {
           onPatientUpdated(result.data)
         }
         onClose()
       } else {
-        const message = result.messages?.[0]?.text || 'Patient update failed'
+        const message = result.message || result.messages?.[0]?.text || 'Patient update failed'
         toast.error(message)
       }
     } catch (error) {

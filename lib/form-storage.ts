@@ -4,7 +4,7 @@ export interface ConditionalRendering {
   dependsOn: string // field ID that this field depends on
   condition: 'notEmpty' | 'equals' | 'checked' | 'includes' | 'hasItem'
   value?: string // for 'equals', 'includes', and 'hasItem' conditions (item name for hasItem)
-  itemType?: 'action' | 'consumable' // only for hasItem condition
+  itemType?: 'action' | 'consumable' | 'product' // only for hasItem condition; product is the current default
 }
 
 export interface FormAction {
@@ -31,10 +31,26 @@ export interface TableConfig {
   rowHeaders?: string[]
 }
 
+export type LabRecordLayout = 'valueUnit' | 'result'
+
+export interface LabRecordRowConfig {
+  id: string
+  name: string
+  unitMode?: 'dropdown' | 'none'
+  unitOptions?: string[]
+  defaultUnit?: string
+  resultOptions?: string[]
+}
+
+export interface LabRecordConfig {
+  layout: LabRecordLayout
+  rows: LabRecordRowConfig[]
+}
+
 export interface FormField {
   id: string
   label: string
-  type: 'text' | 'email' | 'number' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'date' | 'table' | 'diagnosticRecord' | 'medicationLongForm' | 'medicationMiniForm' | 'actionListener'
+  type: 'text' | 'email' | 'number' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'date' | 'table' | 'labRecord' | 'diagnosticRecord' | 'medicationLongForm' | 'medicationMiniForm' | 'actionListener'
   placeholder?: string
   required: boolean
   hideLabel?: boolean
@@ -44,6 +60,7 @@ export interface FormField {
   underlineLabel?: boolean
   options?: string[] // for select/radio
   tableConfig?: TableConfig
+  labRecordConfig?: LabRecordConfig
   order: number
   conditionalRendering?: ConditionalRendering
 }

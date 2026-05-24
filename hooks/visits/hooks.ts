@@ -4,7 +4,10 @@ import { GET_VISIT_QUERY, VISITS_QUERY, DASHBOARD_STATS_QUERY } from '../queries
 import { 
   CREATE_VISIT_MUTATION, 
   ADD_VISIT_NOTE_MUTATION, 
+  ADD_VISIT_VITAL_SIGNS_MUTATION,
   ADD_DEPARTMENT_NOTE_MUTATION,
+  ADD_DIAGNOSIS_MUTATION,
+  ADD_MEDICATION_MUTATION,
   UPSERT_CONSULTATION_ANSWERS_MUTATION,
   GENERATE_CONSULTATION_PDF_MUTATION,
   PROCESS_VISIT_DEPARTMENT_MUTATION,
@@ -30,6 +33,7 @@ import type {
   VisitDepartmentNote,
   Patient,
   PatientInsurance,
+  VisitVitalSignsGroup,
   ApiResponse 
 } from '../types'
 
@@ -72,6 +76,18 @@ export interface GqlVisitDepartment {
   status: string
   transferTime?: string | null
   completedTime?: string | null
+  diagnostics?: Array<{
+    id: string
+    diagnosisName: string
+    icd11Code?: string | null
+    createdAt?: string | null
+  }> | null
+  medications?: Array<{
+    id: string
+    medicationName: string
+    instructions: string
+    createdAt?: string | null
+  }> | null
   products?: GqlVisitDepartmentProduct[] | null
   department?: {
     id: string
@@ -127,6 +143,22 @@ export interface GqlVisit {
   id: string
   visitDate: string
   status: string
+  vitalSigns?: Array<{
+    id: string
+    createdAt: string
+    addedBy?: {
+      id: string
+      firstName?: string | null
+      lastName?: string | null
+    } | null
+    measurements?: Array<{
+      id: string
+      measurementName: string
+      value: string
+      unit: string
+      createdAt?: string | null
+    }> | null
+  }> | null
   linkedInsurances?: Array<{
     id: string
     insuranceCardNumber: string
@@ -161,6 +193,76 @@ export interface GetVisitQueryData {
     message?: string
     data: GqlVisit
   }
+}
+
+const toGroupCreatedAt = (value?: string | null) => {
+  if (!value) return 'unknown'
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? 'unknown' : parsed.toISOString()
+}
+
+export const normalizeVisitVitalSigns = (vitalSigns: any[] = []): VisitVitalSignsGroup[] => {
+  if (!Array.isArray(vitalSigns) || vitalSigns.length === 0) return []
+
+  const hasGroupedShape = Array.isArray(vitalSigns[0]?.measurements)
+
+  if (hasGroupedShape) {
+    return vitalSigns
+      .map((group: any, index: number) => ({
+        id: String(group?.id || group?.createdAt || `group-${index}`),
+        createdAt: toGroupCreatedAt(group?.createdAt),
+        addedBy: group?.addedBy ? {
+          id: String(group.addedBy.id || ''),
+          firstName: group.addedBy.firstName || undefined,
+          lastName: group.addedBy.lastName || undefined,
+        } : undefined,
+        measurements: (group?.measurements || [])
+          .map((measurement: any, measurementIndex: number) => ({
+            id: String(measurement?.id || `${group?.id || group?.createdAt || 'group'}-${measurementIndex}`),
+            measurementName: String(measurement?.measurementName || ''),
+            value: String(measurement?.value || ''),
+            unit: String(measurement?.unit || ''),
+            createdAt: measurement?.createdAt || group?.createdAt || undefined,
+          }))
+          .filter((measurement: any) => measurement.measurementName || measurement.value || measurement.unit),
+      }))
+      .filter((group: VisitVitalSignsGroup) => group.measurements.length > 0)
+      .sort((a, b) => {
+        if (a.createdAt === 'unknown') return 1
+        if (b.createdAt === 'unknown') return -1
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+      })
+  }
+
+  const grouped = new Map<string, any[]>()
+  vitalSigns.forEach((vitalSign: any) => {
+    const key = toGroupCreatedAt(vitalSign?.createdAt)
+    if (!grouped.has(key)) grouped.set(key, [])
+    grouped.get(key)!.push(vitalSign)
+  })
+
+  return Array.from(grouped.entries())
+    .map(([createdAt, items], index) => ({
+      id: `group-${index}-${createdAt}`,
+      createdAt,
+      measurements: items.map((vitalSign: any, measurementIndex: number) => ({
+        id: String(vitalSign?.id || `${createdAt}-${measurementIndex}`),
+        measurementName: String(vitalSign?.measurementName || ''),
+        value: String(vitalSign?.value || ''),
+        unit: String(vitalSign?.unit || ''),
+        createdAt: vitalSign?.createdAt || undefined,
+      })),
+      addedBy: items[0]?.addedBy ? {
+        id: String(items[0].addedBy.id || ''),
+        firstName: items[0].addedBy.firstName || undefined,
+        lastName: items[0].addedBy.lastName || undefined,
+      } : undefined,
+    }))
+    .sort((a, b) => {
+      if (a.createdAt === 'unknown') return 1
+      if (b.createdAt === 'unknown') return -1
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    })
 }
 
 export interface CreateVisitPayload {
@@ -298,6 +400,18 @@ const mapVisitDepartmentProducts = (departments: GqlVisitDepartment[] = []): Vis
       },
       createdAt: note.createdAt,
     })),
+    diagnostics: (department.diagnostics || []).map((diagnosis) => ({
+      id: String(diagnosis.id),
+      diagnosisName: String(diagnosis.diagnosisName || ''),
+      icd11Code: diagnosis.icd11Code || undefined,
+      createdAt: diagnosis.createdAt || undefined,
+    })),
+    medications: (department.medications || []).map((medication) => ({
+      id: String(medication.id),
+      medicationName: String(medication.medicationName || ''),
+      instructions: String(medication.instructions || ''),
+      createdAt: medication.createdAt || undefined,
+    })),
   }
 })
 
@@ -412,6 +526,7 @@ export function useVisits(size?: number, page?: number, filter?: VisitFilterInpu
       principalMember: false,
     })),
     departments: mapVisitDepartmentProducts(v.departments || []),
+    vitalSigns: normalizeVisitVitalSigns(v.vitalSigns || []),
   }))
 
   return {
@@ -513,6 +628,7 @@ export function useVisit(id: string | null) {
         })),
         visitNotes: [],
         departments: mapVisitDepartmentProducts(visitData.departments || []),
+        vitalSigns: normalizeVisitVitalSigns(visitData.vitalSigns || []),
       }
   }, [visitData])
   const errorMessage = error?.message || null
@@ -637,6 +753,43 @@ export function useAddVisitNote() {
   return { addVisitNote, loading, error }
 }
 
+export function useAddVisitVitalSigns() {
+  const [mutation, { loading, error }] = useMutation(ADD_VISIT_VITAL_SIGNS_MUTATION)
+
+  const addVisitVitalSigns = async (
+    visitId: string,
+    vitalSigns: Array<{ measurementName: string; value: string; unit: string }>,
+  ): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({
+        variables: {
+          input: {
+            visitId,
+            vitalSigns,
+          },
+        },
+      })
+      const payload = result.data?.addVisitVitalSigns
+      return {
+        status: payload?.status || 'ERROR',
+        message: payload?.message,
+        messages: payload?.message ? [{ text: payload.message, type: payload.status || 'ERROR' }] : undefined,
+        data: payload?.data
+          ? {
+              ...payload.data,
+              vitalSigns: normalizeVisitVitalSigns(payload.data.vitalSigns || []),
+            }
+          : undefined,
+      }
+    } catch (err) {
+      console.error('Add visit vital signs error:', err)
+      throw err
+    }
+  }
+
+  return { addVisitVitalSigns, loading, error }
+}
+
 export function useAddDepartmentNote() {
   const [mutation, { loading, error }] = useMutation(ADD_DEPARTMENT_NOTE_MUTATION)
 
@@ -651,6 +804,54 @@ export function useAddDepartmentNote() {
   }
 
   return { addDepartmentNote, loading, error }
+}
+
+export function useAddDiagnosisToVisitDepartment() {
+  const [mutation, { loading, error }] = useMutation(ADD_DIAGNOSIS_MUTATION)
+
+  const addDiagnosis = async (visitDepartmentId: string, diagnosisName: string, icd11Code?: string): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({
+        variables: {
+          input: {
+            visitDepartmentId,
+            diagnosisName,
+            icd11Code: icd11Code || undefined,
+          },
+        },
+      })
+      return result.data?.addDiagnosis
+    } catch (err) {
+      console.error('Add diagnosis error:', err)
+      throw err
+    }
+  }
+
+  return { addDiagnosis, loading, error }
+}
+
+export function useAddMedicationToVisitDepartment() {
+  const [mutation, { loading, error }] = useMutation(ADD_MEDICATION_MUTATION)
+
+  const addMedication = async (visitDepartmentId: string, medicationName: string, instructions: string): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({
+        variables: {
+          input: {
+            visitDepartmentId,
+            medicationName,
+            instructions,
+          },
+        },
+      })
+      return result.data?.addMedication
+    } catch (err) {
+      console.error('Add medication error:', err)
+      throw err
+    }
+  }
+
+  return { addMedication, loading, error }
 }
 
 export function useUpsertConsultationAnswers() {
@@ -941,15 +1142,13 @@ export function useAddDepartmentToVisit() {
     try {
       const result = await mutation({
         variables: {
-          input: {
-            visitId,
-            departmentId,
-          },
+          visitId,
+          departmentId,
         },
         refetchQueries: ['GetVisits', 'GetVisit'],
         awaitRefetchQueries: true,
       })
-      return result.data?.addDepartmentToVisit
+      return result.data?.addVisitDepartment
     } catch (err) {
       console.error('Add department to visit error:', err)
       throw err

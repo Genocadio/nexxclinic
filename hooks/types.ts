@@ -152,6 +152,20 @@ export interface VisitDepartmentNote {
   createdAt: string
 }
 
+export interface VisitDepartmentDiagnosis {
+  id: string
+  diagnosisName: string
+  icd11Code?: string
+  createdAt?: string
+}
+
+export interface VisitDepartmentMedication {
+  id: string
+  medicationName: string
+  instructions: string
+  createdAt?: string
+}
+
 export interface VisitDepartment {
   id: string
   status: string
@@ -176,7 +190,30 @@ export interface VisitDepartment {
   actions?: VisitDepartmentAction[]
   consumables?: VisitDepartmentConsumable[]
   notes?: VisitDepartmentNote[]
+  diagnostics?: VisitDepartmentDiagnosis[]
+  medications?: VisitDepartmentMedication[]
 }
+
+export interface VisitVitalSignMeasurement {
+  id: string
+  measurementName: string
+  value: string
+  unit: string
+  createdAt?: string
+}
+
+export interface VisitVitalSignsGroup {
+  id: string
+  addedBy?: {
+    id: string
+    firstName?: string
+    lastName?: string
+  }
+  createdAt?: string
+  measurements: VisitVitalSignMeasurement[]
+}
+
+export type VisitVitalSign = VisitVitalSignMeasurement
 
 export interface InsuranceProvider {
   id: string
@@ -225,6 +262,7 @@ export interface Visit {
     }
     createdAt: string
   }[]
+  vitalSigns?: VisitVitalSignsGroup[]
   departments?: VisitDepartment[]
   createdAt?: string
   updatedAt?: string
@@ -293,6 +331,8 @@ export interface Department {
   name: string
   description?: string
   insurancePolicyMode?: string
+  nursing?: boolean
+  supportRequests?: boolean
   insurancePolicies?: Insurance[]
   defaultProducts?: Product[]
   createdAt?: string
@@ -373,6 +413,17 @@ export interface FormField {
     headerPlacement: 'none' | 'top' | 'left'
     columnHeaders: string[]
     rowHeaders: string[]
+  }
+  labRecordConfig?: {
+    layout: 'valueUnit' | 'result'
+    rows: {
+      id: string
+      name: string
+      unitMode?: 'dropdown' | 'none'
+      unitOptions?: string[]
+      defaultUnit?: string
+      resultOptions?: string[]
+    }[]
   }
   conditionalRendering?: {
     dependsOn: string
