@@ -185,7 +185,7 @@ export function FormFieldRenderer({
     )
   }
   if (field.type === 'table') {
-    const cfg = field.tableConfig || { mode: 'fixed' as const, rows: 3, columns: 3, headerPlacement: 'none' as const }
+    const cfg = field.tableConfig || { mode: 'STATIC' as const, rows: 3, columns: 3, headerPlacement: 'none' as const }
     const shape = tableShapes[field.id] || { rows: cfg.rows, columns: cfg.columns }
     const rows = Math.max(1, shape.rows)
     const columns = Math.max(1, shape.columns)
@@ -208,8 +208,8 @@ export function FormFieldRenderer({
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>{rows} x {columns}</span>
-          {cfg.mode === 'variableRows' && <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => updateShape(rows + 1, columns)}>+ Row</Button>}
-          {cfg.mode === 'variableColumns' && <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => updateShape(rows, columns + 1)}>+ Col</Button>}
+          {cfg.mode === 'DYNAMIC' && <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => updateShape(rows + 1, columns)}>+ Row</Button>}
+          {cfg.mode === 'DYNAMIC' && <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => updateShape(rows, columns + 1)}>+ Col</Button>}
           {cfg.headerPlacement !== 'none' && <span className="text-[10px] text-muted-foreground">headers: {cfg.headerPlacement}</span>}
         </div>
         <div className="overflow-auto border border-border/70 rounded-md bg-background/50">

@@ -74,6 +74,11 @@ const mapFormList = (raw: any[]): BackendFormListItem[] => {
   return items
 }
 
+const normalizeTableMode = (mode: unknown) => {
+  const normalized = String(mode || '').toUpperCase()
+  return normalized === 'DYNAMIC' || mode === 'variableRows' || mode === 'variableColumns' ? 'DYNAMIC' : 'STATIC'
+}
+
 const mapPreviewField = (field: any, index: number): FormField => ({
   id: field?.id || `field_${index}`,
   label: field?.label || 'Untitled',
@@ -89,7 +94,7 @@ const mapPreviewField = (field: any, index: number): FormField => ({
   centerLabel: Boolean(field?.centerLabel),
   tableConfig: field?.tableConfig
     ? {
-        mode: field.tableConfig.mode || 'fixed',
+        mode: normalizeTableMode(field.tableConfig.mode),
         rows: Number(field.tableConfig.rows) || 3,
         columns: Number(field.tableConfig.columns) || 3,
         headerPlacement: field.tableConfig.headerPlacement || 'none',

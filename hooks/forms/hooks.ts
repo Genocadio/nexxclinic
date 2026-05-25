@@ -4,6 +4,11 @@ import { CREATE_FORM_MUTATION, UPDATE_FORM_MUTATION, FINALIZE_FORM_MUTATION } fr
 import React from 'react'
 import type { FormField, FormSection, FormAction, BackendForm } from '../types'
 
+const normalizeTableMode = (mode: unknown) => {
+  const normalized = String(mode || '').toUpperCase()
+  return normalized === 'DYNAMIC' || mode === 'variableRows' || mode === 'variableColumns' ? 'DYNAMIC' : 'STATIC'
+}
+
 const normalizeFormField = (field: any, index: number): FormField => ({
   id: field?.id || `field_${Date.now()}_${index}`,
   label: field?.label || 'Untitled',
@@ -18,7 +23,7 @@ const normalizeFormField = (field: any, index: number): FormField => ({
   options: Array.isArray(field?.options) ? field.options.filter(Boolean) : undefined,
   tableConfig: field?.tableConfig
     ? {
-        mode: field.tableConfig.mode || 'fixed',
+        mode: normalizeTableMode(field.tableConfig.mode),
         rows: Number(field.tableConfig.rows) || 3,
         columns: Number(field.tableConfig.columns) || 3,
         headerPlacement: field.tableConfig.headerPlacement || 'none',

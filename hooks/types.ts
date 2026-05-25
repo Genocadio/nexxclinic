@@ -407,7 +407,7 @@ export interface FormField {
   centerLabel?: boolean
   options?: string[]
   tableConfig?: {
-    mode: 'fixed' | 'dynamic'
+    mode: 'STATIC' | 'DYNAMIC'
     rows: number
     columns: number
     headerPlacement: 'none' | 'top' | 'left' | 'right' | 'both' | 'top-left' | 'top-right' | 'left-right' | 'top-left-right'

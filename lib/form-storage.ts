@@ -32,7 +32,7 @@ export type TableHeaderPlacement =
   | 'top-left-right'
 
 export interface TableConfig {
-  mode: 'fixed' | 'variableRows' | 'variableColumns'
+  mode: 'STATIC' | 'DYNAMIC'
   rows: number
   columns: number
   headerPlacement: TableHeaderPlacement

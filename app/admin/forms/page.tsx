@@ -49,6 +49,12 @@ const normalizeTableHeaderPlacement = (placement: TableHeaderPlacement | undefin
   return placement
 }
 
+const normalizeTableMode = (mode: unknown): TableConfig['mode'] => {
+  const normalized = String(mode || '').toUpperCase()
+  if (normalized === 'DYNAMIC' || mode === 'variableRows' || mode === 'variableColumns') return 'DYNAMIC'
+  return 'STATIC'
+}
+
 const fieldSchema = z.object({
   label: z.string().min(1, 'Label required'),
   type: z.enum(['text', 'email', 'number', 'textarea', 'select', 'radio', 'checkbox', 'date', 'table', 'labRecord', 'diagnosticRecord', 'medicationLongForm', 'medicationMiniForm', 'actionListener']),
@@ -146,7 +152,7 @@ const normalizeFormField = (field: any, index: number): FormField => ({
   options: Array.isArray(field?.options) ? field.options.filter(Boolean) : undefined,
   tableConfig: field?.tableConfig
     ? {
-        mode: field.tableConfig.mode || 'fixed',
+        mode: normalizeTableMode(field.tableConfig.mode),
         rows: Number(field.tableConfig.rows) || 3,
         columns: Number(field.tableConfig.columns) || 3,
         headerPlacement: field.tableConfig.headerPlacement || 'none',
@@ -248,7 +254,7 @@ export default function FormsPage() {
   const [editingItalicLabel, setEditingItalicLabel] = useState(false)
   const [editingUnderlineLabel, setEditingUnderlineLabel] = useState(false)
   const [editingOptions, setEditingOptions] = useState('')
-  const [editingTableMode, setEditingTableMode] = useState<TableConfig['mode']>('fixed')
+  const [editingTableMode, setEditingTableMode] = useState<TableConfig['mode']>('STATIC')
   const [editingTableRows, setEditingTableRows] = useState(3)
   const [editingTableColumns, setEditingTableColumns] = useState(3)
   const [editingTableHeaderPlacement, setEditingTableHeaderPlacement] = useState<TableHeaderPlacement>('none')
@@ -271,6 +277,7 @@ export default function FormsPage() {
   const [editingSectionUnderlineTitle, setEditingSectionUnderlineTitle] = useState(false)
   const [editingSectionCenterTitle, setEditingSectionCenterTitle] = useState(false)
   const [sectionFieldTypePickerColumn, setSectionFieldTypePickerColumn] = useState<string | null>(null) // sectionId_columnIndex
+  const [newFieldTargetSectionId, setNewFieldTargetSectionId] = useState<string | null>(null)
   const [editingSectionField, setEditingSectionField] = useState<{ sectionId: string; field: FormField } | null>(null)
   const [sectionFieldEditorOpen, setSectionFieldEditorOpen] = useState(false)
   const [previewFormValues, setPreviewFormValues] = useState<{ [key: string]: any }>({})
@@ -554,7 +561,7 @@ export default function FormsPage() {
   const applyTableConfigToState = (cfg?: TableConfig) => {
     const rows = cfg?.rows ?? 3
     const columns = cfg?.columns ?? 3
-    setEditingTableMode(cfg?.mode || 'fixed')
+    setEditingTableMode(normalizeTableMode(cfg?.mode))
     setEditingTableRows(rows)
     setEditingTableColumns(columns)
     setEditingTableHeaderPlacement(normalizeTableHeaderPlacement(cfg?.headerPlacement || 'none'))
@@ -618,13 +625,46 @@ export default function FormsPage() {
   })
 
   const defaultTableConfig = (): TableConfig => ({
-    mode: 'fixed',
+    mode: 'STATIC',
     rows: 3,
     columns: 3,
     headerPlacement: 'none',
     columnHeaders: [],
     rowHeaders: [],
   })
+
+  const openNewFieldEditor = (targetSectionId?: string) => {
+    setEditingField(null)
+    setNewFieldTargetSectionId(targetSectionId || null)
+    setEditingLabel('')
+    setEditingType('text')
+    setEditingPlaceholder('')
+    setEditingRequired(true)
+    setEditingHideLabel(false)
+    setEditingBoldLabel(false)
+    setEditingCenterLabel(false)
+    setEditingItalicLabel(false)
+    setEditingUnderlineLabel(false)
+    setEditingOptions('')
+    applyTableConfigToState(undefined)
+    applyLabRecordConfigToState(undefined)
+    setEditingConditionalEnabled(false)
+    setEditingConditionalDependsOn('')
+    setEditingConditionalCondition('notEmpty')
+    setEditingConditionalValue('')
+    setEditingConditionalItemType('product')
+    setFieldEditorOpen(true)
+  }
+
+  const addFieldToSection = (sectionId: string, field: FormField) => {
+    setSections(sections.map(section => {
+      if (section.id !== sectionId) return section
+      return {
+        ...section,
+        fields: [...section.fields, { ...field, order: section.fields.length }],
+      }
+    }))
+  }
 
   const onAddAction = (type: 'action' | 'consumable', item: any, quantity: number, departmentId: string) => {
     const newAction: FormAction = {
@@ -675,18 +715,13 @@ export default function FormsPage() {
           return
         }
 
-        if (cfg.mode === 'fixed') {
+        if (cfg.mode === 'STATIC') {
           next[t.id] = { rows: cfg.rows, columns: cfg.columns }
           return
         }
 
-        if (cfg.mode === 'variableRows') {
-          next[t.id] = { rows: existingShape.rows, columns: cfg.columns }
-          return
-        }
-
-        if (cfg.mode === 'variableColumns') {
-          next[t.id] = { rows: cfg.rows, columns: existingShape.columns }
+        if (cfg.mode === 'DYNAMIC') {
+          next[t.id] = existingShape
           return
         }
 
@@ -770,32 +805,6 @@ export default function FormsPage() {
     // Split back into fields and sections
     setFields(allItems.filter(item => item.itemType === 'field').map(({ itemType, ...f }) => f as FormField))
     setSections(allItems.filter(item => item.itemType === 'section').map(({ itemType, ...s }) => s as FormSection))
-  }
-
-  const onAddFieldToSection = (sectionId: string, fieldType: FormField['type']) => {
-    const newField: FormField = {
-      id: `field_${Date.now()}`,
-      label: 'New Field',
-      type: fieldType,
-      placeholder: '',
-      required: true,
-      hideLabel: false,
-      boldLabel: false,
-      centerLabel: false,
-      italicLabel: false,
-      underlineLabel: false,
-      options: undefined,
-      tableConfig: fieldType === 'table' ? defaultTableConfig() : undefined,
-      labRecordConfig: fieldType === 'labRecord' ? buildLabRecordConfigFromEditing() : undefined,
-      order: 0,
-    }
-    const updated = sections.map(s => s.id === sectionId ? {
-      ...s,
-      fields: [...s.fields, newField],
-    } : s)
-    setSections(updated)
-    setSectionFieldTypePickerColumn(null)
-    toast({ title: 'Field added to section', description: newField.label })
   }
 
   const onCreateNewSection = () => {
@@ -977,10 +986,10 @@ export default function FormsPage() {
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>{rows} × {columns}</span>
-          {cfg.mode === 'variableRows' && (
+          {cfg.mode === 'DYNAMIC' && (
             <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => updateShape(rows + 1, columns)}>+ Row</Button>
           )}
-          {cfg.mode === 'variableColumns' && (
+          {cfg.mode === 'DYNAMIC' && (
             <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => updateShape(rows, columns + 1)}>+ Col</Button>
           )}
           {cfg.headerPlacement !== 'none' && <span className="text-[10px] text-muted-foreground">headers: {cfg.headerPlacement}</span>}
@@ -2148,13 +2157,20 @@ export default function FormsPage() {
                                         <Plus className="h-3 w-3 mr-1" /> Add
                                       </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-64 rounded-2xl" side="right" align="start" sideOffset={4}>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        {(['text','email','number','textarea','select','radio','checkbox','date','table','labRecord','diagnosticRecord','medicationLongForm','medicationMiniForm','actionListener'] as const).map(t => (
-                                          <Button key={t} variant="outline" size="sm" onClick={() => {
-                                            onAddFieldToSection(s.id, t)
-                                          }} className="text-xs">{t}</Button>
-                                        ))}
+                                    <PopoverContent className="w-56 rounded-2xl bg-background text-foreground border border-border/50 shadow-2xl" side="right" align="start" sideOffset={4}>
+                                      <div className="space-y-2">
+                                        <p className="text-xs font-medium text-foreground">Add New</p>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            openNewFieldEditor(s.id)
+                                            setSectionFieldTypePickerColumn(null)
+                                          }}
+                                          className="w-full text-xs rounded-full px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-md hover:opacity-90"
+                                        >
+                                          + Field
+                                        </Button>
                                       </div>
                                     </PopoverContent>
                                   </Popover>
@@ -2252,11 +2268,14 @@ export default function FormsPage() {
         {/* Add New Field Dialog */}
         {mode === 'edit' && (
           <Dialog open={fieldEditorOpen && !editingField} onOpenChange={(open) => {
-            if (!open && !editingField) setFieldEditorOpen(false)
+            if (!open && !editingField) {
+              setFieldEditorOpen(false)
+              setNewFieldTargetSectionId(null)
+            }
           }}>
             <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden bg-card/95 backdrop-blur-xl border-border/50 rounded-3xl shadow-2xl p-4">
               <DialogHeader>
-                <DialogTitle>Add New Field</DialogTitle>
+                <DialogTitle>{newFieldTargetSectionId ? 'Add Field to Section' : 'Add New Field'}</DialogTitle>
               </DialogHeader>
               <FieldEditor
                 field={null}
@@ -2338,11 +2357,18 @@ export default function FormsPage() {
                     value: newField.conditionalRendering?.value,
                     itemType: newField.conditionalRendering?.itemType,
                   })
-
-                  setFields([...fields, newField])
+                  if (newFieldTargetSectionId) {
+                    addFieldToSection(newFieldTargetSectionId, newField)
+                    setNewFieldTargetSectionId(null)
+                  } else {
+                    setFields([...fields, newField])
+                  }
                   setFieldEditorOpen(false)
                 }}
-                onClose={() => setFieldEditorOpen(false)}
+                onClose={() => {
+                  setFieldEditorOpen(false)
+                  setNewFieldTargetSectionId(null)
+                }}
               />
             </DialogContent>
           </Dialog>
@@ -2371,25 +2397,7 @@ export default function FormsPage() {
                           <div className="space-y-2">
                             <p className="text-xs font-medium text-foreground">Add New</p>
                             <Button variant="outline" size="sm" onClick={() => {
-                              setEditingField(null)
-                              setEditingLabel('')
-                              setEditingType('text')
-                              setEditingPlaceholder('')
-                              setEditingRequired(true)
-                              setEditingHideLabel(false)
-                              setEditingBoldLabel(false)
-                              setEditingCenterLabel(false)
-                              setEditingItalicLabel(false)
-                              setEditingUnderlineLabel(false)
-                              setEditingOptions('')
-                              applyTableConfigToState(undefined)
-                              applyLabRecordConfigToState(undefined)
-                              setEditingConditionalEnabled(false)
-                              setEditingConditionalDependsOn('')
-                              setEditingConditionalCondition('notEmpty')
-                              setEditingConditionalValue('')
-                              setEditingConditionalItemType('action')
-                              setFieldEditorOpen(true)
+                              openNewFieldEditor()
                               setTypePickerOpen(false)
                             }} className="w-full text-xs rounded-full px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-md hover:opacity-90">
                               + Field
@@ -2842,14 +2850,14 @@ function FieldEditor({
             <div className="space-y-4 border-t pt-4">
               <div className="space-y-1">
                 <label className="text-xs font-medium">Type</label>
-                <Select value={type} onValueChange={(v) => {
-                  const nextType = v as FormField['type']
-                  setType(nextType)
-                  if (nextType === 'table') {
-                    setTableMode('fixed')
-                    setTableRows(3)
-                    setTableColumns(3)
-                    setTableHeaderPlacement('none')
+	                <Select value={type} onValueChange={(v) => {
+	                  const nextType = v as FormField['type']
+	                  setType(nextType)
+	                  if (nextType === 'table') {
+	                    setTableMode('STATIC')
+	                    setTableRows(3)
+	                    setTableColumns(3)
+	                    setTableHeaderPlacement('none')
                     setTableColumnHeaders('')
                     setTableRowHeaders('')
                   }
@@ -2993,22 +3001,22 @@ function FieldEditor({
               )}
             </div>
             {type === 'table' && (
-              <div className="space-y-3 border border-dashed rounded-lg p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold">Table Settings</span>
-                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                    <span>Fixed preset:</span>
-                    <Select
-                      value={`${tableMode === 'fixed' ? tableRows : 0}x${tableMode === 'fixed' ? tableColumns : 0}`}
-                      onValueChange={(value) => {
-                        const [rows, columns] = value.split('x').map((part) => Number(part))
-                        if (rows > 0 && columns > 0) {
-                          setTableMode('fixed')
-                          setTableRows(rows)
-                          setTableColumns(columns)
-                        }
-                      }}
-                    >
+	              <div className="space-y-3 border border-dashed rounded-lg p-3">
+	                <div className="flex items-center justify-between">
+	                  <span className="text-xs font-semibold">Table Settings</span>
+	                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+	                    <span>Static preset:</span>
+	                    <Select
+	                      value={`${tableMode === 'STATIC' ? tableRows : 0}x${tableMode === 'STATIC' ? tableColumns : 0}`}
+	                      onValueChange={(value) => {
+	                        const [rows, columns] = value.split('x').map((part) => Number(part))
+	                        if (rows > 0 && columns > 0) {
+	                          setTableMode('STATIC')
+	                          setTableRows(rows)
+	                          setTableColumns(columns)
+	                        }
+	                      }}
+	                    >
                       <SelectTrigger className="min-w-[8rem]">
                         <SelectValue placeholder="Select size" />
                       </SelectTrigger>
@@ -3025,16 +3033,15 @@ function FieldEditor({
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <label className="text-xs font-medium">Mode</label>
-                    <Select value={tableMode} onValueChange={(v) => setTableMode(v as TableConfig['mode'])}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fixed">Fixed</SelectItem>
-                        <SelectItem value="variableRows">Variable rows</SelectItem>
-                        <SelectItem value="variableColumns">Variable columns</SelectItem>
-                      </SelectContent>
-                    </Select>
+	                    <Select value={tableMode} onValueChange={(v) => setTableMode(v as TableConfig['mode'])}>
+	                      <SelectTrigger>
+	                        <SelectValue />
+	                      </SelectTrigger>
+	                      <SelectContent>
+	                        <SelectItem value="STATIC">Static</SelectItem>
+	                        <SelectItem value="DYNAMIC">Dynamic</SelectItem>
+	                      </SelectContent>
+	                    </Select>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium">Headers</label>
@@ -3070,14 +3077,14 @@ function FieldEditor({
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">Rows</label>
-                    <Input type="number" min={1} value={tableRows} disabled={tableMode === 'variableColumns'} onChange={(e) => setTableRows(Number(e.target.value) || 1)} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">Columns</label>
-                    <Input type="number" min={1} value={tableColumns} disabled={tableMode === 'variableRows'} onChange={(e) => setTableColumns(Number(e.target.value) || 1)} />
-                  </div>
+	                  <div className="space-y-1">
+	                    <label className="text-xs font-medium">Rows</label>
+	                    <Input type="number" min={1} value={tableRows} onChange={(e) => setTableRows(Number(e.target.value) || 1)} />
+	                  </div>
+	                  <div className="space-y-1">
+	                    <label className="text-xs font-medium">Columns</label>
+	                    <Input type="number" min={1} value={tableColumns} onChange={(e) => setTableColumns(Number(e.target.value) || 1)} />
+	                  </div>
                 </div>
                 {headerPlacementHasSide(tableHeaderPlacement, 'top') && (
                   <div className="space-y-1">

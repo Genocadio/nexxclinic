@@ -13,6 +13,11 @@ export interface BackendDepartmentForm {
   sections: FormSection[]
 }
 
+const normalizeTableMode = (mode: unknown) => {
+  const normalized = String(mode || '').toUpperCase()
+  return normalized === 'DYNAMIC' || mode === 'variableRows' || mode === 'variableColumns' ? 'DYNAMIC' : 'STATIC'
+}
+
 export const resolveSchemaVersion = (currentSchemaVersion: unknown, currentVersionNumber?: string): string | undefined => {
   const parsedSchema = Number(currentSchemaVersion)
   if (Number.isFinite(parsedSchema)) {
@@ -43,7 +48,7 @@ export const normalizeField = (field: any, idx: number): FormField => ({
   options: Array.isArray(field?.options) ? field.options.filter(Boolean) : undefined,
   tableConfig: field?.tableConfig
     ? {
-        mode: field.tableConfig.mode || 'fixed',
+        mode: normalizeTableMode(field.tableConfig.mode),
         rows: Number(field.tableConfig.rows) || 3,
         columns: Number(field.tableConfig.columns) || 3,
         headerPlacement: field.tableConfig.headerPlacement || 'none',
