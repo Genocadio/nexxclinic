@@ -410,7 +410,7 @@ export interface FormField {
     mode: 'fixed' | 'dynamic'
     rows: number
     columns: number
-    headerPlacement: 'none' | 'top' | 'left'
+    headerPlacement: 'none' | 'top' | 'left' | 'right' | 'both' | 'top-left' | 'top-right' | 'left-right' | 'top-left-right'
     columnHeaders: string[]
     rowHeaders: string[]
   }

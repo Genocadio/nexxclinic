@@ -20,7 +20,16 @@ export interface FormAction {
   removedFromVisit?: boolean
 }
 
-export type TableHeaderPlacement = 'none' | 'top' | 'left' | 'right' | 'both'
+export type TableHeaderPlacement =
+  | 'none'
+  | 'top'
+  | 'left'
+  | 'right'
+  | 'both'
+  | 'top-left'
+  | 'top-right'
+  | 'left-right'
+  | 'top-left-right'
 
 export interface TableConfig {
   mode: 'fixed' | 'variableRows' | 'variableColumns'

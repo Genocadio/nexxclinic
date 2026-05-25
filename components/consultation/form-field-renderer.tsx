@@ -189,9 +189,14 @@ export function FormFieldRenderer({
     const shape = tableShapes[field.id] || { rows: cfg.rows, columns: cfg.columns }
     const rows = Math.max(1, shape.rows)
     const columns = Math.max(1, shape.columns)
-    const hasLeft = cfg.headerPlacement === 'left' || cfg.headerPlacement === 'both'
-    const hasRight = cfg.headerPlacement === 'right' || cfg.headerPlacement === 'both'
-    const hasTop = cfg.headerPlacement === 'top' || cfg.headerPlacement === 'both'
+    const headerPlacementHasSide = (placement: string, side: 'top' | 'left' | 'right') => {
+      if (!placement || placement === 'none') return false
+      if (placement === 'both') return side === 'top' || side === 'left'
+      return placement.split('-').includes(side)
+    }
+    const hasLeft = headerPlacementHasSide(cfg.headerPlacement, 'left')
+    const hasRight = headerPlacementHasSide(cfg.headerPlacement, 'right')
+    const hasTop = headerPlacementHasSide(cfg.headerPlacement, 'top')
     const columnHeaders = hasTop ? ensureHeaders(columns, cfg.columnHeaders, 'Column') : []
     const rowHeaders = (hasLeft || hasRight) ? ensureHeaders(rows, cfg.rowHeaders, 'Row') : []
 

@@ -22,13 +22,32 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { ArrowLeft, Plus, Trash2, Upload, Download, Copy, Eye, ArrowUp, ArrowDown, ArrowRight, Bold, Italic, Underline, AlignCenter, Pill } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Upload, Download, Copy, Eye, ArrowUp, ArrowDown, ArrowRight, Bold, Italic, Underline, AlignCenter, PanelLeft, PanelRight, PanelTop, Pill } from 'lucide-react'
 import { useForms, useForm as useFormsHook, useFormVersionHistory, useCreateForm, useUpdateForm, useFinalizeForm } from '@/hooks/forms'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FormField, FormSection, ConditionalRendering, TableConfig, TableHeaderPlacement, LabRecordConfig, LabRecordLayout, LabRecordRowConfig, FormAction } from '@/lib/form-storage'
 import { useToast } from '@/hooks/use-toast'
+
+const headerPlacementHasSide = (placement: TableHeaderPlacement | undefined, side: 'top' | 'left' | 'right') => {
+  if (!placement || placement === 'none') return false
+  if (placement === 'both') return side === 'top' || side === 'left'
+  return placement.split('-').includes(side)
+}
+
+const buildTableHeaderPlacement = (sides: { top: boolean; left: boolean; right: boolean }): TableHeaderPlacement => {
+  const active = ['top', 'left', 'right'].filter((side) => sides[side as keyof typeof sides])
+  if (active.length === 0) return 'none'
+  if (active.length === 3) return 'top-left-right'
+  return active.join('-') as TableHeaderPlacement
+}
+
+const normalizeTableHeaderPlacement = (placement: TableHeaderPlacement | undefined): TableHeaderPlacement => {
+  if (!placement) return 'none'
+  if (placement === 'both') return 'top-left'
+  return placement
+}
 
 const fieldSchema = z.object({
   label: z.string().min(1, 'Label required'),
@@ -538,9 +557,9 @@ export default function FormsPage() {
     setEditingTableMode(cfg?.mode || 'fixed')
     setEditingTableRows(rows)
     setEditingTableColumns(columns)
-    setEditingTableHeaderPlacement(cfg?.headerPlacement || 'none')
-    const hasColumnHeaders = cfg?.headerPlacement === 'top' || cfg?.headerPlacement === 'both'
-    const hasRowHeaders = cfg?.headerPlacement === 'left' || cfg?.headerPlacement === 'right' || cfg?.headerPlacement === 'both'
+    setEditingTableHeaderPlacement(normalizeTableHeaderPlacement(cfg?.headerPlacement || 'none'))
+    const hasColumnHeaders = headerPlacementHasSide(cfg?.headerPlacement, 'top')
+    const hasRowHeaders = headerPlacementHasSide(cfg?.headerPlacement, 'left') || headerPlacementHasSide(cfg?.headerPlacement, 'right')
     const colHeaders = hasColumnHeaders && cfg?.columnHeaders?.length ? cfg.columnHeaders : Array.from({ length: columns }, (_, idx) => `Column ${idx + 1}`)
     const rowHeaders = hasRowHeaders && cfg?.rowHeaders?.length ? cfg.rowHeaders : Array.from({ length: rows }, (_, idx) => `Row ${idx + 1}`)
     setEditingTableColumnHeaders(colHeaders.join('\n'))
@@ -944,9 +963,9 @@ export default function FormsPage() {
     const shape = tableShapes[f.id] || { rows: cfg.rows, columns: cfg.columns }
     const rows = Math.max(1, shape.rows)
     const columns = Math.max(1, shape.columns)
-    const hasLeft = cfg.headerPlacement === 'left' || cfg.headerPlacement === 'both'
-    const hasRight = cfg.headerPlacement === 'right' || cfg.headerPlacement === 'both'
-    const hasTop = cfg.headerPlacement === 'top' || cfg.headerPlacement === 'both'
+    const hasLeft = headerPlacementHasSide(cfg.headerPlacement, 'left')
+    const hasRight = headerPlacementHasSide(cfg.headerPlacement, 'right')
+    const hasTop = headerPlacementHasSide(cfg.headerPlacement, 'top')
     const columnHeaders = hasTop ? ensureHeaders(columns, cfg.columnHeaders, 'Column') : []
     const rowHeaders = (hasLeft || hasRight) ? ensureHeaders(rows, cfg.rowHeaders, 'Row') : []
 
@@ -2977,14 +2996,30 @@ function FieldEditor({
               <div className="space-y-3 border border-dashed rounded-lg p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold">Table Settings</span>
-                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                    <span>Fixed presets:</span>
-                    {[3,4].map(preset => (
-                      <Button key={preset} variant="outline" size="sm" className="h-7 px-2"
-                        onClick={() => { setTableMode('fixed'); setTableRows(preset); setTableColumns(preset); }}>
-                        {preset}x{preset}
-                      </Button>
-                    ))}
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                    <span>Fixed preset:</span>
+                    <Select
+                      value={`${tableMode === 'fixed' ? tableRows : 0}x${tableMode === 'fixed' ? tableColumns : 0}`}
+                      onValueChange={(value) => {
+                        const [rows, columns] = value.split('x').map((part) => Number(part))
+                        if (rows > 0 && columns > 0) {
+                          setTableMode('fixed')
+                          setTableRows(rows)
+                          setTableColumns(columns)
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="min-w-[8rem]">
+                        <SelectValue placeholder="Select size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[
+                          '2x2','2x3','2x4','3x2','3x3','3x4','4x2','4x3','4x4','5x3',
+                        ].map((preset) => (
+                          <SelectItem key={preset} value={preset}>{preset}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -3003,18 +3038,35 @@ function FieldEditor({
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium">Headers</label>
-                    <Select value={tableHeaderPlacement} onValueChange={(v) => setTableHeaderPlacement(v as TableHeaderPlacement)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No headers</SelectItem>
-                        <SelectItem value="top">Top only</SelectItem>
-                        <SelectItem value="left">Left only</SelectItem>
-                        <SelectItem value="right">Right only</SelectItem>
-                        <SelectItem value="both">Both sides</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { side: 'top' as const, Icon: PanelTop, label: 'Top' },
+                        { side: 'left' as const, Icon: PanelLeft, label: 'Left' },
+                        { side: 'right' as const, Icon: PanelRight, label: 'Right' },
+                      ].map(({ side, Icon, label }) => {
+                        const selected = headerPlacementHasSide(tableHeaderPlacement, side)
+                        return (
+                          <Button
+                            key={side}
+                            type="button"
+                            size="icon"
+                            variant={selected ? 'default' : 'outline'}
+                            className="h-10 w-10 rounded-xl p-0"
+                            aria-label={`Toggle ${label} header`}
+                            onClick={() => setTableHeaderPlacement(buildTableHeaderPlacement({
+                              top: side === 'top' ? !selected : headerPlacementHasSide(tableHeaderPlacement, 'top'),
+                              left: side === 'left' ? !selected : headerPlacementHasSide(tableHeaderPlacement, 'left'),
+                              right: side === 'right' ? !selected : headerPlacementHasSide(tableHeaderPlacement, 'right'),
+                            }))}
+                          >
+                            <Icon className="h-4 w-4" />
+                          </Button>
+                        )
+                      })}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {tableHeaderPlacement === 'none' ? 'No headers selected.' : `Headers: ${tableHeaderPlacement.replaceAll('-', ' + ')}`}
+                    </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -3027,13 +3079,13 @@ function FieldEditor({
                     <Input type="number" min={1} value={tableColumns} disabled={tableMode === 'variableRows'} onChange={(e) => setTableColumns(Number(e.target.value) || 1)} />
                   </div>
                 </div>
-                {(tableHeaderPlacement === 'top' || tableHeaderPlacement === 'both') && (
+                {headerPlacementHasSide(tableHeaderPlacement, 'top') && (
                   <div className="space-y-1">
                     <label className="text-xs font-medium">Column Headers</label>
                     <Textarea rows={2} value={tableColumnHeaders} onChange={(e) => setTableColumnHeaders(e.target.value)} placeholder="One per line" />
                   </div>
                 )}
-                {(tableHeaderPlacement === 'left' || tableHeaderPlacement === 'right' || tableHeaderPlacement === 'both') && (
+                {(headerPlacementHasSide(tableHeaderPlacement, 'left') || headerPlacementHasSide(tableHeaderPlacement, 'right')) && (
                   <div className="space-y-1">
                     <label className="text-xs font-medium">Row Headers</label>
                     <Textarea rows={2} value={tableRowHeaders} onChange={(e) => setTableRowHeaders(e.target.value)} placeholder="One per line" />
