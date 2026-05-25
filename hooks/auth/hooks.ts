@@ -1,6 +1,6 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client'
 import { getErrorMessage } from '@/lib/error-utils'
-import { LOGIN_MUTATION, SET_INITIAL_PASSWORD_MUTATION, REGISTER_MUTATION, ADMIN_CREATE_USER_MUTATION, ACTIVATE_USER_MUTATION, DEACTIVATE_USER_MUTATION, UPDATE_USER_ROLES_MUTATION, ADMIN_UPDATE_USER_MUTATION, UPDATE_MY_PROFILE_MUTATION, CHANGE_PASSWORD_MUTATION, DELETE_USER_PASSWORD_MUTATION } from '../mutations'
+import { LOGIN_MUTATION, SET_INITIAL_PASSWORD_MUTATION, REGISTER_MUTATION, ADMIN_CREATE_USER_MUTATION, ACTIVATE_USER_MUTATION, DEACTIVATE_USER_MUTATION, UPDATE_USER_ROLES_MUTATION, UPDATE_MY_PROFILE_MUTATION, CHANGE_PASSWORD_MUTATION, DELETE_USER_PASSWORD_MUTATION } from '../mutations'
 import { ME_QUERY, GET_USERS_QUERY } from '../queries'
 import type { LoginResponse, UserAccount, UserResponse, RegisterResponse } from '../types'
 
@@ -284,8 +284,8 @@ export function useUpdateUserRoles() {
 
   const updateUserRoles = async (userId: string, roles: string[]) => {
     try {
-      const result = await mutation({ variables: { userId, roles } })
-      return result.data?.updateUserRoles as UserResponse
+      const result = await mutation({ variables: { input: { userId, roles } } })
+      return result.data?.activateUser as UserResponse
     } catch (err) {
       console.error('Update user roles error:', err)
       throw err
@@ -293,44 +293,6 @@ export function useUpdateUserRoles() {
   }
 
   return { updateUserRoles, loading, error }
-}
-
-export function useAdminUpdateUser() {
-  const [mutation, { loading, error }] = useMutation(ADMIN_UPDATE_USER_MUTATION)
-
-  const adminUpdateUser = async (input: {
-    userId: string
-    firstName?: string
-    lastName?: string
-    phoneNumber?: string
-    title?: string
-    departmentIds?: string[]
-    gender?: string
-    dateOfBirth?: string
-    profilePhotoUrl?: string
-  }) => {
-    try {
-      const variables = {
-        input: {
-          firstName: input.firstName,
-          lastName: input.lastName,
-          phoneNumber: input.phoneNumber,
-          title: input.title,
-          departmentId: input.departmentIds?.[0] || null,
-          gender: input.gender,
-          dateOfBirth: input.dateOfBirth,
-          profilePhotoUrl: input.profilePhotoUrl,
-        }
-      }
-      const result = await mutation({ variables })
-      return result.data?.updateMyProfile as UserResponse
-    } catch (err) {
-      console.error('Admin update user error:', err)
-      throw err
-    }
-  }
-
-  return { adminUpdateUser, loading, error }
 }
 
 export function useUpdateMyProfile() {
@@ -427,8 +389,8 @@ export function useDeleteUserPassword() {
 
   const deleteUserPassword = async (userId: string) => {
     try {
-      const result = await mutation({ variables: { userId } })
-      return result.data?.deleteUserPassword as UserResponse
+      const result = await mutation({ variables: { input: { userId, revokeSessions: true } } })
+      return result.data?.adminTriggerPasswordReset as UserResponse
     } catch (err) {
       console.error('Delete user password error:', err)
       throw err

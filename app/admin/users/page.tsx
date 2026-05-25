@@ -13,7 +13,6 @@ import {
   useActivateUser,
   useDeactivateUser,
   useUpdateUserRoles,
-  useAdminUpdateUser,
   useDeleteUserPassword,
   useDepartments,
   type UserAccount,
@@ -35,7 +34,6 @@ export default function ManageUsersPage() {
   const { activateUser, loading: activating } = useActivateUser()
   const { deactivateUser, loading: deactivating } = useDeactivateUser()
   const { updateUserRoles, loading: updatingRoles } = useUpdateUserRoles()
-  const { adminUpdateUser, loading: updatingUser } = useAdminUpdateUser()
   const { deleteUserPassword, loading: forcingReset } = useDeleteUserPassword()
 
   const [query, setQuery] = useState("")
@@ -52,7 +50,7 @@ export default function ManageUsersPage() {
   const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<string[]>([])
   const [modalOpen, setModalOpen] = useState(false)
 
-  const isBusy = creating || activating || deactivating || updatingRoles || updatingUser || forcingReset
+  const isBusy = creating || activating || deactivating || updatingRoles || forcingReset
 
   const currentUserRoles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
   const canAccessUserManagement = hasAdminAccess(currentUserRoles)
@@ -172,22 +170,6 @@ export default function ManageUsersPage() {
           return
         }
 
-        const updateResp = await adminUpdateUser({
-          userId: editingUserId,
-          firstName,
-          lastName,
-          phoneNumber,
-          departmentIds: selectedDepartmentIds,
-          gender,
-          dateOfBirth,
-          profilePhotoUrl,
-        })
-
-        if (updateResp?.status !== "SUCCESS") {
-          toast.error(updateResp?.messages?.[0]?.text || "Could not update user details")
-          return
-        }
-
         const rolesResp = await updateUserRoles(editingUserId, selectedRoles)
         if (rolesResp?.status !== "SUCCESS") {
           toast.error(rolesResp?.messages?.[0]?.text || "Could not update user roles")
@@ -238,7 +220,9 @@ export default function ManageUsersPage() {
     }
 
     try {
-      const response = user.accountStatus === 'ACTIVE' ? await deactivateUser(user.id) : await activateUser(user.id)
+      const response = user.accountStatus === 'ACTIVE'
+        ? await deactivateUser(user.id)
+        : await activateUser(user.id, user.roles?.length ? user.roles : ["STAFF"])
       if (response?.status !== "SUCCESS") {
         toast.error(response?.messages?.[0]?.text || "Could not update activation")
         return
@@ -346,10 +330,10 @@ export default function ManageUsersPage() {
             <div className="flex-1 overflow-hidden bg-[#FBF2ED] dark:bg-slate-900 border border-border/40 dark:border-slate-800 rounded-2xl p-6 flex flex-col shadow-lg">
               <DialogHeader>
                 <DialogTitle className="text-xl font-bold text-foreground">
-                  {editingUserId ? "Edit User Account" : "Register New User"}
+                  {editingUserId ? "Edit User Roles" : "Register New User"}
                 </DialogTitle>
                 <DialogDescription>
-                  {editingUserId ? "Modify the fields below to update the user account." : "Fill in the details below to create and register a new system user."}
+                  {editingUserId ? "Update the roles assigned to this user." : "Fill in the details below to create and register a new system user."}
                 </DialogDescription>
               </DialogHeader>
 
@@ -358,11 +342,11 @@ export default function ManageUsersPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground">First Name *</label>
-                    <Input placeholder="Enter first name" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                    <Input placeholder="Enter first name" value={firstName} onChange={(e) => setFirstName(e.target.value)} disabled={Boolean(editingUserId)} className="rounded-xl bg-white dark:bg-slate-950" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground">Last Name</label>
-                    <Input placeholder="Enter last name" value={lastName} onChange={(e) => setLastName(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                    <Input placeholder="Enter last name" value={lastName} onChange={(e) => setLastName(e.target.value)} disabled={Boolean(editingUserId)} className="rounded-xl bg-white dark:bg-slate-950" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground">Email *</label>
@@ -377,13 +361,14 @@ export default function ManageUsersPage() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground">Phone Number</label>
-                    <Input placeholder="Enter phone number" value={phoneNumber} onChange={(e) => setPhoneNumber(sanitizePhoneInput(e.target.value))} className="rounded-xl bg-white dark:bg-slate-950" />
+                    <Input placeholder="Enter phone number" value={phoneNumber} onChange={(e) => setPhoneNumber(sanitizePhoneInput(e.target.value))} disabled={Boolean(editingUserId)} className="rounded-xl bg-white dark:bg-slate-950" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground">Gender</label>
                     <select
                       value={gender}
                       onChange={(e) => setGender(e.target.value)}
+                      disabled={Boolean(editingUserId)}
                       className="w-full px-3 py-2 border border-border rounded-xl bg-white dark:bg-slate-950 text-foreground h-10 focus:ring-2 focus:ring-primary focus:outline-none"
                     >
                       <option value="">Select Gender</option>
@@ -399,6 +384,7 @@ export default function ManageUsersPage() {
                       type="date"
                       value={dateOfBirth}
                       onChange={(e) => setDateOfBirth(e.target.value)}
+                      disabled={Boolean(editingUserId)}
                       className="rounded-xl bg-white dark:bg-slate-950"
                     />
                   </div>
@@ -408,6 +394,7 @@ export default function ManageUsersPage() {
                       placeholder="Enter profile photo URL"
                       value={profilePhotoUrl}
                       onChange={(e) => setProfilePhotoUrl(e.target.value)}
+                      disabled={Boolean(editingUserId)}
                       className="rounded-xl bg-white dark:bg-slate-950"
                     />
                   </div>
@@ -461,6 +448,7 @@ export default function ManageUsersPage() {
                           key={department.id}
                           type="button"
                           onClick={() => toggleDepartment(String(department.id))}
+                          disabled={Boolean(editingUserId)}
                           className={`px-4 h-9 rounded-xl border text-xs font-bold transition-all duration-200 ${
                             selected
                               ? "bg-primary text-primary-foreground border-primary shadow-md"
@@ -480,7 +468,7 @@ export default function ManageUsersPage() {
                     Cancel
                   </Button>
                   <Button type="submit" className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md" disabled={isBusy}>
-                    {editingUserId ? "Update User" : "Register User"}
+                    {editingUserId ? "Update Roles" : "Register User"}
                   </Button>
                 </div>
               </form>

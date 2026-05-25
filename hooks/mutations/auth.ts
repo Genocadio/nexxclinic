@@ -85,8 +85,8 @@ export const ADMIN_CREATE_USER_MUTATION = gql`
 `
 
 export const ACTIVATE_USER_MUTATION = gql`
-  mutation ActivateUser($id: ID!) {
-    activateUser(id: $id) {
+  mutation ActivateUser($input: ActivateUserInput!) {
+    activateUser(input: $input) {
       status
       message
       
@@ -95,8 +95,8 @@ export const ACTIVATE_USER_MUTATION = gql`
 `
 
 export const DEACTIVATE_USER_MUTATION = gql`
-  mutation DeactivateUser($id: ID!) {
-    deactivateUser(id: $id) {
+  mutation DeactivateUser($input: DeactivateUserInput!) {
+    deactivateUser(input: $input) {
       status
       message
       
@@ -105,43 +105,17 @@ export const DEACTIVATE_USER_MUTATION = gql`
 `
 
 export const UPDATE_USER_ROLES_MUTATION = gql`
-  mutation UpdateUserRoles($id: ID!, $roles: [String!]!) {
-    updateUserRoles(id: $id, roles: $roles) {
+  mutation UpdateUserRoles($input: ActivateUserInput!) {
+    activateUser(input: $input) {
       status
       message
       
-    }
-  }
-`
-
-export const ADMIN_UPDATE_USER_MUTATION = gql`
-  mutation AdminUpdateUser($id: ID!, $input: UpdateUserInput!) {
-    adminUpdateUser(id: $id, input: $input) {
-      status
-      message
-      
-      data {
-        id
-        firstName
-        lastName
-        email
-        phoneNumber
-        username
-        accountStatus
-        roles
-        department {
-          id
-          name
-        }
-        createdAt
-        updatedAt
-      }
     }
   }
 `
 
 export const UPDATE_MY_PROFILE_MUTATION = gql`
-  mutation UpdateMyProfile($input: UpdateProfileInput!) {
+  mutation UpdateMyProfile($input: UpdateMyProfileInput!) {
     updateMyProfile(input: $input) {
       status
       message
@@ -151,8 +125,8 @@ export const UPDATE_MY_PROFILE_MUTATION = gql`
 `
 
 export const CHANGE_PASSWORD_MUTATION = gql`
-  mutation ChangePassword($input: ChangePasswordInput!) {
-    changePassword(input: $input) {
+  mutation ChangePassword($input: ChangeMyPasswordInput!) {
+    changeMyPassword(input: $input) {
       status
       message
       
@@ -161,8 +135,8 @@ export const CHANGE_PASSWORD_MUTATION = gql`
 `
 
 export const DELETE_USER_PASSWORD_MUTATION = gql`
-  mutation DeleteUserPassword($id: ID!) {
-    deleteUserPassword(id: $id) {
+  mutation AdminTriggerPasswordReset($input: AdminTriggerPasswordResetInput!) {
+    adminTriggerPasswordReset(input: $input) {
       status
       message
       
