@@ -210,6 +210,32 @@ const normalizeFormAction = (action: any, index: number): FormAction => ({
   backendId: action?.backendId ? String(action.backendId) : undefined,
 })
 
+const splitConditionalValues = (value?: string): string[] => {
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+const matchesConditionalProductValue = (item: FormAction, expectedValue: string): boolean => {
+  const expected = expectedValue.trim().toLowerCase()
+  if (!expected) return false
+
+  const name = String(item.name || '').trim().toLowerCase()
+  const ids = [
+    item.id,
+    item.backendId,
+    item.rawData?.id,
+    item.rawData?.product?.id,
+    item.rawData?.action?.id,
+    item.rawData?.consumable?.id,
+  ]
+    .filter(Boolean)
+    .map((id) => String(id).trim().toLowerCase())
+
+  return name.includes(expected) || ids.includes(expected)
+}
+
 const mapBackendForm = (form: any): BackendForm => ({
   id: String(form?.id || ''),
   title: form?.title || '',
@@ -912,8 +938,16 @@ export default function FormsPage() {
       case 'includes':
         return Array.isArray(dependentValue) ? dependentValue.includes(value) : dependentValue === value
       case 'hasItem': {
-        // Only meaningful when dependsOn is an action listener field; leverage current actions list
-        const pool = actions.filter(a => !itemType || a.type === itemType)
+        const dependentItems = Array.isArray(dependentValue?.items)
+          ? dependentValue.items
+          : Array.isArray(dependentValue)
+            ? dependentValue
+            : []
+        const sourceItems = dependentItems.length > 0 ? dependentItems : actions
+        const normalizedItemType = String(itemType || '').toLowerCase()
+        const pool = normalizedItemType === 'action' || normalizedItemType === 'consumable'
+          ? sourceItems.filter(a => a.type === normalizedItemType)
+          : sourceItems
         if (!value) {
           const result = pool.length > 0
           console.log('[Preview] hasItem no value', {
@@ -926,28 +960,15 @@ export default function FormsPage() {
           return result
         }
 
-        const expected = String(value).trim().toLowerCase()
-        const matched = pool.some((a) => {
-          const name = String(a.name || '').trim().toLowerCase()
-          const ids = [
-            a.id,
-            a.backendId,
-            a.rawData?.id,
-            a.rawData?.product?.id,
-            a.rawData?.action?.id,
-            a.rawData?.consumable?.id,
-          ]
-            .filter(Boolean)
-            .map((id) => String(id).trim().toLowerCase())
-          return name.includes(expected) || ids.includes(expected)
-        })
+        const expectedValues = splitConditionalValues(value)
+        const matched = pool.some((a) => expectedValues.some((expected) => matchesConditionalProductValue(a, expected)))
 
         console.log('[Preview] hasItem', {
           fieldId: field.id,
           dependsOn,
           itemType,
           value,
-          expected,
+          expected: expectedValues,
           poolCount: pool.length,
           matched,
           poolPreview: pool.map((a) => ({ id: a.id, name: a.name, backendId: a.backendId, type: a.type })),
@@ -2689,7 +2710,26 @@ function FieldEditor({
   }, [field])
   const [itemSearch, setItemSearch] = useState('')
   const [itemOptions, setItemOptions] = useState<{ id: string; name: string }[]>([])
+  const [selectedItemNames, setSelectedItemNames] = useState<Record<string, string>>({})
   const [itemLoading, setItemLoading] = useState(false)
+  const selectedProductIds = splitConditionalValues(conditionalValue)
+
+  const addConditionalProduct = (item: { id: string; name: string }) => {
+    if (selectedProductIds.includes(item.id)) {
+      setItemSearch('')
+      setItemOptions([])
+      return
+    }
+
+    setSelectedItemNames((prev) => ({ ...prev, [item.id]: item.name }))
+    setConditionalValue([...selectedProductIds, item.id].join(','))
+    setItemSearch('')
+    setItemOptions([])
+  }
+
+  const removeConditionalProduct = (id: string) => {
+    setConditionalValue(selectedProductIds.filter((itemId) => itemId !== id).join(','))
+  }
 
   useEffect(() => {
     if (conditionalCondition !== 'hasItem') {
@@ -2732,13 +2772,13 @@ function FieldEditor({
         if (!resp.ok) throw new Error('search failed')
         const data = await resp.json()
         const items = data?.data?.products?.data || []
-        const uniqueItems = Array.from(
+        const uniqueItems: { id: string; name: string }[] = Array.from(
           new Map(
             (items || [])
               .filter((it: any) => it?.id && it?.name)
               .map((it: any) => [String(it.id), { id: String(it.id), name: String(it.name || '').trim() }])
           ).values(),
-        )
+        ) as { id: string; name: string }[]
         setItemOptions(uniqueItems)
       } catch (e) {
         if (!(e instanceof DOMException && e.name === 'AbortError')) {
@@ -2954,10 +2994,26 @@ function FieldEditor({
                             value={itemSearch}
                             onChange={(e) => {
                               setItemSearch(e.target.value)
-                              setConditionalValue('')
                             }}
                             placeholder="Type product name to search"
                           />
+                          {selectedProductIds.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {selectedProductIds.map((id) => (
+                                <Badge key={id} variant="secondary" className="gap-1 rounded-full px-2 py-1">
+                                  <span className="max-w-[180px] truncate">{selectedItemNames[id] || id}</span>
+                                  <button
+                                    type="button"
+                                    className="text-muted-foreground hover:text-foreground"
+                                    onClick={() => removeConditionalProduct(id)}
+                                    aria-label={`Remove ${selectedItemNames[id] || id}`}
+                                  >
+                                    x
+                                  </button>
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                           {itemLoading && <p className="text-[11px] text-muted-foreground">Searching products…</p>}
                           {itemOptions.length > 0 && (
                             <div className="grid gap-2">
@@ -2966,11 +3022,7 @@ function FieldEditor({
                                   key={item.id}
                                   type="button"
                                   className="w-full rounded-lg border border-border/60 px-3 py-2 text-left text-sm text-foreground hover:bg-muted/30"
-                                  onClick={() => {
-                                    setItemSearch(item.name)
-                                    setConditionalValue(item.id)
-                                    setItemOptions([])
-                                  }}
+                                  onClick={() => addConditionalProduct(item)}
                                 >
                                   {item.name}
                                 </button>

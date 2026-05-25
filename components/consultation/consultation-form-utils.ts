@@ -209,6 +209,32 @@ export const hydrateSavedAnswers = (
   setTableShapes(() => nextTableShapes)
 }
 
+const splitConditionalValues = (value?: string): string[] => {
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+const matchesConditionalProductValue = (item: any, expectedValue: string): boolean => {
+  const expected = expectedValue.trim().toLowerCase()
+  if (!expected) return false
+
+  const itemName = String(item?.name || '').trim().toLowerCase()
+  const itemIds = [
+    item?.id,
+    item?.backendId,
+    item?.rawData?.id,
+    item?.rawData?.product?.id,
+    item?.rawData?.action?.id,
+    item?.rawData?.consumable?.id,
+  ]
+    .filter(Boolean)
+    .map((id) => String(id).trim().toLowerCase())
+
+  return itemName.includes(expected) || itemIds.includes(expected)
+}
+
 export const shouldShowField = (field: FormField, formAnswers: Record<string, any>, fieldActions: Record<string, FormAction[]>): boolean => {
   if (!field.conditionalRendering) return true
   const { dependsOn, condition, value, itemType } = field.conditionalRendering
@@ -246,27 +272,14 @@ export const shouldShowField = (field: FormField, formAnswers: Record<string, an
         return result
       }
 
-      const expected = String(value).trim().toLowerCase()
-      const matched = filteredByType.some((item: any) => {
-        const itemName = String(item?.name || '').trim().toLowerCase()
-        const itemIds = [
-          item?.id,
-          item?.backendId,
-          item?.rawData?.id,
-          item?.rawData?.product?.id,
-          item?.rawData?.action?.id,
-          item?.rawData?.consumable?.id,
-        ]
-          .filter(Boolean)
-          .map((id) => String(id).trim().toLowerCase())
-        return itemName.includes(expected) || itemIds.includes(expected)
-      })
+      const expectedValues = splitConditionalValues(value)
+      const matched = filteredByType.some((item: any) => expectedValues.some((expected) => matchesConditionalProductValue(item, expected)))
 
       console.log('[Consultation] hasItem', {
         dependsOn,
         itemType,
         value,
-        expected,
+        expected: expectedValues,
         itemsCount: filteredByType.length,
         matched,
         itemNames: filteredByType.map((item: any) => item?.name || ''),
