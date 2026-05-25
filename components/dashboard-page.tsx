@@ -97,6 +97,7 @@ export default function DashboardPage() {
   const [showPatientRegistrationModal, setShowPatientRegistrationModal] = useState(false)
   const [showVisitCreationModal, setShowVisitCreationModal] = useState(false)
   const [registeredPatientId, setRegisteredPatientId] = useState<string | null>(null)
+  const [locallyCreatedVisits, setLocallyCreatedVisits] = useState<Visit[]>([])
   const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false)
   const [selectedVisitForDepartment, setSelectedVisitForDepartment] = useState<Visit | null>(null)
 
@@ -200,7 +201,11 @@ export default function DashboardPage() {
   }
 
   const allVisits = useMemo(() => {
-    let filtered = visits
+    const serverVisitIds = new Set(visits.map((visit) => visit.id))
+    let filtered = [
+      ...locallyCreatedVisits.filter((visit) => !serverVisitIds.has(visit.id)),
+      ...visits,
+    ]
 
     if (searchQuery) {
       filtered = filtered.filter(visit =>
@@ -215,7 +220,7 @@ export default function DashboardPage() {
     }
 
     return filtered
-  }, [visits, searchQuery, statusFilter])
+  }, [visits, locallyCreatedVisits, searchQuery, statusFilter])
 
   const handleConsultVisit = async (visit: Visit) => {
     // Mark first department as ACTIVE before navigating to consultation
@@ -408,10 +413,24 @@ export default function DashboardPage() {
     }
   }
 
-  const handlePatientRegistered = (patientId: string, _insurances: any[], _proceedToVisit: boolean) => {
-    setRegisteredPatientId(patientId)
+  const handlePatientRegistered = (patientId: string, _insurances: any[], proceedToVisit: boolean, createdVisit?: Visit) => {
     setShowPatientRegistrationModal(false)
-    setShowVisitCreationModal(true)
+
+    if (createdVisit) {
+      setRegisteredPatientId(null)
+      setShowVisitCreationModal(false)
+      setLocallyCreatedVisits((current) => [
+        createdVisit,
+        ...current.filter((visit) => visit.id !== createdVisit.id),
+      ])
+      refetchVisits()
+      return
+    }
+
+    if (proceedToVisit) {
+      setRegisteredPatientId(patientId)
+      setShowVisitCreationModal(true)
+    }
   }
 
   const handleVisitCreated = () => {

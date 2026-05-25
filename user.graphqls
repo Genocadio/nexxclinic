@@ -142,6 +142,7 @@ enum FieldType {
   radio
   checkbox
   table
+  labRecord
   signature
   file
   heading
@@ -289,6 +290,7 @@ type Patient {
   emergencyContactName: String
   emergencyContactRelationship: String
   emergencyContactPhoneNumber: String
+  patientInsurances: [PatientInsurance!]!
   lastVisit: Visit
   createdAt: String!
   updatedAt: String!
@@ -846,6 +848,7 @@ input CreatePatientInput {
   emergencyContactName: String
   emergencyContactRelationship: String
   emergencyContactPhoneNumber: String
+  insurances: [CreatePatientInsuranceInput!]
 }
 
 input UpdatePatientInput {
@@ -868,7 +871,7 @@ input UpdatePatientInput {
 }
 
 input CreatePatientInsuranceInput {
-  patientId: ID!
+  patientId: ID
   insuranceProviderId: ID!
   insuranceCardNumber: String!
   providingCompanyOrEmployer: String
@@ -1079,6 +1082,20 @@ input TableConfigInput {
   rowHeaders: [String!]
 }
 
+input LabRecordRowInput {
+  id: String
+  name: String!
+  unitMode: String
+  unitOptions: [String!]
+  defaultUnit: String
+  resultOptions: [String!]
+}
+
+input LabRecordConfigInput {
+  layout: String!
+  rows: [LabRecordRowInput!]
+}
+
 input FormFieldInput {
   id: String!
   label: String!
@@ -1093,6 +1110,7 @@ input FormFieldInput {
   centerLabel: Boolean!
   options: [String!]
   tableConfig: TableConfigInput
+  labRecordConfig: LabRecordConfigInput
   conditionalRendering: ConditionalRenderingInput
 }
 
@@ -1176,7 +1194,7 @@ type Mutation {
   createInsuranceProvider(input: CreateInsuranceProviderInput!): InsuranceProviderResponse!
   updateInsuranceProvider(insuranceProviderId: ID!, input: UpdateInsuranceProviderInput!): InsuranceProviderResponse!
   deleteInsuranceProvider(insuranceProviderId: ID!): BooleanResponse!
-  createPatient(input: CreatePatientInput!): PatientResponse!
+  createPatient(input: CreatePatientInput!): VisitResponse!
   updatePatient(patientId: ID!, input: UpdatePatientInput!): PatientResponse!
   deletePatient(patientId: ID!): BooleanResponse!
   createPatientInsurance(input: CreatePatientInsuranceInput!): PatientInsuranceResponse!

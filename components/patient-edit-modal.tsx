@@ -100,14 +100,15 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
         },
         nationalId: patient.nationalId || "",
         insurances: patient.insurances?.map(ins => ({
+          id: ins.id,
           insuranceId: parseInt(ins.insurance.id),
           insuranceCardNumber: ins.insuranceCardNumber || "",
+          providingCompanyOrEmployer: (ins as any).providingCompanyOrEmployer || "",
           dominantMember: ins.dominantMember ? {
             firstName: ins.dominantMember.firstName || "",
             lastName: ins.dominantMember.lastName || "",
             phone: ins.dominantMember.phone || ""
           } : undefined,
-          status: ins.status as ActivationStatus
         })) || [],
         notes: patient.notes || ""
       })
@@ -172,8 +173,8 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
         {
           insuranceId: 0,
           insuranceCardNumber: "",
+          providingCompanyOrEmployer: "",
           dominantMember: { firstName: "", lastName: "", phone: "" },
-          status: "PENDING" as ActivationStatus
         }
       ]
     }))
@@ -201,6 +202,16 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
         const insurance = formData.insurances![i]
         if (!insurance.dominantMember?.firstName || !insurance.dominantMember?.lastName || !insurance.dominantMember?.phone) {
           toast.error(`Insurance #${i + 1}: Dominant member information (First Name, Last Name, Phone) is required for patients 18 years or younger`)
+          return
+        }
+      }
+    }
+
+    if (formData.insurances && formData.insurances.length > 0) {
+      for (let i = 0; i < formData.insurances.length; i++) {
+        const insurance = formData.insurances[i]
+        if (!insurance.insuranceCardNumber || !insurance.providingCompanyOrEmployer) {
+          toast.error(`Insurance #${i + 1}: Card number and providing company/employer are required`)
           return
         }
       }
@@ -489,7 +500,7 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-foreground mb-1.5">
-                        Card Number
+                        Card Number *
                       </label>
                       <Input
                         type="text"
@@ -497,6 +508,7 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
                         onChange={(e) => updateInsurance(index, 'insuranceCardNumber', e.target.value)}
                         placeholder="Enter card number"
                         className="w-full"
+                        required
                       />
                     </div>
                   </div>
@@ -504,21 +516,16 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     <div>
                       <label className="block text-sm font-medium text-foreground mb-1.5">
-                        Insurance Status
+                        Providing Company / Employer *
                       </label>
-                      <Select
-                        value={insurance.status}
-                        onValueChange={(value) => updateInsurance(index, 'status', value)}
-                      >
-                        <SelectTrigger suppressHydrationWarning>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="PENDING">Pending</SelectItem>
-                          <SelectItem value="ACTIVE">Active</SelectItem>
-                          <SelectItem value="INACTIVE">Inactive</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Input
+                        type="text"
+                        value={insurance.providingCompanyOrEmployer}
+                        onChange={(e) => updateInsurance(index, 'providingCompanyOrEmployer', e.target.value)}
+                        placeholder="Enter company or employer"
+                        className="w-full"
+                        required
+                      />
                     </div>
                   </div>
 

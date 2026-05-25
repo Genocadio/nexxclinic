@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useRegisterPatient, useInsurances, useDepartments, useCreateVisit, usePatients, type PatientRegistrationInput, type PatientFilterInput, type Patient } from "@/hooks/auth-hooks"
+import { useRegisterPatient, useInsurances, useDepartments, useCreateVisit, usePatients, type PatientRegistrationInput, type PatientFilterInput, type Patient, type Visit } from "@/hooks/auth-hooks"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -41,7 +41,7 @@ const isDominantMemberRequired = (dateOfBirth: string, hasInsurance: boolean): b
 interface PatientRegistrationModalProps {
   isOpen: boolean
   onClose: () => void
-  onPatientRegistered?: (patientId: string, patientInsurances: any[], proceedToVisit: boolean) => void
+  onPatientRegistered?: (patientId: string, patientInsurances: any[], proceedToVisit: boolean, createdVisit?: Visit) => void
   hideSearchPanel?: boolean
 }
 
@@ -170,12 +170,12 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
         {
           insuranceId: '0',
           insuranceCardNumber: "",
+          providingCompanyOrEmployer: "",
           dominantMember: {
             firstName: "",
             lastName: "",
             phone: ""
-          },
-          status: "ACTIVE"
+          }
         }
       ]
     }))
@@ -242,12 +242,22 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
       }
     }
 
+    if (formData.insurances && formData.insurances.length > 0) {
+      for (let i = 0; i < formData.insurances.length; i++) {
+        const insurance = formData.insurances[i]
+        if (!insurance.insuranceCardNumber || !insurance.providingCompanyOrEmployer) {
+          toast.error(`Insurance #${i + 1}: Card number and providing company/employer are required`)
+          return
+        }
+      }
+    }
+
     try {
       const result = await registerPatient(formData)
       if (result.status === 'SUCCESS') {
         toast.success(result.message || "Patient registered successfully!")
-        if (onPatientRegistered && result.data?.id) {
-          onPatientRegistered(result.data.id, result.data.insurances || [], true)
+        if (onPatientRegistered && result.data?.patient?.id) {
+          onPatientRegistered(result.data.patient.id, result.data.insurances || [], false, result.data)
         }
         // Reset form
         setFormData({
@@ -568,7 +578,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                   </div>
                   <div>
                     <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                      Card Number
+                      Card Number *
                     </label>
                     <Input
                       type="text"
@@ -576,6 +586,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                       onChange={(e) => updateInsurance(index, 'insuranceCardNumber', e.target.value)}
                       placeholder="Enter card number"
                       className={solidFieldClass}
+                      required
                     />
                   </div>
                 </div>
@@ -583,21 +594,16 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
                   <div>
                     <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                      Insurance Status
+                      Providing Company / Employer *
                     </label>
-                    <Select
-                      value={insurance.status}
-                      onValueChange={(value) => updateInsurance(index, 'status', value)}
-                    >
-                      <SelectTrigger suppressHydrationWarning className={solidFieldClass}>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="PENDING">Pending</SelectItem>
-                        <SelectItem value="ACTIVE">Active</SelectItem>
-                        <SelectItem value="INACTIVE">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      type="text"
+                      value={insurance.providingCompanyOrEmployer}
+                      onChange={(e) => updateInsurance(index, 'providingCompanyOrEmployer', e.target.value)}
+                      placeholder="Enter company or employer"
+                      className={solidFieldClass}
+                      required
+                    />
                   </div>
                 </div>
 

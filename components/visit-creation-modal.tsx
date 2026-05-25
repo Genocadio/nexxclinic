@@ -133,6 +133,18 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
   }, [selectedPatientDetails, preSelectedPatientId])
 
   useEffect(() => {
+    const patient = preSelectedPatientData || selectedPatientDetails
+
+    if (patient && patient.insurances) {
+      if (patient.insurances.length === 1) {
+        setSelectedInsuranceIds([String(patient.insurances[0].id)])
+      } else {
+        setSelectedInsuranceIds([])
+      }
+    }
+  }, [preSelectedPatientData, selectedPatientDetails])
+
+  useEffect(() => {
     if (preSelectedPatientId) {
       setSelectedPatientId((current) => (current === preSelectedPatientId ? current : preSelectedPatientId))
       // Skip patient-selection step entirely if preselected

@@ -7,24 +7,44 @@ export const REGISTER_PATIENT_MUTATION = gql`
       message
       data {
         id
-        firstName
-        lastName
-        middleName
-        gender
-        dateOfBirth
-        primaryPhoneNumber
-        alternativePhone
-        village
-        city
-        district
-        postalAddress
-        nationalIdNumber
-        passportNumber
-        emergencyContactName
-        emergencyContactRelationship
-        emergencyContactPhoneNumber
-        createdAt
-        updatedAt
+        visitDate
+        status
+        patient {
+          id
+          firstName
+          lastName
+          middleName
+          gender
+          dateOfBirth
+          primaryPhoneNumber
+          alternativePhone
+          village
+          city
+          district
+          postalAddress
+          nationalIdNumber
+          passportNumber
+          emergencyContactName
+          emergencyContactRelationship
+          emergencyContactPhoneNumber
+          createdAt
+          updatedAt
+        }
+        linkedInsurances {
+          id
+          insuranceCardNumber
+          principalMember
+          principalMemberName
+          principalMemberPhoneNumber
+          validFrom
+          validUntil
+          insuranceProvider {
+            id
+            insuranceName
+            acronym
+            defaultCoveragePercentage
+          }
+        }
       }
     }
   }
@@ -41,6 +61,32 @@ export const CREATE_PATIENT_INSURANCE_MUTATION = gql`
         principalMember
         principalMemberName
         principalMemberPhoneNumber
+        validFrom
+        validUntil
+        insuranceProvider {
+          id
+          insuranceName
+          acronym
+          defaultCoveragePercentage
+        }
+      }
+    }
+  }
+`
+
+export const UPDATE_PATIENT_INSURANCE_MUTATION = gql`
+  mutation UpdatePatientInsurance($patientInsuranceId: ID!, $input: UpdatePatientInsuranceInput!) {
+    updatePatientInsurance(patientInsuranceId: $patientInsuranceId, input: $input) {
+      status
+      message
+      data {
+        id
+        insuranceCardNumber
+        principalMember
+        principalMemberName
+        principalMemberPhoneNumber
+        validFrom
+        validUntil
         insuranceProvider {
           id
           insuranceName

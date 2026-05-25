@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@apollo/client'
 import { GET_PATIENTS_QUERY, GET_PATIENT_QUERY } from '../queries'
-import { REGISTER_PATIENT_MUTATION, CREATE_PATIENT_INSURANCE_MUTATION, UPDATE_PATIENT_MUTATION } from '../mutations'
+import { REGISTER_PATIENT_MUTATION, CREATE_PATIENT_INSURANCE_MUTATION, UPDATE_PATIENT_INSURANCE_MUTATION, UPDATE_PATIENT_MUTATION } from '../mutations'
 import React from 'react'
 import type { Patient, PatientFilterInput, PatientInsurance, Visit, ApiResponse } from '../types'
 
@@ -55,6 +55,8 @@ export interface GqlPatientInsurance {
   principalMember: boolean
   principalMemberName?: string | null
   principalMemberPhoneNumber?: string | null
+  validFrom?: string | null
+  validUntil?: string | null
   insuranceProvider: GqlInsuranceProvider
 }
 
@@ -93,8 +95,10 @@ export interface RegisterPatientInput {
     phone?: string | null
   } | null
   insurances?: Array<{
+    id?: string
     insuranceId?: string | null
-    insuranceCardNumber?: string | null
+    insuranceCardNumber: string
+    providingCompanyOrEmployer: string
     dominantMember?: {
       firstName?: string | null
       lastName?: string | null
@@ -102,6 +106,33 @@ export interface RegisterPatientInput {
     } | null
   }> | null
   notes?: string | null
+}
+
+type RegisterPatientInsuranceInput = NonNullable<RegisterPatientInput['insurances']>[number]
+
+const getDominantMemberPayload = (dominantMember?: RegisterPatientInsuranceInput['dominantMember']) => {
+  const firstName = dominantMember?.firstName?.trim() || ''
+  const lastName = dominantMember?.lastName?.trim() || ''
+  const phone = dominantMember?.phone?.trim() || ''
+  const hasDominantMemberData = Boolean(firstName || lastName || phone)
+
+  return {
+    principalMember: !hasDominantMemberData,
+    principalMemberName: hasDominantMemberData ? [firstName, lastName].filter(Boolean).join(' ') || null : null,
+    principalMemberPhoneNumber: hasDominantMemberData ? phone || null : null,
+  }
+}
+
+const mapDominantMember = (insurance: Pick<GqlPatientInsurance, 'principalMember' | 'principalMemberName' | 'principalMemberPhoneNumber'>) => {
+  if (insurance.principalMember || (!insurance.principalMemberName && !insurance.principalMemberPhoneNumber)) {
+    return undefined
+  }
+
+  return {
+    firstName: insurance.principalMemberName?.split(' ')?.[0] || '',
+    lastName: insurance.principalMemberName?.split(' ')?.slice(1).join(' ') || '',
+    phone: insurance.principalMemberPhoneNumber || '',
+  }
 }
 
 export function usePatients(filter?: PatientFilterInput, page: number = 0, size: number = 20) {
@@ -216,13 +247,7 @@ export function usePatient(id: string | null) {
           acronym: insurance.insuranceProvider.acronym || undefined,
           coveragePercentage: insurance.insuranceProvider.defaultCoveragePercentage,
         },
-        dominantMember: insurance.principalMember
-          ? {
-              firstName: insurance.principalMemberName?.split(' ')?.[0] || '',
-              lastName: insurance.principalMemberName?.split(' ')?.slice(1).join(' ') || '',
-              phone: insurance.principalMemberPhoneNumber || '',
-            }
-          : undefined,
+        dominantMember: mapDominantMember(insurance),
       })),
       registrationDate: patientData.createdAt,
       lastVisit: patientData.lastVisit
@@ -250,11 +275,10 @@ export function usePatient(id: string | null) {
 
 export function useRegisterPatient() {
   const [registerPatientMutation, { loading, error }] = useMutation(REGISTER_PATIENT_MUTATION)
-  const [createPatientInsuranceMutation] = useMutation(CREATE_PATIENT_INSURANCE_MUTATION)
 
-  const registerPatient = async (input: RegisterPatientInput): Promise<ApiResponse<Patient>> => {
+  const registerPatient = async (input: RegisterPatientInput): Promise<ApiResponse<Visit>> => {
     try {
-      const patientInput = {
+      const patientInput: any = {
         firstName: input.firstName,
         middleName: input.middleName || null,
         lastName: input.lastName || null,
@@ -273,99 +297,86 @@ export function useRegisterPatient() {
         emergencyContactPhoneNumber: input.emergencyContact?.phone || null,
       }
 
+      if (input.insurances && input.insurances.length > 0) {
+        const now = new Date()
+        const validFrom = now.toISOString().slice(0, 10)
+        const validUntil = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()).toISOString().slice(0, 10)
+
+        patientInput.insurances = input.insurances
+          .filter((insurance) => insurance?.insuranceId && insurance?.insuranceCardNumber && insurance?.providingCompanyOrEmployer)
+          .map((insurance) => ({
+            insuranceProviderId: String(insurance.insuranceId),
+            insuranceCardNumber: insurance.insuranceCardNumber,
+            providingCompanyOrEmployer: insurance.providingCompanyOrEmployer,
+            ...getDominantMemberPayload(insurance.dominantMember),
+            validFrom,
+            validUntil,
+          }))
+      }
+
       const result = await registerPatientMutation({
         variables: { input: patientInput }
       })
 
       const created = result?.data?.createPatient
-      const patientId = created?.data?.id
-      const insuranceResults: PatientInsurance[] = []
-
-      if (patientId && input.insurances && input.insurances.length > 0) {
-        const now = new Date()
-        const validFrom = now.toISOString().slice(0, 10)
-        const validUntil = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()).toISOString().slice(0, 10)
-
-        for (const insurance of input.insurances) {
-          if (!insurance?.insuranceId || !insurance?.insuranceCardNumber) {
-            continue
-          }
-
-          const principalMemberName = [insurance.dominantMember?.firstName, insurance.dominantMember?.lastName]
-            .filter(Boolean)
-            .join(' ')
-
-          const insuranceCreateResult = await createPatientInsuranceMutation({
-            variables: {
-              input: {
-                patientId: String(patientId),
-                insuranceProviderId: String(insurance.insuranceId),
-                insuranceCardNumber: insurance.insuranceCardNumber,
-                providingCompanyOrEmployer: null,
-                principalMember: Boolean(principalMemberName),
-                principalMemberName: principalMemberName || null,
-                principalMemberPhoneNumber: insurance.dominantMember?.phone || null,
-                validFrom,
-                validUntil,
-              },
-            },
-          })
-
-          const createdInsurance = insuranceCreateResult?.data?.createPatientInsurance?.data
-          if (createdInsurance) {
-            insuranceResults.push({
-              id: createdInsurance.id,
-              insuranceCardNumber: createdInsurance.insuranceCardNumber,
-              status: 'ACTIVE',
-              insurance: {
-                id: createdInsurance.insuranceProvider.id,
-                name: createdInsurance.insuranceProvider.insuranceName,
-                acronym: createdInsurance.insuranceProvider.acronym,
-                coveragePercentage: createdInsurance.insuranceProvider.defaultCoveragePercentage,
-              },
-              dominantMember: createdInsurance.principalMember
-                ? {
-                    firstName: insurance.dominantMember?.firstName || '',
-                    lastName: insurance.dominantMember?.lastName || '',
-                    phone: createdInsurance.principalMemberPhoneNumber || '',
-                  }
-                : undefined,
-            } as any)
-          }
-        }
-      }
+      const visitData = created?.data
+      const linkedInsurances = visitData?.linkedInsurances || []
+      const insuranceResults: PatientInsurance[] = linkedInsurances.map((insurance: any) => ({
+        id: insurance.id,
+        insuranceCardNumber: insurance.insuranceCardNumber,
+        status: 'ACTIVE',
+        insurance: {
+          id: insurance.insuranceProvider.id,
+          name: insurance.insuranceProvider.insuranceName,
+          acronym: insurance.insuranceProvider.acronym,
+          coveragePercentage: insurance.insuranceProvider.defaultCoveragePercentage,
+        },
+        dominantMember: mapDominantMember(insurance),
+        validFrom: insurance.validFrom || undefined,
+        validUntil: insurance.validUntil || undefined,
+      }))
 
       return {
         status: created?.status || 'ERROR',
         message: created?.message,
         messages: created?.message ? [{ text: created.message, type: created.status || 'ERROR' }] : undefined,
-        data: created?.data
+        data: visitData?.patient
           ? {
-              id: created.data.id,
-              firstName: created.data.firstName,
-              middleName: created.data.middleName || undefined,
-              lastName: created.data.lastName || undefined,
-              dateOfBirth: created.data.dateOfBirth,
-              gender: created.data.gender === 'MALE' ? 'M' : created.data.gender === 'FEMALE' ? 'F' : (created.data.gender || ''),
-              contactInfo: {
-                phone: created.data.primaryPhoneNumber || undefined,
-                email: input.contactInfo?.email || undefined,
-                address: {
-                  street: created.data.village || undefined,
-                  sector: created.data.city || undefined,
-                  district: created.data.district || undefined,
-                  country: created.data.postalAddress || undefined,
+              id: visitData.id,
+              visitDate: visitData.visitDate,
+              status: visitData.status,
+              visitStatus: visitData.status,
+              billingStatus: 'PENDING',
+              patient: {
+                id: visitData.patient.id,
+                firstName: visitData.patient.firstName,
+                middleName: visitData.patient.middleName || undefined,
+                lastName: visitData.patient.lastName || undefined,
+                dateOfBirth: visitData.patient.dateOfBirth,
+                gender: visitData.patient.gender === 'MALE' ? 'M' : visitData.patient.gender === 'FEMALE' ? 'F' : (visitData.patient.gender || ''),
+                contactInfo: {
+                  phone: visitData.patient.primaryPhoneNumber || undefined,
+                  email: input.contactInfo?.email || undefined,
+                  address: {
+                    street: visitData.patient.village || undefined,
+                    sector: visitData.patient.city || undefined,
+                    district: visitData.patient.district || undefined,
+                    country: visitData.patient.postalAddress || undefined,
+                  },
                 },
+                emergencyContact: {
+                  name: visitData.patient.emergencyContactName || undefined,
+                  relation: visitData.patient.emergencyContactRelationship || undefined,
+                  phone: visitData.patient.emergencyContactPhoneNumber || undefined,
+                },
+                nationalId: visitData.patient.nationalIdNumber || undefined,
+                insurances: insuranceResults,
+                registrationDate: visitData.patient.createdAt,
+                notes: input.notes || undefined,
               },
-              emergencyContact: {
-                name: created.data.emergencyContactName || undefined,
-                relation: created.data.emergencyContactRelationship || undefined,
-                phone: created.data.emergencyContactPhoneNumber || undefined,
-              },
-              nationalId: created.data.nationalIdNumber || undefined,
               insurances: insuranceResults,
-              registrationDate: created.data.createdAt,
-              notes: input.notes || undefined,
+              departments: [],
+              vitalSigns: [],
             }
           : undefined,
       }
@@ -380,10 +391,12 @@ export function useRegisterPatient() {
 
 export function useUpdatePatient() {
   const [updatePatientMutation, { loading, error }] = useMutation(UPDATE_PATIENT_MUTATION)
+  const [createPatientInsuranceMutation] = useMutation(CREATE_PATIENT_INSURANCE_MUTATION)
+  const [updatePatientInsuranceMutation] = useMutation(UPDATE_PATIENT_INSURANCE_MUTATION)
 
   const updatePatient = async (patientId: string, input: RegisterPatientInput): Promise<ApiResponse<Patient>> => {
     try {
-      const patientInput = {
+      const patientInput: any = {
         firstName: input.firstName,
         middleName: input.middleName || null,
         lastName: input.lastName || null,
@@ -405,7 +418,121 @@ export function useUpdatePatient() {
       const result = await updatePatientMutation({
         variables: { patientId, input: patientInput }
       })
-      return result.data.updatePatient
+
+      const updated = result.data.updatePatient
+      const insuranceResults: PatientInsurance[] = []
+
+      if (input.insurances && input.insurances.length > 0) {
+        for (const insurance of input.insurances) {
+          if (!insurance?.insuranceId || !insurance?.insuranceCardNumber) {
+            continue
+          }
+
+          const now = new Date()
+          const validFrom = now.toISOString().slice(0, 10)
+          const validUntil = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()).toISOString().slice(0, 10)
+
+          const insuranceInput = {
+            insuranceProviderId: String(insurance.insuranceId),
+            insuranceCardNumber: insurance.insuranceCardNumber,
+            providingCompanyOrEmployer: insurance.providingCompanyOrEmployer,
+            ...getDominantMemberPayload(insurance.dominantMember),
+            validFrom,
+            validUntil,
+          }
+
+          if (insurance.id) {
+            const insuranceUpdateResult = await updatePatientInsuranceMutation({
+              variables: {
+                patientInsuranceId: insurance.id,
+                input: insuranceInput,
+              },
+            })
+            const updatedInsurance = insuranceUpdateResult?.data?.updatePatientInsurance?.data
+            if (updatedInsurance) {
+              insuranceResults.push({
+                id: updatedInsurance.id,
+                insuranceCardNumber: updatedInsurance.insuranceCardNumber,
+                status: 'ACTIVE',
+                insurance: {
+                  id: updatedInsurance.insuranceProvider.id,
+                  name: updatedInsurance.insuranceProvider.insuranceName,
+                  acronym: updatedInsurance.insuranceProvider.acronym,
+                  coveragePercentage: updatedInsurance.insuranceProvider.defaultCoveragePercentage,
+                },
+                dominantMember: mapDominantMember(updatedInsurance),
+                validFrom: updatedInsurance.validFrom || undefined,
+                validUntil: updatedInsurance.validUntil || undefined,
+              })
+            }
+          } else {
+            const insuranceCreateResult = await createPatientInsuranceMutation({
+              variables: {
+                input: {
+                  patientId,
+                  insuranceProviderId: String(insurance.insuranceId),
+                  insuranceCardNumber: insurance.insuranceCardNumber,
+                  providingCompanyOrEmployer: insurance.providingCompanyOrEmployer,
+                  ...getDominantMemberPayload(insurance.dominantMember),
+                  validFrom,
+                  validUntil,
+                },
+              },
+            })
+            const createdInsurance = insuranceCreateResult?.data?.createPatientInsurance?.data
+            if (createdInsurance) {
+              insuranceResults.push({
+                id: createdInsurance.id,
+                insuranceCardNumber: createdInsurance.insuranceCardNumber,
+                status: 'ACTIVE',
+                insurance: {
+                  id: createdInsurance.insuranceProvider.id,
+                  name: createdInsurance.insuranceProvider.insuranceName,
+                  acronym: createdInsurance.insuranceProvider.acronym,
+                  coveragePercentage: createdInsurance.insuranceProvider.defaultCoveragePercentage,
+                },
+                dominantMember: mapDominantMember(createdInsurance),
+                validFrom: createdInsurance.validFrom || undefined,
+                validUntil: createdInsurance.validUntil || undefined,
+              })
+            }
+          }
+        }
+      }
+
+      return {
+        status: updated?.status || 'ERROR',
+        message: updated?.message,
+        messages: updated?.message ? [{ text: updated.message, type: updated.status || 'ERROR' }] : undefined,
+        data: updated?.data
+          ? {
+              id: updated.data.id,
+              firstName: updated.data.firstName,
+              middleName: updated.data.middleName || undefined,
+              lastName: updated.data.lastName || undefined,
+              dateOfBirth: updated.data.dateOfBirth,
+              gender: updated.data.gender === 'MALE' ? 'M' : updated.data.gender === 'F' ? 'F' : (updated.data.gender || ''),
+              contactInfo: {
+                phone: updated.data.primaryPhoneNumber || undefined,
+                email: input.contactInfo?.email || undefined,
+                address: {
+                  street: updated.data.village || undefined,
+                  sector: updated.data.city || undefined,
+                  district: updated.data.district || undefined,
+                  country: updated.data.postalAddress || undefined,
+                },
+              },
+              emergencyContact: {
+                name: updated.data.emergencyContactName || undefined,
+                relation: updated.data.emergencyContactRelationship || undefined,
+                phone: updated.data.emergencyContactPhoneNumber || undefined,
+              },
+              nationalId: updated.data.nationalIdNumber || undefined,
+              insurances: insuranceResults.length > 0 ? insuranceResults : undefined,
+              registrationDate: updated.data.createdAt,
+            }
+          : undefined,
+      }
     } catch (err) {
       console.error('Patient update error:', err)
       throw err

@@ -75,7 +75,7 @@ export interface Insurance {
 export interface PatientInsurance {
   id: string
   insurance: Insurance
-  insuranceCardNumber?: string
+  insuranceCardNumber: string
   dominantMember?: DominantMember
   status: ActivationStatus
 }
@@ -483,9 +483,9 @@ export interface DominantMemberInput {
 
 export interface PatientInsuranceInput {
   insuranceId: string
-  insuranceCardNumber?: string
+  insuranceCardNumber: string
+  providingCompanyOrEmployer: string
   dominantMember?: DominantMemberInput
-  status: ActivationStatus
 }
 
 export interface PatientInput {
