@@ -49,6 +49,8 @@ export default function ManageUsersPage() {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([])
   const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<string[]>([])
   const [modalOpen, setModalOpen] = useState(false)
+  const [activationUser, setActivationUser] = useState<UserAccount | null>(null)
+  const [activationRoles, setActivationRoles] = useState<string[]>([])
 
   const isBusy = creating || activating || deactivating || updatingRoles || forcingReset
 
@@ -121,6 +123,16 @@ export default function ManageUsersPage() {
 
   const toggleRole = (role: string) => {
     setSelectedRoles((prev) => {
+      const exists = prev.includes(role)
+      if (exists) {
+        return prev.filter((r) => r !== role)
+      }
+      return [...prev, role]
+    })
+  }
+
+  const toggleActivationRole = (role: string) => {
+    setActivationRoles((prev) => {
       const exists = prev.includes(role)
       if (exists) {
         return prev.filter((r) => r !== role)
@@ -219,18 +231,53 @@ export default function ManageUsersPage() {
       return
     }
 
+    if (user.accountStatus !== 'ACTIVE') {
+      setActivationUser(user)
+      setActivationRoles(user.roles || [])
+      return
+    }
+
     try {
-      const response = user.accountStatus === 'ACTIVE'
-        ? await deactivateUser(user.id)
-        : await activateUser(user.id, user.roles?.length ? user.roles : ["STAFF"])
+      const response = await deactivateUser(user.id)
       if (response?.status !== "SUCCESS") {
         toast.error(response?.messages?.[0]?.text || "Could not update activation")
         return
       }
-      toast.success(user.accountStatus === 'ACTIVE' ? "User deactivated" : "User activated")
+      toast.success("User deactivated")
       await refetch()
     } catch {
       toast.error("Could not update activation")
+    }
+  }
+
+  const handleConfirmActivation = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!activationUser) return
+
+    if (activationRoles.length === 0) {
+      toast.error("Select at least one role before activating")
+      return
+    }
+
+    if (!canManageAdminUserAccounts && activationRoles.includes(ADMIN_ROLE)) {
+      toast.error("Manager cannot assign admin role")
+      return
+    }
+
+    try {
+      const response = await activateUser(activationUser.id, activationRoles)
+      if (response?.status !== "SUCCESS") {
+        toast.error(response?.messages?.[0]?.text || "Could not activate user")
+        return
+      }
+
+      toast.success("User activated")
+      setActivationUser(null)
+      setActivationRoles([])
+      await refetch()
+    } catch {
+      toast.error("Could not activate user")
     }
   }
 
@@ -469,6 +516,74 @@ export default function ManageUsersPage() {
                   </Button>
                   <Button type="submit" className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md" disabled={isBusy}>
                     {editingUserId ? "Update Roles" : "Register User"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={Boolean(activationUser)} onOpenChange={(open) => {
+          if (!open) {
+            setActivationUser(null)
+            setActivationRoles([])
+          }
+        }}>
+          <DialogContent className="sm:max-w-xl backdrop-blur-xl bg-white/10 dark:bg-black/25 border border-white/20 rounded-3xl shadow-2xl p-3">
+            <div className="bg-[#FBF2ED] dark:bg-slate-900 border border-border/40 dark:border-slate-800 rounded-2xl p-6 shadow-lg">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold text-foreground">Activate User</DialogTitle>
+                <DialogDescription>
+                  Select the roles to assign before activating {activationUser?.firstName} {activationUser?.lastName}.
+                </DialogDescription>
+              </DialogHeader>
+
+              <form onSubmit={handleConfirmActivation} className="space-y-5 mt-5">
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-foreground">Roles *</p>
+                  <div className="flex flex-wrap gap-2">
+                    {ALL_ROLES.map((role) => {
+                      if (role === ADMIN_ROLE && !canManageAdminUserAccounts) {
+                        return null
+                      }
+                      const selected = activationRoles.includes(role)
+                      return (
+                        <button
+                          key={`activate-${role}`}
+                          type="button"
+                          onClick={() => toggleActivationRole(role)}
+                          className={`px-4 h-9 rounded-xl border text-xs font-bold transition-all duration-200 ${
+                            selected
+                              ? "bg-primary text-primary-foreground border-primary shadow-md"
+                              : "bg-white dark:bg-background text-foreground border-border hover:border-primary/50 hover:bg-muted/30"
+                          }`}
+                        >
+                          {role}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-border/30">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full px-5"
+                    onClick={() => {
+                      setActivationUser(null)
+                      setActivationRoles([])
+                    }}
+                    disabled={isBusy}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md"
+                    disabled={isBusy}
+                  >
+                    Activate User
                   </Button>
                 </div>
               </form>
