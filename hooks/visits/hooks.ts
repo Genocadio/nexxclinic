@@ -377,6 +377,7 @@ const mapVisitDepartmentProducts = (departments: GqlVisitDepartment[] = []): Vis
     department: {
       id: department.department?.id || '',
       name: department.department?.name || '',
+      requestsProducts: department.department?.requestsProducts ?? undefined,
     },
     transferredBy: {
       id: department.transferredBy?.id || '',

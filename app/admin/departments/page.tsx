@@ -55,6 +55,7 @@ export default function DepartmentsPage() {
   const [departmentInsuranceIds, setDepartmentInsuranceIds] = useState<string[]>([])
   const [departmentNursing, setDepartmentNursing] = useState<boolean>(false)
   const [departmentSupportRequests, setDepartmentSupportRequests] = useState<boolean>(false)
+  const [departmentRequestsProducts, setDepartmentRequestsProducts] = useState<boolean>(false)
   const [pendingProductId, setPendingProductId] = useState('')
   const [pendingInsuranceId, setPendingInsuranceId] = useState('')
   const [saving, setSaving] = useState(false)
@@ -94,6 +95,7 @@ export default function DepartmentsPage() {
     setPendingInsuranceId('')
     setDepartmentNursing(false)
     setDepartmentSupportRequests(false)
+    setDepartmentRequestsProducts(false)
   }
 
   const handleAddModalProduct = () => {
@@ -133,6 +135,7 @@ export default function DepartmentsPage() {
     setPendingInsuranceId('')
     setDepartmentNursing(Boolean(selectedDepartment.nursing))
     setDepartmentSupportRequests(Boolean(selectedDepartment.supportRequests))
+    setDepartmentRequestsProducts(Boolean(selectedDepartment.requestsProducts))
     setIsModalOpen(true)
   }
 
@@ -206,6 +209,7 @@ export default function DepartmentsPage() {
           defaultProductIds: departmentProductIds,
           nursing: departmentNursing,
           supportRequests: departmentSupportRequests,
+          requestsProducts: departmentRequestsProducts,
         })
         if (createdResp?.status === 'SUCCESS') {
           toast({ title: 'Department created', description: createdResp.data?.name })
@@ -215,11 +219,12 @@ export default function DepartmentsPage() {
           toast({ title: 'Create failed', description: createdResp?.message || 'Failed to create department', variant: 'destructive' })
         }
       } else if (selectedDepartment) {
-        // Edit mode - only update the name
+        // Edit mode - update the department metadata
         const updatedResp = await updateDepartment(selectedDepartment.id, {
           name: departmentName.trim(),
           nursing: departmentNursing,
           supportRequests: departmentSupportRequests,
+          requestsProducts: departmentRequestsProducts,
         })
         if (updatedResp?.status === 'SUCCESS') {
           toast({ title: 'Department name updated', description: updatedResp.data?.name })
@@ -756,6 +761,13 @@ export default function DepartmentsPage() {
                     </div>
                     <Switch checked={departmentSupportRequests} onCheckedChange={(v: boolean) => setDepartmentSupportRequests(v)} />
                   </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground">Request Products</p>
+                      <p className="text-sm text-foreground">Allow this department to request products when needed</p>
+                    </div>
+                    <Switch checked={departmentRequestsProducts} onCheckedChange={(v: boolean) => setDepartmentRequestsProducts(v)} />
+                  </div>
                 </div>
               )}
               
@@ -774,6 +786,13 @@ export default function DepartmentsPage() {
                       <div className="flex items-center justify-between">
                         <p className="text-sm text-foreground">Allow support request workflow for this department</p>
                         <Switch checked={departmentSupportRequests} onCheckedChange={(v: boolean) => setDepartmentSupportRequests(v)} />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-muted-foreground">Request Products</label>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-foreground">Allow this department to request products when needed</p>
+                        <Switch checked={departmentRequestsProducts} onCheckedChange={(v: boolean) => setDepartmentRequestsProducts(v)} />
                       </div>
                     </div>
                   </div>
@@ -901,6 +920,9 @@ export default function DepartmentsPage() {
                 </span>
                 <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium">
                   Support Requests: {typeof menuDepartment.supportRequests === 'boolean' ? (menuDepartment.supportRequests ? 'Enabled' : 'Disabled') : 'Not available yet'}
+                </span>
+                <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium">
+                  Request Products: {typeof menuDepartment.requestsProducts === 'boolean' ? (menuDepartment.requestsProducts ? 'Enabled' : 'Disabled') : 'Not available yet'}
                 </span>
               </div>
 

@@ -59,6 +59,7 @@ interface FormFieldRendererProps {
   visitId?: string
   departmentId?: string
   visitDepartmentId?: string
+  hideActionListenerAddButton?: boolean
 }
 
 export function FormFieldRenderer({
@@ -82,6 +83,7 @@ export function FormFieldRenderer({
   visitId,
   departmentId,
   visitDepartmentId,
+  hideActionListenerAddButton = false,
 }: FormFieldRendererProps) {
   const contrastInputClass = "border-border/80 bg-background/80 dark:bg-slate-950/60 shadow-sm focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:border-primary/70"
   const ensureHeaders = (count: number, source: string[] | undefined, prefix: string) =>
@@ -593,16 +595,22 @@ export function FormFieldRenderer({
     const actionButtonTextStyle = `${field.boldLabel ? 'font-bold' : ''} ${field.italicLabel ? 'italic' : ''} ${field.underlineLabel ? 'underline' : ''}`
     return (
       <div className="space-y-3">
-        <div className={shouldCenterActionButton ? 'flex justify-center' : 'flex'}>
-          <Button 
-            onClick={() => onActionListenerClick?.(field.id)}
-            className={`inline-flex h-9 px-4 rounded-xl gap-2 border-border/70 bg-card/70 hover:bg-card shadow-sm ${actionButtonTextStyle}`}
-            variant="outline"
-          >
-            <Plus className="h-4 w-4" />
-            Add Product
-          </Button>
-        </div>
+        {!hideActionListenerAddButton ? (
+          <div className={shouldCenterActionButton ? 'flex justify-center' : 'flex'}>
+            <Button 
+              onClick={() => onActionListenerClick?.(field.id)}
+              className={`inline-flex h-9 px-4 rounded-xl gap-2 border-border/70 bg-card/70 hover:bg-card shadow-sm ${actionButtonTextStyle}`}
+              variant="outline"
+            >
+              <Plus className="h-4 w-4" />
+              Add Product
+            </Button>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground">
+            Product listener only. Adding products is disabled for this department.
+          </div>
+        )}
         {fieldActions && fieldActions.length > 0 && (
           <FormActionsDisplay
             items={fieldActions}

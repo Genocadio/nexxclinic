@@ -72,6 +72,7 @@ export const GET_VISIT_QUERY = gql`
             id
             name
             insurancePolicyMode
+            requestsProducts
           }
           status
           completedAt

@@ -203,6 +203,8 @@ export default function ConsultationPage() {
     rawData: product,
   }))
 
+  const requestProductsEnabled = firstDepartment?.department?.requestsProducts !== false
+
   console.log('[Consultation-Page] visitId:', visit.id, 'firstDepartmentId:', firstDepartment?.id, 'rawProducts:', rawDepartmentProducts.length, 'actions:', (firstDepartment?.actions || []).length, 'consumables:', (firstDepartment?.consumables || []).length, 'existingProductsMapped:', existingProducts.length)
 
   return (
@@ -214,6 +216,7 @@ export default function ConsultationPage() {
         departmentId={firstDepartmentId ? String(firstDepartmentId) : undefined}
         visitDepartmentId={firstVisitDepartmentId ? String(firstVisitDepartmentId) : undefined}
         existingProducts={existingProducts}
+        requestProductsEnabled={requestProductsEnabled}
         onSave={async (updatedConsultation) => {
           try {
             const dynamicFormResponse = (updatedConsultation.specialtyExtensions as any)?.dynamicFormResponse

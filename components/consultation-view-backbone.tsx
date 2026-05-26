@@ -26,6 +26,7 @@ interface ConsultationViewBackboneProps {
   departmentId?: string
   visitDepartmentId?: string
   existingProducts?: FormAction[]
+  requestProductsEnabled?: boolean
   onSave: (consultation: any) => void
   onBack: () => void
 }
@@ -41,6 +42,7 @@ export default function ConsultationViewBackbone({
   departmentId,
   visitDepartmentId,
   existingProducts = [],
+  requestProductsEnabled = true,
   onSave,
   onBack: _onBack,
 }: ConsultationViewBackboneProps) {
@@ -1055,6 +1057,7 @@ export default function ConsultationViewBackbone({
             visitId={consultation.consultationId}
             currentDepartmentId={departmentId}
             visitDepartmentId={visitDepartmentId}
+            hideActionListenerAddButton={!requestProductsEnabled}
           />
         </div>
       </div>

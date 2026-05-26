@@ -10,6 +10,7 @@ export const CREATE_DEPARTMENT_MUTATION = gql`
         name
         nursing
         supportRequests
+        requestsProducts
         insurancePolicyMode
         insurancePolicies {
           id
@@ -61,6 +62,7 @@ export const UPDATE_DEPARTMENT_MUTATION = gql`
         name
         nursing
         supportRequests
+        requestsProducts
         insurancePolicyMode
         insurancePolicies {
           id

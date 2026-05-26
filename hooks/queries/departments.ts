@@ -11,6 +11,7 @@ export const GET_DEPARTMENTS_QUERY = gql`
         name
         nursing
         supportRequests
+        requestsProducts
         insurancePolicyMode
         insurancePolicies {
           id
@@ -69,6 +70,7 @@ export const GET_DEPARTMENT_QUERY = gql`
         name
         nursing
         supportRequests
+        requestsProducts
         insurancePolicyMode
         insurancePolicies {
           id

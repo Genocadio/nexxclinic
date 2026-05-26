@@ -333,6 +333,7 @@ export interface Department {
   insurancePolicyMode?: string
   nursing?: boolean
   supportRequests?: boolean
+  requestsProducts?: boolean
   insurancePolicies?: Insurance[]
   defaultProducts?: Product[]
   createdAt?: string

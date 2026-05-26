@@ -32,6 +32,7 @@ interface ConsultationFormDisplayProps {
   visitId?: string
   currentDepartmentId?: string
   visitDepartmentId?: string
+  hideActionListenerAddButton?: boolean
 }
 
 export function ConsultationFormDisplay({
@@ -57,6 +58,7 @@ export function ConsultationFormDisplay({
   visitId,
   currentDepartmentId,
   visitDepartmentId,
+  hideActionListenerAddButton = false,
 }: ConsultationFormDisplayProps) {
   return (
     <Card>
@@ -115,6 +117,7 @@ export function ConsultationFormDisplay({
                          visitId={visitId}
                          departmentId={currentDepartmentId}
                          visitDepartmentId={visitDepartmentId}
+                         hideActionListenerAddButton={hideActionListenerAddButton}
                        />
                     </div>
                   )
@@ -159,6 +162,7 @@ export function ConsultationFormDisplay({
                                  onRestoreAction={onRestoreAction ? (actionId) => onRestoreAction(field.id, actionId) : undefined}
                                  visitId={visitId}
                                  visitDepartmentId={visitDepartmentId}
+                                 hideActionListenerAddButton={hideActionListenerAddButton}
                                />
                             </div>
                           )

@@ -58,6 +58,7 @@ export interface GqlDepartment {
   insurancePolicyMode?: string | null
   nursing?: boolean | null
   supportRequests?: boolean | null
+  requestsProducts?: boolean | null
   insurancePolicies?: GqlInsurance[] | null
   defaultProducts?: GqlProduct[] | null
 }
@@ -131,6 +132,7 @@ const mapDepartmentFromApi = (department: GqlDepartment): Department => ({
   insurancePolicyMode: department.insurancePolicyMode || undefined,
   nursing: department.nursing ?? undefined,
   supportRequests: department.supportRequests ?? undefined,
+  requestsProducts: department.requestsProducts ?? undefined,
   insurancePolicies: (department.insurancePolicies || []).map((insurance: GqlInsurance) => ({
     id: insurance.id,
     name: insurance.insuranceName || 'Unknown Insurance',
@@ -180,7 +182,7 @@ export function useDepartments() {
 
 export function useCreateDepartment() {
   const [mutate, { loading, error }] = useMutation<CreateDepartmentPayload>(CREATE_DEPARTMENT_MUTATION)
-  const createDepartment = async (name: string, input?: { insuranceProviderIds?: string[]; defaultProductIds?: string[]; insurancePolicyMode?: string; nursing?: boolean; supportRequests?: boolean }) => {
+  const createDepartment = async (name: string, input?: { insuranceProviderIds?: string[]; defaultProductIds?: string[]; insurancePolicyMode?: string; nursing?: boolean; supportRequests?: boolean; requestsProducts?: boolean }) => {
     const { data } = await mutate({
       variables: {
         input: {
@@ -190,6 +192,7 @@ export function useCreateDepartment() {
           insurancePolicyMode: input?.insurancePolicyMode,
           nursing: input?.nursing,
           supportRequests: input?.supportRequests,
+          requestsProducts: input?.requestsProducts,
         },
       },
     })
@@ -205,7 +208,7 @@ export function useCreateDepartment() {
 
 export function useUpdateDepartment() {
   const [mutate, { loading, error }] = useMutation<UpdateDepartmentPayload>(UPDATE_DEPARTMENT_MUTATION)
-  const updateDepartment = async (id: number | string, input: { name?: string; insuranceProviderIds?: string[]; defaultProductIds?: string[]; insurancePolicyMode?: string; nursing?: boolean; supportRequests?: boolean }) => {
+  const updateDepartment = async (id: number | string, input: { name?: string; insuranceProviderIds?: string[]; defaultProductIds?: string[]; insurancePolicyMode?: string; nursing?: boolean; supportRequests?: boolean; requestsProducts?: boolean }) => {
     const { data } = await mutate({ variables: { departmentId: id, input } })
     const payload = data?.updateDepartment
     return {
