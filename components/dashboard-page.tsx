@@ -82,6 +82,7 @@ export default function DashboardPage() {
   const hasNurseRole = roles.includes("NURSE")
   const hasConsultationRole = roles.some((role) => ["DOCTOR", "OPHTHALMOLOGIST", "SPECIALIST", "ADMIN"].includes(role))
   const hasClinicianOrDoctorRole = roles.some((role) => ["CLINICIAN", "DOCTOR"].includes(role))
+  const canSeeBillingInfo = hasFinanceRole
   const canSeeConsultButton = !isReceptionistOnly
   // Bill button: Finance role always sees billing, regardless of other roles
   const canSeeBillButton = hasFinanceRole
@@ -694,7 +695,7 @@ export default function DashboardPage() {
                                 <p className="text-sm text-muted-foreground truncate">
                                   {new Date(visit.visitDate).toLocaleDateString()}
                                 </p>
-                                {!isReceptionistOnly && (
+                                {canSeeBillingInfo && (
                                   <p className="text-xs text-muted-foreground truncate">
                                     Billing: {getBillingDisplayStatus(visit)}
                                   </p>
