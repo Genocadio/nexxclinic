@@ -74,10 +74,7 @@ export default function ManageUsersPage() {
     const q = query.trim().toLowerCase()
     return users.filter((u) => {
       const fullName = `${u.firstName || ""} ${u.lastName || ""}`.trim()
-      const departmentNames = [
-        u.department?.name,
-        ...(u.departments || []).map((department) => department.name),
-      ].filter(Boolean)
+      const departmentNames = (u.departments || []).map((department) => department.name)
       const pool = [fullName, u.email, u.phoneNumber, ...(u.roles || []), ...departmentNames]
       return pool.some((v) => v.toLowerCase().includes(q))
     })
@@ -123,11 +120,7 @@ export default function ManageUsersPage() {
     setUsername(user.username || "")
     const nextRoles = user.roles?.length ? user.roles : []
     setSelectedRoles(nextRoles)
-    const nextDepartments = user.departments?.length
-      ? user.departments.map((department) => department.id)
-      : user.department
-        ? [user.department.id]
-        : []
+    const nextDepartments = user.departments?.length ? user.departments.map((department) => department.id) : []
     setSelectedDepartmentIds(nextDepartments)
     setModalOpen(true)
   }
@@ -672,10 +665,7 @@ export default function ManageUsersPage() {
                       ))}
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
-                      Departments: {[
-                        ...(user.departments || []).map((department) => department.name),
-                        ...(user.department ? [user.department.name] : []),
-                      ].filter(Boolean).join(", ") || "None"}
+                      Departments: {(user.departments || []).map((department) => department.name).join(", ") || "None"}
                     </p>
                   </div>
 

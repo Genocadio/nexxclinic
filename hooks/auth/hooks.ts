@@ -30,7 +30,6 @@ export function useLogin() {
         phoneNumber?: string | null
         accountStatus?: string | null
         roles?: string[] | null
-        department?: { id: string; name: string } | null
         departments?: { id: string; name: string }[] | null
       }) => ({
         id: profile?.id || '',
@@ -40,8 +39,7 @@ export function useLogin() {
         title: '',
         roles: profile?.roles || [],
         active: profile?.accountStatus === 'ACTIVE',
-        department: profile?.department || profile?.departments?.[0] || undefined,
-        departments: profile?.departments || (profile?.department ? [profile.department] : undefined),
+        departments: profile?.departments || undefined,
       })
 
       if (payload?.status === 'SUCCESS' && payload.data?.accessToken) {

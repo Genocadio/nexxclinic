@@ -45,10 +45,6 @@ export interface UserAccount {
   username: string
   accountStatus: string
   roles: string[]
-  department?: {
-    id: string
-    name: string
-  }
   departments?: {
     id: string
     name: string
