@@ -1,7 +1,7 @@
 "use client"
 
 import { useParams, useRouter } from "next/navigation"
-import { useAddDepartmentNote, useCompleteConsultationVisit, useUpsertConsultationAnswers, useVisit } from "@/hooks/auth-hooks"
+import { useAddDepartmentNote, useCompleteConsultationVisit, useVisit } from "@/hooks/auth-hooks"
 import { useAuth } from "@/lib/auth-context"
 import ConsultationViewBackbone from "@/components/consultation-view-backbone"
 import VisitNotesFloating from "@/components/visit-notes-floating"
@@ -20,7 +20,6 @@ export default function ConsultationPage() {
   const visitId = params.visitId as string
   const { doctor } = useAuth()
   const { visit, loading, error, refetch } = useVisit(visitId)
-  const { upsertConsultationAnswers } = useUpsertConsultationAnswers()
   const { completeConsultationVisit } = useCompleteConsultationVisit()
   const { addDepartmentNote } = useAddDepartmentNote()
 
@@ -222,7 +221,6 @@ export default function ConsultationPage() {
             const formId = dynamicFormResponse?.formId
             const formVersion = dynamicFormResponse?.formVersion || dynamicFormResponse?.formSchemaVersion || dynamicFormResponse?.formVersionNumber
             const departmentToSave = String(dynamicFormResponse?.departmentId || firstDepartmentId || '')
-            const existingSubmissionStatus = dynamicFormResponse?.existingSubmissionStatus as 'DRAFT' | 'FINAL' | undefined
             const desiredStatus = updatedConsultation.status === 'finalized' ? 'FINAL' : 'DRAFT'
             const answersMap = dynamicFormResponse?.answers?.values ?? {}
 
@@ -236,59 +234,24 @@ export default function ConsultationPage() {
               return
             }
 
-            if (updatedConsultation.status === 'finalized') {
-              const completeResult = await completeConsultationVisit({
-                consultationId: updatedConsultation.consultationId || visit.id,
-                visitId: visit.id,
-                patientId: visit.patient.id,
-                departmentId: departmentToSave,
-                formId: String(formId),
-                formVersion: String(formVersion),
-                status: desiredStatus,
-                answers: JSON.stringify(answersMap),
-              }, true)
+            const completeResult = await completeConsultationVisit({
+              consultationId: updatedConsultation.consultationId || visit.id,
+              visitId: visit.id,
+              patientId: visit.patient.id,
+              departmentId: departmentToSave,
+              formId: String(formId),
+              formVersion: String(formVersion),
+              status: desiredStatus,
+              answers: JSON.stringify(answersMap),
+            }, updatedConsultation.status === 'finalized')
 
-              if (completeResult?.status !== 'SUCCESS') {
-                const backendMessage = completeResult?.messages?.map((m) => m?.text).filter(Boolean).join(' | ') || 'Failed to complete consultation'
-                toast.error(backendMessage)
-                return
-              }
-
-              toast.success(completeResult?.message || 'Consultation finalized successfully')
-              router.push('/')
+            if (completeResult?.status !== 'SUCCESS') {
+              const backendMessage = completeResult?.messages?.map((m) => m?.text).filter(Boolean).join(' | ') || 'Failed to complete consultation'
+              toast.error(backendMessage)
               return
             }
 
-            // If the answers were already saved with the same desired status, skip the upsert
-            if (existingSubmissionStatus === desiredStatus) {
-              console.log('Skipping upsert because answers already saved with same status:', desiredStatus)
-            } else {
-              const saveResult = await upsertConsultationAnswers({
-                consultationId: updatedConsultation.consultationId || visit.id,
-                visitId: visit.id,
-                patientId: visit.patient.id,
-                departmentId: departmentToSave,
-                formId: String(formId),
-                formVersion: String(formVersion),
-                status: desiredStatus,
-                answers: JSON.stringify(answersMap),
-              })
-
-              if (saveResult?.status !== 'SUCCESS') {
-                const backendMessage = saveResult?.messages?.map((m) => m?.text).filter(Boolean).join(' | ') || 'Failed to persist consultation answers'
-                const alreadyFinalMessage = /already\s+FINAL/i.test(backendMessage)
-
-                if (alreadyFinalMessage) {
-                  console.warn('Skipping upsert because backend reports answers are already FINAL')
-                } else {
-                  console.error('Failed to persist consultation answers', saveResult?.messages)
-                  toast.error(backendMessage)
-                  return
-                }
-              }
-            }
-
-            toast.success('Consultation saved successfully')
+            toast.success(completeResult?.message || 'Consultation saved successfully')
             console.log('Consultation answers saved', {
               consultationId: updatedConsultation.consultationId || visit.id,
               departmentId: departmentToSave,
