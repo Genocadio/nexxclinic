@@ -222,29 +222,26 @@ export const ADD_PRODUCT_TO_VISIT_DEPARTMENT_MUTATION = gql`
       
       data {
         id
-        departments {
+        department {
           id
-          department {
+          name
+        }
+        status
+        products {
+          id
+          product {
             id
             name
+            type
           }
+          quantity
+          price
           status
-          products {
+          addedBy {
             id
-            product {
-              id
-              name
-              type
-            }
-            quantity
-            price
-            status
-            addedBy {
-              id
-              firstName
-              lastName
-              email
-            }
+            firstName
+            lastName
+            email
           }
         }
       }

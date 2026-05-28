@@ -1016,7 +1016,7 @@ export function useAddActionToVisitDepartment() {
         data: payload?.data
           ? {
               ...payload.data,
-              departments: mapProductDepartmentsToLegacyItems(payload.data.departments || []),
+              departments: mapProductDepartmentsToLegacyItems([payload.data as GqlVisitDepartment]),
             }
           : undefined,
       }
@@ -1052,7 +1052,7 @@ export function useAddConsumableToVisitDepartment() {
         data: payload?.data
           ? {
               ...payload.data,
-              departments: mapProductDepartmentsToLegacyItems(payload.data.departments || []),
+              departments: mapProductDepartmentsToLegacyItems([payload.data as GqlVisitDepartment]),
             }
           : undefined,
       }
@@ -1088,7 +1088,7 @@ export function useAddProductToVisitDepartment() {
         data: payload?.data
           ? {
               ...payload.data,
-              departments: mapProductDepartmentsToLegacyItems(payload.data.departments || []),
+              departments: mapProductDepartmentsToLegacyItems([payload.data as GqlVisitDepartment]),
             }
           : undefined,
       }

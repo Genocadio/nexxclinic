@@ -203,7 +203,7 @@ export default function ConsultationPage() {
     rawData: product,
   }))
 
-  const requestProductsEnabled = firstDepartment?.department?.requestsProducts !== false
+  const requestProductsEnabled = (visit.departments || []).some((department) => department.department?.requestsProducts === true)
 
   console.log('[Consultation-Page] visitId:', visit.id, 'firstDepartmentId:', firstDepartment?.id, 'rawProducts:', rawDepartmentProducts.length, 'actions:', (firstDepartment?.actions || []).length, 'consumables:', (firstDepartment?.consumables || []).length, 'existingProductsMapped:', existingProducts.length)
 
