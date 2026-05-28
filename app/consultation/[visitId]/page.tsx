@@ -224,7 +224,7 @@ export default function ConsultationPage() {
             const formVersion = dynamicFormResponse?.formVersion || dynamicFormResponse?.formSchemaVersion || dynamicFormResponse?.formVersionNumber
             const departmentToSave = String(dynamicFormResponse?.departmentId || firstDepartmentId || '')
             const existingSubmissionStatus = dynamicFormResponse?.existingSubmissionStatus as 'DRAFT' | 'FINAL' | undefined
-            let answersAlreadyFinal = existingSubmissionStatus === 'FINAL'
+            const desiredStatus = updatedConsultation.status === 'finalized' ? 'FINAL' : 'DRAFT'
 
             if (!formId || !departmentToSave || formVersion === undefined || formVersion === null) {
               console.warn('Skipping consultation answers save: missing form context', {
@@ -236,7 +236,10 @@ export default function ConsultationPage() {
               return
             }
 
-            if (!answersAlreadyFinal) {
+            // If the answers were already saved with the same desired status, skip the upsert
+            if (existingSubmissionStatus === desiredStatus) {
+              console.log('Skipping upsert because answers already saved with same status:', desiredStatus)
+            } else {
               const answersMap = dynamicFormResponse?.answers?.values ?? {}
               const saveResult = await upsertConsultationAnswers({
                 consultationId: updatedConsultation.consultationId || visit.id,
@@ -245,7 +248,7 @@ export default function ConsultationPage() {
                 departmentId: departmentToSave,
                 formId: String(formId),
                 formVersion: String(formVersion),
-                status: updatedConsultation.status === 'finalized' ? 'FINAL' : 'DRAFT',
+                status: desiredStatus,
                 answers: JSON.stringify(answersMap),
               })
 
@@ -254,7 +257,6 @@ export default function ConsultationPage() {
                 const alreadyFinalMessage = /already\s+FINAL/i.test(backendMessage)
 
                 if (alreadyFinalMessage) {
-                  answersAlreadyFinal = true
                   console.warn('Skipping upsert because backend reports answers are already FINAL')
                 } else {
                   console.error('Failed to persist consultation answers', saveResult?.messages)
@@ -262,8 +264,6 @@ export default function ConsultationPage() {
                   return
                 }
               }
-            } else {
-              console.log('Skipping upsert because consultation answers are already FINAL')
             }
 
             if (updatedConsultation.status === 'finalized') {
