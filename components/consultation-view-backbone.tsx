@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { CheckCircle2, FilePenLine, Loader2 } from "lucide-react"
 import type { Patient } from "@/lib/types"
 import { useAddActionToVisitDepartment, useAddConsumableToVisitDepartment, useUpsertConsultationAnswers } from "@/hooks/auth-hooks"
 import { useConsultationAnswers, useLatestForm, useFormVersionHistory } from "@/hooks/forms"
@@ -54,9 +55,14 @@ export default function ConsultationViewBackbone({
   const [formLoading, setFormLoading] = useState(false)
   const [formLoadFailed, setFormLoadFailed] = useState(false)
   const [formReloadKey, setFormReloadKey] = useState(0)
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'dirty' | 'saving'>('saved')
   const lastSavedFieldActionsRef = useRef<Record<string, string[]>>({}) // Store backendIds for comparison
   const lastSavedClinicalFieldsRef = useRef<Record<string, string>>({})
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastSavedSnapshotRef = useRef<string>('')
+  const isSavingRef = useRef(false)
+  const hydrationReadyRef = useRef(false)
+  const hydrationStagesRef = useRef({ answers: false, products: false, clinical: false })
   const { loadLatestForm: loadForm } = useLatestForm(departmentId || null)
   const { loadConsultationAnswers: loadAnswers } = useConsultationAnswers(initialConsultation.consultationId || null, departmentId || null, departmentForm?.id || null)
   const { loadVersionHistory } = useFormVersionHistory(departmentId || null, null)
@@ -162,6 +168,35 @@ export default function ConsultationViewBackbone({
     }
 
     return JSON.stringify(value ?? null)
+  }
+
+  const buildAutosaveSnapshot = () => {
+    if (!departmentForm) return ''
+
+    const normalizedAnswers = buildAnswersForSubmission(formAnswers, tableShapes, fieldActions, departmentForm)
+    const normalizedFieldActions = Object.keys(fieldActions)
+      .sort()
+      .reduce<Record<string, Array<{ backendId: string; id: string; quantity: number; source: string; removedFromVisit: boolean }>>>((acc, fieldId) => {
+        acc[fieldId] = (fieldActions[fieldId] || [])
+          .map((action) => ({
+            backendId: String(action.backendId ?? ''),
+            id: String(action.id ?? ''),
+            quantity: Number(action.quantity ?? 0),
+            source: String(action.source ?? ''),
+            removedFromVisit: Boolean(action.removedFromVisit),
+          }))
+          .sort((a, b) => `${a.backendId}:${a.id}:${a.quantity}:${a.source}:${a.removedFromVisit}`.localeCompare(`${b.backendId}:${b.id}:${b.quantity}:${b.source}:${b.removedFromVisit}`))
+        return acc
+      }, {})
+
+    return JSON.stringify({
+      answers: normalizedAnswers,
+      fieldActions: normalizedFieldActions,
+    })
+  }
+
+  const markHydrationStageComplete = (stage: 'answers' | 'products' | 'clinical') => {
+    hydrationStagesRef.current[stage] = true
   }
 
   // Panel states
@@ -339,6 +374,7 @@ export default function ConsultationViewBackbone({
       } catch (err) {
         console.error('Failed to load existing consultation answers', err)
       } finally {
+        markHydrationStageComplete('answers')
         setAnswersLoaded(true)
       }
     }
@@ -422,6 +458,7 @@ export default function ConsultationViewBackbone({
         console.log('[Consultation-Hydration] No action needed for field:', field.id)
       }
     })
+    markHydrationStageComplete('products')
     console.log('[Consultation-Hydration] ===END===')
   }, [departmentForm, existingProducts, fieldActions])
 
@@ -550,7 +587,22 @@ export default function ConsultationViewBackbone({
 
       return changed ? next : prev
     })
+    markHydrationStageComplete('clinical')
   }, [departmentForm, answersLoaded, visitDepartmentId, visit?.departments])
+
+  useEffect(() => {
+    if (hydrationReadyRef.current) return
+    if (!departmentForm || !answersLoaded || !consultation.consultationId) return
+    if (!hydrationStagesRef.current.answers || !hydrationStagesRef.current.products || !hydrationStagesRef.current.clinical) return
+
+    const timeout = setTimeout(() => {
+      lastSavedSnapshotRef.current = buildAutosaveSnapshot()
+      hydrationReadyRef.current = true
+      setSaveStatus('saved')
+    }, 0)
+
+    return () => clearTimeout(timeout)
+  }, [departmentForm, answersLoaded, consultation.consultationId, formAnswers, tableShapes, fieldActions])
 
   // Helper to create/persist answers for a given field -> products mapping
   const createAnswersForProducts = async (fieldId: string, products: FormAction[]) => {
@@ -695,98 +747,63 @@ export default function ConsultationViewBackbone({
   }
 
   useEffect(() => {
-    if (!departmentForm || !consultation.consultationId || Object.keys(fieldActions).length === 0) {
+    if (!hydrationReadyRef.current) {
       return
     }
 
-    // Check if this is a form with actionListener fields (including section fields).
-    const allFields = [
-      ...departmentForm.fields,
-      ...(departmentForm.sections || []).flatMap((section) => section.fields || []),
-    ]
-    const hasActionListenerField = allFields.some(field => field.type === 'actionListener')
-    if (!hasActionListenerField) {
-      return
-    }
-
-    // Check if fieldActions changed by comparing backendIds and quantities
-    const fieldActionsChanged = Object.keys(fieldActions).some((fieldId) => {
-      const current = fieldActions[fieldId]
-      const lastSaved = lastSavedFieldActionsRef.current[fieldId] || []
-      
-      const currentSnapshot = current
-        .map((a) => `${a.backendId ?? a.id}:${a.quantity}`)
-        .sort()
-      if (currentSnapshot.length !== lastSaved.length) return true
-      return currentSnapshot.some((entry, idx) => entry !== lastSaved[idx])
-    })
-
-    if (!fieldActionsChanged) {
-      return
-    }
-
-    // Clear any pending timeout
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current)
-    }
-
-    // Delay slightly to ensure state is settled, then auto-save
-    autoSaveTimeoutRef.current = setTimeout(async () => {
-      await saveCurrentAnswersDraft(fieldActions)
-    }, 100)
-
-    return () => {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current)
-      }
-    }
-  }, [fieldActions, departmentForm, consultation, tableShapes, formAnswers, departmentId, onSave, patient.id, upsertConsultationAnswers])
-
-  useEffect(() => {
     if (!departmentForm || !consultation.consultationId || !patient.id) {
       return
     }
 
-    const allFields = [
-      ...departmentForm.fields,
-      ...(departmentForm.sections || []).flatMap((section) => section.fields || []),
-    ]
-    const clinicalFieldIds = allFields
-      .filter((field) => ['diagnosticRecord', 'medicationLongForm', 'medicationMiniForm', 'labRecord'].includes(field.type))
-      .map((field) => field.id)
-
-    if (clinicalFieldIds.length === 0) {
+    const currentSnapshot = buildAutosaveSnapshot()
+    if (currentSnapshot === lastSavedSnapshotRef.current) {
+      if (!isSavingRef.current) {
+        setSaveStatus('saved')
+      }
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current)
+        autoSaveTimeoutRef.current = null
+      }
       return
     }
 
-    const changed = clinicalFieldIds.some((fieldId) => {
-      const currentSnapshot = snapshotClinicalField(formAnswers[fieldId])
-      return (lastSavedClinicalFieldsRef.current[fieldId] || '') !== currentSnapshot
-    })
-
-    if (!changed) {
-      return
-    }
+    setSaveStatus('dirty')
 
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current)
     }
 
     autoSaveTimeoutRef.current = setTimeout(async () => {
-      const saveResult = await saveCurrentAnswersDraft(fieldActions)
-      if (saveResult?.status === 'SUCCESS') {
-        clinicalFieldIds.forEach((fieldId) => {
-          lastSavedClinicalFieldsRef.current[fieldId] = snapshotClinicalField(formAnswers[fieldId])
-        })
+      if (isSavingRef.current) {
+        return
       }
-    }, 120)
+
+      const snapshotAtSaveStart = buildAutosaveSnapshot()
+      if (snapshotAtSaveStart === lastSavedSnapshotRef.current) {
+        setSaveStatus('saved')
+        return
+      }
+
+      isSavingRef.current = true
+      setSaveStatus('saving')
+
+      const saveResult = await saveCurrentAnswersDraft(fieldActions)
+      isSavingRef.current = false
+
+      if (saveResult?.status === 'SUCCESS') {
+        lastSavedSnapshotRef.current = snapshotAtSaveStart
+        setSaveStatus('saved')
+      } else {
+        setSaveStatus('dirty')
+      }
+    }, 20000)
 
     return () => {
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current)
       }
     }
-  }, [formAnswers, departmentForm, consultation.consultationId, patient.id, fieldActions])
+  }, [departmentForm, consultation.consultationId, patient.id, formAnswers, tableShapes, fieldActions, answersLoaded])
   
   const handleStatusSave = (status: 'draft' | 'finalized') => {
     const normalizedAnswers = buildAnswersForSubmission(formAnswers, tableShapes, fieldActions, departmentForm)
@@ -1077,6 +1094,27 @@ export default function ConsultationViewBackbone({
 
   return (
     <div className="min-h-screen bg-background">
+      <div className="fixed top-4 right-4 z-50 pointer-events-none">
+        <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/90 px-3 py-1.5 text-xs shadow-lg backdrop-blur">
+          {saveStatus === 'saving' ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              <span className="text-muted-foreground">Saving</span>
+            </>
+          ) : saveStatus === 'dirty' ? (
+            <>
+              <FilePenLine className="h-3.5 w-3.5 text-amber-500" />
+              <span className="text-amber-600 dark:text-amber-400">Editing</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="text-emerald-600 dark:text-emerald-400">Saved</span>
+            </>
+          )}
+        </div>
+      </div>
+
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-5xl mx-auto space-y-6">
           <ConsultationFormDisplay
@@ -1122,7 +1160,6 @@ export default function ConsultationViewBackbone({
       />
 
       <ConsultationBottomDock
-        onSaveDraft={() => handleStatusSave('draft')}
         onComplete={() => handleStatusSave('finalized')}
       />
 

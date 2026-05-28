@@ -125,11 +125,12 @@ export function ConsultationFormDisplay({
 
                 const section = item as typeof item & { itemType: 'section' }
                 return (
-                  <div key={section.id} className="border-l-4 border-blue-400 pl-4 space-y-3">
+                  <div key={section.id} className="pt-2 space-y-3">
+                    <hr className="border-t border-border/50 dark:border-slate-800" />
                     <h4 className={`font-semibold text-sm ${section.boldTitle ? 'font-bold' : ''} ${section.italicTitle ? 'italic' : ''} ${section.underlineTitle ? 'underline' : ''} ${section.centerTitle ? 'text-center' : ''}`}>
                       {section.title}
                     </h4>
-                    {(section.fields || []).length === 0 ? (
+                      {(section.fields || []).length === 0 ? (
                       <p className="text-xs text-muted-foreground">No fields in this section.</p>
                     ) : (
                       <div className={`grid gap-3 ${section.columns === 1 ? 'grid-cols-1' : section.columns === 2 ? 'grid-cols-2' : section.columns === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
