@@ -3,10 +3,9 @@
 import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { useVisits, useDepartments, type Visit, useUpdateVisitDepartmentStatus, useDashboardStats, useGenerateConsultationPdf, useGetInvoiceLazy } from "@/hooks/auth-hooks"
+import { useVisits, useDepartments, type Visit, useUpdateVisitDepartmentStatus, useDashboardStats, useGetInvoiceLazy } from "@/hooks/auth-hooks"
 import { useLazyQuery } from "@apollo/client"
 import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
-import { useForms } from "@/hooks/forms"
 import Header from "@/components/header"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardStats } from "@/components/dashboard/dashboard-stats"
@@ -18,7 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import InlineTryAgain from "@/components/inline-try-again"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid, Printer, FilePenLine, Eye, Activity } from "lucide-react"
+import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid, Printer, FilePenLine, Activity } from "lucide-react"
 import { toast } from "react-toastify"
 
 export default function DashboardPage() {
@@ -34,8 +33,6 @@ export default function DashboardPage() {
   })
 
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
-  const { generateConsultationPdf, loading: generatingConsultationPdf } = useGenerateConsultationPdf()
-  const { loadForms: loadFormsForDepartment } = useForms(null)
   const { getInvoice } = useGetInvoiceLazy()
   const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
   const [searchQuery, setSearchQuery] = useState("")
@@ -69,10 +66,6 @@ export default function DashboardPage() {
     }
   }, [showMetrics, isMounted])
   const [printingVisitId, setPrintingVisitId] = useState<string | null>(null)
-  const [previewingConsultationVisitId, setPreviewingConsultationVisitId] = useState<string | null>(null)
-  const [consultationPreviewOpen, setConsultationPreviewOpen] = useState(false)
-  const [consultationPreviewUrl, setConsultationPreviewUrl] = useState<string | null>(null)
-  const [consultationPreviewVisit, setConsultationPreviewVisit] = useState<Visit | null>(null)
 
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
   const userDepartments = ((doctor as unknown as { departments?: Array<{ id: string; name?: string }> } | null)?.departments || []) as Array<{ id: string; name?: string }>
@@ -317,65 +310,6 @@ export default function DashboardPage() {
       toast.error(err?.message || 'Failed to fetch invoice PDF')
     } finally {
       setPrintingVisitId(null)
-    }
-  }
-
-  const handleViewConsultation = async (visit: Visit) => {
-    const firstDepartmentId = String(visit.departments?.[0]?.department?.id || visit.departments?.[0]?.id || '')
-    if (!firstDepartmentId) {
-      toast.error('No consultation department found for this visit')
-      return
-    }
-
-    try {
-      setPreviewingConsultationVisitId(visit.id)
-
-      const formsResult = await loadFormsForDepartment({
-        variables: { departmentId: firstDepartmentId },
-        fetchPolicy: 'network-only',
-      })
-
-      const forms = formsResult?.data?.getForms?.data || []
-      const latestFinalForm = [...forms]
-        .filter((form: any) => form?.status === 'FINAL')
-        .sort((a: any, b: any) => {
-          const aTime = new Date(a?.updatedAt || a?.createdAt || 0).getTime()
-          const bTime = new Date(b?.updatedAt || b?.createdAt || 0).getTime()
-          return bTime - aTime
-        })[0]
-
-      if (!latestFinalForm?.id) {
-        toast.error('No finalized consultation form found for this department')
-        return
-      }
-
-      const pdfResult = await generateConsultationPdf({
-        consultationId: visit.id,
-        departmentId: firstDepartmentId,
-        formId: String(latestFinalForm.id),
-      })
-
-      const consultationPdfUrl = pdfResult?.data?.pdfUrl
-      if (pdfResult?.status !== 'SUCCESS' || !consultationPdfUrl) {
-        const message = pdfResult?.message || pdfResult?.messages?.map((m: { text?: string }) => m?.text).filter(Boolean).join(' | ') || 'Failed to generate consultation PDF'
-        toast.error(message)
-        return
-      }
-
-      const blobUrl = consultationPdfUrl
-
-      if (consultationPreviewUrl?.startsWith('blob:')) {
-        URL.revokeObjectURL(consultationPreviewUrl)
-      }
-
-      setConsultationPreviewUrl(blobUrl)
-      setConsultationPreviewVisit(visit)
-      setConsultationPreviewOpen(true)
-    } catch (err: any) {
-      console.error('Consultation preview error:', err)
-      toast.error(err?.message || 'Failed to open consultation PDF preview')
-    } finally {
-      setPreviewingConsultationVisitId(null)
     }
   }
 
@@ -760,25 +694,6 @@ export default function DashboardPage() {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          void handleViewConsultation(visit)
-                                        }}
-                                        disabled={previewingConsultationVisitId === visit.id}
-                                        title="Preview Consultation PDF"
-                                        aria-label="Preview Consultation"
-                                        className="h-9 w-9 sm:h-10 sm:w-10 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
-                                      >
-                                        <Eye className="w-4 h-4 flex-shrink-0" />
-                                      </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Preview Consultation</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation()
                                           handleEditConsultation(visit)
                                         }}
                                         title="Edit Consultation"
@@ -889,12 +804,6 @@ export default function DashboardPage() {
         setShowMobileActionSheet={setShowMobileActionSheet}
         setShowPatientRegistrationModal={setShowPatientRegistrationModal}
         openVisitCreationModal={openVisitCreationModal}
-        consultationPreviewOpen={consultationPreviewOpen}
-        setConsultationPreviewOpen={setConsultationPreviewOpen}
-        consultationPreviewUrl={consultationPreviewUrl}
-        setConsultationPreviewUrl={setConsultationPreviewUrl}
-        setConsultationPreviewVisit={setConsultationPreviewVisit}
-        generatingConsultationPdf={generatingConsultationPdf}
       />
 
       {/* Modals */}

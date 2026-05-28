@@ -254,6 +254,7 @@ export default function ConsultationPage() {
                 return
               }
 
+              toast.success(completeResult?.message || 'Consultation finalized successfully')
               router.push('/')
               return
             }
@@ -287,12 +288,15 @@ export default function ConsultationPage() {
               }
             }
 
+            toast.success('Consultation saved successfully')
             console.log('Consultation answers saved', {
               consultationId: updatedConsultation.consultationId || visit.id,
               departmentId: departmentToSave,
               formId: String(formId),
               status: updatedConsultation.status,
             })
+
+            router.push('/')
           } catch (error) {
             console.error('Unexpected consultation save error', error)
             toast.error('Unexpected consultation save error')

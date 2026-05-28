@@ -11,7 +11,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import type { Visit } from "@/hooks/auth-hooks"
 
 interface DashboardMobileUiProps {
@@ -25,12 +24,6 @@ interface DashboardMobileUiProps {
   setShowMobileActionSheet: (value: boolean) => void
   setShowPatientRegistrationModal: (value: boolean) => void
   openVisitCreationModal: () => void
-  consultationPreviewOpen: boolean
-  setConsultationPreviewOpen: (value: boolean) => void
-  consultationPreviewUrl: string | null
-  setConsultationPreviewUrl: (value: string | null) => void
-  setConsultationPreviewVisit: (value: Visit | null) => void
-  generatingConsultationPdf: boolean
 }
 
 export function DashboardMobileUi({
@@ -44,12 +37,6 @@ export function DashboardMobileUi({
   setShowMobileActionSheet,
   setShowPatientRegistrationModal,
   openVisitCreationModal,
-  consultationPreviewOpen,
-  setConsultationPreviewOpen,
-  consultationPreviewUrl,
-  setConsultationPreviewUrl,
-  setConsultationPreviewVisit,
-  generatingConsultationPdf,
 }: DashboardMobileUiProps) {
   const matchedVisits = allVisits.filter((visit) =>
     `${visit.patient.firstName} ${visit.patient.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
@@ -163,30 +150,6 @@ export function DashboardMobileUi({
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog
-        open={consultationPreviewOpen}
-        onOpenChange={(open) => {
-          setConsultationPreviewOpen(open)
-          if (!open && consultationPreviewUrl?.startsWith("blob:")) {
-            URL.revokeObjectURL(consultationPreviewUrl)
-            setConsultationPreviewUrl(null)
-            setConsultationPreviewVisit(null)
-          }
-        }}
-      >
-        <DialogContent className="w-[96vw] md:w-[80vw] md:max-w-[80vw] h-[90dvh] max-h-[calc(100dvh-5rem)] !top-[calc(50%+2.5rem)] p-0 overflow-hidden [&>button]:hidden">
-          <DialogTitle className="sr-only">Consultation PDF Preview</DialogTitle>
-          <div className="h-full w-full relative bg-muted/20">
-            {consultationPreviewUrl ? (
-              <iframe src={consultationPreviewUrl} title="Consultation PDF Preview" className="w-full h-full" />
-            ) : (
-              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                {generatingConsultationPdf ? "Generating consultation PDF..." : "No PDF preview available"}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   )
 }

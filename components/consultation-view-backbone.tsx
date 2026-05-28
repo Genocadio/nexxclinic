@@ -1180,17 +1180,17 @@ export default function ConsultationViewBackbone({
       <Dialog open={showFinalizeConfirm} onOpenChange={setShowFinalizeConfirm}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Finalize Consultation</DialogTitle>
+            <DialogTitle>Complete Visit</DialogTitle>
             <DialogDescription>
-              Mark this consultation as final. Finalizing will lock the form and prevent further edits. Are you sure you want to continue?
+              Choose whether to save this visit for later editing or finalise it now.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setShowFinalizeConfirm(false)}>
-              Cancel
+            <Button type="button" variant="outline" onClick={() => { setShowFinalizeConfirm(false); handleStatusSave('draft') }}>
+              Complete Visit Edit Later
             </Button>
             <Button type="button" onClick={() => { setShowFinalizeConfirm(false); handleStatusSave('finalized') }}>
-              Confirm Finalize
+              Finalise and Complete
             </Button>
           </DialogFooter>
         </DialogContent>
