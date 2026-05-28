@@ -95,6 +95,60 @@ const mapBackendForm = (form: any): BackendForm => ({
   updatedAt: String(form?.updatedAt || ''),
 })
 
+const parseConsultationAnswersPayload = (value: unknown): Record<string, any> | null => {
+  if (!value) return null
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value)
+      if (parsed && typeof parsed === 'object') {
+        if ('values' in parsed && parsed.values && typeof parsed.values === 'object') {
+          return parsed.values as Record<string, any>
+        }
+
+        return parsed as Record<string, any>
+      }
+    } catch {
+      return null
+    }
+
+    return null
+  }
+
+  if (typeof value === 'object') {
+    const objectValue = value as Record<string, any>
+    if (objectValue.values && typeof objectValue.values === 'object') {
+      return objectValue.values as Record<string, any>
+    }
+
+    return objectValue
+  }
+
+  return null
+}
+
+export const normalizeConsultationAnswersResult = (response: any) => {
+  const rawData = response?.data?.getConsultationAnswers?.data ?? response?.getConsultationAnswers?.data ?? response?.data ?? response ?? null
+  const responseForm = rawData?.form ?? null
+  const responseAnswer = rawData?.answer ?? rawData ?? null
+  const rawAnswers = responseAnswer?.answers ?? rawData?.answers ?? null
+
+  return {
+    form: responseForm ? mapBackendForm(responseForm) : null,
+    answer: responseAnswer
+      ? {
+          formId: responseAnswer?.formId ? String(responseAnswer.formId) : null,
+          formVersion: responseAnswer?.formVersion ? String(responseAnswer.formVersion) : null,
+          status: responseAnswer?.status || null,
+          submittedAt: responseAnswer?.submittedAt || null,
+          updatedAt: responseAnswer?.updatedAt || null,
+          answers: rawAnswers,
+        }
+      : null,
+    answersMap: parseConsultationAnswersPayload(rawAnswers),
+  }
+}
+
 export function useForms(departmentId: string | null) {
   const [loadForms, { loading, error, data }] = useLazyQuery(GET_FORMS_QUERY, {
     fetchPolicy: 'network-only',
@@ -235,7 +289,7 @@ export function useConsultationAnswers(consultationId: string | null, department
     fetchPolicy: 'network-only',
   })
 
-  const consultationAnswers = React.useMemo(() => data?.getConsultationAnswers?.data || null, [data])
+  const consultationAnswers = React.useMemo(() => normalizeConsultationAnswersResult(data), [data])
 
   const load = React.useCallback(
     (options?: Parameters<typeof loadConsultationAnswers>[0]) => {

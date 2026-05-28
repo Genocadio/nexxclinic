@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react"
 import { CheckCircle2, FilePenLine, Loader2 } from "lucide-react"
 import type { Patient } from "@/lib/types"
 import { useAddActionToVisitDepartment, useAddConsumableToVisitDepartment, useUpsertConsultationAnswers } from "@/hooks/auth-hooks"
-import { useConsultationAnswers, useLatestForm, useFormVersionHistory } from "@/hooks/forms"
+import { useCompleteConsultationVisit } from "@/hooks/visits"
+import { normalizeConsultationAnswersResult, useConsultationAnswers, useLatestForm, useFormVersionHistory } from "@/hooks/forms"
 import AddActionConsumableModal from "@/components/add-action-consumable-modal"
 import FormActionsDisplay from "@/components/form-actions-display"
 import { ConsultationSidePanels } from "@/components/consultation/consultation-side-panels"
@@ -67,6 +68,7 @@ export default function ConsultationViewBackbone({
   const { loadConsultationAnswers: loadAnswers } = useConsultationAnswers(initialConsultation.consultationId || null, departmentId || null, departmentForm?.id || null)
   const { loadVersionHistory } = useFormVersionHistory(departmentId || null, null)
   const { upsertConsultationAnswers } = useUpsertConsultationAnswers()
+  const { completeConsultationVisit } = useCompleteConsultationVisit()
 
   const mapBackendFormVersion = (raw: any): BackendDepartmentForm => ({
     id: String(raw?.id || ''),
@@ -277,8 +279,8 @@ export default function ConsultationViewBackbone({
           fetchPolicy: 'network-only',
         })
 
-        const answerData = answersResult?.data?.getConsultationAnswers?.data
-        const rawAnswers = answerData?.answers
+        const { answer: answerData, form: responseForm, answersMap: parsedAnswersMap } = normalizeConsultationAnswersResult(answersResult)
+        const rawAnswers = parsedAnswersMap
         const storedStatus = answerData?.status
         const storedFormId = answerData?.formId ? String(answerData.formId) : ''
         const storedSchemaVersion = answerData?.formVersion ? String(answerData.formVersion) : ''
@@ -289,32 +291,35 @@ export default function ConsultationViewBackbone({
           return
         }
 
-        const parsed = JSON.parse(rawAnswers)
-        const answerMap = parsed?.values && typeof parsed.values === 'object' ? parsed.values : parsed
-        const currentVersion = String(departmentForm.currentSchemaVersion || departmentForm.currentVersionNumber || '')
-        const shouldResolveHistoricalVersion = Boolean(storedFormId && storedSchemaVersion && currentVersion && storedSchemaVersion !== currentVersion)
-
         let formForHydration = departmentForm
-        if (shouldResolveHistoricalVersion) {
-          const versionResult = await loadVersionHistory({
-            variables: {
-              departmentId,
-              formId: storedFormId,
-            },
-            fetchPolicy: 'network-only',
-          })
+        if (responseForm && (responseForm.fields?.length || responseForm.sections?.length)) {
+          formForHydration = responseForm as BackendDepartmentForm
+          setDepartmentForm(formForHydration)
+        } else if (storedFormId && storedSchemaVersion) {
+          const currentVersion = String(departmentForm.currentSchemaVersion || departmentForm.currentVersionNumber || '')
+          const shouldResolveHistoricalVersion = Boolean(currentVersion && storedSchemaVersion !== currentVersion)
 
-          const versionCandidates = versionResult?.data?.getFormVersionHistory?.data || []
-          const exactVersion = versionCandidates.find((candidate: any) => String(candidate?.version || candidate?.versionNumber || '') === storedSchemaVersion)
+          if (shouldResolveHistoricalVersion) {
+            const versionResult = await loadVersionHistory({
+              variables: {
+                departmentId,
+                formId: storedFormId,
+              },
+              fetchPolicy: 'network-only',
+            })
 
-          if (exactVersion) {
-            formForHydration = mapBackendFormVersion(exactVersion)
-            setDepartmentForm(formForHydration)
+            const versionCandidates = versionResult?.data?.getFormVersionHistory?.data || []
+            const exactVersion = versionCandidates.find((candidate: any) => String(candidate?.version || candidate?.versionNumber || '') === storedSchemaVersion)
+
+            if (exactVersion) {
+              formForHydration = mapBackendFormVersion(exactVersion)
+              setDepartmentForm(formForHydration)
+            }
           }
         }
 
-        if (answerMap && typeof answerMap === 'object') {
-          hydrateSavedAnswers(answerMap, formForHydration, setFormAnswers, setFieldActions, setTableShapes)
+        if (rawAnswers && typeof rawAnswers === 'object') {
+          hydrateSavedAnswers(rawAnswers, formForHydration, setFormAnswers, setFieldActions, setTableShapes)
 
           // Reconcile stale backendIds: saved consultation answers store the
           // VisitDepartmentProduct.id at the time of last save. If that product
@@ -805,7 +810,46 @@ export default function ConsultationViewBackbone({
     }
   }, [departmentForm, consultation.consultationId, patient.id, formAnswers, tableShapes, fieldActions, answersLoaded])
   
-  const handleStatusSave = (status: 'draft' | 'finalized') => {
+  const handleStatusSave = async (status: 'draft' | 'finalized') => {
+    if (status === 'finalized') {
+      // Prompt user to confirm if all is completed
+      const confirmed = window.confirm('Have you completed all required fields and actions?')
+      const final = confirmed
+
+      // Build the consultation answers input
+      const normalizedAnswers = buildAnswersForSubmission(formAnswers, tableShapes, fieldActions, departmentForm)
+
+      const input = {
+        consultationId: consultation.consultationId,
+        visitId: consultation.id || consultation.consultationId,
+        patientId: patient.id,
+        departmentId: departmentId || '',
+        formId: String(departmentForm?.id || ''),
+        formVersion: String(departmentForm?.currentSchemaVersion || departmentForm?.currentVersionNumber || ''),
+        status: 'FINAL' as const,
+        answers: JSON.stringify(normalizedAnswers),
+      }
+
+      try {
+        const result = await completeConsultationVisit(input, final)
+        
+        if (result?.status === 'SUCCESS') {
+          console.log('Consultation visit completed successfully:', result)
+          // Navigate back to visits
+          window.location.href = '/'
+        } else {
+          console.error('Failed to complete consultation visit:', result?.message)
+          alert(result?.message || 'Failed to complete consultation visit')
+        }
+      } catch (err) {
+        console.error('Error completing consultation visit:', err)
+        alert('An error occurred while completing the consultation visit')
+      }
+      
+      return
+    }
+
+    // Draft save logic (unchanged)
     const normalizedAnswers = buildAnswersForSubmission(formAnswers, tableShapes, fieldActions, departmentForm)
 
     const answersPayload = {
@@ -830,17 +874,10 @@ export default function ConsultationViewBackbone({
       submittedAt: new Date().toISOString(),
     }
 
-    if (status === 'finalized') {
-      console.log('Consultation form completed:', formSubmissionPayload)
-    } else {
-      console.log('Consultation form draft saved:', formSubmissionPayload)
-    }
+    console.log('Consultation form draft saved:', formSubmissionPayload)
 
     const timestamped = {
       ...consultation.timestamps,
-      finalizedAt: status === 'finalized'
-        ? consultation.timestamps.finalizedAt ?? new Date().toISOString()
-        : undefined,
     }
 
     const updated: any = {

@@ -22,6 +22,7 @@ import {
   UPDATE_VISIT_DEPARTMENT_PRODUCT_QUANTITY_MUTATION,
   UPDATE_VISIT_DEPARTMENT_PRODUCT_STATUS_MUTATION,
   COMPLETE_VISIT_MUTATION,
+  COMPLETE_CONSULTATION_VISIT_MUTATION,
 } from '../mutations'
 import type { 
   Visit, 
@@ -1063,6 +1064,39 @@ export function useAddConsumableToVisitDepartment() {
   }
 
   return { addConsumable, loading, error }
+}
+
+export function useCompleteConsultationVisit() {
+  const [mutation, { loading, error }] = useMutation(COMPLETE_CONSULTATION_VISIT_MUTATION)
+
+  const completeConsultationVisit = async (input: {
+    consultationId: string
+    visitId: string
+    patientId: string
+    departmentId: string
+    formId: string
+    formVersion?: string
+    status: 'DRAFT' | 'FINAL'
+    answers: string
+  }, final: boolean): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({
+        variables: { input, final },
+      })
+      const payload = result.data?.completeConsultationVisit
+      return {
+        status: payload?.status || 'ERROR',
+        message: payload?.message,
+        messages: payload?.message ? [{ text: payload.message, type: payload.status || 'ERROR' }] : undefined,
+        data: payload?.data,
+      }
+    } catch (err) {
+      console.error('Complete consultation visit error:', err)
+      throw err
+    }
+  }
+
+  return { completeConsultationVisit, loading, error }
 }
 
 export function useAddProductToVisitDepartment() {

@@ -497,3 +497,29 @@ export const COMPLETE_VISIT_MUTATION = gql`
   }
 `
 
+export const COMPLETE_CONSULTATION_VISIT_MUTATION = gql`
+  mutation CompleteConsultationVisit($input: ConsultationAnswersInput!, $final: Boolean!) {
+    completeConsultationVisit(input: $input, final: $final) {
+      status
+      message
+      data {
+        id
+        visitDate
+        status
+        patient {
+          id
+          firstName
+          lastName
+        }
+        departments {
+          id
+          department {
+            id
+            name
+          }
+          status
+        }
+      }
+    }
+  }
+`

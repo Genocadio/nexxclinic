@@ -372,11 +372,97 @@ export const GET_CONSULTATION_ANSWERS_QUERY = gql`
       status
       message
       data {
-        id
-        formId
-        formVersion
-        status
-        answers
+        form {
+          id
+          departmentId
+          title
+          description
+          status
+          version
+          createdAt
+          updatedAt
+          sections {
+            id
+            title
+            boldTitle
+            italicTitle
+            underlineTitle
+            centerTitle
+            columns
+            order
+            fields {
+              id
+              label
+              type
+              placeholder
+              required
+              options
+              hideLabel
+              boldLabel
+              italicLabel
+              underlineLabel
+              centerLabel
+              order
+              tableConfig {
+                mode
+                rows
+                columns
+                headerPlacement
+                columnHeaders
+                rowHeaders
+              }
+              conditionalRendering {
+                dependsOn
+                condition
+                value
+                itemType
+              }
+            }
+          }
+          fields {
+            id
+            label
+            type
+            placeholder
+            required
+            options
+            hideLabel
+            boldLabel
+            italicLabel
+            underlineLabel
+            centerLabel
+            order
+            tableConfig {
+              mode
+              rows
+              columns
+              headerPlacement
+              columnHeaders
+              rowHeaders
+            }
+            conditionalRendering {
+              dependsOn
+              condition
+              value
+              itemType
+            }
+          }
+          actions {
+            id
+            name
+            type
+            quantity
+            price
+            isQuantifiable
+            backendId
+          }
+        }
+        answer {
+          status
+          answers
+          submittedAt
+          updatedAt
+        }
       }
     }
   }
