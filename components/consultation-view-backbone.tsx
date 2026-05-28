@@ -125,20 +125,43 @@ export default function ConsultationViewBackbone({
   }
 
   const snapshotClinicalField = (value: unknown): string => {
-    const arr = Array.isArray(value) ? value : []
-    return JSON.stringify(
-      arr.map((item: any) => ({
-        id: String(item?.id || ''),
-        diagnosis: String(item?.diagnosis || ''),
-        description: String(item?.description || ''),
-        name: String(item?.name || ''),
-        frequency: String(item?.frequency || ''),
-        amount: String(item?.amount || ''),
-        days: String(item?.days || ''),
-        notes: String(item?.notes || ''),
-      }))
-      .sort((a: any, b: any) => `${a.id}:${a.name}:${a.diagnosis}`.localeCompare(`${b.id}:${b.name}:${b.diagnosis}`))
-    )
+    if (Array.isArray(value)) {
+      return JSON.stringify(
+        value
+          .map((item: any) => ({
+            id: String(item?.id || ''),
+            diagnosis: String(item?.diagnosis || ''),
+            description: String(item?.description || ''),
+            name: String(item?.name || ''),
+            frequency: String(item?.frequency || ''),
+            amount: String(item?.amount || ''),
+            days: String(item?.days || ''),
+            notes: String(item?.notes || ''),
+          }))
+          .sort((a: any, b: any) => `${a.id}:${a.name}:${a.diagnosis}`.localeCompare(`${b.id}:${b.name}:${b.diagnosis}`))
+      )
+    }
+
+    // labRecord answers are object-shaped ({ rows: { rowId: { value/unit/result } } }).
+    if (value && typeof value === 'object') {
+      const rows = (value as any).rows
+      if (rows && typeof rows === 'object') {
+        const normalizedRows = Object.keys(rows)
+          .sort()
+          .map((rowId) => {
+            const row = rows[rowId] || {}
+            return {
+              rowId,
+              value: String(row.value || ''),
+              unit: String(row.unit || ''),
+              result: String(row.result || ''),
+            }
+          })
+        return JSON.stringify(normalizedRows)
+      }
+    }
+
+    return JSON.stringify(value ?? null)
   }
 
   // Panel states
@@ -340,8 +363,12 @@ export default function ConsultationViewBackbone({
       return
     }
 
-    // Find actionListener fields in the form
-    const actionListenerFields = departmentForm.fields.filter(field => field.type === 'actionListener')
+    // Find actionListener fields across top-level fields and section fields.
+    const allFields = [
+      ...departmentForm.fields,
+      ...(departmentForm.sections || []).flatMap((section) => section.fields || []),
+    ]
+    const actionListenerFields = allFields.filter(field => field.type === 'actionListener')
     console.log('[Consultation-Hydration] Found', actionListenerFields.length, 'actionListener fields:', actionListenerFields.map(f => f.id))
     
     if (actionListenerFields.length === 0) {
@@ -672,8 +699,12 @@ export default function ConsultationViewBackbone({
       return
     }
 
-    // Check if this is a form with actionListener fields
-    const hasActionListenerField = departmentForm.fields.some(field => field.type === 'actionListener')
+    // Check if this is a form with actionListener fields (including section fields).
+    const allFields = [
+      ...departmentForm.fields,
+      ...(departmentForm.sections || []).flatMap((section) => section.fields || []),
+    ]
+    const hasActionListenerField = allFields.some(field => field.type === 'actionListener')
     if (!hasActionListenerField) {
       return
     }

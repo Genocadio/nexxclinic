@@ -124,7 +124,7 @@ export const buildAnswersForSubmission = (
       const tableRows = Array.from({ length: rows }).map((_, rowIdx) =>
         Array.from({ length: columns }).map((_, colIdx) => {
           const cellKey = `${field.id}_r${rowIdx}_c${colIdx}`
-          return payload[cellKey] ?? ''
+          return formAnswers[cellKey] ?? ''
         }),
       )
       payload[field.id] = { rows: tableRows }
