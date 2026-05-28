@@ -18,7 +18,7 @@ export const LOGIN_MUTATION = gql`
           username
           accountStatus
           roles
-          department {
+          departments {
             id
             name
           }
@@ -73,7 +73,7 @@ export const ADMIN_CREATE_USER_MUTATION = gql`
         username
         accountStatus
         roles
-        department {
+        departments {
           id
           name
         }
@@ -119,7 +119,7 @@ export const ADMIN_UPDATE_USER_MUTATION = gql`
         username
         accountStatus
         roles
-        department {
+        departments {
           id
           name
         }
