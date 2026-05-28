@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from "react"
 import { CheckCircle2, FilePenLine, Loader2 } from "lucide-react"
 import type { Patient } from "@/lib/types"
 import { useAddActionToVisitDepartment, useAddConsumableToVisitDepartment, useUpsertConsultationAnswers } from "@/hooks/auth-hooks"
-import { useCompleteConsultationVisit } from "@/hooks/visits"
 import { normalizeConsultationAnswersResult, useConsultationAnswers, useLatestForm, useFormVersionHistory } from "@/hooks/forms"
 import AddActionConsumableModal from "@/components/add-action-consumable-modal"
 import FormActionsDisplay from "@/components/form-actions-display"
 import { ConsultationSidePanels } from "@/components/consultation/consultation-side-panels"
 import { useVisit } from "@/hooks/visits/hooks"
 import { ConsultationBottomDock } from "@/components/consultation/consultation-bottom-dock"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { ConsultationFormDisplay } from "@/components/consultation/consultation-form-display"
 import { useRemoveProductFromVisitDepartment, useUpdateProductQuantity } from "@/hooks/visits"
 import {
@@ -68,7 +69,6 @@ export default function ConsultationViewBackbone({
   const { loadConsultationAnswers: loadAnswers } = useConsultationAnswers(initialConsultation.consultationId || null, departmentId || null, departmentForm?.id || null)
   const { loadVersionHistory } = useFormVersionHistory(departmentId || null, null)
   const { upsertConsultationAnswers } = useUpsertConsultationAnswers()
-  const { completeConsultationVisit } = useCompleteConsultationVisit()
 
   const mapBackendFormVersion = (raw: any): BackendDepartmentForm => ({
     id: String(raw?.id || ''),
@@ -89,6 +89,7 @@ export default function ConsultationViewBackbone({
   const [missingProductsForField, setMissingProductsForField] = useState<Record<string, FormAction[]>>({})
   const [missingPromptHandled, setMissingPromptHandled] = useState(false)
   const [tableShapes, setTableShapes] = useState<Record<string, { rows: number; columns: number }>>({})
+  const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false)
   const [diagnosticDrafts, setDiagnosticDrafts] = useState<Record<string, { diagnosis: string; description: string }>>({})
 
   const extractProductIdentifiers = (action: FormAction) => {
@@ -294,7 +295,12 @@ export default function ConsultationViewBackbone({
         let formForHydration = departmentForm
         if (responseForm && (responseForm.fields?.length || responseForm.sections?.length)) {
           formForHydration = responseForm as BackendDepartmentForm
-          setDepartmentForm(formForHydration)
+          // Only update state if the form id actually changed to avoid
+          // triggering the effect repeatedly when the object reference
+          // changes but the underlying form is the same.
+          if (String(departmentForm?.id || '') !== String(formForHydration.id || '')) {
+            setDepartmentForm(formForHydration)
+          }
         } else if (storedFormId && storedSchemaVersion) {
           const currentVersion = String(departmentForm.currentSchemaVersion || departmentForm.currentVersionNumber || '')
           const shouldResolveHistoricalVersion = Boolean(currentVersion && storedSchemaVersion !== currentVersion)
@@ -313,7 +319,9 @@ export default function ConsultationViewBackbone({
 
             if (exactVersion) {
               formForHydration = mapBackendFormVersion(exactVersion)
-              setDepartmentForm(formForHydration)
+              if (String(departmentForm?.id || '') !== String(formForHydration.id || '')) {
+                setDepartmentForm(formForHydration)
+              }
             }
           }
         }
@@ -810,46 +818,7 @@ export default function ConsultationViewBackbone({
     }
   }, [departmentForm, consultation.consultationId, patient.id, formAnswers, tableShapes, fieldActions, answersLoaded])
   
-  const handleStatusSave = async (status: 'draft' | 'finalized') => {
-    if (status === 'finalized') {
-      // Prompt user to confirm if all is completed
-      const confirmed = window.confirm('Have you completed all required fields and actions?')
-      const final = confirmed
-
-      // Build the consultation answers input
-      const normalizedAnswers = buildAnswersForSubmission(formAnswers, tableShapes, fieldActions, departmentForm)
-
-      const input = {
-        consultationId: consultation.consultationId,
-        visitId: consultation.id || consultation.consultationId,
-        patientId: patient.id,
-        departmentId: departmentId || '',
-        formId: String(departmentForm?.id || ''),
-        formVersion: String(departmentForm?.currentSchemaVersion || departmentForm?.currentVersionNumber || ''),
-        status: 'FINAL' as const,
-        answers: JSON.stringify(normalizedAnswers),
-      }
-
-      try {
-        const result = await completeConsultationVisit(input, final)
-        
-        if (result?.status === 'SUCCESS') {
-          console.log('Consultation visit completed successfully:', result)
-          // Navigate back to visits
-          window.location.href = '/'
-        } else {
-          console.error('Failed to complete consultation visit:', result?.message)
-          alert(result?.message || 'Failed to complete consultation visit')
-        }
-      } catch (err) {
-        console.error('Error completing consultation visit:', err)
-        alert('An error occurred while completing the consultation visit')
-      }
-      
-      return
-    }
-
-    // Draft save logic (unchanged)
+  const handleStatusSave = (status: 'draft' | 'finalized') => {
     const normalizedAnswers = buildAnswersForSubmission(formAnswers, tableShapes, fieldActions, departmentForm)
 
     const answersPayload = {
@@ -874,10 +843,17 @@ export default function ConsultationViewBackbone({
       submittedAt: new Date().toISOString(),
     }
 
-    console.log('Consultation form draft saved:', formSubmissionPayload)
+    if (status === 'finalized') {
+      console.log('Consultation form completed:', formSubmissionPayload)
+    } else {
+      console.log('Consultation form draft saved:', formSubmissionPayload)
+    }
 
     const timestamped = {
       ...consultation.timestamps,
+      finalizedAt: status === 'finalized'
+        ? consultation.timestamps.finalizedAt ?? new Date().toISOString()
+        : undefined,
     }
 
     const updated: any = {
@@ -1197,8 +1173,28 @@ export default function ConsultationViewBackbone({
       />
 
       <ConsultationBottomDock
-        onComplete={() => handleStatusSave('finalized')}
+        onComplete={() => setShowFinalizeConfirm(true)}
       />
+
+      {/* Finalize confirmation dialog (match app UI) */}
+      <Dialog open={showFinalizeConfirm} onOpenChange={setShowFinalizeConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Finalize Consultation</DialogTitle>
+            <DialogDescription>
+              Mark this consultation as final. Finalizing will lock the form and prevent further edits. Are you sure you want to continue?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowFinalizeConfirm(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => { setShowFinalizeConfirm(false); handleStatusSave('finalized') }}>
+              Confirm Finalize
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {showMissingProductsPrompt && (
         (() => {
