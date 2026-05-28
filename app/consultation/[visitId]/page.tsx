@@ -1,7 +1,7 @@
 "use client"
 
 import { useParams, useRouter } from "next/navigation"
-import { useAddDepartmentNote, useGenerateConsultationPdf, useUpsertConsultationAnswers, useUpdateVisitDepartmentStatus, useVisit } from "@/hooks/auth-hooks"
+import { useAddDepartmentNote, useCompleteConsultationVisit, useUpsertConsultationAnswers, useVisit } from "@/hooks/auth-hooks"
 import { useAuth } from "@/lib/auth-context"
 import ConsultationViewBackbone from "@/components/consultation-view-backbone"
 import VisitNotesFloating from "@/components/visit-notes-floating"
@@ -21,8 +21,7 @@ export default function ConsultationPage() {
   const { doctor } = useAuth()
   const { visit, loading, error, refetch } = useVisit(visitId)
   const { upsertConsultationAnswers } = useUpsertConsultationAnswers()
-  const { generateConsultationPdf } = useGenerateConsultationPdf()
-  const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
+  const { completeConsultationVisit } = useCompleteConsultationVisit()
   const { addDepartmentNote } = useAddDepartmentNote()
 
   // Redirect to dashboard if visit not found after loading completes
@@ -225,6 +224,7 @@ export default function ConsultationPage() {
             const departmentToSave = String(dynamicFormResponse?.departmentId || firstDepartmentId || '')
             const existingSubmissionStatus = dynamicFormResponse?.existingSubmissionStatus as 'DRAFT' | 'FINAL' | undefined
             const desiredStatus = updatedConsultation.status === 'finalized' ? 'FINAL' : 'DRAFT'
+            const answersMap = dynamicFormResponse?.answers?.values ?? {}
 
             if (!formId || !departmentToSave || formVersion === undefined || formVersion === null) {
               console.warn('Skipping consultation answers save: missing form context', {
@@ -236,11 +236,32 @@ export default function ConsultationPage() {
               return
             }
 
+            if (updatedConsultation.status === 'finalized') {
+              const completeResult = await completeConsultationVisit({
+                consultationId: updatedConsultation.consultationId || visit.id,
+                visitId: visit.id,
+                patientId: visit.patient.id,
+                departmentId: departmentToSave,
+                formId: String(formId),
+                formVersion: String(formVersion),
+                status: desiredStatus,
+                answers: JSON.stringify(answersMap),
+              }, true)
+
+              if (completeResult?.status !== 'SUCCESS') {
+                const backendMessage = completeResult?.messages?.map((m) => m?.text).filter(Boolean).join(' | ') || 'Failed to complete consultation'
+                toast.error(backendMessage)
+                return
+              }
+
+              router.push('/')
+              return
+            }
+
             // If the answers were already saved with the same desired status, skip the upsert
             if (existingSubmissionStatus === desiredStatus) {
               console.log('Skipping upsert because answers already saved with same status:', desiredStatus)
             } else {
-              const answersMap = dynamicFormResponse?.answers?.values ?? {}
               const saveResult = await upsertConsultationAnswers({
                 consultationId: updatedConsultation.consultationId || visit.id,
                 visitId: visit.id,
@@ -264,30 +285,6 @@ export default function ConsultationPage() {
                   return
                 }
               }
-            }
-
-            if (updatedConsultation.status === 'finalized') {
-              const pdfResult = await generateConsultationPdf({
-                consultationId: updatedConsultation.consultationId || visit.id,
-                departmentId: departmentToSave,
-                formId: String(formId),
-              })
-
-              if (pdfResult?.status !== 'SUCCESS' || !pdfResult?.pdfBase64) {
-                const pdfError = pdfResult?.messages?.map((m) => m?.text).filter(Boolean).join(' | ') || 'Failed to generate consultation PDF'
-                toast.error(pdfError)
-                return
-              }
-
-              const completeResult = await updateDepartmentStatus(departmentToSave, 'COMPLETED')
-              if (completeResult?.status !== 'SUCCESS') {
-                console.error('Consultation answers saved, but completing department failed', completeResult?.messages)
-                toast.error(completeResult?.messages?.[0]?.text || 'Failed to complete department status')
-                return
-              }
-
-              router.push('/')
-              return
             }
 
             console.log('Consultation answers saved', {
