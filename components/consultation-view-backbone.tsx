@@ -852,13 +852,20 @@ export default function ConsultationViewBackbone({
 
       if (result?.status === 'SUCCESS' && result.data) {
         let actualBackendId: string | null = null
-        
-        if (result.data?.departments) {
+
+        // Current GraphQL shape: addVisitDepartmentProduct returns VisitDepartment in `data`.
+        if (Array.isArray(result.data?.products) && result.data.products.length > 0) {
+          const addedItem = result.data.products.find((product: any) => String(product?.product?.id) === String(searchResultId))
+          if (addedItem?.id) {
+            actualBackendId = String(addedItem.id)
+          }
+        }
+
+        // Backward-compatible fallback for older mapped payload shape.
+        if (!actualBackendId && Array.isArray(result.data?.departments)) {
           const dept = result.data.departments.find((d: any) => String(d.id) === String(departmentIdParam))
-          if (dept?.products && dept.products.length > 0) {
-            const addedItem = dept.products.find((product: any) => {
-              return String(product?.product?.id) === String(searchResultId)
-            })
+          if (Array.isArray(dept?.products) && dept.products.length > 0) {
+            const addedItem = dept.products.find((product: any) => String(product?.product?.id) === String(searchResultId))
             if (addedItem?.id) {
               actualBackendId = String(addedItem.id)
             }
@@ -963,14 +970,24 @@ export default function ConsultationViewBackbone({
         : await addConsumable(consultation.consultationId, departmentIdArg, searchResultId, quantity)
 
       let actualBackendId = action.backendId
-      const departments = result?.data?.departments || []
-      const matchedDepartment = departments.find((dep: any) => String(dep.id) === String(departmentIdArg))
-      if (matchedDepartment?.products && matchedDepartment.products.length > 0) {
-        const addedItem = matchedDepartment.products.find((item: any) => {
-          return String(item?.product?.id) === searchResultId
-        })
+
+      // Current GraphQL shape: VisitDepartment in `data`.
+      if (Array.isArray(result?.data?.products) && result.data.products.length > 0) {
+        const addedItem = result.data.products.find((item: any) => String(item?.product?.id) === searchResultId)
         if (addedItem?.id) {
           actualBackendId = String(addedItem.id)
+        }
+      }
+
+      // Backward-compatible fallback for older mapped payload shape.
+      if (!actualBackendId && Array.isArray(result?.data?.departments)) {
+        const departments = result.data.departments
+        const matchedDepartment = departments.find((dep: any) => String(dep.id) === String(departmentIdArg))
+        if (Array.isArray(matchedDepartment?.products) && matchedDepartment.products.length > 0) {
+          const addedItem = matchedDepartment.products.find((item: any) => String(item?.product?.id) === searchResultId)
+          if (addedItem?.id) {
+            actualBackendId = String(addedItem.id)
+          }
         }
       }
 

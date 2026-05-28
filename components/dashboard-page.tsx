@@ -75,7 +75,13 @@ export default function DashboardPage() {
   const [consultationPreviewVisit, setConsultationPreviewVisit] = useState<Visit | null>(null)
 
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
-  const userDepartment = (doctor as unknown as { department?: { id: string; name: string } } | null)?.department
+  const userDepartments = ((doctor as unknown as { departments?: Array<{ id: string; name?: string }> } | null)?.departments || []) as Array<{ id: string; name?: string }>
+  const legacyUserDepartment = (doctor as unknown as { department?: { id: string; name: string } } | null)?.department
+  const userDepartmentIds = userDepartments.length > 0
+    ? userDepartments.map((dept) => String(dept.id || '')).filter(Boolean)
+    : legacyUserDepartment?.id
+      ? [String(legacyUserDepartment.id)]
+      : []
   const hasReceptionistRole = roles.includes("RECEPTIONIST") || roles.includes("RECEPTION")
   const hasFinanceRole = roles.includes("FINANCE")
   const isReceptionistOnly = hasReceptionistRole && roles.length === 1
@@ -147,36 +153,35 @@ export default function DashboardPage() {
     // Check if user has CLINICIAN or DOCTOR role
     if (!hasClinicianOrDoctorRole) return false
     
-    // Check if user has a department assigned
-    if (!userDepartment?.id) return false
+    // Check if user has at least one department assigned
+    if (userDepartmentIds.length === 0) return false
     
     // Check if visit has departments
     if (!visit.departments || visit.departments.length === 0) return false
     
-    // Find the active/current department of the visit
-    // Active departments are those with status 'CREATED', 'IN_PROGRESS', or not 'COMPLETED'/'CANCELLED'
-    const activeDepartment = visit.departments.find(
-      dept => dept.status !== 'COMPLETED' && dept.status !== 'CANCELLED'
+    // Eligible when any visit department matches a user's department and is not completed/cancelled.
+    const matchingDepartment = visit.departments.find(
+      (dept) => dept.status !== 'COMPLETED'
+        && dept.status !== 'CANCELLED'
+        && userDepartmentIds.includes(String(dept.department?.id || dept.id || ''))
     )
-    
-    if (!activeDepartment) return false
-    
-    const match = userDepartment.id === activeDepartment.department.id
+    const match = Boolean(matchingDepartment)
     if (process.env.NODE_ENV !== 'production') {
       try {
         // eslint-disable-next-line no-console
         console.debug('DashboardPage canConsultVisit:', {
           hasClinicianOrDoctorRole,
-          userDepartment,
-          activeDepartment: { id: activeDepartment.department.id, name: activeDepartment.department.name },
+          userDepartmentIds,
+          matchingDepartment: matchingDepartment
+            ? { id: matchingDepartment.department?.id, name: matchingDepartment.department?.name, status: matchingDepartment.status }
+            : null,
           match,
         })
       } catch (e) {
         // ignore
       }
     }
-    
-    // Check if the user's department matches the visit's active department
+
     return match
   }
 
@@ -708,7 +713,7 @@ export default function DashboardPage() {
                               </div>
                             </div>
                             <div className={`flex items-center gap-2 flex-wrap ${viewMode === "grid" ? "justify-start" : "justify-end lg:justify-start lg:flex-nowrap"}`}>
-                              {canSeeVisitActionButtons && canSeeConsultButton && canConsultVisit(visit) && (visit.visitStatus === 'CREATED' || visit.visitStatus === 'IN_PROGRESS') && (
+                              {canSeeVisitActionButtons && canSeeConsultButton && canConsultVisit(visit) && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <button

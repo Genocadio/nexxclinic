@@ -150,7 +150,13 @@ export default function VisitsListView({
   const getUserDepartmentIds = () => {
     if (!doctor) return []
     const anyDoc = doctor as any
-    // Extract department from stored user object
+    // Extract departments from stored user object
+    const depts = Array.isArray(anyDoc.departments) ? anyDoc.departments : []
+    if (depts.length > 0) {
+      return depts.map((dept: { id?: string }) => String(dept.id || '')).filter(Boolean)
+    }
+
+    // Backward compatibility for older stored sessions
     const dept = anyDoc.department
     if (dept && dept.id) {
       return [String(dept.id)]
@@ -246,14 +252,16 @@ export default function VisitsListView({
                 </div>
                 <div className="flex items-center gap-2 flex-wrap justify-end lg:justify-start lg:flex-nowrap">
                   {(() => {
-                    // Match any department on the visit against user's departments (not only ACTIVE)
+                    // Match any visit department on the visit against user's departments
+                    // and only allow consultation when that visit department is not completed/cancelled.
                     const matchingDept = visit.departments?.find((d) => {
                       const deptId = String(d?.department?.id || d?.id || '')
-                      return deptId && userDepartmentIds.includes(deptId)
+                      const isDepartmentOpen = d?.status !== 'COMPLETED' && d?.status !== 'CANCELLED'
+                      return deptId && userDepartmentIds.includes(deptId) && isDepartmentOpen
                     })
 
                     const canUserConsultThisVisit = isClinicianLike && Boolean(matchingDept)
-                    const showConsultButton = (visit.status === 'CREATED' || visit.status === 'IN_PROGRESS') && canUserConsultThisVisit
+                    const showConsultButton = canUserConsultThisVisit
                     const showTriageButton = (visit.status === 'CREATED' || visit.status === 'IN_PROGRESS') && hasNurseRole
 
                     if (process.env.NODE_ENV !== 'production') {
@@ -265,6 +273,7 @@ export default function VisitsListView({
                           userDepartmentIds,
                           visitId: visit.id,
                           matchingDeptId: matchingDept?.department?.id || matchingDept?.id,
+                          matchingDeptStatus: matchingDept?.status,
                           canUserConsultThisVisit,
                           showConsultButton,
                           showTriageButton,
