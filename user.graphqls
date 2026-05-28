@@ -218,7 +218,7 @@ type Worker {
   username: String
   accountStatus: AccountStatus!
   roles: [RoleName!]!
-  department: Department
+  departments: [Department!]!
   createdAt: String!
   updatedAt: String!
 }
@@ -736,7 +736,7 @@ input SelfRegisterInput {
   email: String
   phoneNumber: String
   username: String
-  departmentId: ID
+  departmentIds: [ID!]
   password: String!
   workerDocProfile: WorkerDocumentInput
 }
@@ -750,8 +750,22 @@ input AdminCreateUserInput {
   email: String
   phoneNumber: String
   username: String
-  departmentId: ID
+  departmentIds: [ID!]
   roles: [RoleName!]!
+  workerDocProfile: WorkerDocumentInput
+}
+
+input AdminUpdateUserInput {
+  firstName: String
+  lastName: String
+  gender: Gender
+  dateOfBirth: String
+  profilePhotoUrl: String
+  email: String
+  phoneNumber: String
+  username: String
+  departmentIds: [ID!]
+  roles: [RoleName!]
   workerDocProfile: WorkerDocumentInput
 }
 
@@ -792,7 +806,7 @@ input UpdateMyProfileInput {
   email: String
   phoneNumber: String
   username: String
-  departmentId: ID
+  departmentIds: [ID!]
   workerDocProfile: WorkerDocumentInput
 }
 
@@ -1183,6 +1197,7 @@ type Query {
 type Mutation {
   selfRegister(input: SelfRegisterInput!): WorkerResponse!
   adminCreateUser(input: AdminCreateUserInput!): WorkerResponse!
+  adminUpdateUser(userId: ID!, input: AdminUpdateUserInput!): WorkerResponse!
   activateUser(input: ActivateUserInput!): WorkerResponse!
   deactivateUser(input: DeactivateUserInput!): WorkerResponse!
   login(input: LoginInput!): AuthResponse!

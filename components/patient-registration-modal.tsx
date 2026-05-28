@@ -64,14 +64,12 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
 
   // Search filters for potential duplicate detection
   const [searchFilters, setSearchFilters] = useState<PatientFilterInput>({})
-  const [firstNameCommitted, setFirstNameCommitted] = useState(false)
   const hasSearchCriteria = Object.keys(searchFilters).length > 0 && Object.values(searchFilters).some(value => value !== undefined && value !== '')
   const { patients: potentialMatches, loading: searchingPatients } = usePatients(hasSearchCriteria ? searchFilters : undefined, 0, 10)
 
-  // Reset firstNameCommitted when modal opens
+  // Reset search filters when modal opens (don't search on open)
   useEffect(() => {
     if (isOpen) {
-      setFirstNameCommitted(false)
       setSearchFilters({})
     }
   }, [isOpen])
@@ -125,8 +123,8 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
     })
 
     // Update search filters for duplicate detection
-    // Only search if firstName has been committed (user moved away from it) or if other fields are being filled
-    if ((field === 'firstName' && firstNameCommitted) || 
+    // Start searching when firstName has content, or when other fields are being filled
+    if ((field === 'firstName' && sanitizedValue.trim().length > 0) || 
         field === 'lastName' || 
         field === 'dateOfBirth' || 
         field === 'gender' || 
@@ -139,8 +137,9 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
           const firstName = field === 'firstName' ? sanitizedValue : formData.firstName
           const lastName = field === 'lastName' ? sanitizedValue : formData.lastName
           const fullName = [firstName, lastName].filter(Boolean).join(' ')
-          // Only search if we have at least 2 characters
-          newFilters.name = fullName.length >= 2 ? fullName : undefined
+          // Search if we have at least 1 character (firstName alone is fine)
+          // But only if we have meaningful content
+          newFilters.name = fullName.trim().length >= 1 ? fullName : undefined
         } else if (field === 'dateOfBirth') {
           newFilters.dob = sanitizedValue || undefined
         } else if (field === 'gender') {
@@ -159,6 +158,9 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
 
         return newFilters
       })
+    } else if (field === 'firstName' && sanitizedValue.trim().length === 0) {
+      // Clear search if firstName is emptied
+      setSearchFilters({})
     }
   }
 
@@ -314,26 +316,6 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                 type="text"
                 value={formData.firstName}
                 onChange={(e) => handleInputChange('firstName', e.target.value)}
-                onBlur={() => {
-                  if (formData.firstName.trim()) {
-                    setFirstNameCommitted(true)
-                    // Trigger search when leaving firstName field if it has content
-                    setSearchFilters(prev => {
-                      const newFilters = { ...prev }
-                      const fullName = [formData.firstName, formData.lastName].filter(Boolean).join(' ')
-                      newFilters.name = fullName.length >= 2 ? fullName : undefined
-                      
-                      // Remove empty filters
-                      Object.keys(newFilters).forEach(key => {
-                        if (!newFilters[key as keyof PatientFilterInput]) {
-                          delete newFilters[key as keyof PatientFilterInput]
-                        }
-                      })
-                      
-                      return newFilters
-                    })
-                  }
-                }}
                 placeholder="Enter first name"
                 className={`${solidFieldClass} rounded-xl focus:ring-primary/50`}
                 required

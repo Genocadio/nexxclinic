@@ -1,6 +1,6 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client'
 import { getErrorMessage } from '@/lib/error-utils'
-import { LOGIN_MUTATION, SET_INITIAL_PASSWORD_MUTATION, REGISTER_MUTATION, ADMIN_CREATE_USER_MUTATION, ACTIVATE_USER_MUTATION, DEACTIVATE_USER_MUTATION, UPDATE_USER_ROLES_MUTATION, UPDATE_MY_PROFILE_MUTATION, CHANGE_PASSWORD_MUTATION, DELETE_USER_PASSWORD_MUTATION } from '../mutations'
+import { LOGIN_MUTATION, SET_INITIAL_PASSWORD_MUTATION, REGISTER_MUTATION, ADMIN_CREATE_USER_MUTATION, ADMIN_UPDATE_USER_MUTATION, ACTIVATE_USER_MUTATION, DEACTIVATE_USER_MUTATION, UPDATE_USER_ROLES_MUTATION, UPDATE_MY_PROFILE_MUTATION, CHANGE_PASSWORD_MUTATION, DELETE_USER_PASSWORD_MUTATION } from '../mutations'
 import { ME_QUERY, GET_USERS_QUERY } from '../queries'
 import type { LoginResponse, UserAccount, UserResponse, RegisterResponse } from '../types'
 
@@ -31,6 +31,7 @@ export function useLogin() {
         accountStatus?: string | null
         roles?: string[] | null
         department?: { id: string; name: string } | null
+        departments?: { id: string; name: string }[] | null
       }) => ({
         id: profile?.id || '',
         name: [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || profile?.email || profile?.phoneNumber || identifier,
@@ -39,7 +40,8 @@ export function useLogin() {
         title: '',
         roles: profile?.roles || [],
         active: profile?.accountStatus === 'ACTIVE',
-        department: profile?.department || undefined,
+        department: profile?.department || profile?.departments?.[0] || undefined,
+        departments: profile?.departments || (profile?.department ? [profile.department] : undefined),
       })
 
       if (payload?.status === 'SUCCESS' && payload.data?.accessToken) {
@@ -227,7 +229,7 @@ export function useAdminCreateUser() {
           email: input.email,
           phoneNumber: input.phoneNumber,
           username: input.username,
-          departmentId: input.departmentIds?.[0] || null,
+          departmentIds: input.departmentIds ?? [],
           roles: input.roles,
           workerDocProfile: input.workerDocProfile || null,
         }
@@ -241,6 +243,50 @@ export function useAdminCreateUser() {
   }
 
   return { adminCreateUser, loading, error }
+}
+
+export function useAdminUpdateUser() {
+  const [mutation, { loading, error }] = useMutation(ADMIN_UPDATE_USER_MUTATION)
+
+  const adminUpdateUser = async (userId: string, input: {
+    firstName?: string
+    lastName?: string
+    email?: string
+    phoneNumber?: string
+    username?: string
+    gender?: string
+    dateOfBirth?: string
+    profilePhotoUrl?: string
+    departmentIds?: string[]
+    roles?: string[]
+    workerDocProfile?: any
+  }) => {
+    try {
+      const variables = {
+        userId,
+        input: {
+          firstName: input.firstName || undefined,
+          lastName: input.lastName || undefined,
+          gender: input.gender || undefined,
+          dateOfBirth: input.dateOfBirth || undefined,
+          profilePhotoUrl: input.profilePhotoUrl || undefined,
+          email: input.email || undefined,
+          phoneNumber: input.phoneNumber || undefined,
+          username: input.username || undefined,
+          departmentIds: input.departmentIds ?? undefined,
+          roles: input.roles || undefined,
+          workerDocProfile: input.workerDocProfile || undefined,
+        }
+      }
+      const result = await mutation({ variables })
+      return result.data?.adminUpdateUser as UserResponse
+    } catch (err) {
+      console.error('Admin update user error:', err)
+      throw err
+    }
+  }
+
+  return { adminUpdateUser, loading, error }
 }
 
 export function useActivateUser() {

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import {
   useUsers,
   useAdminCreateUser,
+  useAdminUpdateUser,
   useActivateUser,
   useDeactivateUser,
   useUpdateUserRoles,
@@ -31,6 +32,7 @@ export default function ManageUsersPage() {
   const { users, loading, error, refetch } = useUsers()
   const { departments } = useDepartments()
   const { adminCreateUser, loading: creating } = useAdminCreateUser()
+  const { adminUpdateUser, loading: updating } = useAdminUpdateUser()
   const { activateUser, loading: activating } = useActivateUser()
   const { deactivateUser, loading: deactivating } = useDeactivateUser()
   const { updateUserRoles, loading: updatingRoles } = useUpdateUserRoles()
@@ -52,7 +54,7 @@ export default function ManageUsersPage() {
   const [activationUser, setActivationUser] = useState<UserAccount | null>(null)
   const [activationRoles, setActivationRoles] = useState<string[]>([])
 
-  const isBusy = creating || activating || deactivating || updatingRoles || forcingReset
+  const isBusy = creating || updating || activating || deactivating || updatingRoles || forcingReset
 
   const currentUserRoles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
   const canAccessUserManagement = hasAdminAccess(currentUserRoles)
@@ -72,7 +74,11 @@ export default function ManageUsersPage() {
     const q = query.trim().toLowerCase()
     return users.filter((u) => {
       const fullName = `${u.firstName || ""} ${u.lastName || ""}`.trim()
-      const pool = [fullName, u.email, u.phoneNumber, ...(u.roles || []), u.department?.name || ""]
+      const departmentNames = [
+        u.department?.name,
+        ...(u.departments || []).map((department) => department.name),
+      ].filter(Boolean)
+      const pool = [fullName, u.email, u.phoneNumber, ...(u.roles || []), ...departmentNames]
       return pool.some((v) => v.toLowerCase().includes(q))
     })
   }, [query, users])
@@ -117,7 +123,12 @@ export default function ManageUsersPage() {
     setUsername(user.username || "")
     const nextRoles = user.roles?.length ? user.roles : []
     setSelectedRoles(nextRoles)
-    setSelectedDepartmentIds(user.department ? [user.department.id] : [])
+    const nextDepartments = user.departments?.length
+      ? user.departments.map((department) => department.id)
+      : user.department
+        ? [user.department.id]
+        : []
+    setSelectedDepartmentIds(nextDepartments)
     setModalOpen(true)
   }
 
@@ -182,9 +193,20 @@ export default function ManageUsersPage() {
           return
         }
 
-        const rolesResp = await updateUserRoles(editingUserId, selectedRoles)
-        if (rolesResp?.status !== "SUCCESS") {
-          toast.error(rolesResp?.messages?.[0]?.text || "Could not update user roles")
+        const updateResp = await adminUpdateUser(editingUserId, {
+          firstName,
+          lastName,
+          email,
+          phoneNumber,
+          username,
+          gender,
+          dateOfBirth,
+          profilePhotoUrl,
+          departmentIds: selectedDepartmentIds,
+          roles: selectedRoles,
+        })
+        if (updateResp?.status !== "SUCCESS") {
+          toast.error(updateResp?.messages?.[0]?.text || "Could not update user")
           return
         }
 
@@ -495,7 +517,6 @@ export default function ManageUsersPage() {
                           key={department.id}
                           type="button"
                           onClick={() => toggleDepartment(String(department.id))}
-                          disabled={Boolean(editingUserId)}
                           className={`px-4 h-9 rounded-xl border text-xs font-bold transition-all duration-200 ${
                             selected
                               ? "bg-primary text-primary-foreground border-primary shadow-md"
@@ -651,7 +672,10 @@ export default function ManageUsersPage() {
                       ))}
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
-                      Department: {user.department?.name || "None"}
+                      Departments: {[
+                        ...(user.departments || []).map((department) => department.name),
+                        ...(user.department ? [user.department.name] : []),
+                      ].filter(Boolean).join(", ") || "None"}
                     </p>
                   </div>
 

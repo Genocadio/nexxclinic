@@ -23,6 +23,10 @@ export interface LoginResponse {
       phoneNumber: string
       accountStatus?: string
       roles: string[]
+      departments?: {
+        id: string
+        name: string
+      }[]
     }
     needsPasswordSetup?: boolean
   }
@@ -45,6 +49,10 @@ export interface UserAccount {
     id: string
     name: string
   }
+  departments?: {
+    id: string
+    name: string
+  }[]
   createdAt: string
   updatedAt: string
   gender?: string

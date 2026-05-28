@@ -104,6 +104,32 @@ export const DEACTIVATE_USER_MUTATION = gql`
   }
 `
 
+export const ADMIN_UPDATE_USER_MUTATION = gql`
+  mutation AdminUpdateUser($userId: ID!, $input: AdminUpdateUserInput!) {
+    adminUpdateUser(userId: $userId, input: $input) {
+      status
+      message
+      
+      data {
+        id
+        firstName
+        lastName
+        email
+        phoneNumber
+        username
+        accountStatus
+        roles
+        department {
+          id
+          name
+        }
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`
+
 export const UPDATE_USER_ROLES_MUTATION = gql`
   mutation UpdateUserRoles($input: ActivateUserInput!) {
     activateUser(input: $input) {

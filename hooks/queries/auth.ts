@@ -15,7 +15,7 @@ export const ME_QUERY = gql`
         username
         accountStatus
         roles
-        department {
+        departments {
           id
           name
         }
@@ -41,7 +41,7 @@ export const GET_USERS_QUERY = gql`
         username
         accountStatus
         roles
-        department {
+        departments {
           id
           name
         }
