@@ -42,15 +42,15 @@ interface FormFieldRendererProps {
   field: FormField
   currentValue: any
   formAnswers: Record<string, any>
-  setFormAnswers: (fn: (prev: Record<string, any>) => Record<string, any>) => void
+  setFormAnswers?: (fn: (prev: Record<string, any>) => Record<string, any>) => void
   tableShapes: Record<string, { rows: number; columns: number }>
-  setTableShapes: (fn: (prev: Record<string, any>) => Record<string, any>) => void
+  setTableShapes?: (fn: (prev: Record<string, any>) => Record<string, any>) => void
   diagnosticDrafts: Record<string, { diagnosis: string; description: string }>
-  setDiagnosticDrafts: (fn: (prev: Record<string, any>) => Record<string, any>) => void
+  setDiagnosticDrafts?: (fn: (prev: Record<string, any>) => Record<string, any>) => void
   medicationLongDrafts: Record<string, { name: string; frequency: string; amount: string; days: string; notes: string }>
-  setMedicationLongDrafts: (fn: (prev: Record<string, any>) => Record<string, any>) => void
+  setMedicationLongDrafts?: (fn: (prev: Record<string, any>) => Record<string, any>) => void
   medicationMiniDrafts: Record<string, { name: string; notes: string }>
-  setMedicationMiniDrafts: (fn: (prev: Record<string, any>) => Record<string, any>) => void
+  setMedicationMiniDrafts?: (fn: (prev: Record<string, any>) => Record<string, any>) => void
   onActionListenerClick?: (fieldId: string) => void
   fieldActions?: FormAction[]
   onUpdateQuantity?: (actionId: string, quantity: number) => void
@@ -60,6 +60,7 @@ interface FormFieldRendererProps {
   departmentId?: string
   visitDepartmentId?: string
   hideActionListenerAddButton?: boolean
+  readOnly?: boolean
 }
 
 export function FormFieldRenderer({
@@ -84,8 +85,10 @@ export function FormFieldRenderer({
   departmentId,
   visitDepartmentId,
   hideActionListenerAddButton = false,
+  readOnly = false,
 }: FormFieldRendererProps) {
   const contrastInputClass = "border-border/80 bg-background/80 dark:bg-slate-950/60 shadow-sm focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:border-primary/70"
+  const readOnlyValueClass = "text-sm whitespace-pre-wrap break-words rounded-md border border-border/60 bg-muted/20 px-3 py-2"
   const ensureHeaders = (count: number, source: string[] | undefined, prefix: string) =>
     Array.from({ length: count }).map((_, idx) => source?.[idx] || `${prefix} ${idx + 1}`)
   const createDefaultLabRows = (layout: 'valueUnit' | 'result') =>
@@ -108,6 +111,165 @@ export function FormFieldRenderer({
 
   const { addDiagnosis } = useAddDiagnosisToVisitDepartment()
   const { addMedication } = useAddMedicationToVisitDepartment()
+
+  const renderReadOnlyValue = (value: any) => {
+    if (value === null || value === undefined || value === '') {
+      return <p className="text-sm text-muted-foreground">-</p>
+    }
+
+    if (typeof value === 'boolean') {
+      return <p className={readOnlyValueClass}>{value ? 'Yes' : 'No'}</p>
+    }
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) return <p className="text-sm text-muted-foreground">-</p>
+      return (
+        <div className="space-y-2">
+          {value.map((item: any, idx: number) => (
+            <div key={item?.id || idx} className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm">
+              <pre className="whitespace-pre-wrap break-words text-xs">{JSON.stringify(item, null, 2)}</pre>
+            </div>
+          ))}
+        </div>
+      )
+    }
+
+    if (typeof value === 'object') {
+      return <pre className={readOnlyValueClass}>{JSON.stringify(value, null, 2)}</pre>
+    }
+
+    return <p className={readOnlyValueClass}>{String(value)}</p>
+  }
+
+  if (readOnly) {
+    if (field.type === 'table') {
+      const cfg = field.tableConfig || { mode: 'STATIC' as const, rows: 3, columns: 3, headerPlacement: 'none' as const }
+      const shape = tableShapes[field.id] || { rows: cfg.rows, columns: cfg.columns }
+      const rows = Math.max(1, shape.rows)
+      const columns = Math.max(1, shape.columns)
+
+      return (
+        <div className="space-y-2">
+          <div className="overflow-auto border border-border/70 rounded-md bg-background/50">
+            <table className="min-w-full border-collapse text-sm">
+              <tbody>
+                {Array.from({ length: rows }).map((_, rowIdx) => (
+                  <tr key={`${field.id}_ro_${rowIdx}`}>
+                    {Array.from({ length: columns }).map((_, colIdx) => {
+                      const cellKey = `${field.id}_r${rowIdx}_c${colIdx}`
+                      return (
+                        <td key={cellKey} className="border border-border/60 p-2 min-w-[90px] align-top">
+                          {renderReadOnlyValue(formAnswers[cellKey])}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )
+    }
+
+    if (field.type === 'labRecord') {
+      const recordValue = (currentValue && typeof currentValue === 'object' ? currentValue : { rows: {} }) as { rows?: Record<string, LabRecordEntryValue> }
+      const rows = field.labRecordConfig?.rows || createDefaultLabRows('valueUnit')
+
+      return (
+        <div className="space-y-2 border rounded-lg p-3 bg-card/40">
+          <div className="overflow-hidden rounded-md border bg-background">
+            <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.9fr)] gap-0 border-b bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="px-3 py-2">Name</div>
+              <div className="px-3 py-2">Value</div>
+              <div className="px-3 py-2">Unit</div>
+            </div>
+            <div className="divide-y">
+              {rows.map((row) => {
+                const rowValue = recordValue.rows?.[row.id] || {}
+                return (
+                  <div key={row.id} className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.9fr)] items-center gap-2 px-3 py-2">
+                    <div className="text-sm font-medium break-words">{row.name}</div>
+                    {renderReadOnlyValue(rowValue.value || rowValue.result || '')}
+                    {renderReadOnlyValue(rowValue.unit || row.defaultUnit || 'None')}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (field.type === 'diagnosticRecord') {
+      const records: DiagnosticRecordEntry[] = Array.isArray(currentValue) ? currentValue : []
+      return (
+        <div className="space-y-2">
+          {records.length === 0 ? (
+            <p className="text-sm text-muted-foreground">-</p>
+          ) : (
+            records.map((record) => (
+              <div key={record.id} className="rounded-md border border-border/60 bg-background px-3 py-2">
+                <p className="text-sm font-medium break-words">{record.diagnosis}</p>
+                {record.description && <p className="text-xs text-muted-foreground break-words mt-1">{record.description}</p>}
+              </div>
+            ))
+          )}
+        </div>
+      )
+    }
+
+    if (field.type === 'medicationLongForm') {
+      const records: MedicationLongEntry[] = Array.isArray(currentValue) ? currentValue : []
+      return (
+        <div className="space-y-2">
+          {records.length === 0 ? (
+            <p className="text-sm text-muted-foreground">-</p>
+          ) : (
+            records.map((record) => (
+              <div key={record.id} className="rounded-md border border-border/60 bg-background px-3 py-2 space-y-1">
+                <p className="text-sm font-medium break-words">{record.name}</p>
+                <p className="text-xs text-muted-foreground break-words">Frequency: {record.frequency} | Amount: {record.amount} | Days: {record.days}</p>
+                {record.notes && <p className="text-xs text-muted-foreground break-words">{record.notes}</p>}
+              </div>
+            ))
+          )}
+        </div>
+      )
+    }
+
+    if (field.type === 'medicationMiniForm') {
+      const records: MedicationMiniEntry[] = Array.isArray(currentValue) ? currentValue : []
+      return (
+        <div className="space-y-2">
+          {records.length === 0 ? (
+            <p className="text-sm text-muted-foreground">-</p>
+          ) : (
+            records.map((record) => (
+              <div key={record.id} className="rounded-md border border-border/60 bg-background px-3 py-2 space-y-1">
+                <p className="text-sm font-medium break-words">{record.name}</p>
+                {record.notes && <p className="text-xs text-muted-foreground break-words">{record.notes}</p>}
+              </div>
+            ))
+          )}
+        </div>
+      )
+    }
+
+    if (field.type === 'actionListener') {
+      return (
+        <div className="space-y-3">
+          {fieldActions && fieldActions.length > 0 ? (
+            <FormActionsDisplay items={fieldActions} hideLabel={true} visitId={visitId} departmentId={departmentId} readOnly={true} />
+          ) : (
+            <p className="text-sm text-muted-foreground">-</p>
+          )}
+        </div>
+      )
+    }
+
+    return renderReadOnlyValue(currentValue)
+  }
 
   if (field.type === 'text') {
     return <Input className={contrastInputClass} value={currentValue || ''} placeholder={field.placeholder || ''} onChange={(e) => setFormAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} />

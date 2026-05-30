@@ -10,6 +10,7 @@ import Header from "@/components/header"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardStats } from "@/components/dashboard/dashboard-stats"
 import { DashboardMobileUi } from "@/components/dashboard/dashboard-mobile-ui"
+import { ConsultationPreviewSheet } from "@/components/dashboard/consultation-preview-sheet"
 import PatientRegistrationModal from "@/components/patient-registration-modal"
 import VisitCreationModal from "@/components/visit-creation-modal"
 import { AddDepartmentModal } from "@/components/add-department-modal"
@@ -17,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import InlineTryAgain from "@/components/inline-try-again"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid, Printer, FilePenLine, Activity } from "lucide-react"
+import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid, Printer, FilePenLine, Activity, Eye } from "lucide-react"
 import { toast } from "react-toastify"
 
 export default function DashboardPage() {
@@ -100,6 +101,43 @@ export default function DashboardPage() {
   const [locallyCreatedVisits, setLocallyCreatedVisits] = useState<Visit[]>([])
   const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false)
   const [selectedVisitForDepartment, setSelectedVisitForDepartment] = useState<Visit | null>(null)
+  const [previewConsultationOpen, setPreviewConsultationOpen] = useState(false)
+  const [previewConsultationContext, setPreviewConsultationContext] = useState<{
+    consultationId: string
+    departmentId: string
+    departmentName: string
+    patientName: string
+    previewStartedAt: number
+  } | null>(null)
+
+  const getSavedConsultationPreviewContext = (consultationId: string) => {
+    if (typeof window === 'undefined') return null
+
+    const prefix = `consultation_form_context:${consultationId}:`
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index)
+      if (!key || !key.startsWith(prefix)) continue
+
+      try {
+        const raw = window.localStorage.getItem(key)
+        if (!raw) continue
+
+        const parsed = JSON.parse(raw)
+        const resolvedVisitDepartmentId = String(parsed?.visitDepartmentId || parsed?.departmentId || '')
+        if (parsed?.consultationId === consultationId && resolvedVisitDepartmentId) {
+          return {
+            ...parsed,
+            departmentId: resolvedVisitDepartmentId,
+            visitDepartmentId: resolvedVisitDepartmentId,
+          } as { consultationId?: string; departmentId?: string; visitDepartmentId?: string; departmentName?: string; patientName?: string; formId?: string; formVersion?: string; form?: unknown }
+        }
+      } catch {
+        // Ignore malformed saved preview context and fall back to visit-based resolution.
+      }
+    }
+
+    return null
+  }
 
   const openVisitCreationModal = () => {
     setRegisteredPatientId(null)
@@ -142,6 +180,45 @@ export default function DashboardPage() {
 
   const isDischarged = (visit: Visit) => visit.visitStatus === 'COMPLETED' && !hasUnbilledItems(visit)
 
+  const isVisitDepartmentBillingOrCompleted = (visit: Visit, departmentStatus: string) => {
+    const normalizedDepartmentStatus = String(departmentStatus || '').toUpperCase()
+    const normalizedVisitBillingStatus = String(visit.billingStatus || '').toUpperCase()
+    return (
+      normalizedDepartmentStatus === 'COMPLETED'
+      || normalizedDepartmentStatus === 'BILLING'
+      || normalizedVisitBillingStatus === 'BILLED'
+      || normalizedVisitBillingStatus === 'BILLING'
+    )
+  }
+
+  const getMatchingUserDepartment = (visit: Visit, options?: { mustBeClosed?: boolean }) => {
+    const mustBeClosed = Boolean(options?.mustBeClosed)
+    const matchingDepartments = (visit.departments || []).filter((dept) =>
+      userDepartmentIds.includes(String(dept.department?.id || dept.id || '')),
+    )
+
+    if (matchingDepartments.length === 0) return null
+
+    if (mustBeClosed) {
+      return matchingDepartments.find((dept) => isVisitDepartmentBillingOrCompleted(visit, dept.status)) || null
+    }
+
+    return matchingDepartments.find((dept) => {
+      const normalizedDepartmentStatus = String(dept.status || '').toUpperCase()
+      const normalizedVisitBillingStatus = String(visit.billingStatus || '').toUpperCase()
+
+      if (normalizedDepartmentStatus === 'COMPLETED' || normalizedDepartmentStatus === 'CANCELLED' || normalizedDepartmentStatus === 'BILLING') {
+        return false
+      }
+
+      if (normalizedVisitBillingStatus === 'BILLED' || normalizedVisitBillingStatus === 'BILLING') {
+        return false
+      }
+
+      return true
+    }) || null
+  }
+
   const canConsultVisit = (visit: Visit) => {
     // Check if user has CLINICIAN or DOCTOR role
     if (!hasClinicianOrDoctorRole) return false
@@ -153,11 +230,7 @@ export default function DashboardPage() {
     if (!visit.departments || visit.departments.length === 0) return false
     
     // Eligible when any visit department matches a user's department and is not completed/cancelled.
-    const matchingDepartment = visit.departments.find(
-      (dept) => dept.status !== 'COMPLETED'
-        && dept.status !== 'CANCELLED'
-        && userDepartmentIds.includes(String(dept.department?.id || dept.id || ''))
-    )
+    const matchingDepartment = getMatchingUserDepartment(visit, { mustBeClosed: false })
     const match = Boolean(matchingDepartment)
     if (process.env.NODE_ENV !== 'production') {
       try {
@@ -176,6 +249,37 @@ export default function DashboardPage() {
     }
 
     return match
+  }
+
+  const handlePreviewConsultation = (visit: Visit) => {
+    const previewStartedAt = Date.now()
+    const savedPreviewContext = getSavedConsultationPreviewContext(visit.id)
+    const matchedClosedDepartment = getMatchingUserDepartment(visit, { mustBeClosed: true })
+    const departmentId = String(savedPreviewContext?.visitDepartmentId || savedPreviewContext?.departmentId || matchedClosedDepartment?.department?.id || matchedClosedDepartment?.id || '')
+
+    if (!departmentId) {
+      toast.error('No completed or billed department found for consultation preview.')
+      return
+    }
+
+    const departmentName = savedPreviewContext?.departmentName || matchedClosedDepartment?.department?.name || 'Department'
+
+    console.log('[ConsultationPreview] clicked', {
+      consultationId: visit.id,
+      departmentId,
+      visitDepartmentId: savedPreviewContext?.visitDepartmentId || null,
+      usedSavedContext: Boolean(savedPreviewContext?.departmentId),
+      previewStartedAt,
+    })
+
+    setPreviewConsultationContext({
+      consultationId: visit.id,
+      departmentId,
+      departmentName,
+      patientName: `${visit.patient.firstName} ${visit.patient.lastName}`.trim(),
+      previewStartedAt,
+    })
+    setPreviewConsultationOpen(true)
   }
 
   const formatDepartmentTime = (time?: string) => {
@@ -647,7 +751,18 @@ export default function DashboardPage() {
                               </div>
                             </div>
                             <div className={`flex items-center gap-2 flex-wrap ${viewMode === "grid" ? "justify-start" : "justify-end lg:justify-start lg:flex-nowrap"}`}>
-                              {canSeeVisitActionButtons && canSeeConsultButton && canConsultVisit(visit) && (
+                              {(() => {
+                                const matchedClosedDepartment = getMatchingUserDepartment(visit, { mustBeClosed: true })
+                                const showClosedConsultationActions = Boolean(
+                                  canSeeVisitActionButtons
+                                  && canSeeConsultButton
+                                  && hasClinicianOrDoctorRole
+                                  && matchedClosedDepartment,
+                                )
+
+                                return (
+                                  <>
+                                    {!showClosedConsultationActions && canSeeVisitActionButtons && canSeeConsultButton && canConsultVisit(visit) && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <button
@@ -666,7 +781,53 @@ export default function DashboardPage() {
                                     <p>Start Consult</p>
                                   </TooltipContent>
                                 </Tooltip>
-                              )}
+                                    )}
+
+                                    {showClosedConsultationActions && (
+                                      <>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleEditConsultation(visit)
+                                              }}
+                                              title="Edit Consultation"
+                                              aria-label="Edit Consultation"
+                                              className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-700 hover:bg-slate-800 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                            >
+                                              <FilePenLine className="w-4 h-4 flex-shrink-0" />
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Edit Consultation</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                handlePreviewConsultation(visit)
+                                              }}
+                                              title="Preview Consultation"
+                                              aria-label="Preview Consultation"
+                                              className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-500 hover:bg-slate-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                            >
+                                              <Eye className="w-4 h-4 flex-shrink-0" />
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Preview Consultation</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </>
+                                    )}
+                                  </>
+                                )
+                              })()}
+
                               {canSeeVisitActionButtons && hasNurseRole && (visit.visitStatus === 'CREATED' || visit.visitStatus === 'IN_PROGRESS') && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -687,7 +848,10 @@ export default function DashboardPage() {
                                   </TooltipContent>
                                 </Tooltip>
                               )}
-                              {canSeeVisitActionButtons && hasConsultationRole && (visit.visitStatus === 'COMPLETED' || visit.visitStatus === 'CANCELLED') && (
+                              {canSeeVisitActionButtons
+                                && hasConsultationRole
+                                && (visit.visitStatus === 'COMPLETED' || visit.visitStatus === 'CANCELLED')
+                                && !Boolean(getMatchingUserDepartment(visit, { mustBeClosed: true })) && (
                                 <>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -836,6 +1000,21 @@ export default function DashboardPage() {
           onSuccess={handleAddDepartmentSuccess}
         />
       )}
+
+      <ConsultationPreviewSheet
+        open={previewConsultationOpen}
+        onOpenChange={(open) => {
+          setPreviewConsultationOpen(open)
+          if (!open) {
+            setPreviewConsultationContext(null)
+          }
+        }}
+        consultationId={previewConsultationContext?.consultationId || null}
+        departmentId={previewConsultationContext?.departmentId || null}
+        departmentName={previewConsultationContext?.departmentName}
+        patientName={previewConsultationContext?.patientName}
+        previewStartedAt={previewConsultationContext?.previewStartedAt || null}
+      />
     </div>
   )
 }

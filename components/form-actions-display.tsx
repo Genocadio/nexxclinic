@@ -23,6 +23,7 @@ interface FormActionsDisplayProps {
   onRemove?: (id: string) => void
   onRestore?: (id: string) => void
   onUpdateQuantity?: (id: string, quantity: number) => void
+  readOnly?: boolean
 }
 
 export default function FormActionsDisplay({
@@ -38,6 +39,7 @@ export default function FormActionsDisplay({
   onRemove,
   onRestore,
   onUpdateQuantity,
+  readOnly = false,
 }: FormActionsDisplayProps) {
   const { updateQuantity } = useUpdateProductQuantity()
   const { removeProduct } = useRemoveProductFromVisitDepartment()
@@ -134,9 +136,17 @@ export default function FormActionsDisplay({
         </div>
 
         {/* Hover-only controls — collapses to 0 height by default */}
-        <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-200">
-          <div className="overflow-hidden">
-            <div className={`flex items-center justify-between gap-2 px-3 pb-2 pt-0 ${isRemoved ? 'opacity-60' : ''}`}>
+        {readOnly ? (
+          <div className="px-3 pb-2 pt-0">
+            <div className="flex items-center justify-between gap-2">
+              <div />
+              <span className="text-xs text-muted-foreground">{isRemoved ? 'Removed' : 'Saved'}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-200">
+            <div className="overflow-hidden">
+              <div className={`flex items-center justify-between gap-2 px-3 pb-2 pt-0 ${isRemoved ? 'opacity-60' : ''}`}>
               {/* Quantity stepper */}
               {item.isQuantifiable !== false ? (
                 <div className="flex items-center gap-1">
@@ -250,9 +260,10 @@ export default function FormActionsDisplay({
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     )
   }

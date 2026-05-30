@@ -150,6 +150,7 @@ export default function ConsultationPage() {
   const firstDepartment = visit.departments?.[0]
   const firstDepartmentId = firstDepartment?.department?.id || firstDepartment?.id
   const firstVisitDepartmentId = firstDepartment?.id
+  const firstDepartmentStatus = firstDepartment?.status
 
   const scopedNotes = [
     ...(visit.visitNotes || []).map((note) => ({
@@ -212,6 +213,7 @@ export default function ConsultationPage() {
         consultation={consultation}
         patient={patient}
         departmentId={firstDepartmentId ? String(firstDepartmentId) : undefined}
+        departmentStatus={firstDepartmentStatus ? String(firstDepartmentStatus) : undefined}
         visitDepartmentId={firstVisitDepartmentId ? String(firstVisitDepartmentId) : undefined}
         existingProducts={existingProducts}
         requestProductsEnabled={requestProductsEnabled}

@@ -127,18 +127,62 @@ const parseConsultationAnswersPayload = (value: unknown): Record<string, any> | 
   return null
 }
 
-export const normalizeConsultationAnswersResult = (response: any) => {
+const pickConsultationAnswer = (rawData: any, preferredFormId?: string | null) => {
+  if (!rawData) return null
+
+  if (Array.isArray(rawData)) {
+    const answers = rawData.filter(Boolean)
+
+    if (preferredFormId) {
+      const preferred = answers.find((item: any) => {
+        const responseFormId = item?.dedicatedForm?.id ?? item?.form?.id ?? item?.formId
+        return String(responseFormId || '') === String(preferredFormId)
+      })
+
+      if (preferred) {
+        return preferred
+      }
+    }
+
+    return answers.slice().sort((left: any, right: any) => {
+      const leftStamp = String(left?.updatedAt || left?.submittedAt || '')
+      const rightStamp = String(right?.updatedAt || right?.submittedAt || '')
+      return rightStamp.localeCompare(leftStamp)
+    })[0] ?? null
+  }
+
+  if (typeof rawData === 'object') {
+    if (rawData.answer || rawData.form) {
+      return rawData.answer ?? null
+    }
+
+    return rawData
+  }
+
+  return null
+}
+
+export const normalizeConsultationAnswersResult = (response: any, preferredFormId?: string | null) => {
   const rawData = response?.data?.getConsultationAnswers?.data ?? response?.getConsultationAnswers?.data ?? response?.data ?? response ?? null
-  const responseForm = rawData?.form ?? null
-  const responseAnswer = rawData?.answer ?? rawData ?? null
+  const responseAnswer = pickConsultationAnswer(rawData, preferredFormId)
+  const responseForm = responseAnswer?.dedicatedForm ?? responseAnswer?.form ?? rawData?.form ?? null
   const rawAnswers = responseAnswer?.answers ?? rawData?.answers ?? null
 
   return {
     form: responseForm ? mapBackendForm(responseForm) : null,
     answer: responseAnswer
       ? {
-          formId: responseAnswer?.formId ? String(responseAnswer.formId) : null,
-          formVersion: responseAnswer?.formVersion ? String(responseAnswer.formVersion) : null,
+          id: responseAnswer?.id ? String(responseAnswer.id) : null,
+          consultationId: responseAnswer?.consultationId ? String(responseAnswer.consultationId) : null,
+          visitId: responseAnswer?.visitId ? String(responseAnswer.visitId) : null,
+          patientId: responseAnswer?.patientId ? String(responseAnswer.patientId) : null,
+          departmentId: responseAnswer?.departmentId ? String(responseAnswer.departmentId) : null,
+          formId: responseAnswer?.formId ? String(responseAnswer.formId) : responseForm?.id ? String(responseForm.id) : null,
+          formVersion: responseAnswer?.formVersion
+            ? String(responseAnswer.formVersion)
+            : responseAnswer?.dedicatedForm?.version
+              ? String(responseAnswer.dedicatedForm.version)
+              : null,
           status: responseAnswer?.status || null,
           submittedAt: responseAnswer?.submittedAt || null,
           updatedAt: responseAnswer?.updatedAt || null,
@@ -284,35 +328,32 @@ export function useLatestForm(departmentId: string | null) {
   return { form, loading, error: error?.message || null, loadLatestForm: load }
 }
 
-export function useConsultationAnswers(consultationId: string | null, departmentId: string | null, formId: string | null) {
+export function useConsultationAnswers(visitId: string | null, visitDepartmentId: string | null, formId: string | null) {
   const [loadConsultationAnswers, { loading, error, data }] = useLazyQuery(GET_CONSULTATION_ANSWERS_QUERY, {
     fetchPolicy: 'network-only',
   })
 
-  const consultationAnswers = React.useMemo(() => normalizeConsultationAnswersResult(data), [data])
+  const consultationAnswers = React.useMemo(() => normalizeConsultationAnswersResult(data, formId), [data, formId])
 
   const load = React.useCallback(
     (options?: Parameters<typeof loadConsultationAnswers>[0]) => {
       const { fetchPolicy: _fetchPolicy, ...restOptions } = options || {}
-      const nextConsultationId = options?.variables?.consultationId || consultationId
-      const nextDepartmentId = options?.variables?.departmentId || departmentId
-      const nextFormId = options?.variables?.formId || formId
+      const nextVisitId = options?.variables?.visitId || visitId
+      const nextVisitDepartmentId = options?.variables?.visitDepartmentId || visitDepartmentId
 
-      if (!nextConsultationId || !nextDepartmentId || !nextFormId) {
+      if (!nextVisitId || !nextVisitDepartmentId) {
         return Promise.resolve(undefined)
       }
 
       return loadConsultationAnswers({
         ...restOptions,
         variables: {
-          ...(restOptions.variables || {}),
-          consultationId: nextConsultationId,
-          departmentId: nextDepartmentId,
-          formId: nextFormId,
+          visitId: nextVisitId,
+          visitDepartmentId: nextVisitDepartmentId,
         },
       })
     },
-    [consultationId, departmentId, formId, loadConsultationAnswers],
+    [loadConsultationAnswers, visitDepartmentId, visitId],
   )
 
   return { consultationAnswers, loading, error: error?.message || null, loadConsultationAnswers: load }

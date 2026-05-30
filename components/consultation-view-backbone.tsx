@@ -23,10 +23,25 @@ import {
 } from "@/components/consultation/consultation-form-utils"
 import type { FormAction } from "@/lib/form-storage"
 
+const CONSULTATION_FORM_CONTEXT_PREFIX = 'consultation_form_context'
+
+const getConsultationFormContextKey = (consultationId?: string | null, departmentId?: string | null) =>
+  `${CONSULTATION_FORM_CONTEXT_PREFIX}:${String(consultationId || '')}:${String(departmentId || '')}`
+
+const saveConsultationFormContext = (consultationId: string, departmentId: string, context: Record<string, any>) => {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(getConsultationFormContextKey(consultationId, departmentId), JSON.stringify(context))
+  } catch {
+    // ignore storage failures
+  }
+}
+
 interface ConsultationViewBackboneProps {
   consultation: any
   patient: Patient
   departmentId?: string
+  departmentStatus?: string
   visitDepartmentId?: string
   existingProducts?: FormAction[]
   requestProductsEnabled?: boolean
@@ -43,6 +58,7 @@ export default function ConsultationViewBackbone({
   consultation: initialConsultation,
   patient,
   departmentId,
+  departmentStatus,
   visitDepartmentId,
   existingProducts = [],
   requestProductsEnabled = true,
@@ -66,9 +82,12 @@ export default function ConsultationViewBackbone({
   const hydrationReadyRef = useRef(false)
   const hydrationStagesRef = useRef({ answers: false, products: false, clinical: false })
   const { loadLatestForm: loadForm } = useLatestForm(departmentId || null)
-  const { loadConsultationAnswers: loadAnswers } = useConsultationAnswers(initialConsultation.consultationId || null, departmentId || null, departmentForm?.id || null)
+  const visitId = initialConsultation.consultationId || null
+  const { loadConsultationAnswers: loadAnswers } = useConsultationAnswers(visitId, visitDepartmentId || null, departmentForm?.id || null)
   const { loadVersionHistory } = useFormVersionHistory(departmentId || null, null)
   const { upsertConsultationAnswers } = useUpsertConsultationAnswers()
+
+  const isPendingDepartment = String(departmentStatus || '').toUpperCase() === 'PENDING'
 
   const mapBackendFormVersion = (raw: any): BackendDepartmentForm => ({
     id: String(raw?.id || ''),
@@ -218,15 +237,32 @@ export default function ConsultationViewBackbone({
     autoPinnedVitalsRef.current = true
   }, [visit?.vitalSigns?.length])
 
-  // Load form on department change
+  // Bootstrap the working form from saved context first, then fall back to the latest form only for pending departments.
   useEffect(() => {
-    const loadLatestFinalizedForm = async () => {
+    const bootstrapConsultationForm = async () => {
       if (!departmentId) {
         setDepartmentForm(null)
         return
       }
 
       try {
+        const savedContext = (() => {
+          if (typeof window === 'undefined') return null
+
+          try {
+            const raw = window.localStorage.getItem(getConsultationFormContextKey(consultation.consultationId, departmentId))
+            return raw ? JSON.parse(raw) : null
+          } catch {
+            return null
+          }
+        })()
+
+        if (savedContext?.form) {
+          setDepartmentForm(mapBackendFormVersion(savedContext.form))
+          setFormLoadFailed(false)
+          return
+        }
+
         setFormLoading(true)
         setFormLoadFailed(false)
 
@@ -241,16 +277,7 @@ export default function ConsultationViewBackbone({
           return
         }
 
-        setDepartmentForm({
-          id: String(raw.id),
-          title: raw.title || 'Consultation Form',
-          description: raw.description || '',
-          status: raw.status === 'FINAL' ? 'FINAL' : 'DRAFT',
-          currentVersionNumber: raw.version || undefined,
-          currentSchemaVersion: raw.version || undefined,
-          fields: Array.isArray(raw.fields) ? raw.fields.map((field: any, idx: number) => normalizeField(field, idx)) : [],
-          sections: Array.isArray(raw.sections) ? raw.sections.map((section: any, idx: number) => normalizeSection(section, idx)) : [],
-        })
+        setDepartmentForm(mapBackendFormVersion(raw))
       } catch (err) {
         console.error('Failed to load finalized department form', err)
         setDepartmentForm(null)
@@ -260,8 +287,8 @@ export default function ConsultationViewBackbone({
       }
     }
 
-    loadLatestFinalizedForm()
-  }, [departmentId, loadForm, formReloadKey])
+    bootstrapConsultationForm()
+  }, [consultation.consultationId, departmentId, departmentStatus, isPendingDepartment, loadForm, formReloadKey])
 
   // Load existing answers on form/consultation change
   useEffect(() => {
@@ -327,6 +354,15 @@ export default function ConsultationViewBackbone({
         }
 
         if (rawAnswers && typeof rawAnswers === 'object') {
+          saveConsultationFormContext(consultation.consultationId, String(visitDepartmentId || departmentId || ''), {
+            consultationId: consultation.consultationId,
+            departmentId: String(departmentId),
+            visitDepartmentId: String(visitDepartmentId || departmentId || ''),
+            formId: storedFormId || responseForm?.id || departmentForm.id,
+            formVersion: storedSchemaVersion || responseForm?.version || departmentForm.currentSchemaVersion || departmentForm.currentVersionNumber,
+            form: responseForm || departmentForm,
+          })
+
           hydrateSavedAnswers(rawAnswers, formForHydration, setFormAnswers, setFieldActions, setTableShapes)
 
           // Reconcile stale backendIds: saved consultation answers store the
@@ -642,6 +678,15 @@ export default function ConsultationViewBackbone({
         formVersion: String(departmentForm.currentSchemaVersion || departmentForm.currentVersionNumber),
         status: 'DRAFT',
         answers: JSON.stringify(answersMap),
+      })
+
+      saveConsultationFormContext(consultation.consultationId, String(visitDepartmentId || departmentId || ''), {
+        consultationId: consultation.consultationId,
+        departmentId: String(departmentId),
+        visitDepartmentId: String(visitDepartmentId || departmentId || ''),
+        formId: departmentForm.id,
+        formVersion: departmentForm.currentSchemaVersion || departmentForm.currentVersionNumber,
+        form: departmentForm,
       })
 
       console.log('[Consultation] createAnswersForProducts result:', result)

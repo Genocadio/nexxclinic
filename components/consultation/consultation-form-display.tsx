@@ -14,15 +14,15 @@ interface ConsultationFormDisplayProps {
   formLoading: boolean
   formLoadFailed: boolean
   formAnswers: Record<string, any>
-  setFormAnswers: (fn: (prev: Record<string, any>) => Record<string, any>) => void
+  setFormAnswers?: (fn: (prev: Record<string, any>) => Record<string, any>) => void
   tableShapes: Record<string, { rows: number; columns: number }>
-  setTableShapes: (fn: (prev: Record<string, any>) => Record<string, any>) => void
+  setTableShapes?: (fn: (prev: Record<string, any>) => Record<string, any>) => void
   diagnosticDrafts: Record<string, { diagnosis: string; description: string }>
-  setDiagnosticDrafts: (fn: (prev: Record<string, any>) => Record<string, any>) => void
+  setDiagnosticDrafts?: (fn: (prev: Record<string, any>) => Record<string, any>) => void
   medicationLongDrafts: Record<string, { name: string; frequency: string; amount: string; days: string; notes: string }>
-  setMedicationLongDrafts: (fn: (prev: Record<string, any>) => Record<string, any>) => void
+  setMedicationLongDrafts?: (fn: (prev: Record<string, any>) => Record<string, any>) => void
   medicationMiniDrafts: Record<string, { name: string; notes: string }>
-  setMedicationMiniDrafts: (fn: (prev: Record<string, any>) => Record<string, any>) => void
+  setMedicationMiniDrafts?: (fn: (prev: Record<string, any>) => Record<string, any>) => void
   fieldActions: Record<string, FormAction[]>
   onFormReload?: () => void
   onActionListenerClick?: (fieldId: string) => void
@@ -33,6 +33,7 @@ interface ConsultationFormDisplayProps {
   currentDepartmentId?: string
   visitDepartmentId?: string
   hideActionListenerAddButton?: boolean
+  readOnly?: boolean
 }
 
 export function ConsultationFormDisplay({
@@ -59,6 +60,7 @@ export function ConsultationFormDisplay({
   currentDepartmentId,
   visitDepartmentId,
   hideActionListenerAddButton = false,
+  readOnly = false,
 }: ConsultationFormDisplayProps) {
   return (
     <Card>
@@ -118,6 +120,7 @@ export function ConsultationFormDisplay({
                          departmentId={currentDepartmentId}
                          visitDepartmentId={visitDepartmentId}
                          hideActionListenerAddButton={hideActionListenerAddButton}
+                         readOnly={readOnly}
                        />
                     </div>
                   )
@@ -164,6 +167,7 @@ export function ConsultationFormDisplay({
                                  visitId={visitId}
                                  visitDepartmentId={visitDepartmentId}
                                  hideActionListenerAddButton={hideActionListenerAddButton}
+                                 readOnly={readOnly}
                                />
                             </div>
                           )

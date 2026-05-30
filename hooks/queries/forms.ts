@@ -367,12 +367,21 @@ export const GET_LATEST_FORM_QUERY = gql`
 `
 
 export const GET_CONSULTATION_ANSWERS_QUERY = gql`
-  query ConsultationGetAnswers($consultationId: ID!, $departmentId: ID!, $formId: ID!) {
-    getConsultationAnswers(consultationId: $consultationId, departmentId: $departmentId, formId: $formId) {
+  query ConsultationGetAnswers($visitDepartmentId: ID, $visitId: ID) {
+    getConsultationAnswers(visitDepartmentId: $visitDepartmentId, visitId: $visitId) {
       status
       message
       data {
-        form {
+        id
+        consultationId
+        visitId
+        patientId
+        departmentId
+        status
+        answers
+        submittedAt
+        updatedAt
+        dedicatedForm {
           id
           departmentId
           title
@@ -456,12 +465,6 @@ export const GET_CONSULTATION_ANSWERS_QUERY = gql`
             isQuantifiable
             backendId
           }
-        }
-        answer {
-          status
-          answers
-          submittedAt
-          updatedAt
         }
       }
     }
