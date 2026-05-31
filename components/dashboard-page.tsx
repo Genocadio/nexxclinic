@@ -1005,6 +1005,16 @@ export default function DashboardPage() {
         <PatientHistorySidePane
           patientId={String(patientHistoryVisit.patient.id)}
           currentVisitId={String(patientHistoryVisit.id)}
+          onPreviewDepartmentAnswers={({ visitId, visitDepartmentId, departmentName, patientName }) => {
+            setPreviewConsultationContext({
+              consultationId: visitId,
+              departmentId: visitDepartmentId,
+              departmentName,
+              patientName,
+              previewStartedAt: Date.now(),
+            })
+            setPreviewConsultationOpen(true)
+          }}
           onClose={() => setPatientHistoryOpen(false)}
         />
       )}

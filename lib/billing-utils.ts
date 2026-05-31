@@ -7,6 +7,8 @@ export interface BillingItem {
   price: number;
   basePrice?: number;
   insuranceCoverageCosts?: Record<string, number>;
+  insuranceCoverageMeta?: Record<string, InsuranceCoverageMeta>;
+  insuranceNotCovered?: boolean;
   type: 'action' | 'consumable';
   departmentId?: string;
   departmentName?: string;
@@ -49,6 +51,108 @@ export interface BillingData {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export type InsuranceCoverageMeta = {
+  cost: number;
+  covered: boolean;
+};
+
+type ProductCoverageInput = {
+  insurance?: { id?: string | number };
+  cost?: number;
+  price?: number;
+  covered?: boolean;
+};
+
+export function buildProductCoverageMaps(coverages?: ProductCoverageInput[]) {
+  const costs: Record<string, number> = {};
+  const meta: Record<string, InsuranceCoverageMeta> = {};
+
+  (coverages || []).forEach((coverage) => {
+    const providerId = coverage?.insurance?.id;
+    if (providerId === undefined || providerId === null) return;
+    const key = String(providerId);
+    const numericCost = Number(coverage?.cost ?? coverage?.price ?? 0);
+    costs[key] = numericCost;
+    meta[key] = {
+      cost: numericCost,
+      covered: coverage?.covered !== false && numericCost > 0,
+    };
+  });
+
+  return { costs, meta };
+}
+
+export function resolveBillingUnitPrice(
+  basePrice: number,
+  coverageCosts: Record<string, number>,
+  coverageMeta: Record<string, InsuranceCoverageMeta>,
+  providerId?: string,
+): { price: number; notCovered: boolean } {
+  if (!providerId) {
+    return { price: basePrice, notCovered: false };
+  }
+
+  const meta = coverageMeta[providerId];
+  const cost = coverageCosts[providerId];
+
+  if (meta?.covered && Number.isFinite(cost) && cost > 0) {
+    return { price: cost, notCovered: false };
+  }
+
+  return { price: basePrice, notCovered: true };
+}
+
+export function applyInsuranceSelectionToItem(
+  item: BillingItem,
+  visitInsuranceId: string | undefined,
+  providerId: string | undefined,
+): BillingItem {
+  const basePrice = item.basePrice ?? item.price;
+  const { price, notCovered } = resolveBillingUnitPrice(
+    basePrice,
+    item.insuranceCoverageCosts || {},
+    item.insuranceCoverageMeta || {},
+    providerId,
+  );
+
+  return {
+    ...item,
+    selectedInsuranceId: visitInsuranceId,
+    price,
+    insuranceNotCovered: visitInsuranceId ? notCovered : false,
+  };
+}
+
+export function getItemInsuranceSplit(
+  item: BillingItem,
+  coveragePercentage: number,
+) {
+  const itemTotal = calculateItemTotal(item);
+  const exemptionType = item.exemptionType || (item.exempted ? 'full' : 'none');
+
+  if (exemptionType === 'full') {
+    return { itemTotal: 0, insuranceAmount: 0, patientAmount: 0, skip: true };
+  }
+
+  if (!item.selectedInsuranceId || item.insuranceNotCovered) {
+    return {
+      itemTotal,
+      insuranceAmount: 0,
+      patientAmount: itemTotal,
+      skip: false,
+    };
+  }
+
+  const insuranceAmount = Math.round((itemTotal * coveragePercentage) / 100);
+  const patientAmount = itemTotal - insuranceAmount;
+
+  if (exemptionType === 'patient-share') {
+    return { itemTotal, insuranceAmount, patientAmount: 0, skip: false };
+  }
+
+  return { itemTotal, insuranceAmount, patientAmount, skip: false };
 }
 
 export const EXEMPTION_PRESETS = [

@@ -75,6 +75,7 @@ interface ConsultationSidePanelsProps {
   setIdPanel: (state: PanelState) => void
   setVitalsPanel: (state: PanelState) => void
   setHistoryPanel: (state: PanelState) => void
+  onOpenHistory?: () => void
   vitals?: any[]
 }
 
@@ -86,6 +87,7 @@ export function ConsultationSidePanels({
   setIdPanel,
   setVitalsPanel,
   setHistoryPanel,
+  onOpenHistory,
   vitals = [],
 }: ConsultationSidePanelsProps) {
   const activePanels = [
@@ -124,6 +126,10 @@ export function ConsultationSidePanels({
     } else if (panelKey === 'vitals') {
       setVitalsPanel({ ...vitalsPanel, pinned: !vitalsPanel.pinned, hover: false })
     } else if (panelKey === 'history') {
+      if (onOpenHistory) {
+        onOpenHistory()
+        return
+      }
       setHistoryPanel({ ...historyPanel, pinned: !historyPanel.pinned, hover: false })
     }
   }
@@ -191,7 +197,7 @@ export function ConsultationSidePanels({
       )}
 
       {/* History Panel */}
-      {showHistoryPanel && (
+      {!onOpenHistory && showHistoryPanel && (
         <div
           className="fixed z-40 w-96 bg-white/20 backdrop-blur-xl border border-white/30 rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
           style={getPositionStyle(getPanelSlot('history'), activePanels.length) as any}

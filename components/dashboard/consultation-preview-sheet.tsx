@@ -47,6 +47,7 @@ export function ConsultationPreviewSheet({
   const [previewFieldActions, setPreviewFieldActions] = useState<Record<string, any[]>>({})
   const answersMap = (Object.keys(previewAnswers).length > 0 ? previewAnswers : (consultationAnswers?.answersMap || {})) as Record<string, unknown>
   const consultationForm = useMemo(() => consultationAnswers?.form || previewContext?.form || null, [consultationAnswers?.form, previewContext?.form])
+  const answerStatus = consultationAnswers?.answer?.status || null
 
   useEffect(() => {
     if (open) {
@@ -137,9 +138,9 @@ export function ConsultationPreviewSheet({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[88]">
       <div
-        className={`absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute top-16 bottom-0 left-0 md:left-[420px] right-0 bg-black/15 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}
         onClick={() => onOpenChange(false)}
         aria-hidden="true"
       />
@@ -148,13 +149,20 @@ export function ConsultationPreviewSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Consultation Preview"
-        className={`absolute right-0 top-0 h-full w-[min(92vw,56rem)] border-l border-border bg-background shadow-2xl transition-transform duration-200 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`absolute right-0 top-16 h-[calc(100vh-4rem)] w-[min(92vw,56rem)] border-l border-border bg-background shadow-2xl transition-transform duration-200 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}
       >
         <div className="flex h-full flex-col">
           <div className="border-b border-border/70 px-4 py-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Consultation Preview</h2>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-semibold text-foreground">Consultation Preview</h2>
+                  {answerStatus && (
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${answerStatus === 'FINAL' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {answerStatus.toLowerCase()}
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground">
                   {patientName ? `${patientName} • ` : ""}
                   {departmentName || "Department"}

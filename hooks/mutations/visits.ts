@@ -309,20 +309,54 @@ export const ADD_DEPARTMENT_TO_VISIT_MUTATION = gql`
   }
 `
 
-export const ADD_INSURANCE_TO_VISIT_MUTATION = gql`
-  mutation AddInsuranceToVisit($visitId: ID!, $insuranceId: ID!) {
-    addInsuranceToVisit(visitId: $visitId, insuranceId: $insuranceId) {
+export const LINK_VISIT_INSURANCES_MUTATION = gql`
+  mutation LinkVisitInsurances($visitId: ID!, $insuranceIds: [ID!]!) {
+    linkVisitInsurances(visitId: $visitId, insuranceIds: $insuranceIds) {
       status
       message
-      
       data {
         id
-        visit {
+        linkedInsurances {
           id
+          insuranceCardNumber
+          principalMember
+          principalMemberName
+          principalMemberPhoneNumber
+          validFrom
+          validUntil
+          insuranceProvider {
+            id
+            insuranceName
+            acronym
+            defaultCoveragePercentage
+          }
         }
-        insurance {
+      }
+    }
+  }
+`
+
+export const UNLINK_VISIT_INSURANCES_MUTATION = gql`
+  mutation UnlinkVisitInsurances($visitId: ID!, $insuranceIds: [ID!]!) {
+    unlinkVisitInsurances(visitId: $visitId, insuranceIds: $insuranceIds) {
+      status
+      message
+      data {
+        id
+        linkedInsurances {
           id
-          name
+          insuranceCardNumber
+          principalMember
+          principalMemberName
+          principalMemberPhoneNumber
+          validFrom
+          validUntil
+          insuranceProvider {
+            id
+            insuranceName
+            acronym
+            defaultCoveragePercentage
+          }
         }
       }
     }

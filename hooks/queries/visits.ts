@@ -28,6 +28,22 @@ export const GET_VISIT_QUERY = gql`
           emergencyContactName
           emergencyContactRelationship
           emergencyContactPhoneNumber
+          patientInsurances {
+            id
+            insuranceCardNumber
+            providingCompanyOrEmployer
+            principalMember
+            principalMemberName
+            principalMemberPhoneNumber
+            validFrom
+            validUntil
+            insuranceProvider {
+              id
+              insuranceName
+              acronym
+              defaultCoveragePercentage
+            }
+          }
         }
         vitalSigns {
           id

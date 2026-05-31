@@ -235,6 +235,7 @@ export interface PatientInsurance {
   insurance: Insurance
   insuranceCardNumber: string
   status: string
+  providingCompanyOrEmployer?: string
   dominantMember?: {
     firstName: string
     lastName: string

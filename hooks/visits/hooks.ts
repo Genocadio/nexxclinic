@@ -15,7 +15,8 @@ import {
   COMPLETE_VISIT_DEPARTMENT_MUTATION,
   UPDATE_VISIT_DEPARTMENT_STATUS_MUTATION,
   ADD_DEPARTMENT_TO_VISIT_MUTATION,
-  ADD_INSURANCE_TO_VISIT_MUTATION,
+  LINK_VISIT_INSURANCES_MUTATION,
+  UNLINK_VISIT_INSURANCES_MUTATION,
   REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION,
   UPDATE_ACTION_QUANTITY_MUTATION,
   UPDATE_CONSUMABLE_QUANTITY_MUTATION,
@@ -137,6 +138,22 @@ export interface GqlPatient {
   emergencyContactName?: string | null
   emergencyContactRelationship?: string | null
   emergencyContactPhoneNumber?: string | null
+  patientInsurances?: Array<{
+    id: string
+    insuranceCardNumber: string
+    providingCompanyOrEmployer?: string | null
+    principalMember?: boolean | null
+    principalMemberName?: string | null
+    principalMemberPhoneNumber?: string | null
+    validFrom?: string | null
+    validUntil?: string | null
+    insuranceProvider: {
+      id: string
+      insuranceName: string
+      acronym?: string | null
+      defaultCoveragePercentage: number
+    }
+  }> | null
   createdAt: string
 }
 
@@ -595,7 +612,7 @@ export function useVisit(id: string | null) {
             phoneNumber: visitData.patient.primaryPhoneNumber || '',
             email: '',
           },
-          insurances: (visitData.linkedInsurances || []).map((insurance) => ({
+          insurances: (visitData.patient.patientInsurances || []).map((insurance) => ({
             id: insurance.id,
             insuranceCardNumber: insurance.insuranceCardNumber,
             status: 'ACTIVE',
@@ -607,9 +624,12 @@ export function useVisit(id: string | null) {
               supportedByClinic: true,
             },
             patient: {} as Patient,
-            validFrom: '',
-            validUntil: '',
-            principalMember: false,
+            validFrom: insurance.validFrom || undefined,
+            validUntil: insurance.validUntil || undefined,
+            principalMember: Boolean(insurance.principalMember),
+            principalMemberName: insurance.principalMemberName || undefined,
+            principalMemberPhoneNumber: insurance.principalMemberPhoneNumber || undefined,
+            providingCompanyOrEmployer: insurance.providingCompanyOrEmployer || undefined,
           })),
         },
         insurances: (visitData.linkedInsurances || []).map((insurance) => ({
@@ -624,9 +644,12 @@ export function useVisit(id: string | null) {
             supportedByClinic: true,
           },
           patient: {} as Patient,
-          validFrom: '',
-          validUntil: '',
-          principalMember: false,
+          validFrom: insurance.validFrom || undefined,
+          validUntil: insurance.validUntil || undefined,
+          principalMember: Boolean(insurance.principalMember),
+          principalMemberName: insurance.principalMemberName || undefined,
+          principalMemberPhoneNumber: insurance.principalMemberPhoneNumber || undefined,
+          providingCompanyOrEmployer: insurance.providingCompanyOrEmployer || undefined,
         })),
         visitNotes: [],
         departments: mapVisitDepartmentProducts(visitData.departments || []),
@@ -1193,25 +1216,46 @@ export function useAddDepartmentToVisit() {
   return { addDepartmentToVisit, loading, error }
 }
 
-export function useAddInsuranceToVisit() {
-  const [mutation, { loading, error }] = useMutation(ADD_INSURANCE_TO_VISIT_MUTATION)
+export function useLinkVisitInsurances() {
+  const [mutation, { loading, error }] = useMutation(LINK_VISIT_INSURANCES_MUTATION)
 
-  const addInsuranceToVisit = async (visitId: string, insuranceId: string): Promise<ApiResponse<any>> => {
+  const linkVisitInsurances = async (visitId: string, insuranceIds: string[]): Promise<ApiResponse<any>> => {
     try {
       const result = await mutation({
         variables: {
           visitId,
-          insuranceId,
+          insuranceIds,
         },
       })
-      return result.data?.addInsuranceToVisit
+      return result.data?.linkVisitInsurances
     } catch (err) {
-      console.error('Add insurance to visit error:', err)
+      console.error('Link visit insurances error:', err)
       throw err
     }
   }
 
-  return { addInsuranceToVisit, loading, error }
+  return { linkVisitInsurances, loading, error }
+}
+
+export function useUnlinkVisitInsurances() {
+  const [mutation, { loading, error }] = useMutation(UNLINK_VISIT_INSURANCES_MUTATION)
+
+  const unlinkVisitInsurances = async (visitId: string, insuranceIds: string[]): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({
+        variables: {
+          visitId,
+          insuranceIds,
+        },
+      })
+      return result.data?.unlinkVisitInsurances
+    } catch (err) {
+      console.error('Unlink visit insurances error:', err)
+      throw err
+    }
+  }
+
+  return { unlinkVisitInsurances, loading, error }
 }
 
 export function useUpdateProductQuantity() {

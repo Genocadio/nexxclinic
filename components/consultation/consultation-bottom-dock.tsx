@@ -7,13 +7,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 interface ConsultationBottomDockProps {
   onComplete: () => void
   onTransfer?: () => void
-  onViewHistory?: () => void
 }
 
 export function ConsultationBottomDock({
   onComplete,
   onTransfer,
-  onViewHistory,
 }: ConsultationBottomDockProps) {
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
@@ -35,27 +33,6 @@ export function ConsultationBottomDock({
                 <p>Complete</p>
               </TooltipContent>
             </Tooltip>
-
-            {onViewHistory && (
-              <>
-                <div className="w-px h-8 bg-white/20" />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon"
-                      className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-amber-600 hover:text-white shadow-lg"
-                      onClick={onViewHistory}
-                      aria-label="View History"
-                    >
-                      <History className="h-5 w-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>View Patient History</p>
-                  </TooltipContent>
-                </Tooltip>
-              </>
-            )}
 
             {onTransfer && (
               <>

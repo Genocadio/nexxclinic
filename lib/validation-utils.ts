@@ -38,6 +38,26 @@ export function sanitizeEmailOrPhoneInput(input: string): string {
   return sanitizeEmailInput(compact)
 }
 
+export function calculateAge(dateOfBirth: string): number {
+  if (!dateOfBirth) return 0
+
+  const today = new Date()
+  const birthDate = new Date(dateOfBirth)
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const monthDiff = today.getMonth() - birthDate.getMonth()
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--
+  }
+
+  return age
+}
+
+export function isDominantMemberRequired(dateOfBirth: string, hasInsurance: boolean): boolean {
+  if (!hasInsurance) return false
+  return calculateAge(dateOfBirth) <= 18
+}
+
 /**
  * Validates email or phone number format
  * - Email: standard email format

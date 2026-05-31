@@ -10,6 +10,7 @@ import FormActionsDisplay from "@/components/form-actions-display"
 import { ConsultationSidePanels } from "@/components/consultation/consultation-side-panels"
 import { useVisit } from "@/hooks/visits/hooks"
 import { ConsultationBottomDock } from "@/components/consultation/consultation-bottom-dock"
+import { ConsultationPreviewSheet } from "@/components/dashboard/consultation-preview-sheet"
 import PatientHistorySidePane from "@/components/patient-history-side-pane"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -71,6 +72,14 @@ export default function ConsultationViewBackbone({
 }: ConsultationViewBackboneProps) {
   const [consultation, setConsultation] = useState<any>(initialConsultation)
   const [patientHistoryOpen, setPatientHistoryOpen] = useState(false)
+  const [previewConsultationOpen, setPreviewConsultationOpen] = useState(false)
+  const [previewConsultationContext, setPreviewConsultationContext] = useState<{
+    consultationId: string
+    departmentId: string
+    departmentName: string
+    patientName: string
+    previewStartedAt: number
+  } | null>(null)
   const canViewHistory = hasRole(userRoles, "CLINICIAN")
   const [departmentForm, setDepartmentForm] = useState<BackendDepartmentForm | null>(null)
   const [formAnswers, setFormAnswers] = useState<Record<string, any>>({})
@@ -1221,12 +1230,14 @@ export default function ConsultationViewBackbone({
         setIdPanel={setIdPanel}
         setVitalsPanel={setVitalsPanel}
         setHistoryPanel={setHistoryPanel}
+        onOpenHistory={() => setPatientHistoryOpen(true)}
       />
 
-      <ConsultationBottomDock
-        onComplete={() => setShowFinalizeConfirm(true)}
-        onViewHistory={canViewHistory ? () => setPatientHistoryOpen(true) : undefined}
-      />
+      {!patientHistoryOpen && (
+        <ConsultationBottomDock
+          onComplete={() => setShowFinalizeConfirm(true)}
+        />
+      )}
 
       {/* Finalize confirmation dialog (match app UI) */}
       <Dialog open={showFinalizeConfirm} onOpenChange={setShowFinalizeConfirm}>
@@ -1342,9 +1353,35 @@ export default function ConsultationViewBackbone({
         <PatientHistorySidePane
           patientId={patient.id}
           currentVisitId={consultation.consultationId || consultation.id || ""}
+          currentVisitDepartmentId={visitDepartmentId || null}
+          onPreviewDepartmentAnswers={({ visitId, visitDepartmentId, departmentName, patientName }) => {
+            setPreviewConsultationContext({
+              consultationId: visitId,
+              departmentId: visitDepartmentId,
+              departmentName,
+              patientName,
+              previewStartedAt: Date.now(),
+            })
+            setPreviewConsultationOpen(true)
+          }}
           onClose={() => setPatientHistoryOpen(false)}
         />
       )}
+
+      <ConsultationPreviewSheet
+        open={previewConsultationOpen}
+        onOpenChange={(open) => {
+          setPreviewConsultationOpen(open)
+          if (!open) {
+            setPreviewConsultationContext(null)
+          }
+        }}
+        consultationId={previewConsultationContext?.consultationId || null}
+        departmentId={previewConsultationContext?.departmentId || null}
+        departmentName={previewConsultationContext?.departmentName}
+        patientName={previewConsultationContext?.patientName}
+        previewStartedAt={previewConsultationContext?.previewStartedAt || null}
+      />
     </div>
   )
 }

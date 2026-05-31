@@ -48,7 +48,7 @@ const GET_PRODUCTS_QUERY = gql`
 
 export function useProducts() {
   const { data, loading, error, refetch: refetchQuery } = useQuery(GET_PRODUCTS_QUERY, {
-    variables: { page: 1, size: 100 },
+     variables: { page: 0, size: 100 },
     fetchPolicy: 'cache-and-network'
   })
 

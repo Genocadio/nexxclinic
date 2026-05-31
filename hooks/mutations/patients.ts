@@ -63,12 +63,6 @@ export const CREATE_PATIENT_INSURANCE_MUTATION = gql`
         principalMemberPhoneNumber
         validFrom
         validUntil
-        insuranceProvider {
-          id
-          insuranceName
-          acronym
-          defaultCoveragePercentage
-        }
       }
     }
   }
@@ -87,12 +81,6 @@ export const UPDATE_PATIENT_INSURANCE_MUTATION = gql`
         principalMemberPhoneNumber
         validFrom
         validUntil
-        insuranceProvider {
-          id
-          insuranceName
-          acronym
-          defaultCoveragePercentage
-        }
       }
     }
   }

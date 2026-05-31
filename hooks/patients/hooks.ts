@@ -135,6 +135,139 @@ const mapDominantMember = (insurance: Pick<GqlPatientInsurance, 'principalMember
   }
 }
 
+export interface PatientInsuranceMutationInput {
+  patientId?: string
+  insuranceProviderId: string
+  insuranceCardNumber: string
+  providingCompanyOrEmployer?: string | null
+  dominantMember?: {
+    firstName?: string | null
+    lastName?: string | null
+    phone?: string | null
+  } | null
+  validFrom: string
+  validUntil: string
+}
+
+const mapPatientInsurance = (
+  insurance: Pick<GqlPatientInsurance, 'id' | 'insuranceCardNumber' | 'principalMember' | 'principalMemberName' | 'principalMemberPhoneNumber' | 'validFrom' | 'validUntil'>,
+  insuranceProvider: Pick<GqlInsuranceProvider, 'id' | 'insuranceName' | 'acronym' | 'defaultCoveragePercentage'>,
+): PatientInsurance => ({
+  id: insurance.id,
+  insuranceCardNumber: insurance.insuranceCardNumber,
+  status: 'ACTIVE',
+  insurance: {
+    id: insuranceProvider.id,
+    name: insuranceProvider.insuranceName,
+    acronym: insuranceProvider.acronym,
+    coveragePercentage: insuranceProvider.defaultCoveragePercentage,
+  },
+  dominantMember: mapDominantMember(insurance),
+  validFrom: insurance.validFrom || undefined,
+  validUntil: insurance.validUntil || undefined,
+})
+
+export function useCreatePatientInsurance() {
+  const [createPatientInsuranceMutation, { loading, error }] = useMutation(CREATE_PATIENT_INSURANCE_MUTATION)
+
+  const createPatientInsurance = async (input: PatientInsuranceMutationInput): Promise<ApiResponse<PatientInsurance>> => {
+    try {
+      const result = await createPatientInsuranceMutation({
+        variables: {
+          input: {
+            patientId: input.patientId,
+            insuranceProviderId: input.insuranceProviderId,
+            insuranceCardNumber: input.insuranceCardNumber,
+            providingCompanyOrEmployer: input.providingCompanyOrEmployer,
+            principalMember: !input.dominantMember?.firstName?.trim() && !input.dominantMember?.lastName?.trim() && !input.dominantMember?.phone?.trim(),
+            principalMemberName: [input.dominantMember?.firstName, input.dominantMember?.lastName].filter(Boolean).join(' ') || null,
+            principalMemberPhoneNumber: input.dominantMember?.phone?.trim() || null,
+            validFrom: input.validFrom,
+            validUntil: input.validUntil,
+          },
+        },
+      })
+
+      const created = result.data?.createPatientInsurance
+      const createdData = created?.data
+      const insuranceProvider = input.insuranceProviderId
+
+      return {
+        status: created?.status || 'ERROR',
+        message: created?.message,
+        messages: created?.message ? [{ text: created.message, type: created.status || 'ERROR' }] : undefined,
+        data: createdData
+          ? mapPatientInsurance(
+              createdData,
+              {
+                id: insuranceProvider,
+                insuranceName: '',
+                acronym: undefined,
+                defaultCoveragePercentage: 0,
+              },
+            )
+          : undefined,
+      }
+    } catch (err) {
+      console.error('Create patient insurance error:', err)
+      throw err
+    }
+  }
+
+  return { createPatientInsurance, loading, error }
+}
+
+export function useUpdatePatientInsurance() {
+  const [updatePatientInsuranceMutation, { loading, error }] = useMutation(UPDATE_PATIENT_INSURANCE_MUTATION)
+
+  const updatePatientInsurance = async (patientInsuranceId: string, input: PatientInsuranceMutationInput): Promise<ApiResponse<PatientInsurance>> => {
+    try {
+      const result = await updatePatientInsuranceMutation({
+        variables: {
+          patientInsuranceId,
+          input: {
+            patientId: input.patientId,
+            insuranceProviderId: input.insuranceProviderId,
+            insuranceCardNumber: input.insuranceCardNumber,
+            providingCompanyOrEmployer: input.providingCompanyOrEmployer,
+            principalMember: !input.dominantMember?.firstName?.trim() && !input.dominantMember?.lastName?.trim() && !input.dominantMember?.phone?.trim(),
+            principalMemberName: [input.dominantMember?.firstName, input.dominantMember?.lastName].filter(Boolean).join(' ') || null,
+            principalMemberPhoneNumber: input.dominantMember?.phone?.trim() || null,
+            validFrom: input.validFrom,
+            validUntil: input.validUntil,
+          },
+        },
+      })
+
+      const updated = result.data?.updatePatientInsurance
+      const updatedData = updated?.data
+      const insuranceProvider = input.insuranceProviderId
+
+      return {
+        status: updated?.status || 'ERROR',
+        message: updated?.message,
+        messages: updated?.message ? [{ text: updated.message, type: updated.status || 'ERROR' }] : undefined,
+        data: updatedData
+          ? mapPatientInsurance(
+              updatedData,
+              {
+                id: insuranceProvider,
+                insuranceName: '',
+                acronym: undefined,
+                defaultCoveragePercentage: 0,
+              },
+            )
+          : undefined,
+      }
+    } catch (err) {
+      console.error('Update patient insurance error:', err)
+      throw err
+    }
+  }
+
+  return { updatePatientInsurance, loading, error }
+}
+
 export function usePatients(filter?: PatientFilterInput, page: number = 0, size: number = 20) {
   const input = {
     ...(filter?.name ? { name: filter.name } : {}),

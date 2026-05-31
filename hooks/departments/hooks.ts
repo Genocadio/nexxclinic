@@ -169,10 +169,11 @@ const mapDepartmentFromApi = (department: GqlDepartment): Department => ({
   })),
 })
 
-export function useDepartments() {
+export function useDepartments(options?: { skip?: boolean }) {
   const { data, loading, error, refetch } = useQuery<DepartmentsQueryData>(GET_DEPARTMENTS_QUERY, {
     variables: { input: { page: 0, size: 200 } },
-    fetchPolicy: 'cache-and-network'
+    fetchPolicy: 'cache-and-network',
+    skip: options?.skip ?? false,
   })
 
   const departments = (data?.departments?.data || []).map(mapDepartmentFromApi)

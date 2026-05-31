@@ -4,21 +4,22 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import { BillingItemsList } from '@/components/BillingItemsList';
 import { BillingExemptions } from '@/components/BillingExemptions';
 import { Button } from '@/components/ui/button';
-import { BillingData, BillingItem, getEffectiveCoveragePercentage } from '@/lib/billing-utils';
+import { BillingData, BillingItem, buildProductCoverageMaps, getItemInsuranceSplit, applyInsuranceSelectionToItem, resolveBillingUnitPrice } from '@/lib/billing-utils';
 import Header from '@/components/header';
 import { useAuth } from '@/lib/auth-context';
 import { useSearchParams } from 'next/navigation';
-import { useVisit, type Visit, useUpdatePatient, useInsurances, useCreateBill, useGetBillByVisit, useGenerateInvoice, useCompleteVisit, useGetInvoiceLazy } from '@/hooks/auth-hooks';
-import { useAddActionToVisitDepartment, useAddConsumableToVisitDepartment } from '@/hooks/auth-hooks';
+import { useVisit, type Visit, useInsurances, useCreateBill, useGetBillByVisit, useGenerateInvoice, useCompleteVisit, useGetInvoiceLazy } from '@/hooks/auth-hooks';
 import { useUpdateVisitDepartmentStatus } from '@/hooks/auth-hooks';
 import { useAddVisitNote } from '@/hooks/auth-hooks';
-import { useAddInsuranceToVisit } from '@/hooks/auth-hooks';
+import { useAddProductToVisitDepartment, useLinkVisitInsurances, useUnlinkVisitInsurances } from '@/hooks/visits/hooks';
+import { useCreatePatientInsurance, useUpdatePatientInsurance } from '@/hooks/patients';
 import { Spinner } from '@/components/ui/spinner';
-import { Skeleton } from '@/components/ui/skeleton';
-import AddActionConsumableModal from '@/components/add-action-consumable-modal';
+import AddProductModal from '@/components/add-action-consumable-modal';
 import VisitNotesFloating from '@/components/visit-notes-floating';
-import { Plus, Layers, List, Receipt, Pencil, Printer } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Plus, Layers, List } from 'lucide-react';
+import { BillingPatientBar } from '@/components/billing/billing-patient-bar';
+import { BillingStickySummary } from '@/components/billing/billing-sticky-summary';
+import { BillingConfirmSheet } from '@/components/billing/billing-confirm-sheet';
 import { toast } from 'react-toastify';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -37,6 +38,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { isDominantMemberRequired } from '@/lib/validation-utils';
 
 function BillingPageContent() {
   const searchParams = useSearchParams();
@@ -44,14 +46,18 @@ function BillingPageContent() {
   const autoPrint = searchParams.get('autoprint') === '1';
   const { visit, loading, error, refetch: refetchVisit } = useVisit(visitId);
   const { insurances: availableInsurances } = useInsurances();
-  const { addInsuranceToVisit, loading: addingVisitInsurance } = useAddInsuranceToVisit();
   const { createBill, loading: creatingBill } = useCreateBill();
   const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice();
   const { bill: existingBill, loading: loadingBill, refetch: refetchBill } = useGetBillByVisit(visitId);
-  const { updatePatient } = useUpdatePatient();
+  const { createPatientInsurance } = useCreatePatientInsurance();
+  const { updatePatientInsurance } = useUpdatePatientInsurance();
+  const { linkVisitInsurances, loading: linkingVisitInsurances } = useLinkVisitInsurances();
+  const { unlinkVisitInsurances, loading: unlinkingVisitInsurances } = useUnlinkVisitInsurances();
   const [billingData, setBillingData] = useState<BillingData | null>(null);
+  const [activeVisitInsuranceIds, setActiveVisitInsuranceIds] = useState<string[]>([]);
   const [billJustCreated, setBillJustCreated] = useState(false);
   const [showCompleteBillConfirm, setShowCompleteBillConfirm] = useState(false);
+  const [confirmSheetMode, setConfirmSheetMode] = useState<'complete' | 'edit'>('complete');
   const [didAutoPrint, setDidAutoPrint] = useState(false);
   const [viewMode, setViewMode] = useState<'all' | 'service'>('service');
   const [activeService, setActiveService] = useState<string>('');
@@ -59,22 +65,24 @@ function BillingPageContent() {
   const [showAddInsuranceModal, setShowAddInsuranceModal] = useState(false);
   const [selectedInsuranceId, setSelectedInsuranceId] = useState<string>('');
   const [insuranceCardNumber, setInsuranceCardNumber] = useState('');
+  const [providingCompanyOrEmployer, setProvidingCompanyOrEmployer] = useState('');
   const [dominantFirstName, setDominantFirstName] = useState('');
   const [dominantLastName, setDominantLastName] = useState('');
   const [dominantPhone, setDominantPhone] = useState('');
+  const [formErrors, setFormErrors] = useState<{ card?: string; employer?: string; dominant?: string }>({});
   const [showDiscountControls, setShowDiscountControls] = useState(false);
   const [isEditingBill, setIsEditingBill] = useState(false);
   const [invoicePdfBase64, setInvoicePdfBase64] = useState<string | null>(null);
   const [discountInputType, setDiscountInputType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
   const [discountInputValue, setDiscountInputValue] = useState(0);
+  const addingVisitInsurance = linkingVisitInsurances || unlinkingVisitInsurances;
   const { doctor } = useAuth();
   // Feature toggle to disable Discharge actions in the UI and auto-discharge
   const ENABLE_DISCHARGE = false;
-    const [showAddActionConsumableModal, setShowAddActionConsumableModal] = useState(false);
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [addingBillingItem, setAddingBillingItem] = useState(false);
   const [showExemptionsWindow, setShowExemptionsWindow] = useState(false);
-  const { addAction } = useAddActionToVisitDepartment();
-  const { addConsumable } = useAddConsumableToVisitDepartment();
+  const { addProduct } = useAddProductToVisitDepartment();
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus();
   const { addVisitNote } = useAddVisitNote();
   const { completeVisit } = useCompleteVisit();
@@ -93,28 +101,12 @@ function BillingPageContent() {
   const mapVisitToBilling = (visitData: Visit): BillingData => {
     const patient = visitData.patient;
     const insurances = visitData.insurances || [];
-    const defaultInsuranceId = insurances[0]?.id ? String(insurances[0].id) : undefined;
+    const defaultVisitInsuranceId = insurances[0]?.id ? String(insurances[0].id) : undefined;
+    const defaultProviderId = insurances[0]?.insurance?.id ? String(insurances[0].insurance.id) : undefined;
 
-    const buildCoverageCostMap = (coverages?: Array<{ insurance?: { id?: string | number }; cost?: number; price?: number }>) =>
-      (coverages || []).reduce<Record<string, number>>((acc, coverage) => {
-        const insuranceId = coverage?.insurance?.id;
-        if (insuranceId === undefined || insuranceId === null) return acc;
-        const numericCost = Number(coverage?.cost ?? coverage?.price);
-        if (Number.isFinite(numericCost)) {
-          acc[String(insuranceId)] = numericCost;
-        }
-        return acc;
-      }, {});
-
-    const resolvePrice = (
-      basePrice: number,
-      coverageCosts: Record<string, number>,
-      insuranceId?: string,
-    ) => {
-      if (!insuranceId) return basePrice;
-      const coverageCost = coverageCosts[insuranceId];
-      return Number.isFinite(coverageCost) ? coverageCost : basePrice;
-    };
+    const mapProductCoverages = (
+      coverages?: Array<{ insurance?: { id?: string | number }; cost?: number; price?: number; covered?: boolean }>,
+    ) => buildProductCoverageMaps(coverages);
 
     const items: BillingItem[] = [];
 
@@ -126,14 +118,22 @@ function BillingPageContent() {
 
       dept.actions?.forEach((act) => {
         const basePrice = Number(act.action?.privatePrice ?? 0);
-        const coverageCosts = buildCoverageCostMap(act.action?.insuranceCoverages);
+        const { costs, meta } = mapProductCoverages(act.action?.insuranceCoverages);
+        const { price, notCovered } = resolveBillingUnitPrice(
+          basePrice,
+          costs,
+          meta,
+          defaultProviderId,
+        );
         items.push({
           id: act.id,
           name: act.action?.name || 'Action',
           quantity: act.quantity || 1,
-          price: resolvePrice(basePrice, coverageCosts, defaultInsuranceId),
+          price,
           basePrice,
-          insuranceCoverageCosts: coverageCosts,
+          insuranceCoverageCosts: costs,
+          insuranceCoverageMeta: meta,
+          insuranceNotCovered: defaultVisitInsuranceId ? notCovered : false,
           type: 'action',
           departmentId: deptId,
           departmentName: deptName,
@@ -142,7 +142,7 @@ function BillingPageContent() {
           paymentStatus: mapPaymentStatus(act.paymentStatus, act.id),
           exempted: false,
           exemptionType: 'none',
-          selectedInsuranceId: defaultInsuranceId,
+          selectedInsuranceId: defaultVisitInsuranceId,
           doneBy: {
             name: act.doneBy?.name || 'Staff',
             title: act.doneBy?.title || '',
@@ -152,14 +152,22 @@ function BillingPageContent() {
 
       dept.consumables?.forEach((cons) => {
         const basePrice = Number(cons.consumable?.privatePrice ?? 0);
-        const coverageCosts = buildCoverageCostMap(cons.consumable?.insuranceCoverages);
+        const { costs, meta } = mapProductCoverages(cons.consumable?.insuranceCoverages);
+        const { price, notCovered } = resolveBillingUnitPrice(
+          basePrice,
+          costs,
+          meta,
+          defaultProviderId,
+        );
         items.push({
           id: cons.id,
           name: cons.consumable?.name || 'Consumable',
           quantity: cons.quantity || 1,
-          price: resolvePrice(basePrice, coverageCosts, defaultInsuranceId),
+          price,
           basePrice,
-          insuranceCoverageCosts: coverageCosts,
+          insuranceCoverageCosts: costs,
+          insuranceCoverageMeta: meta,
+          insuranceNotCovered: defaultVisitInsuranceId ? notCovered : false,
           type: 'consumable',
           departmentId: deptId,
           departmentName: deptName,
@@ -168,7 +176,7 @@ function BillingPageContent() {
           paymentStatus: mapPaymentStatus(cons.paymentStatus, cons.id),
           exempted: false,
           exemptionType: 'none',
-          selectedInsuranceId: defaultInsuranceId,
+          selectedInsuranceId: defaultVisitInsuranceId,
           doneBy: {
             name: cons.doneBy?.name || 'Staff',
             title: cons.doneBy?.title || '',
@@ -184,12 +192,15 @@ function BillingPageContent() {
 
     // Default amount paid to patient's contribution (after insurance and discount) when no bill exists yet.
     const patientContribution = items.reduce((total, item) => {
-      const itemTotal = item.quantity * item.price
-      const selectedInsurance = insurances.find((ins) => String(ins.id) === item.selectedInsuranceId)
-      const coveragePct = selectedInsurance?.coveragePercentage || 0
-      const coverageAmount = (itemTotal * coveragePct) / 100
-      return total + (itemTotal - coverageAmount)
-    }, 0)
+      const selectedInsurance = insurances.find((ins) => String(ins.id) === item.selectedInsuranceId);
+      const coveragePct = selectedInsurance?.coveragePercentage || 0;
+      const { patientAmount, skip } = getItemInsuranceSplit(
+        { ...item, price: item.price, quantity: item.quantity } as BillingItem,
+        coveragePct,
+      );
+      if (skip) return total;
+      return total + patientAmount;
+    }, 0);
 
     const patientContributionAfterDiscount = Math.max(
       0,
@@ -220,6 +231,16 @@ function BillingPageContent() {
       updatedAt: new Date().toISOString(),
     };
   };
+
+  useEffect(() => {
+    if (!visit?.id) return;
+    setActiveVisitInsuranceIds((visit.insurances || []).map((insurance) => String(insurance.id)));
+  }, [visit?.insurances]);
+
+  const activeVisitInsurances = useMemo(() => {
+    const activeIds = new Set(activeVisitInsuranceIds);
+    return (visit?.insurances || []).filter((insurance) => activeIds.has(String(insurance.id)));
+  }, [visit?.insurances, activeVisitInsuranceIds]);
 
   useEffect(() => {
     if (visit) {
@@ -261,55 +282,59 @@ function BillingPageContent() {
     let insuranceCoverage = 0;
     let patientResponsibility = 0;
 
-    billingData.items.forEach(item => {
-      const itemTotal = item.quantity * item.price;
-      const selectedInsurance = billingData.insurances?.find(
-        ins => (ins.id || ins.acronym) === item.selectedInsuranceId
+    billingData.items.forEach((item) => {
+      const selectedInsurance = activeVisitInsurances.find(
+        (ins) => String(ins.id) === item.selectedInsuranceId,
       );
-      const coveragePct = selectedInsurance?.coveragePercentage || 0;
-      const coverageAmount = (itemTotal * coveragePct) / 100;
-      const patientPortion = itemTotal - coverageAmount;
-      const exemption = item.exemptionType || (item.exempted ? 'full' : 'none');
+      const coveragePct =
+        selectedInsurance?.insurance?.coveragePercentage ??
+        selectedInsurance?.coveragePercentage ??
+        0;
+      const { itemTotal, insuranceAmount, patientAmount, skip } = getItemInsuranceSplit(item, coveragePct);
 
-      if (exemption === 'full') return;
+      if (skip) return;
       subtotal += itemTotal;
-      if (exemption === 'patient-share') {
-        insuranceCoverage += coverageAmount;
-        return;
-      }
-      insuranceCoverage += coverageAmount;
-      patientResponsibility += patientPortion;
+      insuranceCoverage += insuranceAmount;
+      patientResponsibility += patientAmount;
     });
     
     const discount = (patientResponsibility * (billingData.discountPercentage || 0)) / 100;
     const totalAmount = patientResponsibility - discount;
     
     return { subtotal, insuranceCoverage, patientResponsibility, discount, totalAmount };
-  }, [billingData]);
+  }, [billingData, activeVisitInsurances]);
+
+  const visitInsuranceOptions = useMemo(
+    () =>
+      activeVisitInsurances.map((ins) => ({
+        id: String(ins.id),
+        providerId: String(ins.insurance?.id || ''),
+        name: ins.insurance?.name || ins.name || '',
+        acronym: ins.insurance?.acronym || ins.acronym || '',
+        coveragePercentage: ins.insurance?.coveragePercentage ?? ins.coveragePercentage ?? 0,
+      })),
+    [activeVisitInsurances],
+  );
 
   const calculateTotalsForItems = (items: BillingItem[]) => {
     let subtotal = 0;
     let insuranceCoverage = 0;
     let patientResponsibility = 0;
 
-    items.forEach(item => {
-      const itemTotal = item.quantity * item.price;
-      const selectedInsurance = billingData?.insurances?.find(
-        ins => (ins.id || ins.acronym) === item.selectedInsuranceId
+    items.forEach((item) => {
+      const selectedInsurance = activeVisitInsurances.find(
+        (ins) => String(ins.id) === item.selectedInsuranceId,
       );
-      const coveragePct = selectedInsurance?.coveragePercentage || 0;
-      const coverageAmount = (itemTotal * coveragePct) / 100;
-      const patientPortion = itemTotal - coverageAmount;
-      const exemption = item.exemptionType || (item.exempted ? 'full' : 'none');
+      const coveragePct =
+        selectedInsurance?.insurance?.coveragePercentage ??
+        selectedInsurance?.coveragePercentage ??
+        0;
+      const { itemTotal, insuranceAmount, patientAmount, skip } = getItemInsuranceSplit(item, coveragePct);
 
-      if (exemption === 'full') return;
+      if (skip) return;
       subtotal += itemTotal;
-      if (exemption === 'patient-share') {
-        insuranceCoverage += coverageAmount;
-        return;
-      }
-      insuranceCoverage += coverageAmount;
-      patientResponsibility += patientPortion;
+      insuranceCoverage += insuranceAmount;
+      patientResponsibility += patientAmount;
     });
     
     const discount = (patientResponsibility * (billingData?.discountPercentage || 0)) / 100;
@@ -317,9 +342,8 @@ function BillingPageContent() {
     
     return { subtotal, insuranceCoverage, patientResponsibility, discount, totalAmount };
   };
-  const effectiveCoverage = useMemo(() => getEffectiveCoveragePercentage(billingData?.insurances), [billingData?.insurances]);
   const patientInsurances = useMemo(() => visit?.patient.insurances || [], [visit?.patient.insurances]);
-  const visitInsuranceIds = useMemo(() => new Set(visit?.insurances?.map((ins) => ins.id)), [visit?.insurances]);
+  const visitInsuranceIds = useMemo(() => new Set(activeVisitInsuranceIds), [activeVisitInsuranceIds]);
 
   const handleItemChange = (updatedItem: BillingItem) => {
     setBillingData((prev) => {
@@ -880,13 +904,108 @@ function BillingPageContent() {
   const resetAddInsuranceForm = () => {
     setSelectedInsuranceId('');
     setInsuranceCardNumber('');
+    setProvidingCompanyOrEmployer('');
     setDominantFirstName('');
     setDominantLastName('');
     setDominantPhone('');
+    setFormErrors({});
+  };
+
+
+
+  const handleAddInsuranceToVisit = async (insuranceId: string) => {
+    if (!visitId) return;
+
+    try {
+      const response = await linkVisitInsurances(visitId, [insuranceId]);
+      if (response?.status === 'SUCCESS') {
+        setActiveVisitInsuranceIds((current) => (current.includes(insuranceId) ? current : [...current, insuranceId]));
+        await refetchVisit();
+        toast.success('Insurance enabled for this visit');
+      } else {
+        const errorMsg = response?.messages?.[0]?.text || 'Failed to enable insurance on visit';
+        toast.error(errorMsg);
+        await refetchVisit();
+      }
+    } catch (err) {
+      console.error('Failed to link insurance to visit:', err);
+      toast.error('Failed to enable insurance on visit. Please try again.');
+      await refetchVisit();
+    }
+  };
+
+  const handleRemoveInsuranceFromVisit = async (insuranceId: string) => {
+    if (!visitId) return;
+
+    try {
+      const response = await unlinkVisitInsurances(visitId, [insuranceId]);
+      if (response?.status === 'SUCCESS') {
+        setActiveVisitInsuranceIds((current) => current.filter((id) => id !== insuranceId));
+        setBillingData((current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            items: current.items.map((item) => {
+              if (item.selectedInsuranceId !== insuranceId) return item;
+              return applyInsuranceSelectionToItem(item, undefined, undefined);
+            }),
+          };
+        });
+        await refetchVisit();
+        toast.success('Insurance removed from this visit');
+      } else {
+        const errorMsg = response?.messages?.[0]?.text || 'Failed to remove insurance from visit';
+        toast.error(errorMsg);
+        await refetchVisit();
+      }
+    } catch (err) {
+      console.error('Failed to unlink insurance from visit:', err);
+      toast.error('Failed to remove insurance from visit. Please try again.');
+      await refetchVisit();
+    }
+  };
+
+  const handleAddProduct = async (_type: 'action' | 'consumable', item: { id: string; name: string }, quantity: number, departmentId: string) => {
+    if (!visit?.id) return;
+
+    try {
+      const response = await addProduct(visit.id, departmentId, item.id, quantity);
+      if (response?.status === 'SUCCESS') {
+        await refetchVisit();
+        setShowAddProductModal(false);
+      } else {
+        const errorMsg = response?.messages?.[0]?.text || 'Failed to add product';
+        toast.error(errorMsg);
+        await refetchVisit();
+      }
+    } catch (err) {
+      console.error('Failed to add product to visit:', err);
+      toast.error('Failed to add product. Please try again.');
+      await refetchVisit();
+    }
   };
 
   const handleAddInsurance = async () => {
     if (!selectedInsuranceId || !visit) return;
+
+    // Validate fields and show errors inside the modal rather than using toasts
+    const errors: { card?: string; employer?: string; dominant?: string } = {};
+    const dominantRequired = isDominantMemberRequired(visit.patient.dateOfBirth, true);
+
+    if (!insuranceCardNumber.trim()) {
+      errors.card = 'Insurance card number is required.';
+    }
+    if (!providingCompanyOrEmployer.trim()) {
+      errors.employer = 'Providing company or employer is required.';
+    }
+    if (dominantRequired && (!dominantFirstName.trim() || !dominantLastName.trim() || !dominantPhone.trim())) {
+      errors.dominant = 'Dominant member first name, last name and phone are required for patients 18 years or younger.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
 
     try {
       const dominantMember =
@@ -898,131 +1017,41 @@ function BillingPageContent() {
             }
           : undefined;
 
-      const patientInsurancePayload = [
-        ...((visit.patient.insurances || []).map((ins) => ({
-          insuranceId: Number(ins.insurance.id),
-          insuranceCardNumber: ins.insuranceCardNumber || '',
-        })) ?? []),
-        {
-          insuranceId: Number(selectedInsuranceId),
-          insuranceCardNumber: insuranceCardNumber || '',
-          dominantMember,
-        },
-      ];
+      const existingInsurance = patientInsurances.find((ins) => String(ins.insurance.id) === selectedInsuranceId);
+      const commonPayload = {
+        patientId: visit.patient.id,
+        insuranceProviderId: selectedInsuranceId,
+        insuranceCardNumber,
+        providingCompanyOrEmployer: providingCompanyOrEmployer || null,
+        dominantMember,
+        validFrom: new Date().toISOString().slice(0, 10),
+        validUntil: new Date(new Date().getFullYear() + 1, new Date().getMonth(), new Date().getDate()).toISOString().slice(0, 10),
+      };
 
-      await updatePatient(visit.patient.id, {
-        firstName: visit.patient.firstName,
-        lastName: visit.patient.lastName,
-        dateOfBirth: visit.patient.dateOfBirth,
-        gender: visit.patient.gender,
-        nationalId: (visit.patient as any)?.nationalId,
-        notes: visit.patient.notes,
-        insurances: patientInsurancePayload,
-      });
+      let response;
+      if (existingInsurance) {
+        response = await updatePatientInsurance(existingInsurance.id, commonPayload);
+      } else {
+        response = await createPatientInsurance(commonPayload);
+      }
 
-      await refetchVisit();
-      setShowAddInsuranceModal(false);
-      resetAddInsuranceForm();
+      if (response?.status === 'SUCCESS') {
+        await refetchVisit();
+        setShowAddInsuranceModal(false);
+        resetAddInsuranceForm();
+        toast.success('Insurance saved on patient record. Check it under Patient insurances to use on this visit.');
+      } else {
+        const errorMsg = response?.messages?.[0]?.text || 'Failed to add insurance';
+        toast.error(errorMsg);
+        await refetchVisit();
+      }
     } catch (err) {
       console.error('Failed to add insurance:', err);
-    }
-  };
-
-  const handleAddInsuranceToVisit = async (insuranceId: string) => {
-    if (!visitId) return;
-
-    try {
-      await addInsuranceToVisit(visitId, insuranceId);
+      toast.error('Failed to add insurance. Please try again.');
       await refetchVisit();
-    } catch (err) {
-      console.error('Failed to add insurance to visit:', err);
     }
   };
 
-  const handleAddActionConsumable = async (
-    type: 'action' | 'consumable',
-    item: { id: string; name: string; privatePrice: number },
-    quantity: number,
-    departmentId: string
-  ) => {
-    if (!visitId) return;
-    try {
-      setAddingBillingItem(true);
-      let response;
-      if (type === 'action') {
-        response = await addAction(visitId, departmentId, item.id, quantity);
-      } else {
-        response = await addConsumable(visitId, departmentId, item.id, quantity);
-      }
-
-      // Check response status before showing success
-      if (response?.status === 'SUCCESS') {
-        // Refetch the visit data - this will trigger the useEffect to update billingData and selection
-        await refetchVisit();
-        setShowAddActionConsumableModal(false);
-        toast.success(response?.message || `${type === 'action' ? 'Action' : 'Consumable'} added successfully`);
-      } else {
-        // Show error from backend response
-        const errorMsg = response?.message || response?.messages?.[0]?.text || `Failed to add ${type === 'action' ? 'action' : 'consumable'}`;
-        toast.error(errorMsg);
-        console.error('Add item failed with status:', response?.status, 'Message:', response?.message);
-      }
-    } catch (err) {
-      console.error('Failed to add billing item:', err);
-      const errorMsg = err instanceof Error ? err.message : `Failed to add ${type === 'action' ? 'action' : 'consumable'}`;
-      toast.error(errorMsg);
-    } finally {
-      setAddingBillingItem(false);
-    }
-  };
-
-  if (!visitId) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">No visit selected for billing.</p>
-      </div>
-    );
-  }
-
-  if (loading || loadingBill || !billingData) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header doctor={doctor} />
-        <div className="h-[calc(100vh-64px)] flex px-4 sm:px-6 lg:px-8 pt-6 gap-6 pb-24 overflow-hidden">
-          <div className="flex-1 flex flex-col min-w-0">
-            <div className="flex-1 bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl shadow-lg overflow-hidden flex flex-col p-4 space-y-4">
-              <Skeleton className="h-10 w-40 rounded-full" />
-              {[...Array(4)].map((_, idx) => (
-                <div key={idx} className="bg-card/70 dark:bg-slate-900/60 border border-border/50 dark:border-slate-800 rounded-2xl p-4 space-y-3">
-                  <Skeleton className="h-4 w-56" />
-                  <div className="grid grid-cols-2 gap-3">
-                    <Skeleton className="h-3 w-full" />
-                    <Skeleton className="h-3 w-full" />
-                    <Skeleton className="h-3 w-full" />
-                    <Skeleton className="h-3 w-full" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="w-80 hidden lg:flex flex-col gap-4 flex-shrink-0">
-            <div className="bg-card/70 dark:bg-slate-900/70 border border-border/50 dark:border-slate-800 rounded-3xl p-5 shadow-lg space-y-3">
-              <Skeleton className="h-4 w-32" />
-              {[...Array(3)].map((_, idx) => (
-                <Skeleton key={idx} className="h-3 w-full" />
-              ))}
-              <Skeleton className="h-10 w-full rounded-full" />
-            </div>
-            <div className="bg-card/70 dark:bg-slate-900/70 border border-border/50 dark:border-slate-800 rounded-3xl p-5 shadow-lg space-y-3">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-3/4" />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (!visit) {
     return (
@@ -1043,342 +1072,153 @@ function BillingPageContent() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Header doctor={doctor} />
-      <div className="h-[calc(100vh-64px)] flex px-4 sm:px-6 lg:px-8 pt-6 gap-6 pb-24 overflow-hidden">
-        {/* Left Section: Billing Items Table - Scrollable */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* View Switch + Billing Items */}
-          <div className="flex-1 bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl shadow-lg overflow-hidden flex flex-col">
-            {viewMode === 'service' && (
-              <div className="px-4 pt-3 pb-1 flex-shrink-0">
-                <Tabs value={activeService} onValueChange={setActiveService}>
-                  <TabsList>
-                    {allServiceNames.map((dept) => (
-                      <TabsTrigger key={dept} value={dept} className="rounded-full px-3">
-                        {dept}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
-              </div>
-            )}
+  if (loading || !billingData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Spinner className="h-8 w-8" />
+      </div>
+    );
+  }
 
-            <div className="p-4 flex-1 overflow-y-auto">
+  return (
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
+      <Header doctor={doctor} />
+
+      <BillingPatientBar
+        patientName={billingData.patientName}
+        patientAge={billingData.patientAge}
+        gender={billingData.gender}
+        visitDate={billingData.visitDate}
+        patientIdNumber={billingData.patientId_Number}
+        patientInsurances={patientInsurances}
+        activeInsuranceIds={visitInsuranceIds}
+        addingVisitInsurance={addingVisitInsurance}
+        onToggleInsurance={(id, active) =>
+          active ? handleAddInsuranceToVisit(id) : handleRemoveInsuranceFromVisit(id)
+        }
+        onAddInsurance={() => setShowAddInsuranceModal(true)}
+      />
+
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* Primary workspace: items to bill */}
+        <div className="flex-1 flex flex-col min-h-0 p-6">
+          <div className="flex-1 flex flex-col min-h-0 w-full min-w-0 mx-auto px-2 sm:px-4 md:px-[1cm] lg:px-[2cm]">
+          <div className="flex items-center justify-between gap-3 mb-2 flex-shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <h2 className="text-sm font-semibold text-foreground">Items to Bill</h2>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {selectedItemIds.length}/{itemsToDisplay.filter((i) => i.paymentStatus !== 'paid').length} selected
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {!canEditBilling && hasRemainingToBill && hasMultipleUnbilledServices && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 rounded-full text-xs"
+                  onClick={() => setViewMode(viewMode === 'service' ? 'all' : 'service')}
+                >
+                  {viewMode === 'service' ? (
+                    <>
+                      <List className="h-3.5 w-3.5 mr-1.5" />
+                      All items
+                    </>
+                  ) : (
+                    <>
+                      <Layers className="h-3.5 w-3.5 mr-1.5" />
+                      By service
+                    </>
+                  )}
+                </Button>
+              )}
+              {!canEditBilling && hasRemainingToBill && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-full text-xs"
+                  onClick={() => setShowAddProductModal(true)}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Add item
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {viewMode === 'service' && (
+            <div className="mb-2 flex-shrink-0">
+              <Tabs value={activeService} onValueChange={setActiveService}>
+                <TabsList className="h-8">
+                  {allServiceNames.map((dept) => (
+                    <TabsTrigger key={dept} value={dept} className="rounded-full px-3 text-xs h-7">
+                      {dept}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </div>
+          )}
+
+          <div className="flex-1 min-h-0 bg-card/60 backdrop-blur-xl border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-y-auto py-2">
               <BillingItemsList
                 items={itemsToDisplay}
                 onItemChange={handleItemChange}
                 onItemRemove={handleItemRemove}
-                insuranceCoveragePercentage={effectiveCoverage}
-                availableInsurances={billingData.insurances?.map(ins => ({
-                  id: ins.id || ins.acronym,
-                  name: ins.name,
-                  acronym: ins.acronym,
-                  coveragePercentage: ins.coveragePercentage
-                }))}
+                availableInsurances={visitInsuranceOptions}
                 selectable={true}
                 selectedItemIds={selectedItemIds}
                 onSelectionToggle={handleSelectionToggle}
                 onSelectAll={handleSelectAll}
                 hideDepartmentHeaders={viewMode === 'service'}
                 allDepartments={viewMode === 'all' ? allServiceNames : []}
+                hideTypeColumn={true}
               />
             </div>
           </div>
-        </div>
-
-        {/* Right Section: Patient Info & Summary - Fixed */}
-        <div className="w-80 flex flex-col gap-6 overflow-y-auto flex-shrink-0">
-          {/* Patient Info Card */}
-          <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl p-6 shadow-lg flex-shrink-0">
-            <div className="space-y-2">
-              <div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">Name</p>
-                <p className="text-base font-bold text-slate-900 dark:text-white">{billingData.patientName}</p>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Age</p>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{billingData.patientAge}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Gender</p>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{billingData.gender}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Visit Date</p>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{new Date(billingData.visitDate).toLocaleDateString()}</p>
-                </div>
-              </div>
-              
-              {/* Insurance Section */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Patient Insurances</p>
-                  <Button
-                    onClick={() => setShowAddInsuranceModal(true)}
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 px-2 text-[10px] rounded-full"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Add
-                  </Button>
-                </div>
-
-                {patientInsurances.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {patientInsurances.map((pIns) => {
-                      const inVisit = visitInsuranceIds.has(pIns.insurance.id);
-                      return (
-                        <label
-                          key={pIns.id}
-                          className="flex items-center gap-3 text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1.5 w-full"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={inVisit}
-                            disabled={inVisit || addingVisitInsurance}
-                            onChange={() => handleAddInsuranceToVisit(pIns.insurance.id)}
-                            className="h-3.5 w-3.5 accent-slate-800"
-                          />
-                          <div className="grid grid-cols-2 items-center gap-2 w-full">
-                            <span className="font-semibold text-primary">{pIns.insurance.acronym}</span>
-                            <span className="text-slate-700 dark:text-slate-200 text-right">{pIns.insurance.coveragePercentage}%</span>
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">No insurances on patient record</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Summary Card */}
-          <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl p-6 shadow-lg flex-shrink-0">
-            <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-              {viewMode === 'service' ? `${activeService} Summary` : 'Billing Summary'}
-            </h3>
-            
-            {/* Billing Status Badge */}
-            {existingBill && (
-              <div className="mb-3 pb-3 border-b border-slate-200 dark:border-slate-700">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-600 dark:text-slate-400">Bill Status:</span>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
-                    Billed ({existingBill.id})
-                  </span>
-                </div>
-              </div>
-            )}
-            
-            <div className="space-y-1.5">
-              {/* Already Billed Section */}
-              {existingBill && (
-                <>
-                  <div className="bg-slate-100 dark:bg-slate-800/50 rounded-lg p-3 space-y-1 mb-2">
-                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">Previously Billed:</div>
-                    <div className="flex justify-between">
-                      <span className="text-xs text-slate-600 dark:text-slate-400">Subtotal:</span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{existingBill.totalAmount.toLocaleString()} RWF</span>
-                    </div>
-                    <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-700">
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Patient Due:</span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{existingBill.patientPayableAmount.toLocaleString()} RWF</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Paid:</span>
-                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{existingBill.paidAmount.toLocaleString()} RWF</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Balance:</span>
-                      <span className="text-xs font-bold text-orange-600 dark:text-orange-400">{existingBill.outstandingAmount.toLocaleString()} RWF</span>
-                    </div>
-                  </div>
-                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">New Items to Bill:</div>
-                </>
-              )}
-
-              <div className="flex justify-between">
-                <span className="text-xs text-slate-600 dark:text-slate-400">Subtotal:</span>
-                <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{displayTotals.subtotal.toLocaleString()} RWF</span>
-              </div>
-              {displayTotals.insuranceCoverage > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-xs text-emerald-700 dark:text-emerald-400">Insurance Coverage:</span>
-                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">-{displayTotals.insuranceCoverage.toLocaleString()} RWF</span>
-                </div>
-              )}
-              <div className="border-t border-slate-200 dark:border-slate-700 pt-1.5 flex justify-between">
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Patient Responsibility:</span>
-                <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{displayTotals.patientResponsibility.toLocaleString()} RWF</span>
-              </div>
-              {displayTotals.discount > 0 && (
-                <div className="flex justify-between text-red-600 dark:text-red-400">
-                  <span className="text-xs">Discount:</span>
-                  <span className="text-xs font-bold">-{displayTotals.discount.toLocaleString()} RWF</span>
-                </div>
-              )}
-
-              {/* Total with Previous Bill */}
-              {existingBill && (
-                <div className="bg-slate-100 dark:bg-slate-800/50 rounded-lg p-3 space-y-1 mt-2 border-t-2 border-slate-300 dark:border-slate-600">
-                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">Total After This Bill:</div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-slate-600 dark:text-slate-400">Combined Due:</span>
-                    <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                      {(existingBill.totalAmount + displayTotals.subtotal - displayTotals.discount).toLocaleString()} RWF
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-slate-600 dark:text-slate-400">Current Balance:</span>
-                    <span className="text-xs font-bold text-orange-600 dark:text-orange-400">
-                      {(existingBill.outstandingAmount + displayTotals.patientResponsibility - displayTotals.discount).toLocaleString()} RWF
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {!existingBill && (
-                <div className="mt-3 space-y-2 border-t border-slate-200 dark:border-slate-700 pt-3">
-                  <div className="grid grid-cols-1 gap-2">
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-slate-600 dark:text-slate-400">Discount</span>
-                        {!showDiscountControls ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-7 rounded-full text-xs"
-                            onClick={() => {
-                              setShowDiscountControls(true)
-                              setDiscountInputType('PERCENTAGE')
-                              setDiscountInputValue(Number(billingData.discountPercentage || 0))
-                            }}
-                          >
-                            Apply Discount
-                          </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 rounded-full text-xs"
-                            onClick={() => {
-                              setShowDiscountControls(false)
-                              setDiscountInputType('PERCENTAGE')
-                              setDiscountInputValue(0)
-                              handleDiscountChange(0)
-                            }}
-                          >
-                            Remove
-                          </Button>
-                        )}
-                      </div>
-
-                      {showDiscountControls && (
-                        <div className="mt-1 grid grid-cols-[140px_1fr] gap-2">
-                          <Select
-                            value={discountInputType}
-                            onValueChange={(value) => {
-                              const nextType = value as 'PERCENTAGE' | 'FIXED'
-                              setDiscountInputType(nextType)
-
-                              if (nextType === 'FIXED') {
-                                const fixed = (displayTotals.patientResponsibility * (billingData.discountPercentage || 0)) / 100
-                                setDiscountInputValue(Math.max(0, fixed))
-                              } else {
-                                setDiscountInputValue(Number(billingData.discountPercentage || 0))
-                              }
-                            }}
-                          >
-                            <SelectTrigger className="h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="PERCENTAGE">Percentage (%)</SelectItem>
-                              <SelectItem value="FIXED">Fixed (RWF)</SelectItem>
-                            </SelectContent>
-                          </Select>
-
-                          <Input
-                            type="number"
-                            min={0}
-                            max={discountInputType === 'PERCENTAGE' ? 100 : Math.max(0, displayTotals.patientResponsibility)}
-                            value={discountInputValue}
-                            onChange={(e) => {
-                              const rawValue = Math.max(0, Number(e.target.value || 0))
-                              setDiscountInputValue(rawValue)
-
-                              if (discountInputType === 'PERCENTAGE') {
-                                handleDiscountChange(Math.min(100, rawValue))
-                              } else {
-                                const cappedAmount = Math.min(rawValue, Math.max(0, displayTotals.patientResponsibility))
-                                const percent = displayTotals.patientResponsibility > 0
-                                  ? (cappedAmount / displayTotals.patientResponsibility) * 100
-                                  : 0
-                                handleDiscountChange(percent)
-                              }
-                            }}
-                            className="h-9"
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <span className="text-xs text-slate-600 dark:text-slate-400">Payment Method</span>
-                      <Select
-                        value={billingData.paymentMethod && billingData.paymentMethod !== 'pending' ? billingData.paymentMethod : 'momo'}
-                        onValueChange={(value) =>
-                          handlePaymentMethodChange(value as 'cash' | 'momo' | 'airtel-money')
-                        }
-                      >
-                        <SelectTrigger className="mt-1 h-9">
-                          <SelectValue placeholder="Select payment method" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cash">Cash</SelectItem>
-                          <SelectItem value="momo">MoMo</SelectItem>
-                          <SelectItem value="airtel-money">Airtel Money</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <span className="text-xs text-slate-600 dark:text-slate-400">Amount Paid</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={billingData.amountPaid || 0}
-                        onChange={(e) => handleAmountPaidChange(Math.max(0, Number(e.target.value || 0)))}
-                        className="mt-1 h-9"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-xs text-slate-600 dark:text-slate-400">Amount entered as paid:</span>
-                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                      {(billingData.amountPaid || 0).toLocaleString()} RWF
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-slate-600 dark:text-slate-400">Estimated remaining:</span>
-                    <span className="text-xs font-bold text-orange-600 dark:text-orange-400">
-                      {Math.max(0, displayTotals.totalAmount - (billingData.amountPaid || 0)).toLocaleString()} RWF
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </div>
+
+        {showBillingDock && (
+          <BillingStickySummary
+            totals={displayTotals}
+            amountPaid={billingData.amountPaid || 0}
+            viewMode={viewMode}
+            activeService={activeService}
+            existingBill={existingBill}
+            canEditBilling={canEditBilling}
+            hasRemainingToBill={hasRemainingToBill}
+            hasMultipleUnbilledServices={hasMultipleUnbilledServices}
+            creatingBill={creatingBill}
+            generatingInvoice={generatingInvoice}
+            isEditingBill={isEditingBill}
+            exemptionCount={exemptionCount}
+            onCompleteBill={() => {
+              setConfirmSheetMode('complete');
+              setShowCompleteBillConfirm(true);
+            }}
+            onPrint={() => void handlePrintBillingInvoice()}
+            onEditBilling={() => {
+              setIsEditingBill(true);
+              setShowDiscountControls(true);
+              setConfirmSheetMode('edit');
+              setShowCompleteBillConfirm(true);
+            }}
+            onDoneEditing={async () => {
+              setShowDiscountControls(false);
+              setIsEditingBill(false);
+              try {
+                await refreshInvoicePdf();
+                toast.success('Invoice preview refreshed from backend');
+              } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : 'Invoice PDF refresh failed.';
+                toast.warning(message);
+              }
+            }}
+            onToggleViewMode={() => setViewMode(viewMode === 'service' ? 'all' : 'service')}
+            onManageExemptions={() => setShowExemptionsWindow(true)}
+          />
+        )}
       </div>
 
       {/* Add Insurance Modal */}
@@ -1390,9 +1230,11 @@ function BillingPageContent() {
       }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-base">Add insurance to patient</DialogTitle>
+            <DialogTitle className="text-base">Add insurance to patient record</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Select an insurance, optionally add the card number and dominant member details.
+              This saves insurance on the patient&apos;s profile, not directly on the visit. After saving,
+              open <span className="font-medium text-foreground">Patient insurances</span> in the billing
+              header and check it to use for billing on this visit.
             </DialogDescription>
           </DialogHeader>
 
@@ -1416,33 +1258,62 @@ function BillingPageContent() {
             </div>
 
             <div className="space-y-1">
-              <p className="text-[11px] text-muted-foreground">Insurance Card Number (optional)</p>
+              <p className="text-[11px] text-muted-foreground">Insurance Card Number (required)</p>
               <Input
                 value={insuranceCardNumber}
-                onChange={(e) => setInsuranceCardNumber(e.target.value)}
+                onChange={(e) => {
+                  setInsuranceCardNumber(e.target.value);
+                  if (formErrors.card) setFormErrors((prev) => ({ ...prev, card: undefined }));
+                }}
                 placeholder="Card number"
               />
+              {formErrors.card && <p className="text-xs text-destructive mt-1">{formErrors.card}</p>}
             </div>
 
             <div className="space-y-1">
-              <p className="text-[11px] text-muted-foreground">Dominant Member (optional)</p>
+              <p className="text-[11px] text-muted-foreground">Providing Company / Employer (required)</p>
+              <Input
+                value={providingCompanyOrEmployer}
+                onChange={(e) => {
+                  setProvidingCompanyOrEmployer(e.target.value);
+                  if (formErrors.employer) setFormErrors((prev) => ({ ...prev, employer: undefined }));
+                }}
+                placeholder="Employer or company name"
+              />
+              {formErrors.employer && <p className="text-xs text-destructive mt-1">{formErrors.employer}</p>}
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-[11px] text-muted-foreground">
+                Dominant Member {isDominantMemberRequired(visit.patient.dateOfBirth, true) ? '(required for patients 18 years or younger)' : '(optional)'}
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Input
                   value={dominantFirstName}
-                  onChange={(e) => setDominantFirstName(e.target.value)}
+                  onChange={(e) => {
+                    setDominantFirstName(e.target.value);
+                    if (formErrors.dominant) setFormErrors((prev) => ({ ...prev, dominant: undefined }));
+                  }}
                   placeholder="First name"
                 />
                 <Input
                   value={dominantLastName}
-                  onChange={(e) => setDominantLastName(e.target.value)}
+                  onChange={(e) => {
+                    setDominantLastName(e.target.value);
+                    if (formErrors.dominant) setFormErrors((prev) => ({ ...prev, dominant: undefined }));
+                  }}
                   placeholder="Last name"
                 />
               </div>
               <Input
                 value={dominantPhone}
-                onChange={(e) => setDominantPhone(e.target.value)}
+                onChange={(e) => {
+                  setDominantPhone(e.target.value);
+                  if (formErrors.dominant) setFormErrors((prev) => ({ ...prev, dominant: undefined }));
+                }}
                 placeholder="Phone"
               />
+              {formErrors.dominant && <p className="text-xs text-destructive mt-1">{formErrors.dominant}</p>}
             </div>
           </div>
 
@@ -1456,8 +1327,8 @@ function BillingPageContent() {
             >
               Cancel
             </Button>
-            <Button onClick={handleAddInsurance} disabled={!selectedInsuranceId}>
-              Add to Patient
+            <Button onClick={handleAddInsurance} disabled={!selectedInsuranceId || addingVisitInsurance}>
+              Save to patient record
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1480,242 +1351,57 @@ function BillingPageContent() {
         }}
       />
 
-          {/* Floating Dock at Bottom (glassy pill) */}
-      {showBillingDock && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
-              <div className="glass-gray rounded-full shadow-xl px-2 py-2 flex items-center justify-center gap-2">
-                <TooltipProvider>
-                  <div className="flex items-center gap-2">
-                    {/* Add Action/Consumable */}
-                    {!canEditBilling && hasRemainingToBill && (
-                      <>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              onClick={() => setShowAddActionConsumableModal(true)}
-                              size="icon"
-                              className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg"
-                              aria-label="Add Action or Consumable"
-                            >
-                              <Plus className="h-5 w-5" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Add Action or Consumable</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <div className="w-px h-6 bg-white/20" />
-                      </>
-                    )}
+      <BillingConfirmSheet
+        open={showCompleteBillConfirm}
+        onOpenChange={setShowCompleteBillConfirm}
+        items={billingData.items}
+        selectedItemIds={selectedItemIds}
+        totals={displayTotals}
+        amountPaid={billingData.amountPaid || 0}
+        paymentMethod={billingData.paymentMethod || 'momo'}
+        creatingBill={creatingBill}
+        showItemsReview={confirmSheetMode === 'complete'}
+        showDiscountControls={showDiscountControls}
+        discountInputType={discountInputType}
+        discountInputValue={discountInputValue}
+        onPaymentMethodChange={handlePaymentMethodChange}
+        onAmountPaidChange={handleAmountPaidChange}
+        onShowDiscountControls={setShowDiscountControls}
+        onDiscountInputTypeChange={(type) => {
+          setDiscountInputType(type);
+          if (type === 'FIXED') {
+            const fixed =
+              (displayTotals.patientResponsibility * (billingData.discountPercentage || 0)) / 100;
+            setDiscountInputValue(Math.max(0, fixed));
+          } else {
+            setDiscountInputValue(Number(billingData.discountPercentage || 0));
+          }
+        }}
+        onDiscountInputValueChange={setDiscountInputValue}
+        onDiscountChange={handleDiscountChange}
+        onConfirm={async () => {
+          if (confirmSheetMode === 'complete') {
+            setShowCompleteBillConfirm(false);
+            await handleGenerateBill();
+          } else {
+            setShowCompleteBillConfirm(false);
+            setShowDiscountControls(false);
+            setIsEditingBill(false);
+            try {
+              await refreshInvoicePdf();
+              toast.success('Payment details updated');
+            } catch (err: unknown) {
+              const message = err instanceof Error ? err.message : 'Invoice PDF refresh failed.';
+              toast.warning(message);
+            }
+          }
+        }}
+      />
 
-                    {/* View Toggle (only if multiple unbilled services) */}
-                    {!canEditBilling && hasRemainingToBill && hasMultipleUnbilledServices && (
-                      <>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              size="icon"
-                              className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg"
-                              onClick={() => setViewMode(viewMode === 'service' ? 'all' : 'service')}
-                              aria-label={viewMode === 'service' ? 'Switch to All Items' : 'Switch to Service View'}
-                            >
-                              {viewMode === 'service' ? (
-                                <List className="h-5 w-5" />
-                              ) : (
-                                <Layers className="h-5 w-5" />
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{viewMode === 'service' ? 'Switch to All Items' : 'Switch to Service View'}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <div className="w-px h-6 bg-white/20" />
-                      </>
-                    )}
-
-                    {/* Exemptions Button - only visible if there are exemptions */}
-                    {!canEditBilling && hasRemainingToBill && exemptionCount > 0 && (
-                      <>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="relative">
-                              <Button
-                                onClick={() => setShowExemptionsWindow(true)}
-                                size="icon"
-                                className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-purple-600 hover:text-white shadow-lg"
-                                aria-label="Manage Exemptions"
-                              >
-                                <span className="text-xl leading-none">⊖</span>
-                              </Button>
-                              <span className="absolute -top-2 -right-2 h-6 w-6 bg-red-500 rounded-full text-white text-xs flex items-center justify-center font-bold border-2 border-[#4A4A4A]">
-                                {exemptionCount}
-                              </span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Manage Exemptions ({exemptionCount})</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <div className="w-px h-6 bg-white/20" />
-                      </>
-                    )}
-
-                    {!canEditBilling && hasRemainingToBill && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            onClick={() => setShowCompleteBillConfirm(true)}
-                            size="icon"
-                            disabled={creatingBill}
-                            className="rounded-full h-12 w-12 bg-[#FF6900] hover:bg-[#e05f00] text-white shadow-lg disabled:opacity-50"
-                            aria-label="Complete Bill"
-                          >
-                            <Receipt className="h-5 w-5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{creatingBill ? 'Creating bill...' : 'Complete Bill'}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-
-                    {canEditBilling && (
-                      <>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              onClick={() => {
-                                setIsEditingBill(true)
-                                setShowDiscountControls(true)
-                              }}
-                              size="icon"
-                              className="rounded-full h-12 w-12 bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
-                              aria-label="Edit Billing"
-                            >
-                              <Pencil className="h-5 w-5" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Edit Billing</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              onClick={() => {
-                                void handlePrintBillingInvoice()
-                              }}
-                              size="icon"
-                              className="rounded-full h-12 w-12 bg-slate-700 hover:bg-slate-800 text-white shadow-lg"
-                              disabled={generatingInvoice}
-                              aria-label="Print Billing"
-                            >
-                              <Printer className="h-5 w-5" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{generatingInvoice ? 'Loading invoice PDF...' : 'Print Billing (PDF)'}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        {isEditingBill && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                onClick={async () => {
-                                  setShowDiscountControls(false)
-                                  setIsEditingBill(false)
-                                  try {
-                                    await refreshInvoicePdf();
-                                    toast.success('Invoice preview refreshed from backend');
-                                  } catch (err: any) {
-                                    console.error('Refresh invoice after edit failed:', err);
-                                    toast.warning(err?.message || 'Changes saved, but invoice PDF refresh failed.');
-                                  }
-                                }}
-                                size="icon"
-                                className="rounded-full h-12 w-12 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg"
-                                aria-label="Done Editing Billing"
-                              >
-                                <span className="text-lg font-bold">✓</span>
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Done Editing</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </TooltipProvider>
-        </div>
-      </div>
-      )}
-
-          {/* Removed separate bottom-left buttons; consolidated into center pill */}
-
-      {/* Complete Bill Confirmation */}
-      <Dialog open={showCompleteBillConfirm} onOpenChange={setShowCompleteBillConfirm}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirm Bill Completion</DialogTitle>
-            <DialogDescription>
-              Review billing summary before completing this bill.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Patient Responsibility:</span>
-              <span className="font-semibold">{displayTotals.patientResponsibility.toLocaleString()} RWF</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Discount:</span>
-              <span className="font-semibold">{(displayTotals.discount || 0).toLocaleString()} RWF</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Due:</span>
-              <span className="font-semibold">{displayTotals.totalAmount.toLocaleString()} RWF</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Amount Paid:</span>
-              <span className="font-semibold">{(billingData?.amountPaid || 0).toLocaleString()} RWF</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Payment Method:</span>
-              <span className="font-semibold uppercase">{billingData?.paymentMethod || 'pending'}</span>
-            </div>
-            <div className="flex justify-between border-t pt-2">
-              <span className="text-muted-foreground">Remaining:</span>
-              <span className="font-semibold text-orange-600 dark:text-orange-400">
-                {Math.max(0, displayTotals.totalAmount - (billingData?.amountPaid || 0)).toLocaleString()} RWF
-              </span>
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={() => setShowCompleteBillConfirm(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={creatingBill}
-              onClick={async () => {
-                setShowCompleteBillConfirm(false)
-                await handleGenerateBill()
-              }}
-            >
-              {creatingBill ? 'Completing...' : 'Confirm Complete Bill'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-        {/* Add Action/Consumable Modal */}
-        <AddActionConsumableModal
-          isOpen={showAddActionConsumableModal}
-          onClose={() => setShowAddActionConsumableModal(false)}
+        {/* Add Product Modal */}
+        <AddProductModal
+          isOpen={showAddProductModal}
+          onClose={() => setShowAddProductModal(false)}
           departments={allServiceNames.map((deptName) => {
             const deptId = visit?.departments?.find(d => (d.department?.name || 'General') === deptName)?.department?.id;
             return { id: deptId || deptName, name: deptName };
@@ -1726,7 +1412,7 @@ function BillingPageContent() {
               : undefined
           }
           viewMode={viewMode}
-          onAdd={handleAddActionConsumable}
+          onAdd={handleAddProduct}
           isSubmitting={addingBillingItem}
         />
 
