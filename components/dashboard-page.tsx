@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { useVisits, useDepartments, type Visit, useUpdateVisitDepartmentStatus, useDashboardStats, useGetInvoiceLazy } from "@/hooks/auth-hooks"
+import { useVisits, useDepartments, type Visit, useUpdateVisitDepartmentStatus, useDashboardStats, useGenerateInvoice } from "@/hooks/auth-hooks"
 import { useLazyQuery } from "@apollo/client"
 import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
 import Header from "@/components/header"
@@ -22,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid, Printer, FilePenLine, Activity, Eye, History } from "lucide-react"
 import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
+import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -36,7 +37,7 @@ export default function DashboardPage() {
   })
 
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
-  const { getInvoice } = useGetInvoiceLazy()
+  const { generateInvoice } = useGenerateInvoice()
   const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -246,6 +247,11 @@ export default function DashboardPage() {
   const formatProductsBilledLabel = (count: number) => {
     if (count === 0) return 'No products billed'
     return count === 1 ? '1 product billed' : `${count} products billed`
+  }
+
+  const canPreviewVisitInvoice = (visit: Visit) => {
+    if (hasNoBillables(visit)) return false
+    return countUnbilledProducts(visit) === 0 && countBilledProducts(visit) > 0
   }
 
   const getBillingDisplayStatus = (visit: Visit) => {
@@ -525,50 +531,21 @@ export default function DashboardPage() {
   const handlePreviewInvoice = async (visit: Visit) => {
     try {
       setPrintingVisitId(visit.id)
-      
+
       const billRes = await getVisitBillings({ variables: { visitId: visit.id } })
       const bill = billRes.data?.visitBillings?.data?.[billRes.data?.visitBillings?.data?.length - 1] || billRes.data?.visitBillings?.data?.[0]
-      
+
       if (!bill?.id) {
         toast.error("No bill found for this visit.")
         return
       }
 
-      const response = await getInvoice(bill.id)
-
-      const invoiceUrl = response?.data?.invoiceUrl
-      if (response?.status !== 'SUCCESS' || !invoiceUrl) {
-        const errorMsg = response?.message || 'Failed to fetch invoice PDF'
-        toast.error(errorMsg)
-        return
-      }
-
-      if (invoiceUrl.startsWith('http://') || invoiceUrl.startsWith('https://') || invoiceUrl.startsWith('/')) {
-        const previewWindow = window.open(invoiceUrl, '_blank')
-        if (!previewWindow) {
-          toast.error('Unable to open invoice preview. Please allow pop-ups and try again.')
-          return
-        }
-      } else {
-        // Clean base64 string if it has data URI prefix
-        const base64Data = invoiceUrl.replace(/^data:application\/pdf;base64,/, '')
-        const byteCharacters = atob(base64Data)
-        const byteNumbers = new Array(byteCharacters.length)
-        for (let i = 0; i < byteCharacters.length; i += 1) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i)
-        }
-        const byteArray = new Uint8Array(byteNumbers)
-        const blob = new Blob([byteArray], { type: 'application/pdf' })
-        const blobUrl = URL.createObjectURL(blob)
-        const previewWindow = window.open(blobUrl, '_blank')
-        if (!previewWindow) {
-          toast.error('Unable to open invoice preview. Please allow pop-ups and try again.')
-          return
-        }
-      }
-    } catch (err: any) {
+      const invoiceUrl = await resolveInvoiceUrl(bill.id, generateInvoice)
+      openInvoicePreview(invoiceUrl)
+    } catch (err: unknown) {
       console.error('Preview invoice error:', err)
-      toast.error(err?.message || 'Failed to fetch invoice PDF')
+      const message = err instanceof Error ? err.message : 'Failed to generate invoice PDF'
+      toast.error(message)
     } finally {
       setPrintingVisitId(null)
     }
@@ -1129,7 +1106,7 @@ export default function DashboardPage() {
                                   </TooltipContent>
                                 </Tooltip>
                               )}
-                              {canSeeBillButton && visit.billingStatus === 'BILLED' && (
+                              {canSeeBillButton && canPreviewVisitInvoice(visit) && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <button

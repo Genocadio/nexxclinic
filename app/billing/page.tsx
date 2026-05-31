@@ -8,7 +8,7 @@ import { BillingData, BillingItem, buildProductCoverageMaps, getItemInsuranceSpl
 import Header from '@/components/header';
 import { useAuth } from '@/lib/auth-context';
 import { useSearchParams } from 'next/navigation';
-import { useVisit, type Visit, useInsurances, useCreateBill, useGetBillByVisit, useGenerateInvoice, useCompleteVisit, useGetInvoiceLazy } from '@/hooks/auth-hooks';
+import { useVisit, type Visit, useInsurances, useCreateBill, useGetBillByVisit, useGenerateInvoice, useCompleteVisit } from '@/hooks/auth-hooks';
 import { useUpdateVisitDepartmentStatus } from '@/hooks/auth-hooks';
 import { useAddVisitNote } from '@/hooks/auth-hooks';
 import { useAddProductToVisitDepartment, useLinkVisitInsurances, useUnlinkVisitInsurances, useUpdateProductQuantity } from '@/hooks/visits/hooks';
@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { isDominantMemberRequired } from '@/lib/validation-utils';
+import { openInvoicePreview, resolveInvoiceUrl } from '@/lib/invoice-utils';
 
 function BillingPageContent() {
   const searchParams = useSearchParams();
@@ -87,7 +88,6 @@ function BillingPageContent() {
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus();
   const { addVisitNote } = useAddVisitNote();
   const { completeVisit } = useCompleteVisit();
-  const { getInvoice } = useGetInvoiceLazy();
 
   const mapPaymentStatus = (status?: string, itemId?: string): BillingItem['paymentStatus'] => {
     if (status === 'BILLED') return 'paid';
@@ -440,55 +440,17 @@ function BillingPageContent() {
   const canEditBilling = Boolean(existingBill) || billJustCreated;
   const showBillingDock = canEditBilling || (!existingBill && hasRemainingToBill);
 
-  const openInvoice = (urlOrBase64: string) => {
-    if (urlOrBase64.startsWith('http://') || urlOrBase64.startsWith('https://') || urlOrBase64.startsWith('/')) {
-      const previewWindow = window.open(urlOrBase64, '_blank');
-      if (!previewWindow) {
-        throw new Error('Unable to open invoice preview window. Please allow pop-ups.');
-      }
-      return;
-    }
-    
-    // Clean base64 string if it has data URI prefix
-    const base64Data = urlOrBase64.replace(/^data:application\/pdf;base64,/, '');
-    const byteCharacters = atob(base64Data);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i += 1) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'application/pdf' });
-    const blobUrl = URL.createObjectURL(blob);
-    const previewWindow = window.open(blobUrl, '_blank');
-    if (!previewWindow) {
-      URL.revokeObjectURL(blobUrl);
-      throw new Error('Unable to open invoice preview window. Please allow pop-ups.');
-    }
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-  };
-
-  const refreshInvoicePdf = async (billId?: string) => {
+  const refreshInvoicePdf = async (billId?: string, options?: { openPreview?: boolean }) => {
     const targetBillId = billId || existingBill?.id;
     if (!targetBillId) return null;
 
-    let invoiceUrl = '';
-    if (visit?.visitStatus === 'COMPLETED') {
-      const response = await getInvoice(targetBillId);
-      if (response?.status !== 'SUCCESS' || !response.data?.invoiceUrl) {
-        const errorMsg = response?.message || 'Failed to fetch invoice';
-        throw new Error(errorMsg);
-      }
-      invoiceUrl = response.data.invoiceUrl;
-    } else {
-      const response = await generateInvoice(targetBillId);
-      if (response.status !== 'SUCCESS' || !response.data?.invoiceUrl) {
-        const errorMsg = response.messages?.map((m) => m.text).join(', ') || 'Failed to generate invoice';
-        throw new Error(errorMsg);
-      }
-      invoiceUrl = response.data.invoiceUrl;
+    const invoiceUrl = await resolveInvoiceUrl(targetBillId, generateInvoice);
+    setInvoicePdfBase64(invoiceUrl);
+
+    if (options?.openPreview) {
+      openInvoicePreview(invoiceUrl);
     }
 
-    setInvoicePdfBase64(invoiceUrl);
     return invoiceUrl;
   };
   
@@ -682,14 +644,16 @@ function BillingPageContent() {
         await refetchVisit();
         await refetchBill();
         try {
-          if (response.data?.id) {
-            await refreshInvoicePdf(response.data.id);
+          const newBillId = response.data?.id;
+          if (newBillId) {
+            await refreshInvoicePdf(newBillId, { openPreview: true });
           } else {
-            await refreshInvoicePdf();
+            await refreshInvoicePdf(undefined, { openPreview: true });
           }
-        } catch (invoiceErr: any) {
+        } catch (invoiceErr: unknown) {
           console.error('Invoice generation after billing failed:', invoiceErr);
-          toast.warning(invoiceErr?.message || 'Bill created but invoice PDF could not be generated yet.');
+          const message = invoiceErr instanceof Error ? invoiceErr.message : 'Bill created but invoice PDF could not be generated yet.';
+          toast.warning(message);
         }
         toast.success('Bill created successfully!');
       } else {
@@ -749,12 +713,13 @@ function BillingPageContent() {
       try {
         const pdf = invoicePdfBase64 || await refreshInvoicePdf(existingBill.id);
         if (pdf) {
-          openInvoice(pdf);
+          openInvoicePreview(pdf);
           return;
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Backend invoice preview failed, falling back to HTML print:', err);
-        toast.warning(err?.message || 'Using local print preview because backend invoice is unavailable.');
+        const message = err instanceof Error ? err.message : 'Using local print preview because backend invoice is unavailable.';
+        toast.warning(message);
       }
     }
 

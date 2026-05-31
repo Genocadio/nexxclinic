@@ -1,10 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { useVisits, useDepartments, type Visit, useGetInvoiceLazy } from "@/hooks/auth-hooks"
+import { useVisits, useDepartments, type Visit, useGenerateInvoice } from "@/hooks/auth-hooks"
 import { useLazyQuery } from "@apollo/client"
 import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
 import { toast } from "react-toastify"
+import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
 import { useRouter } from "next/navigation"
 import { Search, Calendar, Clock, CheckCircle, AlertCircle, User, ReceiptText, Plus, Stethoscope, Activity } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
@@ -35,7 +36,7 @@ export default function VisitsListView({
   const { doctor } = useAuth()
   const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false)
   const [selectedVisitForDepartment, setSelectedVisitForDepartment] = useState<Visit | null>(null)
-  const { getInvoice } = useGetInvoiceLazy()
+  const { generateInvoice } = useGenerateInvoice()
   const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
   const [previewingVisitId, setPreviewingVisitId] = useState<string | null>(null)
 
@@ -51,41 +52,12 @@ export default function VisitsListView({
         return
       }
 
-      const response = await getInvoice(bill.id)
-
-      const invoiceUrl = response?.data?.invoiceUrl
-      if (response?.status !== 'SUCCESS' || !invoiceUrl) {
-        const errorMsg = response?.message || 'Failed to fetch invoice PDF'
-        toast.error(errorMsg)
-        return
-      }
-
-      if (invoiceUrl.startsWith('http://') || invoiceUrl.startsWith('https://') || invoiceUrl.startsWith('/')) {
-        const previewWindow = window.open(invoiceUrl, '_blank')
-        if (!previewWindow) {
-          toast.error('Unable to open invoice preview. Please allow pop-ups and try again.')
-          return
-        }
-      } else {
-        // Clean base64 string if it has data URI prefix
-        const base64Data = invoiceUrl.replace(/^data:application\/pdf;base64,/, '')
-        const byteCharacters = atob(base64Data)
-        const byteNumbers = new Array(byteCharacters.length)
-        for (let i = 0; i < byteCharacters.length; i += 1) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i)
-        }
-        const byteArray = new Uint8Array(byteNumbers)
-        const blob = new Blob([byteArray], { type: 'application/pdf' })
-        const blobUrl = URL.createObjectURL(blob)
-        const previewWindow = window.open(blobUrl, '_blank')
-        if (!previewWindow) {
-          toast.error('Unable to open invoice preview. Please allow pop-ups and try again.')
-          return
-        }
-      }
-    } catch (err: any) {
+      const invoiceUrl = await resolveInvoiceUrl(bill.id, generateInvoice)
+      openInvoicePreview(invoiceUrl)
+    } catch (err: unknown) {
       console.error('Preview invoice error:', err)
-      toast.error(err?.message || 'Failed to fetch invoice PDF')
+      const message = err instanceof Error ? err.message : 'Failed to generate invoice PDF'
+      toast.error(message)
     } finally {
       setPreviewingVisitId(null)
     }
