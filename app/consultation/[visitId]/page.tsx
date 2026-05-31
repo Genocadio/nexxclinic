@@ -217,6 +217,7 @@ export default function ConsultationPage() {
         visitDepartmentId={firstVisitDepartmentId ? String(firstVisitDepartmentId) : undefined}
         existingProducts={existingProducts}
         requestProductsEnabled={requestProductsEnabled}
+        userRoles={doctor?.roles || []}
         onSave={async (updatedConsultation) => {
           try {
             const dynamicFormResponse = (updatedConsultation.specialtyExtensions as any)?.dynamicFormResponse

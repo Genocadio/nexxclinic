@@ -10,10 +10,12 @@ import FormActionsDisplay from "@/components/form-actions-display"
 import { ConsultationSidePanels } from "@/components/consultation/consultation-side-panels"
 import { useVisit } from "@/hooks/visits/hooks"
 import { ConsultationBottomDock } from "@/components/consultation/consultation-bottom-dock"
+import PatientHistorySidePane from "@/components/patient-history-side-pane"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { ConsultationFormDisplay } from "@/components/consultation/consultation-form-display"
 import { useRemoveProductFromVisitDepartment, useUpdateProductQuantity } from "@/hooks/visits"
+import { hasRole } from "@/lib/role-utils"
 import {
   normalizeField,
   normalizeSection,
@@ -45,6 +47,7 @@ interface ConsultationViewBackboneProps {
   visitDepartmentId?: string
   existingProducts?: FormAction[]
   requestProductsEnabled?: boolean
+  userRoles?: string[]
   onSave: (consultation: any) => void
   onBack: () => void
 }
@@ -62,10 +65,13 @@ export default function ConsultationViewBackbone({
   visitDepartmentId,
   existingProducts = [],
   requestProductsEnabled = true,
+  userRoles = [],
   onSave,
   onBack: _onBack,
 }: ConsultationViewBackboneProps) {
   const [consultation, setConsultation] = useState<any>(initialConsultation)
+  const [patientHistoryOpen, setPatientHistoryOpen] = useState(false)
+  const canViewHistory = hasRole(userRoles, "CLINICIAN")
   const [departmentForm, setDepartmentForm] = useState<BackendDepartmentForm | null>(null)
   const [formAnswers, setFormAnswers] = useState<Record<string, any>>({})
   const [existingSubmissionStatus, setExistingSubmissionStatus] = useState<'DRAFT' | 'FINAL' | null>(null)
@@ -1219,6 +1225,7 @@ export default function ConsultationViewBackbone({
 
       <ConsultationBottomDock
         onComplete={() => setShowFinalizeConfirm(true)}
+        onViewHistory={canViewHistory ? () => setPatientHistoryOpen(true) : undefined}
       />
 
       {/* Finalize confirmation dialog (match app UI) */}
@@ -1329,6 +1336,15 @@ export default function ConsultationViewBackbone({
         }}
         existingProductReferenceIds={existingProductReferenceIds}
       />
+
+      {/* Patient History Side Pane */}
+      {patientHistoryOpen && (
+        <PatientHistorySidePane
+          patientId={patient.id}
+          currentVisitId={consultation.consultationId || consultation.id || ""}
+          onClose={() => setPatientHistoryOpen(false)}
+        />
+      )}
     </div>
   )
 }

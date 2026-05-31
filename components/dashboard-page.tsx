@@ -11,6 +11,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardStats } from "@/components/dashboard/dashboard-stats"
 import { DashboardMobileUi } from "@/components/dashboard/dashboard-mobile-ui"
 import { ConsultationPreviewSheet } from "@/components/dashboard/consultation-preview-sheet"
+import PatientHistorySidePane from "@/components/patient-history-side-pane"
 import PatientRegistrationModal from "@/components/patient-registration-modal"
 import VisitCreationModal from "@/components/visit-creation-modal"
 import { AddDepartmentModal } from "@/components/add-department-modal"
@@ -18,8 +19,9 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import InlineTryAgain from "@/components/inline-try-again"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid, Printer, FilePenLine, Activity, Eye } from "lucide-react"
+import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscope, User, ReceiptText, Plus, List, LayoutGrid, Printer, FilePenLine, Activity, Eye, History } from "lucide-react"
 import { toast } from "react-toastify"
+import { hasRole } from "@/lib/role-utils"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -82,6 +84,7 @@ export default function DashboardPage() {
   const hasNurseRole = roles.includes("NURSE")
   const hasConsultationRole = roles.some((role) => ["DOCTOR", "OPHTHALMOLOGIST", "SPECIALIST", "ADMIN"].includes(role))
   const hasClinicianOrDoctorRole = roles.some((role) => ["CLINICIAN", "DOCTOR"].includes(role))
+  const canViewPatientHistory = hasRole(roles, "CLINICIAN")
   const canSeeBillingInfo = hasFinanceRole
   const canSeeConsultButton = !isReceptionistOnly
   // Bill button: Finance role always sees billing, regardless of other roles
@@ -109,6 +112,8 @@ export default function DashboardPage() {
     patientName: string
     previewStartedAt: number
   } | null>(null)
+  const [patientHistoryOpen, setPatientHistoryOpen] = useState(false)
+  const [patientHistoryVisit, setPatientHistoryVisit] = useState<Visit | null>(null)
 
   const getSavedConsultationPreviewContext = (consultationId: string) => {
     if (typeof window === 'undefined') return null
@@ -419,6 +424,11 @@ export default function DashboardPage() {
 
   const handleEditConsultation = (visit: Visit) => {
     router.push(`/consultation/${visit.id}`)
+  }
+
+  const handleViewPatientHistory = (visit: Visit) => {
+    setPatientHistoryVisit(visit)
+    setPatientHistoryOpen(true)
   }
 
   const handleDischargeVisit = async (visit: Visit) => {
@@ -762,6 +772,27 @@ export default function DashboardPage() {
 
                                 return (
                                   <>
+                                    {canViewPatientHistory && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleViewPatientHistory(visit)
+                                            }}
+                                            title="View Patient History"
+                                            aria-label="View Patient History"
+                                            className="h-9 w-9 sm:h-10 sm:w-10 bg-amber-600 hover:bg-amber-700 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                          >
+                                            <History className="w-4 h-4 flex-shrink-0" />
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>View Patient History</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+
                                     {!showClosedConsultationActions && canSeeVisitActionButtons && canSeeConsultButton && canConsultVisit(visit) && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -969,6 +1000,14 @@ export default function DashboardPage() {
         setShowPatientRegistrationModal={setShowPatientRegistrationModal}
         openVisitCreationModal={openVisitCreationModal}
       />
+
+      {patientHistoryOpen && patientHistoryVisit && (
+        <PatientHistorySidePane
+          patientId={String(patientHistoryVisit.patient.id)}
+          currentVisitId={String(patientHistoryVisit.id)}
+          onClose={() => setPatientHistoryOpen(false)}
+        />
+      )}
 
       {/* Modals */}
       {showPatientRegistrationModal && (

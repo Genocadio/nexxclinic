@@ -193,6 +193,71 @@ export const VISITS_QUERY = gql`
   }
 `
 
+export const GET_PATIENT_HISTORY_QUERY = gql`
+  query GetPatientHistory($patientId: ID!, $input: SearchPatientHistoryInput!) {
+    getPatientHistory(patientId: $patientId, input: $input) {
+      status
+      message
+      
+      data {
+        id
+        status
+        visitDate
+        patient {
+          id
+          firstName
+          lastName
+          middleName
+          dateOfBirth
+          gender
+        }
+        departments {
+          id
+          department {
+            id
+            name
+          }
+          status
+          completedAt
+          diagnostics {
+            id
+            diagnosisName
+            icd11Code
+            createdAt
+          }
+          medications {
+            id
+            medicationName
+            instructions
+            createdAt
+          }
+          products {
+            id
+            product {
+              id
+              name
+              code
+              type
+            }
+            quantity
+            price
+            status
+            createdAt
+          }
+          createdAt
+          updatedAt
+        }
+      }
+      pagination {
+        total
+        perPage
+        currentPage
+        totalPages
+      }
+    }
+  }
+`
+
 export const DASHBOARD_STATS_QUERY = gql`
   query DashboardStats($days: Int!) {
     dashboardStats(days: $days) {
