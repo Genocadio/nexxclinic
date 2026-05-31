@@ -154,12 +154,19 @@ export default function DashboardPage() {
     setRegisteredPatientId(null)
   }
 
+  const isUnbilledProductStatus = (status?: string) => {
+    const normalized = String(status || '').toUpperCase()
+    return normalized === 'PENDING' || normalized === 'UNPAID'
+  }
+
+  const isBilledProductStatus = (status?: string) => String(status || '').toUpperCase() === 'BILLED'
+
   function hasUnbilledItems(visit: Visit) {
     if (visit.billingStatus === 'BILLED') return false
 
     return visit.departments?.some((dept) =>
-      dept.actions?.some((action) => action.paymentStatus === 'PENDING') ||
-      dept.consumables?.some((consumable) => consumable.paymentStatus === 'PENDING')
+      dept.actions?.some((action) => isUnbilledProductStatus(action.paymentStatus)) ||
+      dept.consumables?.some((consumable) => isUnbilledProductStatus(consumable.paymentStatus))
     ) || false
   }
 
@@ -170,12 +177,18 @@ export default function DashboardPage() {
   }
 
   const countUnbilledProducts = (visit: Visit) => {
-    if (visit.billingStatus === 'BILLED') return 0
-
     return (visit.departments || []).reduce((count, dept) => {
-      const pendingActions = (dept.actions || []).filter((action) => action.paymentStatus === 'PENDING').length
-      const pendingConsumables = (dept.consumables || []).filter((consumable) => consumable.paymentStatus === 'PENDING').length
+      const pendingActions = (dept.actions || []).filter((action) => isUnbilledProductStatus(action.paymentStatus)).length
+      const pendingConsumables = (dept.consumables || []).filter((consumable) => isUnbilledProductStatus(consumable.paymentStatus)).length
       return count + pendingActions + pendingConsumables
+    }, 0)
+  }
+
+  const countBilledProducts = (visit: Visit) => {
+    return (visit.departments || []).reduce((count, dept) => {
+      const billedActions = (dept.actions || []).filter((action) => isBilledProductStatus(action.paymentStatus)).length
+      const billedConsumables = (dept.consumables || []).filter((consumable) => isBilledProductStatus(consumable.paymentStatus)).length
+      return count + billedActions + billedConsumables
     }, 0)
   }
 
@@ -184,12 +197,12 @@ export default function DashboardPage() {
 
     for (const dept of visit.departments || []) {
       for (const action of dept.actions || []) {
-        if (action.paymentStatus === 'PENDING') {
+        if (isUnbilledProductStatus(action.paymentStatus)) {
           names.push(action.action?.name || 'Product')
         }
       }
       for (const consumable of dept.consumables || []) {
-        if (consumable.paymentStatus === 'PENDING') {
+        if (isUnbilledProductStatus(consumable.paymentStatus)) {
           names.push(consumable.consumable?.name || 'Product')
         }
       }
@@ -198,15 +211,118 @@ export default function DashboardPage() {
     return names
   }
 
+  const getBilledProductNames = (visit: Visit) => {
+    const names: string[] = []
+
+    for (const dept of visit.departments || []) {
+      for (const action of dept.actions || []) {
+        if (isBilledProductStatus(action.paymentStatus)) {
+          names.push(action.action?.name || 'Product')
+        }
+      }
+      for (const consumable of dept.consumables || []) {
+        if (isBilledProductStatus(consumable.paymentStatus)) {
+          names.push(consumable.consumable?.name || 'Product')
+        }
+      }
+    }
+
+    return names
+  }
+
+  const getDepartmentsReadyForBilling = (visit: Visit) => {
+    return (visit.departments || [])
+      .filter((dept) => String(dept.status || '').toUpperCase() === 'BILLING')
+      .map((dept) => dept.department?.name || 'Department')
+  }
+
+  const hasDepartmentReadyForBilling = (visit: Visit) => getDepartmentsReadyForBilling(visit).length > 0
+
   const formatProductsToBillLabel = (count: number) => {
     if (count === 0) return 'No products to bill'
     return count === 1 ? '1 product to bill' : `${count} products to bill`
   }
 
+  const formatProductsBilledLabel = (count: number) => {
+    if (count === 0) return 'No products billed'
+    return count === 1 ? '1 product billed' : `${count} products billed`
+  }
+
   const getBillingDisplayStatus = (visit: Visit) => {
-    if (visit.billingStatus === 'BILLED') return visit.billingStatus
+    if (hasDepartmentReadyForBilling(visit)) return 'Ready for billing'
+
+    const unbilledCount = countUnbilledProducts(visit)
+    const billedCount = countBilledProducts(visit)
+
+    if (visit.billingStatus === 'BILLED' || (unbilledCount === 0 && billedCount > 0)) {
+      return 'All products billed'
+    }
+
     if (hasNoBillables(visit)) return formatProductsToBillLabel(0)
-    return formatProductsToBillLabel(countUnbilledProducts(visit))
+
+    if (unbilledCount > 0 && billedCount > 0) {
+      return `${formatProductsToBillLabel(unbilledCount)} · ${billedCount} billed`
+    }
+
+    return formatProductsToBillLabel(unbilledCount)
+  }
+
+  const renderBillingTooltipContent = (
+    visit: Visit,
+    unbilledCount: number,
+    unbilledNames: string[],
+    billedCount: number,
+    billedNames: string[],
+    departmentsReady: string[],
+  ) => {
+    const showAllBilledSummary = unbilledCount === 0 && billedCount > 0 && departmentsReady.length === 0
+
+    return (
+      <div className="space-y-2 text-xs">
+        {departmentsReady.length > 0 && (
+          <div>
+            <p className="font-medium text-emerald-600 dark:text-emerald-400">Ready for billing</p>
+            <ul className="list-disc pl-4 text-muted-foreground mt-0.5">
+              {departmentsReady.map((name) => (
+                <li key={name}>{name}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {unbilledCount > 0 && (
+          <div>
+            <p className="font-medium">{formatProductsToBillLabel(unbilledCount)}</p>
+            <ul className="list-disc pl-4 text-muted-foreground mt-0.5">
+              {unbilledNames.map((name, index) => (
+                <li key={`unbilled-${name}-${index}`}>{name}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {billedCount > 0 && (
+          <div>
+            <p className="font-medium text-muted-foreground">
+              {showAllBilledSummary ? 'All products billed' : formatProductsBilledLabel(billedCount)}
+            </p>
+            <ul className="list-disc pl-4 text-muted-foreground mt-0.5">
+              {billedNames.map((name, index) => (
+                <li key={`billed-${name}-${index}`}>{name}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {unbilledCount === 0 && billedCount === 0 && !hasNoBillables(visit) && (
+          <p className="text-muted-foreground">No billable products</p>
+        )}
+
+        {hasNoBillables(visit) && (
+          <p className="text-muted-foreground">{formatProductsToBillLabel(0)}</p>
+        )}
+      </div>
+    )
   }
 
   const hasIncompleteDepartments = (visit: Visit) => {
@@ -741,6 +857,9 @@ export default function DashboardPage() {
                         }
                         const unbilledProductCount = countUnbilledProducts(visit)
                         const unbilledProductNames = getUnbilledProductNames(visit)
+                        const billedProductCount = countBilledProducts(visit)
+                        const billedProductNames = getBilledProductNames(visit)
+                        const departmentsReadyForBilling = getDepartmentsReadyForBilling(visit)
                         if (process.env.NODE_ENV !== 'production') {
                           // eslint-disable-next-line no-console
                           console.debug(`[ConsultButton check for ${visit.patient.firstName} ${visit.patient.lastName}]:`, consultButtonDebug)
@@ -794,19 +913,13 @@ export default function DashboardPage() {
                                       </p>
                                     </TooltipTrigger>
                                     <TooltipContent className="max-w-xs">
-                                      {visit.billingStatus === 'BILLED' ? (
-                                        <p className="text-xs">All products billed</p>
-                                      ) : (
-                                        <div className="space-y-1.5 text-xs">
-                                          <p className="font-medium">{formatProductsToBillLabel(unbilledProductCount)}</p>
-                                          {unbilledProductNames.length > 0 && (
-                                            <ul className="list-disc pl-4 text-muted-foreground">
-                                              {unbilledProductNames.map((name, index) => (
-                                                <li key={`${name}-${index}`}>{name}</li>
-                                              ))}
-                                            </ul>
-                                          )}
-                                        </div>
+                                      {renderBillingTooltipContent(
+                                        visit,
+                                        unbilledProductCount,
+                                        unbilledProductNames,
+                                        billedProductCount,
+                                        billedProductNames,
+                                        departmentsReadyForBilling,
                                       )}
                                     </TooltipContent>
                                   </Tooltip>
@@ -1005,7 +1118,14 @@ export default function DashboardPage() {
                                     </button>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p>{formatProductsToBillLabel(unbilledProductCount)}</p>
+                                    {renderBillingTooltipContent(
+                                      visit,
+                                      unbilledProductCount,
+                                      unbilledProductNames,
+                                      billedProductCount,
+                                      billedProductNames,
+                                      departmentsReadyForBilling,
+                                    )}
                                   </TooltipContent>
                                 </Tooltip>
                               )}
