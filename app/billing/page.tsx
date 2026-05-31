@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { BillingItemsList } from '@/components/BillingItemsList';
 import { BillingExemptions } from '@/components/BillingExemptions';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { useSearchParams } from 'next/navigation';
 import { useVisit, type Visit, useInsurances, useCreateBill, useGetBillByVisit, useGenerateInvoice, useCompleteVisit, useGetInvoiceLazy } from '@/hooks/auth-hooks';
 import { useUpdateVisitDepartmentStatus } from '@/hooks/auth-hooks';
 import { useAddVisitNote } from '@/hooks/auth-hooks';
-import { useAddProductToVisitDepartment, useLinkVisitInsurances, useUnlinkVisitInsurances } from '@/hooks/visits/hooks';
+import { useAddProductToVisitDepartment, useLinkVisitInsurances, useUnlinkVisitInsurances, useUpdateProductQuantity } from '@/hooks/visits/hooks';
 import { useCreatePatientInsurance, useUpdatePatientInsurance } from '@/hooks/patients';
 import { Spinner } from '@/components/ui/spinner';
 import AddProductModal from '@/components/add-action-consumable-modal';
@@ -53,6 +53,7 @@ function BillingPageContent() {
   const { updatePatientInsurance } = useUpdatePatientInsurance();
   const { linkVisitInsurances, loading: linkingVisitInsurances } = useLinkVisitInsurances();
   const { unlinkVisitInsurances, loading: unlinkingVisitInsurances } = useUnlinkVisitInsurances();
+  const { updateQuantity: updateProductQuantity } = useUpdateProductQuantity();
   const [billingData, setBillingData] = useState<BillingData | null>(null);
   const [activeVisitInsuranceIds, setActiveVisitInsuranceIds] = useState<string[]>([]);
   const [billJustCreated, setBillJustCreated] = useState(false);
@@ -193,11 +194,11 @@ function BillingPageContent() {
     // Default amount paid to patient's contribution (after insurance and discount) when no bill exists yet.
     const patientContribution = items.reduce((total, item) => {
       const selectedInsurance = insurances.find((ins) => String(ins.id) === item.selectedInsuranceId);
-      const coveragePct = selectedInsurance?.coveragePercentage || 0;
-      const { patientAmount, skip } = getItemInsuranceSplit(
-        { ...item, price: item.price, quantity: item.quantity } as BillingItem,
-        coveragePct,
-      );
+      const coveragePct =
+        selectedInsurance?.insurance?.coveragePercentage ??
+        (selectedInsurance as { coveragePercentage?: number })?.coveragePercentage ??
+        0;
+      const { patientAmount, skip } = getItemInsuranceSplit(item, coveragePct);
       if (skip) return total;
       return total + patientAmount;
     }, 0);
@@ -274,49 +275,8 @@ function BillingPageContent() {
     }
   }, [viewMode, activeService, billingData?.items.length]);
 
-  // Calculate totals for a given items subset
-  const totals = useMemo(() => {
-    if (!billingData) return { subtotal: 0, insuranceCoverage: 0, patientResponsibility: 0, discount: 0, totalAmount: 0 };
-    
-    let subtotal = 0;
-    let insuranceCoverage = 0;
-    let patientResponsibility = 0;
-
-    billingData.items.forEach((item) => {
-      const selectedInsurance = activeVisitInsurances.find(
-        (ins) => String(ins.id) === item.selectedInsuranceId,
-      );
-      const coveragePct =
-        selectedInsurance?.insurance?.coveragePercentage ??
-        selectedInsurance?.coveragePercentage ??
-        0;
-      const { itemTotal, insuranceAmount, patientAmount, skip } = getItemInsuranceSplit(item, coveragePct);
-
-      if (skip) return;
-      subtotal += itemTotal;
-      insuranceCoverage += insuranceAmount;
-      patientResponsibility += patientAmount;
-    });
-    
-    const discount = (patientResponsibility * (billingData.discountPercentage || 0)) / 100;
-    const totalAmount = patientResponsibility - discount;
-    
-    return { subtotal, insuranceCoverage, patientResponsibility, discount, totalAmount };
-  }, [billingData, activeVisitInsurances]);
-
-  const visitInsuranceOptions = useMemo(
-    () =>
-      activeVisitInsurances.map((ins) => ({
-        id: String(ins.id),
-        providerId: String(ins.insurance?.id || ''),
-        name: ins.insurance?.name || ins.name || '',
-        acronym: ins.insurance?.acronym || ins.acronym || '',
-        coveragePercentage: ins.insurance?.coveragePercentage ?? ins.coveragePercentage ?? 0,
-      })),
-    [activeVisitInsurances],
-  );
-
-  const calculateTotalsForItems = (items: BillingItem[]) => {
+  // Calculate totals for a given items subset (selected, unbilled lines only)
+  const calculateTotalsForItems = useCallback((items: BillingItem[]) => {
     let subtotal = 0;
     let insuranceCoverage = 0;
     let patientResponsibility = 0;
@@ -336,12 +296,27 @@ function BillingPageContent() {
       insuranceCoverage += insuranceAmount;
       patientResponsibility += patientAmount;
     });
-    
+
     const discount = (patientResponsibility * (billingData?.discountPercentage || 0)) / 100;
     const totalAmount = patientResponsibility - discount;
-    
+
     return { subtotal, insuranceCoverage, patientResponsibility, discount, totalAmount };
-  };
+  }, [activeVisitInsurances, billingData?.discountPercentage]);
+
+  const emptyTotals = { subtotal: 0, insuranceCoverage: 0, patientResponsibility: 0, discount: 0, totalAmount: 0 };
+
+  const visitInsuranceOptions = useMemo(
+    () =>
+      activeVisitInsurances.map((ins) => ({
+        id: String(ins.id),
+        providerId: String(ins.insurance?.id || ''),
+        name: ins.insurance?.name || ins.name || '',
+        acronym: ins.insurance?.acronym || ins.acronym || '',
+        coveragePercentage: ins.insurance?.coveragePercentage ?? ins.coveragePercentage ?? 0,
+      })),
+    [activeVisitInsurances],
+  );
+
   const patientInsurances = useMemo(() => visit?.patient.insurances || [], [visit?.patient.insurances]);
   const visitInsuranceIds = useMemo(() => new Set(activeVisitInsuranceIds), [activeVisitInsuranceIds]);
 
@@ -356,6 +331,22 @@ function BillingPageContent() {
         updatedAt: new Date().toISOString(),
       };
     });
+  };
+
+  const handleQuantityChange = async (item: BillingItem, nextQty: number) => {
+    if (nextQty < 1) return;
+
+    try {
+      const response = await updateProductQuantity(item.id, nextQty);
+      if (response.status !== 'SUCCESS') {
+        toast.error(response.message || 'Failed to update quantity');
+        return;
+      }
+      handleItemChange({ ...item, quantity: nextQty });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update quantity';
+      toast.error(message);
+    }
   };
 
   const handleItemRemove = (itemId: string) => {
@@ -501,8 +492,16 @@ function BillingPageContent() {
     return invoiceUrl;
   };
   
-  // Compute service-specific totals when in service view
-  const displayTotals = viewMode === 'service' ? calculateTotalsForItems(itemsToDisplay) : totals;
+  // Sticky summary reflects only selected, unbilled items in the current view
+  const displayTotals = useMemo(() => {
+    if (!billingData) return emptyTotals;
+
+    const itemsForTotals = itemsToDisplay.filter(
+      (item) => selectedItemIds.includes(item.id) && item.paymentStatus !== 'paid',
+    );
+
+    return calculateTotalsForItems(itemsForTotals);
+  }, [billingData, itemsToDisplay, selectedItemIds, calculateTotalsForItems]);
 
   useEffect(() => {
     if (!billingData) return
@@ -621,25 +620,15 @@ function BillingPageContent() {
 
   const handleGenerateBill = async () => {
     if (!billingData || creatingBill) return;
-    
-    // In service mode, only bill items from the active service
-    let items = selectedItems.length ? selectedItems : [];
-    if (items.length === 0) {
-      if (viewMode === 'service' && activeService) {
-        items = billingData.items.filter(item => (item.departmentName || 'General') === activeService);
-      } else {
-        items = billingData.items;
-      }
-    }
-    
-    const unbilledItems = items.filter(item => item.paymentStatus !== 'paid');
-    
+
+    const unbilledItems = selectedItems.filter((item) => item.paymentStatus !== 'paid');
+
     if (unbilledItems.length === 0) {
       if (canDischargeVisit && ENABLE_DISCHARGE) {
         await handleDischargeVisit();
         return;
       }
-      toast.warning('All items are already billed');
+      toast.warning(selectedItems.length === 0 ? 'Select at least one item to bill' : 'All selected items are already billed');
       return;
     }
     
@@ -1165,6 +1154,7 @@ function BillingPageContent() {
                 items={itemsToDisplay}
                 onItemChange={handleItemChange}
                 onItemRemove={handleItemRemove}
+                onQuantityChange={handleQuantityChange}
                 availableInsurances={visitInsuranceOptions}
                 selectable={true}
                 selectedItemIds={selectedItemIds}
@@ -1185,6 +1175,9 @@ function BillingPageContent() {
             amountPaid={billingData.amountPaid || 0}
             viewMode={viewMode}
             activeService={activeService}
+            selectedCount={itemsToDisplay.filter(
+              (item) => selectedItemIds.includes(item.id) && item.paymentStatus !== 'paid',
+            ).length}
             existingBill={existingBill}
             canEditBilling={canEditBilling}
             hasRemainingToBill={hasRemainingToBill}
@@ -1195,6 +1188,7 @@ function BillingPageContent() {
             exemptionCount={exemptionCount}
             onCompleteBill={() => {
               setConfirmSheetMode('complete');
+              handleAmountPaidChange(displayTotals.totalAmount);
               setShowCompleteBillConfirm(true);
             }}
             onPrint={() => void handlePrintBillingInvoice()}

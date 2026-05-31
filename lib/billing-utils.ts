@@ -145,11 +145,12 @@ export function getItemInsuranceSplit(
     };
   }
 
-  const insuranceAmount = Math.round((itemTotal * coveragePercentage) / 100);
-  const patientAmount = itemTotal - insuranceAmount;
+  // defaultCoveragePercentage is the patient's share (co-pay), not the insurer's share.
+  const patientAmount = Math.round((itemTotal * coveragePercentage) / 100);
+  const insuranceAmount = itemTotal - patientAmount;
 
   if (exemptionType === 'patient-share') {
-    return { itemTotal, insuranceAmount, patientAmount: 0, skip: false };
+    return { itemTotal, insuranceAmount: itemTotal, patientAmount: 0, skip: false };
   }
 
   return { itemTotal, insuranceAmount, patientAmount, skip: false };

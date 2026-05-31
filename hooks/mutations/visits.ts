@@ -368,23 +368,23 @@ export const UPDATE_VISIT_DEPARTMENT_PRODUCT_QUANTITY_MUTATION = gql`
     updateVisitDepartmentProductQuantity(input: $input) {
       status
       message
-      
       data {
         id
-        departments {
+        department {
           id
-          status
-          products {
+          name
+        }
+        status
+        products {
+          id
+          product {
             id
-            product {
-              id
-              name
-              type
-            }
-            quantity
-            price
-            status
+            name
+            type
           }
+          quantity
+          price
+          status
         }
       }
     }
@@ -396,23 +396,23 @@ export const UPDATE_VISIT_DEPARTMENT_PRODUCT_STATUS_MUTATION = gql`
     updateVisitDepartmentProductStatus(input: $input) {
       status
       message
-      
       data {
         id
-        departments {
+        department {
           id
-          status
-          products {
+          name
+        }
+        status
+        products {
+          id
+          product {
             id
-            product {
-              id
-              name
-              type
-            }
-            quantity
-            price
-            status
+            name
+            type
           }
+          quantity
+          price
+          status
         }
       }
     }
@@ -426,20 +426,21 @@ export const REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION = gql`
       message
       data {
         id
-        departments {
+        department {
           id
-          status
-          products {
+          name
+        }
+        status
+        products {
+          id
+          product {
             id
-            product {
-              id
-              name
-              type
-            }
-            quantity
-            price
-            status
+            name
+            type
           }
+          quantity
+          price
+          status
         }
       }
     }

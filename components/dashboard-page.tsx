@@ -169,8 +169,44 @@ export default function DashboardPage() {
     )
   }
 
+  const countUnbilledProducts = (visit: Visit) => {
+    if (visit.billingStatus === 'BILLED') return 0
+
+    return (visit.departments || []).reduce((count, dept) => {
+      const pendingActions = (dept.actions || []).filter((action) => action.paymentStatus === 'PENDING').length
+      const pendingConsumables = (dept.consumables || []).filter((consumable) => consumable.paymentStatus === 'PENDING').length
+      return count + pendingActions + pendingConsumables
+    }, 0)
+  }
+
+  const getUnbilledProductNames = (visit: Visit) => {
+    const names: string[] = []
+
+    for (const dept of visit.departments || []) {
+      for (const action of dept.actions || []) {
+        if (action.paymentStatus === 'PENDING') {
+          names.push(action.action?.name || 'Product')
+        }
+      }
+      for (const consumable of dept.consumables || []) {
+        if (consumable.paymentStatus === 'PENDING') {
+          names.push(consumable.consumable?.name || 'Product')
+        }
+      }
+    }
+
+    return names
+  }
+
+  const formatProductsToBillLabel = (count: number) => {
+    if (count === 0) return 'No products to bill'
+    return count === 1 ? '1 product to bill' : `${count} products to bill`
+  }
+
   const getBillingDisplayStatus = (visit: Visit) => {
-    return hasNoBillables(visit) ? "0 to bill" : visit.billingStatus
+    if (visit.billingStatus === 'BILLED') return visit.billingStatus
+    if (hasNoBillables(visit)) return formatProductsToBillLabel(0)
+    return formatProductsToBillLabel(countUnbilledProducts(visit))
   }
 
   const hasIncompleteDepartments = (visit: Visit) => {
@@ -703,6 +739,8 @@ export default function DashboardPage() {
                           visitStatus: visit.visitStatus,
                           statusCheck: visit.visitStatus === 'CREATED' || visit.visitStatus === 'IN_PROGRESS',
                         }
+                        const unbilledProductCount = countUnbilledProducts(visit)
+                        const unbilledProductNames = getUnbilledProductNames(visit)
                         if (process.env.NODE_ENV !== 'production') {
                           // eslint-disable-next-line no-console
                           console.debug(`[ConsultButton check for ${visit.patient.firstName} ${visit.patient.lastName}]:`, consultButtonDebug)
@@ -749,9 +787,29 @@ export default function DashboardPage() {
                                   {new Date(visit.visitDate).toLocaleDateString()}
                                 </p>
                                 {canSeeBillingInfo && (
-                                  <p className="text-xs text-muted-foreground truncate">
-                                    Billing: {getBillingDisplayStatus(visit)}
-                                  </p>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <p className="text-xs text-muted-foreground truncate cursor-help">
+                                        Billing: {getBillingDisplayStatus(visit)}
+                                      </p>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                      {visit.billingStatus === 'BILLED' ? (
+                                        <p className="text-xs">All products billed</p>
+                                      ) : (
+                                        <div className="space-y-1.5 text-xs">
+                                          <p className="font-medium">{formatProductsToBillLabel(unbilledProductCount)}</p>
+                                          {unbilledProductNames.length > 0 && (
+                                            <ul className="list-disc pl-4 text-muted-foreground">
+                                              {unbilledProductNames.map((name, index) => (
+                                                <li key={`${name}-${index}`}>{name}</li>
+                                              ))}
+                                            </ul>
+                                          )}
+                                        </div>
+                                      )}
+                                    </TooltipContent>
+                                  </Tooltip>
                                 )}
                                 {isReceptionistOnly && (
                                   <p className="text-xs text-muted-foreground truncate">
@@ -947,7 +1005,7 @@ export default function DashboardPage() {
                                     </button>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p>Bill Visit</p>
+                                    <p>{formatProductsToBillLabel(unbilledProductCount)}</p>
                                   </TooltipContent>
                                 </Tooltip>
                               )}

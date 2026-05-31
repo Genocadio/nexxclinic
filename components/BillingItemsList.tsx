@@ -1,7 +1,7 @@
 'use client';
 
-import { Fragment, useMemo, useState } from 'react';
-import { AlertCircle, Check, Edit2, Trash2, X } from 'lucide-react';
+import { Fragment, useMemo, useRef, useState } from 'react';
+import { AlertCircle, Check, Edit2, Minus, Plus, Trash2, X } from 'lucide-react';
 import {
   BillingItem,
   applyInsuranceSelectionToItem,
@@ -26,6 +26,7 @@ type BillingItemsListProps = {
   items: BillingItem[];
   onItemChange: (item: BillingItem) => void;
   onItemRemove: (itemId: string) => void;
+  onQuantityChange?: (item: BillingItem, quantity: number) => void | Promise<void>;
   availableInsurances?: InsuranceOption[];
   selectable?: boolean;
   selectedItemIds?: string[];
@@ -73,6 +74,7 @@ export function BillingItemsList({
   items,
   onItemChange,
   onItemRemove,
+  onQuantityChange,
   availableInsurances = [],
   selectable = false,
   selectedItemIds = [],
@@ -84,6 +86,9 @@ export function BillingItemsList({
 }: BillingItemsListProps) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState<string>('');
+  const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState('');
+  const qtyInputRef = useRef<HTMLInputElement>(null);
 
   const groupedItems = useMemo(() => {
     const grouped = items.reduce<Record<string, BillingItem[]>>((acc, item) => {
@@ -132,6 +137,90 @@ export function BillingItemsList({
 
   const canEditUnitPrice = (item: BillingItem) =>
     item.paymentStatus !== 'paid' && !item.selectedInsuranceId;
+
+  const applyQuantity = async (item: BillingItem, nextQty: number) => {
+    const quantity = Math.max(1, Math.floor(nextQty));
+    if (quantity === item.quantity) return;
+    if (onQuantityChange) {
+      await onQuantityChange(item, quantity);
+    } else {
+      onItemChange({ ...item, quantity });
+    }
+  };
+
+  const renderQuantityCell = (item: BillingItem) => {
+    if (item.paymentStatus === 'paid' || !onQuantityChange) {
+      return <span className="tabular-nums">{item.quantity}</span>;
+    }
+
+    return (
+      <div className="inline-flex items-center justify-center gap-0.5">
+        {item.quantity > 1 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 w-6 p-0 rounded-full opacity-70 group-hover:opacity-100"
+            aria-label="Decrease quantity"
+            onClick={() => void applyQuantity(item, item.quantity - 1)}
+          >
+            <Minus className="h-3 w-3" />
+          </Button>
+        )}
+
+        {editingQtyId === item.id ? (
+          <Input
+            ref={qtyInputRef}
+            type="number"
+            min={1}
+            value={editQty}
+            onChange={(e) => setEditQty(e.target.value)}
+            onFocus={(e) => e.target.select()}
+            onBlur={() => {
+              const parsed = parseInt(editQty, 10);
+              const next = Number.isFinite(parsed) && parsed >= 1 ? parsed : item.quantity;
+              void applyQuantity(item, next);
+              setEditingQtyId(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                (e.target as HTMLInputElement).blur();
+              }
+              if (e.key === 'Escape') {
+                setEditingQtyId(null);
+              }
+            }}
+            className="w-10 h-6 text-center text-xs tabular-nums px-1 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            autoFocus
+          />
+        ) : (
+          <button
+            type="button"
+            className="min-w-[1.5rem] text-xs tabular-nums font-medium text-center hover:text-primary transition-colors"
+            title="Click to edit quantity"
+            onClick={() => {
+              setEditQty(String(item.quantity));
+              setEditingQtyId(item.id);
+              setTimeout(() => qtyInputRef.current?.focus(), 0);
+            }}
+          >
+            {item.quantity}
+          </button>
+        )}
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-6 w-6 p-0 rounded-full opacity-70 group-hover:opacity-100"
+          aria-label="Increase quantity"
+          onClick={() => void applyQuantity(item, item.quantity + 1)}
+        >
+          <Plus className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  };
 
   return (
     <div className="overflow-x-auto">
@@ -264,7 +353,7 @@ export function BillingItemsList({
                               </Badge>
                             </td>
                           )}
-                          <td className="py-2 px-3 text-center tabular-nums">{item.quantity}</td>
+                          <td className="py-2 px-3 text-center">{renderQuantityCell(item)}</td>
                           <td className="py-2 px-3 text-right">
                             {editingItemId === item.id && !canEditUnitPrice(item) ? (
                               <span className="tabular-nums text-sm">{item.price.toLocaleString()}</span>

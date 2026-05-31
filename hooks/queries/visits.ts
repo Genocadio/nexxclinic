@@ -114,6 +114,18 @@ export const GET_VISIT_QUERY = gql`
               unit
               privateRhicPrice
               clinicPrice
+              insuranceCoverages {
+                id
+                insuranceProvider {
+                  id
+                  insuranceName
+                  acronym
+                  defaultCoveragePercentage
+                }
+                cost
+                covered
+                requireMedicalAdvisor
+              }
             }
             quantity
             price

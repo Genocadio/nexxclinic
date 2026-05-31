@@ -18,6 +18,7 @@ type BillingStickySummaryProps = {
   currency?: string;
   viewMode: 'all' | 'service';
   activeService?: string;
+  selectedCount?: number;
   existingBill?: {
     id: string;
     totalAmount: number;
@@ -50,6 +51,7 @@ export function BillingStickySummary({
   currency = 'RWF',
   viewMode,
   activeService,
+  selectedCount = 0,
   existingBill,
   canEditBilling,
   hasRemainingToBill,
@@ -102,6 +104,11 @@ export function BillingStickySummary({
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
               {viewMode === 'service' && activeService ? `${activeService} · Due` : 'Amount Due'}
             </p>
+            {selectedCount > 0 && !existingBill && (
+              <p className="text-[10px] text-muted-foreground">
+                {selectedCount} item{selectedCount !== 1 ? 's' : ''} selected
+              </p>
+            )}
             <p className="text-xl font-bold text-[#FF6900] tabular-nums leading-tight">
               {formatRwf(totals.totalAmount)}
             </p>
