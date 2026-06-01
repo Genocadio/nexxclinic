@@ -449,6 +449,8 @@ type VisitDepartment {
   department: Department!
   status: VisitDepartmentStatus!
   completedAt: String
+  processors: [Worker!]
+  childVisitDepartments: [VisitDepartment!]!
   products: [VisitDepartmentProduct!]!
   diagnostics: [VisitDepartmentDiagnosis!]
   medications: [VisitDepartmentMedication!]
@@ -519,6 +521,7 @@ type VisitDepartmentProduct {
   status: VisitProductStatus!
   addedBy: Worker
   billedBy: Worker
+  processor: Worker
   createdAt: String!
   updatedAt: String!
 }
@@ -1027,6 +1030,7 @@ input CreateVisitDepartmentInput {
 
 input CreateVisitDepartmentProductItemInput {
   productId: ID!
+  processorId: ID
   quantity: Float
   price: Float
   status: VisitProductStatus
@@ -1036,9 +1040,17 @@ input CreateVisitDepartmentProductInput {
   visitId: ID!
   departmentId: ID!
   productId: ID!
+  processorId: ID
   quantity: Float
   price: Float
   status: VisitProductStatus
+}
+
+input AddChildVisitDepartmentInput {
+  parentVisitDepartmentId: ID!
+  departmentId: ID!
+  productIds: [ID!]!
+  processorId: ID
 }
 
 input UpdateVisitDepartmentProductStatusInput {
@@ -1245,6 +1257,10 @@ type Mutation {
   createVisit(input: CreateVisitInput!): VisitResponse!
   changeVisitDate(input: ChangeVisitDateInput!): VisitResponse!
   addVisitDepartment(visitId: ID!, departmentId: ID!): VisitResponse!
+  addChildVisitDepartment(input: AddChildVisitDepartmentInput!): VisitDepartmentResponse!
+  removeChildVisitDepartment(visitDepartmentId: ID!): VisitDepartmentResponse!
+  addVisitDepartmentProcessor(visitDepartmentId: ID!, processorId: ID!): VisitDepartmentResponse!
+  removeVisitDepartmentProcessor(visitDepartmentId: ID!, processorId: ID!): VisitDepartmentResponse!
   linkVisitInsurances(visitId: ID!, insuranceIds: [ID!]!): VisitResponse!
   unlinkVisitInsurances(visitId: ID!, insuranceIds: [ID!]!): VisitResponse!
   completeVisitDepartment(visitDepartmentId: ID!): VisitDepartmentResponse!

@@ -253,6 +253,41 @@ export default function PatientHistorySidePane({
     })
   }
 
+  const handleDepartmentClick = useCallback((dept: VisitDepartment, visitId: string) => {
+    if (!visitId) return
+
+    const visit = visits.find((item) => item.id === visitId)
+    const visitDepartmentId = String(dept.id || "")
+
+    if (onPreviewDepartmentAnswers && visitDepartmentId) {
+      onPreviewDepartmentAnswers({
+        visitId,
+        visitDepartmentId,
+        departmentName: dept.department?.name || "Department",
+        patientName: visit?.patient
+          ? `${visit.patient.firstName || ""} ${visit.patient.lastName || ""}`.trim() || "Unknown patient"
+          : "Unknown patient",
+      })
+      return
+    }
+
+    setExpandedDepartment({
+      visitDepartmentId,
+      visitId,
+      departmentName: dept.department?.name || "Department",
+      diagnostics: (dept.diagnostics || []).map((diag) => ({
+        id: String(diag.id || ""),
+        diagnosisName: diag.diagnosisName || "Unknown diagnosis",
+        icd11Code: diag.icd11Code || undefined,
+      })),
+      medications: (dept.medications || []).map((med) => ({
+        id: String(med.id || ""),
+        medicationName: med.medicationName || "Unknown medication",
+        instructions: med.instructions || "",
+      })),
+    })
+  }, [onPreviewDepartmentAnswers, visits])
+
   return (
     <div className="fixed top-16 bottom-0 left-0 w-[420px] bg-background border-r border-border shadow-2xl z-[89] flex flex-col overflow-hidden">
       {/* Header */}

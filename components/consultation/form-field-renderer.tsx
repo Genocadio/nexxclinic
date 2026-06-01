@@ -112,6 +112,49 @@ export function FormFieldRenderer({
   const { addDiagnosis } = useAddDiagnosisToVisitDepartment()
   const { addMedication } = useAddMedicationToVisitDepartment()
 
+  const parseBooleanLikeValue = (value: any): boolean => {
+    if (typeof value === 'boolean') return value
+    if (typeof value === 'number') return value === 1
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase()
+      if (['true', 'yes', 'y', '1', 'checked', 'on'].includes(normalized)) return true
+      if (['false', 'no', 'n', '0', 'unchecked', 'off', ''].includes(normalized)) return false
+      // Legacy payloads can store checkbox answers as free text; treat non-empty text as checked.
+      return normalized.length > 0
+    }
+    if (value && typeof value === 'object') {
+      if (Object.prototype.hasOwnProperty.call(value, 'checked')) return parseBooleanLikeValue(value.checked)
+      if (Object.prototype.hasOwnProperty.call(value, 'value')) return parseBooleanLikeValue(value.value)
+    }
+    return Boolean(value)
+  }
+
+  const parseCheckboxSelections = (value: any): string[] => {
+    if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean)
+    if (value && typeof value === 'object') {
+      if (Array.isArray((value as { value?: unknown }).value)) {
+        return ((value as { value: unknown[] }).value || []).map((item) => String(item)).filter(Boolean)
+      }
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (!trimmed) return []
+
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (Array.isArray(parsed)) {
+          return parsed.map((item) => String(item)).filter(Boolean)
+        }
+      } catch {
+        // Fall through to comma-delimited parsing.
+      }
+
+      return trimmed.split(',').map((item) => item.trim()).filter(Boolean)
+    }
+
+    return []
+  }
+
   const renderReadOnlyValue = (value: any) => {
     if (value === null || value === undefined || value === '') {
       return <p className="text-sm text-muted-foreground">-</p>
@@ -142,6 +185,31 @@ export function FormFieldRenderer({
   }
 
   if (readOnly) {
+    if (field.type === 'checkbox') {
+      if (field.options && field.options.length > 0) {
+        const selectedValues = parseCheckboxSelections(currentValue)
+
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
+            {field.options.map((opt) => (
+              <div key={opt} className="flex items-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 py-2">
+                <Checkbox checked={selectedValues.includes(opt)} disabled />
+                <span className="text-sm break-words min-w-0 flex-1">{opt}</span>
+              </div>
+            ))}
+          </div>
+        )
+      }
+
+      const checked = parseBooleanLikeValue(currentValue)
+      return (
+        <div className="flex items-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 py-2">
+          <Checkbox checked={checked} disabled />
+          <span className="text-sm break-words min-w-0 flex-1">{checked ? 'Checked' : 'Unchecked'}</span>
+        </div>
+      )
+    }
+
     if (field.type === 'table') {
       const cfg = field.tableConfig || { mode: 'STATIC' as const, rows: 3, columns: 3, headerPlacement: 'none' as const }
       const shape = tableShapes[field.id] || { rows: cfg.rows, columns: cfg.columns }

@@ -140,7 +140,7 @@ export function ConsultationPreviewSheet({
   return createPortal(
     <div className="fixed inset-0 z-[88]">
       <div
-        className={`absolute top-16 bottom-0 left-0 md:left-[420px] right-0 bg-black/15 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute top-16 bottom-0 left-0 md:left-[420px] right-0 bg-transparent transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}
         onClick={() => onOpenChange(false)}
         aria-hidden="true"
       />
