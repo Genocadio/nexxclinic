@@ -262,7 +262,9 @@ export default function ConsultationPage() {
               status: updatedConsultation.status,
             })
 
-            router.push('/')
+            if (updatedConsultation.status === 'finalized') {
+              router.push('/')
+            }
           } catch (error) {
             console.error('Unexpected consultation save error', error)
             toast.error('Unexpected consultation save error')

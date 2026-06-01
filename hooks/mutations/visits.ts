@@ -175,12 +175,14 @@ export const UPSERT_CONSULTATION_ANSWERS_MUTATION = gql`
         visitId
         patientId
         departmentId
-        formId
-        formVersion
         status
         answers
         submittedAt
         updatedAt
+        dedicatedForm {
+          id
+          version
+        }
       }
     }
   }
