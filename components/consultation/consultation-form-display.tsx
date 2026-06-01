@@ -33,6 +33,7 @@ interface ConsultationFormDisplayProps {
   currentDepartmentId?: string
   visitDepartmentId?: string
   hideActionListenerAddButton?: boolean
+  productsLocked?: boolean
   readOnly?: boolean
 }
 
@@ -60,6 +61,7 @@ export function ConsultationFormDisplay({
   currentDepartmentId,
   visitDepartmentId,
   hideActionListenerAddButton = false,
+  productsLocked = false,
   readOnly = false,
 }: ConsultationFormDisplayProps) {
   return (
@@ -120,6 +122,7 @@ export function ConsultationFormDisplay({
                          departmentId={currentDepartmentId}
                          visitDepartmentId={visitDepartmentId}
                          hideActionListenerAddButton={hideActionListenerAddButton}
+                         productsLocked={productsLocked}
                          readOnly={readOnly}
                        />
                     </div>
@@ -167,6 +170,7 @@ export function ConsultationFormDisplay({
                                  visitId={visitId}
                                  visitDepartmentId={visitDepartmentId}
                                  hideActionListenerAddButton={hideActionListenerAddButton}
+                                 productsLocked={productsLocked}
                                  readOnly={readOnly}
                                />
                             </div>

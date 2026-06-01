@@ -1007,6 +1007,8 @@ input UpdateDepartmentInput {
 
 input SearchDepartmentsInput {
   name: String
+  supportRequests: Boolean
+  requestsProducts: Boolean
   page: Int
   size: Int
 }
@@ -1046,10 +1048,15 @@ input CreateVisitDepartmentProductInput {
   status: VisitProductStatus
 }
 
+input AddChildVisitDepartmentProductInput {
+  productId: ID!
+  quantity: Float!
+}
+
 input AddChildVisitDepartmentInput {
   parentVisitDepartmentId: ID!
   departmentId: ID!
-  productIds: [ID!]!
+  products: [AddChildVisitDepartmentProductInput!]!
   processorId: ID
 }
 

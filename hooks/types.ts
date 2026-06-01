@@ -178,7 +178,9 @@ export interface VisitDepartment {
   department: {
     id: string
     name: string
+    requestsProducts?: boolean
   }
+  childVisitDepartments?: VisitDepartment[]
   transferredBy?: {
     id: string
     name: string

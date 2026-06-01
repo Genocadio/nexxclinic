@@ -21,6 +21,9 @@ interface VisitNotesFloatingProps {
   title?: string
   allowedDisplayTypes?: string[]
   onAddNote?: (type: string, text: string) => Promise<void>
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  hideToggleButton?: boolean
 }
 
 export default function VisitNotesFloating({
@@ -29,8 +32,20 @@ export default function VisitNotesFloating({
   title = "Visit Notes",
   allowedDisplayTypes,
   onAddNote,
+  open,
+  onOpenChange,
+  hideToggleButton = false,
 }: VisitNotesFloatingProps) {
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const controlled = typeof open === 'boolean'
+  const isOpen = controlled ? open : internalOpen
+  const setOpenState = (value: boolean) => {
+    if (controlled) {
+      onOpenChange?.(value)
+    } else {
+      setInternalOpen(value)
+    }
+  }
   const [text, setText] = useState("")
   const [selectedType, setSelectedType] = useState(noteTypes[0] || "GENERAL")
   const [submitting, setSubmitting] = useState(false)
@@ -151,25 +166,27 @@ export default function VisitNotesFloating({
 
   return (
     <>
-      <div className="fixed right-6 top-1/2 -translate-y-1/2 z-40">
-        <Button
-          type="button"
-          size="icon"
-          className="relative rounded-full h-12 w-12 border-2 border-white/30 bg-card/90 text-foreground hover:bg-card shadow-lg"
-          onClick={() => setOpen((prev) => !prev)}
-          aria-label="Toggle notes"
-          title="Notes"
-        >
-          <StickyNote className="h-5 w-5" />
-          {!open && visibleNotes.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-pulse">
-              {visibleNotes.length}
-            </span>
-          )}
-        </Button>
-      </div>
+      {!hideToggleButton && (
+        <div className="fixed right-6 top-1/2 -translate-y-1/2 z-40">
+          <Button
+            type="button"
+            size="icon"
+            className="relative rounded-full h-12 w-12 border-2 border-white/30 bg-card/90 text-foreground hover:bg-card shadow-lg"
+            onClick={() => setOpenState(!isOpen)}
+            aria-label="Toggle notes"
+            title="Notes"
+          >
+            <StickyNote className="h-5 w-5" />
+            {!isOpen && visibleNotes.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-pulse">
+                {visibleNotes.length}
+              </span>
+            )}
+          </Button>
+        </div>
+      )}
 
-      {open && (
+      {isOpen && (
         <div className="fixed right-20 top-1/2 -translate-y-1/2 w-[360px] max-w-[calc(100vw-7rem)] z-40 bg-card border border-border rounded-2xl shadow-2xl p-4 space-y-4">
           <div>
             <h3 className="text-sm font-semibold text-foreground">{title}</h3>

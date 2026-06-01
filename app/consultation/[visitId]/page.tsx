@@ -8,8 +8,8 @@ import VisitNotesFloating from "@/components/visit-notes-floating"
 import Header from "@/components/header"
 import type { Patient, Consultation } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft } from "lucide-react"
-import { useEffect } from "react"
+import { FlaskConical, StickyNote } from "lucide-react"
+import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import InlineTryAgain from "@/components/inline-try-again"
 import { toast } from "react-toastify"
@@ -22,6 +22,8 @@ export default function ConsultationPage() {
   const { visit, loading, error, refetch } = useVisit(visitId)
   const { completeConsultationVisit } = useCompleteConsultationVisit()
   const { addDepartmentNote } = useAddDepartmentNote()
+  const [notesOpen, setNotesOpen] = useState(false)
+  const [requestProductsOpen, setRequestProductsOpen] = useState(false)
 
   // Redirect to dashboard if visit not found after loading completes
   useEffect(() => {
@@ -202,13 +204,39 @@ export default function ConsultationPage() {
     rawData: product,
   }))
 
-  const requestProductsEnabled = (visit.departments || []).some((department) => department.department?.requestsProducts === true)
-
-  console.log('[Consultation-Page] visitId:', visit.id, 'firstDepartmentId:', firstDepartment?.id, 'rawProducts:', rawDepartmentProducts.length, 'actions:', (firstDepartment?.actions || []).length, 'consumables:', (firstDepartment?.consumables || []).length, 'existingProductsMapped:', existingProducts.length)
+  const currentVisitDepartment = firstDepartment
+  const requestProductsEnabled = Boolean(currentVisitDepartment?.department?.requestsProducts ?? currentVisitDepartment?.requestsProducts)
+  console.log('[Consultation-Page] visitId:', visit.id, 'firstDepartmentId:', firstDepartment?.id, 'currentRequestProductsEnabled:', requestProductsEnabled, 'rawProducts:', rawDepartmentProducts.length, 'actions:', (firstDepartment?.actions || []).length, 'consumables:', (firstDepartment?.consumables || []).length, 'existingProductsMapped:', existingProducts.length)
 
   return (
     <div className="min-h-screen bg-background">
       <Header doctor={doctor} />
+      <div className="fixed right-6 top-1/2 z-50 -translate-y-1/2 flex flex-col items-center gap-3 rounded-full border border-border/60 bg-card/80 p-2 shadow-2xl backdrop-blur">
+        {requestProductsEnabled && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setRequestProductsOpen(true)}
+            className="rounded-full border border-border/70 bg-background p-2 text-foreground hover:bg-muted"
+            title="Investigations"
+            aria-label="Open investigations"
+          >
+            <FlaskConical className="h-5 w-5" />
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => setNotesOpen((prev) => !prev)}
+          className="rounded-full border border-border/70 bg-background p-2 text-foreground hover:bg-muted"
+          title="Notes"
+          aria-label="Open notes"
+        >
+          <StickyNote className="h-5 w-5" />
+        </Button>
+      </div>
       <ConsultationViewBackbone
         consultation={consultation}
         patient={patient}
@@ -217,6 +245,8 @@ export default function ConsultationPage() {
         visitDepartmentId={firstVisitDepartmentId ? String(firstVisitDepartmentId) : undefined}
         existingProducts={existingProducts}
         requestProductsEnabled={requestProductsEnabled}
+        requestProductsOpen={requestProductsOpen}
+        onRequestProductsOpenChange={setRequestProductsOpen}
         userRoles={doctor?.roles || []}
         onSave={async (updatedConsultation) => {
           try {
@@ -285,6 +315,9 @@ export default function ConsultationPage() {
           'REPORT',
           'BILLING',
         ]}
+        open={notesOpen}
+        onOpenChange={setNotesOpen}
+        hideToggleButton
         onAddNote={async (type, text) => {
           const departmentToSave = String(firstDepartmentId || '')
           if (!departmentToSave) {

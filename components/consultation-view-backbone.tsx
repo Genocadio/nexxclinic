@@ -1,9 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { CheckCircle2, FilePenLine, Loader2 } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { CheckCircle2, FilePenLine, Loader2, Minus, Plus, Search, X as XIcon } from "lucide-react"
 import type { Patient } from "@/lib/types"
-import { useAddActionToVisitDepartment, useAddConsumableToVisitDepartment, useUpsertConsultationAnswers } from "@/hooks/auth-hooks"
 import { normalizeConsultationAnswersResult, useConsultationAnswers, useLatestForm, useFormVersionHistory } from "@/hooks/forms"
 import AddActionConsumableModal from "@/components/add-action-consumable-modal"
 import FormActionsDisplay from "@/components/form-actions-display"
@@ -12,10 +11,24 @@ import { useVisit } from "@/hooks/visits/hooks"
 import { ConsultationBottomDock } from "@/components/consultation/consultation-bottom-dock"
 import { ConsultationPreviewSheet } from "@/components/dashboard/consultation-preview-sheet"
 import PatientHistorySidePane from "@/components/patient-history-side-pane"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useDepartments } from "@/hooks/departments/hooks"
+import { useProductSearch } from "@/hooks/products/hooks"
 import { ConsultationFormDisplay } from "@/components/consultation/consultation-form-display"
-import { useRemoveProductFromVisitDepartment, useUpdateProductQuantity } from "@/hooks/visits"
+import {
+  useRemoveProductFromVisitDepartment,
+  useUpdateProductQuantity,
+  useAddActionToVisitDepartment,
+  useAddConsumableToVisitDepartment,
+  useAddChildVisitDepartment,
+  useAddProductToVisitDepartment,
+  useUpsertConsultationAnswers,
+} from "@/hooks/visits"
+import type { VisitDepartment } from "@/hooks/types"
+import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
 import {
   normalizeField,
@@ -25,8 +38,15 @@ import {
   type BackendDepartmentForm,
 } from "@/components/consultation/consultation-form-utils"
 import type { FormAction } from "@/lib/form-storage"
+import { isVisitOrDepartmentClosedForProducts } from "@/lib/visit-product-lock"
+import { ProductLockedTooltip } from "@/components/consultation/product-locked-tooltip"
 
 const CONSULTATION_FORM_CONTEXT_PREFIX = 'consultation_form_context'
+
+const isEditableChildVisitDepartmentStatus = (status?: string) => {
+  const normalized = String(status || '').toUpperCase()
+  return normalized !== 'COMPLETED' && normalized !== 'CANCELLED'
+}
 
 const getConsultationFormContextKey = (consultationId?: string | null, departmentId?: string | null) =>
   `${CONSULTATION_FORM_CONTEXT_PREFIX}:${String(consultationId || '')}:${String(departmentId || '')}`
@@ -48,6 +68,8 @@ interface ConsultationViewBackboneProps {
   visitDepartmentId?: string
   existingProducts?: FormAction[]
   requestProductsEnabled?: boolean
+  requestProductsOpen?: boolean
+  onRequestProductsOpenChange?: (open: boolean) => void
   userRoles?: string[]
   onSave: (consultation: any) => void
   onBack: () => void
@@ -66,6 +88,8 @@ export default function ConsultationViewBackbone({
   visitDepartmentId,
   existingProducts = [],
   requestProductsEnabled = true,
+  requestProductsOpen,
+  onRequestProductsOpenChange,
   userRoles = [],
   onSave,
   onBack: _onBack,
@@ -96,8 +120,24 @@ export default function ConsultationViewBackbone({
   const isSavingRef = useRef(false)
   const hydrationReadyRef = useRef(false)
   const hydrationStagesRef = useRef({ answers: false, products: false, clinical: false })
+  const investigationProductSearchRef = useRef<HTMLInputElement>(null)
   const { loadLatestForm: loadForm } = useLatestForm(departmentId || null)
   const visitId = initialConsultation.consultationId || null
+  const { visit, refetch: refetchVisit } = useVisit(visitId)
+  const parentVisitDepartment = useMemo(() => {
+    if (!visitDepartmentId || !visit?.departments?.length) return null
+    return visit.departments.find((dept) => String(dept.id) === String(visitDepartmentId)) || null
+  }, [visit?.departments, visitDepartmentId])
+  const childInvestigationDepartments = parentVisitDepartment?.childVisitDepartments || []
+  const productsLocked = useMemo(
+    () =>
+      isVisitOrDepartmentClosedForProducts(
+        visit?.visitStatus || visit?.status,
+        departmentStatus || parentVisitDepartment?.status
+      ),
+    [visit?.visitStatus, visit?.status, departmentStatus, parentVisitDepartment?.status]
+  )
+  const canModifyVisitProducts = !productsLocked
   const { loadConsultationAnswers: loadAnswers } = useConsultationAnswers(visitId, visitDepartmentId || null, departmentForm?.id || null)
   const { loadVersionHistory } = useFormVersionHistory(departmentId || null, null)
   const { upsertConsultationAnswers } = useUpsertConsultationAnswers()
@@ -157,6 +197,294 @@ export default function ConsultationViewBackbone({
   const { addConsumable } = useAddConsumableToVisitDepartment()
   const { updateQuantity: updateProductQuantity } = useUpdateProductQuantity()
   const { removeProduct: removeVisitProduct } = useRemoveProductFromVisitDepartment()
+
+  const [internalRequestProductsOpen, setInternalRequestProductsOpen] = useState(false)
+  const [selectedRequestDepartmentId, setSelectedRequestDepartmentId] = useState<string | null>(null)
+  const [productSearchQuery, setProductSearchQuery] = useState('')
+  const [debouncedProductSearchQuery, setDebouncedProductSearchQuery] = useState('')
+  const [productSearchFocused, setProductSearchFocused] = useState(false)
+  const [pendingRequestProducts, setPendingRequestProducts] = useState<
+    Array<{ id: string; name: string; type?: string; code?: string; quantity: number }>
+  >([])
+  const [targetExistingChildVisitDepartmentId, setTargetExistingChildVisitDepartmentId] = useState<string | null>(null)
+  const [requestComposerMode, setRequestComposerMode] = useState<'existing-child' | 'other-service' | null>(null)
+  const [isSubmittingInvestigations, setIsSubmittingInvestigations] = useState(false)
+  const [requestErrorMessage, setRequestErrorMessage] = useState<string | null>(null)
+  const { addChildVisitDepartment } = useAddChildVisitDepartment()
+  const { addProduct: addProductToVisitDepartment } = useAddProductToVisitDepartment()
+
+  const resetInvestigationComposer = () => {
+    setSelectedRequestDepartmentId(null)
+    setTargetExistingChildVisitDepartmentId(null)
+    setRequestComposerMode(null)
+    setProductSearchQuery('')
+    setDebouncedProductSearchQuery('')
+    setPendingRequestProducts([])
+    setRequestErrorMessage(null)
+  }
+
+  const requestProductsModalOpen = typeof requestProductsOpen === 'boolean' ? requestProductsOpen : internalRequestProductsOpen
+  const setRequestProductsModalOpen = (open: boolean) => {
+    if (!open) {
+      resetInvestigationComposer()
+    }
+    if (typeof requestProductsOpen === 'boolean') {
+      onRequestProductsOpenChange?.(open)
+    } else {
+      setInternalRequestProductsOpen(open)
+    }
+  }
+
+  const {
+    departments: supportDepartments,
+    loading: supportDepartmentsLoading,
+    error: supportDepartmentsError,
+  } = useDepartments({
+    skip: !requestProductsEnabled,
+    input: { supportRequests: true, page: 0, size: 200 },
+  })
+
+  const selectedRequestDepartment = selectedRequestDepartmentId
+    ? supportDepartments.find((dept) => dept.id === selectedRequestDepartmentId) || null
+    : null
+
+  const {
+    products: requestProducts,
+    loading: requestProductsLoading,
+    error: requestProductsError,
+  } = useProductSearch(debouncedProductSearchQuery, { size: 8 })
+
+  useEffect(() => {
+    const trimmed = productSearchQuery.trim()
+    const timer = window.setTimeout(() => {
+      setDebouncedProductSearchQuery(trimmed.length >= 2 ? trimmed : '')
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [productSearchQuery])
+
+  const showProductSuggestionPanel =
+    productSearchFocused && debouncedProductSearchQuery.length >= 2
+
+  const findEditableChildForCatalogDepartment = (catalogDepartmentId: string) =>
+    childInvestigationDepartments.find(
+      (child) =>
+        String(child.department?.id) === String(catalogDepartmentId) &&
+        isEditableChildVisitDepartmentStatus(child.status)
+    ) || null
+
+  const targetExistingChildVisitDepartment = targetExistingChildVisitDepartmentId
+    ? childInvestigationDepartments.find((child) => String(child.id) === String(targetExistingChildVisitDepartmentId)) ||
+      null
+    : null
+
+  const isAppendingToExistingChild = Boolean(targetExistingChildVisitDepartment)
+  const showRequestComposer = requestComposerMode !== null
+  const showProductSearchComposer =
+    canModifyVisitProducts && showRequestComposer && Boolean(selectedRequestDepartmentId && selectedRequestDepartment)
+  const showCurrentRequestSection = productsLocked
+    ? true
+    : requestComposerMode === null && childInvestigationDepartments.length > 0
+
+  const usedChildCatalogDepartmentIds = useMemo(
+    () =>
+      new Set(
+        childInvestigationDepartments
+          .map((child) => String(child.department?.id || ''))
+          .filter(Boolean)
+      ),
+    [childInvestigationDepartments]
+  )
+
+  const availableSupportDepartmentsForNewRequest = useMemo(
+    () => supportDepartments.filter((dept) => !usedChildCatalogDepartmentIds.has(String(dept.id))),
+    [supportDepartments, usedChildCatalogDepartmentIds]
+  )
+
+  const canRequestFromOtherService =
+    canModifyVisitProducts &&
+    !supportDepartmentsLoading &&
+    !supportDepartmentsError &&
+    availableSupportDepartmentsForNewRequest.length > 0
+
+  useEffect(() => {
+    if (!requestProductsModalOpen || childInvestigationDepartments.length > 0 || productsLocked) return
+    setRequestComposerMode('other-service')
+    setSelectedRequestDepartmentId(null)
+    setTargetExistingChildVisitDepartmentId(null)
+    setPendingRequestProducts([])
+    setProductSearchQuery('')
+    setDebouncedProductSearchQuery('')
+    setRequestErrorMessage(null)
+  }, [requestProductsModalOpen, childInvestigationDepartments.length, productsLocked])
+
+  useEffect(() => {
+    if (!requestProductsModalOpen || !productsLocked) return
+    setRequestComposerMode(null)
+    setSelectedRequestDepartmentId(null)
+    setTargetExistingChildVisitDepartmentId(null)
+    setPendingRequestProducts([])
+    setProductSearchQuery('')
+    setDebouncedProductSearchQuery('')
+    setRequestErrorMessage(null)
+  }, [requestProductsModalOpen, productsLocked])
+
+  const handleSelectRequestDepartment = (departmentId: string) => {
+    const existingChild = findEditableChildForCatalogDepartment(departmentId)
+    setSelectedRequestDepartmentId(departmentId)
+    setTargetExistingChildVisitDepartmentId(existingChild?.id || null)
+    setProductSearchQuery('')
+    setDebouncedProductSearchQuery('')
+    setPendingRequestProducts([])
+    setRequestErrorMessage(null)
+  }
+
+  const handleContinueExistingChildRequest = (childDept: VisitDepartment) => {
+    if (productsLocked) return
+    const catalogDepartmentId = childDept.department?.id
+    if (!catalogDepartmentId || !isEditableChildVisitDepartmentStatus(childDept.status)) return
+    setSelectedRequestDepartmentId(String(catalogDepartmentId))
+    setTargetExistingChildVisitDepartmentId(String(childDept.id))
+    setRequestComposerMode('existing-child')
+    setProductSearchQuery('')
+    setDebouncedProductSearchQuery('')
+    setPendingRequestProducts([])
+    setRequestErrorMessage(null)
+  }
+
+  const handleStartOtherServiceRequest = () => {
+    if (productsLocked) return
+    setRequestErrorMessage(null)
+    setPendingRequestProducts([])
+    setProductSearchQuery('')
+    setDebouncedProductSearchQuery('')
+    setSelectedRequestDepartmentId(null)
+    setTargetExistingChildVisitDepartmentId(null)
+    setRequestComposerMode('other-service')
+  }
+
+  const handleAddPendingRequestProduct = (product: { id: string; name: string; type?: string; code?: string }) => {
+    const productId = String(product.id)
+    setPendingRequestProducts((prev) => {
+      if (prev.some((item) => item.id === productId)) return prev
+      return [...prev, { id: productId, name: product.name, type: product.type, code: product.code, quantity: 1 }]
+    })
+    setProductSearchQuery('')
+    setDebouncedProductSearchQuery('')
+    setRequestErrorMessage(null)
+    window.requestAnimationFrame(() => {
+      investigationProductSearchRef.current?.focus()
+      setProductSearchFocused(true)
+    })
+  }
+
+  const handleRemovePendingRequestProduct = (productId: string) => {
+    setPendingRequestProducts((prev) => prev.filter((item) => item.id !== productId))
+  }
+
+  const handleUpdatePendingRequestProductQuantity = (productId: string, nextQuantity: number) => {
+    if (!Number.isFinite(nextQuantity) || nextQuantity < 1) return
+    setPendingRequestProducts((prev) =>
+      prev.map((item) => (item.id === productId ? { ...item, quantity: nextQuantity } : item))
+    )
+  }
+
+  const handleSubmitInvestigations = async () => {
+    if (productsLocked) {
+      setRequestErrorMessage('Products cannot be changed on a completed visit or department.')
+      return
+    }
+    if (!visitDepartmentId) {
+      setRequestErrorMessage('No active visit department to attach investigations to.')
+      return
+    }
+    if (!selectedRequestDepartmentId) {
+      setRequestErrorMessage('Please select a service department first.')
+      return
+    }
+    if (pendingRequestProducts.length === 0) {
+      setRequestErrorMessage('Search and add at least one product to request.')
+      return
+    }
+
+    const invalidQuantity = pendingRequestProducts.find((item) => !Number.isFinite(item.quantity) || item.quantity < 1)
+    if (invalidQuantity) {
+      setRequestErrorMessage('Each product must have a quantity of at least 1.')
+      return
+    }
+
+    setRequestErrorMessage(null)
+    setIsSubmittingInvestigations(true)
+    try {
+      const visitIdForRequest = String(initialConsultation.consultationId || visitId || '')
+      const existingChild =
+        targetExistingChildVisitDepartment ||
+        findEditableChildForCatalogDepartment(selectedRequestDepartmentId)
+
+      if (existingChild && isEditableChildVisitDepartmentStatus(existingChild.status)) {
+        const catalogDepartmentId = existingChild.department?.id
+        if (!visitIdForRequest || !catalogDepartmentId) {
+          setRequestErrorMessage('Visit or department context is missing.')
+          return
+        }
+
+        for (const item of pendingRequestProducts) {
+          const result = await addProductToVisitDepartment(
+            visitIdForRequest,
+            String(catalogDepartmentId),
+            item.id,
+            item.quantity
+          )
+          if (result?.status !== 'SUCCESS') {
+            const message = result?.messages?.[0]?.text || `Failed to add ${item.name}.`
+            setRequestErrorMessage(message)
+            return
+          }
+        }
+
+        await refetchVisit()
+        const lineCount = pendingRequestProducts.length
+        const unitCount = pendingRequestProducts.reduce((sum, item) => sum + item.quantity, 0)
+        toast.success(
+          `Added ${lineCount} product line${lineCount === 1 ? '' : 's'} (${unitCount} unit${unitCount === 1 ? '' : 's'}) to ${existingChild.department?.name || 'service'}`
+        )
+      } else {
+        const result = await addChildVisitDepartment({
+          parentVisitDepartmentId: visitDepartmentId,
+          departmentId: selectedRequestDepartmentId,
+          products: pendingRequestProducts.map((item) => ({
+            productId: item.id,
+            quantity: item.quantity,
+          })),
+        })
+
+        if (result?.status !== 'SUCCESS') {
+          const message = result?.messages?.[0]?.text || 'Failed to request investigations.'
+          setRequestErrorMessage(message)
+          return
+        }
+
+        await refetchVisit()
+        const lineCount = pendingRequestProducts.length
+        const unitCount = pendingRequestProducts.reduce((sum, item) => sum + item.quantity, 0)
+        toast.success(
+          `Requested ${lineCount} product line${lineCount === 1 ? '' : 's'} (${unitCount} unit${unitCount === 1 ? '' : 's'}) for ${selectedRequestDepartment?.name || 'service'}`
+        )
+      }
+
+      setRequestComposerMode(null)
+      setPendingRequestProducts([])
+      setProductSearchQuery('')
+      setDebouncedProductSearchQuery('')
+      setTargetExistingChildVisitDepartmentId(null)
+      setSelectedRequestDepartmentId(null)
+    } catch (error: any) {
+      const message = error?.message || 'Failed to request investigations.'
+      setRequestErrorMessage(message)
+      console.error('[RequestProducts] error', error)
+    } finally {
+      setIsSubmittingInvestigations(false)
+    }
+  }
 
   const parseMedicationInstructions = (instructions: string) => {
     const raw = String(instructions || '')
@@ -241,9 +569,6 @@ export default function ConsultationViewBackbone({
   const [vitalsPanel, setVitalsPanel] = useState<PanelState>({ pinned: false, hover: false })
   const [historyPanel, setHistoryPanel] = useState<PanelState>({ pinned: false, hover: false })
   const autoPinnedVitalsRef = useRef(false)
-
-  // Load visit to get vitals for side panel
-  const { visit } = useVisit(initialConsultation?.consultationId || null)
 
   useEffect(() => {
     if (!visit?.vitalSigns?.length || autoPinnedVitalsRef.current) return
@@ -931,7 +1256,7 @@ export default function ConsultationViewBackbone({
   }
 
   const handleAddAction = async (type: 'action' | 'consumable', item: any, quantity: number, departmentIdParam: string) => {
-    if (!actionListenerFieldId) return
+    if (!actionListenerFieldId || productsLocked) return
 
     try {
       const visitId = consultation.consultationId
@@ -1168,23 +1493,26 @@ export default function ConsultationViewBackbone({
   return (
     <div className="min-h-screen bg-background">
       <div className="fixed top-4 right-4 z-50 pointer-events-none">
-        <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/90 px-3 py-1.5 text-xs shadow-lg backdrop-blur">
-          {saveStatus === 'saving' ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-              <span className="text-muted-foreground">Saving</span>
-            </>
-          ) : saveStatus === 'dirty' ? (
-            <>
-              <FilePenLine className="h-3.5 w-3.5 text-amber-500" />
-              <span className="text-amber-600 dark:text-amber-400">Editing</span>
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-              <span className="text-emerald-600 dark:text-emerald-400">Saved</span>
-            </>
-          )}
+        <div className="flex flex-col items-end gap-2 rounded-full border border-border/60 bg-background/90 px-3 py-2 text-xs shadow-lg backdrop-blur">
+          <div className="flex items-center gap-2">
+            {saveStatus === 'saving' ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                <span className="text-muted-foreground">Saving</span>
+              </>
+            ) : saveStatus === 'dirty' ? (
+              <>
+                <FilePenLine className="h-3.5 w-3.5 text-amber-500" />
+                <span className="text-amber-600 dark:text-amber-400">Editing</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                <span className="text-emerald-600 dark:text-emerald-400">Saved</span>
+              </>
+            )}
+          </div>
+          {/** migrated to right dock */}
         </div>
       </div>
 
@@ -1207,6 +1535,7 @@ export default function ConsultationViewBackbone({
             fieldActions={fieldActions}
             onFormReload={() => setFormReloadKey((prev) => prev + 1)}
             onActionListenerClick={(fieldId) => {
+              if (productsLocked) return
               setActionListenerFieldId(fieldId)
               setShowAddActionModal(true)
             }}
@@ -1217,6 +1546,7 @@ export default function ConsultationViewBackbone({
             currentDepartmentId={departmentId}
             visitDepartmentId={visitDepartmentId}
             hideActionListenerAddButton={!requestProductsEnabled}
+            productsLocked={productsLocked}
           />
         </div>
       </div>
@@ -1347,6 +1677,343 @@ export default function ConsultationViewBackbone({
         }}
         existingProductReferenceIds={existingProductReferenceIds}
       />
+
+      <Sheet open={requestProductsModalOpen} onOpenChange={setRequestProductsModalOpen}>
+        <SheetContent
+          side="right"
+          showCloseButton={false}
+          overlayClassName="z-[95] top-16 bottom-0 left-0 right-0"
+          className="z-[100] top-16 bottom-0 h-auto w-full gap-0 border-l p-0 sm:max-w-lg flex flex-col"
+        >
+          <SheetHeader className="relative shrink-0 border-b border-border px-12 py-4">
+            <button
+              type="button"
+              onClick={() => setRequestProductsModalOpen(false)}
+              className="absolute left-3 top-1/2 h-9 w-9 -translate-y-1/2 rounded-full border border-border/70 bg-card flex items-center justify-center shadow-sm hover:bg-muted"
+              aria-label="Close investigations"
+              title="Close"
+            >
+              <XIcon className="h-4 w-4" />
+            </button>
+            <SheetTitle className="text-center">Investigations</SheetTitle>
+          </SheetHeader>
+
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+            {showCurrentRequestSection && (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="text-sm font-semibold">Current request</div>
+              {childInvestigationDepartments.length > 0 ? (
+                <div className="mt-3 space-y-3">
+                  {childInvestigationDepartments.map((childDept) => {
+                    const canAddMoreProducts =
+                      canModifyVisitProducts && isEditableChildVisitDepartmentStatus(childDept.status)
+                    const isActiveTarget =
+                      requestComposerMode === 'existing-child' &&
+                      String(targetExistingChildVisitDepartmentId || '') === String(childDept.id)
+                    return (
+                      <div
+                        key={childDept.id}
+                        className={`rounded-xl border bg-background p-3 ${
+                          isActiveTarget ? 'border-primary/60 ring-1 ring-primary/20' : 'border-border/70'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-medium text-sm">{childDept.department?.name || 'Service'}</div>
+                          <span className="text-xs text-muted-foreground">{childDept.status}</span>
+                        </div>
+                        {(childDept.products || []).length > 0 ? (
+                          <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                            {(childDept.products || []).map((line) => (
+                              <li key={line.id}>
+                                {line.product?.name || 'Product'} × {line.quantity}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-2 text-xs text-muted-foreground">No products listed yet.</p>
+                        )}
+                        {isEditableChildVisitDepartmentStatus(childDept.status) && canAddMoreProducts && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mt-3 w-full"
+                            onClick={() => handleContinueExistingChildRequest(childDept)}
+                          >
+                            Add more products
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">No service requests on this visit yet.</p>
+              )}
+
+              {canRequestFromOtherService && requestProductsEnabled && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-4 w-full"
+                  onClick={() => handleStartOtherServiceRequest()}
+                >
+                  Request from other service
+                </Button>
+              )}
+            </div>
+            )}
+
+            {requestComposerMode === 'other-service' && canModifyVisitProducts && (
+              <div className="space-y-2 rounded-xl border border-border p-4 bg-background">
+                <div className="text-sm font-semibold">Service department</div>
+                {supportDepartmentsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading services…</p>
+                ) : supportDepartmentsError ? (
+                  <p className="text-sm text-destructive">Failed to load services: {supportDepartmentsError}</p>
+                ) : availableSupportDepartmentsForNewRequest.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">All services are already requested on this visit.</p>
+                ) : (
+                  <Select
+                    value={selectedRequestDepartmentId || undefined}
+                    onValueChange={(val) => handleSelectRequestDepartment(String(val))}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Choose service department" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[110]">
+                      {availableSupportDepartmentsForNewRequest.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id} className="text-sm">
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+
+            {showProductSearchComposer && (
+              <div className="space-y-4 rounded-xl border border-border p-4 bg-background">
+                <div className="space-y-1 text-center">
+                  <div className="text-sm font-semibold">
+                    {selectedRequestDepartment!.name} request
+                  </div>
+                  {isAppendingToExistingChild && (
+                    <p className="text-xs text-muted-foreground">
+                      Adding products to an existing open request
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="sr-only" htmlFor="investigation-product-search">
+                    Search product
+                  </label>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      ref={investigationProductSearchRef}
+                      id="investigation-product-search"
+                      type="search"
+                      value={productSearchQuery}
+                      onChange={(event) => setProductSearchQuery(event.target.value)}
+                      onFocus={() => setProductSearchFocused(true)}
+                      onBlur={() => {
+                        window.setTimeout(() => {
+                          if (document.activeElement !== investigationProductSearchRef.current) {
+                            setProductSearchFocused(false)
+                          }
+                        }, 150)
+                      }}
+                      placeholder="Search product…"
+                      className="w-full rounded-xl border border-border bg-background py-2 pl-9 pr-9 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      autoComplete="off"
+                    />
+                    {productSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProductSearchQuery('')
+                          setDebouncedProductSearchQuery('')
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label="Clear search"
+                      >
+                        <XIcon className="h-4 w-4" />
+                      </button>
+                    )}
+                    {showProductSuggestionPanel && (
+                      <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-border bg-popover shadow-lg">
+                        {requestProductsLoading ? (
+                          <p className="px-3 py-2 text-sm text-muted-foreground">Searching…</p>
+                        ) : requestProductsError ? (
+                          <p className="px-3 py-2 text-sm text-destructive">Search failed.</p>
+                        ) : requestProducts.length === 0 ? (
+                          <p className="px-3 py-2 text-sm text-muted-foreground">No products found.</p>
+                        ) : (
+                          <ul className="max-h-48 overflow-y-auto py-1">
+                            {requestProducts.map((product: any) => {
+                              const alreadyAdded = pendingRequestProducts.some((item) => item.id === String(product.id))
+                              return (
+                                <li key={product.id}>
+                                  <button
+                                    type="button"
+                                    disabled={alreadyAdded}
+                                    onMouseDown={(event) => event.preventDefault()}
+                                    onClick={() =>
+                                      handleAddPendingRequestProduct({
+                                        id: String(product.id),
+                                        name: product.name,
+                                        type: product.type,
+                                        code: product.code,
+                                      })
+                                    }
+                                    className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    <span className="font-medium">{product.name}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {product.type || 'Product'} • {product.code || 'No code'}
+                                      {alreadyAdded ? ' • Added' : ''}
+                                    </span>
+                                  </button>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {requestErrorMessage && (
+                  <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                    {requestErrorMessage}
+                  </div>
+                )}
+
+                {pendingRequestProducts.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Added products
+                    </div>
+                    <ul className="space-y-2">
+                      {pendingRequestProducts.map((product) => (
+                        <li
+                          key={product.id}
+                          className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate">{product.name}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {product.type || 'Product'} • {product.code || 'No code'}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7 rounded-full"
+                              aria-label={`Decrease quantity for ${product.name}`}
+                              disabled={product.quantity <= 1}
+                              onClick={() =>
+                                handleUpdatePendingRequestProductQuantity(product.id, product.quantity - 1)
+                              }
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <input
+                              type="number"
+                              min={1}
+                              step={1}
+                              value={product.quantity}
+                              onChange={(event) => {
+                                const parsed = Number(event.target.value)
+                                if (Number.isFinite(parsed)) {
+                                  handleUpdatePendingRequestProductQuantity(product.id, parsed)
+                                }
+                              }}
+                              onBlur={(event) => {
+                                const parsed = Number(event.target.value)
+                                if (!Number.isFinite(parsed) || parsed < 1) {
+                                  handleUpdatePendingRequestProductQuantity(product.id, 1)
+                                }
+                              }}
+                              className="h-7 w-12 rounded-md border border-border bg-background text-center text-xs tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              aria-label={`Quantity for ${product.name}`}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7 rounded-full"
+                              aria-label={`Increase quantity for ${product.name}`}
+                              onClick={() =>
+                                handleUpdatePendingRequestProductQuantity(product.id, product.quantity + 1)
+                              }
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePendingRequestProduct(product.id)}
+                            className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            aria-label={`Remove ${product.name}`}
+                          >
+                            <XIcon className="h-4 w-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {(showRequestComposer || showProductSearchComposer) && (
+          <SheetFooter className="shrink-0 border-t border-border px-4 py-4">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+              {showRequestComposer && childInvestigationDepartments.length > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={resetInvestigationComposer}
+                  disabled={isSubmittingInvestigations}
+                  className="sm:mr-auto"
+                >
+                  Back
+                </Button>
+              )}
+              {showProductSearchComposer && (
+                <Button
+                  onClick={handleSubmitInvestigations}
+                  disabled={
+                    isSubmittingInvestigations ||
+                    !visitDepartmentId ||
+                    !selectedRequestDepartmentId ||
+                    pendingRequestProducts.length === 0
+                  }
+                >
+                  {isSubmittingInvestigations
+                    ? 'Submitting…'
+                    : pendingRequestProducts.length === 0
+                      ? isAppendingToExistingChild
+                        ? 'Add products'
+                        : 'Request products'
+                      : isAppendingToExistingChild
+                        ? `Add ${pendingRequestProducts.length} product${pendingRequestProducts.length === 1 ? '' : 's'}`
+                        : `Request ${pendingRequestProducts.length} product${pendingRequestProducts.length === 1 ? '' : 's'}`}
+                </Button>
+              )}
+            </div>
+          </SheetFooter>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Patient History Side Pane */}
       {patientHistoryOpen && (

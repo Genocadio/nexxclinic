@@ -1,5 +1,85 @@
 import { gql } from '@apollo/client'
 
+/** Product line items on a visit department (parent or child). */
+const visitDepartmentProductFields = `
+  id
+  product {
+    id
+    name
+    code
+    type
+    unit
+    privateRhicPrice
+    clinicPrice
+    insuranceCoverages {
+      id
+      insuranceProvider {
+        id
+        insuranceName
+        acronym
+        defaultCoveragePercentage
+      }
+      cost
+      covered
+      requireMedicalAdvisor
+    }
+  }
+  quantity
+  price
+  status
+  addedBy {
+    id
+    firstName
+    lastName
+  }
+  billedBy {
+    id
+    firstName
+    lastName
+  }
+  processor {
+    id
+    firstName
+    lastName
+  }
+  createdAt
+  updatedAt
+`
+
+/** Nested visit department (child of a consultation department). */
+const childVisitDepartmentFields = `
+  id
+  status
+  completedAt
+  department {
+    id
+    name
+    requestsProducts
+  }
+  processors {
+    id
+    firstName
+    lastName
+  }
+  diagnostics {
+    id
+    diagnosisName
+    icd11Code
+    createdAt
+  }
+  medications {
+    id
+    medicationName
+    instructions
+    createdAt
+  }
+  products {
+    ${visitDepartmentProductFields}
+  }
+  createdAt
+  updatedAt
+`
+
 export const GET_VISIT_QUERY = gql`
   query GetVisit($id: ID!) {
     visit(visitId: $id) {
@@ -92,6 +172,11 @@ export const GET_VISIT_QUERY = gql`
           }
           status
           completedAt
+          processors {
+            id
+            firstName
+            lastName
+          }
           diagnostics {
             id
             diagnosisName
@@ -105,43 +190,21 @@ export const GET_VISIT_QUERY = gql`
             createdAt
           }
           products {
+            ${visitDepartmentProductFields}
+          }
+          childVisitDepartments {
+            ${childVisitDepartmentFields}
+          }
+          preInstructions {
             id
-            product {
-              id
-              name
-              code
-              type
-              unit
-              privateRhicPrice
-              clinicPrice
-              insuranceCoverages {
-                id
-                insuranceProvider {
-                  id
-                  insuranceName
-                  acronym
-                  defaultCoveragePercentage
-                }
-                cost
-                covered
-                requireMedicalAdvisor
-              }
-            }
-            quantity
-            price
-            status
+            type
+            note
+            createdAt
             addedBy {
               id
               firstName
               lastName
             }
-            billedBy {
-              id
-              firstName
-              lastName
-            }
-            createdAt
-            updatedAt
           }
           createdAt
           updatedAt

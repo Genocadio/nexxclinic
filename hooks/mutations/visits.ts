@@ -114,6 +114,38 @@ export const ADD_DEPARTMENT_NOTE_MUTATION = gql`
   }
 `
 
+export const ADD_CHILD_VISIT_DEPARTMENT_MUTATION = gql`
+  mutation AddChildVisitDepartment($input: AddChildVisitDepartmentInput!) {
+    addChildVisitDepartment(input: $input) {
+      status
+      message
+      data {
+        id
+        status
+        completedAt
+        department {
+          id
+          name
+        }
+        products {
+          id
+          product {
+            id
+            name
+            code
+            type
+          }
+          quantity
+          price
+          status
+        }
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`
+
 export const ADD_DIAGNOSIS_MUTATION = gql`
   mutation AddDiagnosis($input: AddDiagnosisInput!) {
     addDiagnosis(input: $input) {

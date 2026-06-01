@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Plus, Trash2 } from "lucide-react"
 import FormActionsDisplay from "@/components/form-actions-display"
+import { ProductLockedTooltip } from "@/components/consultation/product-locked-tooltip"
 import type { FormAction, FormField } from "@/lib/form-storage"
 import { useAddDiagnosisToVisitDepartment, useAddMedicationToVisitDepartment } from "@/hooks/visits"
 
@@ -60,6 +61,7 @@ interface FormFieldRendererProps {
   departmentId?: string
   visitDepartmentId?: string
   hideActionListenerAddButton?: boolean
+  productsLocked?: boolean
   readOnly?: boolean
 }
 
@@ -85,6 +87,7 @@ export function FormFieldRenderer({
   departmentId,
   visitDepartmentId,
   hideActionListenerAddButton = false,
+  productsLocked = false,
   readOnly = false,
 }: FormFieldRendererProps) {
   const contrastInputClass = "border-border/80 bg-background/80 dark:bg-slate-950/60 shadow-sm focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:border-primary/70"
@@ -823,18 +826,29 @@ export function FormFieldRenderer({
   if (field.type === 'actionListener') {
     const shouldCenterActionButton = Boolean(field.centerLabel) || /add\s+action\s+or\s+consumable\s+listener/i.test(field.label || '')
     const actionButtonTextStyle = `${field.boldLabel ? 'font-bold' : ''} ${field.italicLabel ? 'italic' : ''} ${field.underlineLabel ? 'underline' : ''}`
+    const addProductButton = (
+      <Button
+        type="button"
+        disabled={productsLocked}
+        onClick={() => {
+          if (productsLocked) return
+          onActionListenerClick?.(field.id)
+        }}
+        className={`inline-flex h-9 px-4 rounded-xl gap-2 border-border/70 bg-card/70 hover:bg-card shadow-sm ${actionButtonTextStyle}`}
+        variant="outline"
+      >
+        <Plus className="h-4 w-4" />
+        Add Product
+      </Button>
+    )
+
     return (
       <div className="space-y-3">
         {!hideActionListenerAddButton ? (
           <div className={shouldCenterActionButton ? 'flex justify-center' : 'flex'}>
-            <Button 
-              onClick={() => onActionListenerClick?.(field.id)}
-              className={`inline-flex h-9 px-4 rounded-xl gap-2 border-border/70 bg-card/70 hover:bg-card shadow-sm ${actionButtonTextStyle}`}
-              variant="outline"
-            >
-              <Plus className="h-4 w-4" />
-              Add Product
-            </Button>
+            <ProductLockedTooltip locked={productsLocked} className={shouldCenterActionButton ? 'inline-flex' : 'inline-flex w-full'}>
+              {addProductButton}
+            </ProductLockedTooltip>
           </div>
         ) : (
           <div className="rounded-xl border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground">
@@ -847,9 +861,10 @@ export function FormFieldRenderer({
             hideLabel={true}
             visitId={visitId}
             departmentId={departmentId}
-            onUpdateQuantity={onUpdateQuantity ? (id, qty) => onUpdateQuantity(id, qty) : undefined}
-            onRemove={onRemoveAction ? (id) => onRemoveAction(id) : undefined}
-            onRestore={onRestoreAction ? (id) => onRestoreAction(id) : undefined}
+            readOnly={productsLocked}
+            onUpdateQuantity={productsLocked ? undefined : onUpdateQuantity ? (id, qty) => onUpdateQuantity(id, qty) : undefined}
+            onRemove={productsLocked ? undefined : onRemoveAction ? (id) => onRemoveAction(id) : undefined}
+            onRestore={productsLocked ? undefined : onRestoreAction ? (id) => onRestoreAction(id) : undefined}
           />
         )}
       </div>

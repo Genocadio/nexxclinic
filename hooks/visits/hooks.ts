@@ -5,6 +5,7 @@ import {
   CREATE_VISIT_MUTATION, 
   ADD_VISIT_NOTE_MUTATION, 
   ADD_VISIT_VITAL_SIGNS_MUTATION,
+  ADD_CHILD_VISIT_DEPARTMENT_MUTATION,
   ADD_DEPARTMENT_NOTE_MUTATION,
   ADD_DIAGNOSIS_MUTATION,
   ADD_MEDICATION_MUTATION,
@@ -78,6 +79,8 @@ export interface GqlVisitDepartment {
   status: string
   transferTime?: string | null
   completedTime?: string | null
+  completedAt?: string | null
+  childVisitDepartments?: GqlVisitDepartment[] | null
   diagnostics?: Array<{
     id: string
     diagnosisName: string
@@ -94,6 +97,7 @@ export interface GqlVisitDepartment {
   department?: {
     id: string
     name: string
+    requestsProducts?: boolean | null
   } | null
   transferredBy?: {
     id: string
@@ -304,7 +308,10 @@ export interface DashboardStatsData {
   }
 }
 
-const mapVisitDepartmentProducts = (departments: GqlVisitDepartment[] = []): VisitDepartment[] => departments.map((department) => {
+const mapVisitDepartmentProducts = (departments: GqlVisitDepartment[] = []): VisitDepartment[] =>
+  departments.map((department) => mapSingleVisitDepartment(department))
+
+const mapSingleVisitDepartment = (department: GqlVisitDepartment): VisitDepartment => {
   const products = department.products || []
 
   const mapCoverage = (coverage: GqlCoverage) => ({
@@ -372,7 +379,7 @@ const mapVisitDepartmentProducts = (departments: GqlVisitDepartment[] = []): Vis
     id: department.id,
     status: department.status,
     transferTime: department.transferTime || '',
-    completedTime: department.completedTime || '',
+    completedTime: department.completedTime || department.completedAt || '',
     products: products.map((item: GqlVisitDepartmentProduct) => {
       const p = item.product;
       return {
@@ -431,8 +438,9 @@ const mapVisitDepartmentProducts = (departments: GqlVisitDepartment[] = []): Vis
       instructions: String(medication.instructions || ''),
       createdAt: medication.createdAt || undefined,
     })),
+    childVisitDepartments: (department.childVisitDepartments || []).map((child) => mapSingleVisitDepartment(child)),
   }
-})
+}
 
 const mapProductDepartmentsToLegacyItems = (departments: GqlVisitDepartment[] = []): VisitDepartment[] =>
   departments.map((department) => {
@@ -1051,6 +1059,44 @@ export function useAddActionToVisitDepartment() {
   }
 
   return { addAction, loading, error }
+}
+
+export function useAddChildVisitDepartment() {
+  const [mutation, { loading, error }] = useMutation(ADD_CHILD_VISIT_DEPARTMENT_MUTATION)
+
+  const addChildVisitDepartment = async (input: {
+    parentVisitDepartmentId: string
+    departmentId: string
+    products: Array<{ productId: string; quantity: number }>
+    processorId?: string
+  }): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({
+        variables: {
+          input: {
+            parentVisitDepartmentId: input.parentVisitDepartmentId,
+            departmentId: input.departmentId,
+            products: input.products.map((item) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+            })),
+            processorId: input.processorId,
+          },
+        },
+      })
+      const payload = result.data?.addChildVisitDepartment
+      return {
+        status: payload?.status || 'ERROR',
+        messages: payload?.message ? [{ text: payload.message, type: payload.status || 'ERROR' }] : undefined,
+        data: payload?.data ? mapSingleVisitDepartment(payload.data as GqlVisitDepartment) : undefined,
+      }
+    } catch (err) {
+      console.error('Add child visit department error:', err)
+      throw err
+    }
+  }
+
+  return { addChildVisitDepartment, loading, error }
 }
 
 export function useAddConsumableToVisitDepartment() {

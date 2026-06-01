@@ -169,14 +169,25 @@ const mapDepartmentFromApi = (department: GqlDepartment): Department => ({
   })),
 })
 
-export function useDepartments(options?: { skip?: boolean }) {
-  const { data, loading, error, refetch } = useQuery<DepartmentsQueryData>(GET_DEPARTMENTS_QUERY, {
-    variables: { input: { page: 0, size: 200 } },
+export function useDepartments(options?: { skip?: boolean; input?: { name?: string; supportRequests?: boolean; requestsProducts?: boolean; page?: number; size?: number } }) {
+  const variables = {
+    input: {
+      page: options?.input?.page ?? 0,
+      size: options?.input?.size ?? 200,
+      name: options?.input?.name || undefined,
+      supportRequests: options?.input?.supportRequests,
+      requestsProducts: options?.input?.requestsProducts,
+    },
+  }
+
+  const { data, loading, error, refetch: refetchQuery } = useQuery<DepartmentsQueryData>(GET_DEPARTMENTS_QUERY, {
+    variables,
     fetchPolicy: 'cache-and-network',
     skip: options?.skip ?? false,
   })
 
   const departments = (data?.departments?.data || []).map(mapDepartmentFromApi)
+  const refetch = () => refetchQuery(variables)
 
   return { departments, loading: loading || false, error: error?.message || null, refetch }
 }
