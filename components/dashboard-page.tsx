@@ -23,6 +23,7 @@ import { Search, Calendar, Clock, CheckCircle, AlertCircle, UserPlus, Stethoscop
 import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
 import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
+import { BillingPreviewSheet } from '@/components/billing/billing-preview-sheet'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -39,6 +40,12 @@ export default function DashboardPage() {
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
   const { generateInvoice } = useGenerateInvoice()
   const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewVisitBillingRaw, setPreviewVisitBillingRaw] = useState<any | null>(null)
+  const [previewExistingBill, setPreviewExistingBill] = useState<any | null>(null)
+  const [previewDepartmentId, setPreviewDepartmentId] = useState<string | null>(null)
+  const [previewVisit, setPreviewVisit] = useState<Visit | null>(null)
+  const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [mobileSearchActive, setMobileSearchActive] = useState(false)
@@ -550,19 +557,42 @@ export default function DashboardPage() {
 
       const billRes = await getVisitBillings({ variables: { visitId: visit.id } })
       const visitBilling = billRes.data?.visitBilling?.data
-      const insuranceBillings = (visitBilling?.departments || []).flatMap((department: any) => department.insuranceBillings || [])
-      const latestInsuranceBilling = insuranceBillings[insuranceBillings.length - 1]
 
-      if (!latestInsuranceBilling?.id) {
-        toast.error("No bill found for this visit.")
+      if (!visitBilling) {
+        toast.error('No bill found for this visit.')
         return
       }
 
-      const invoiceUrl = await resolveInvoiceUrl(latestInsuranceBilling.id, generateInvoice)
-      openInvoicePreview(invoiceUrl)
+      const allInsuranceBillings = (visitBilling?.departments || []).flatMap((department: any) => department.insuranceBillings || [])
+      const latestInsuranceBilling = allInsuranceBillings[allInsuranceBillings.length - 1]
+      const flattenedItems = allInsuranceBillings.flatMap((billing: any) => billing.items || [])
+      const paidAmount = allInsuranceBillings.reduce((sum: number, billing: any) => sum + Number(billing.paidAmount || 0), 0)
+      const totalAmount = allInsuranceBillings.reduce((sum: number, billing: any) => sum + Number(billing.totalAmount || 0), 0)
+
+      const bill = {
+        id: visitBilling.id,
+        visitId: visitBilling.visitId,
+        totalAmount,
+        paidAmount,
+        outstandingAmount: Math.max(0, totalAmount - paidAmount),
+        status: totalAmount > 0 && paidAmount >= totalAmount ? 'PAID' : 'UNPAID',
+        items: flattenedItems.map((item: any) => ({
+          ...item,
+          lineTotal: Number(item.unitPriceSnapshot || 0) * Number(item.quantitySnapshot || 0),
+        })),
+        insuranceBillingId: latestInsuranceBilling?.id,
+        createdAt: visitBilling.createdAt,
+        updatedAt: visitBilling.updatedAt,
+      }
+
+      setPreviewVisitBillingRaw(visitBilling)
+      setPreviewExistingBill(bill)
+      setPreviewVisit(visit)
+      setPreviewStartedAt(Date.now())
+      setPreviewOpen(true)
     } catch (err: unknown) {
       console.error('Preview invoice error:', err)
-      const message = err instanceof Error ? err.message : 'Failed to generate invoice PDF'
+      const message = err instanceof Error ? err.message : 'Failed to load bill for preview'
       toast.error(message)
     } finally {
       setPrintingVisitId(null)
@@ -1236,6 +1266,26 @@ export default function DashboardPage() {
         departmentName={previewConsultationContext?.departmentName}
         patientName={previewConsultationContext?.patientName}
         previewStartedAt={previewConsultationContext?.previewStartedAt || null}
+      />
+      <BillingPreviewSheet
+        open={previewOpen}
+        onOpenChange={(open) => {
+          setPreviewOpen(open)
+          if (!open) {
+            setPreviewVisitBillingRaw(null)
+            setPreviewExistingBill(null)
+            setPreviewDepartmentId(null)
+            setPreviewVisit(null)
+            setPreviewStartedAt(null)
+          }
+        }}
+        visit={previewVisit}
+        billingData={null}
+        existingBill={previewExistingBill}
+        selectedDepartmentId={previewDepartmentId}
+        onDepartmentSelect={setPreviewDepartmentId}
+        previewStartedAt={previewStartedAt}
+        visitBillingRaw={previewVisitBillingRaw}
       />
     </div>
   )

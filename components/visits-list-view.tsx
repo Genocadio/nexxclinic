@@ -6,6 +6,7 @@ import { useLazyQuery } from "@apollo/client"
 import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
 import { toast } from "react-toastify"
 import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
+import { BillingPreviewSheet } from '@/components/billing/billing-preview-sheet'
 import { useRouter } from "next/navigation"
 import { Search, Calendar, Clock, CheckCircle, AlertCircle, User, ReceiptText, Plus, Stethoscope, Activity } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
@@ -39,26 +40,61 @@ export default function VisitsListView({
   const { generateInvoice } = useGenerateInvoice()
   const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
   const [previewingVisitId, setPreviewingVisitId] = useState<string | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewVisitBillingRaw, setPreviewVisitBillingRaw] = useState<any | null>(null)
+  const [previewExistingBill, setPreviewExistingBill] = useState<any | null>(null)
+  const [previewDepartmentId, setPreviewDepartmentId] = useState<string | null>(null)
+  const [previewVisit, setPreviewVisit] = useState<Visit | null>(null)
+  const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null)
 
   const handlePreviewInvoice = async (visit: Visit) => {
     try {
       setPreviewingVisitId(visit.id)
-      
+
       const billRes = await getVisitBillings({ variables: { visitId: visit.id } })
       const visitBilling = billRes.data?.visitBilling?.data
-      const insuranceBillings = (visitBilling?.departments || []).flatMap((department: any) => department.insuranceBillings || [])
-      const latestInsuranceBilling = insuranceBillings[insuranceBillings.length - 1]
 
-      if (!latestInsuranceBilling?.id) {
-        toast.error("No bill found for this visit.")
+      if (!visitBilling) {
+        toast.error('No bill found for this visit.')
         return
       }
 
-      const invoiceUrl = await resolveInvoiceUrl(latestInsuranceBilling.id, generateInvoice)
-      openInvoicePreview(invoiceUrl)
+      // Build a light-weight Bill summary similar to useGetBillByVisit
+      const allInsuranceBillings = (visitBilling?.departments || []).flatMap((department: any) => department.insuranceBillings || [])
+      const latestInsuranceBilling = allInsuranceBillings[allInsuranceBillings.length - 1]
+      const flattenedItems = allInsuranceBillings.flatMap((billing: any) => billing.items || [])
+      const paidAmount = allInsuranceBillings.reduce((sum: number, billing: any) => sum + Number(billing.paidAmount || 0), 0)
+      const totalAmount = allInsuranceBillings.reduce((sum: number, billing: any) => sum + Number(billing.totalAmount || 0), 0)
+
+      const bill = {
+        id: visitBilling.id,
+        visitId: visitBilling.visitId,
+        totalAmount,
+        paidAmount,
+        outstandingAmount: Math.max(0, totalAmount - paidAmount),
+        status: totalAmount > 0 && paidAmount >= totalAmount ? 'PAID' : 'UNPAID',
+        items: flattenedItems.map((item: any) => ({
+          ...item,
+          lineTotal: Number(item.unitPriceSnapshot || 0) * Number(item.quantitySnapshot || 0),
+        })),
+        insuranceBillingId: latestInsuranceBilling?.id,
+        createdAt: visitBilling.createdAt,
+        updatedAt: visitBilling.updatedAt,
+      }
+
+      setPreviewVisitBillingRaw(visitBilling)
+      setPreviewExistingBill(bill)
+      setPreviewVisit(visit)
+
+      // choose initial department if available
+      const topLevelDepartments = (visit?.departments || []).filter((d) => d.status !== 'CANCELLED')
+      if (topLevelDepartments.length === 1) setPreviewDepartmentId(topLevelDepartments[0].id)
+
+      setPreviewStartedAt(Date.now())
+      setPreviewOpen(true)
     } catch (err: unknown) {
       console.error('Preview invoice error:', err)
-      const message = err instanceof Error ? err.message : 'Failed to generate invoice PDF'
+      const message = err instanceof Error ? err.message : 'Failed to load bill for preview'
       toast.error(message)
     } finally {
       setPreviewingVisitId(null)
@@ -402,6 +438,27 @@ export default function VisitsListView({
           onSuccess={handleAddDepartmentSuccess}
         />
       )}
+      
+          <BillingPreviewSheet
+            open={previewOpen}
+            onOpenChange={(open) => {
+              setPreviewOpen(open)
+              if (!open) {
+                setPreviewVisitBillingRaw(null)
+                setPreviewExistingBill(null)
+                setPreviewDepartmentId(null)
+                setPreviewVisit(null)
+                setPreviewStartedAt(null)
+              }
+            }}
+            visit={previewVisit}
+            billingData={null}
+            existingBill={previewExistingBill}
+            selectedDepartmentId={previewDepartmentId}
+            onDepartmentSelect={setPreviewDepartmentId}
+            previewStartedAt={previewStartedAt}
+            visitBillingRaw={previewVisitBillingRaw}
+          />
     </div>
   )
 }

@@ -20,6 +20,7 @@ import { Plus } from 'lucide-react';
 import { BillingPatientBar } from '@/components/billing/billing-patient-bar';
 import { BillingStickySummary } from '@/components/billing/billing-sticky-summary';
 import { BillingConfirmSheet } from '@/components/billing/billing-confirm-sheet';
+import { BillingPreviewSheet } from '@/components/billing/billing-preview-sheet';
 import { toast } from 'react-toastify';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -52,6 +53,9 @@ function BillingPageContent() {
   const { bill: existingBill, loading: loadingBill, refetch: refetchBill } = useGetBillByVisit(visitId);
   const { createPatientInsurance } = useCreatePatientInsurance();
   const { updatePatientInsurance } = useUpdatePatientInsurance();
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewDepartmentId, setPreviewDepartmentId] = useState<string | null>(null);
+  const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null);
   const { linkVisitInsurances, loading: linkingVisitInsurances } = useLinkVisitInsurances();
   const { unlinkVisitInsurances, loading: unlinkingVisitInsurances } = useUnlinkVisitInsurances();
   const { updateQuantity: updateProductQuantity } = useUpdateProductQuantity();
@@ -542,6 +546,11 @@ function BillingPageContent() {
   const allServiceNames = useMemo(() => visit?.departments
     ?.filter(dept => dept.status !== 'CANCELLED')
     .map(dept => dept.department?.name || 'General') || [], [visit?.departments]);
+
+  const topLevelBillingDepartments = useMemo(
+    () => visit?.departments?.filter((dept) => dept.status !== 'CANCELLED') || [],
+    [visit?.departments],
+  );
   
   // Calculate exemption count
   const exemptionCount = billingData
@@ -795,140 +804,28 @@ function BillingPageContent() {
     return () => clearTimeout(timer)
   }, [autoPrint, didAutoPrint, existingBill, billingData])
 
-  const handlePreviewBilling = () => {
+  const handlePreviewBilling = async () => {
     if (!billingData) return;
 
-    const escapeHtml = (value: string) =>
-      value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-
-    const invoiceItems = existingBill?.items?.map((item) => ({
-      description: item.productName,
-      quantity: item.quantitySnapshot,
-      unitPrice: item.unitPriceSnapshot,
-      lineTotal: item.lineTotal,
-    })) || billingData.items.map((item) => ({
-      description: item.name,
-      quantity: item.quantity,
-      unitPrice: item.price,
-      lineTotal: item.price * item.quantity,
-    }));
-
-    const totals = {
-      subtotal: existingBill?.totalAmount ?? displayTotals.subtotal,
-      discount: displayTotals.discount,
-      totalDue: existingBill?.totalAmount ?? displayTotals.totalAmount,
-      paid: existingBill?.paidAmount ?? (billingData.amountPaid || 0),
-      balance: existingBill?.outstandingAmount ?? Math.max(0, displayTotals.totalAmount - (billingData.amountPaid || 0)),
-    };
-
-    const invoiceHtml = `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Invoice ${escapeHtml(existingBill?.id || billingData.visitId || 'N/A')}</title>
-    <style>
-      @page { size: A4; margin: 16mm; }
-      body { font-family: Arial, Helvetica, sans-serif; color: #1f2937; margin: 0; }
-      .invoice { width: 100%; }
-      .header { display: flex; justify-content: space-between; border-bottom: 2px solid #111827; padding-bottom: 12px; margin-bottom: 18px; }
-      .title { font-size: 24px; font-weight: 700; margin: 0; letter-spacing: .3px; }
-      .muted { color: #6b7280; font-size: 12px; margin: 2px 0; }
-      .section { margin-bottom: 16px; }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      .box { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-      th, td { border: 1px solid #e5e7eb; padding: 8px; font-size: 12px; }
-      th { background: #f3f4f6; text-align: left; }
-      .right { text-align: right; }
-      .totals { width: 320px; margin-left: auto; margin-top: 14px; }
-      .totals td { border: none; padding: 4px 0; }
-      .grand td { border-top: 1px solid #d1d5db; font-weight: 700; padding-top: 8px; }
-      .footer { margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 10px; font-size: 11px; color: #6b7280; }
-    </style>
-  </head>
-  <body>
-    <div class="invoice">
-      <div class="header">
-        <div>
-          <h1 class="title">NexxMed Invoice</h1>
-          <p class="muted">Formal Billing Statement</p>
-        </div>
-        <div>
-          <p class="muted"><strong>Invoice #:</strong> ${escapeHtml(existingBill?.id || billingData.visitId || 'N/A')}</p>
-          <p class="muted"><strong>Date:</strong> ${new Date(existingBill?.updatedAt || billingData.updatedAt || new Date().toISOString()).toLocaleString()}</p>
-        </div>
-      </div>
-
-      <div class="section grid">
-        <div class="box">
-          <p class="muted"><strong>Patient</strong></p>
-          <p>${escapeHtml(billingData.patientName || 'N/A')}</p>
-          <p class="muted">Patient ID: ${escapeHtml(billingData.patientId || 'N/A')}</p>
-        </div>
-        <div class="box">
-          <p class="muted"><strong>Payment</strong></p>
-          <p class="muted">Method: ${escapeHtml((billingData.paymentMethod || 'MOBILE_MONEY').toUpperCase())}</p>
-          <p class="muted">Visit Date: ${new Date(billingData.visitDate).toLocaleDateString()}</p>
-        </div>
-      </div>
-
-      <div class="section">
-        <table>
-          <thead>
-            <tr>
-              <th>Description</th>
-              <th class="right">Qty</th>
-              <th class="right">Unit Price</th>
-              <th class="right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${invoiceItems
-              .map(
-                (item) => `<tr>
-                  <td>${escapeHtml(item.description || 'Item')}</td>
-                  <td class="right">${item.quantity}</td>
-                  <td class="right">${Number(item.unitPrice || 0).toLocaleString()} RWF</td>
-                  <td class="right">${Number(item.lineTotal || 0).toLocaleString()} RWF</td>
-                </tr>`,
-              )
-              .join('')}
-          </tbody>
-        </table>
-      </div>
-
-      <table class="totals">
-        <tr><td>Subtotal</td><td class="right">${Number(totals.subtotal || 0).toLocaleString()} RWF</td></tr>
-        <tr><td>Discount</td><td class="right">-${Number(totals.discount || 0).toLocaleString()} RWF</td></tr>
-        <tr class="grand"><td>Total Due</td><td class="right">${Number(totals.totalDue || 0).toLocaleString()} RWF</td></tr>
-        <tr><td>Paid</td><td class="right">${Number(totals.paid || 0).toLocaleString()} RWF</td></tr>
-        <tr><td>Balance</td><td class="right">${Number(totals.balance || 0).toLocaleString()} RWF</td></tr>
-      </table>
-
-      <div class="footer">
-        Generated by NexxMed Billing Module.
-      </div>
-    </div>
-  </body>
-</html>`
-
-    const printWindow = window.open('', '_blank', 'width=900,height=1100')
-    if (!printWindow) {
-      toast.error('Unable to open print window. Please allow pop-ups and try again.')
-      return
+    try {
+      await refetchBill();
+    } catch (err) {
+      console.error('Failed to refresh bill before preview:', err);
+      toast.warning('Unable to refresh bill data before preview. Showing latest available bill.');
     }
 
-    printWindow.document.open()
-    printWindow.document.write(invoiceHtml)
-    printWindow.document.close()
-    printWindow.focus()
-    printWindow.print()
-  }
+    const availableDepartments = topLevelBillingDepartments;
+    const initialDepartment = availableDepartments.length === 1
+      ? availableDepartments[0]
+      : availableDepartments.find((dept) => dept.id === previewDepartmentId) || availableDepartments[0];
+
+    if (initialDepartment) {
+      setPreviewDepartmentId(initialDepartment.id);
+    }
+
+    setPreviewStartedAt(Date.now());
+    setPreviewOpen(true);
+  };
 
   const handlePrintBillingInvoice = async () => {
     if (!billingData) return
@@ -1605,6 +1502,23 @@ function BillingPageContent() {
           </div>
         </div>
       )}
+
+      <BillingPreviewSheet
+        open={previewOpen}
+        onOpenChange={(open) => {
+          setPreviewOpen(open);
+          if (!open) {
+            setPreviewDepartmentId(null);
+            setPreviewStartedAt(null);
+          }
+        }}
+        visit={visit}
+        billingData={billingData}
+        existingBill={existingBill}
+        selectedDepartmentId={previewDepartmentId}
+        onDepartmentSelect={setPreviewDepartmentId}
+        previewStartedAt={previewStartedAt}
+      />
     </div>
   );
 }
