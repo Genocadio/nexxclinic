@@ -6,32 +6,44 @@ import type { Bill, InvoiceResponse, ApiResponse } from '../types'
 export interface GqlVisitBilling {
   id: string
   visitId: string
-  totalAmount: number
-  paidAmount: number
-  status: string
-  items?: Array<{
+  departments?: Array<{
     id: string
-    visitDepartmentProductId: string
-    productId: string
-    productName: string
-    unitPriceSnapshot: number
-    quantitySnapshot: number
-    lineTotal: number
+    status: string
+    totalAmount: number
+    paidAmount: number
     insuranceCoveredAmount: number
     patientPayableAmount: number
-    appliedPatientInsuranceId?: string | null
-    createdAt: string
-    updatedAt?: string
+    outstandingAmount: number
+    insuranceBillings?: Array<{
+      id: string
+      status: string
+      totalAmount: number
+      paidAmount: number
+      insuranceCoveredAmount: number
+      patientPayableAmount: number
+      outstandingAmount: number
+      invoiceUrl?: string | null
+      items?: Array<{
+        id: string
+        visitDepartmentProductId: string
+        productId: string
+        productName: string
+        unitPriceSnapshot: number
+        quantitySnapshot: number
+        insuranceCoveredAmount: number
+        patientPayableAmount: number
+      }> | null
+    }> | null
   }> | null
   createdAt: string
   updatedAt: string
 }
 
 export interface VisitBillingsQueryData {
-  visitBillings: {
+  visitBilling: {
     status: string
     message?: string
-    data: GqlVisitBilling[]
+    data?: GqlVisitBilling | null
   }
 }
 
@@ -61,7 +73,30 @@ export function useGetBillByVisit(visitId: string | null) {
     fetchPolicy: 'cache-and-network'
   })
 
-  const bill: Bill | undefined = data?.visitBillings?.data?.[data?.visitBillings?.data?.length - 1] || data?.visitBillings?.data?.[0]
+  const visitBilling = data?.visitBilling?.data
+  const allInsuranceBillings = (visitBilling?.departments || []).flatMap((department) => department.insuranceBillings || [])
+  const latestInsuranceBilling = allInsuranceBillings[allInsuranceBillings.length - 1]
+  const flattenedItems = allInsuranceBillings.flatMap((billing) => billing.items || [])
+  const paidAmount = allInsuranceBillings.reduce((sum, billing) => sum + Number(billing.paidAmount || 0), 0)
+  const totalAmount = allInsuranceBillings.reduce((sum, billing) => sum + Number(billing.totalAmount || 0), 0)
+  const bill: Bill | undefined = visitBilling
+    ? {
+        id: visitBilling.id,
+        visitId: visitBilling.visitId,
+        totalAmount,
+        paidAmount,
+        outstandingAmount: Math.max(0, totalAmount - paidAmount),
+        status: totalAmount > 0 && paidAmount >= totalAmount ? 'PAID' : 'UNPAID',
+        items: flattenedItems.map((item) => ({
+          ...item,
+          lineTotal: Number(item.unitPriceSnapshot || 0) * Number(item.quantitySnapshot || 0),
+          appliedPatientInsuranceId: undefined,
+        })),
+        createdAt: visitBilling.createdAt,
+        updatedAt: visitBilling.updatedAt,
+        insuranceBillingId: latestInsuranceBilling?.id,
+      } as Bill
+    : undefined
 
   return {
     bill,
@@ -76,15 +111,22 @@ export function useCreateBill() {
 
   const createBill = async (input: {
     visitId: string
-    billAllProducts?: boolean
-    items?: {
-      visitDepartmentProductId: string
-      patientInsuranceId?: string
-      quantity?: number
-      unitPrice?: number
-      isExempted?: boolean
+    departments: {
+      visitDepartmentId: string
+      products: {
+        visitDepartmentProductId: string
+        parentVisitDepartmentId: string
+        patientInsuranceId?: string
+        quantity?: number
+        unitPrice?: number
+        isExempted?: boolean
+      }[]
+      payments?: {
+        amount: number
+        paymentMethod: 'CASH' | 'MOBILE_MONEY' | 'CARD' | 'BANK_TRANSFER' | 'CHEQUE' | 'MIXED'
+        reference?: string
+      }[]
     }[]
-    paidAmount?: number
   }): Promise<ApiResponse<Bill>> => {
     try {
       const result = await createBillMutation({
@@ -94,7 +136,7 @@ export function useCreateBill() {
       return {
         status: payload?.status || 'ERROR',
         message: payload?.message,
-        data: payload?.data || undefined,
+        data: payload?.data ? (payload.data as unknown as Bill) : undefined,
       }
     } catch (err) {
       console.error('Create bill error:', err)
@@ -108,10 +150,10 @@ export function useCreateBill() {
 export function useGenerateInvoice() {
   const [generateInvoiceMutation, { loading, error }] = useMutation<GenerateInvoicePayload>(GENERATE_INVOICE_MUTATION)
 
-  const generateInvoice = async (billId: string) => {
+  const generateInvoice = async (departmentInsuranceBillingId: string) => {
     try {
       const result = await generateInvoiceMutation({
-        variables: { billId }
+        variables: { departmentInsuranceBillingId }
       })
       return result?.data?.generateInvoice
     } catch (err) {
@@ -128,10 +170,10 @@ export function useGetInvoiceLazy() {
     fetchPolicy: 'network-only'
   })
 
-  const getInvoice = async (billId: string) => {
+  const getInvoice = async (departmentInsuranceBillingId: string) => {
     try {
       const result = await getInvoiceQuery({
-        variables: { billId }
+        variables: { departmentInsuranceBillingId }
       })
       return result.data?.getInvoice
     } catch (err) {

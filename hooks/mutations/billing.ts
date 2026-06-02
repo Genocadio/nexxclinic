@@ -5,29 +5,37 @@ export const CREATE_BILL_MUTATION = gql`
     billVisit(input: $input) {
       status
       message
-      
       data {
         id
         visitId
-        status
-        billingDate
-        totalAmount
-        insuranceCoveredAmount
-        patientPayableAmount
-        paidAmount
-        outstandingAmount
-        fullyBilledVisit
-        items {
+        departments {
           id
-          visitDepartmentProductId
-          productId
-          productName
-          unitPriceSnapshot
-          quantitySnapshot
-          lineTotal
+          status
+          totalAmount
           insuranceCoveredAmount
           patientPayableAmount
-          appliedPatientInsuranceId
+          paidAmount
+          outstandingAmount
+          insuranceBillings {
+            id
+            status
+            totalAmount
+            insuranceCoveredAmount
+            patientPayableAmount
+            paidAmount
+            outstandingAmount
+            invoiceUrl
+            items {
+              id
+              visitDepartmentProductId
+              productId
+              productName
+              unitPriceSnapshot
+              quantitySnapshot
+              insuranceCoveredAmount
+              patientPayableAmount
+            }
+          }
         }
       }
     }
@@ -35,11 +43,10 @@ export const CREATE_BILL_MUTATION = gql`
 `
 
 export const GENERATE_INVOICE_MUTATION = gql`
-  mutation GenerateInvoice($billId: ID!) {
-    generateInvoice(billId: $billId) {
+  mutation GenerateInvoice($departmentInsuranceBillingId: ID!) {
+    generateInvoice(departmentInsuranceBillingId: $departmentInsuranceBillingId) {
       status
       message
-      
       data {
         invoiceUrl
       }

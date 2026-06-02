@@ -380,8 +380,10 @@ export interface Bill {
   visitId: string
   totalAmount: number
   paidAmount: number
+  outstandingAmount?: number
   status: string
   items?: VisitBillingItem[]
+  insuranceBillingId?: string
   createdAt?: string
   updatedAt?: string
 }

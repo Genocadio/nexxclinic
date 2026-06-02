@@ -34,13 +34,15 @@ type BillingConfirmSheetProps = {
   selectedItemIds: string[];
   totals: BillingTotals;
   amountPaid: number;
-  paymentMethod: 'cash' | 'momo' | 'airtel-money' | 'pending';
+  paymentMethod: 'CASH' | 'MOBILE_MONEY' | 'CARD' | 'BANK_TRANSFER' | 'CHEQUE' | 'MIXED';
   creatingBill: boolean;
   showItemsReview?: boolean;
   showDiscountControls: boolean;
   discountInputType: 'PERCENTAGE' | 'FIXED';
   discountInputValue: number;
-  onPaymentMethodChange: (method: 'cash' | 'momo' | 'airtel-money' | 'pending') => void;
+  onPaymentMethodChange: (
+    method: 'CASH' | 'MOBILE_MONEY' | 'CARD' | 'BANK_TRANSFER' | 'CHEQUE' | 'MIXED'
+  ) => void;
   onAmountPaidChange: (amount: number) => void;
   onShowDiscountControls: (show: boolean) => void;
   onDiscountInputTypeChange: (type: 'PERCENTAGE' | 'FIXED') => void;
@@ -134,16 +136,23 @@ export function BillingConfirmSheet({
             <div>
               <label className="text-xs text-muted-foreground">Payment method</label>
               <Select
-                value={paymentMethod && paymentMethod !== 'pending' ? paymentMethod : 'momo'}
-                onValueChange={(v) => onPaymentMethodChange(v as 'cash' | 'momo' | 'airtel-money')}
+                value={paymentMethod || 'MOBILE_MONEY'}
+                onValueChange={(v) =>
+                  onPaymentMethodChange(
+                    v as 'CASH' | 'MOBILE_MONEY' | 'CARD' | 'BANK_TRANSFER' | 'CHEQUE' | 'MIXED'
+                  )
+                }
               >
                 <SelectTrigger className="mt-1 h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="momo">MoMo</SelectItem>
-                  <SelectItem value="airtel-money">Airtel Money</SelectItem>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="MOBILE_MONEY">Mobile Money</SelectItem>
+                  <SelectItem value="CARD">Card</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
+                  <SelectItem value="MIXED">Mixed</SelectItem>
                 </SelectContent>
               </Select>
             </div>

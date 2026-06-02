@@ -1,6 +1,6 @@
 'use client';
 
-import { Receipt, Printer, Pencil, Layers, List } from 'lucide-react';
+import { Receipt, Printer, Pencil, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -16,7 +16,6 @@ type BillingStickySummaryProps = {
   totals: BillingTotals;
   amountPaid: number;
   currency?: string;
-  viewMode: 'all' | 'service';
   activeService?: string;
   selectedCount?: number;
   existingBill?: {
@@ -24,20 +23,19 @@ type BillingStickySummaryProps = {
     totalAmount: number;
     patientPayableAmount: number;
     paidAmount: number;
-    outstandingAmount: number;
+    outstandingAmount?: number;
   } | null;
   canEditBilling: boolean;
   hasRemainingToBill: boolean;
-  hasMultipleUnbilledServices: boolean;
   creatingBill: boolean;
   generatingInvoice: boolean;
   isEditingBill: boolean;
   exemptionCount: number;
   onCompleteBill: () => void;
+  onPreview: () => void;
   onPrint: () => void;
   onEditBilling: () => void;
   onDoneEditing: () => void;
-  onToggleViewMode: () => void;
   onManageExemptions: () => void;
 };
 
@@ -49,22 +47,20 @@ export function BillingStickySummary({
   totals,
   amountPaid,
   currency = 'RWF',
-  viewMode,
   activeService,
   selectedCount = 0,
   existingBill,
   canEditBilling,
   hasRemainingToBill,
-  hasMultipleUnbilledServices,
   creatingBill,
   generatingInvoice,
   isEditingBill,
   exemptionCount,
   onCompleteBill,
+  onPreview,
   onPrint,
   onEditBilling,
   onDoneEditing,
-  onToggleViewMode,
   onManageExemptions,
 }: BillingStickySummaryProps) {
   const remaining = Math.max(0, totals.totalAmount - amountPaid);
@@ -102,7 +98,7 @@ export function BillingStickySummary({
 
           <div className="shrink-0">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
-              {viewMode === 'service' && activeService ? `${activeService} · Due` : 'Amount Due'}
+              {activeService ? `${activeService} · Due` : 'Amount Due'}
             </p>
             {selectedCount > 0 && !existingBill && (
               <p className="text-[10px] text-muted-foreground">
@@ -124,7 +120,9 @@ export function BillingStickySummary({
               <span>
                 Billed <span className="font-medium text-foreground">{existingBill.id.slice(0, 8)}…</span>
               </span>
-              <span>Balance {existingBill.outstandingAmount.toLocaleString()} {currency}</span>
+              <span>
+                Balance {(existingBill.outstandingAmount ?? Math.max(0, existingBill.totalAmount - existingBill.paidAmount)).toLocaleString()} {currency}
+              </span>
             </div>
           )}
         </div>
@@ -134,13 +132,6 @@ export function BillingStickySummary({
           <div className="flex items-center gap-1.5 shrink-0">
             {!canEditBilling && hasRemainingToBill && (
               <>
-                {hasMultipleUnbilledServices && (
-                  <ActionButton
-                    icon={viewMode === 'service' ? List : Layers}
-                    label={viewMode === 'service' ? 'All items' : 'By service'}
-                    onClick={onToggleViewMode}
-                  />
-                )}
                 {exemptionCount > 0 && (
                   <ActionButton
                     icon={Receipt}
@@ -159,6 +150,10 @@ export function BillingStickySummary({
                   {creatingBill ? 'Processing…' : 'Complete Bill'}
                 </Button>
               </>
+            )}
+
+            {existingBill && (
+              <ActionButton icon={Eye} label="Preview bill" onClick={onPreview} />
             )}
 
             {canEditBilling && (

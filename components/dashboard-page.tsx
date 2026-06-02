@@ -549,14 +549,16 @@ export default function DashboardPage() {
       setPrintingVisitId(visit.id)
 
       const billRes = await getVisitBillings({ variables: { visitId: visit.id } })
-      const bill = billRes.data?.visitBillings?.data?.[billRes.data?.visitBillings?.data?.length - 1] || billRes.data?.visitBillings?.data?.[0]
+      const visitBilling = billRes.data?.visitBilling?.data
+      const insuranceBillings = (visitBilling?.departments || []).flatMap((department: any) => department.insuranceBillings || [])
+      const latestInsuranceBilling = insuranceBillings[insuranceBillings.length - 1]
 
-      if (!bill?.id) {
+      if (!latestInsuranceBilling?.id) {
         toast.error("No bill found for this visit.")
         return
       }
 
-      const invoiceUrl = await resolveInvoiceUrl(bill.id, generateInvoice)
+      const invoiceUrl = await resolveInvoiceUrl(latestInsuranceBilling.id, generateInvoice)
       openInvoicePreview(invoiceUrl)
     } catch (err: unknown) {
       console.error('Preview invoice error:', err)

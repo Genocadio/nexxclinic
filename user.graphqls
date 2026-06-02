@@ -121,6 +121,12 @@ enum VisitDepartmentStatus {
   COMPLETED
 }
 
+enum EncounterType {
+  OUTPATIENT
+  INPATIENT_OBSERVATION
+  INPATIENT_ADMISSION
+}
+
 enum VisitBillingStatus {
   UNPAID
   PARTIALLY_PAID
@@ -448,6 +454,7 @@ type VisitDepartment {
   id: ID!
   department: Department!
   status: VisitDepartmentStatus!
+  encounterType: EncounterType!
   completedAt: String
   processors: [Worker!]
   childVisitDepartments: [VisitDepartment!]!
@@ -539,10 +546,37 @@ type VisitBillingItem {
   productName: String!
   unitPriceSnapshot: Float!
   quantitySnapshot: Float!
-  lineTotal: Float!
   insuranceCoveredAmount: Float!
   patientPayableAmount: Float!
-  appliedPatientInsuranceId: ID
+  createdAt: String!
+  updatedAt: String!
+}
+
+type DepartmentInsuranceBilling {
+  id: ID!
+  patientInsurance: PatientInsurance
+  status: VisitBillingStatus!
+  totalAmount: Float!
+  insuranceCoveredAmount: Float!
+  patientPayableAmount: Float!
+  paidAmount: Float!
+  outstandingAmount: Float!
+  invoiceUrl: String
+  items: [VisitBillingItem!]!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type VisitDepartmentBilling {
+  id: ID!
+  visitDepartment: VisitDepartment!
+  status: VisitBillingStatus!
+  totalAmount: Float!
+  insuranceCoveredAmount: Float!
+  patientPayableAmount: Float!
+  paidAmount: Float!
+  outstandingAmount: Float!
+  insuranceBillings: [DepartmentInsuranceBilling!]!
   createdAt: String!
   updatedAt: String!
 }
@@ -550,16 +584,9 @@ type VisitBillingItem {
 type VisitBilling {
   id: ID!
   visitId: ID!
-  status: VisitBillingStatus!
-  billingDate: String!
-  totalAmount: Float!
-  insuranceCoveredAmount: Float!
-  patientPayableAmount: Float!
-  paidAmount: Float!
-  outstandingAmount: Float!
-  fullyBilledVisit: Boolean!
-  billedBy: Worker
-  items: [VisitBillingItem!]!
+  departments: [VisitDepartmentBilling!]!
+  createdAt: String!
+  updatedAt: String!
 }
 
 type VisitBillingResponse implements ApiResponse {
@@ -576,12 +603,6 @@ type InvoiceResponse implements ApiResponse {
   status: ResponseStatus!
   message: String
     data: Invoice
-}
-
-type VisitBillingListResponse implements ApiResponse {
-  status: ResponseStatus!
-  message: String
-    data: [VisitBilling!]
 }
 
 type PaginatedVisitResponse implements ApiResponse {
@@ -1027,6 +1048,7 @@ input ChangeVisitDateInput {
 
 input CreateVisitDepartmentInput {
   departmentId: ID!
+  encounterType: EncounterType
   products: [CreateVisitDepartmentProductItemInput!]
 }
 
@@ -1053,11 +1075,20 @@ input AddChildVisitDepartmentProductInput {
   quantity: Float!
 }
 
+"""
+Input for adding a child visit department with products.
+All validations occur before the child department is created:
+- All products must exist and be valid
+- processorId is required if the department has multiple processors or supportRequests is enabled
+- If any product cannot be added, the child department is NOT created
+- A child department with 0 products will never exist; it is deleted if the last product is removed
+"""
 input AddChildVisitDepartmentInput {
   parentVisitDepartmentId: ID!
   departmentId: ID!
   products: [AddChildVisitDepartmentProductInput!]!
   processorId: ID
+  encounterType: EncounterType
 }
 
 input UpdateVisitDepartmentProductStatusInput {
@@ -1075,24 +1106,44 @@ input UpdateVisitDepartmentProductQuantityInput {
   quantity: Float!
 }
 
-input BillVisitItemInput {
+input BillVisitDepartmentProductInput {
   visitDepartmentProductId: ID!
+  parentVisitDepartmentId: ID
   patientInsuranceId: ID
   quantity: Float
   unitPrice: Float
   isExempted: Boolean
 }
 
+input BillingPaymentInput {
+  amount: Float!
+  paymentMethod: PaymentMethod!
+  reference: String
+}
+
+input BillVisitDepartmentInput {
+  visitDepartmentId: ID!
+  products: [BillVisitDepartmentProductInput!]!
+  payments: [BillingPaymentInput!]
+}
+
 input BillVisitInput {
   visitId: ID!
-  billAllProducts: Boolean
-  items: [BillVisitItemInput!]
-  paidAmount: Float
+  departments: [BillVisitDepartmentInput!]!
 }
 
 input RecordVisitBillingPaymentInput {
-  visitBillingId: ID!
+  departmentInsuranceBillingId: ID!
   amount: Float!
+}
+
+enum PaymentMethod {
+  CASH
+  MOBILE_MONEY
+  CARD
+  BANK_TRANSFER
+  CHEQUE
+  MIXED
 }
 
 input SearchVisitsInput {
@@ -1225,9 +1276,8 @@ type Query {
   visit(visitId: ID!): VisitResponse!
   visits(input: SearchVisitsInput): PaginatedVisitResponse!
   getPatientHistory(patientId: ID!, input: SearchPatientHistoryInput): PaginatedVisitResponse!
-  visitBilling(visitBillingId: ID!): VisitBillingResponse!
-  visitBillings(visitId: ID!): VisitBillingListResponse!
-  getInvoice(billId: ID!): InvoiceResponse!
+  visitBilling(visitId: ID!): VisitBillingResponse!
+  getInvoice(departmentInsuranceBillingId: ID!): InvoiceResponse!
 }
 
 type Mutation {
@@ -1263,7 +1313,13 @@ type Mutation {
   updateDepartment(departmentId: ID!, input: UpdateDepartmentInput!): DepartmentResponse!
   createVisit(input: CreateVisitInput!): VisitResponse!
   changeVisitDate(input: ChangeVisitDateInput!): VisitResponse!
-  addVisitDepartment(visitId: ID!, departmentId: ID!): VisitResponse!
+  addVisitDepartment(visitId: ID!, departmentId: ID!, encounterType: EncounterType): VisitResponse!
+  """
+  Add a child visit department with products. Validations occur before creation:
+  - If any product validation fails, the child department is NOT created
+  - Child departments can be created without processorId and assigned later
+  - Child departments can never exist with zero products
+  """
   addChildVisitDepartment(input: AddChildVisitDepartmentInput!): VisitDepartmentResponse!
   removeChildVisitDepartment(visitDepartmentId: ID!): VisitDepartmentResponse!
   addVisitDepartmentProcessor(visitDepartmentId: ID!, processorId: ID!): VisitDepartmentResponse!
@@ -1275,11 +1331,12 @@ type Mutation {
   updateVisitDepartmentProductStatus(input: UpdateVisitDepartmentProductStatusInput!): VisitDepartmentResponse!
   updateVisitDepartmentStatus(input: UpdateVisitDepartmentStatusInput!): VisitDepartmentResponse!
   updateVisitDepartmentProductQuantity(input: UpdateVisitDepartmentProductQuantityInput!): VisitDepartmentResponse!
+  updateVisitDepartmentEncounterType(visitDepartmentId: ID!, encounterType: EncounterType!): VisitDepartmentResponse!
   completeConsultationVisit(input: ConsultationAnswersInput!, final: Boolean!): VisitResponse!
   completeVisit(visitId: ID!): VisitResponse!
   removeVisitDepartmentProduct(visitDepartmentProductId: ID!): VisitDepartmentResponse!
   billVisit(input: BillVisitInput!): VisitBillingResponse!
   recordVisitBillingPayment(input: RecordVisitBillingPaymentInput!): VisitBillingResponse!
-  generateInvoice(billId: ID!): InvoiceResponse!
+  generateInvoice(departmentInsuranceBillingId: ID!): InvoiceResponse!
   cancelVisit(visitId: ID!): VisitResponse!
 }

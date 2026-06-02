@@ -16,7 +16,7 @@ import { useCreatePatientInsurance, useUpdatePatientInsurance } from '@/hooks/pa
 import { Spinner } from '@/components/ui/spinner';
 import AddProductModal from '@/components/add-action-consumable-modal';
 import VisitNotesFloating from '@/components/visit-notes-floating';
-import { Plus, Layers, List } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { BillingPatientBar } from '@/components/billing/billing-patient-bar';
 import { BillingStickySummary } from '@/components/billing/billing-sticky-summary';
 import { BillingConfirmSheet } from '@/components/billing/billing-confirm-sheet';
@@ -61,7 +61,6 @@ function BillingPageContent() {
   const [showCompleteBillConfirm, setShowCompleteBillConfirm] = useState(false);
   const [confirmSheetMode, setConfirmSheetMode] = useState<'complete' | 'edit'>('complete');
   const [didAutoPrint, setDidAutoPrint] = useState(false);
-  const [viewMode, setViewMode] = useState<'all' | 'service'>('service');
   const [activeService, setActiveService] = useState<string>('');
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [showAddInsuranceModal, setShowAddInsuranceModal] = useState(false);
@@ -130,20 +129,25 @@ function BillingPageContent() {
     const mapDepartmentTreeItems = (
       department: NonNullable<Visit['departments']>[number],
       parentContext?: {
-        id?: string;
+        visitDepartmentId?: string;
+        departmentId?: string;
         name: string;
         completedTime?: string;
         status?: string;
       },
+      childHierarchy: string[] = [],
     ) => {
       const currentContext = parentContext || {
-        id: department.department?.id,
+        visitDepartmentId: department.id,
+        departmentId: department.department?.id,
         name: department.department?.name || 'Department',
         completedTime: department.completedTime,
         status: department.status,
       };
 
-      const childDepartmentName = parentContext ? (department.department?.name || 'Department') : undefined;
+      const childDepartmentName = childHierarchy.length > 0
+        ? childHierarchy.join(' > ')
+        : undefined;
 
       department.actions?.forEach((act) => {
         const basePrice = Number(act.action?.privatePrice ?? 0);
@@ -164,7 +168,9 @@ function BillingPageContent() {
           insuranceCoverageMeta: meta,
           insuranceNotCovered: defaultVisitInsuranceId ? notCovered : false,
           type: 'action',
-          departmentId: currentContext.id,
+          visitDepartmentId: department.id,
+          rootVisitDepartmentId: parentContext ? parentContext.visitDepartmentId : department.id,
+          departmentId: currentContext.departmentId,
           departmentName: currentContext.name,
           childDepartmentName,
           departmentCompletedTime: currentContext.completedTime,
@@ -199,7 +205,9 @@ function BillingPageContent() {
           insuranceCoverageMeta: meta,
           insuranceNotCovered: defaultVisitInsuranceId ? notCovered : false,
           type: 'consumable',
-          departmentId: currentContext.id,
+          visitDepartmentId: department.id,
+          rootVisitDepartmentId: parentContext ? parentContext.visitDepartmentId : department.id,
+          departmentId: currentContext.departmentId,
           departmentName: currentContext.name,
           childDepartmentName,
           departmentCompletedTime: currentContext.completedTime,
@@ -216,7 +224,11 @@ function BillingPageContent() {
       });
 
       department.childVisitDepartments?.forEach((childDepartment) => {
-        mapDepartmentTreeItems(childDepartment, currentContext);
+        mapDepartmentTreeItems(
+          childDepartment,
+          currentContext,
+          [...childHierarchy, childDepartment.department?.name || 'Department'],
+        );
       });
     };
 
@@ -263,7 +275,7 @@ function BillingPageContent() {
       })),
       items,
       discountPercentage,
-      paymentMethod: 'momo', // Payment tracking can be enhanced later
+      paymentMethod: 'MOBILE_MONEY',
       amountPaid: Number(existingBill?.paidAmount ?? patientContributionAfterDiscount),
       notes: '',
       createdAt: new Date().toISOString(),
@@ -273,8 +285,14 @@ function BillingPageContent() {
 
   useEffect(() => {
     if (!visit?.id) return;
-    setActiveVisitInsuranceIds((visit.insurances || []).map((insurance) => String(insurance.id)));
-  }, [visit?.insurances]);
+    const newIds = (visit.insurances || []).map((insurance) => String(insurance.id));
+    if (
+      newIds.length !== activeVisitInsuranceIds.length ||
+      newIds.some((id, index) => id !== activeVisitInsuranceIds[index])
+    ) {
+      setActiveVisitInsuranceIds(newIds);
+    }
+  }, [visit?.id, visit?.insurances, activeVisitInsuranceIds]);
 
   const activeVisitInsurances = useMemo(() => {
     const activeIds = new Set(activeVisitInsuranceIds);
@@ -282,14 +300,27 @@ function BillingPageContent() {
   }, [visit?.insurances, activeVisitInsuranceIds]);
 
   useEffect(() => {
-    if (visit) {
-      const mapped = mapVisitToBilling(visit);
+    if (!visit) return;
+    const mapped = mapVisitToBilling(visit);
+    const shouldUpdateBillingData =
+      !billingData ||
+      billingData.visitId !== mapped.visitId ||
+      billingData.amountPaid !== mapped.amountPaid ||
+      billingData.items.length !== mapped.items.length ||
+      billingData.items.some((item, index) => item.id !== mapped.items[index]?.id || item.paymentStatus !== mapped.items[index]?.paymentStatus);
+
+    if (shouldUpdateBillingData) {
       setBillingData(mapped);
-      // Select only unbilled items by default
       const unbilledItems = mapped.items.filter(item => item.paymentStatus !== 'paid');
-      setSelectedItemIds(unbilledItems.map(item => item.id));
+      const newSelectedIds = unbilledItems.map(item => item.id);
+      if (
+        newSelectedIds.length !== selectedItemIds.length ||
+        newSelectedIds.some((id, index) => id !== selectedItemIds[index])
+      ) {
+        setSelectedItemIds(newSelectedIds);
+      }
     }
-  }, [visit, existingBill]);
+  }, [visit?.id, existingBill?.id, existingBill?.paidAmount, existingBill?.totalAmount, existingBill?.outstandingAmount]);
 
   useEffect(() => {
     if (billingData?.items?.length) {
@@ -300,18 +331,18 @@ function BillingPageContent() {
 
   // When view mode changes to service or active service changes, update selection
   useEffect(() => {
-    if (viewMode === 'service' && activeService && billingData) {
-      // In service mode, only select unbilled items from the active service
-      const serviceItems = billingData.items.filter(
-        item => (item.departmentName || 'General') === activeService && item.paymentStatus !== 'paid'
-      );
-      setSelectedItemIds(serviceItems.map(item => item.id));
-    } else if (viewMode === 'all' && billingData) {
-      // In all mode, select all unbilled items
-      const unbilledItems = billingData.items.filter(item => item.paymentStatus !== 'paid');
-      setSelectedItemIds(unbilledItems.map(item => item.id));
+    if (!activeService || !billingData) return;
+    const serviceItems = billingData.items.filter(
+      item => (item.departmentName || 'General') === activeService && item.paymentStatus !== 'paid'
+    );
+    const newSelectedIds = serviceItems.map(item => item.id);
+    if (
+      newSelectedIds.length !== selectedItemIds.length ||
+      newSelectedIds.some((id, index) => id !== selectedItemIds[index])
+    ) {
+      setSelectedItemIds(newSelectedIds);
     }
-  }, [viewMode, activeService, billingData?.items.length]);
+  }, [activeService, billingData?.items.length, selectedItemIds]);
 
   // Calculate totals for a given items subset (selected, unbilled lines only)
   const calculateTotalsForItems = useCallback((items: BillingItem[]) => {
@@ -417,7 +448,7 @@ function BillingPageContent() {
   };
 
   const handlePaymentMethodChange = (
-    method: 'cash' | 'momo' | 'airtel-money' | 'pending'
+    method: 'CASH' | 'MOBILE_MONEY' | 'CARD' | 'BANK_TRANSFER' | 'CHEQUE' | 'MIXED'
   ) => {
     setBillingData((prev) => prev ? ({
       ...prev,
@@ -466,23 +497,20 @@ function BillingPageContent() {
   };
 
   const itemsToDisplay = useMemo((): BillingItem[] => {
-    if (!billingData) return [];
-    if (viewMode === 'service' && activeService) {
-      return billingData.items.filter((item) => (item.departmentName || 'General') === activeService);
-    }
-    return billingData.items;
-  }, [billingData, viewMode, activeService]);
+    if (!billingData || !activeService) return [];
+    return billingData.items.filter((item) => (item.departmentName || 'General') === activeService);
+  }, [billingData, activeService]);
 
   const selectedItems = billingData ? billingData.items.filter((it) => selectedItemIds.includes(it.id)) : [];
   const hasRemainingToBill = Boolean(billingData?.items.some((item) => item.paymentStatus !== 'paid'));
   const canEditBilling = Boolean(existingBill) || billJustCreated;
   const showBillingDock = canEditBilling || (!existingBill && hasRemainingToBill);
 
-  const refreshInvoicePdf = async (billId?: string, options?: { openPreview?: boolean }) => {
-    const targetBillId = billId || existingBill?.id;
-    if (!targetBillId) return null;
+  const refreshInvoicePdf = async (insuranceBillingId?: string, options?: { openPreview?: boolean }) => {
+    const targetInsuranceBillingId = insuranceBillingId || existingBill?.insuranceBillingId;
+    if (!targetInsuranceBillingId) return null;
 
-    const invoiceUrl = await resolveInvoiceUrl(targetBillId, generateInvoice);
+    const invoiceUrl = await resolveInvoiceUrl(targetInsuranceBillingId, generateInvoice);
     setInvoicePdfBase64(invoiceUrl);
 
     if (options?.openPreview) {
@@ -520,16 +548,18 @@ function BillingPageContent() {
     ? billingData.items.filter(item => (item.exemptionType || (item.exempted ? 'full' : 'none')) !== 'none').length
     : 0;
 
-  const unbilledServiceNames = useMemo(() => billingData
-    ? Array.from(
-        new Set(
-          billingData.items
-            .filter((item) => item.paymentStatus !== 'paid')
-            .map((item) => item.departmentName || 'General')
+  const unbilledServiceNames = useMemo(
+    () => billingData
+      ? Array.from(
+          new Set(
+            billingData.items
+              .filter((item) => item.paymentStatus !== 'paid')
+              .map((item) => item.departmentName || 'General')
+          )
         )
-      )
-    : [], [billingData?.items]);
-  const hasMultipleUnbilledServices = unbilledServiceNames.length > 1;
+      : [],
+    [billingData?.items]
+  );
 
   const billingScopedNotes = [
     ...((visit?.visitNotes || [])
@@ -640,16 +670,53 @@ function BillingPageContent() {
     }
     
     try {
-      const input = {
-        visitId: billingData.visitId,
-        items: unbilledItems.map(item => ({
+      const billableByDepartment = new Map<string, {
+        visitDepartmentId: string
+        products: {
+          visitDepartmentProductId: string
+          parentVisitDepartmentId: string
+          patientInsuranceId?: string
+          quantity?: number
+          unitPrice?: number
+          isExempted?: boolean
+        }[]
+      }>()
+
+      unbilledItems.forEach((item) => {
+        const productOwnerVisitDepartmentId = String(item.visitDepartmentId || '')
+        const rootVisitDepartmentId = String(item.rootVisitDepartmentId || productOwnerVisitDepartmentId)
+        if (!rootVisitDepartmentId || !productOwnerVisitDepartmentId) return
+        if (!billableByDepartment.has(rootVisitDepartmentId)) {
+          billableByDepartment.set(rootVisitDepartmentId, {
+            visitDepartmentId: rootVisitDepartmentId,
+            products: [],
+          })
+        }
+        billableByDepartment.get(rootVisitDepartmentId)!.products.push({
           visitDepartmentProductId: item.id,
+          parentVisitDepartmentId: productOwnerVisitDepartmentId,
           patientInsuranceId: item.selectedInsuranceId,
           quantity: item.quantity,
           unitPrice: item.price,
           isExempted: item.exempted || item.exemptionType === 'full' || item.exemptionType === 'patient-share',
+        })
+      })
+
+      const payments =
+        (billingData.amountPaid || 0) > 0
+          ? [{
+              amount: Number(billingData.amountPaid || 0),
+              paymentMethod: billingData.paymentMethod || 'MOBILE_MONEY',
+            }]
+          : undefined
+
+      const input = {
+        visitId: billingData.visitId,
+        departments: Array.from(billableByDepartment.values()).map((department) => ({
+          visitDepartmentId: department.visitDepartmentId,
+          products: department.products,
+          payments,
         })),
-        paidAmount: billingData.amountPaid || 0,
       };
       
       const response = await createBill(input);
@@ -689,12 +756,7 @@ function BillingPageContent() {
         await refetchVisit();
         await refetchBill();
         try {
-          const newBillId = response.data?.id;
-          if (newBillId) {
-            await refreshInvoicePdf(newBillId, { openPreview: true });
-          } else {
-            await refreshInvoicePdf(undefined, { openPreview: true });
-          }
+          await refreshInvoicePdf(undefined, { openPreview: true });
         } catch (invoiceErr: unknown) {
           console.error('Invoice generation after billing failed:', invoiceErr);
           const message = invoiceErr instanceof Error ? invoiceErr.message : 'Bill created but invoice PDF could not be generated yet.';
@@ -716,10 +778,7 @@ function BillingPageContent() {
     if (!activeService) {
       setActiveService(unbilledServiceNames[0] || allServiceNames[0] || 'General');
     }
-    if (!hasMultipleUnbilledServices && viewMode !== 'service') {
-      setViewMode('service');
-    }
-  }, [billingData, activeService, unbilledServiceNames, allServiceNames, hasMultipleUnbilledServices, viewMode]);
+  }, [billingData, activeService, unbilledServiceNames, allServiceNames]);
 
   useEffect(() => {
     setBillJustCreated(false)
@@ -736,27 +795,147 @@ function BillingPageContent() {
     return () => clearTimeout(timer)
   }, [autoPrint, didAutoPrint, existingBill, billingData])
 
-  useEffect(() => {
-    if (!existingBill || isEditingBill) return;
-    if (invoicePdfBase64) return;
+  const handlePreviewBilling = () => {
+    if (!billingData) return;
 
-    void (async () => {
-      try {
-        if (existingBill.id) {
-          await refreshInvoicePdf(existingBill.id);
-        }
-      } catch (err) {
-        console.error('Initial invoice fetch failed:', err);
-      }
-    })();
-  }, [existingBill, isEditingBill, invoicePdfBase64]);
+    const escapeHtml = (value: string) =>
+      value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const invoiceItems = existingBill?.items?.map((item) => ({
+      description: item.productName,
+      quantity: item.quantitySnapshot,
+      unitPrice: item.unitPriceSnapshot,
+      lineTotal: item.lineTotal,
+    })) || billingData.items.map((item) => ({
+      description: item.name,
+      quantity: item.quantity,
+      unitPrice: item.price,
+      lineTotal: item.price * item.quantity,
+    }));
+
+    const totals = {
+      subtotal: existingBill?.totalAmount ?? displayTotals.subtotal,
+      discount: displayTotals.discount,
+      totalDue: existingBill?.totalAmount ?? displayTotals.totalAmount,
+      paid: existingBill?.paidAmount ?? (billingData.amountPaid || 0),
+      balance: existingBill?.outstandingAmount ?? Math.max(0, displayTotals.totalAmount - (billingData.amountPaid || 0)),
+    };
+
+    const invoiceHtml = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Invoice ${escapeHtml(existingBill?.id || billingData.visitId || 'N/A')}</title>
+    <style>
+      @page { size: A4; margin: 16mm; }
+      body { font-family: Arial, Helvetica, sans-serif; color: #1f2937; margin: 0; }
+      .invoice { width: 100%; }
+      .header { display: flex; justify-content: space-between; border-bottom: 2px solid #111827; padding-bottom: 12px; margin-bottom: 18px; }
+      .title { font-size: 24px; font-weight: 700; margin: 0; letter-spacing: .3px; }
+      .muted { color: #6b7280; font-size: 12px; margin: 2px 0; }
+      .section { margin-bottom: 16px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .box { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+      th, td { border: 1px solid #e5e7eb; padding: 8px; font-size: 12px; }
+      th { background: #f3f4f6; text-align: left; }
+      .right { text-align: right; }
+      .totals { width: 320px; margin-left: auto; margin-top: 14px; }
+      .totals td { border: none; padding: 4px 0; }
+      .grand td { border-top: 1px solid #d1d5db; font-weight: 700; padding-top: 8px; }
+      .footer { margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 10px; font-size: 11px; color: #6b7280; }
+    </style>
+  </head>
+  <body>
+    <div class="invoice">
+      <div class="header">
+        <div>
+          <h1 class="title">NexxMed Invoice</h1>
+          <p class="muted">Formal Billing Statement</p>
+        </div>
+        <div>
+          <p class="muted"><strong>Invoice #:</strong> ${escapeHtml(existingBill?.id || billingData.visitId || 'N/A')}</p>
+          <p class="muted"><strong>Date:</strong> ${new Date(existingBill?.updatedAt || billingData.updatedAt || new Date().toISOString()).toLocaleString()}</p>
+        </div>
+      </div>
+
+      <div class="section grid">
+        <div class="box">
+          <p class="muted"><strong>Patient</strong></p>
+          <p>${escapeHtml(billingData.patientName || 'N/A')}</p>
+          <p class="muted">Patient ID: ${escapeHtml(billingData.patientId || 'N/A')}</p>
+        </div>
+        <div class="box">
+          <p class="muted"><strong>Payment</strong></p>
+          <p class="muted">Method: ${escapeHtml((billingData.paymentMethod || 'MOBILE_MONEY').toUpperCase())}</p>
+          <p class="muted">Visit Date: ${new Date(billingData.visitDate).toLocaleDateString()}</p>
+        </div>
+      </div>
+
+      <div class="section">
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th class="right">Qty</th>
+              <th class="right">Unit Price</th>
+              <th class="right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${invoiceItems
+              .map(
+                (item) => `<tr>
+                  <td>${escapeHtml(item.description || 'Item')}</td>
+                  <td class="right">${item.quantity}</td>
+                  <td class="right">${Number(item.unitPrice || 0).toLocaleString()} RWF</td>
+                  <td class="right">${Number(item.lineTotal || 0).toLocaleString()} RWF</td>
+                </tr>`,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <table class="totals">
+        <tr><td>Subtotal</td><td class="right">${Number(totals.subtotal || 0).toLocaleString()} RWF</td></tr>
+        <tr><td>Discount</td><td class="right">-${Number(totals.discount || 0).toLocaleString()} RWF</td></tr>
+        <tr class="grand"><td>Total Due</td><td class="right">${Number(totals.totalDue || 0).toLocaleString()} RWF</td></tr>
+        <tr><td>Paid</td><td class="right">${Number(totals.paid || 0).toLocaleString()} RWF</td></tr>
+        <tr><td>Balance</td><td class="right">${Number(totals.balance || 0).toLocaleString()} RWF</td></tr>
+      </table>
+
+      <div class="footer">
+        Generated by NexxMed Billing Module.
+      </div>
+    </div>
+  </body>
+</html>`
+
+    const printWindow = window.open('', '_blank', 'width=900,height=1100')
+    if (!printWindow) {
+      toast.error('Unable to open print window. Please allow pop-ups and try again.')
+      return
+    }
+
+    printWindow.document.open()
+    printWindow.document.write(invoiceHtml)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+  }
 
   const handlePrintBillingInvoice = async () => {
     if (!billingData) return
 
     if (existingBill) {
       try {
-        const pdf = invoicePdfBase64 || await refreshInvoicePdf(existingBill.id);
+        const pdf = invoicePdfBase64 || await refreshInvoicePdf();
         if (pdf) {
           openInvoicePreview(pdf);
           return;
@@ -791,7 +970,7 @@ function BillingPageContent() {
     const totals = {
       subtotal: existingBill?.totalAmount ?? displayTotals.subtotal,
       discount: displayTotals.discount,
-      totalDue: existingBill?.patientPayableAmount ?? displayTotals.totalAmount,
+      totalDue: existingBill?.totalAmount ?? displayTotals.totalAmount,
       paid: existingBill?.paidAmount ?? (billingData.amountPaid || 0),
       balance: existingBill?.outstandingAmount ?? Math.max(0, displayTotals.totalAmount - (billingData.amountPaid || 0)),
     }
@@ -830,7 +1009,7 @@ function BillingPageContent() {
         </div>
         <div>
           <p class="muted"><strong>Invoice #:</strong> ${escapeHtml(existingBill?.id || billingData.visitId || 'N/A')}</p>
-          <p class="muted"><strong>Date:</strong> ${new Date(existingBill?.billingDate || billingData.updatedAt || new Date().toISOString()).toLocaleString()}</p>
+          <p class="muted"><strong>Date:</strong> ${new Date(existingBill?.updatedAt || billingData.updatedAt || new Date().toISOString()).toLocaleString()}</p>
         </div>
       </div>
 
@@ -842,7 +1021,7 @@ function BillingPageContent() {
         </div>
         <div class="box">
           <p class="muted"><strong>Payment</strong></p>
-          <p class="muted">Method: ${escapeHtml((billingData.paymentMethod || 'momo').toUpperCase())}</p>
+          <p class="muted">Method: ${escapeHtml((billingData.paymentMethod || 'MOBILE_MONEY').toUpperCase())}</p>
           <p class="muted">Visit Date: ${new Date(billingData.visitDate).toLocaleDateString()}</p>
         </div>
       </div>
@@ -1110,26 +1289,6 @@ function BillingPageContent() {
               </span>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {!canEditBilling && hasRemainingToBill && hasMultipleUnbilledServices && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 rounded-full text-xs"
-                  onClick={() => setViewMode(viewMode === 'service' ? 'all' : 'service')}
-                >
-                  {viewMode === 'service' ? (
-                    <>
-                      <List className="h-3.5 w-3.5 mr-1.5" />
-                      All items
-                    </>
-                  ) : (
-                    <>
-                      <Layers className="h-3.5 w-3.5 mr-1.5" />
-                      By service
-                    </>
-                  )}
-                </Button>
-              )}
               {!canEditBilling && hasRemainingToBill && (
                 <Button
                   variant="outline"
@@ -1144,19 +1303,17 @@ function BillingPageContent() {
             </div>
           </div>
 
-          {viewMode === 'service' && (
-            <div className="mb-2 flex-shrink-0">
-              <Tabs value={activeService} onValueChange={setActiveService}>
-                <TabsList className="h-8">
-                  {allServiceNames.map((dept) => (
-                    <TabsTrigger key={dept} value={dept} className="rounded-full px-3 text-xs h-7">
-                      {dept}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </Tabs>
-            </div>
-          )}
+          <div className="mb-2 flex-shrink-0">
+            <Tabs value={activeService} onValueChange={setActiveService}>
+              <TabsList className="h-8">
+                {allServiceNames.map((dept) => (
+                  <TabsTrigger key={dept} value={dept} className="rounded-full px-3 text-xs h-7">
+                    {dept}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
 
           <div className="flex-1 min-h-0 bg-card/60 backdrop-blur-xl border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
             <div className="flex-1 overflow-y-auto py-2">
@@ -1170,8 +1327,8 @@ function BillingPageContent() {
                 selectedItemIds={selectedItemIds}
                 onSelectionToggle={handleSelectionToggle}
                 onSelectAll={handleSelectAll}
-                hideDepartmentHeaders={viewMode === 'service'}
-                allDepartments={viewMode === 'all' ? allServiceNames : []}
+                hideDepartmentHeaders={true}
+                allDepartments={[]}
                 hideTypeColumn={true}
               />
             </div>
@@ -1183,7 +1340,6 @@ function BillingPageContent() {
           <BillingStickySummary
             totals={displayTotals}
             amountPaid={billingData.amountPaid || 0}
-            viewMode={viewMode}
             activeService={activeService}
             selectedCount={itemsToDisplay.filter(
               (item) => selectedItemIds.includes(item.id) && item.paymentStatus !== 'paid',
@@ -1191,7 +1347,6 @@ function BillingPageContent() {
             existingBill={existingBill}
             canEditBilling={canEditBilling}
             hasRemainingToBill={hasRemainingToBill}
-            hasMultipleUnbilledServices={hasMultipleUnbilledServices}
             creatingBill={creatingBill}
             generatingInvoice={generatingInvoice}
             isEditingBill={isEditingBill}
@@ -1201,6 +1356,7 @@ function BillingPageContent() {
               handleAmountPaidChange(displayTotals.totalAmount);
               setShowCompleteBillConfirm(true);
             }}
+            onPreview={() => void handlePreviewBilling()}
             onPrint={() => void handlePrintBillingInvoice()}
             onEditBilling={() => {
               setIsEditingBill(true);
@@ -1219,7 +1375,6 @@ function BillingPageContent() {
                 toast.warning(message);
               }
             }}
-            onToggleViewMode={() => setViewMode(viewMode === 'service' ? 'all' : 'service')}
             onManageExemptions={() => setShowExemptionsWindow(true)}
           />
         )}
@@ -1362,7 +1517,7 @@ function BillingPageContent() {
         selectedItemIds={selectedItemIds}
         totals={displayTotals}
         amountPaid={billingData.amountPaid || 0}
-        paymentMethod={billingData.paymentMethod || 'momo'}
+        paymentMethod={billingData.paymentMethod || 'MOBILE_MONEY'}
         creatingBill={creatingBill}
         showItemsReview={confirmSheetMode === 'complete'}
         showDiscountControls={showDiscountControls}
@@ -1411,11 +1566,9 @@ function BillingPageContent() {
             return { id: deptId || deptName, name: deptName };
           })}
           currentDepartmentId={
-            viewMode === 'service'
-              ? visit?.departments?.find((dept) => (dept.department?.name || 'General') === activeService)?.department?.id
-              : undefined
+            visit?.departments?.find((dept) => (dept.department?.name || 'General') === activeService)?.department?.id
           }
-          viewMode={viewMode}
+          viewMode="service"
           onAdd={handleAddProduct}
           isSubmitting={addingBillingItem}
         />

@@ -300,7 +300,23 @@ export function BillingItemsList({
                       </td>
                     </tr>
                   ) : (
-                    deptItems.map((item) => {
+                    Object.entries(
+                      deptItems.reduce<Record<string, BillingItem[]>>((acc, item) => {
+                        const key = item.childDepartmentName || '__parent__';
+                        if (!acc[key]) acc[key] = [];
+                        acc[key].push(item);
+                        return acc;
+                      }, {}),
+                    ).map(([childGroup, childItems]) => (
+                      <Fragment key={`${deptName}-${childGroup}`}>
+                        {childGroup !== '__parent__' && (
+                          <tr className="bg-muted/30 border-b border-border/70">
+                            <td colSpan={colCount} className="py-1.5 px-3 text-[11px] text-muted-foreground">
+                              {deptName} / {childGroup}
+                            </td>
+                          </tr>
+                        )}
+                        {childItems.map((item) => {
                       const itemTotal = calculateItemTotal(item);
                       const exemptionType = item.exemptionType || (item.exempted ? 'full' : 'none');
                       const isExempted = exemptionType !== 'none';
@@ -341,7 +357,7 @@ export function BillingItemsList({
                             <p className="font-medium text-foreground text-sm leading-tight">{item.name}</p>
                             {item.childDepartmentName && (
                               <p className="text-[10px] text-muted-foreground mt-0.5">
-                                Requested by: {item.childDepartmentName}
+                                Service: {item.childDepartmentName}
                               </p>
                             )}
                             <p className="text-[10px] text-muted-foreground mt-0.5">{item.doneBy.name}</p>
@@ -520,7 +536,9 @@ export function BillingItemsList({
                           </td>
                         </tr>
                       );
-                    })
+                    })}
+                      </Fragment>
+                    ))
                   )}
                   {!hideDepartmentHeaders && deptItems.length > 0 && (
                     <tr className="bg-muted/50 dark:bg-muted/30 border-y border-border">

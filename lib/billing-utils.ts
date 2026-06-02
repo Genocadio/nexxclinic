@@ -10,6 +10,8 @@ export interface BillingItem {
   insuranceCoverageMeta?: Record<string, InsuranceCoverageMeta>;
   insuranceNotCovered?: boolean;
   type: 'action' | 'consumable';
+  visitDepartmentId?: string;
+  rootVisitDepartmentId?: string;
   departmentId?: string;
   departmentName?: string;
   childDepartmentName?: string;
@@ -46,7 +48,7 @@ export interface BillingData {
   discountPercentage: number;
   discountAmount?: number; // Store discount as amount
   discountReason?: string;
-  paymentMethod?: 'cash' | 'momo' | 'airtel-money' | 'pending';
+  paymentMethod?: 'CASH' | 'MOBILE_MONEY' | 'CARD' | 'BANK_TRANSFER' | 'CHEQUE' | 'MIXED';
   amountPaid?: number; // Track amount patient paid
   paymentStatus?: 'unpaid' | 'partial' | 'full'; // Track payment status
   notes?: string;
@@ -61,6 +63,7 @@ export type InsuranceCoverageMeta = {
 
 type ProductCoverageInput = {
   insurance?: { id?: string | number };
+  insuranceProvider?: { id?: string | number };
   cost?: number;
   price?: number;
   covered?: boolean;
@@ -71,7 +74,7 @@ export function buildProductCoverageMaps(coverages?: ProductCoverageInput[]) {
   const meta: Record<string, InsuranceCoverageMeta> = {};
 
   (coverages || []).forEach((coverage) => {
-    const providerId = coverage?.insurance?.id;
+    const providerId = coverage?.insuranceProvider?.id ?? coverage?.insurance?.id;
     if (providerId === undefined || providerId === null) return;
     const key = String(providerId);
     const numericCost = Number(coverage?.cost ?? coverage?.price ?? 0);
