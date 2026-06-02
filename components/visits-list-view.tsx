@@ -66,12 +66,31 @@ export default function VisitsListView({
   const hasUnbilledItems = (visit: Visit) => {
     // Show bill button if not fully billed
     if (visit.billingStatus === 'BILLED') return false
-    
-    // Check if there are any unbilled items
-    return visit.departments?.some((dept) =>
-      dept.actions?.some((action) => action.paymentStatus === 'PENDING') ||
-      dept.consumables?.some((consumable) => consumable.paymentStatus === 'PENDING')
-    ) || false
+
+    const flattenVisitDepartments = (departments: NonNullable<Visit['departments']>) => {
+      const flattened: NonNullable<Visit['departments']> = []
+      const stack = [...departments]
+      while (stack.length > 0) {
+        const current = stack.shift()
+        if (!current) continue
+        flattened.push(current)
+        if (current.childVisitDepartments?.length) {
+          stack.push(...current.childVisitDepartments)
+        }
+      }
+      return flattened
+    }
+
+    // Check if there are any unbilled items, including child departments.
+    const isUnbilledStatus = (status?: string) => {
+      const normalized = String(status || '').toUpperCase()
+      return normalized === 'PENDING' || normalized === 'UNPAID'
+    }
+
+    return flattenVisitDepartments(visit.departments || []).some((dept) =>
+      dept.actions?.some((action) => isUnbilledStatus(action.paymentStatus)) ||
+      dept.consumables?.some((consumable) => isUnbilledStatus(consumable.paymentStatus))
+    )
   }
 
   const canAddDepartment = (visit: Visit) => {

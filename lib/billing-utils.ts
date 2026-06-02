@@ -12,6 +12,7 @@ export interface BillingItem {
   type: 'action' | 'consumable';
   departmentId?: string;
   departmentName?: string;
+  childDepartmentName?: string;
   departmentCompletedTime?: string;
   departmentStatus?: string;
   paymentStatus: 'pending' | 'paid' | 'exempted' | 'partial';

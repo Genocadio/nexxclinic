@@ -162,23 +162,37 @@ export default function DashboardPage() {
 
   const isBilledProductStatus = (status?: string) => String(status || '').toUpperCase() === 'BILLED'
 
+  const flattenVisitDepartments = (departments: NonNullable<Visit['departments']>): NonNullable<Visit['departments']> => {
+    const flattened: NonNullable<Visit['departments']> = []
+    const stack = [...departments]
+    while (stack.length > 0) {
+      const current = stack.shift()
+      if (!current) continue
+      flattened.push(current)
+      if (current.childVisitDepartments?.length) {
+        stack.push(...current.childVisitDepartments)
+      }
+    }
+    return flattened
+  }
+
   function hasUnbilledItems(visit: Visit) {
     if (visit.billingStatus === 'BILLED') return false
 
-    return visit.departments?.some((dept) =>
+    return flattenVisitDepartments(visit.departments || []).some((dept) =>
       dept.actions?.some((action) => isUnbilledProductStatus(action.paymentStatus)) ||
       dept.consumables?.some((consumable) => isUnbilledProductStatus(consumable.paymentStatus))
-    ) || false
+    )
   }
 
   const hasNoBillables = (visit: Visit) => {
-    return !(visit.departments || []).some((dept) =>
+    return !flattenVisitDepartments(visit.departments || []).some((dept) =>
       (dept.actions && dept.actions.length > 0) || (dept.consumables && dept.consumables.length > 0),
     )
   }
 
   const countUnbilledProducts = (visit: Visit) => {
-    return (visit.departments || []).reduce((count, dept) => {
+    return flattenVisitDepartments(visit.departments || []).reduce((count, dept) => {
       const pendingActions = (dept.actions || []).filter((action) => isUnbilledProductStatus(action.paymentStatus)).length
       const pendingConsumables = (dept.consumables || []).filter((consumable) => isUnbilledProductStatus(consumable.paymentStatus)).length
       return count + pendingActions + pendingConsumables
@@ -186,7 +200,7 @@ export default function DashboardPage() {
   }
 
   const countBilledProducts = (visit: Visit) => {
-    return (visit.departments || []).reduce((count, dept) => {
+    return flattenVisitDepartments(visit.departments || []).reduce((count, dept) => {
       const billedActions = (dept.actions || []).filter((action) => isBilledProductStatus(action.paymentStatus)).length
       const billedConsumables = (dept.consumables || []).filter((consumable) => isBilledProductStatus(consumable.paymentStatus)).length
       return count + billedActions + billedConsumables
@@ -196,7 +210,7 @@ export default function DashboardPage() {
   const getUnbilledProductNames = (visit: Visit) => {
     const names: string[] = []
 
-    for (const dept of visit.departments || []) {
+    for (const dept of flattenVisitDepartments(visit.departments || [])) {
       for (const action of dept.actions || []) {
         if (isUnbilledProductStatus(action.paymentStatus)) {
           names.push(action.action?.name || 'Product')
@@ -215,7 +229,7 @@ export default function DashboardPage() {
   const getBilledProductNames = (visit: Visit) => {
     const names: string[] = []
 
-    for (const dept of visit.departments || []) {
+    for (const dept of flattenVisitDepartments(visit.departments || [])) {
       for (const action of dept.actions || []) {
         if (isBilledProductStatus(action.paymentStatus)) {
           names.push(action.action?.name || 'Product')
@@ -232,7 +246,7 @@ export default function DashboardPage() {
   }
 
   const getDepartmentsReadyForBilling = (visit: Visit) => {
-    return (visit.departments || [])
+    return flattenVisitDepartments(visit.departments || [])
       .filter((dept) => String(dept.status || '').toUpperCase() === 'BILLING')
       .map((dept) => dept.department?.name || 'Department')
   }
@@ -332,7 +346,9 @@ export default function DashboardPage() {
   }
 
   const hasIncompleteDepartments = (visit: Visit) => {
-    return (visit.departments || []).some((dept) => dept.status !== 'COMPLETED' && dept.status !== 'CANCELLED')
+    return flattenVisitDepartments(visit.departments || []).some(
+      (dept) => dept.status !== 'COMPLETED' && dept.status !== 'CANCELLED',
+    )
   }
 
   const canDischargeVisit = (visit: Visit) => {

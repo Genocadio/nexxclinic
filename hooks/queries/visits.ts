@@ -272,6 +272,42 @@ export const VISITS_QUERY = gql`
             createdAt
             updatedAt
           }
+          childVisitDepartments {
+            id
+            status
+            completedAt
+            department {
+              id
+              name
+            }
+            products {
+              id
+              product {
+                id
+                name
+                code
+                type
+                unit
+                privateRhicPrice
+                clinicPrice
+              }
+              quantity
+              price
+              status
+              addedBy {
+                id
+                firstName
+                lastName
+              }
+              billedBy {
+                id
+                firstName
+                lastName
+              }
+              createdAt
+              updatedAt
+            }
+          }
         }
       }
       pagination {

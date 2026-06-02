@@ -339,6 +339,11 @@ export function BillingItemsList({
                           )}
                           <td className="py-2 px-3">
                             <p className="font-medium text-foreground text-sm leading-tight">{item.name}</p>
+                            {item.childDepartmentName && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                Requested by: {item.childDepartmentName}
+                              </p>
+                            )}
                             <p className="text-[10px] text-muted-foreground mt-0.5">{item.doneBy.name}</p>
                             {item.basePrice !== undefined && item.price !== item.basePrice && !item.insuranceNotCovered && (
                               <p className="text-[10px] text-muted-foreground mt-0.5">

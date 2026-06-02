@@ -99,6 +99,22 @@ function BillingPageContent() {
     return 'pending';
   };
 
+  const flattenVisitDepartments = (
+    departments: NonNullable<Visit['departments']>,
+  ): NonNullable<Visit['departments']> => {
+    const flattened: NonNullable<Visit['departments']> = [];
+    const stack = [...departments];
+    while (stack.length > 0) {
+      const current = stack.shift();
+      if (!current) continue;
+      flattened.push(current);
+      if (current.childVisitDepartments?.length) {
+        stack.push(...current.childVisitDepartments);
+      }
+    }
+    return flattened;
+  };
+
   const mapVisitToBilling = (visitData: Visit): BillingData => {
     const patient = visitData.patient;
     const insurances = visitData.insurances || [];
@@ -111,13 +127,25 @@ function BillingPageContent() {
 
     const items: BillingItem[] = [];
 
-    visitData.departments?.forEach((dept) => {
-      const deptName = dept.department?.name || 'Department';
-      const deptId = dept.department?.id;
-      const deptCompletedTime = dept.completedTime;
-      const deptStatus = dept.status;
+    const mapDepartmentTreeItems = (
+      department: NonNullable<Visit['departments']>[number],
+      parentContext?: {
+        id?: string;
+        name: string;
+        completedTime?: string;
+        status?: string;
+      },
+    ) => {
+      const currentContext = parentContext || {
+        id: department.department?.id,
+        name: department.department?.name || 'Department',
+        completedTime: department.completedTime,
+        status: department.status,
+      };
 
-      dept.actions?.forEach((act) => {
+      const childDepartmentName = parentContext ? (department.department?.name || 'Department') : undefined;
+
+      department.actions?.forEach((act) => {
         const basePrice = Number(act.action?.privatePrice ?? 0);
         const { costs, meta } = mapProductCoverages(act.action?.insuranceCoverages);
         const { price, notCovered } = resolveBillingUnitPrice(
@@ -136,10 +164,11 @@ function BillingPageContent() {
           insuranceCoverageMeta: meta,
           insuranceNotCovered: defaultVisitInsuranceId ? notCovered : false,
           type: 'action',
-          departmentId: deptId,
-          departmentName: deptName,
-          departmentCompletedTime: deptCompletedTime,
-          departmentStatus: deptStatus,
+          departmentId: currentContext.id,
+          departmentName: currentContext.name,
+          childDepartmentName,
+          departmentCompletedTime: currentContext.completedTime,
+          departmentStatus: currentContext.status,
           paymentStatus: mapPaymentStatus(act.paymentStatus, act.id),
           exempted: false,
           exemptionType: 'none',
@@ -151,7 +180,7 @@ function BillingPageContent() {
         });
       });
 
-      dept.consumables?.forEach((cons) => {
+      department.consumables?.forEach((cons) => {
         const basePrice = Number(cons.consumable?.privatePrice ?? 0);
         const { costs, meta } = mapProductCoverages(cons.consumable?.insuranceCoverages);
         const { price, notCovered } = resolveBillingUnitPrice(
@@ -170,10 +199,11 @@ function BillingPageContent() {
           insuranceCoverageMeta: meta,
           insuranceNotCovered: defaultVisitInsuranceId ? notCovered : false,
           type: 'consumable',
-          departmentId: deptId,
-          departmentName: deptName,
-          departmentCompletedTime: deptCompletedTime,
-          departmentStatus: deptStatus,
+          departmentId: currentContext.id,
+          departmentName: currentContext.name,
+          childDepartmentName,
+          departmentCompletedTime: currentContext.completedTime,
+          departmentStatus: currentContext.status,
           paymentStatus: mapPaymentStatus(cons.paymentStatus, cons.id),
           exempted: false,
           exemptionType: 'none',
@@ -184,6 +214,14 @@ function BillingPageContent() {
           },
         });
       });
+
+      department.childVisitDepartments?.forEach((childDepartment) => {
+        mapDepartmentTreeItems(childDepartment, currentContext);
+      });
+    };
+
+    visitData.departments?.forEach((dept) => {
+      mapDepartmentTreeItems(dept);
     });
 
     const age = patient?.dateOfBirth ? (new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()) : 0;
@@ -515,22 +553,29 @@ function BillingPageContent() {
     if (!visitData) return false;
     if (visitData.billingStatus === 'BILLED') return false;
 
-    return (visitData.departments || []).some((dept) =>
-      (dept.actions || []).some((action) => action.paymentStatus === 'PENDING') ||
-      (dept.consumables || []).some((consumable) => consumable.paymentStatus === 'PENDING')
+    const isUnbilledStatus = (status?: string) => {
+      const normalized = String(status || '').toUpperCase();
+      return normalized === 'PENDING' || normalized === 'UNPAID';
+    };
+
+    return flattenVisitDepartments(visitData.departments || []).some((dept) =>
+      (dept.actions || []).some((action) => isUnbilledStatus(action.paymentStatus)) ||
+      (dept.consumables || []).some((consumable) => isUnbilledStatus(consumable.paymentStatus))
     );
   };
 
   const hasNoBillables = (visitData: Visit | undefined) => {
     if (!visitData) return true;
-    return !(visitData.departments || []).some((dept) =>
+    return !flattenVisitDepartments(visitData.departments || []).some((dept) =>
       (dept.actions && dept.actions.length > 0) || (dept.consumables && dept.consumables.length > 0),
     );
   };
 
   const hasIncompleteDepartments = (visitData: Visit | undefined) => {
     if (!visitData) return false;
-    return (visitData.departments || []).some((dept) => dept.status !== 'COMPLETED' && dept.status !== 'CANCELLED');
+    return flattenVisitDepartments(visitData.departments || []).some(
+      (dept) => dept.status !== 'COMPLETED' && dept.status !== 'CANCELLED',
+    );
   };
 
   const canDischargeVisit = Boolean(
@@ -548,7 +593,7 @@ function BillingPageContent() {
     if (!confirmed) return;
 
     try {
-      const allDepartments = visit.departments || [];
+      const allDepartments = flattenVisitDepartments(visit.departments || []);
       const notCompleted = allDepartments.filter((dept) => dept.status !== 'COMPLETED' && dept.status !== 'CANCELLED');
 
       if (notCompleted.length > 0) {
@@ -618,7 +663,7 @@ function BillingPageContent() {
         if (allRemainingBilled) {
           try {
             // First, complete all incomplete departments
-            const allDepartments = visit?.departments || [];
+            const allDepartments = flattenVisitDepartments(visit?.departments || []);
             const notCompleted = allDepartments.filter((dept) => dept.status !== 'COMPLETED' && dept.status !== 'CANCELLED');
             for (const dept of notCompleted) {
               const visitDeptId = String(dept.id || '');
