@@ -277,7 +277,7 @@ function AuthPageContent() {
             <div className="relative h-16 w-16 rounded-2xl bg-white/70 dark:bg-slate-900/60 backdrop-blur-md shadow-lg ring-1 ring-white/60 dark:ring-white/10">
               <Image
                 src="/FullLogo.png"
-                alt="NexxMed logo"
+                alt="med logo"
                 fill
                 sizes="64px"
                 className="object-contain"
@@ -285,7 +285,7 @@ function AuthPageContent() {
               />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-50 mb-2 fly-in fly-in-3">NexxMed</h1>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-50 mb-2 fly-in fly-in-3">med</h1>
           <p className="text-slate-600 dark:text-slate-300 fly-in fly-in-4">Welcome back</p>
         </div>
 

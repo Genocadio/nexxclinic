@@ -1,6 +1,6 @@
 {
-  "name": "NexxMed",
-  "short_name": "NexxMed",
+  "name": "med",
+  "short_name": "med",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",

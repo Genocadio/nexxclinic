@@ -40,7 +40,7 @@ export default function Header({ doctor }: HeaderProps) {
         <div className="relative h-10 w-10">
           <Image
             src="/FullLogo.png"
-            alt="NexxMed logo"
+            alt="med logo"
             fill
             sizes="40px"
             className="object-contain"
@@ -48,7 +48,7 @@ export default function Header({ doctor }: HeaderProps) {
           />
         </div>
         <div>
-          <h1 className="text-lg font-bold text-card-foreground">NexxMed</h1>
+          <h1 className="text-lg font-bold text-card-foreground">med</h1>
         </div>
       </button>
 

@@ -36,7 +36,7 @@ A modern, professional ophthalmic consultation management system built with Next
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd nexxmedfront
+   cd medfront
    ```
 
 2. **Install dependencies**
@@ -207,5 +207,5 @@ The application will be available on port 3000 by default.
 
 ## 📄 License
 
-This project is private and proprietary to NexxClinic.</content>
+This project is private and proprietary to med clinic.</content>
 <parameter name="filePath">/Users/pro/workspace/personal/nexxserve/fronted/nexxmedfront/README.md

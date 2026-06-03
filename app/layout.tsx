@@ -32,7 +32,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
     <head>
-      <meta name="apple-mobile-web-app-title" content="NexxMed" />
+      <meta name="apple-mobile-web-app-title" content="med" />
       <script
         dangerouslySetInnerHTML={{
           __html: `(() => {
