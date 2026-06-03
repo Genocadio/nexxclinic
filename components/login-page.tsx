@@ -50,7 +50,7 @@ export default function LoginPage() {
             <div className="relative h-16 w-16">
               <Image
                 src="/FullLogo.png"
-                alt="NexxMed logo"
+                alt="med logo"
                 fill
                 sizes="64px"
                 className="object-contain"
@@ -58,7 +58,7 @@ export default function LoginPage() {
               />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">NexxMed</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">med</h1>
         </div>
 
         {/* Login Form Card */}
