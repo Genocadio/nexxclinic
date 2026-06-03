@@ -30,7 +30,7 @@ export default function DashboardPage() {
   const { doctor } = useAuth()
   const { visits, loading, error, refetch: refetchVisits } = useVisits()
   const [isMounted, setIsMounted] = useState(false)
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid")
   const [showMetrics, setShowMetrics] = useState(true)
 
   const { stats: dashboardStats, loading: dashboardStatsLoading } = useDashboardStats(1, {
@@ -844,23 +844,53 @@ export default function DashboardPage() {
                   <TooltipProvider>
                   <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3" : "space-y-2"}>
                     {loading ? (
-                      <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 col-span-full" : "space-y-2"}>
-                        {[...Array(5)].map((_, idx) => (
-                          <div key={idx} className="p-4 bg-card/80 dark:bg-slate-900/70 backdrop-blur-sm border border-border/50 dark:border-slate-800 rounded-2xl">
-                            <div className="flex items-center gap-3">
-                              <Skeleton className="h-10 w-10 rounded-full" />
-                              <div className="flex-1 space-y-2">
-                                <Skeleton className="h-3 w-48" />
-                                <Skeleton className="h-3 w-32" />
-                              </div>
-                              <div className="flex gap-2">
-                                <Skeleton className="h-9 w-28 rounded-full" />
-                                <Skeleton className="h-9 w-28 rounded-full" />
+                      viewMode === "grid" ? (
+                        <div className="col-span-full grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                          {[...Array(6)].map((_, idx) => (
+                            <div key={idx} className="p-4 bg-card/80 dark:bg-slate-900/70 backdrop-blur-sm border border-border/50 dark:border-slate-800 rounded-2xl h-full">
+                              <div className="h-full flex flex-col justify-between gap-4">
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-3">
+                                    <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                                    <div className="min-w-0 flex-1 space-y-2">
+                                      <Skeleton className="h-4 w-3/5 max-w-40" />
+                                      <Skeleton className="h-3 w-1/2 max-w-28" />
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Skeleton className="h-3 w-full max-w-52" />
+                                    <Skeleton className="h-3 w-2/3 max-w-40" />
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                  <Skeleton className="h-8 w-24 rounded-full" />
+                                  <Skeleton className="h-8 w-20 rounded-full" />
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {[...Array(5)].map((_, idx) => (
+                            <div key={idx} className="p-4 bg-card/80 dark:bg-slate-900/70 backdrop-blur-sm border border-border/50 dark:border-slate-800 rounded-2xl">
+                              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                                  <div className="min-w-0 flex-1 space-y-2">
+                                    <Skeleton className="h-4 w-3/5 max-w-64" />
+                                    <Skeleton className="h-3 w-2/5 max-w-40" />
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Skeleton className="h-8 w-24 rounded-full" />
+                                  <Skeleton className="h-8 w-24 rounded-full" />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )
                     ) : error ? (
                       <div className="text-center py-8">
                         <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-2" />
