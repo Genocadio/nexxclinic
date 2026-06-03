@@ -14,7 +14,7 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "NexxClinic - CMS",
+  title: "Med - CMS",
   description: "Professional clinic management system",
   authors: [{ name: "NexxServe", url: "https://nexxserve.tech" }],
   icons: {

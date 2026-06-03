@@ -269,6 +269,7 @@ export function useUpdatePatientInsurance() {
 }
 
 export function usePatients(filter?: PatientFilterInput, page: number = 0, size: number = 20) {
+  const shouldSkip = !filter || Object.keys(filter).length === 0
   const input = {
     ...(filter?.name ? { name: filter.name } : {}),
     ...(filter?.phoneNumber ? { phoneNumber: filter.phoneNumber } : {}),
@@ -279,7 +280,8 @@ export function usePatients(filter?: PatientFilterInput, page: number = 0, size:
   
   const { data, loading, error, refetch } = useQuery<SearchPatientsQueryData>(GET_PATIENTS_QUERY, {
     variables: { input },
-    fetchPolicy: 'cache-and-network'
+    fetchPolicy: 'cache-and-network',
+    skip: shouldSkip,
   })
 
   const patients: Patient[] = (data?.searchPatients?.data || []).map((patient: GqlPatient) => ({

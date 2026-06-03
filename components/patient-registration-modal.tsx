@@ -64,15 +64,39 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
 
   // Search filters for potential duplicate detection
   const [searchFilters, setSearchFilters] = useState<PatientFilterInput>({})
+  const [hideMatchesAfterNoResult, setHideMatchesAfterNoResult] = useState(false)
   const hasSearchCriteria = Object.keys(searchFilters).length > 0 && Object.values(searchFilters).some(value => value !== undefined && value !== '')
   const { patients: potentialMatches, loading: searchingPatients } = usePatients(hasSearchCriteria ? searchFilters : undefined, 0, 10)
+  const showPotentialMatches = !hideSearchPanel && hasSearchCriteria && !hideMatchesAfterNoResult
+  const modalGridClass = showPotentialMatches
+    ? "grid grid-cols-1 lg:grid-cols-[760px_minmax(340px,1fr)]"
+    : "grid grid-cols-1"
+  const dialogWidthClass = showPotentialMatches ? "sm:max-w-[1180px]" : "sm:max-w-[780px]"
 
   // Reset search filters when modal opens (don't search on open)
   useEffect(() => {
     if (isOpen) {
       setSearchFilters({})
+      setHideMatchesAfterNoResult(false)
     }
   }, [isOpen])
+
+  useEffect(() => {
+    if (!hasSearchCriteria) {
+      setHideMatchesAfterNoResult(false)
+      return
+    }
+
+    if (!searchingPatients && potentialMatches.length === 0) {
+      const timer = window.setTimeout(() => {
+        setHideMatchesAfterNoResult(true)
+      }, 2000)
+
+      return () => window.clearTimeout(timer)
+    }
+
+    setHideMatchesAfterNoResult(false)
+  }, [hasSearchCriteria, searchingPatients, potentialMatches.length])
 
   const [formData, setFormData] = useState<PatientRegistrationInput>({
     firstName: "",
@@ -123,33 +147,49 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
     })
 
     // Update search filters for duplicate detection
-    // Start searching when firstName has content, or when other fields are being filled
-    if ((field === 'firstName' && sanitizedValue.trim().length > 0) || 
-        field === 'lastName' || 
-        field === 'dateOfBirth' || 
-        field === 'gender' || 
-        field === 'contactInfo.phone') {
-      setSearchFilters(prev => {
-        const newFilters = { ...prev }
+    const nextFirstName = field === 'firstName' ? sanitizedValue : formData.firstName
+    const nextLastName = field === 'lastName' ? sanitizedValue : formData.lastName
+    const nextDateOfBirth = field === 'dateOfBirth' ? sanitizedValue : formData.dateOfBirth
+    const nextGender = field === 'gender' ? sanitizedValue : formData.gender
+    const nextPhone = field === 'contactInfo.phone' ? sanitizedValue : formData.contactInfo?.phone
 
-        if (field === 'firstName' || field === 'lastName') {
-          // Combine first and last name for the name filter
-          const firstName = field === 'firstName' ? sanitizedValue : formData.firstName
-          const lastName = field === 'lastName' ? sanitizedValue : formData.lastName
-          const fullName = [firstName, lastName].filter(Boolean).join(' ')
-          // Search if we have at least 1 character (firstName alone is fine)
-          // But only if we have meaningful content
-          newFilters.name = fullName.trim().length >= 1 ? fullName : undefined
-        } else if (field === 'dateOfBirth') {
-          newFilters.dob = sanitizedValue || undefined
-        } else if (field === 'gender') {
-          // Gender is not directly in the filter, but we can keep it for potential future use
-        } else if (field === 'contactInfo.phone') {
-          // Only search if we have at least 3 characters for phone
-          newFilters.phoneNumber = sanitizedValue && sanitizedValue.length >= 3 ? sanitizedValue : undefined
+    const firstNameReady = nextFirstName.trim().length >= 2
+    const hasOtherFieldsFilled = Boolean(
+      nextLastName?.trim() ||
+      nextDateOfBirth ||
+      nextGender ||
+      (nextPhone && nextPhone.trim().length >= 3) ||
+      formData.contactInfo?.email?.trim() ||
+      formData.nationalIdNumber?.trim() ||
+      formData.emergencyContact?.name?.trim() ||
+      formData.emergencyContact?.relation?.trim() ||
+      formData.emergencyContact?.phone?.trim()
+    )
+
+    const shouldSearch = firstNameReady && (field !== 'firstName' || hasOtherFieldsFilled)
+
+    if (!firstNameReady) {
+      setSearchFilters({})
+    } else if (shouldSearch) {
+      setSearchFilters(() => {
+        const newFilters: PatientFilterInput = {}
+        const fullName = [nextFirstName, nextLastName].filter(Boolean).join(' ').trim()
+
+        if (fullName.length > 0) {
+          newFilters.name = fullName
         }
 
-        // Remove empty filters
+        if (nextPhone && nextPhone.trim().length >= 3) {
+          newFilters.phoneNumber = nextPhone.trim()
+        }
+
+        if (nextDateOfBirth) {
+          const age = calculateAge(nextDateOfBirth)
+          if (age > 0) {
+            newFilters.age = age
+          }
+        }
+
         Object.keys(newFilters).forEach(key => {
           if (!newFilters[key as keyof PatientFilterInput]) {
             delete newFilters[key as keyof PatientFilterInput]
@@ -300,11 +340,11 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-7xl max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/20 border border-white/20 rounded-3xl shadow-2xl p-2 sm:p-4">
+      <DialogContent showCloseButton={false} className={`max-w-full ${dialogWidthClass} max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/20 border border-white/20 rounded-3xl shadow-2xl p-2 sm:p-4`}>
         <DialogTitle className="sr-only">Register New Patient</DialogTitle>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-6 h-full max-h-[calc(90vh-180px)] overflow-hidden">
+        <div className={modalGridClass + " gap-2 sm:gap-6 h-full max-h-[calc(90vh-180px)] overflow-hidden"}>
           {/* Registration Form */}
-          <div className="overflow-y-auto scrollbar-hide pr-2 pb-20 rounded-2xl border border-border/50 bg-[#FBF2ED] dark:bg-slate-900 shadow-lg p-2 sm:p-4">
+          <div className="mx-auto w-full max-w-[760px] overflow-y-auto scrollbar-hide pr-2 pb-20 rounded-2xl border border-border/50 bg-[#FBF2ED] dark:bg-slate-900 shadow-lg p-2 sm:p-4">
             <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-6">
           {/* Basic Information */}
           <div className={`${solidPanelClass} p-2 sm:p-4 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4`}>
@@ -702,24 +742,20 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
         </div>
 
           {/* Potential Matches Panel (hidden on mobile) */}
-          {!hideSearchPanel && (
-            <div className="hidden md:block border-l border-border/50 pl-6 overflow-y-auto scrollbar-hide pb-20 rounded-2xl bg-[#FBF2ED] dark:bg-slate-900 shadow-lg p-4">
+          {showPotentialMatches && (
+            <div className="hidden md:block border-l border-border/50 overflow-y-auto scrollbar-hide pb-20 rounded-2xl bg-[#FBF2ED] dark:bg-slate-900 shadow-lg px-8 py-6">
               <>
-                <div className="sticky top-0 bg-background dark:bg-gray-900 pb-4 border-b border-border/50 mb-4 rounded-2xl p-4 shadow-sm">
-                  <h3 className="text-lg font-semibold text-foreground">Potential Matches</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {searchingPatients ? 'Searching for existing patients...' : 'Existing patients that match your search criteria'}
-                  </p>
-                  {Object.keys(searchFilters).length > 0 && (
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Searching with: {Object.entries(searchFilters).map(([key, value]) => `${key}: ${value}`).join(', ')}
-                    </div>
-                  )}
-                </div>
-
-                {searchingPatients ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="text-sm text-muted-foreground">Searching...</div>
+                {searchingPatients && potentialMatches.length === 0 ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((index) => (
+                      <div key={index} className="rounded-2xl bg-muted/50 p-4 animate-pulse">
+                        <div className="h-4 w-2/3 rounded-full bg-muted-foreground/30 mb-3"></div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="h-3 rounded-full bg-muted-foreground/30"></div>
+                          <div className="h-3 rounded-full bg-muted-foreground/30"></div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : potentialMatches.length > 0 ? (
                   <div className="space-y-3">
@@ -729,45 +765,43 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                     {potentialMatches.map((patient: Patient) => (
                       <div
                         key={patient.id}
-                        className="border border-border/60 rounded-2xl p-4 hover:bg-muted/50 dark:hover:bg-muted/40 transition-all duration-200 w-full bg-background dark:bg-gray-900 shadow-sm"
+                        className="relative overflow-visible border border-border/60 rounded-2xl p-4 hover:bg-muted/50 dark:hover:bg-muted/40 transition-all duration-200 w-full bg-background dark:bg-gray-900 shadow-sm"
                       >
+                        <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedPatientForEdit(patient)
+                              setEditPatientModal(true)
+                            }}
+                            title="Edit patient"
+                            className="rounded-full"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            onClick={() => {
+                              toast.success(`Selected existing patient: ${patient.firstName} ${patient.lastName}`)
+                              onClose()
+                              if (onPatientRegistered) {
+                                onPatientRegistered(patient.id.toString(), patient.insurances || [], true)
+                              }
+                            }}
+                            className="rounded-full bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md"
+                          >
+                            Select
+                          </Button>
+                        </div>
                         <div className="mb-3 flex justify-between items-start">
                           <div>
                             <h4 className="font-medium text-foreground text-base">
                               {patient.firstName} {patient.lastName}
                             </h4>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedPatientForEdit(patient)
-                                setEditPatientModal(true)
-                              }}
-                              title="Edit patient"
-                              className="rounded-full"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="default"
-                              size="sm"
-                              onClick={() => {
-                                // Handle selecting existing patient
-                                toast.success(`Selected existing patient: ${patient.firstName} ${patient.lastName}`)
-                                onClose()
-                                // Call onPatientRegistered with existing patient info to proceed to visit creation
-                                if (onPatientRegistered) {
-                                  onPatientRegistered(patient.id.toString(), patient.insurances || [], true)
-                                }
-                              }}
-                              className="rounded-full bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md"
-                            >
-                              Select
-                            </Button>
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
