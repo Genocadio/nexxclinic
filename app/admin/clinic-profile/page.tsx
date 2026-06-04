@@ -12,6 +12,7 @@ import { useClinicProfile, useUpsertClinicProfile } from "@/hooks/auth-hooks"
 import { ArrowLeft, Image as ImageIcon, Save, ShieldCheck, Trash } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { canManageAdminUsers } from "@/lib/role-utils"
+import type { ClinicContactType } from "@/lib/api-types"
 
 type ClinicContact = {
   contactType: "PHONE" | "EMAIL" | "POBOX"
@@ -120,7 +121,7 @@ export default function ClinicProfilePage() {
         logoUrl: logoUrl.trim() || undefined,
         contacts: contacts
           .map((contact) => ({
-            contactType: contact.contactType,
+            contactType: contact.contactType as ClinicContactType,
             value: contact.value.trim(),
             description: contact.description.trim() || undefined,
           }))

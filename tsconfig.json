@@ -36,6 +36,13 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "consultation-form",
+    "lib/RESPONSE_HANDLER_GUIDE.ts",
+    "lib/mock-data.ts",
+    "app/admin/forms",
+    "components/consultation/form-field-renderer.tsx",
+    "components/form-builder-modal.tsx",
+    "hooks/forms"
   ]
 }

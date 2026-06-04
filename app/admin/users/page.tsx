@@ -76,7 +76,7 @@ export default function ManageUsersPage() {
       const fullName = `${u.firstName || ""} ${u.lastName || ""}`.trim()
       const departmentNames = (u.departments || []).map((department) => department.name)
       const pool = [fullName, u.email, u.phoneNumber, ...(u.roles || []), ...departmentNames]
-      return pool.some((v) => v.toLowerCase().includes(q))
+      return pool.some((v) => v != null && String(v).toLowerCase().includes(q))
     })
   }, [query, users])
 
@@ -97,7 +97,7 @@ export default function ManageUsersPage() {
   }
 
   const startEdit = (user: UserAccount) => {
-    const userIsAdmin = (user.roles || []).includes(ADMIN_ROLE)
+    const userIsAdmin = (user.roles as string[] | undefined)?.includes(ADMIN_ROLE)
 
     if (isCurrentUser(user)) {
       toast.info("Edit your own profile from My Account")
@@ -181,7 +181,7 @@ export default function ManageUsersPage() {
           return
         }
 
-        if (editingUser && (editingUser.roles || []).includes(ADMIN_ROLE) && !canManageAdminUserAccounts) {
+        if (editingUser && (editingUser.roles as string[] | undefined)?.includes(ADMIN_ROLE) && !canManageAdminUserAccounts) {
           toast.error("You can view admin users but cannot manage them")
           return
         }
@@ -234,7 +234,7 @@ export default function ManageUsersPage() {
   }
 
   const handleToggleActive = async (user: UserAccount) => {
-    const userIsAdmin = (user.roles || []).includes(ADMIN_ROLE)
+    const userIsAdmin = (user.roles as string[] | undefined)?.includes(ADMIN_ROLE)
 
     if (isCurrentUser(user)) {
       toast.error("You cannot deactivate your own account")
@@ -297,7 +297,7 @@ export default function ManageUsersPage() {
   }
 
   const handleRequirePasswordSetup = async (user: UserAccount) => {
-    const userIsAdmin = (user.roles || []).includes(ADMIN_ROLE)
+    const userIsAdmin = (user.roles as string[] | undefined)?.includes(ADMIN_ROLE)
 
     if (isCurrentUser(user)) {
       toast.error("Update your own password from My Account")
@@ -626,7 +626,7 @@ export default function ManageUsersPage() {
             <div className="space-y-2">
               {filteredUsers.map((user) => {
                 const selfUser = isCurrentUser(user)
-                const userIsAdmin = (user.roles || []).includes(ADMIN_ROLE)
+                const userIsAdmin = (user.roles as string[] | undefined)?.includes(ADMIN_ROLE)
                 const canManageThisUser = !selfUser && (canManageAdminUserAccounts || !userIsAdmin)
 
                 return (

@@ -1,6 +1,6 @@
 "use client"
 
-import type { Visit } from "@/lib/api-types"
+import type { Patient, Visit } from "@/lib/api-types"
 import { Calendar, Eye, AlertCircle, TrendingUp, FileText } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"

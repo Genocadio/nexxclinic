@@ -3,7 +3,9 @@
 import type React from "react"
 import { useState, useEffect, useCallback } from "react"
 import { usePatients, useDepartments, useCreateVisit, usePatient } from "@/hooks/auth-hooks"
-import type { Patient, PatientFilterInput } from "@/lib/api-types"
+import type { Patient } from "@/lib/api-types"
+import type { PatientFilterInput } from "@/hooks/patients/hooks"
+import { getPatientDisplayName, getPatientPhone } from "@/lib/patient-display-utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -121,24 +123,24 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
 
   useEffect(() => {
     if (preSelectedPatientData) {
-      setSelectedPatient((current) => (current?.id === preSelectedPatientData.id ? current : preSelectedPatientData))
-      setSelectedPatientId((current) => (current === preSelectedPatientData.id ? current : preSelectedPatientData.id))
-      setCurrentStep((current) => (current === "visit-details" ? current : "visit-details"))
+      setSelectedPatient((current: Patient | null) => (current?.id === preSelectedPatientData.id ? current : preSelectedPatientData))
+      setSelectedPatientId((current: string | null) => (current === preSelectedPatientData.id ? current : preSelectedPatientData.id))
+      setCurrentStep((current: ModalStep) => (current === "visit-details" ? current : "visit-details"))
     }
   }, [preSelectedPatientData])
 
   useEffect(() => {
     if (selectedPatientDetails && !preSelectedPatientId) {
-      setSelectedPatient((current) => (current?.id === selectedPatientDetails.id ? current : selectedPatientDetails))
+      setSelectedPatient((current: Patient | null) => (current?.id === selectedPatientDetails.id ? current : selectedPatientDetails))
     }
   }, [selectedPatientDetails, preSelectedPatientId])
 
   useEffect(() => {
     const patient = preSelectedPatientData || selectedPatientDetails
 
-    if (patient && patient.insurances) {
-      if (patient.insurances.length === 1) {
-        setSelectedInsuranceIds([String(patient.insurances[0].id)])
+    if (patient && patient.patientInsurances) {
+      if (patient.patientInsurances.length === 1) {
+        setSelectedInsuranceIds([String(patient.patientInsurances[0].id)])
       } else {
         setSelectedInsuranceIds([])
       }
@@ -147,11 +149,11 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
 
   useEffect(() => {
     if (preSelectedPatientId) {
-      setSelectedPatientId((current) => (current === preSelectedPatientId ? current : preSelectedPatientId))
+      setSelectedPatientId((current: string | null) => (current === preSelectedPatientId ? current : preSelectedPatientId))
       // Skip patient-selection step entirely if preselected
       if (preSelectedPatientData) {
-        setSelectedPatient((current) => (current?.id === preSelectedPatientData.id ? current : preSelectedPatientData))
-        setCurrentStep((current) => (current === "visit-details" ? current : "visit-details"))
+        setSelectedPatient((current: Patient | null) => (current?.id === preSelectedPatientData.id ? current : preSelectedPatientData))
+        setCurrentStep((current: ModalStep) => (current === "visit-details" ? current : "visit-details"))
       }
     } else {
       setSelectedPatientId((current) => (current === null ? current : null))
@@ -463,22 +465,22 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
                               {patient.firstName} {patient.lastName}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {patient.contactInfo?.phone && `Phone: ${patient.contactInfo.phone}`}
-                              {patient.nationalId && ` · ID: ${patient.nationalId}`}
+                              {patient.primaryPhoneNumber && `Phone: ${patient.primaryPhoneNumber}`}
+                              {patient.nationalIdNumber && ` · ID: ${patient.nationalIdNumber}`}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               DOB: {new Date(patient.dateOfBirth).toLocaleDateString()}
-                              {patient.insurances && patient.insurances.length > 0 && (
+                              {patient.patientInsurances && patient.patientInsurances.length > 0 && (
                                 <span className="ml-2">
-                                  · {patient.insurances.length} insurance{patient.insurances.length > 1 ? 's' : ''}
+                                  · {patient.patientInsurances.length} insurance{patient.patientInsurances.length > 1 ? 's' : ''}
                                 </span>
                               )}
                             </div>
                             {hoveredPatientId === patient.id && (
                               <div className="mt-2 space-y-1 text-[13px] text-foreground">
                                 <div className="text-xs text-muted-foreground">
-                                  Insurances: {patient.insurances && patient.insurances.length > 0
-                                    ? patient.insurances.map((ins: any) => `${ins.insurance.acronym}${ins.insuranceCardNumber ? ` - ${ins.insuranceCardNumber}` : ""}`).join(", ")
+                                  Insurances: {patient.patientInsurances && patient.patientInsurances.length > 0
+                                    ? patient.patientInsurances.map((ins: any) => `${ins.insuranceProvider.acronym}${ins.insuranceProviderCardNumber ? ` - ${ins.insuranceProviderCardNumber}` : ""}`).join(", ")
                                     : "None"}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
@@ -529,19 +531,19 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
                 <div className="font-medium">{selectedPatient.firstName} {selectedPatient.lastName}</div>
                 <div className="text-muted-foreground">
                   DOB: {new Date(selectedPatient.dateOfBirth).toLocaleDateString()}
-                  {selectedPatient.contactInfo?.phone && ` • Phone: ${selectedPatient.contactInfo.phone}`}
+                  {selectedPatient.primaryPhoneNumber && ` • Phone: ${selectedPatient.primaryPhoneNumber}`}
                 </div>
               </div>
             </div>
 
             {/* Insurance Selection - Multiple */}
-            {selectedPatient.insurances && selectedPatient.insurances.length > 0 && (
+            {selectedPatient.patientInsurances && selectedPatient.patientInsurances.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Insurance for Visit (Select one or more)
                 </label>
                 <div className="space-y-2 max-h-32 overflow-y-auto border rounded-lg p-3">
-                  {selectedPatient.insurances.map((insurance: any) => (
+                  {selectedPatient.patientInsurances.map((insurance: any) => (
                     <label key={insurance.id} className="flex items-center space-x-2 cursor-pointer">
                       <input
                         type="checkbox"
@@ -556,8 +558,8 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
                         className="rounded"
                       />
                       <span className="text-sm">
-                        {insurance.insurance.acronym}
-                        {insurance.insuranceCardNumber && ` - ${insurance.insuranceCardNumber}`}
+                        {insurance.insuranceProvider.acronym}
+                        {insurance.insuranceProviderCardNumber && ` - ${insurance.insuranceProviderCardNumber}`}
                       </span>
                     </label>
                   ))}

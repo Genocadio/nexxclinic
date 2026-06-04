@@ -7,15 +7,10 @@ import { cn } from '@/lib/utils'
 import { Check, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useInsuranceSearch } from '@/hooks/auth-hooks'
-
-interface Insurance {
-  id: string | number
-  name: string
-  acronym?: string
-}
+import type { InsuranceProvider } from '@/lib/api-types'
 
 interface InsuranceAutocompleteProps {
-  insurances: Insurance[]
+  insurances: InsuranceProvider[]
   selectedInsuranceId: string
   onInsuranceSelect: (insuranceId: string) => void
   placeholder?: string
@@ -76,8 +71,9 @@ export function InsuranceAutocomplete({
     setInputValue('')
   }
 
-  const getDisplayText = (insurance: Insurance) => {
-    return insurance.acronym ? `${insurance.name} (${insurance.acronym})` : insurance.name
+  const getDisplayText = (insurance: InsuranceProvider) => {
+    const label = insurance.insuranceName || insurance.name || ''
+    return insurance.acronym ? `${label} (${insurance.acronym})` : label
   }
 
   // If an insurance is selected, show a cleaner UI with just the name and clear button
@@ -86,7 +82,7 @@ export function InsuranceAutocomplete({
       <div className={cn('flex items-center gap-2 w-full', className)}>
         <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border">
           <div className="flex flex-col">
-            <span className="text-sm font-medium">{selectedInsurance.name}</span>
+            <span className="text-sm font-medium">{selectedInsurance.insuranceName || selectedInsurance.name}</span>
             {selectedInsurance.acronym && (
               <span className="text-xs text-muted-foreground">{selectedInsurance.acronym}</span>
             )}
@@ -133,7 +129,7 @@ export function InsuranceAutocomplete({
               {displayInsurances.map((insurance) => (
                 <CommandItem
                   key={insurance.id}
-                  value={insurance.name}
+                  value={insurance.insuranceName || insurance.name || ''}
                   onSelect={() => handleSelect(String(insurance.id))}
                 >
                   <Check
@@ -143,7 +139,7 @@ export function InsuranceAutocomplete({
                     )}
                   />
                   <div className="flex flex-col">
-                    <span>{insurance.name}</span>
+                    <span>{insurance.insuranceName || insurance.name}</span>
                     {insurance.acronym && (
                       <span className="text-xs text-muted-foreground">{insurance.acronym}</span>
                     )}

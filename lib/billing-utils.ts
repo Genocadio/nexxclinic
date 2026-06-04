@@ -9,7 +9,7 @@ export interface BillingItem {
   insuranceCoverageCosts?: Record<string, number>;
   insuranceCoverageMeta?: Record<string, InsuranceCoverageMeta>;
   insuranceNotCovered?: boolean;
-  type: 'action' | 'consumable';
+  type: 'product';
   visitDepartmentId?: string;
   rootVisitDepartmentId?: string;
   departmentId?: string;

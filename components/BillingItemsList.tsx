@@ -370,7 +370,7 @@ export function BillingItemsList({
                           {!hideTypeColumn && (
                             <td className="py-2 px-3 text-center">
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 rounded-full">
-                                {item.type === 'action' ? 'Service' : 'Supply'}
+                                Product
                               </Badge>
                             </td>
                           )}

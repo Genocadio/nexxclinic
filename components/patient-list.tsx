@@ -1,15 +1,32 @@
 "use client"
 
 import type { Patient } from "@/lib/api-types"
+import { VisitStatus } from "@/lib/api-types"
+import { getPatientAge, getPatientDisplayName } from "@/lib/patient-display-utils"
 import { ArrowLeft } from "lucide-react"
+
+type VisitSummaryStatus = "pending" | "ongoing" | "completed"
+
+interface PatientVisitSummary {
+  id: string
+  date: string
+  status: VisitSummaryStatus
+  chiefComplaint?: string
+}
 
 interface PatientListProps {
   patient: Patient
-  onConsultationSelect: (consultation: Consultation) => void
+  onConsultationSelect: (visit: PatientVisitSummary) => void
   onNewConsultation: (patient: Patient) => void
-  filterStatus: ConsultationStatus | "all"
-  setFilterStatus: (status: ConsultationStatus | "all") => void
+  filterStatus: VisitSummaryStatus | "all"
+  setFilterStatus: (status: VisitSummaryStatus | "all") => void
   onBack: () => void
+}
+
+function mapVisitStatus(status: VisitStatus): VisitSummaryStatus {
+  if (status === VisitStatus.COMPLETED) return "completed"
+  if (status === VisitStatus.IN_PROGRESS) return "ongoing"
+  return "pending"
 }
 
 export default function PatientList({
@@ -20,12 +37,23 @@ export default function PatientList({
   setFilterStatus,
   onBack,
 }: PatientListProps) {
-  const filteredConsultations = patient.consultations.filter((c) => filterStatus === "all" || c.status === filterStatus)
+  const visitSummaries: PatientVisitSummary[] = patient.lastVisit
+    ? [{
+        id: patient.lastVisit.id,
+        date: patient.lastVisit.visitDate,
+        status: mapVisitStatus(patient.lastVisit.status),
+        chiefComplaint: "Visit",
+      }]
+    : []
+
+  const filteredVisits = visitSummaries.filter(
+    (visit) => filterStatus === "all" || visit.status === filterStatus,
+  )
 
   const stats = {
-    pending: patient.consultations.filter((c) => c.status === "pending").length,
-    ongoing: patient.consultations.filter((c) => c.status === "ongoing").length,
-    completed: patient.consultations.filter((c) => c.status === "completed").length,
+    pending: visitSummaries.filter((visit) => visit.status === "pending").length,
+    ongoing: visitSummaries.filter((visit) => visit.status === "ongoing").length,
+    completed: visitSummaries.filter((visit) => visit.status === "completed").length,
   }
 
   return (
@@ -40,8 +68,8 @@ export default function PatientList({
         </button>
 
         <div className="mb-4">
-          <h2 className="font-semibold text-card-foreground">{patient.name}</h2>
-          <p className="text-xs text-muted-foreground">Age: {patient.age}</p>
+          <h2 className="font-semibold text-card-foreground">{getPatientDisplayName(patient)}</h2>
+          <p className="text-xs text-muted-foreground">Age: {getPatientAge(patient) ?? "—"}</p>
         </div>
 
         <button
@@ -53,10 +81,10 @@ export default function PatientList({
       </div>
 
       <div className="p-3 border-b border-border space-y-2">
-        {["pending", "ongoing", "completed"].map((status) => (
+        {(["pending", "ongoing", "completed"] as const).map((status) => (
           <button
             key={status}
-            onClick={() => setFilterStatus(status as ConsultationStatus | "all")}
+            onClick={() => setFilterStatus(status)}
             className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center justify-between ${
               filterStatus === status
                 ? "bg-primary text-primary-foreground"
@@ -64,38 +92,38 @@ export default function PatientList({
             }`}
           >
             <span>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
-            <span className="text-xs font-semibold">{stats[status as keyof typeof stats]}</span>
+            <span className="text-xs font-semibold">{stats[status]}</span>
           </button>
         ))}
       </div>
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-2">
-          {filteredConsultations.length === 0 ? (
+          {filteredVisits.length === 0 ? (
             <p className="text-center text-muted-foreground text-sm py-8">
-              No {filterStatus === "all" ? "" : filterStatus} consultations
+              No {filterStatus === "all" ? "" : filterStatus} visits
             </p>
           ) : (
-            filteredConsultations.map((consultation) => (
+            filteredVisits.map((visit) => (
               <button
-                key={consultation.id}
-                onClick={() => onConsultationSelect(consultation)}
+                key={visit.id}
+                onClick={() => onConsultationSelect(visit)}
                 className="w-full text-left p-3 rounded-lg border border-border hover:bg-muted transition-colors"
               >
                 <p className="text-sm font-medium text-foreground truncate">
-                  {consultation.chiefComplaint || "Follow-up visit"}
+                  {visit.chiefComplaint || "Follow-up visit"}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">{consultation.date}</p>
+                <p className="text-xs text-muted-foreground mt-1">{visit.date}</p>
                 <span
                   className={`inline-block mt-2 px-2 py-1 rounded text-xs font-medium ${
-                    consultation.status === "completed"
+                    visit.status === "completed"
                       ? "bg-primary/20 text-primary"
-                      : consultation.status === "ongoing"
+                      : visit.status === "ongoing"
                         ? "bg-accent/20 text-accent"
                         : "bg-secondary/20 text-secondary"
                   }`}
                 >
-                  {consultation.status.charAt(0).toUpperCase() + consultation.status.slice(1)}
+                  {visit.status.charAt(0).toUpperCase() + visit.status.slice(1)}
                 </span>
               </button>
             ))

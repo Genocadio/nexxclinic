@@ -9,7 +9,13 @@ import {
   ADD_DEPARTMENT_PRODUCT_MUTATION, 
   REMOVE_DEPARTMENT_PRODUCT_MUTATION 
 } from '../mutations'
-import type { Department, Product, Insurance } from '../types'
+import type { Department, Product } from '../types'
+import {
+  mapGqlInsuranceProvider,
+  mapGqlProduct,
+  type GqlCoverage,
+} from '@/lib/gql-mappers'
+import { DepartmentInsurancePolicyMode } from '@/lib/api-types'
 
 export interface GqlInsurance {
   id: string
@@ -129,44 +135,61 @@ export interface RemoveDepartmentProductPayload {
 const mapDepartmentFromApi = (department: GqlDepartment): Department => ({
   id: department.id,
   name: department.name,
-  insurancePolicyMode: department.insurancePolicyMode || undefined,
-  nursing: department.nursing ?? undefined,
-  supportRequests: department.supportRequests ?? undefined,
-  requestsProducts: department.requestsProducts ?? undefined,
-  insurancePolicies: (department.insurancePolicies || []).map((insurance: GqlInsurance) => ({
-    id: insurance.id,
-    name: insurance.insuranceName || 'Unknown Insurance',
-    acronym: insurance.acronym || '',
-    coveragePercentage: insurance.defaultCoveragePercentage || 0,
-    supportedByClinic: insurance.supportedByClinic || false,
-    iconUrl: insurance.iconUrl || undefined,
-  })),
-  defaultProducts: (department.defaultProducts || []).map((product: GqlProduct) => ({
-    id: product.id,
-    name: product.name,
-    genericName: product.genericName || undefined,
-    code: product.code || undefined,
-    description: product.description || undefined,
-    type: product.type || undefined,
-    unit: product.unit || undefined,
-    privateRhicPrice: product.privateRhicPrice || undefined,
-    clinicPrice: product.clinicPrice || undefined,
-    insuranceCoverages: (product.insuranceCoverages || []).map((coverage: GqlProductCoverage) => {
-      const provider = coverage.insuranceProvider || coverage.insurance
-      return {
-        id: coverage.id,
-        insurance: {
-          id: provider?.id || '',
-          name: (provider as any)?.insuranceName || (provider as any)?.name || 'Unknown',
-          acronym: provider?.acronym || undefined,
-          coveragePercentage: (provider as any)?.defaultCoveragePercentage ?? (provider as any)?.coveragePercentage ?? 0,
-        },
-        cost: coverage.cost || undefined,
-        covered: coverage.covered || undefined,
-        requireMedicalAdvisor: coverage.requireMedicalAdvisor || undefined,
-      }
+  insurancePolicyMode:
+    (department.insurancePolicyMode as DepartmentInsurancePolicyMode) ||
+    DepartmentInsurancePolicyMode.ALL,
+  nursing: department.nursing ?? false,
+  supportRequests: department.supportRequests ?? false,
+  requestsProducts: department.requestsProducts ?? false,
+  insurancePolicies: (department.insurancePolicies || []).map((insurance: GqlInsurance) =>
+    mapGqlInsuranceProvider({
+      id: insurance.id,
+      insuranceName: insurance.insuranceName || 'Unknown Insurance',
+      acronym: insurance.acronym,
+      defaultCoveragePercentage: insurance.defaultCoveragePercentage,
+      supportedByClinic: insurance.supportedByClinic,
+      iconUrl: insurance.iconUrl,
     }),
-  })),
+  ),
+  defaultProducts: (department.defaultProducts || []).map((product: GqlProduct) =>
+    mapGqlProduct({
+      id: product.id,
+      name: product.name,
+      genericName: product.genericName,
+      code: product.code || '',
+      description: product.description || '',
+      type: product.type,
+      unit: product.unit,
+      privateRhicPrice: product.privateRhicPrice,
+      clinicPrice: product.clinicPrice,
+      insuranceCoverages: (product.insuranceCoverages || []).map(
+        (coverage: GqlProductCoverage): GqlCoverage => ({
+          id: coverage.id,
+          insuranceProvider: coverage.insuranceProvider
+            ? {
+                id: coverage.insuranceProvider.id,
+                insuranceName: coverage.insuranceProvider.insuranceName || '',
+                acronym: coverage.insuranceProvider.acronym,
+                defaultCoveragePercentage:
+                  coverage.insuranceProvider.defaultCoveragePercentage,
+              }
+            : coverage.insurance
+              ? {
+                  id: coverage.insurance.id,
+                  insuranceName: coverage.insurance.name || '',
+                  acronym: coverage.insurance.acronym,
+                  defaultCoveragePercentage: coverage.insurance.coveragePercentage,
+                }
+              : { id: '', insuranceName: '' },
+          cost: coverage.cost,
+          covered: coverage.covered,
+          requireMedicalAdvisor: coverage.requireMedicalAdvisor,
+        }),
+      ),
+    }),
+  ),
+  createdAt: '',
+  updatedAt: '',
 })
 
 export function useDepartments(options?: { skip?: boolean; input?: { name?: string; supportRequests?: boolean; requestsProducts?: boolean; page?: number; size?: number } }) {

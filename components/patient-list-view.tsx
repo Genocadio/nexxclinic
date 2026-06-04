@@ -1,13 +1,45 @@
 "use client"
 
-import type { Patient } from "@/lib/api-types"
+import type { Patient, Visit } from "@/lib/api-types"
+import { VisitStatus } from "@/lib/api-types"
+import {
+  formatPatientGender,
+  getPatientAge,
+  getPatientDisplayName,
+  getPatientPhone,
+} from "@/lib/patient-display-utils"
 import { ArrowLeft, History } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import MedicalHistory from "@/components/medical-history"
+
+type VisitSummaryStatus = "pending" | "ongoing" | "completed"
+
+interface PatientVisitSummary {
+  id: string
+  date: string
+  status: VisitSummaryStatus
+  chiefComplaint?: string
+  diagnosis?: string
+}
+
+function mapVisitStatusToSummary(status: Visit["status"]): VisitSummaryStatus {
+  if (status === VisitStatus.COMPLETED) return "completed"
+  if (status === VisitStatus.IN_PROGRESS) return "ongoing"
+  return "pending"
+}
+
+function visitToSummary(visit: Visit): PatientVisitSummary {
+  return {
+    id: visit.id,
+    date: visit.visitDate,
+    status: mapVisitStatusToSummary(visit.status),
+    chiefComplaint: "Visit",
+  }
+}
 
 interface PatientListViewProps {
   patient: Patient
-  onConsultationSelect: (consultation: Consultation) => void
+  onConsultationSelect: (visit: PatientVisitSummary) => void
   onNewConsultation: (patient: Patient) => void
   onBack: () => void
   patientsList: Patient[]
@@ -20,25 +52,32 @@ export default function PatientListView({
   onConsultationSelect,
   onNewConsultation,
   onBack,
-  patientsList,
-  setPatientsList,
   isCompletedPatient = false,
 }: PatientListViewProps) {
-  const [filterStatus, setFilterStatus] = useState<ConsultationStatus | "all">("all")
+  const [filterStatus, setFilterStatus] = useState<VisitSummaryStatus | "all">("all")
   const [activeSection, setActiveSection] = useState<"overview" | "history">("overview")
 
-  const filteredConsultations = patient.consultations.filter((c) => filterStatus === "all" || c.status === filterStatus)
+  const visitSummaries = useMemo(
+    () => (patient.lastVisit ? [visitToSummary(patient.lastVisit)] : []),
+    [patient.lastVisit],
+  )
+
+  const filteredVisits = visitSummaries.filter(
+    (visit) => filterStatus === "all" || visit.status === filterStatus,
+  )
 
   const stats = {
-    pending: patient.consultations.filter((c) => c.status === "pending").length,
-    ongoing: patient.consultations.filter((c) => c.status === "ongoing").length,
-    completed: patient.consultations.filter((c) => c.status === "completed").length,
+    pending: visitSummaries.filter((visit) => visit.status === "pending").length,
+    ongoing: visitSummaries.filter((visit) => visit.status === "ongoing").length,
+    completed: visitSummaries.filter((visit) => visit.status === "completed").length,
   }
+
+  const displayName = getPatientDisplayName(patient)
+  const age = getPatientAge(patient)
 
   return (
     <div className="min-h-screen bg-background">
       <div className="flex h-[calc(100vh-64px)]">
-        {/* Sidebar */}
         <div className="w-full md:w-96 border-r border-border bg-card flex flex-col">
           <div className="p-4 border-b border-border">
             <button
@@ -50,9 +89,9 @@ export default function PatientListView({
             </button>
 
             <div className="mb-4">
-              <h2 className="font-semibold text-card-foreground text-lg">{patient.name}</h2>
+              <h2 className="font-semibold text-card-foreground text-lg">{displayName}</h2>
               <p className="text-xs text-muted-foreground mt-1">
-                {patient.age} years • {patient.gender === "M" ? "Male" : "Female"}
+                {age != null ? `${age} years` : "Age unknown"} • {formatPatientGender(patient.gender)}
               </p>
             </div>
 
@@ -66,7 +105,6 @@ export default function PatientListView({
             )}
           </div>
 
-          {/* Section tabs */}
           <div className="p-3 border-b border-border flex gap-2">
             <button
               onClick={() => setActiveSection("overview")}
@@ -93,12 +131,11 @@ export default function PatientListView({
 
           {activeSection === "overview" && (
             <>
-              {/* Filter tabs */}
               <div className="p-3 border-b border-border space-y-2">
-                {["pending", "ongoing", "completed"].map((status) => (
+                {(["pending", "ongoing", "completed"] as const).map((status) => (
                   <button
                     key={status}
-                    onClick={() => setFilterStatus(status as ConsultationStatus | "all")}
+                    onClick={() => setFilterStatus(status)}
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${
                       filterStatus === status
                         ? "bg-primary text-primary-foreground"
@@ -106,39 +143,38 @@ export default function PatientListView({
                     }`}
                   >
                     <span>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
-                    <span className="text-xs font-semibold">{stats[status as keyof typeof stats]}</span>
+                    <span className="text-xs font-semibold">{stats[status]}</span>
                   </button>
                 ))}
               </div>
 
-              {/* Consultations list */}
               <div className="flex-1 overflow-y-auto">
                 <div className="p-4 space-y-2">
-                  {filteredConsultations.length === 0 ? (
+                  {filteredVisits.length === 0 ? (
                     <p className="text-center text-muted-foreground text-sm py-8">
-                      No {filterStatus === "all" ? "" : filterStatus} consultations
+                      No {filterStatus === "all" ? "" : filterStatus} visits
                     </p>
                   ) : (
-                    filteredConsultations.map((consultation) => (
+                    filteredVisits.map((visit) => (
                       <button
-                        key={consultation.id}
-                        onClick={() => onConsultationSelect(consultation)}
+                        key={visit.id}
+                        onClick={() => onConsultationSelect(visit)}
                         className="w-full text-left p-3 rounded-lg border border-border hover:bg-muted transition-colors"
                       >
                         <p className="text-sm font-medium text-foreground truncate">
-                          {consultation.chiefComplaint || "Follow-up visit"}
+                          {visit.chiefComplaint || "Follow-up visit"}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">{consultation.date}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{visit.date}</p>
                         <span
                           className={`inline-block mt-2 px-2 py-1 rounded text-xs font-medium ${
-                            consultation.status === "completed"
+                            visit.status === "completed"
                               ? "bg-primary/20 text-primary"
-                              : consultation.status === "ongoing"
+                              : visit.status === "ongoing"
                                 ? "bg-accent/20 text-accent"
                                 : "bg-secondary/20 text-secondary"
                           }`}
                         >
-                          {consultation.status.charAt(0).toUpperCase() + consultation.status.slice(1)}
+                          {visit.status.charAt(0).toUpperCase() + visit.status.slice(1)}
                         </span>
                       </button>
                     ))
@@ -149,75 +185,82 @@ export default function PatientListView({
           )}
         </div>
 
-        {/* Main content */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="max-w-4xl mx-auto">
             {activeSection === "overview" ? (
               <>
-                {/* Patient Overview Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="bg-card border border-border rounded-lg p-4">
-                    <p className="text-xs text-muted-foreground mb-2">Medical History</p>
-                    <p className="text-foreground text-sm">{patient.medicalHistory}</p>
+                    <p className="text-xs text-muted-foreground mb-2">Location</p>
+                    <p className="text-foreground text-sm">
+                      {[patient.village, patient.city, patient.district].filter(Boolean).join(", ") || "—"}
+                    </p>
                   </div>
                   <div className="bg-card border border-border rounded-lg p-4">
                     <p className="text-xs text-muted-foreground mb-2">Contact Information</p>
-                    <p className="text-foreground text-sm font-medium">{patient.email}</p>
-                    <p className="text-foreground text-sm">{patient.phone}</p>
+                    <p className="text-foreground text-sm">{getPatientPhone(patient) || "—"}</p>
+                    <p className="text-foreground text-sm">{patient.postalAddress || "—"}</p>
                   </div>
                   <div className="bg-card border border-border rounded-lg p-4">
                     <p className="text-xs text-muted-foreground mb-2">Activity</p>
-                    <p className="text-foreground text-sm font-medium">{patient.lastVisit}</p>
+                    <p className="text-foreground text-sm font-medium">
+                      {patient.lastVisit?.visitDate || "No recent visit"}
+                    </p>
                     <p className="text-muted-foreground text-xs mt-1">
-                      {patient.consultations.length} total consultations
+                      {visitSummaries.length} recorded visit(s)
                     </p>
                   </div>
                 </div>
 
-                {/* Recent Consultations */}
                 <div className="bg-card border border-border rounded-lg">
                   <div className="p-4 border-b border-border">
-                    <h3 className="font-semibold text-card-foreground">Recent Consultations</h3>
+                    <h3 className="font-semibold text-card-foreground">Recent Visits</h3>
                   </div>
 
                   <div className="p-4">
-                    {patient.consultations.slice(0, 3).map((cons) => (
+                    {visitSummaries.slice(0, 3).map((visit) => (
                       <button
-                        key={cons.id}
-                        onClick={() => onConsultationSelect(cons)}
+                        key={visit.id}
+                        onClick={() => onConsultationSelect(visit)}
                         className="w-full text-left p-4 mb-3 rounded-lg border border-border hover:bg-muted transition-colors last:mb-0"
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div>
-                            <p className="font-medium text-foreground">{cons.chiefComplaint || "Routine visit"}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{cons.date}</p>
+                            <p className="font-medium text-foreground">{visit.chiefComplaint || "Routine visit"}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{visit.date}</p>
                           </div>
                           <span
                             className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
-                              cons.status === "completed"
+                              visit.status === "completed"
                                 ? "bg-primary/20 text-primary"
-                                : cons.status === "ongoing"
+                                : visit.status === "ongoing"
                                   ? "bg-accent/20 text-accent"
                                   : "bg-secondary/20 text-secondary"
                             }`}
                           >
-                            {cons.status.charAt(0).toUpperCase() + cons.status.slice(1)}
+                            {visit.status.charAt(0).toUpperCase() + visit.status.slice(1)}
                           </span>
                         </div>
-                        {cons.diagnosis && <p className="text-xs text-muted-foreground">{cons.diagnosis}</p>}
                       </button>
                     ))}
 
-                    {patient.consultations.length > 3 && (
-                      <p className="text-xs text-muted-foreground text-center py-2">
-                        {patient.consultations.length - 3} more consultation(s) - View in History tab
-                      </p>
+                    {visitSummaries.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">No visits yet</p>
                     )}
                   </div>
                 </div>
               </>
             ) : (
-              <MedicalHistory patient={patient} onConsultationSelect={onConsultationSelect} />
+              <MedicalHistory
+                patient={patient}
+                onVisitSelect={(visit) =>
+                  onConsultationSelect({
+                    id: visit.id,
+                    date: visit.visitDate,
+                    status: "completed",
+                  })
+                }
+              />
             )}
           </div>
         </div>

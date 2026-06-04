@@ -2,8 +2,9 @@ import { useApolloClient, useMutation, useQuery } from '@apollo/client'
 import { getErrorMessage } from '@/lib/error-utils'
 import { LOGIN_MUTATION, SET_INITIAL_PASSWORD_MUTATION, REGISTER_MUTATION, ADMIN_CREATE_USER_MUTATION, ADMIN_UPDATE_USER_MUTATION, ACTIVATE_USER_MUTATION, DEACTIVATE_USER_MUTATION, UPDATE_USER_ROLES_MUTATION, UPDATE_MY_PROFILE_MUTATION, CHANGE_PASSWORD_MUTATION, DELETE_USER_PASSWORD_MUTATION, UPDATE_CLINIC_PROFILE_MUTATION } from '../mutations'
 import { ME_QUERY, GET_USERS_QUERY, CLINIC_PROFILE_QUERY } from '../queries'
-import type { LoginResponse, UserAccount, UserResponse, RegisterResponse } from '../types'
-import type { ClinicContact, ClinicProfile } from '@/lib/types'
+import type { LoginResponse, UserAccount, UserResponse, RegisterResponse, Worker } from '../types'
+import type { ClinicContact, ClinicProfile } from '@/lib/api-types'
+import { mapGqlWorker } from '@/lib/gql-mappers'
 
 interface ClinicProfileResponseData {
   clinicProfile: {
@@ -27,12 +28,12 @@ const mapClinicProfile = (profile?: ClinicProfile | null): ClinicProfile | null 
     id: String(profile.id || ''),
     name: profile.name?.trim() || undefined,
     address: profile.address?.trim() || undefined,
-    contacts: profile.contacts ?? null,
+    contacts: profile.contacts ?? [],
     tinNumber: profile.tinNumber?.trim() || undefined,
     logoUrl: profile.logoUrl?.trim() || undefined,
     metadata: profile.metadata ?? null,
-    createdAt: profile.createdAt || undefined,
-    updatedAt: profile.updatedAt || undefined,
+    createdAt: profile.createdAt || '',
+    updatedAt: profile.updatedAt || '',
   }
 }
 
@@ -54,30 +55,21 @@ export function useLogin() {
         accessToken: payload?.data?.accessToken ? '***' : undefined,
       })
 
-      const buildUser = (profile?: {
-        id: string
-        firstName?: string | null
-        lastName?: string | null
-        email?: string | null
-        phoneNumber?: string | null
-        accountStatus?: string | null
-        roles?: string[] | null
-        departments?: { id: string; name: string }[] | null
-      }) => ({
-        id: profile?.id || '',
-        name: [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || profile?.email || profile?.phoneNumber || identifier,
-        email: profile?.email || '',
-        phoneNumber: profile?.phoneNumber || '',
-        title: '',
-        roles: profile?.roles || [],
-        active: profile?.accountStatus === 'ACTIVE',
-        departments: profile?.departments || undefined,
-      })
+      const buildUser = (profile?: Parameters<typeof mapGqlWorker>[0]): Worker => {
+        const user = mapGqlWorker(profile)
+        if (!profile?.id && !profile?.firstName) {
+          return {
+            ...user,
+            name: user.name || identifier,
+          }
+        }
+        return user
+      }
 
       if (payload?.status === 'SUCCESS' && payload.data?.accessToken) {
         const token = payload.data.accessToken
         const loginUser = payload.data.user
-        let user = loginUser ? buildUser(loginUser) : buildUser()
+        let user = loginUser ? buildUser(loginUser as Parameters<typeof mapGqlWorker>[0]) : buildUser()
         let clinicProfile: ClinicProfile | null = null
 
         if (!loginUser) {
@@ -126,7 +118,7 @@ export function useLogin() {
 
       if (payload?.status === 'PARTIAL_SUCCESS' && payload.data) {
         const loginUser = payload.data.user
-        let user = loginUser ? buildUser(loginUser) : buildUser()
+        let user = loginUser ? buildUser(loginUser as Parameters<typeof mapGqlWorker>[0]) : buildUser()
 
         return {
           status: 'PARTIAL_SUCCESS',
@@ -210,15 +202,7 @@ export function useRegister() {
       return {
         status: payload?.status || 'ERROR',
         message: payload?.message,
-        data: payload?.data
-          ? {
-              id: payload.data.id,
-              name: [payload.data.firstName, payload.data.lastName].filter(Boolean).join(' '),
-              email: payload.data.email,
-              phoneNumber: payload.data.phoneNumber,
-              title: title || '',
-            }
-          : undefined,
+        data: payload?.data ? mapGqlWorker(payload.data) : undefined,
         messages: payload?.message ? [{ text: payload.message, type: payload?.status || 'ERROR' }] : undefined,
       } as RegisterResponse
     } catch (err) {
@@ -286,7 +270,7 @@ export function useUsers() {
   const errorMessage = error?.message || null
 
   return {
-    users: (data?.listUsers?.data || []) as UserAccount[],
+    users: ((data?.listUsers?.data || []) as Parameters<typeof mapGqlWorker>[0][]).map(mapGqlWorker) as UserAccount[],
     loading,
     error: errorMessage,
     refetch,
@@ -462,17 +446,7 @@ export function useUpdateMyProfile() {
         status: payload?.status || 'ERROR',
         message: payload?.message,
         messages: payload?.message ? [{ text: payload.message, type: payload?.status || 'ERROR' }] : undefined,
-        data: worker
-          ? {
-              id: worker.id,
-              name: [worker.firstName, worker.lastName].filter(Boolean).join(' ') || input.name || '',
-              email: worker.email || '',
-              phoneNumber: worker.phoneNumber || '',
-              title: '',
-              roles: worker.roles || [],
-              active: worker.accountStatus === 'ACTIVE',
-            }
-          : undefined,
+        data: worker ? mapGqlWorker(worker) : undefined,
       } as UserResponse
     } catch (err) {
       console.error('Update my profile error:', err)

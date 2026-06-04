@@ -5,11 +5,7 @@
  * This file only contains hook-specific wrappers for API responses
  */
 
-import type {
-  ApiResponse as ApiResponseBase,
-  Worker,
-  ClinicProfile,
-} from "@/lib/api-types"
+import type { Worker, ClinicProfile, ApiResponse } from "@/lib/api-types"
 
 // ============================================
 // RE-EXPORTS FROM CANONICAL TYPES
@@ -42,6 +38,7 @@ export type {
   VisitPreInstructionProductStatus,
   PaymentMethod,
   // Entity Types - CANONICAL SOURCE
+  ApiMessage,
   ApiResponse,
   PaginationInfo,
   PaginatedResponse,
@@ -160,18 +157,22 @@ export type {
 // HOOK-SPECIFIC RESPONSE WRAPPERS (ONLY)
 // ============================================
 
-/**
- * Hook response wrapper for API responses
- * Maintains backward compatibility with existing hook code
- */
-export interface ApiResponse<T> extends ApiResponseBase<T> {
+/** @deprecated Use Worker from api-types */
+export type UserAccount = Worker & {
+  gender?: string | null
+  dateOfBirth?: string | null
+  profilePhotoUrl?: string | null
+}
+
+/** Hook response wrapper for user mutations */
+export type UserResponse = ApiResponse<Worker>
+
+/** Self-registration response wrapper */
+export interface RegisterResponse {
   status: string
   message?: string
-  data?: T
-  messages?: {
-    text: string
-    type: string
-  }[]
+  data?: Worker
+  messages?: { text: string; type: string }[]
 }
 
 /**
@@ -204,21 +205,4 @@ export interface InvoiceResponse {
   data?: {
     invoiceUrl?: string
   }
-}
-
-/**
- * Bill - Represents a finalized billing record (hook-level summary)
- * Used by billing preview and summary components
- */
-export interface Bill {
-  id: string
-  visitId: string
-  totalAmount: number
-  insuranceCoveredAmount: number
-  patientPayableAmount: number
-  paidAmount: number
-  outstandingAmount: number
-  status: string
-  createdAt: string
-  updatedAt: string
 }

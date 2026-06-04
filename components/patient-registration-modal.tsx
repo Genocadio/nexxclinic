@@ -3,7 +3,9 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { useRegisterPatient, useInsurances, useDepartments, useCreateVisit, usePatients } from "@/hooks/auth-hooks"
-import type { Patient, Visit, PatientFilterInput, CreatePatientInput as PatientRegistrationInput } from "@/lib/api-types"
+import type { Patient, Visit } from "@/lib/api-types"
+import type { SearchPatientsInput } from "@/lib/api-input-types"
+import type { RegisterPatientInput } from "@/hooks/patients/hooks"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -51,6 +53,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
   const { insurances, loading: insurancesLoading } = useInsurances()
   const solidFieldClass = "w-full bg-white dark:bg-gray-900 border-border/70"
   const solidPanelClass = "rounded-2xl border border-border/60 bg-white dark:bg-slate-950 shadow-sm"
+  const fieldValue = (value?: string | null) => value ?? ""
   const [error, setError] = useState("")
   const [showNotes, setShowNotes] = useState(false)
   const [insurancePopoverOpen, setInsurancePopoverOpen] = useState<{ [key: number]: boolean }>({})
@@ -60,11 +63,11 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
   const getInsuranceName = (insuranceId: string | number) => {
     if (!insuranceId || String(insuranceId) === '0') return "Select insurance..."
     const insurance = insurances.find((ins) => String(ins.id) === String(insuranceId))
-    return insurance ? `${insurance.name} (${insurance.acronym})` : "Select insurance..."
+    return insurance ? `${insurance.insuranceName} (${insurance.acronym || ""})` : "Select insurance..."
   }
 
   // Search filters for potential duplicate detection
-  const [searchFilters, setSearchFilters] = useState<PatientFilterInput>({})
+  const [searchFilters, setSearchFilters] = useState<SearchPatientsInput>({})
   const [hideMatchesAfterNoResult, setHideMatchesAfterNoResult] = useState(false)
   const hasSearchCriteria = Object.keys(searchFilters).length > 0 && Object.values(searchFilters).some(value => value !== undefined && value !== '')
   const { patients: potentialMatches, loading: searchingPatients } = usePatients(hasSearchCriteria ? searchFilters : undefined, 0, 10)
@@ -99,7 +102,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
     setHideMatchesAfterNoResult(false)
   }, [hasSearchCriteria, searchingPatients, potentialMatches.length])
 
-  const [formData, setFormData] = useState<PatientRegistrationInput>({
+  const [formData, setFormData] = useState<RegisterPatientInput>({
     firstName: "",
     lastName: "",
     middleName: "",
@@ -173,7 +176,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
       setSearchFilters({})
     } else if (shouldSearch) {
       setSearchFilters(() => {
-        const newFilters: PatientFilterInput = {}
+        const newFilters: SearchPatientsInput = {}
         const fullName = [nextFirstName, nextLastName].filter(Boolean).join(' ').trim()
 
         if (fullName.length > 0) {
@@ -192,8 +195,8 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
         }
 
         Object.keys(newFilters).forEach(key => {
-          if (!newFilters[key as keyof PatientFilterInput]) {
-            delete newFilters[key as keyof PatientFilterInput]
+          if (!newFilters[key as keyof SearchPatientsInput]) {
+            delete newFilters[key as keyof SearchPatientsInput]
           }
         })
 
@@ -300,7 +303,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
       if (result.status === 'SUCCESS') {
         toast.success(result.message || "Patient registered successfully!")
         if (onPatientRegistered && result.data?.patient?.id) {
-          onPatientRegistered(result.data.patient.id, result.data.insurances || [], false, result.data)
+          onPatientRegistered(result.data.patient.id, result.data.linkedInsurances || [], false, result.data)
         }
         // Reset form
         setFormData({
@@ -355,7 +358,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
               </label>
               <Input
                 type="text"
-                value={formData.firstName}
+                value={fieldValue(formData.firstName)}
                 onChange={(e) => handleInputChange('firstName', e.target.value)}
                 placeholder="Enter first name"
                 className={`${solidFieldClass} rounded-xl focus:ring-primary/50`}
@@ -368,7 +371,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
               </label>
               <Input
                 type="text"
-                value={formData.lastName}
+                value={fieldValue(formData.lastName)}
                 onChange={(e) => handleInputChange('lastName', e.target.value)}
                 placeholder="Enter last name"
                 className={solidFieldClass}
@@ -380,7 +383,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
               </label>
               <Input
                 type="text"
-                value={formData.middleName}
+                value={fieldValue(formData.middleName)}
                 onChange={(e) => handleInputChange('middleName', e.target.value)}
                 placeholder="Enter middle name"
                 className={solidFieldClass}
@@ -392,7 +395,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
               </label>
               <Input
                 type="date"
-                value={formData.dateOfBirth}
+                value={fieldValue(formData.dateOfBirth)}
                 onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
                 className={solidFieldClass}
                 required
@@ -425,7 +428,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
               </label>
               <Input
                 type="text"
-                value={formData.nationalIdNumber}
+                value={fieldValue(formData.nationalIdNumber)}
                 onChange={(e) => handleInputChange('nationalIdNumber', e.target.value)}
                 placeholder="Enter national ID"
                 className={solidFieldClass}
@@ -443,7 +446,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                 </label>
                 <Input
                   type="tel"
-                  value={formData.contactInfo?.phone}
+                  value={fieldValue(formData.contactInfo?.phone)}
                   onChange={(e) => handleInputChange('contactInfo.phone', e.target.value)}
                   placeholder="Enter phone number"
                   className={solidFieldClass}
@@ -455,7 +458,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                 </label>
                 <Input
                   type="text"
-                  value={formData.contactInfo?.email}
+                  value={fieldValue(formData.contactInfo?.email)}
                   onChange={(e) => handleInputChange('contactInfo.email', e.target.value)}
                   placeholder="Email (user@domain.com) or Phone (+256701234567 or 0712345678)"
                   className={solidFieldClass}
@@ -469,28 +472,28 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
                 <Input
                   type="text"
-                  value={formData.contactInfo?.address?.street}
+                  value={fieldValue(formData.contactInfo?.address?.street)}
                   onChange={(e) => handleInputChange('contactInfo.address.street', e.target.value)}
                   placeholder="Street"
                   className={solidFieldClass}
                 />
                 <Input
                   type="text"
-                  value={formData.contactInfo?.address?.sector}
+                  value={fieldValue(formData.contactInfo?.address?.sector)}
                   onChange={(e) => handleInputChange('contactInfo.address.sector', e.target.value)}
                   placeholder="Sector"
                   className={solidFieldClass}
                 />
                 <Input
                   type="text"
-                  value={formData.contactInfo?.address?.district}
+                  value={fieldValue(formData.contactInfo?.address?.district)}
                   onChange={(e) => handleInputChange('contactInfo.address.district', e.target.value)}
                   placeholder="District"
                   className={solidFieldClass}
                 />
                 <Input
                   type="text"
-                  value={formData.contactInfo?.address?.country}
+                  value={fieldValue(formData.contactInfo?.address?.country)}
                   onChange={(e) => handleInputChange('contactInfo.address.country', e.target.value)}
                   placeholder="Country"
                   className={solidFieldClass}
@@ -505,21 +508,21 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
               <Input
                 type="text"
-                value={formData.emergencyContact?.name}
+                value={fieldValue(formData.emergencyContact?.name)}
                 onChange={(e) => handleInputChange('emergencyContact.name', e.target.value)}
                 placeholder="Contact name"
                 className={solidFieldClass}
               />
               <Input
                 type="text"
-                value={formData.emergencyContact?.relation}
+                value={fieldValue(formData.emergencyContact?.relation)}
                 onChange={(e) => handleInputChange('emergencyContact.relation', e.target.value)}
                 placeholder="Relation"
                 className={solidFieldClass}
               />
               <Input
                 type="tel"
-                value={formData.emergencyContact?.phone}
+                value={fieldValue(formData.emergencyContact?.phone)}
                 onChange={(e) => handleInputChange('emergencyContact.phone', e.target.value)}
                 placeholder="Phone number"
                 className={solidFieldClass}
@@ -565,7 +568,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                           aria-expanded={insurancePopoverOpen[index]}
                           className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
                         >
-                          {getInsuranceName(insurance.insuranceId)}
+                          {getInsuranceName(insurance.insuranceId ?? "")}
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
@@ -721,7 +724,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                   </Button>
                 </div>
                 <textarea
-                  value={formData.notes}
+                  value={fieldValue(formData.notes)}
                   onChange={(e) => handleInputChange('notes', e.target.value)}
                   placeholder="Enter any additional notes"
                   className="w-full p-3 border border-border/70 rounded-lg bg-white dark:bg-gray-900 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
@@ -790,7 +793,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                               toast.success(`Selected existing patient: ${patient.firstName} ${patient.lastName}`)
                               onClose()
                               if (onPatientRegistered) {
-                                onPatientRegistered(patient.id.toString(), patient.insurances || [], true)
+                                onPatientRegistered(patient.id.toString(), patient.patientInsurances || [], true)
                               }
                             }}
                             className="rounded-full bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md"
@@ -808,23 +811,23 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                         <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
                           <div>DOB: {new Date(patient.dateOfBirth).toLocaleDateString()}</div>
                           <div>Gender: {patient.gender}</div>
-                          {patient.contactInfo?.phone && (
-                            <div className="col-span-2">Phone: {patient.contactInfo.phone}</div>
+                          {patient.primaryPhoneNumber && (
+                            <div className="col-span-2">Phone: {patient.primaryPhoneNumber}</div>
                           )}
-                          {patient.nationalId && (
-                            <div className="col-span-2">ID: {patient.nationalId}</div>
+                          {patient.nationalIdNumber && (
+                            <div className="col-span-2">ID: {patient.nationalIdNumber}</div>
                           )}
-                          {patient.latestVisit && (
-                            <div className="col-span-2">Last Visit: {new Date(patient.latestVisit.visitDate).toLocaleDateString()}</div>
+                          {patient.lastVisit && (
+                            <div className="col-span-2">Last Visit: {new Date(patient.lastVisit.visitDate).toLocaleDateString()}</div>
                           )}
                         </div>
-                        {patient.insurances && patient.insurances.length > 0 && (
+                        {patient.patientInsurances && patient.patientInsurances.length > 0 && (
                           <div className="mt-3 pt-3 border-t">
                             <div className="text-xs font-medium text-foreground mb-2">Insurance:</div>
                             <div className="space-y-1">
-                              {patient.insurances.map((insurance: any, idx: number) => (
+                              {patient.patientInsurances.map((insurance, idx) => (
                                 <div key={idx} className="text-xs bg-muted/50 rounded-xl px-3 py-2 border border-border/40">
-                                  <div className="font-medium">{insurance.insurance.name} ({insurance.insurance.acronym})</div>
+                                  <div className="font-medium">{insurance.insuranceProvider.insuranceName} ({insurance.insuranceProvider.acronym})</div>
                                   <div className="text-muted-foreground">Card: {insurance.insuranceCardNumber}</div>
                                 </div>
                               ))}
@@ -862,7 +865,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
         setSelectedPatientForEdit(null)
         onClose()
         if (onPatientRegistered) {
-          onPatientRegistered(updatedPatient.id.toString(), updatedPatient.insurances || [], true)
+          onPatientRegistered(updatedPatient.id.toString(), updatedPatient.patientInsurances || [], true)
         }
       }}
     />

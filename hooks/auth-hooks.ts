@@ -8,5 +8,3 @@ export * from './insurances'
 export * from './billing'
 export * from './forms'
 export * from './products'
-export * from './actions'
-// Note: consumables are deprecated, use products instead

@@ -2,62 +2,41 @@ import { useMutation, useQuery } from '@apollo/client'
 import { GET_PATIENTS_QUERY, GET_PATIENT_QUERY } from '../queries'
 import { REGISTER_PATIENT_MUTATION, CREATE_PATIENT_INSURANCE_MUTATION, UPDATE_PATIENT_INSURANCE_MUTATION, UPDATE_PATIENT_MUTATION } from '../mutations'
 import React from 'react'
-import type { Patient, PatientFilterInput, PatientInsurance, Visit, ApiResponse } from '../types'
+import type { Patient, SearchPatientsInput, PatientInsurance, Visit, ApiResponse, UpdatePatientInput } from '../types'
+import { Gender } from '@/lib/api-types'
+import {
+  mapGqlPatient,
+  mapGqlPatientInsurance,
+  mapGqlVisit,
+  type GqlPatient,
+  type GqlPatientInsurance,
+} from '@/lib/gql-mappers'
 
-export interface GqlPatient {
-  id: string
-  firstName: string
-  middleName?: string | null
-  lastName?: string | null
-  dateOfBirth: string
-  gender: string
-  primaryPhoneNumber?: string | null
-  alternativePhone?: string | null
-  village?: string | null
-  city?: string | null
-  district?: string | null
-  postalAddress?: string | null
-  nationalIdNumber?: string | null
-  passportNumber?: string | null
-  emergencyContactName?: string | null
-  emergencyContactRelationship?: string | null
-  emergencyContactPhoneNumber?: string | null
+/** Patient list search filters (extends GraphQL SearchPatientsInput with legacy query keys). */
+export type PatientFilterInput = SearchPatientsInput & {
+  name?: string
+  phoneNumber?: string
+  insuranceName?: string
+}
+
+interface LocalGqlPatient extends GqlPatient {
   lastVisit?: {
     id: string
     status: string
     visitDate: string
   } | null
-  createdAt: string
 }
 
 export interface SearchPatientsQueryData {
   searchPatients: {
     status: string
     message?: string
-    data: GqlPatient[]
+    data: LocalGqlPatient[]
     pagination?: {
       total: number
       totalPages: number
     }
   }
-}
-
-export interface GqlInsuranceProvider {
-  id: string
-  insuranceName: string
-  acronym?: string | null
-  defaultCoveragePercentage: number
-}
-
-export interface GqlPatientInsurance {
-  id: string
-  insuranceCardNumber: string
-  principalMember: boolean
-  principalMemberName?: string | null
-  principalMemberPhoneNumber?: string | null
-  validFrom?: string | null
-  validUntil?: string | null
-  insuranceProvider: GqlInsuranceProvider
 }
 
 export interface GetPatientQueryData {
@@ -123,16 +102,56 @@ const getDominantMemberPayload = (dominantMember?: RegisterPatientInsuranceInput
   }
 }
 
-const mapDominantMember = (insurance: Pick<GqlPatientInsurance, 'principalMember' | 'principalMemberName' | 'principalMemberPhoneNumber'>) => {
-  if (insurance.principalMember || (!insurance.principalMemberName && !insurance.principalMemberPhoneNumber)) {
-    return undefined
+const attachLastVisit = (patient: Patient, lastVisit?: LocalGqlPatient['lastVisit']): Patient => {
+  if (!lastVisit) return patient
+  return {
+    ...patient,
+    lastVisit: {
+      id: lastVisit.id,
+      visitDate: lastVisit.visitDate,
+      status: lastVisit.status as Visit['status'],
+      patient,
+      linkedInsurances: [],
+      departments: [],
+      vitalSigns: [],
+    },
+  }
+}
+
+const mapInsuranceMutationResult = (
+  insurance: Pick<
+    GqlPatientInsurance,
+    | 'id'
+    | 'insuranceCardNumber'
+    | 'principalMember'
+    | 'principalMemberName'
+    | 'principalMemberPhoneNumber'
+    | 'validFrom'
+    | 'validUntil'
+  >,
+  insuranceProviderId: string,
+  patientId?: string,
+): PatientInsurance => {
+  const patient: Patient = {
+    id: patientId || '',
+    firstName: '',
+    dateOfBirth: '',
+    gender: Gender.OTHER,
+    patientInsurances: [],
+    createdAt: '',
+    updatedAt: '',
   }
 
-  return {
-    firstName: insurance.principalMemberName?.split(' ')?.[0] || '',
-    lastName: insurance.principalMemberName?.split(' ')?.slice(1).join(' ') || '',
-    phone: insurance.principalMemberPhoneNumber || '',
-  }
+  return mapGqlPatientInsurance(
+    {
+      ...insurance,
+      insuranceProvider: {
+        id: insuranceProviderId,
+        insuranceName: '',
+      },
+    },
+    patient,
+  )
 }
 
 export interface PatientInsuranceMutationInput {
@@ -148,24 +167,6 @@ export interface PatientInsuranceMutationInput {
   validFrom: string
   validUntil: string
 }
-
-const mapPatientInsurance = (
-  insurance: Pick<GqlPatientInsurance, 'id' | 'insuranceCardNumber' | 'principalMember' | 'principalMemberName' | 'principalMemberPhoneNumber' | 'validFrom' | 'validUntil'>,
-  insuranceProvider: Pick<GqlInsuranceProvider, 'id' | 'insuranceName' | 'acronym' | 'defaultCoveragePercentage'>,
-): PatientInsurance => ({
-  id: insurance.id,
-  insuranceCardNumber: insurance.insuranceCardNumber,
-  status: 'ACTIVE',
-  insurance: {
-    id: insuranceProvider.id,
-    name: insuranceProvider.insuranceName,
-    acronym: insuranceProvider.acronym,
-    coveragePercentage: insuranceProvider.defaultCoveragePercentage,
-  },
-  dominantMember: mapDominantMember(insurance),
-  validFrom: insurance.validFrom || undefined,
-  validUntil: insurance.validUntil || undefined,
-})
 
 export function useCreatePatientInsurance() {
   const [createPatientInsuranceMutation, { loading, error }] = useMutation(CREATE_PATIENT_INSURANCE_MUTATION)
@@ -197,15 +198,7 @@ export function useCreatePatientInsurance() {
         message: created?.message,
         messages: created?.message ? [{ text: created.message, type: created.status || 'ERROR' }] : undefined,
         data: createdData
-          ? mapPatientInsurance(
-              createdData,
-              {
-                id: insuranceProvider,
-                insuranceName: '',
-                acronym: undefined,
-                defaultCoveragePercentage: 0,
-              },
-            )
+          ? mapInsuranceMutationResult(createdData, insuranceProvider, input.patientId)
           : undefined,
       }
     } catch (err) {
@@ -248,15 +241,7 @@ export function useUpdatePatientInsurance() {
         message: updated?.message,
         messages: updated?.message ? [{ text: updated.message, type: updated.status || 'ERROR' }] : undefined,
         data: updatedData
-          ? mapPatientInsurance(
-              updatedData,
-              {
-                id: insuranceProvider,
-                insuranceName: '',
-                acronym: undefined,
-                defaultCoveragePercentage: 0,
-              },
-            )
+          ? mapInsuranceMutationResult(updatedData, insuranceProvider, input.patientId)
           : undefined,
       }
     } catch (err) {
@@ -284,44 +269,9 @@ export function usePatients(filter?: PatientFilterInput, page: number = 0, size:
     skip: shouldSkip,
   })
 
-  const patients: Patient[] = (data?.searchPatients?.data || []).map((patient: GqlPatient) => ({
-    id: patient.id,
-    firstName: patient.firstName,
-    middleName: patient.middleName || undefined,
-    lastName: patient.lastName || undefined,
-    dateOfBirth: patient.dateOfBirth,
-    gender: patient.gender === 'MALE' ? 'M' : patient.gender === 'FEMALE' ? 'F' : (patient.gender || ''),
-    contactInfo: {
-      phone: patient.primaryPhoneNumber || undefined,
-      email: undefined,
-      address: {
-        street: patient.village || undefined,
-        sector: patient.city || undefined,
-        district: patient.district || undefined,
-        country: patient.postalAddress || undefined,
-      },
-    },
-    emergencyContact: {
-      name: patient.emergencyContactName || undefined,
-      relation: patient.emergencyContactRelationship || undefined,
-      phone: patient.emergencyContactPhoneNumber || undefined,
-    },
-    nationalId: patient.nationalIdNumber || undefined,
-    insurances: [],
-    registrationDate: patient.createdAt,
-    lastVisit: patient.lastVisit
-      ? {
-          id: patient.lastVisit.id,
-          visitDate: patient.lastVisit.visitDate,
-          status: patient.lastVisit.status,
-          billingStatus: 'PENDING',
-          patient: {} as Patient,
-          registeredBy: { id: '', name: '' },
-          visitStatus: patient.lastVisit.status as any,
-          visitType: 'OUTPATIENT',
-        }
-      : undefined,
-  }))
+  const patients: Patient[] = (data?.searchPatients?.data || []).map((gqlPatient: LocalGqlPatient) =>
+    attachLastVisit(mapGqlPatient(gqlPatient), gqlPatient.lastVisit),
+  )
   const totalPages = data?.searchPatients?.pagination?.totalPages || 0
   const totalElements = data?.searchPatients?.pagination?.total || 0
 
@@ -349,55 +299,13 @@ export function usePatient(id: string | null) {
       return undefined
     }
 
-    return {
-      id: patientData.id,
-      firstName: patientData.firstName,
-      middleName: patientData.middleName || undefined,
-      lastName: patientData.lastName || undefined,
-      dateOfBirth: patientData.dateOfBirth,
-      gender: patientData.gender === 'MALE' ? 'M' : patientData.gender === 'FEMALE' ? 'F' : (patientData.gender || ''),
-      contactInfo: {
-        phone: patientData.primaryPhoneNumber || undefined,
-        email: undefined,
-        address: {
-          street: patientData.village || undefined,
-          sector: patientData.city || undefined,
-          district: patientData.district || undefined,
-          country: patientData.postalAddress || undefined,
-        },
-      },
-      emergencyContact: {
-        name: patientData.emergencyContactName || undefined,
-        relation: patientData.emergencyContactRelationship || undefined,
-        phone: patientData.emergencyContactPhoneNumber || undefined,
-      },
-      nationalId: patientData.nationalIdNumber || undefined,
-      insurances: patientInsurances.map((insurance: GqlPatientInsurance) => ({
-        id: insurance.id,
-        insuranceCardNumber: insurance.insuranceCardNumber,
-        status: 'ACTIVE',
-        insurance: {
-          id: insurance.insuranceProvider.id,
-          name: insurance.insuranceProvider.insuranceName,
-          acronym: insurance.insuranceProvider.acronym || undefined,
-          coveragePercentage: insurance.insuranceProvider.defaultCoveragePercentage,
-        },
-        dominantMember: mapDominantMember(insurance),
-      })),
-      registrationDate: patientData.createdAt,
-      lastVisit: patientData.lastVisit
-        ? {
-            id: patientData.lastVisit.id,
-            visitDate: patientData.lastVisit.visitDate,
-            status: patientData.lastVisit.status,
-            billingStatus: 'PENDING',
-            patient: {} as Patient,
-            registeredBy: { id: '', name: '' },
-            visitStatus: patientData.lastVisit.status as any,
-            visitType: 'OUTPATIENT',
-          }
-        : undefined,
+    const gqlPatient = patientData as LocalGqlPatient
+    let mapped = mapGqlPatient(gqlPatient)
+    mapped = {
+      ...mapped,
+      patientInsurances: patientInsurances.map((insurance) => mapGqlPatientInsurance(insurance, mapped)),
     }
+    return attachLastVisit(mapped, gqlPatient.lastVisit)
   }, [patientData, patientInsurances])
 
   return {
@@ -455,64 +363,21 @@ export function useRegisterPatient() {
 
       const created = result?.data?.createPatient
       const visitData = created?.data
-      const linkedInsurances = visitData?.linkedInsurances || []
-      const insuranceResults: PatientInsurance[] = linkedInsurances.map((insurance: any) => ({
-        id: insurance.id,
-        insuranceCardNumber: insurance.insuranceCardNumber,
-        status: 'ACTIVE',
-        insurance: {
-          id: insurance.insuranceProvider.id,
-          name: insurance.insuranceProvider.insuranceName,
-          acronym: insurance.insuranceProvider.acronym,
-          coveragePercentage: insurance.insuranceProvider.defaultCoveragePercentage,
-        },
-        dominantMember: mapDominantMember(insurance),
-        validFrom: insurance.validFrom || undefined,
-        validUntil: insurance.validUntil || undefined,
-      }))
 
       return {
         status: created?.status || 'ERROR',
         message: created?.message,
         messages: created?.message ? [{ text: created.message, type: created.status || 'ERROR' }] : undefined,
-        data: visitData?.patient
-          ? {
+        data: visitData
+          ? mapGqlVisit({
               id: visitData.id,
               visitDate: visitData.visitDate,
               status: visitData.status,
-              visitStatus: visitData.status,
-              billingStatus: 'PENDING',
-              patient: {
-                id: visitData.patient.id,
-                firstName: visitData.patient.firstName,
-                middleName: visitData.patient.middleName || undefined,
-                lastName: visitData.patient.lastName || undefined,
-                dateOfBirth: visitData.patient.dateOfBirth,
-                gender: visitData.patient.gender === 'MALE' ? 'M' : visitData.patient.gender === 'FEMALE' ? 'F' : (visitData.patient.gender || ''),
-                contactInfo: {
-                  phone: visitData.patient.primaryPhoneNumber || undefined,
-                  email: input.contactInfo?.email || undefined,
-                  address: {
-                    street: visitData.patient.village || undefined,
-                    sector: visitData.patient.city || undefined,
-                    district: visitData.patient.district || undefined,
-                    country: visitData.patient.postalAddress || undefined,
-                  },
-                },
-                emergencyContact: {
-                  name: visitData.patient.emergencyContactName || undefined,
-                  relation: visitData.patient.emergencyContactRelationship || undefined,
-                  phone: visitData.patient.emergencyContactPhoneNumber || undefined,
-                },
-                nationalId: visitData.patient.nationalIdNumber || undefined,
-                insurances: insuranceResults,
-                registrationDate: visitData.patient.createdAt,
-                notes: input.notes || undefined,
-              },
-              insurances: insuranceResults,
+              patient: visitData.patient,
+              linkedInsurances: visitData.linkedInsurances || [],
               departments: [],
               vitalSigns: [],
-            }
+            })
           : undefined,
       }
     } catch (err) {
@@ -529,25 +394,25 @@ export function useUpdatePatient() {
   const [createPatientInsuranceMutation] = useMutation(CREATE_PATIENT_INSURANCE_MUTATION)
   const [updatePatientInsuranceMutation] = useMutation(UPDATE_PATIENT_INSURANCE_MUTATION)
 
-  const updatePatient = async (patientId: string, input: RegisterPatientInput): Promise<ApiResponse<Patient>> => {
+  const updatePatient = async (patientId: string, input: UpdatePatientInput): Promise<ApiResponse<Patient>> => {
     try {
-      const patientInput: any = {
+      const patientInput = {
         firstName: input.firstName,
-        middleName: input.middleName || null,
-        lastName: input.lastName || null,
+        middleName: input.middleName ?? null,
+        lastName: input.lastName ?? null,
         dateOfBirth: input.dateOfBirth,
-        gender: input.gender === 'M' ? 'MALE' : input.gender === 'F' ? 'FEMALE' : input.gender || null,
-        primaryPhoneNumber: input.contactInfo?.phone || null,
-        alternativePhone: null,
-        village: input.contactInfo?.address?.street || null,
-        city: input.contactInfo?.address?.sector || null,
-        district: input.contactInfo?.address?.district || null,
-        postalAddress: input.contactInfo?.address?.country || null,
-        nationalIdNumber: input.nationalIdNumber || null,
-        passportNumber: null,
-        emergencyContactName: input.emergencyContact?.name || null,
-        emergencyContactRelationship: input.emergencyContact?.relation || null,
-        emergencyContactPhoneNumber: input.emergencyContact?.phone || null,
+        gender: input.gender ?? null,
+        primaryPhoneNumber: input.primaryPhoneNumber ?? null,
+        alternativePhone: input.alternativePhone ?? null,
+        village: input.village ?? null,
+        city: input.city ?? null,
+        district: input.district ?? null,
+        postalAddress: input.postalAddress ?? null,
+        nationalIdNumber: input.nationalIdNumber ?? null,
+        passportNumber: input.passportNumber ?? null,
+        emergencyContactName: input.emergencyContactName ?? null,
+        emergencyContactRelationship: input.emergencyContactRelationship ?? null,
+        emergencyContactPhoneNumber: input.emergencyContactPhoneNumber ?? null,
       }
 
       const result = await updatePatientMutation({
@@ -557,114 +422,15 @@ export function useUpdatePatient() {
       const updated = result.data.updatePatient
       const insuranceResults: PatientInsurance[] = []
 
-      if (input.insurances && input.insurances.length > 0) {
-        for (const insurance of input.insurances) {
-          if (!insurance?.insuranceId || !insurance?.insuranceCardNumber) {
-            continue
-          }
-
-          const now = new Date()
-          const validFrom = now.toISOString().slice(0, 10)
-          const validUntil = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()).toISOString().slice(0, 10)
-
-          const insuranceInput = {
-            insuranceProviderId: String(insurance.insuranceId),
-            insuranceCardNumber: insurance.insuranceCardNumber,
-            providingCompanyOrEmployer: insurance.providingCompanyOrEmployer,
-            ...getDominantMemberPayload(insurance.dominantMember),
-            validFrom,
-            validUntil,
-          }
-
-          if (insurance.id) {
-            const insuranceUpdateResult = await updatePatientInsuranceMutation({
-              variables: {
-                patientInsuranceId: insurance.id,
-                input: insuranceInput,
-              },
-            })
-            const updatedInsurance = insuranceUpdateResult?.data?.updatePatientInsurance?.data
-            if (updatedInsurance) {
-              insuranceResults.push({
-                id: updatedInsurance.id,
-                insuranceCardNumber: updatedInsurance.insuranceCardNumber,
-                status: 'ACTIVE',
-                insurance: {
-                  id: updatedInsurance.insuranceProvider.id,
-                  name: updatedInsurance.insuranceProvider.insuranceName,
-                  acronym: updatedInsurance.insuranceProvider.acronym,
-                  coveragePercentage: updatedInsurance.insuranceProvider.defaultCoveragePercentage,
-                },
-                dominantMember: mapDominantMember(updatedInsurance),
-                validFrom: updatedInsurance.validFrom || undefined,
-                validUntil: updatedInsurance.validUntil || undefined,
-              })
-            }
-          } else {
-            const insuranceCreateResult = await createPatientInsuranceMutation({
-              variables: {
-                input: {
-                  patientId,
-                  insuranceProviderId: String(insurance.insuranceId),
-                  insuranceCardNumber: insurance.insuranceCardNumber,
-                  providingCompanyOrEmployer: insurance.providingCompanyOrEmployer,
-                  ...getDominantMemberPayload(insurance.dominantMember),
-                  validFrom,
-                  validUntil,
-                },
-              },
-            })
-            const createdInsurance = insuranceCreateResult?.data?.createPatientInsurance?.data
-            if (createdInsurance) {
-              insuranceResults.push({
-                id: createdInsurance.id,
-                insuranceCardNumber: createdInsurance.insuranceCardNumber,
-                status: 'ACTIVE',
-                insurance: {
-                  id: createdInsurance.insuranceProvider.id,
-                  name: createdInsurance.insuranceProvider.insuranceName,
-                  acronym: createdInsurance.insuranceProvider.acronym,
-                  coveragePercentage: createdInsurance.insuranceProvider.defaultCoveragePercentage,
-                },
-                dominantMember: mapDominantMember(createdInsurance),
-                validFrom: createdInsurance.validFrom || undefined,
-                validUntil: createdInsurance.validUntil || undefined,
-              })
-            }
-          }
-        }
-      }
-
       return {
         status: updated?.status || 'ERROR',
         message: updated?.message,
         messages: updated?.message ? [{ text: updated.message, type: updated.status || 'ERROR' }] : undefined,
         data: updated?.data
           ? {
-              id: updated.data.id,
-              firstName: updated.data.firstName,
-              middleName: updated.data.middleName || undefined,
-              lastName: updated.data.lastName || undefined,
-              dateOfBirth: updated.data.dateOfBirth,
-              gender: updated.data.gender === 'MALE' ? 'M' : updated.data.gender === 'F' ? 'F' : (updated.data.gender || ''),
-              contactInfo: {
-                phone: updated.data.primaryPhoneNumber || undefined,
-                email: input.contactInfo?.email || undefined,
-                address: {
-                  street: updated.data.village || undefined,
-                  sector: updated.data.city || undefined,
-                  district: updated.data.district || undefined,
-                  country: updated.data.postalAddress || undefined,
-                },
-              },
-              emergencyContact: {
-                name: updated.data.emergencyContactName || undefined,
-                relation: updated.data.emergencyContactRelationship || undefined,
-                phone: updated.data.emergencyContactPhoneNumber || undefined,
-              },
-              nationalId: updated.data.nationalIdNumber || undefined,
-              insurances: insuranceResults.length > 0 ? insuranceResults : undefined,
-              registrationDate: updated.data.createdAt,
+              ...mapGqlPatient(updated.data),
+              patientInsurances:
+                insuranceResults.length > 0 ? insuranceResults : mapGqlPatient(updated.data).patientInsurances,
             }
           : undefined,
       }

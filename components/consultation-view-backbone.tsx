@@ -132,10 +132,10 @@ export default function ConsultationViewBackbone({
   const productsLocked = useMemo(
     () =>
       isVisitOrDepartmentClosedForProducts(
-        visit?.visitStatus || visit?.status,
+        visit?.status,
         departmentStatus || parentVisitDepartment?.status
       ),
-    [visit?.visitStatus, visit?.status, departmentStatus, parentVisitDepartment?.status]
+    [visit?.status, departmentStatus, parentVisitDepartment?.status]
   )
   const canModifyVisitProducts = !productsLocked
   const { loadConsultationAnswers: loadAnswers } = useConsultationAnswers(visitId, visitDepartmentId || null, departmentForm?.id || null)

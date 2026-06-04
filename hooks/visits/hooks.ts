@@ -26,175 +26,28 @@ import {
   COMPLETE_VISIT_MUTATION,
   COMPLETE_CONSULTATION_VISIT_MUTATION,
 } from '../mutations'
-import type { 
-  Visit, 
-  VisitFilterInput, 
-  VisitDepartment, 
-  VisitDepartmentProduct, 
-  VisitDepartmentAction, 
-  VisitDepartmentConsumable, 
-  VisitDepartmentNote,
-  Patient,
-  PatientInsurance,
+import type {
+  Visit,
+  SearchVisitsInput,
+  VisitDepartment,
   VisitVitalSignsGroup,
-  ApiResponse 
+  ApiResponse,
 } from '../types'
+import {
+  mapGqlVisit,
+  mapGqlVisitListItem,
+  mapGqlVisitDepartment,
+  mapGqlWorkerRef,
+  type GqlVisit,
+  type GqlVisitDepartment,
+} from '@/lib/gql-mappers'
 
-export interface GqlCoverage {
-  id: string
-  insuranceProvider?: {
-    id: string
-    insuranceName: string
-    acronym?: string | null
-    defaultCoveragePercentage: number
-  } | null
-  cost?: number | null
-  covered?: boolean | null
-  requireMedicalAdvisor?: boolean | null
-}
+const EMPTY_TIMESTAMP = ''
 
-export interface GqlVisitDepartmentProduct {
-  id: string
-  product?: {
-    id: string
-    name: string
-    type: string
-    privateRhicPrice?: number | null
-    clinicPrice?: number | null
-    insuranceCoverages?: GqlCoverage[] | null
-  } | null
-  quantity: number
-  status: string
-  addedBy?: {
-    id: string
-    firstName?: string | null
-    lastName?: string | null
-    email?: string | null
-  } | null
-  createdAt: string
-}
-
-export interface GqlVisitDepartment {
-  id: string
-  status: string
-  transferTime?: string | null
-  completedTime?: string | null
-  completedAt?: string | null
-  childVisitDepartments?: GqlVisitDepartment[] | null
-  diagnostics?: Array<{
-    id: string
-    diagnosisName: string
-    icd11Code?: string | null
-    createdAt?: string | null
-  }> | null
-  medications?: Array<{
-    id: string
-    medicationName: string
-    instructions: string
-    createdAt?: string | null
-  }> | null
-  products?: GqlVisitDepartmentProduct[] | null
-  department?: {
-    id: string
-    name: string
-    requestsProducts?: boolean | null
-  } | null
-  transferredBy?: {
-    id: string
-    firstName?: string | null
-    lastName?: string | null
-    title?: string | null
-    departmentNames?: string[] | null
-  } | null
-  processors?: Array<{
-    id: string
-    firstName?: string | null
-    lastName?: string | null
-    title?: string | null
-  }> | null
-  notes?: Array<{
-    id: string
-    note: string
-    createdBy?: {
-      id: string
-      firstName?: string | null
-      lastName?: string | null
-    } | null
-    createdAt: string
-  }> | null
-}
-
-export interface GqlPatient {
-  id: string
-  firstName: string
-  middleName?: string | null
-  lastName?: string | null
-  dateOfBirth: string
-  gender: string
-  primaryPhoneNumber?: string | null
-  alternativePhone?: string | null
-  village?: string | null
-  city?: string | null
-  district?: string | null
-  postalAddress?: string | null
-  nationalIdNumber?: string | null
-  passportNumber?: string | null
-  emergencyContactName?: string | null
-  emergencyContactRelationship?: string | null
-  emergencyContactPhoneNumber?: string | null
-  patientInsurances?: Array<{
-    id: string
-    insuranceCardNumber: string
-    providingCompanyOrEmployer?: string | null
-    principalMember?: boolean | null
-    principalMemberName?: string | null
-    principalMemberPhoneNumber?: string | null
-    validFrom?: string | null
-    validUntil?: string | null
-    insuranceProvider: {
-      id: string
-      insuranceName: string
-      acronym?: string | null
-      defaultCoveragePercentage: number
-    }
-  }> | null
-  createdAt: string
-}
-
-export interface GqlVisit {
-  id: string
-  visitDate: string
-  status: string
-  vitalSigns?: Array<{
-    id: string
-    createdAt: string
-    addedBy?: {
-      id: string
-      firstName?: string | null
-      lastName?: string | null
-    } | null
-    measurements?: Array<{
-      id: string
-      measurementName: string
-      value: string
-      unit: string
-      createdAt?: string | null
-    }> | null
-  }> | null
-  linkedInsurances?: Array<{
-    id: string
-    insuranceCardNumber: string
-    insuranceProvider: {
-      id: string
-      insuranceName: string
-      acronym?: string | null
-      defaultCoveragePercentage: number
-    }
-  }> | null
-  patient: GqlPatient
-  departments?: GqlVisitDepartment[] | null
-  createdAt: string
-  updatedAt?: string
+/** @deprecated Use SearchVisitsInput from api-input-types */
+export type VisitFilterInput = SearchVisitsInput & {
+  fromDate?: string
+  toDate?: string
 }
 
 export interface VisitsQueryData {
@@ -233,27 +86,26 @@ export const normalizeVisitVitalSigns = (vitalSigns: any[] = []): VisitVitalSign
       .map((group: any, index: number) => ({
         id: String(group?.id || group?.createdAt || `group-${index}`),
         createdAt: toGroupCreatedAt(group?.createdAt),
-        addedBy: group?.addedBy ? {
-          id: String(group.addedBy.id || ''),
-          firstName: group.addedBy.firstName || undefined,
-          lastName: group.addedBy.lastName || undefined,
-        } : undefined,
+        addedBy: mapGqlWorkerRef(group?.addedBy) ?? null,
         measurements: (group?.measurements || [])
           .map((measurement: any, measurementIndex: number) => ({
             id: String(measurement?.id || `${group?.id || group?.createdAt || 'group'}-${measurementIndex}`),
             measurementName: String(measurement?.measurementName || ''),
             value: String(measurement?.value || ''),
             unit: String(measurement?.unit || ''),
-            createdAt: measurement?.createdAt || group?.createdAt || undefined,
+            createdAt: measurement?.createdAt || group?.createdAt || EMPTY_TIMESTAMP,
           }))
-          .filter((measurement: any) => measurement.measurementName || measurement.value || measurement.unit),
+          .filter(
+            (measurement: { measurementName: string; value: string; unit: string }) =>
+              measurement.measurementName || measurement.value || measurement.unit,
+          ),
       }))
-      .filter((group: VisitVitalSignsGroup) => group.measurements.length > 0)
+      .filter((group) => group.measurements.length > 0)
       .sort((a, b) => {
         if (a.createdAt === 'unknown') return 1
         if (b.createdAt === 'unknown') return -1
         return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-      })
+      }) as VisitVitalSignsGroup[]
   }
 
   const grouped = new Map<string, any[]>()
@@ -272,13 +124,9 @@ export const normalizeVisitVitalSigns = (vitalSigns: any[] = []): VisitVitalSign
         measurementName: String(vitalSign?.measurementName || ''),
         value: String(vitalSign?.value || ''),
         unit: String(vitalSign?.unit || ''),
-        createdAt: vitalSign?.createdAt || undefined,
+        createdAt: vitalSign?.createdAt || createdAt || EMPTY_TIMESTAMP,
       })),
-      addedBy: items[0]?.addedBy ? {
-        id: String(items[0].addedBy.id || ''),
-        firstName: items[0].addedBy.firstName || undefined,
-        lastName: items[0].addedBy.lastName || undefined,
-      } : undefined,
+      addedBy: mapGqlWorkerRef(items[0]?.addedBy) ?? null,
     }))
     .sort((a, b) => {
       if (a.createdAt === 'unknown') return 1
@@ -308,193 +156,6 @@ export interface DashboardStatsData {
   }
 }
 
-const mapVisitDepartmentProducts = (departments: GqlVisitDepartment[] = []): VisitDepartment[] =>
-  departments.map((department) => mapSingleVisitDepartment(department))
-
-const mapSingleVisitDepartment = (department: GqlVisitDepartment): VisitDepartment => {
-  const products = department.products || []
-
-  const mapCoverage = (coverage: GqlCoverage) => ({
-    id: String(coverage?.id || ''),
-    insurance: {
-      id: String(coverage?.insuranceProvider?.id || ''),
-      name: coverage?.insuranceProvider?.insuranceName || '',
-      acronym: coverage?.insuranceProvider?.acronym || '',
-      coveragePercentage: Number(coverage?.insuranceProvider?.defaultCoveragePercentage || 0),
-    },
-    cost: Number(coverage?.cost ?? 0),
-    covered: Boolean(coverage?.covered),
-    requireMedicalAdvisor: Boolean(coverage?.requireMedicalAdvisor),
-  })
-
-  const actions: VisitDepartmentAction[] = products.filter((item: GqlVisitDepartmentProduct) => item.product?.type !== 'CONSUMABLE_DEVICE').map((item: GqlVisitDepartmentProduct) => {
-    const p = item.product;
-    if (!p) throw new Error('Product is undefined');
-    return {
-      id: item.id,
-      quantity: item.quantity,
-      paymentStatus: item.status as any,
-      doneBy: item.addedBy ? {
-        id: item.addedBy.id,
-        name: [item.addedBy.firstName, item.addedBy.lastName].filter(Boolean).join(' ') || item.addedBy.email || '',
-        title: '',
-        departmentNames: [],
-      } : undefined,
-      action: {
-        id: p.id,
-        name: p.name,
-        type: p.type,
-        privatePrice: Number(p.privateRhicPrice ?? p.clinicPrice ?? 0),
-        clinicPrice: Number(p.clinicPrice ?? 0),
-        insuranceCoverages: (p.insuranceCoverages || []).map(mapCoverage),
-      },
-    }
-  })
-
-  const consumables: VisitDepartmentConsumable[] = products.filter((item: GqlVisitDepartmentProduct) => item.product?.type === 'CONSUMABLE_DEVICE').map((item: GqlVisitDepartmentProduct) => {
-    const p = item.product;
-    if (!p) throw new Error('Product is undefined');
-    return {
-      id: item.id,
-      quantity: item.quantity,
-      paymentStatus: item.status as any,
-      doneBy: item.addedBy ? {
-        id: item.addedBy.id,
-        name: [item.addedBy.firstName, item.addedBy.lastName].filter(Boolean).join(' ') || item.addedBy.email || '',
-        title: '',
-        departmentNames: [],
-      } : undefined,
-      consumable: {
-        id: p.id,
-        name: p.name,
-        type: p.type,
-        privatePrice: Number(p.privateRhicPrice ?? p.clinicPrice ?? 0),
-        clinicPrice: Number(p.clinicPrice ?? 0),
-        insuranceCoverages: (p.insuranceCoverages || []).map(mapCoverage),
-      },
-    }
-  })
-
-  return {
-    id: department.id,
-    status: department.status,
-    transferTime: department.transferTime || '',
-    completedTime: department.completedTime || department.completedAt || '',
-    products: products.map((item: GqlVisitDepartmentProduct) => {
-      const p = item.product;
-      return {
-        id: item.id,
-        product: {
-          id: p?.id || '',
-          name: p?.name || '',
-          type: p?.type,
-          privatePrice: Number(p?.privateRhicPrice ?? p?.clinicPrice ?? 0),
-        },
-        quantity: item.quantity,
-        addedBy: item.addedBy ? {
-          id: item.addedBy.id,
-          name: [item.addedBy.firstName, item.addedBy.lastName].filter(Boolean).join(' ') || item.addedBy.email || '',
-          title: '',
-        } : undefined,
-        addedAt: item.createdAt,
-      }
-    }),
-    department: {
-      id: department.department?.id || '',
-      name: department.department?.name || '',
-      requestsProducts: department.department?.requestsProducts ?? undefined,
-    },
-    transferredBy: {
-      id: department.transferredBy?.id || '',
-      name: [department.transferredBy?.firstName, department.transferredBy?.lastName].filter(Boolean).join(' ') || '',
-      title: department.transferredBy?.title || '',
-      departmentNames: department.transferredBy?.departmentNames || [],
-    },
-    processors: (department.processors || []).map((processor) => ({
-      id: processor.id,
-      name: [processor.firstName, processor.lastName].filter(Boolean).join(' ') || '',
-      title: processor.title || '',
-    })),
-    actions,
-    consumables,
-    notes: (department.notes || []).map((note) => ({
-      id: note.id,
-      note: note.note,
-      createdBy: {
-        id: note.createdBy?.id || '',
-        name: [note.createdBy?.firstName, note.createdBy?.lastName].filter(Boolean).join(' ') || '',
-      },
-      createdAt: note.createdAt,
-    })),
-    diagnostics: (department.diagnostics || []).map((diagnosis) => ({
-      id: String(diagnosis.id),
-      diagnosisName: String(diagnosis.diagnosisName || ''),
-      icd11Code: diagnosis.icd11Code || undefined,
-      createdAt: diagnosis.createdAt || undefined,
-    })),
-    medications: (department.medications || []).map((medication) => ({
-      id: String(medication.id),
-      medicationName: String(medication.medicationName || ''),
-      instructions: String(medication.instructions || ''),
-      createdAt: medication.createdAt || undefined,
-    })),
-    childVisitDepartments: (department.childVisitDepartments || []).map((child) => mapSingleVisitDepartment(child)),
-  }
-}
-
-const mapProductDepartmentsToLegacyItems = (departments: GqlVisitDepartment[] = []): VisitDepartment[] =>
-  departments.map((department) => {
-    const products = department.products || []
-    const actions: VisitDepartmentAction[] = products
-      .filter((item: GqlVisitDepartmentProduct) => item.product?.type !== 'CONSUMABLE_DEVICE')
-      .map((item: GqlVisitDepartmentProduct) => {
-        const p = item.product;
-        if (!p) throw new Error('Product not found');
-        return {
-          id: item.id,
-          quantity: item.quantity,
-          paymentStatus: item.status as any,
-          action: {
-            id: p.id,
-            name: p.name,
-            type: p.type,
-            privatePrice: Number(p.privateRhicPrice ?? p.clinicPrice ?? 0),
-          },
-        };
-      })
-    const consumables: VisitDepartmentConsumable[] = products
-      .filter((item: GqlVisitDepartmentProduct) => item.product?.type === 'CONSUMABLE_DEVICE')
-      .map((item: GqlVisitDepartmentProduct) => {
-        const p = item.product;
-        if (!p) throw new Error('Product not found');
-        return {
-          id: item.id,
-          quantity: item.quantity,
-          paymentStatus: item.status as any,
-          consumable: {
-            id: p.id,
-            name: p.name,
-            type: p.type,
-            privatePrice: Number(p.privateRhicPrice ?? p.clinicPrice ?? 0),
-          },
-        };
-      })
-
-    return {
-      id: department.id,
-      status: department.status,
-      transferTime: department.transferTime || '',
-      completedTime: department.completedTime || '',
-      department: {
-        id: department.department?.id || '',
-        name: department.department?.name || '',
-      },
-      actions,
-      consumables,
-      products: [],
-    }
-  })
-
 export function useVisits(size?: number, page?: number, filter?: VisitFilterInput) {
   const visitDate = filter?.fromDate && filter?.toDate
     ? (filter.fromDate === filter.toDate ? filter.fromDate : undefined)
@@ -516,45 +177,11 @@ export function useVisits(size?: number, page?: number, filter?: VisitFilterInpu
   const errorKind = error?.networkError ? 'network' : error?.graphQLErrors?.length ? 'graphql' : null
   const errorMessage = error?.graphQLErrors?.[0]?.message || error?.networkError?.message || error?.message || null
 
-  const visits: Visit[] = (data?.visits?.data || []).map((v: GqlVisit) => ({
-    id: v.id,
-    visitDate: v.visitDate,
-    status: v.status,
-    visitStatus: v.status,
-    billingStatus: 'PENDING',
-    patient: {
-      id: v.patient.id,
-      firstName: v.patient.firstName,
-      lastName: v.patient.lastName || '',
-      middleName: v.patient.middleName || '',
-      gender: v.patient.gender || '',
-      dateOfBirth: v.patient.dateOfBirth,
-      nationalId: v.patient.nationalIdNumber || '',
-      contactInfo: {
-        phone: v.patient.primaryPhoneNumber || '',
-        phoneNumber: v.patient.primaryPhoneNumber || '',
-      },
-      insurances: [],
-    },
-    insurances: (v.linkedInsurances || []).map((insurance) => ({
-      id: insurance.id,
-      insuranceCardNumber: insurance.insuranceCardNumber,
-      status: 'ACTIVE',
-      insurance: {
-        id: insurance.insuranceProvider.id,
-        name: insurance.insuranceProvider.insuranceName,
-        acronym: insurance.insuranceProvider.acronym || undefined,
-        coveragePercentage: insurance.insuranceProvider.defaultCoveragePercentage,
-        supportedByClinic: true,
-      },
-      patient: {} as Patient,
-      validFrom: '',
-      validUntil: '',
-      principalMember: false,
-    })),
-    departments: mapVisitDepartmentProducts(v.departments || []),
-    vitalSigns: normalizeVisitVitalSigns(v.vitalSigns || []),
-  }))
+  const visits: Visit[] = (data?.visits?.data || []).map((v: GqlVisit) => {
+    const mapped = mapGqlVisitListItem(v)
+    mapped.vitalSigns = normalizeVisitVitalSigns(v.vitalSigns || [])
+    return mapped
+  })
 
   return {
     visits,
@@ -601,68 +228,9 @@ export function useVisit(id: string | null) {
   const visitData = data?.visit?.data
   const visit: Visit | undefined = useMemo(() => {
     if (!visitData) return undefined
-    return {
-        id: visitData.id,
-        visitDate: visitData.visitDate,
-        status: visitData.status,
-        visitStatus: visitData.status,
-        billingStatus: 'UNPAID',
-        patient: {
-          id: visitData.patient.id,
-          firstName: visitData.patient.firstName,
-          lastName: visitData.patient.lastName || '',
-          middleName: visitData.patient.middleName || '',
-          gender: visitData.patient.gender || '',
-          dateOfBirth: visitData.patient.dateOfBirth || '',
-          nationalId: visitData.patient.nationalIdNumber || '',
-          contactInfo: {
-            phone: visitData.patient.primaryPhoneNumber || '',
-            phoneNumber: visitData.patient.primaryPhoneNumber || '',
-            email: '',
-          },
-          insurances: (visitData.patient.patientInsurances || []).map((insurance) => ({
-            id: insurance.id,
-            insuranceCardNumber: insurance.insuranceCardNumber,
-            status: 'ACTIVE',
-            insurance: {
-              id: insurance.insuranceProvider.id,
-              name: insurance.insuranceProvider.insuranceName,
-              acronym: insurance.insuranceProvider.acronym || undefined,
-              coveragePercentage: insurance.insuranceProvider.defaultCoveragePercentage,
-              supportedByClinic: true,
-            },
-            patient: {} as Patient,
-            validFrom: insurance.validFrom || undefined,
-            validUntil: insurance.validUntil || undefined,
-            principalMember: Boolean(insurance.principalMember),
-            principalMemberName: insurance.principalMemberName || undefined,
-            principalMemberPhoneNumber: insurance.principalMemberPhoneNumber || undefined,
-            providingCompanyOrEmployer: insurance.providingCompanyOrEmployer || undefined,
-          })),
-        },
-        insurances: (visitData.linkedInsurances || []).map((insurance) => ({
-          id: insurance.id,
-          insuranceCardNumber: insurance.insuranceCardNumber,
-          status: 'ACTIVE',
-          insurance: {
-            id: insurance.insuranceProvider.id,
-            name: insurance.insuranceProvider.insuranceName,
-            acronym: insurance.insuranceProvider.acronym || undefined,
-            coveragePercentage: insurance.insuranceProvider.defaultCoveragePercentage,
-            supportedByClinic: true,
-          },
-          patient: {} as Patient,
-          validFrom: insurance.validFrom || undefined,
-          validUntil: insurance.validUntil || undefined,
-          principalMember: Boolean(insurance.principalMember),
-          principalMemberName: insurance.principalMemberName || undefined,
-          principalMemberPhoneNumber: insurance.principalMemberPhoneNumber || undefined,
-          providingCompanyOrEmployer: insurance.providingCompanyOrEmployer || undefined,
-        })),
-        visitNotes: [],
-        departments: mapVisitDepartmentProducts(visitData.departments || []),
-        vitalSigns: normalizeVisitVitalSigns(visitData.vitalSigns || []),
-      }
+    const mapped = mapGqlVisit(visitData)
+    mapped.vitalSigns = normalizeVisitVitalSigns(visitData.vitalSigns || [])
+    return mapped
   }, [visitData])
   const errorMessage = error?.message || null
 
@@ -702,64 +270,7 @@ export function useCreateVisit() {
       return {
         status: payload?.status || 'ERROR',
         messages: payload?.message ? [{ text: payload.message, type: payload.status || 'ERROR' }] : undefined,
-        data: payload?.data
-          ? {
-              id: payload.data.id,
-              visitDate: payload.data.visitDate,
-              status: payload.data.status,
-              visitStatus: payload.data.status,
-              billingStatus: 'UNPAID',
-              patient: {
-                id: payload.data.patient.id,
-                firstName: payload.data.patient.firstName,
-                lastName: payload.data.patient.lastName || '',
-                middleName: payload.data.patient.middleName || '',
-                gender: payload.data.patient.gender || '',
-                dateOfBirth: '',
-                insurances: [],
-              },
-              insurances: (payload.data.linkedInsurances || []).map((insurance) => ({
-                id: insurance.id,
-                insuranceCardNumber: insurance.insuranceCardNumber,
-                status: 'ACTIVE',
-                insurance: {
-                  id: insurance.insuranceProvider.id,
-                  name: insurance.insuranceProvider.insuranceName,
-                  acronym: insurance.insuranceProvider.acronym || undefined,
-                  coveragePercentage: insurance.insuranceProvider.defaultCoveragePercentage,
-                  supportedByClinic: true,
-                },
-                patient: {} as Patient,
-                validFrom: '',
-                validUntil: '',
-                principalMember: false,
-              })),
-              visitNotes: (input.visitNotes || []).map((note) => ({
-                id: '',
-                note: note.text,
-                createdAt: '',
-              })),
-              departments: (payload.data.departments || []).map((dept) => ({
-                id: dept.id,
-                status: 'CREATED',
-                transferTime: '',
-                completedTime: '',
-                department: {
-                  id: dept.department?.id || '',
-                  name: dept.department?.name || '',
-                },
-                transferredBy: {
-                  id: '',
-                  name: '',
-                  title: '',
-                  departmentNames: [],
-                },
-                processors: [],
-                actions: [],
-                consumables: [],
-              })),
-            }
-          : undefined,
+        data: payload?.data ? mapGqlVisit(payload.data as GqlVisit) : undefined,
       }
     } catch (err) {
       console.error('Visit creation error:', err)
@@ -1046,10 +557,7 @@ export function useAddActionToVisitDepartment() {
         status: payload?.status || 'ERROR',
         messages: payload?.message ? [{ text: payload.message, type: payload.status || 'ERROR' }] : undefined,
         data: payload?.data
-          ? {
-              ...payload.data,
-              departments: mapProductDepartmentsToLegacyItems([payload.data as GqlVisitDepartment]),
-            }
+          ? mapGqlVisitDepartment(payload.data as GqlVisitDepartment)
           : undefined,
       }
     } catch (err) {
@@ -1088,7 +596,7 @@ export function useAddChildVisitDepartment() {
       return {
         status: payload?.status || 'ERROR',
         messages: payload?.message ? [{ text: payload.message, type: payload.status || 'ERROR' }] : undefined,
-        data: payload?.data ? mapSingleVisitDepartment(payload.data as GqlVisitDepartment) : undefined,
+        data: payload?.data ? mapGqlVisitDepartment(payload.data as GqlVisitDepartment) : undefined,
       }
     } catch (err) {
       console.error('Add child visit department error:', err)
@@ -1120,10 +628,7 @@ export function useAddConsumableToVisitDepartment() {
         status: payload?.status || 'ERROR',
         messages: payload?.message ? [{ text: payload.message, type: payload.status || 'ERROR' }] : undefined,
         data: payload?.data
-          ? {
-              ...payload.data,
-              departments: mapProductDepartmentsToLegacyItems([payload.data as GqlVisitDepartment]),
-            }
+          ? mapGqlVisitDepartment(payload.data as GqlVisitDepartment)
           : undefined,
       }
     } catch (err) {
@@ -1189,10 +694,7 @@ export function useAddProductToVisitDepartment() {
         status: payload?.status || 'ERROR',
         messages: payload?.message ? [{ text: payload.message, type: payload.status || 'ERROR' }] : undefined,
         data: payload?.data
-          ? {
-              ...payload.data,
-              departments: mapProductDepartmentsToLegacyItems([payload.data as GqlVisitDepartment]),
-            }
+          ? mapGqlVisitDepartment(payload.data as GqlVisitDepartment)
           : undefined,
       }
     } catch (err) {

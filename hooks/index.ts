@@ -24,6 +24,3 @@ export * from './forms'
 
 // Products hooks
 export * from './products'
-
-// Actions hooks
-export * from './actions'

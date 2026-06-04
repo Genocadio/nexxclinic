@@ -250,7 +250,7 @@ export default function ManageInsurancesPage() {
                     <div>
                       <p className="font-medium text-foreground">{ins.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {ins.acronym} • {ins.coveragePercentage}% coverage • {ins.supportedByClinic ? "Clinic Supported" : "External"}
+                        {ins.acronym} • {ins.defaultCoveragePercentage}% coverage • {ins.supportedByClinic ? "Clinic Supported" : "External"}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -260,9 +260,9 @@ export default function ManageInsurancesPage() {
                         className="rounded-full"
                         onClick={() => {
                           setEditingId(ins.id)
-                          setName(ins.name)
-                          setAcronym(ins.acronym)
-                          setCoverage(String(ins.coveragePercentage))
+                          setName(ins.insuranceName || "")
+                          setAcronym(ins.acronym || "")
+                          setCoverage(String(ins.defaultCoveragePercentage))
                           setIconUrl(ins.iconUrl || "")
                           setSupportedByClinic(Boolean(ins.supportedByClinic))
                           setModalOpen(true)

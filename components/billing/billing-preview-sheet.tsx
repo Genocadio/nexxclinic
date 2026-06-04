@@ -4,17 +4,35 @@ import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { X, ChevronRight } from "lucide-react"
-import type { Visit } from "@/lib/api-types"
+import type { Visit, VisitBilling, VisitDepartment } from "@/lib/api-types"
 import type { BillingData } from "@/lib/billing-utils"
-import type { Bill } from "@/hooks/types"
+import { getVisitBillingTotals } from "@/lib/visit-billing-utils"
+
+type InvoicePreviewGroup = {
+  id?: string
+  status: string
+  label?: string
+  insuranceLabel?: string
+  totalAmount: number
+  insuranceCoveredAmount: number
+  patientPayableAmount: number
+  paidAmount: number
+  outstandingAmount: number
+  items: {
+    id: string
+    name: string
+    quantity: number
+    price: number
+    departmentName: string
+  }[]
+}
 
 interface BillingPreviewSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   visit?: Visit | null
   billingData?: BillingData | null
-  existingBill?: Bill | null
-  visitBillingRaw?: any | null
+  visitBilling?: VisitBilling | null
   selectedDepartmentId?: string | null
   onDepartmentSelect?: (departmentId: string) => void
   previewStartedAt?: number | null
@@ -25,8 +43,7 @@ export function BillingPreviewSheet({
   onOpenChange,
   visit,
   billingData,
-  existingBill,
-  visitBillingRaw,
+  visitBilling,
   selectedDepartmentId,
   onDepartmentSelect,
   previewStartedAt,
@@ -76,7 +93,7 @@ export function BillingPreviewSheet({
   const invoiceGroups = useMemo(() => {
     if (!activeDepartment) return []
 
-    const collectDeptIds = (dept: any) => {
+    const collectDeptIds = (dept: VisitDepartment) => {
       const ids: string[] = []
       const stack = [dept]
       while (stack.length) {
@@ -105,26 +122,31 @@ export function BillingPreviewSheet({
         groupLabel: 'Invoice'
       }))
       const computedTotal = items.reduce((sum: number, it: { price: number; quantity: number }) => sum + it.price * it.quantity, 0)
-      return items.length > 0 ? [{
-        groupLabel: 'Invoice',
+      const draftGroups: InvoicePreviewGroup[] = items.length > 0 ? [{
+        id: 'draft-invoice',
+        label: 'Invoice',
+        insuranceLabel: 'Private',
         status: '',
         totalAmount: computedTotal,
         insuranceCoveredAmount: 0,
         patientPayableAmount: computedTotal,
         paidAmount: 0,
         outstandingAmount: computedTotal,
-        items,
+        items: items.map(({ groupLabel: _groupLabel, ...item }) => item),
       }] : []
+      return draftGroups
     }
 
-    if (!visitBillingRaw) return []
+    if (!visitBilling) return []
 
-    let depts = (visitBillingRaw.departments || []).filter((d: any) => deptIds.includes(String(d.id)))
+    let depts = (visitBilling.departments || []).filter((d) =>
+      deptIds.includes(String(d.visitDepartment.id)),
+    )
     if (!depts.length) {
-      depts = visitBillingRaw.departments || []
+      depts = visitBilling.departments || []
     }
 
-    const groups: any[] = []
+    const groups: InvoicePreviewGroup[] = []
     for (const d of depts) {
       const insuranceBillings = d.insuranceBillings || []
       for (const ib of insuranceBillings) {
@@ -132,36 +154,40 @@ export function BillingPreviewSheet({
           id: ib.id,
           status: ib.status,
           label: ib.status ? `${ib.status}` : 'Invoice',
-          insuranceLabel: ib.patientInsurance?.insuranceProvider?.insuranceName || ib.patientInsurance?.insuranceProvider?.name || 'Private',
+          insuranceLabel:
+            ib.patientInsurance?.insuranceProvider?.insuranceName
+            || ib.patientInsurance?.insuranceProvider?.name
+            || 'Private',
           totalAmount: Number(ib.totalAmount || 0),
           insuranceCoveredAmount: Number(ib.insuranceCoveredAmount || 0),
           patientPayableAmount: Number(ib.patientPayableAmount || 0),
           paidAmount: Number(ib.paidAmount || 0),
           outstandingAmount: Number(ib.outstandingAmount || 0),
-          items: (ib.items || []).map((it: any, idx: number) => ({
+          items: (ib.items || []).map((it, idx) => ({
             id: it.id || `item-${d.id}-${idx}`,
-            name: it.productName || it.product?.name || 'Item',
-            quantity: it.quantitySnapshot || it.quantity || 1,
-            price: it.unitPriceSnapshot || it.unitPrice || 0,
-            departmentName: d.department?.name || activeDepartment?.department?.name || 'Department'
+            name: it.productName || 'Item',
+            quantity: it.quantitySnapshot || 1,
+            price: it.unitPriceSnapshot || 0,
+            departmentName: d.visitDepartment.department?.name || activeDepartment?.department?.name || 'Department',
           })),
         })
       }
     }
     return groups
-  }, [billingData, activeDepartment, visitBillingRaw])
+  }, [billingData, activeDepartment, visitBilling])
 
   const departmentTotal = invoiceGroups.reduce((sum, group) => sum + group.totalAmount, 0)
   const departmentPaid = invoiceGroups.reduce((sum, group) => sum + group.paidAmount, 0)
   const departmentOutstanding = invoiceGroups.reduce((sum, group) => sum + group.outstandingAmount, 0)
   const showOverallDepartmentTotals = invoiceGroups.length > 1
-  const showExistingBillSummary = Boolean(existingBill && invoiceGroups.length === 0)
+  const visitBillingTotals = visitBilling ? getVisitBillingTotals(visitBilling) : null
+  const showExistingBillSummary = Boolean(visitBilling && visitBillingTotals && invoiceGroups.length === 0)
   const allItemsCount = invoiceGroups.reduce((sum, group) => sum + group.items.length, 0)
 
   const patientName = visit ? `${visit.patient?.firstName || ''} ${visit.patient?.lastName || ''}`.trim() : 'Patient'
 
   const canShowList = topLevelDepartments.length > 1
-  const invoiceDate = existingBill?.updatedAt || billingData?.updatedAt || visit?.visitDate || new Date().toISOString()
+  const invoiceDate = visitBilling?.updatedAt || billingData?.updatedAt || visit?.visitDate || new Date().toISOString()
 
   if (!isRendered || typeof document === 'undefined') return null
 
@@ -283,7 +309,7 @@ export function BillingPreviewSheet({
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {group.items.map((item: any) => (
+                                  {group.items.map((item) => (
                                     <tr key={item.id} className="even:bg-slate-50 dark:even:bg-slate-900/50">
                                       <td className="border-b border-border px-3 py-2 text-sm text-foreground">{item.name}</td>
                                       <td className="border-b border-border px-3 py-2 text-right text-sm text-foreground">{item.quantity}</td>
@@ -315,11 +341,11 @@ export function BillingPreviewSheet({
                       </div>
                     )}
 
-{showExistingBillSummary && (
+{showExistingBillSummary && visitBillingTotals && (
                     <div className="mt-2 text-sm text-muted-foreground">
-                      <div className="py-1 border-b border-border"><strong>Total billed:</strong> <span className="float-right">{existingBill!.totalAmount.toLocaleString()} RWF</span></div>
-                      <div className="py-1 border-b border-border"><strong>Paid:</strong> <span className="float-right">{existingBill!.paidAmount.toLocaleString()} RWF</span></div>
-                      <div className="py-1 border-b border-border"><strong>Outstanding:</strong> <span className="float-right">{existingBill!.outstandingAmount.toLocaleString()} RWF</span></div>
+                      <div className="py-1 border-b border-border"><strong>Total billed:</strong> <span className="float-right">{visitBillingTotals.totalAmount.toLocaleString()} RWF</span></div>
+                      <div className="py-1 border-b border-border"><strong>Paid:</strong> <span className="float-right">{visitBillingTotals.paidAmount.toLocaleString()} RWF</span></div>
+                      <div className="py-1 border-b border-border"><strong>Outstanding:</strong> <span className="float-right">{visitBillingTotals.outstandingAmount.toLocaleString()} RWF</span></div>
                       </div>
                     )}
 

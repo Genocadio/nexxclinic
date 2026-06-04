@@ -6,15 +6,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils'
 import { Check, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import type { Product as ApiProduct } from '@/lib/api-types'
 import { useProductSearch } from '@/hooks/auth-hooks'
 
-interface Product {
-  id: string | number
-  name: string
-}
-
 interface ProductAutocompleteProps {
-  products: Product[]
+  products: ApiProduct[]
   selectedProductId: string
   onProductSelect: (productId: string) => void
   placeholder?: string
@@ -47,11 +43,11 @@ export function ProductAutocomplete({
 
   const selectedProduct = React.useMemo(() => {
     // First try to find in the original products list
-    let product = products.find(p => String(p.id) === selectedProductId)
+    let product = products.find((p: ApiProduct) => String(p.id) === selectedProductId)
     
     // If not found and we have search results, try to find there
     if (!product && searchResults.length > 0) {
-      product = searchResults.find(p => String(p.id) === selectedProductId)
+      product = searchResults.find((p: ApiProduct) => String(p.id) === selectedProductId)
     }
     
     return product
@@ -120,7 +116,7 @@ export function ProductAutocomplete({
               {searchLoading ? 'Searching...' : 'No products found.'}
             </CommandEmpty>
             <CommandGroup>
-              {displayProducts.map((product) => (
+              {displayProducts.map((product: ApiProduct) => (
                 <CommandItem
                   key={product.id}
                   value={product.name}

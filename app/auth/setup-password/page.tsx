@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useSetInitialPassword } from "@/hooks/auth-hooks"
 import { Eye, EyeOff, Lock, CheckCircle } from "lucide-react"
+import { toast } from "react-toastify"
 import { handleResponse } from "@/lib/response-handler"
 
 export default function SetupPasswordPage() {

@@ -2,7 +2,13 @@
 
 import { useState } from "react"
 import { useVisits, useDepartments, useGenerateInvoice } from "@/hooks/auth-hooks"
-import type { Visit } from "@/lib/api-types"
+import type { Visit, VisitBilling } from "@/lib/api-types"
+import { mapGqlVisitBilling } from "@/lib/visit-billing-utils"
+import {
+  getDerivedVisitBillingStatus,
+  visitHasUnbilledProducts,
+  visitProductsFullySettled,
+} from "@/lib/visit-product-utils"
 import { useLazyQuery } from "@apollo/client"
 import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
 import { toast } from "react-toastify"
@@ -42,8 +48,7 @@ export default function VisitsListView({
   const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
   const [previewingVisitId, setPreviewingVisitId] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewVisitBillingRaw, setPreviewVisitBillingRaw] = useState<any | null>(null)
-  const [previewExistingBill, setPreviewExistingBill] = useState<any | null>(null)
+  const [previewVisitBilling, setPreviewVisitBilling] = useState<VisitBilling | null>(null)
   const [previewDepartmentId, setPreviewDepartmentId] = useState<string | null>(null)
   const [previewVisit, setPreviewVisit] = useState<Visit | null>(null)
   const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null)
@@ -53,38 +58,14 @@ export default function VisitsListView({
       setPreviewingVisitId(visit.id)
 
       const billRes = await getVisitBillings({ variables: { visitId: visit.id } })
-      const visitBilling = billRes.data?.visitBilling?.data
+      const gqlVisitBilling = billRes.data?.visitBilling?.data
 
-      if (!visitBilling) {
+      if (!gqlVisitBilling) {
         toast.error('No bill found for this visit.')
         return
       }
 
-      // Build a light-weight Bill summary similar to useGetBillByVisit
-      const allInsuranceBillings = (visitBilling?.departments || []).flatMap((department: any) => department.insuranceBillings || [])
-      const latestInsuranceBilling = allInsuranceBillings[allInsuranceBillings.length - 1]
-      const flattenedItems = allInsuranceBillings.flatMap((billing: any) => billing.items || [])
-      const paidAmount = allInsuranceBillings.reduce((sum: number, billing: any) => sum + Number(billing.paidAmount || 0), 0)
-      const totalAmount = allInsuranceBillings.reduce((sum: number, billing: any) => sum + Number(billing.totalAmount || 0), 0)
-
-      const bill = {
-        id: visitBilling.id,
-        visitId: visitBilling.visitId,
-        totalAmount,
-        paidAmount,
-        outstandingAmount: Math.max(0, totalAmount - paidAmount),
-        status: totalAmount > 0 && paidAmount >= totalAmount ? 'PAID' : 'UNPAID',
-        items: flattenedItems.map((item: any) => ({
-          ...item,
-          lineTotal: Number(item.unitPriceSnapshot || 0) * Number(item.quantitySnapshot || 0),
-        })),
-        insuranceBillingId: latestInsuranceBilling?.id,
-        createdAt: visitBilling.createdAt,
-        updatedAt: visitBilling.updatedAt,
-      }
-
-      setPreviewVisitBillingRaw(visitBilling)
-      setPreviewExistingBill(bill)
+      setPreviewVisitBilling(mapGqlVisitBilling(gqlVisitBilling))
       setPreviewVisit(visit)
 
       // choose initial department if available
@@ -103,37 +84,12 @@ export default function VisitsListView({
   }
 
   const hasUnbilledItems = (visit: Visit) => {
-    // Show bill button if not fully billed
-    if (visit.billingStatus === 'BILLED') return false
-
-    const flattenVisitDepartments = (departments: NonNullable<Visit['departments']>) => {
-      const flattened: NonNullable<Visit['departments']> = []
-      const stack = [...departments]
-      while (stack.length > 0) {
-        const current = stack.shift()
-        if (!current) continue
-        flattened.push(current)
-        if (current.childVisitDepartments?.length) {
-          stack.push(...current.childVisitDepartments)
-        }
-      }
-      return flattened
-    }
-
-    // Check if there are any unbilled items, including child departments.
-    const isUnbilledStatus = (status?: string) => {
-      const normalized = String(status || '').toUpperCase()
-      return normalized === 'PENDING' || normalized === 'UNPAID'
-    }
-
-    return flattenVisitDepartments(visit.departments || []).some((dept) =>
-      dept.actions?.some((action) => isUnbilledStatus(action.paymentStatus)) ||
-      dept.consumables?.some((consumable) => isUnbilledStatus(consumable.paymentStatus))
-    )
+    if (visitProductsFullySettled(visit)) return false
+    return visitHasUnbilledProducts(visit)
   }
 
   const canAddDepartment = (visit: Visit) => {
-    return visit.billingStatus !== 'BILLED' && visit.status !== 'IN_PROGRESS'
+    return getDerivedVisitBillingStatus(visit) !== 'BILLED' && visit.status !== 'IN_PROGRESS'
   }
 
   const handleAddDepartment = (visit: Visit) => {
@@ -376,7 +332,7 @@ export default function VisitsListView({
                           </button>
                         )}
                         {/* Preview Invoice: only for FINANCE role if billed */}
-                        {hasFinanceRole && visit.billingStatus === 'BILLED' && (
+                        {hasFinanceRole && getDerivedVisitBillingStatus(visit) === 'BILLED' && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -413,14 +369,6 @@ export default function VisitsListView({
                   </div>
                 </div>
               </div>
-              {visit.visitNotes.length > 0 && (
-                <div className="mt-2 text-sm text-muted-foreground dark:text-slate-200">
-                  {visit.visitNotes[0].text.length > 100
-                    ? `${visit.visitNotes[0].text.slice(0, 100)}...`
-                    : visit.visitNotes[0].text
-                  }
-                </div>
-              )}
             </div>
           ))
         )}
@@ -430,7 +378,6 @@ export default function VisitsListView({
       {selectedVisitForDepartment && (
         <AddDepartmentModal
           visit={selectedVisitForDepartment}
-          departments={departments || []}
           isOpen={addDepartmentModalOpen}
           onClose={() => {
             setAddDepartmentModalOpen(false)
@@ -445,8 +392,7 @@ export default function VisitsListView({
             onOpenChange={(open) => {
               setPreviewOpen(open)
               if (!open) {
-                setPreviewVisitBillingRaw(null)
-                setPreviewExistingBill(null)
+                setPreviewVisitBilling(null)
                 setPreviewDepartmentId(null)
                 setPreviewVisit(null)
                 setPreviewStartedAt(null)
@@ -454,11 +400,10 @@ export default function VisitsListView({
             }}
             visit={previewVisit}
             billingData={null}
-            existingBill={previewExistingBill}
+            visitBilling={previewVisitBilling}
             selectedDepartmentId={previewDepartmentId}
             onDepartmentSelect={setPreviewDepartmentId}
             previewStartedAt={previewStartedAt}
-            visitBillingRaw={previewVisitBillingRaw}
           />
     </div>
   )

@@ -127,6 +127,7 @@ export enum VisitDepartmentStatus {
   ON_HOLD = "ON_HOLD",
   BILLING = "BILLING",
   COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED"
 }
 
 export enum EncounterType {
@@ -215,10 +216,16 @@ export enum PaymentMethod {
 // RESPONSE INTERFACES
 // ============================================
 
+export interface ApiMessage {
+  text: string
+  type: string
+}
+
 export interface ApiResponse<T = unknown> {
   status: ResponseStatus | string
   message?: string
   data?: T
+  messages?: ApiMessage[]
 }
 
 export interface PaginationInfo {

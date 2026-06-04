@@ -3,6 +3,8 @@
 import { Receipt, Printer, Pencil, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { VisitBilling } from '@/lib/api-types';
+import { getVisitBillingTotals } from '@/lib/visit-billing-utils';
 
 type BillingTotals = {
   subtotal: number;
@@ -18,13 +20,7 @@ type BillingStickySummaryProps = {
   currency?: string;
   activeService?: string;
   selectedCount?: number;
-  existingBill?: {
-    id: string;
-    totalAmount: number;
-    patientPayableAmount: number;
-    paidAmount: number;
-    outstandingAmount?: number;
-  } | null;
+  existingVisitBilling?: VisitBilling | null;
   canEditBilling: boolean;
   hasRemainingToBill: boolean;
   creatingBill: boolean;
@@ -49,7 +45,7 @@ export function BillingStickySummary({
   currency = 'RWF',
   activeService,
   selectedCount = 0,
-  existingBill,
+  existingVisitBilling,
   canEditBilling,
   hasRemainingToBill,
   creatingBill,
@@ -65,8 +61,9 @@ export function BillingStickySummary({
 }: BillingStickySummaryProps) {
   const remaining = Math.max(0, totals.totalAmount - amountPaid);
   const showActions = canEditBilling || hasRemainingToBill;
+  const billingTotals = existingVisitBilling ? getVisitBillingTotals(existingVisitBilling) : null;
 
-  if (!showActions && !existingBill) return null;
+  if (!showActions && !existingVisitBilling) return null;
 
   return (
     <div className="flex-shrink-0 border-t border-border bg-card/80 backdrop-blur-xl py-3">
@@ -100,7 +97,7 @@ export function BillingStickySummary({
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
               {activeService ? `${activeService} · Due` : 'Amount Due'}
             </p>
-            {selectedCount > 0 && !existingBill && (
+            {selectedCount > 0 && !existingVisitBilling && (
               <p className="text-[10px] text-muted-foreground">
                 {selectedCount} item{selectedCount !== 1 ? 's' : ''} selected
               </p>
@@ -108,20 +105,20 @@ export function BillingStickySummary({
             <p className="text-xl font-bold text-[#FF6900] tabular-nums leading-tight">
               {formatRwf(totals.totalAmount)}
             </p>
-            {!existingBill && amountPaid > 0 && (
+            {!existingVisitBilling && amountPaid > 0 && (
               <p className="text-[10px] text-muted-foreground tabular-nums">
                 Paid {amountPaid.toLocaleString()} · Remaining {remaining.toLocaleString()}
               </p>
             )}
           </div>
 
-          {existingBill && (
+          {existingVisitBilling && billingTotals && (
             <div className="hidden md:flex items-center gap-3 text-[11px] text-muted-foreground shrink-0 border-l border-border pl-4">
               <span>
-                Billed <span className="font-medium text-foreground">{existingBill.id.slice(0, 8)}…</span>
+                Billed <span className="font-medium text-foreground">{existingVisitBilling.id.slice(0, 8)}…</span>
               </span>
               <span>
-                Balance {(existingBill.outstandingAmount ?? Math.max(0, existingBill.totalAmount - existingBill.paidAmount)).toLocaleString()} {currency}
+                Balance {billingTotals.outstandingAmount.toLocaleString()} {currency}
               </span>
             </div>
           )}
@@ -152,7 +149,7 @@ export function BillingStickySummary({
               </>
             )}
 
-            {existingBill && (
+            {existingVisitBilling && (
               <ActionButton icon={Eye} label="Preview bill" onClick={onPreview} />
             )}
 

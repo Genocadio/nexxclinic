@@ -98,7 +98,7 @@ export default function AddActionConsumableModal({
     // Only update suggestions if results changed (avoid repeated identical setState)
     setSuggestions((prev) => {
       const prevIds = (prev || []).map((p) => p.id).join(',')
-      const nextIds = (results || []).map((r) => r.id).join(',')
+      const nextIds = (results || []).map((r: { id: string }) => r.id).join(',')
       if (prevIds === nextIds) return prev
       return results
     })

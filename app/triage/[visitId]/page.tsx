@@ -53,7 +53,7 @@ export default function TriagePage() {
   const { addDepartmentToVisit } = useAddDepartmentToVisit()
 
   const roles = (useAuth()?.doctor?.roles) || []
-  const isNurse = roles.includes("NURSE")
+  const isNurse = (roles as string[]).includes("NURSE")
 
   const [rows, setRows] = useState<VitalRow[]>(defaultRows)
   const [modalOpen, setModalOpen] = useState(false)

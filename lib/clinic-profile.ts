@@ -1,4 +1,4 @@
-import type { ClinicProfile } from "@/lib/types"
+import type { ClinicProfile, ClinicContactType } from "@/lib/api-types"
 
 export const DEFAULT_CLINIC_NAME = "med"
 export const DEFAULT_CLINIC_LOGO_URL = "/FullLogo.png"
@@ -16,12 +16,12 @@ export function normalizeClinicProfile(profile: ClinicProfile | null | undefined
     id: String(profile.id || ""),
     name: normalizedName || undefined,
     address: normalizedAddress || undefined,
-    contacts: profile.contacts ?? null,
+    contacts: profile.contacts ?? [],
     tinNumber: normalizedTinNumber || undefined,
     logoUrl: normalizedLogoUrl || undefined,
-    metadata: profile.metadata ?? null,
-    createdAt: profile.createdAt || undefined,
-    updatedAt: profile.updatedAt || undefined,
+    metadata: profile.metadata ?? undefined,
+    createdAt: profile.createdAt || "",
+    updatedAt: profile.updatedAt || "",
   }
 }
 

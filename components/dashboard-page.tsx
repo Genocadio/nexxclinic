@@ -4,7 +4,21 @@ import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useVisits, useDepartments, useUpdateVisitDepartmentStatus, useDashboardStats, useGenerateInvoice } from "@/hooks/auth-hooks"
-import type { Visit } from "@/lib/api-types"
+import type { Visit, VisitBilling } from "@/lib/api-types"
+import { mapGqlVisitBilling } from "@/lib/visit-billing-utils"
+import {
+  countBilledVisitProducts,
+  countUnbilledVisitProducts,
+  flattenVisitDepartments,
+  getBilledVisitProductNames,
+  getDepartmentsReadyForBilling,
+  getDerivedVisitBillingStatus,
+  getUnbilledVisitProductNames,
+  visitHasBillableProducts,
+  visitHasDepartmentReadyForBilling,
+  visitHasUnbilledProducts,
+  visitProductsFullySettled,
+} from "@/lib/visit-product-utils"
 import { useLazyQuery } from "@apollo/client"
 import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
 import Header from "@/components/header"
@@ -42,8 +56,7 @@ export default function DashboardPage() {
   const { generateInvoice } = useGenerateInvoice()
   const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewVisitBillingRaw, setPreviewVisitBillingRaw] = useState<any | null>(null)
-  const [previewExistingBill, setPreviewExistingBill] = useState<any | null>(null)
+  const [previewVisitBilling, setPreviewVisitBilling] = useState<VisitBilling | null>(null)
   const [previewDepartmentId, setPreviewDepartmentId] = useState<string | null>(null)
   const [previewVisit, setPreviewVisit] = useState<Visit | null>(null)
   const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null)
@@ -163,103 +176,17 @@ export default function DashboardPage() {
     setRegisteredPatientId(null)
   }
 
-  const isUnbilledProductStatus = (status?: string) => {
-    const normalized = String(status || '').toUpperCase()
-    return normalized === 'PENDING' || normalized === 'UNPAID'
+  const hasUnbilledItems = (visit: Visit) => {
+    if (visitProductsFullySettled(visit)) return false
+    return visitHasUnbilledProducts(visit)
   }
 
-  const isBilledProductStatus = (status?: string) => String(status || '').toUpperCase() === 'BILLED'
-
-  const flattenVisitDepartments = (departments: NonNullable<Visit['departments']>): NonNullable<Visit['departments']> => {
-    const flattened: NonNullable<Visit['departments']> = []
-    const stack = [...departments]
-    while (stack.length > 0) {
-      const current = stack.shift()
-      if (!current) continue
-      flattened.push(current)
-      if (current.childVisitDepartments?.length) {
-        stack.push(...current.childVisitDepartments)
-      }
-    }
-    return flattened
-  }
-
-  function hasUnbilledItems(visit: Visit) {
-    if (visit.billingStatus === 'BILLED') return false
-
-    return flattenVisitDepartments(visit.departments || []).some((dept) =>
-      dept.actions?.some((action) => isUnbilledProductStatus(action.paymentStatus)) ||
-      dept.consumables?.some((consumable) => isUnbilledProductStatus(consumable.paymentStatus))
-    )
-  }
-
-  const hasNoBillables = (visit: Visit) => {
-    return !flattenVisitDepartments(visit.departments || []).some((dept) =>
-      (dept.actions && dept.actions.length > 0) || (dept.consumables && dept.consumables.length > 0),
-    )
-  }
-
-  const countUnbilledProducts = (visit: Visit) => {
-    return flattenVisitDepartments(visit.departments || []).reduce((count, dept) => {
-      const pendingActions = (dept.actions || []).filter((action) => isUnbilledProductStatus(action.paymentStatus)).length
-      const pendingConsumables = (dept.consumables || []).filter((consumable) => isUnbilledProductStatus(consumable.paymentStatus)).length
-      return count + pendingActions + pendingConsumables
-    }, 0)
-  }
-
-  const countBilledProducts = (visit: Visit) => {
-    return flattenVisitDepartments(visit.departments || []).reduce((count, dept) => {
-      const billedActions = (dept.actions || []).filter((action) => isBilledProductStatus(action.paymentStatus)).length
-      const billedConsumables = (dept.consumables || []).filter((consumable) => isBilledProductStatus(consumable.paymentStatus)).length
-      return count + billedActions + billedConsumables
-    }, 0)
-  }
-
-  const getUnbilledProductNames = (visit: Visit) => {
-    const names: string[] = []
-
-    for (const dept of flattenVisitDepartments(visit.departments || [])) {
-      for (const action of dept.actions || []) {
-        if (isUnbilledProductStatus(action.paymentStatus)) {
-          names.push(action.action?.name || 'Product')
-        }
-      }
-      for (const consumable of dept.consumables || []) {
-        if (isUnbilledProductStatus(consumable.paymentStatus)) {
-          names.push(consumable.consumable?.name || 'Product')
-        }
-      }
-    }
-
-    return names
-  }
-
-  const getBilledProductNames = (visit: Visit) => {
-    const names: string[] = []
-
-    for (const dept of flattenVisitDepartments(visit.departments || [])) {
-      for (const action of dept.actions || []) {
-        if (isBilledProductStatus(action.paymentStatus)) {
-          names.push(action.action?.name || 'Product')
-        }
-      }
-      for (const consumable of dept.consumables || []) {
-        if (isBilledProductStatus(consumable.paymentStatus)) {
-          names.push(consumable.consumable?.name || 'Product')
-        }
-      }
-    }
-
-    return names
-  }
-
-  const getDepartmentsReadyForBilling = (visit: Visit) => {
-    return flattenVisitDepartments(visit.departments || [])
-      .filter((dept) => String(dept.status || '').toUpperCase() === 'BILLING')
-      .map((dept) => dept.department?.name || 'Department')
-  }
-
-  const hasDepartmentReadyForBilling = (visit: Visit) => getDepartmentsReadyForBilling(visit).length > 0
+  const hasNoBillables = (visit: Visit) => !visitHasBillableProducts(visit)
+  const countUnbilledProducts = countUnbilledVisitProducts
+  const countBilledProducts = countBilledVisitProducts
+  const getUnbilledProductNames = getUnbilledVisitProductNames
+  const getBilledProductNames = getBilledVisitProductNames
+  const hasDepartmentReadyForBilling = visitHasDepartmentReadyForBilling
 
   const formatProductsToBillLabel = (count: number) => {
     if (count === 0) return 'No products to bill'
@@ -282,7 +209,7 @@ export default function DashboardPage() {
     const unbilledCount = countUnbilledProducts(visit)
     const billedCount = countBilledProducts(visit)
 
-    if (visit.billingStatus === 'BILLED' || (unbilledCount === 0 && billedCount > 0)) {
+    if (visitProductsFullySettled(visit) || (unbilledCount === 0 && billedCount > 0)) {
       return 'All products billed'
     }
 
@@ -369,7 +296,7 @@ export default function DashboardPage() {
 
   const isVisitDepartmentBillingOrCompleted = (visit: Visit, departmentStatus: string) => {
     const normalizedDepartmentStatus = String(departmentStatus || '').toUpperCase()
-    const normalizedVisitBillingStatus = String(visit.billingStatus || '').toUpperCase()
+    const normalizedVisitBillingStatus = getDerivedVisitBillingStatus(visit)
     return (
       normalizedDepartmentStatus === 'COMPLETED'
       || normalizedDepartmentStatus === 'BILLING'
@@ -392,7 +319,7 @@ export default function DashboardPage() {
 
     return matchingDepartments.find((dept) => {
       const normalizedDepartmentStatus = String(dept.status || '').toUpperCase()
-      const normalizedVisitBillingStatus = String(visit.billingStatus || '').toUpperCase()
+      const normalizedVisitBillingStatus = getDerivedVisitBillingStatus(visit)
 
       if (normalizedDepartmentStatus === 'COMPLETED' || normalizedDepartmentStatus === 'CANCELLED' || normalizedDepartmentStatus === 'BILLING') {
         return false
@@ -469,7 +396,7 @@ export default function DashboardPage() {
     setPreviewConsultationOpen(true)
   }
 
-  const formatDepartmentTime = (time?: string) => {
+  const formatDepartmentTime = (time?: string | null) => {
     if (!time) return "-"
     return new Date(time).toLocaleString()
   }
@@ -557,37 +484,14 @@ export default function DashboardPage() {
       setPrintingVisitId(visit.id)
 
       const billRes = await getVisitBillings({ variables: { visitId: visit.id } })
-      const visitBilling = billRes.data?.visitBilling?.data
+      const gqlVisitBilling = billRes.data?.visitBilling?.data
 
-      if (!visitBilling) {
+      if (!gqlVisitBilling) {
         toast.error('No bill found for this visit.')
         return
       }
 
-      const allInsuranceBillings = (visitBilling?.departments || []).flatMap((department: any) => department.insuranceBillings || [])
-      const latestInsuranceBilling = allInsuranceBillings[allInsuranceBillings.length - 1]
-      const flattenedItems = allInsuranceBillings.flatMap((billing: any) => billing.items || [])
-      const paidAmount = allInsuranceBillings.reduce((sum: number, billing: any) => sum + Number(billing.paidAmount || 0), 0)
-      const totalAmount = allInsuranceBillings.reduce((sum: number, billing: any) => sum + Number(billing.totalAmount || 0), 0)
-
-      const bill = {
-        id: visitBilling.id,
-        visitId: visitBilling.visitId,
-        totalAmount,
-        paidAmount,
-        outstandingAmount: Math.max(0, totalAmount - paidAmount),
-        status: totalAmount > 0 && paidAmount >= totalAmount ? 'PAID' : 'UNPAID',
-        items: flattenedItems.map((item: any) => ({
-          ...item,
-          lineTotal: Number(item.unitPriceSnapshot || 0) * Number(item.quantitySnapshot || 0),
-        })),
-        insuranceBillingId: latestInsuranceBilling?.id,
-        createdAt: visitBilling.createdAt,
-        updatedAt: visitBilling.updatedAt,
-      }
-
-      setPreviewVisitBillingRaw(visitBilling)
-      setPreviewExistingBill(bill)
+      setPreviewVisitBilling(mapGqlVisitBilling(gqlVisitBilling))
       setPreviewVisit(visit)
       setPreviewStartedAt(Date.now())
       setPreviewOpen(true)
@@ -1303,8 +1207,7 @@ export default function DashboardPage() {
         onOpenChange={(open) => {
           setPreviewOpen(open)
           if (!open) {
-            setPreviewVisitBillingRaw(null)
-            setPreviewExistingBill(null)
+            setPreviewVisitBilling(null)
             setPreviewDepartmentId(null)
             setPreviewVisit(null)
             setPreviewStartedAt(null)
@@ -1312,11 +1215,10 @@ export default function DashboardPage() {
         }}
         visit={previewVisit}
         billingData={null}
-        existingBill={previewExistingBill}
+        visitBilling={previewVisitBilling}
         selectedDepartmentId={previewDepartmentId}
         onDepartmentSelect={setPreviewDepartmentId}
         previewStartedAt={previewStartedAt}
-        visitBillingRaw={previewVisitBillingRaw}
       />
     </div>
   )

@@ -2,30 +2,20 @@ import { useMutation, useQuery } from '@apollo/client'
 import { GET_INSURANCES_QUERY } from '../queries'
 import { CREATE_INSURANCE_PROVIDER_MUTATION, UPDATE_INSURANCE_PROVIDER_MUTATION, DELETE_INSURANCE_PROVIDER_MUTATION } from '../mutations'
 import { gql } from '@apollo/client'
-import type { Insurance, InsuranceProvider, ApiResponse } from '../types'
+import type { InsuranceProvider, ApiResponse, SearchInsuranceProvidersInput } from '../types'
+import { mapGqlInsuranceProvider, type GqlInsuranceProvider } from '@/lib/gql-mappers'
 
-export interface GqlInsuranceProvider {
-  id: string
-  insuranceName: string
-  acronym?: string | null
+interface LocalGqlInsuranceProvider extends GqlInsuranceProvider {
   defaultCoveragePercentage: number
   supportedByClinic: boolean
-  iconUrl?: string | null
 }
 
 export interface InsuranceProvidersQueryData {
   insuranceProviders: {
     status: string
     message?: string
-    data: GqlInsuranceProvider[]
+    data: LocalGqlInsuranceProvider[]
   }
-}
-
-export interface SearchInsuranceProvidersInput {
-  supportedByClinic?: boolean | null
-  page?: number | null
-  size?: number | null
-  query?: string | null
 }
 
 const GET_INSURANCES_QUERY_LOCAL = gql`
@@ -62,14 +52,9 @@ export function useInsurances(input?: { supportedByClinic?: boolean | null; page
     fetchPolicy: 'cache-and-network'
   })
 
-  const insurances: Insurance[] = (data?.insuranceProviders?.data || []).map((insurance: GqlInsuranceProvider) => ({
-    id: String(insurance.id),
-    name: insurance.insuranceName,
-    acronym: insurance.acronym || undefined,
-    coveragePercentage: insurance.defaultCoveragePercentage,
-    supportedByClinic: insurance.supportedByClinic,
-    iconUrl: insurance.iconUrl || undefined,
-  }))
+  const insurances: InsuranceProvider[] = (data?.insuranceProviders?.data || []).map(
+    (insurance: LocalGqlInsuranceProvider) => mapGqlInsuranceProvider(insurance),
+  )
 
   return { insurances, loading: loading || false, error: error?.message || null, refetch }
 }
@@ -88,14 +73,9 @@ export function useInsuranceSearch(searchQuery: string) {
     skip: !searchQuery || searchQuery.length < 2,
   })
 
-  const insurances: Insurance[] = (data?.insuranceProviders?.data || []).map((insurance: GqlInsuranceProvider) => ({
-    id: String(insurance.id),
-    name: insurance.insuranceName,
-    acronym: insurance.acronym || undefined,
-    coveragePercentage: insurance.defaultCoveragePercentage,
-    supportedByClinic: insurance.supportedByClinic,
-    iconUrl: insurance.iconUrl || undefined,
-  }))
+  const insurances: InsuranceProvider[] = (data?.insuranceProviders?.data || []).map(
+    (insurance: LocalGqlInsuranceProvider) => mapGqlInsuranceProvider(insurance),
+  )
 
   return { insurances, loading, error: error?.message || null }
 }

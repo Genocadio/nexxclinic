@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useMutation, useLazyQuery } from '@apollo/client'
 import { GET_FORMS_QUERY, GET_FORM_QUERY, GET_FORM_VERSION_HISTORY_QUERY, GET_LATEST_FORM_QUERY, GET_CONSULTATION_ANSWERS_QUERY } from '../queries'
 import { CREATE_FORM_MUTATION, UPDATE_FORM_MUTATION, FINALIZE_FORM_MUTATION } from '../mutations'

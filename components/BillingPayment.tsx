@@ -52,10 +52,10 @@ export function BillingPayment({
     setLocalAmountPaid(amountPaid);
   }, [amountPaid]);
 
-  const paymentStatus = calculatePaymentStatus(totalAmount, localAmountPaid);
-  const remainingBalance = calculateRemainingBalance(totalAmount, localAmountPaid);
-  const isHalfAmount = isHalfPaid(totalAmount, localAmountPaid);
-  const isFullAmount = isFullyPaid(totalAmount, localAmountPaid);
+  const paymentStatus = calculatePaymentStatus(totalAmount, Number(localAmountPaid));
+  const remainingBalance = calculateRemainingBalance(totalAmount, Number(localAmountPaid));
+  const isHalfAmount = isHalfPaid(totalAmount, Number(localAmountPaid));
+  const isFullAmount = isFullyPaid(totalAmount, Number(localAmountPaid));
 
   const paymentMethods = [
     {
@@ -94,26 +94,17 @@ export function BillingPayment({
         <div className="space-y-1">
           {!showPaymentOptions && selectedMethod ? (
             <div className="flex gap-2">
-              {typeof selectedMethod.icon === 'string' ? (
-                <Image
-                  src={
-                    selectedMethod.icon === 'mtn' ? '/mtn-icon.svg' : 
-                    selectedMethod.icon === 'airtel' ? '/airtel-icon.png' : 
-                    '/cash-icon.svg'
-                  }
-                  alt={selectedMethod.name}
-                  width={32}
-                  height={32}
-                  className="rounded"
-                />
-              ) : (
-                <div className="flex flex-col items-center">
-                  <selectedMethod.icon className="h-8 w-8 mb-1" />
-                  {selectedMethod.showText && (
-                    <span className="text-xs font-semibold">{selectedMethod.name}</span>
-                  )}
-                </div>
-              )}
+              <Image
+                src={
+                  selectedMethod.icon === 'mtn' ? '/mtn-icon.svg' :
+                  selectedMethod.icon === 'airtel' ? '/airtel-icon.png' :
+                  '/cash-icon.svg'
+                }
+                alt={selectedMethod.name}
+                width={32}
+                height={32}
+                className="rounded"
+              />
               <Button
                 variant="ghost"
                 size="sm"
@@ -135,21 +126,17 @@ export function BillingPayment({
                     }}
                     className="transition-all flex items-center justify-center"
                   >
-                    {typeof method.icon === 'string' ? (
-                      <Image
-                        src={
-                          method.icon === 'mtn' ? '/mtn-icon.svg' : 
-                          method.icon === 'airtel' ? '/airtel-icon.png' : 
-                          '/cash-icon.svg'
-                        }
-                        alt={method.name}
-                        width={40}
-                        height={40}
-                        className="rounded hover:scale-110 transition-transform"
-                      />
-                    ) : (
-                      <method.icon className="h-10 w-10 hover:scale-110 transition-transform" />
-                    )}
+                    <Image
+                      src={
+                        method.icon === 'mtn' ? '/mtn-icon.svg' :
+                        method.icon === 'airtel' ? '/airtel-icon.png' :
+                        '/cash-icon.svg'
+                      }
+                      alt={method.name}
+                      width={40}
+                      height={40}
+                      className="rounded hover:scale-110 transition-transform"
+                    />
                   </button>
                 );
               })}

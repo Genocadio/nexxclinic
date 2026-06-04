@@ -1,43 +1,14 @@
 import { useMutation, useQuery, useLazyQuery } from '@apollo/client'
 import { GET_BILL_BY_VISIT_QUERY, GET_INVOICE_QUERY } from '../queries'
 import { CREATE_BILL_MUTATION, GENERATE_INVOICE_MUTATION } from '../mutations'
-import type { Bill, InvoiceResponse, ApiResponse } from '../types'
+import type { VisitBilling, ApiResponse } from '../types'
+import type { InvoiceResponse } from '../types'
+import {
+  mapGqlVisitBilling,
+  type GqlVisitBilling,
+} from '@/lib/visit-billing-utils'
 
-export interface GqlVisitBilling {
-  id: string
-  visitId: string
-  departments?: Array<{
-    id: string
-    status: string
-    totalAmount: number
-    paidAmount: number
-    insuranceCoveredAmount: number
-    patientPayableAmount: number
-    outstandingAmount: number
-    insuranceBillings?: Array<{
-      id: string
-      status: string
-      totalAmount: number
-      paidAmount: number
-      insuranceCoveredAmount: number
-      patientPayableAmount: number
-      outstandingAmount: number
-      invoiceUrl?: string | null
-      items?: Array<{
-        id: string
-        visitDepartmentProductId: string
-        productId: string
-        productName: string
-        unitPriceSnapshot: number
-        quantitySnapshot: number
-        insuranceCoveredAmount: number
-        patientPayableAmount: number
-      }> | null
-    }> | null
-  }> | null
-  createdAt: string
-  updatedAt: string
-}
+export type { GqlVisitBilling } from '@/lib/visit-billing-utils'
 
 export interface VisitBillingsQueryData {
   visitBilling: {
@@ -66,43 +37,30 @@ export interface GetInvoicePayload {
   getInvoice: InvoiceResponse
 }
 
-export function useGetBillByVisit(visitId: string | null) {
+export function useGetVisitBilling(visitId: string | null) {
   const { data, loading, error, refetch } = useQuery<VisitBillingsQueryData>(GET_BILL_BY_VISIT_QUERY, {
     variables: { visitId },
     skip: !visitId,
-    fetchPolicy: 'cache-and-network'
+    fetchPolicy: 'cache-and-network',
   })
 
-  const visitBilling = data?.visitBilling?.data
-  const allInsuranceBillings = (visitBilling?.departments || []).flatMap((department) => department.insuranceBillings || [])
-  const latestInsuranceBilling = allInsuranceBillings[allInsuranceBillings.length - 1]
-  const flattenedItems = allInsuranceBillings.flatMap((billing) => billing.items || [])
-  const paidAmount = allInsuranceBillings.reduce((sum, billing) => sum + Number(billing.paidAmount || 0), 0)
-  const totalAmount = allInsuranceBillings.reduce((sum, billing) => sum + Number(billing.totalAmount || 0), 0)
-  const bill: Bill | undefined = visitBilling
-    ? {
-        id: visitBilling.id,
-        visitId: visitBilling.visitId,
-        totalAmount,
-        paidAmount,
-        outstandingAmount: Math.max(0, totalAmount - paidAmount),
-        status: totalAmount > 0 && paidAmount >= totalAmount ? 'PAID' : 'UNPAID',
-        items: flattenedItems.map((item) => ({
-          ...item,
-          lineTotal: Number(item.unitPriceSnapshot || 0) * Number(item.quantitySnapshot || 0),
-          appliedPatientInsuranceId: undefined,
-        })),
-        createdAt: visitBilling.createdAt,
-        updatedAt: visitBilling.updatedAt,
-        insuranceBillingId: latestInsuranceBilling?.id,
-      } as Bill
-    : undefined
+  const gqlData = data?.visitBilling?.data
+  const visitBilling: VisitBilling | undefined = gqlData ? mapGqlVisitBilling(gqlData) : undefined
 
   return {
-    bill,
+    visitBilling,
     loading,
     error,
     refetch,
+  }
+}
+
+/** @deprecated Use useGetVisitBilling */
+export function useGetBillByVisit(visitId: string | null) {
+  const result = useGetVisitBilling(visitId)
+  return {
+    ...result,
+    bill: result.visitBilling,
   }
 }
 
@@ -127,16 +85,16 @@ export function useCreateBill() {
         reference?: string
       }[]
     }[]
-  }): Promise<ApiResponse<Bill>> => {
+  }): Promise<ApiResponse<VisitBilling>> => {
     try {
       const result = await createBillMutation({
-        variables: { input }
+        variables: { input },
       })
       const payload = result?.data?.billVisit
       return {
         status: payload?.status || 'ERROR',
         message: payload?.message,
-        data: payload?.data ? (payload.data as unknown as Bill) : undefined,
+        data: payload?.data ? mapGqlVisitBilling(payload.data) : undefined,
       }
     } catch (err) {
       console.error('Create bill error:', err)
@@ -153,7 +111,7 @@ export function useGenerateInvoice() {
   const generateInvoice = async (departmentInsuranceBillingId: string) => {
     try {
       const result = await generateInvoiceMutation({
-        variables: { departmentInsuranceBillingId }
+        variables: { departmentInsuranceBillingId },
       })
       return result?.data?.generateInvoice
     } catch (err) {
@@ -167,13 +125,13 @@ export function useGenerateInvoice() {
 
 export function useGetInvoiceLazy() {
   const [getInvoiceQuery, { loading, error }] = useLazyQuery<GetInvoicePayload>(GET_INVOICE_QUERY, {
-    fetchPolicy: 'network-only'
+    fetchPolicy: 'network-only',
   })
 
   const getInvoice = async (departmentInsuranceBillingId: string) => {
     try {
       const result = await getInvoiceQuery({
-        variables: { departmentInsuranceBillingId }
+        variables: { departmentInsuranceBillingId },
       })
       return result.data?.getInvoice
     } catch (err) {

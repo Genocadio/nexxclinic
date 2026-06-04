@@ -5,11 +5,29 @@ import { BillingItemsList } from '@/components/BillingItemsList';
 import { BillingExemptions } from '@/components/BillingExemptions';
 import { Button } from '@/components/ui/button';
 import { BillingData, BillingItem, buildProductCoverageMaps, getItemInsuranceSplit, applyInsuranceSelectionToItem, resolveBillingUnitPrice } from '@/lib/billing-utils';
+import {
+  flattenVisitDepartmentsForBilling,
+  getCoveragePercentageForBillingItem,
+  mapPatientInsurancesForBilling,
+  mapVisitToBillingData,
+} from '@/lib/visit-billing-mapper';
+import {
+  visitHasBillableProducts,
+  visitHasUnbilledProducts,
+  visitProductsFullySettled,
+} from '@/lib/visit-product-utils';
 import Header from '@/components/header';
 import { useAuth } from '@/lib/auth-context';
 import { useSearchParams } from 'next/navigation';
-import { useVisit, useInsurances, useCreateBill, useGetBillByVisit, useGenerateInvoice, useCompleteVisit } from '@/hooks/auth-hooks';
+import { useVisit, useInsurances, useCreateBill, useGetVisitBilling, useGenerateInvoice, useCompleteVisit } from '@/hooks/auth-hooks';
 import type { Visit } from '@/lib/api-types';
+import {
+  flattenVisitBillingItems,
+  getLatestDepartmentInsuranceBillingId,
+  getVisitBillingTotals,
+  isVisitDepartmentProductBilled,
+  visitBillingLineTotal,
+} from '@/lib/visit-billing-utils';
 import { useUpdateVisitDepartmentStatus } from '@/hooks/auth-hooks';
 import { useAddVisitNote } from '@/hooks/auth-hooks';
 import { useAddProductToVisitDepartment, useLinkVisitInsurances, useUnlinkVisitInsurances, useUpdateProductQuantity } from '@/hooks/visits/hooks';
@@ -51,7 +69,7 @@ function BillingPageContent() {
   const { insurances: availableInsurances } = useInsurances();
   const { createBill, loading: creatingBill } = useCreateBill();
   const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice();
-  const { bill: existingBill, loading: loadingBill, refetch: refetchBill } = useGetBillByVisit(visitId);
+  const { visitBilling: existingVisitBilling, loading: loadingBill, refetch: refetchBill } = useGetVisitBilling(visitId);
   const { createPatientInsurance } = useCreatePatientInsurance();
   const { updatePatientInsurance } = useUpdatePatientInsurance();
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -93,220 +111,39 @@ function BillingPageContent() {
   const { addVisitNote } = useAddVisitNote();
   const { completeVisit } = useCompleteVisit();
 
+  const existingBillingTotals = useMemo(
+    () => (existingVisitBilling ? getVisitBillingTotals(existingVisitBilling) : null),
+    [existingVisitBilling],
+  );
+
   const mapPaymentStatus = (status?: string, itemId?: string): BillingItem['paymentStatus'] => {
     if (status === 'BILLED') return 'paid';
-    // Check if item is in existing bill
-    if (existingBill && itemId) {
-      const isBilled = existingBill.items?.some((item: any) => item.visitDepartmentProductId === itemId);
-      if (isBilled) return 'paid';
+    if (existingVisitBilling && itemId && isVisitDepartmentProductBilled(existingVisitBilling, itemId)) {
+      return 'paid';
     }
+    if (status === 'EXEMPTED') return 'exempted';
     return 'pending';
-  };
-
-  const flattenVisitDepartments = (
-    departments: NonNullable<Visit['departments']>,
-  ): NonNullable<Visit['departments']> => {
-    const flattened: NonNullable<Visit['departments']> = [];
-    const stack = [...departments];
-    while (stack.length > 0) {
-      const current = stack.shift();
-      if (!current) continue;
-      flattened.push(current);
-      if (current.childVisitDepartments?.length) {
-        stack.push(...current.childVisitDepartments);
-      }
-    }
-    return flattened;
-  };
-
-  const mapVisitToBilling = (visitData: Visit): BillingData => {
-    const patient = visitData.patient;
-    const insurances = visitData.insurances || [];
-    const defaultVisitInsuranceId = insurances[0]?.id ? String(insurances[0].id) : undefined;
-    const defaultProviderId = insurances[0]?.insurance?.id ? String(insurances[0].insurance.id) : undefined;
-
-    const mapProductCoverages = (
-      coverages?: Array<{ insurance?: { id?: string | number }; cost?: number; price?: number; covered?: boolean }>,
-    ) => buildProductCoverageMaps(coverages);
-
-    const items: BillingItem[] = [];
-
-    const mapDepartmentTreeItems = (
-      department: NonNullable<Visit['departments']>[number],
-      parentContext?: {
-        visitDepartmentId?: string;
-        departmentId?: string;
-        name: string;
-        completedTime?: string;
-        status?: string;
-      },
-      childHierarchy: string[] = [],
-    ) => {
-      const currentContext = parentContext || {
-        visitDepartmentId: department.id,
-        departmentId: department.department?.id,
-        name: department.department?.name || 'Department',
-        completedTime: department.completedTime,
-        status: department.status,
-      };
-
-      const childDepartmentName = childHierarchy.length > 0
-        ? childHierarchy.join(' > ')
-        : undefined;
-
-      department.actions?.forEach((act) => {
-        const basePrice = Number(act.action?.privatePrice ?? 0);
-        const { costs, meta } = mapProductCoverages(act.action?.insuranceCoverages);
-        const { price, notCovered } = resolveBillingUnitPrice(
-          basePrice,
-          costs,
-          meta,
-          defaultProviderId,
-        );
-        items.push({
-          id: act.id,
-          name: act.action?.name || 'Action',
-          quantity: act.quantity || 1,
-          price,
-          basePrice,
-          insuranceCoverageCosts: costs,
-          insuranceCoverageMeta: meta,
-          insuranceNotCovered: defaultVisitInsuranceId ? notCovered : false,
-          type: 'action',
-          visitDepartmentId: department.id,
-          rootVisitDepartmentId: parentContext ? parentContext.visitDepartmentId : department.id,
-          departmentId: currentContext.departmentId,
-          departmentName: currentContext.name,
-          childDepartmentName,
-          departmentCompletedTime: currentContext.completedTime,
-          departmentStatus: currentContext.status,
-          paymentStatus: mapPaymentStatus(act.paymentStatus, act.id),
-          exempted: false,
-          exemptionType: 'none',
-          selectedInsuranceId: defaultVisitInsuranceId,
-          doneBy: {
-            name: act.doneBy?.name || 'Staff',
-            title: act.doneBy?.title || '',
-          },
-        });
-      });
-
-      department.consumables?.forEach((cons) => {
-        const basePrice = Number(cons.consumable?.privatePrice ?? 0);
-        const { costs, meta } = mapProductCoverages(cons.consumable?.insuranceCoverages);
-        const { price, notCovered } = resolveBillingUnitPrice(
-          basePrice,
-          costs,
-          meta,
-          defaultProviderId,
-        );
-        items.push({
-          id: cons.id,
-          name: cons.consumable?.name || 'Consumable',
-          quantity: cons.quantity || 1,
-          price,
-          basePrice,
-          insuranceCoverageCosts: costs,
-          insuranceCoverageMeta: meta,
-          insuranceNotCovered: defaultVisitInsuranceId ? notCovered : false,
-          type: 'consumable',
-          visitDepartmentId: department.id,
-          rootVisitDepartmentId: parentContext ? parentContext.visitDepartmentId : department.id,
-          departmentId: currentContext.departmentId,
-          departmentName: currentContext.name,
-          childDepartmentName,
-          departmentCompletedTime: currentContext.completedTime,
-          departmentStatus: currentContext.status,
-          paymentStatus: mapPaymentStatus(cons.paymentStatus, cons.id),
-          exempted: false,
-          exemptionType: 'none',
-          selectedInsuranceId: defaultVisitInsuranceId,
-          doneBy: {
-            name: cons.doneBy?.name || 'Staff',
-            title: cons.doneBy?.title || '',
-          },
-        });
-      });
-
-      department.childVisitDepartments?.forEach((childDepartment) => {
-        mapDepartmentTreeItems(
-          childDepartment,
-          currentContext,
-          [...childHierarchy, childDepartment.department?.name || 'Department'],
-        );
-      });
-    };
-
-    visitData.departments?.forEach((dept) => {
-      mapDepartmentTreeItems(dept);
-    });
-
-    const age = patient?.dateOfBirth ? (new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()) : 0;
-
-    const nationalId = (patient as any)?.nationalId || ''
-    const discountPercentage = 0; // globalDiscount is no longer supported directly on VisitBilling
-
-    // Default amount paid to patient's contribution (after insurance and discount) when no bill exists yet.
-    const patientContribution = items.reduce((total, item) => {
-      const selectedInsurance = insurances.find((ins) => String(ins.id) === item.selectedInsuranceId);
-      const coveragePct =
-        selectedInsurance?.insurance?.coveragePercentage ??
-        (selectedInsurance as { coveragePercentage?: number })?.coveragePercentage ??
-        0;
-      const { patientAmount, skip } = getItemInsuranceSplit(item, coveragePct);
-      if (skip) return total;
-      return total + patientAmount;
-    }, 0);
-
-    const patientContributionAfterDiscount = Math.max(
-      0,
-      patientContribution - (patientContribution * discountPercentage) / 100,
-    )
-
-    return {
-      visitId: visitData.id,
-      patientId: patient?.id || '',
-      patientName: `${patient?.firstName || ''} ${patient?.lastName || ''}`.trim(),
-      patientAge: age,
-      patientId_Number: nationalId,
-      gender: patient?.gender || '',
-      visitDate: visitData.visitDate,
-      currency: 'RWF',
-      insurances: insurances.map((ins) => ({
-        id: ins.id ? String(ins.id) : undefined,
-        name: ins.name,
-        acronym: ins.acronym,
-        coveragePercentage: ins.coveragePercentage,
-      })),
-      items,
-      discountPercentage,
-      paymentMethod: 'MOBILE_MONEY',
-      amountPaid: Number(existingBill?.paidAmount ?? patientContributionAfterDiscount),
-      notes: '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
   };
 
   useEffect(() => {
     if (!visit?.id) return;
-    const newIds = (visit.insurances || []).map((insurance) => String(insurance.id));
+    const newIds = (visit.linkedInsurances || []).map((insurance) => String(insurance.id));
     if (
       newIds.length !== activeVisitInsuranceIds.length ||
       newIds.some((id, index) => id !== activeVisitInsuranceIds[index])
     ) {
       setActiveVisitInsuranceIds(newIds);
     }
-  }, [visit?.id, visit?.insurances, activeVisitInsuranceIds]);
+  }, [visit?.id, visit?.linkedInsurances, activeVisitInsuranceIds]);
 
   const activeVisitInsurances = useMemo(() => {
     const activeIds = new Set(activeVisitInsuranceIds);
-    return (visit?.insurances || []).filter((insurance) => activeIds.has(String(insurance.id)));
-  }, [visit?.insurances, activeVisitInsuranceIds]);
+    return (visit?.linkedInsurances || []).filter((insurance) => activeIds.has(String(insurance.id)));
+  }, [visit?.linkedInsurances, activeVisitInsuranceIds]);
 
   useEffect(() => {
     if (!visit) return;
-    const mapped = mapVisitToBilling(visit);
+    const mapped = mapVisitToBillingData(visit, { existingVisitBilling });
     const shouldUpdateBillingData =
       !billingData ||
       billingData.visitId !== mapped.visitId ||
@@ -325,7 +162,13 @@ function BillingPageContent() {
         setSelectedItemIds(newSelectedIds);
       }
     }
-  }, [visit?.id, existingBill?.id, existingBill?.paidAmount, existingBill?.totalAmount, existingBill?.outstandingAmount]);
+  }, [
+    visit?.id,
+    existingVisitBilling?.id,
+    existingBillingTotals?.paidAmount,
+    existingBillingTotals?.totalAmount,
+    existingBillingTotals?.outstandingAmount,
+  ]);
 
   useEffect(() => {
     if (billingData?.items?.length) {
@@ -356,13 +199,7 @@ function BillingPageContent() {
     let patientResponsibility = 0;
 
     items.forEach((item) => {
-      const selectedInsurance = activeVisitInsurances.find(
-        (ins) => String(ins.id) === item.selectedInsuranceId,
-      );
-      const coveragePct =
-        selectedInsurance?.insurance?.coveragePercentage ??
-        selectedInsurance?.coveragePercentage ??
-        0;
+      const coveragePct = getCoveragePercentageForBillingItem(item, activeVisitInsurances);
       const { itemTotal, insuranceAmount, patientAmount, skip } = getItemInsuranceSplit(item, coveragePct);
 
       if (skip) return;
@@ -380,18 +217,11 @@ function BillingPageContent() {
   const emptyTotals = { subtotal: 0, insuranceCoverage: 0, patientResponsibility: 0, discount: 0, totalAmount: 0 };
 
   const visitInsuranceOptions = useMemo(
-    () =>
-      activeVisitInsurances.map((ins) => ({
-        id: String(ins.id),
-        providerId: String(ins.insurance?.id || ''),
-        name: ins.insurance?.name || ins.name || '',
-        acronym: ins.insurance?.acronym || ins.acronym || '',
-        coveragePercentage: ins.insurance?.coveragePercentage ?? ins.coveragePercentage ?? 0,
-      })),
+    () => mapPatientInsurancesForBilling(activeVisitInsurances),
     [activeVisitInsurances],
   );
 
-  const patientInsurances = useMemo(() => visit?.patient.insurances || [], [visit?.patient.insurances]);
+  const patientInsurances = useMemo(() => visit?.patient.patientInsurances || [], [visit?.patient.patientInsurances]);
   const visitInsuranceIds = useMemo(() => new Set(activeVisitInsuranceIds), [activeVisitInsuranceIds]);
 
   const handleItemChange = (updatedItem: BillingItem) => {
@@ -508,14 +338,15 @@ function BillingPageContent() {
 
   const selectedItems = billingData ? billingData.items.filter((it) => selectedItemIds.includes(it.id)) : [];
   const hasRemainingToBill = Boolean(billingData?.items.some((item) => item.paymentStatus !== 'paid'));
-  const canEditBilling = Boolean(existingBill) || billJustCreated;
-  const showBillingDock = canEditBilling || (!existingBill && hasRemainingToBill);
+  const canEditBilling = Boolean(existingVisitBilling) || billJustCreated;
+  const showBillingDock = canEditBilling || (!existingVisitBilling && hasRemainingToBill);
 
-  const refreshInvoicePdf = async (insuranceBillingId?: string, options?: { openPreview?: boolean }) => {
-    const targetInsuranceBillingId = insuranceBillingId || existingBill?.insuranceBillingId;
-    if (!targetInsuranceBillingId) return null;
+  const refreshInvoicePdf = async (departmentInsuranceBillingId?: string, options?: { openPreview?: boolean }) => {
+    const targetDepartmentInsuranceBillingId =
+      departmentInsuranceBillingId || getLatestDepartmentInsuranceBillingId(existingVisitBilling);
+    if (!targetDepartmentInsuranceBillingId) return null;
 
-    const invoiceUrl = await resolveInvoiceUrl(targetInsuranceBillingId, generateInvoice);
+    const invoiceUrl = await resolveInvoiceUrl(targetDepartmentInsuranceBillingId, generateInvoice);
     setInvoicePdfBase64(invoiceUrl);
 
     if (options?.openPreview) {
@@ -571,57 +402,35 @@ function BillingPageContent() {
     [billingData?.items]
   );
 
-  const billingScopedNotes = [
-    ...((visit?.visitNotes || [])
-      .filter((note) => note?.type === 'BILLING')
-      .map((note) => ({
-        ...note,
-        scope: 'visit' as const,
-      }))),
-    ...((visit?.departments || []).flatMap((dept) =>
-      (dept.notes || [])
-        .filter((note) => note?.type === 'BILLING')
-        .map((note) => ({
-          ...note,
-          scope: 'department' as const,
-          departmentName: dept.department?.name,
-        }))
-    )),
-  ];
+  const billingScopedNotes: Array<{
+    id?: string
+    note?: string
+    scope: 'visit' | 'department'
+    departmentName?: string
+  }> = [];
 
   const hasUnbilledItems = (visitData: Visit | undefined) => {
     if (!visitData) return false;
-    if (visitData.billingStatus === 'BILLED') return false;
-
-    const isUnbilledStatus = (status?: string) => {
-      const normalized = String(status || '').toUpperCase();
-      return normalized === 'PENDING' || normalized === 'UNPAID';
-    };
-
-    return flattenVisitDepartments(visitData.departments || []).some((dept) =>
-      (dept.actions || []).some((action) => isUnbilledStatus(action.paymentStatus)) ||
-      (dept.consumables || []).some((consumable) => isUnbilledStatus(consumable.paymentStatus))
-    );
+    if (visitProductsFullySettled(visitData)) return false;
+    return visitHasUnbilledProducts(visitData);
   };
 
   const hasNoBillables = (visitData: Visit | undefined) => {
     if (!visitData) return true;
-    return !flattenVisitDepartments(visitData.departments || []).some((dept) =>
-      (dept.actions && dept.actions.length > 0) || (dept.consumables && dept.consumables.length > 0),
-    );
+    return !visitHasBillableProducts(visitData);
   };
 
   const hasIncompleteDepartments = (visitData: Visit | undefined) => {
     if (!visitData) return false;
-    return flattenVisitDepartments(visitData.departments || []).some(
+    return flattenVisitDepartmentsForBilling(visitData.departments || []).some(
       (dept) => dept.status !== 'COMPLETED' && dept.status !== 'CANCELLED',
     );
   };
 
   const canDischargeVisit = Boolean(
     visit &&
-    visit.visitStatus !== 'COMPLETED' &&
-    visit.visitStatus !== 'CANCELLED' &&
+    visit.status !== 'COMPLETED' &&
+    visit.status !== 'CANCELLED' &&
     !hasIncompleteDepartments(visit) &&
     (!hasUnbilledItems(visit) || hasNoBillables(visit))
   );
@@ -633,7 +442,7 @@ function BillingPageContent() {
     if (!confirmed) return;
 
     try {
-      const allDepartments = flattenVisitDepartments(visit.departments || []);
+      const allDepartments = flattenVisitDepartmentsForBilling(visit.departments || []);
       const notCompleted = allDepartments.filter((dept) => dept.status !== 'COMPLETED' && dept.status !== 'CANCELLED');
 
       if (notCompleted.length > 0) {
@@ -740,7 +549,7 @@ function BillingPageContent() {
         if (allRemainingBilled) {
           try {
             // First, complete all incomplete departments
-            const allDepartments = flattenVisitDepartments(visit?.departments || []);
+            const allDepartments = flattenVisitDepartmentsForBilling(visit?.departments || []);
             const notCompleted = allDepartments.filter((dept) => dept.status !== 'COMPLETED' && dept.status !== 'CANCELLED');
             for (const dept of notCompleted) {
               const visitDeptId = String(dept.id || '');
@@ -795,7 +604,7 @@ function BillingPageContent() {
   }, [visitId])
 
   useEffect(() => {
-    if (!autoPrint || didAutoPrint || !existingBill || !billingData) return
+    if (!autoPrint || didAutoPrint || !existingVisitBilling || !billingData) return
     setDidAutoPrint(true)
     // Small delay ensures print window content is ready after query hydration.
     const timer = setTimeout(() => {
@@ -803,7 +612,7 @@ function BillingPageContent() {
     }, 150)
 
     return () => clearTimeout(timer)
-  }, [autoPrint, didAutoPrint, existingBill, billingData])
+  }, [autoPrint, didAutoPrint, existingVisitBilling, billingData])
 
   const handlePreviewBilling = async () => {
     if (!billingData) return;
@@ -831,7 +640,7 @@ function BillingPageContent() {
   const handlePrintBillingInvoice = async () => {
     if (!billingData) return
 
-    if (existingBill) {
+    if (existingVisitBilling) {
       try {
         const pdf = invoicePdfBase64 || await refreshInvoicePdf();
         if (pdf) {
@@ -853,31 +662,34 @@ function BillingPageContent() {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;')
 
-    const invoiceItems = existingBill?.items?.map((item) => ({
-      description: item.productName,
-      quantity: item.quantitySnapshot,
-      unitPrice: item.unitPriceSnapshot,
-      lineTotal: item.lineTotal,
-    })) || billingData.items.map((item) => ({
-      description: item.name,
-      quantity: item.quantity,
-      unitPrice: item.price,
-      lineTotal: item.price * item.quantity,
-    }))
+    const billedItems = existingVisitBilling ? flattenVisitBillingItems(existingVisitBilling) : []
+    const invoiceItems = billedItems.length > 0
+      ? billedItems.map((item) => ({
+          description: item.productName,
+          quantity: item.quantitySnapshot,
+          unitPrice: item.unitPriceSnapshot,
+          lineTotal: visitBillingLineTotal(item),
+        }))
+      : billingData.items.map((item) => ({
+          description: item.name,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          lineTotal: item.price * item.quantity,
+        }))
 
     const totals = {
-      subtotal: existingBill?.totalAmount ?? displayTotals.subtotal,
+      subtotal: existingBillingTotals?.totalAmount ?? displayTotals.subtotal,
       discount: displayTotals.discount,
-      totalDue: existingBill?.totalAmount ?? displayTotals.totalAmount,
-      paid: existingBill?.paidAmount ?? (billingData.amountPaid || 0),
-      balance: existingBill?.outstandingAmount ?? Math.max(0, displayTotals.totalAmount - (billingData.amountPaid || 0)),
+      totalDue: existingBillingTotals?.totalAmount ?? displayTotals.totalAmount,
+      paid: existingBillingTotals?.paidAmount ?? (billingData.amountPaid || 0),
+      balance: existingBillingTotals?.outstandingAmount ?? Math.max(0, displayTotals.totalAmount - (billingData.amountPaid || 0)),
     }
 
     const invoiceHtml = `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Invoice ${escapeHtml(existingBill?.id || billingData.visitId || 'N/A')}</title>
+    <title>Invoice ${escapeHtml(existingVisitBilling?.id || billingData.visitId || 'N/A')}</title>
     <style>
       @page { size: A4; margin: 16mm; }
       body { font-family: Arial, Helvetica, sans-serif; color: #1f2937; margin: 0; }
@@ -906,8 +718,8 @@ function BillingPageContent() {
           <p class="muted">Formal Billing Statement</p>
         </div>
         <div>
-          <p class="muted"><strong>Invoice #:</strong> ${escapeHtml(existingBill?.id || billingData.visitId || 'N/A')}</p>
-          <p class="muted"><strong>Date:</strong> ${new Date(existingBill?.updatedAt || billingData.updatedAt || new Date().toISOString()).toLocaleString()}</p>
+          <p class="muted"><strong>Invoice #:</strong> ${escapeHtml(existingVisitBilling?.id || billingData.visitId || 'N/A')}</p>
+          <p class="muted"><strong>Date:</strong> ${new Date(existingVisitBilling?.updatedAt || billingData.updatedAt || new Date().toISOString()).toLocaleString()}</p>
         </div>
       </div>
 
@@ -1093,7 +905,7 @@ function BillingPageContent() {
             }
           : undefined;
 
-      const existingInsurance = patientInsurances.find((ins) => String(ins.insurance.id) === selectedInsuranceId);
+      const existingInsurance = patientInsurances.find((ins) => String(ins.insuranceProvider.id) === selectedInsuranceId);
       const commonPayload = {
         patientId: visit.patient.id,
         insuranceProviderId: selectedInsuranceId,
@@ -1242,7 +1054,7 @@ function BillingPageContent() {
             selectedCount={itemsToDisplay.filter(
               (item) => selectedItemIds.includes(item.id) && item.paymentStatus !== 'paid',
             ).length}
-            existingBill={existingBill}
+            existingVisitBilling={existingVisitBilling}
             canEditBilling={canEditBilling}
             hasRemainingToBill={hasRemainingToBill}
             creatingBill={creatingBill}
@@ -1304,10 +1116,10 @@ function BillingPageContent() {
                 </SelectTrigger>
                 <SelectContent>
                   {availableInsurances?.filter(
-                    (ins) => !patientInsurances.some((pIns) => String(pIns.insurance.id) === String(ins.id)),
+                    (ins) => !patientInsurances.some((pIns) => String(pIns.insuranceProvider.id) === String(ins.id)),
                   ).map((insurance) => (
                     <SelectItem key={insurance.id} value={String(insurance.id)}>
-                      {insurance.acronym} - {insurance.name} ({insurance.coveragePercentage}%)
+                      {insurance.acronym} - {insurance.insuranceName} ({insurance.defaultCoveragePercentage}%)
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1515,7 +1327,7 @@ function BillingPageContent() {
         }}
         visit={visit}
         billingData={billingData}
-        existingBill={existingBill}
+        visitBilling={existingVisitBilling}
         selectedDepartmentId={previewDepartmentId}
         onDepartmentSelect={setPreviewDepartmentId}
         previewStartedAt={previewStartedAt}

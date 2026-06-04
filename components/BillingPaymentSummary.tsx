@@ -111,10 +111,10 @@ export function BillingPaymentSummary({
   }
 
   const totalAfterDiscount = Math.max(0, patientResponsibility - finalDiscountAmount);
-  const paymentStatus = calculatePaymentStatus(totalAmount, localAmountPaid);
-  const remainingBalance = calculateRemainingBalance(totalAmount, localAmountPaid);
-  const isHalfAmount = isHalfPaid(totalAmount, localAmountPaid);
-  const isFullAmount = isFullyPaid(totalAmount, localAmountPaid);
+  const paymentStatus = calculatePaymentStatus(totalAmount, Number(localAmountPaid));
+  const remainingBalance = calculateRemainingBalance(totalAmount, Number(localAmountPaid));
+  const isHalfAmount = isHalfPaid(totalAmount, Number(localAmountPaid));
+  const isFullAmount = isFullyPaid(totalAmount, Number(localAmountPaid));
 
   const paymentMethods = [
     { id: 'cash', name: 'Cash', icon: 'cash', color: 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200' },

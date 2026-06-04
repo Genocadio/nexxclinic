@@ -8,7 +8,7 @@ import {
   useEffect,
   useCallback,          // <‑‑ added
 } from "react";
-import type { Doctor, ClinicProfile } from "./types";
+import type { Worker, ClinicProfile } from "@/lib/api-types"
 import {
   useLogin,
   useRegister,
@@ -22,7 +22,7 @@ import {
 } from "@/lib/clinic-profile";
 
 interface AuthContextType {
-  doctor: Doctor | null;
+  doctor: Worker | null;
   clinicProfile: ClinicProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -44,26 +44,26 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function getStoredDoctor(): Doctor | null {
+function getStoredDoctor(): Worker | null {
   if (typeof window === "undefined") return null;
 
   const token = localStorage.getItem("authToken");
-  const storedDoctor = localStorage.getItem("doctor");
+  const storedWorker = localStorage.getItem("doctor");
 
   // Debug
   if (process.env.NODE_ENV !== "production") {
     try {
-      console.debug("getStoredDoctor:", {
+      console.debug("getStoredWorker:", {
         tokenPresent: Boolean(token),
-        storedDoctorRaw: storedDoctor,
+        storedWorkerRaw: storedWorker,
       });
     } catch {}
   }
 
-  if (!token || !storedDoctor) return null;
+  if (!token || !storedWorker) return null;
 
   try {
-    return JSON.parse(storedDoctor) as Doctor;
+    return JSON.parse(storedWorker) as Worker;
   } catch {
     localStorage.removeItem("authToken");
     localStorage.removeItem("doctor");
@@ -72,7 +72,7 @@ function getStoredDoctor(): Doctor | null {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [doctor, setDoctor] = useState<Doctor | null>(null);
+  const [doctor, setDoctor] = useState<Worker | null>(null);
   const [clinicProfile, setClinicProfileState] = useState<ClinicProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -104,6 +104,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (response.status === "SUCCESS" && response.data) {
         const { token, user } = response.data;
+        if (!token || !user) {
+          return { success: false, message: response.message || "Login failed" };
+        }
 
         // Persist tokens & user
         localStorage.removeItem("pendingResetIdentifier");

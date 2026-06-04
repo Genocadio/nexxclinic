@@ -73,7 +73,7 @@ export function ConsultationFormDisplay({
         {formLoading ? (
           <p className="text-sm text-muted-foreground">Loading latest finalized department form...</p>
         ) : formLoadFailed ? (
-          <InlineTryAgain onTryAgain={onFormReload} />
+          <InlineTryAgain onTryAgain={() => { void onFormReload?.() }} />
         ) : !departmentForm ? (
           <p className="text-sm text-muted-foreground">No finalized form found for this department. Please finalize a form in admin before consultation.</p>
         ) : (

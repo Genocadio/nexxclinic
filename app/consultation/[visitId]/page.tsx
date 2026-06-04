@@ -6,7 +6,9 @@ import { useAuth } from "@/lib/auth-context"
 import ConsultationViewBackbone from "@/components/consultation-view-backbone"
 import VisitNotesFloating from "@/components/visit-notes-floating"
 import Header from "@/components/header"
-import type { Patient, Consultation } from "@/lib/types"
+import type { Patient } from "@/lib/api-types"
+import { EncounterType } from "@/lib/api-types"
+import type { FormAction } from "@/lib/form-storage"
 import { Button } from "@/components/ui/button"
 import { FlaskConical, StickyNote } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -59,7 +61,7 @@ export default function ConsultationPage() {
       <div className="min-h-screen bg-background">
         <Header doctor={doctor} />
         <div className="max-w-5xl mx-auto px-6 py-8">
-          <InlineTryAgain onTryAgain={() => refetch()} />
+          <InlineTryAgain onTryAgain={() => { void refetch() }} />
         </div>
       </div>
     )
@@ -79,134 +81,74 @@ export default function ConsultationPage() {
     )
   }
 
-  // Create consultation object from visit with new backbone structure
-  const consultation: Consultation = {
-    consultationId: visit.id,
-    encounterType: visit.visitType === 'OUTPATIENT' ? 'outpatient' : 
-                   visit.visitType === 'INPATIENT' ? 'inpatient' : 
-                   visit.visitType === 'EMERGENCY' ? 'emergency' : 'outpatient',
-    department: 'ophthalmology', // Default, should be mapped from visit
-    status: visit.visitStatus === 'CREATED' ? 'draft' : 'draft',
-
-    timestamps: {
-      startedAt: visit.visitDate || new Date().toISOString(),
-      finalizedAt: undefined
-    },
-
-    reasonForVisit: {
-      chiefComplaint: visit.visitNotes?.find(note => note.type === 'GENERAL')?.text || "",
-      presentingBodySite: "",
-      onset: undefined
-    },
-
-    history: {
-      isAllergyReviewPerformed: false,
-      allergies: [],
-      pastMedicalHistory: []
-    },
-
-    reviewOfSystems: {
-      performed: false,
-      findings: []
-    },
-
-    assessment: {
-      problemList: [],
-      diagnoses: [],
-      clinicalImpression: ""
-    },
-
-    plan: {
-      orders: []
-    },
-
-    specialtyExtensions: {},
-
-    audit: {
-      createdBy: doctor?.id || "",
-      lastUpdatedBy: doctor?.id || "",
-      version: 1
-    },
-
-    // Legacy compatibility fields
-    id: visit.id,
-    patientId: visit.patient.id,
-    doctorId: doctor?.id || "",
-    date: visit.visitDate
-  }
-
-  // Convert visit to patient format
-  const patient: Patient = {
-    id: visit.patient.id,
-    name: `${visit.patient.firstName} ${visit.patient.lastName}`,
-    age: new Date().getFullYear() - new Date(visit.patient.dateOfBirth).getFullYear(),
-    gender: visit.patient.gender as "M" | "F",
-    email: "",
-    phone: visit.patient.contactInfo?.phone || "",
-    dateOfBirth: visit.patient.dateOfBirth,
-    medicalHistory: visit.patient.notes || "",
-    lastVisit: visit.visitDate,
-    consultations: []
-  }
-
   const firstDepartment = visit.departments?.[0]
   const firstDepartmentId = firstDepartment?.department?.id || firstDepartment?.id
   const firstVisitDepartmentId = firstDepartment?.id
   const firstDepartmentStatus = firstDepartment?.status
 
-  const scopedNotes = [
-    ...(visit.visitNotes || []).map((note) => ({
-      ...note,
-      scope: 'visit' as const,
-    })),
-    ...((firstDepartment?.notes || []).map((note) => ({
-      ...note,
-      scope: 'department' as const,
-      departmentName: firstDepartment?.department?.name,
-    }))),
-  ]
-  
-  // Extract existing products from the first department.
-  // Prefer raw products if present, otherwise rebuild from actions/consumables.
-  const rawDepartmentProducts = firstDepartment?.products || []
-  const fallbackProductsFromActions = (firstDepartment?.actions || []).map((item: any) => ({
-    id: item.id,
-    product: {
-      id: item.action?.id,
-      name: item.action?.name,
-      type: item.action?.type,
-      privatePrice: item.action?.privatePrice,
+  const consultation = {
+    consultationId: visit.id,
+    encounterType:
+      firstDepartment?.encounterType === EncounterType.INPATIENT_ADMISSION ||
+      firstDepartment?.encounterType === EncounterType.INPATIENT_OBSERVATION
+        ? "inpatient"
+        : "outpatient",
+    department: firstDepartment?.department?.name || "general",
+    status: "draft" as const,
+    timestamps: {
+      startedAt: visit.visitDate || new Date().toISOString(),
+      finalizedAt: undefined,
     },
-    quantity: item.quantity,
-  }))
-  const fallbackProductsFromConsumables = (firstDepartment?.consumables || []).map((item: any) => ({
-    id: item.id,
-    product: {
-      id: item.consumable?.id,
-      name: item.consumable?.name,
-      type: item.consumable?.type,
-      privatePrice: item.consumable?.privatePrice,
+    reasonForVisit: {
+      chiefComplaint: "",
+      presentingBodySite: "",
+      onset: undefined,
     },
-    quantity: item.quantity,
-  }))
-  const departmentProductsSource = rawDepartmentProducts.length > 0
-    ? rawDepartmentProducts
-    : [...fallbackProductsFromActions, ...fallbackProductsFromConsumables]
+    history: {
+      isAllergyReviewPerformed: false,
+      allergies: [] as string[],
+      pastMedicalHistory: [] as string[],
+    },
+    reviewOfSystems: {
+      performed: false,
+      findings: [] as string[],
+    },
+    assessment: {
+      problemList: [] as string[],
+      diagnoses: [] as string[],
+      clinicalImpression: "",
+    },
+    plan: {
+      orders: [] as unknown[],
+    },
+    specialtyExtensions: {},
+    audit: {
+      createdBy: doctor?.id || "",
+      lastUpdatedBy: doctor?.id || "",
+      version: 1,
+    },
+    id: visit.id,
+    patientId: visit.patient.id,
+    doctorId: doctor?.id || "",
+    date: visit.visitDate,
+  }
 
-  const existingProducts = departmentProductsSource.map((product: any) => ({
-    id: product.id,
-    name: product.product?.name || '',
-    type: product.product?.type === 'CONSUMABLE_DEVICE' ? 'consumable' : 'action',
-    quantity: product.quantity || 0,
-    privatePrice: Number(product.product?.privateRhicPrice ?? product.product?.clinicPrice ?? product.product?.privatePrice ?? 0),
+  const patient: Patient = visit.patient
+
+  const scopedNotes: Array<{ id?: string; note?: string; scope: "visit" | "department"; departmentName?: string }> = []
+
+  const existingProducts: FormAction[] = (firstDepartment?.products || []).map((line) => ({
+    id: line.id,
+    name: line.product.name,
+    type: line.product.type === "CONSUMABLE_DEVICE" ? "consumable" : "action",
+    quantity: line.quantity || 0,
+    price: Number(line.price ?? line.product.clinicPrice ?? line.product.privateRhicPrice ?? 0),
+    privatePrice: Number(line.price ?? line.product.clinicPrice ?? line.product.privateRhicPrice ?? 0),
     isQuantifiable: true,
-    backendId: String(product.id),
-    rawData: product,
+    backendId: String(line.id),
   }))
 
-  const currentVisitDepartment = firstDepartment
-  const requestProductsEnabled = Boolean(currentVisitDepartment?.department?.requestsProducts ?? currentVisitDepartment?.requestsProducts)
-  console.log('[Consultation-Page] visitId:', visit.id, 'firstDepartmentId:', firstDepartment?.id, 'currentRequestProductsEnabled:', requestProductsEnabled, 'rawProducts:', rawDepartmentProducts.length, 'actions:', (firstDepartment?.actions || []).length, 'consumables:', (firstDepartment?.consumables || []).length, 'existingProductsMapped:', existingProducts.length)
+  const requestProductsEnabled = Boolean(firstDepartment?.department?.requestsProducts)
 
   return (
     <div className="min-h-screen bg-background">
