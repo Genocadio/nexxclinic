@@ -1,6 +1,170 @@
-import type { ClinicProfile } from "@/lib/types"
+/**
+ * hooks/types.ts - Hook-specific and compatibility types
+ * Re-exports canonical types from api-types.ts and api-input-types.ts
+ * Keeps hook-specific type wrappers for legacy code compatibility
+ */
 
-export interface ApiResponse<T> {
+import type {
+  ApiResponse as ApiResponseBase,
+  Worker,
+  ClinicProfile,
+} from "@/lib/api-types"
+
+// ============================================
+// RE-EXPORTS FROM CANONICAL TYPES
+// ============================================
+
+// Re-export all canonical types for backward compatibility
+export type {
+  ResponseStatus,
+  RoleName,
+  AccountStatus,
+  Gender,
+  DocumentType,
+  ProductType,
+  ProductUnit,
+  MustPrescribedBy,
+  DrugAdministrationFrequency,
+  DepartmentInsurancePolicyMode,
+  VisitStatus,
+  VisitProductStatus,
+  VisitDepartmentStatus,
+  EncounterType,
+  VisitBillingStatus,
+  ClinicContactType,
+  FormStatus,
+  FieldType,
+  TableMode,
+  ConditionalCondition,
+  AnswerStatus,
+  VisitPreInstructionProductStatus,
+  PaymentMethod,
+} from "@/lib/api-types"
+
+export type {
+  ApiResponse,
+  PaginationInfo,
+  PaginatedResponse,
+  Worker,
+  Patient,
+  Department,
+  InsuranceProvider,
+  PatientInsurance,
+  Product,
+  ProductInsuranceCoverage,
+  Visit,
+  VisitDepartment,
+  VisitDepartmentProduct,
+  VisitDepartmentDiagnosis,
+  VisitDepartmentMedication,
+  VisitVitalSignsGroup,
+  VitalMeasurement,
+  VisitPreInstruction,
+  VisitPreInstructionMedication,
+  VisitPreInstructionProduct,
+  VisitBilling,
+  VisitDepartmentBilling,
+  DepartmentInsuranceBilling,
+  VisitBillingItem,
+  VisitBillingPayment,
+  Form,
+  FormVersion,
+  FormSection,
+  FormField,
+  FormAction,
+  TableConfig,
+  ConditionalRendering,
+  ConsultationAnswer,
+  ClinicProfile,
+  ClinicContact,
+  ClinicMetadata,
+  AuditLog,
+  User,
+  Insurance,
+} from "@/lib/api-types"
+
+// Re-export all input types
+export type {
+  WorkerDocumentInput,
+  SelfRegisterInput,
+  AdminCreateUserInput,
+  AdminUpdateUserInput,
+  ActivateUserInput,
+  DeactivateUserInput,
+  LoginInput,
+  SetInitialPasswordInput,
+  RefreshSessionInput,
+  RefreshTokenInput,
+  LogoutInput,
+  UpdateMyProfileInput,
+  ChangeMyPasswordInput,
+  AdminTriggerPasswordResetInput,
+  AdminSetUserSessionLimitInput,
+  CreateInsuranceProviderInput,
+  UpdateInsuranceProviderInput,
+  SearchInsuranceProvidersInput,
+  CreatePatientInput,
+  UpdatePatientInput,
+  SearchPatientsInput,
+  CreatePatientInsuranceInput,
+  UpdatePatientInsuranceInput,
+  CreateProductInsuranceCoverageInput,
+  UpdateProductInsuranceCoverageInput,
+  CreateProductInput,
+  UpdateProductInput,
+  SearchProductsInput,
+  CreateDepartmentInput,
+  UpdateDepartmentInput,
+  SearchDepartmentsInput,
+  CreateVisitInput,
+  ChangeVisitDateInput,
+  CreateVisitDepartmentInput,
+  CreateVisitDepartmentProductItemInput,
+  CreateVisitDepartmentProductInput,
+  AddChildVisitDepartmentProductInput,
+  AddChildVisitDepartmentInput,
+  UpdateVisitDepartmentProductStatusInput,
+  UpdateVisitDepartmentStatusInput,
+  UpdateVisitDepartmentProductQuantityInput,
+  SearchVisitsInput,
+  SearchPatientHistoryInput,
+  BillingPaymentInput,
+  BillVisitDepartmentProductInput,
+  BillVisitDepartmentInput,
+  BillVisitInput,
+  RecordVisitBillingPaymentInput,
+  AddVisitVitalSignItemInput,
+  AddVisitVitalSignsInput,
+  AddVisitPreInstructionMedicationInput,
+  AddVisitPreInstructionProductInput,
+  AddVisitPreInstructionItemInput,
+  AddVisitPreInstructionsInput,
+  AddDiagnosisInput,
+  AddMedicationInput,
+  ConditionalRenderingInput,
+  TableConfigInput,
+  LabRecordRowInput,
+  LabRecordConfigInput,
+  FormFieldInput,
+  FormSectionInput,
+  FormActionInput,
+  FormInput,
+  ConsultationAnswersInput,
+  KeyValueInput,
+  ClinicContactInput,
+  ClinicMetadataInput,
+  UpdateClinicProfileInput,
+} from "@/lib/api-input-types"
+
+// ============================================
+// HOOK-SPECIFIC RESPONSE WRAPPERS
+// ============================================
+
+/**
+ * Hook response wrapper for API responses
+ * Maintains backward compatibility with existing hook code
+ */
+export interface ApiResponse<T> extends ApiResponseBase<T> {
   status: string
   message?: string
   data?: T
@@ -10,6 +174,10 @@ export interface ApiResponse<T> {
   }[]
 }
 
+/**
+ * Login response wrapper
+ * Used by authentication hooks
+ */
 export interface LoginResponse {
   status: string
   message?: string
@@ -17,19 +185,7 @@ export interface LoginResponse {
     token?: string
     accessToken?: string
     refreshToken?: string
-    user?: {
-      id: string
-      firstName?: string
-      lastName?: string
-      email: string
-      phoneNumber: string
-      accountStatus?: string
-      roles: string[]
-      departments?: {
-        id: string
-        name: string
-      }[]
-    }
+    user?: Worker
     clinicProfile?: ClinicProfile | null
     needsPasswordSetup?: boolean
   }
@@ -39,27 +195,20 @@ export interface LoginResponse {
   }[]
 }
 
-export interface UserAccount {
-  id: string
-  firstName: string
-  lastName: string
-  email: string
-  phoneNumber: string
-  username: string
-  accountStatus: string
-  roles: string[]
-  departments?: {
-    id: string
-    name: string
-  }[]
-  createdAt: string
-  updatedAt: string
+/**
+ * @deprecated Use Worker from api-types instead
+ */
+export interface UserAccount extends Worker {
   gender?: string
   dateOfBirth?: string
   profilePhotoUrl?: string
   title?: string
 }
 
+/**
+ * User response wrapper
+ * @deprecated Use ApiResponse<Worker> instead
+ */
 export interface UserResponse {
   status: string
   data?: UserAccount
@@ -69,6 +218,10 @@ export interface UserResponse {
   }[]
 }
 
+/**
+ * User list response wrapper
+ * @deprecated Use PaginatedResponse<Worker> instead
+ */
 export interface UserListResponse {
   status: string
   data?: UserAccount[]
@@ -78,6 +231,10 @@ export interface UserListResponse {
   }[]
 }
 
+/**
+ * Register response wrapper
+ * @deprecated Deprecated in favor of standardized responses
+ */
 export interface RegisterResponse {
   status: string
   message?: string
@@ -94,8 +251,14 @@ export interface RegisterResponse {
   }[]
 }
 
+/**
+ * @deprecated Use VisitProductStatus enum instead
+ */
 export type PaymentStatus = "PENDING" | "BILLED"
 
+/**
+ * @deprecated Use VisitDepartmentProduct from api-types instead
+ */
 export interface VisitDepartmentAction {
   id: string
   action: {
@@ -114,6 +277,9 @@ export interface VisitDepartmentAction {
   doneAt?: string
 }
 
+/**
+ * @deprecated Use VisitDepartmentProduct from api-types instead
+ */
 export interface VisitDepartmentConsumable {
   id: string
   consumable: {
@@ -132,7 +298,10 @@ export interface VisitDepartmentConsumable {
   usedAt?: string
 }
 
-export interface VisitDepartmentProduct {
+/**
+ * @deprecated Use VisitDepartmentProduct from api-types instead
+ */
+export interface VisitDepartmentProductLegacy {
   id: string
   product: {
     id: string

@@ -1,57 +1,159 @@
+/**
+ * lib/types.ts - Legacy and utility types
+ * This file maintains backward compatibility with existing code.
+ * All canonical entity types are now in lib/api-types.ts
+ * All input types are now in lib/api-input-types.ts
+ * 
+ * Migration path: Use api-types.ts and api-input-types.ts for new code
+ */
+
 // ============================================
-// ENUMS
+// RE-EXPORT CANONICAL TYPES FOR COMPATIBILITY
 // ============================================
 
-export type Role = "ADMIN" | "MANAGER" | "RECEPTIONIST" | "OPHTHALMOLOGIST" | "NURSE" | "DOCTOR" | "SPECIALIST" | "FINANCE"
+export type {
+  // Enums
+  ResponseStatus,
+  RoleName,
+  AccountStatus,
+  Gender,
+  DocumentType,
+  ProductType,
+  ProductUnit,
+  MustPrescribedBy,
+  DrugAdministrationFrequency,
+  DepartmentInsurancePolicyMode,
+  VisitStatus,
+  VisitProductStatus,
+  VisitDepartmentStatus,
+  EncounterType,
+  VisitBillingStatus,
+  ClinicContactType,
+  FormStatus,
+  FieldType,
+  TableMode,
+  ConditionalCondition,
+  AnswerStatus,
+  VisitPreInstructionProductStatus,
+  PaymentMethod,
+  // Interfaces
+  ApiResponse,
+  PaginationInfo,
+  PaginatedResponse,
+  Worker,
+  Patient,
+  Department,
+  InsuranceProvider,
+  PatientInsurance,
+  Product,
+  ProductInsuranceCoverage,
+  Visit,
+  VisitDepartment,
+  VisitDepartmentProduct,
+  VisitDepartmentDiagnosis,
+  VisitDepartmentMedication,
+  VisitVitalSignsGroup,
+  VitalMeasurement,
+  VisitPreInstruction,
+  VisitPreInstructionMedication,
+  VisitPreInstructionProduct,
+  VisitBilling,
+  VisitDepartmentBilling,
+  DepartmentInsuranceBilling,
+  VisitBillingItem,
+  VisitBillingPayment,
+  Form,
+  FormVersion,
+  FormSection,
+  FormField,
+  FormAction,
+  TableConfig,
+  ConditionalRendering,
+  ConsultationAnswer,
+  ClinicProfile,
+  ClinicContact,
+  ClinicMetadata,
+  AuditLog,
+  User,
+  Insurance,
+} from "./api-types"
+
+// ============================================
+// LEGACY TYPE ALIASES (for backward compatibility)
+// ============================================
+
+/**
+ * @deprecated Use ResponseStatus enum from api-types instead
+ */
 export type Status = "SUCCESS" | "ERROR" | "WARNING" | "UNAUTHENTICATED" | "UNAUTHORIZED" | "RESET_PASSWORD"
-export type VisitStatus = "CREATED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
+
+/**
+ * @deprecated Use RoleName enum from api-types instead
+ */
+export type Role = "ADMIN" | "MANAGER" | "RECEPTIONIST" | "OPHTHALMOLOGIST" | "NURSE" | "DOCTOR" | "SPECIALIST" | "FINANCE"
+
+/**
+ * @deprecated Use VisitStatus enum from api-types instead
+ */
 export type VisitType = "INPATIENT" | "OUTPATIENT" | "TELEMEDICINE"
+
+/**
+ * @deprecated Use VisitDepartmentStatus enum from api-types instead
+ */
 export type DepartmentStatus = "PENDING" | "CREATED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
+
+/**
+ * @deprecated Use VisitBillingStatus enum from api-types instead
+ */
 export type BillStatus = "PENDING" | "PARTIALLY_PAID" | "PAID" | "CANCELLED"
+
+/**
+ * @deprecated Legacy billing type
+ */
 export type PaymentMode = "PRIVATE" | "INSURANCE" | "MIXED"
+
+/**
+ * @deprecated Legacy billing type
+ */
 export type PaymentStatus = "PENDING" | "BILLED"
+
+/**
+ * @deprecated Legacy billing type
+ */
 export type BillingStatus = "PENDING" | "BILLED" | "PARTIALLY_BILLED"
-export type PaymentMethod = "CASH" | "MOMO" | "BANK_TRANSFER" | "CARD"
+
+/**
+ * @deprecated Legacy billing type
+ */
 export type PaymentScope = "DEPARTMENT" | "FULL"
+
+/**
+ * @deprecated Legacy billing type
+ */
 export type ExemptionType = "NONE" | "PATIENT_PART" | "FULL"
+
+/**
+ * @deprecated Legacy billing type
+ */
 export type DiscountType = "NONE" | "FIXED" | "PERCENTAGE"
+
+/**
+ * @deprecated Legacy note type
+ */
 export type NoteType = "GENERAL" | "DIAGNOSIS" | "PRESCRIPTION" | "OBSERVATION" | "INTERNAL"
-export type FormStatus = "DRAFT" | "FINAL"
+
+/**
+ * @deprecated Use AnswerStatus enum from api-types instead
+ */
 export type ActivationStatus = "PENDING" | "ACTIVE" | "INACTIVE"
 
 // ============================================
-// USER & AUTHENTICATION
+// LEGACY UTILITY TYPES (not in GraphQL schema)
 // ============================================
 
-export interface User {
-  id: string
-  name: string
-  email: string
-  phoneNumber: string
-  title?: string
-  roles: Role[]
-  active: boolean
-  departments?: Department[]
-}
-
-export interface ClinicProfile {
-  id: string
-  name?: string | null
-  address?: string | null
-  contacts?: ClinicContact[] | null
-  tinNumber?: string | null
-  logoUrl?: string | null
-  metadata?: { [key: string]: string } | null
-  createdAt?: string
-  updatedAt?: string
-}
-
-export interface ClinicContact {
-  contactType: "PHONE" | "EMAIL" | "POBOX"
-  value: string
-  description?: string | null
-}
-
+/**
+ * @deprecated Legacy user wrapper
+ */
 export interface PublicUser {
   id: string
   name: string
@@ -59,109 +161,29 @@ export interface PublicUser {
   departmentNames?: string[]
 }
 
+/**
+ * @deprecated Legacy auth payload
+ */
 export interface AuthPayload {
   token: string
-  user: User
+  user: Worker
 }
 
-// ============================================
-// MESSAGES & RESPONSES
-// ============================================
-
+/**
+ * @deprecated Legacy message type
+ */
 export interface Message {
   text: string
   type: string
 }
 
-export type ApiResponse<T> = {
-  status: Status
-  data?: T
-  messages?: Message[]
-}
-
 // ============================================
-// INSURANCE
+// LEGACY PATIENT-RELATED TYPES
 // ============================================
 
-export interface Insurance {
-  id: string
-  name: string
-  acronym: string
-  coveragePercentage: number
-}
-
-export interface PatientInsurance {
-  id: string
-  insurance: Insurance
-  insuranceCardNumber: string
-  dominantMember?: DominantMember
-  status: ActivationStatus
-}
-
-export interface DominantMember {
-  firstName: string
-  lastName: string
-  phone: string
-}
-
-// ============================================
-// DEPARTMENT
-// ============================================
-
-export interface Department {
-  id: string
-  name: string
-  nursing?: boolean
-  supportRequests?: boolean
-  actions?: Action[]
-  consumables?: Consumable[]
-  exemptedInsurances?: Insurance[]
-}
-
-// ============================================
-// ACTIONS & CONSUMABLES
-// ============================================
-
-export interface CoverageResponse {
-  id: string
-  insurance: Insurance
-  price: number
-}
-
-export interface Action {
-  id: string
-  name?: string
-  quantifiable: boolean
-  type: string
-  privatePrice: number
-  clinicPrice?: number
-  insuranceCoverages?: CoverageResponse[]
-}
-
-export interface Consumable {
-  id: string
-  name?: string
-  quantifiable: boolean
-  type: string
-  privatePrice: number
-  clinicPrice?: number
-  insuranceCoverages?: CoverageResponse[]
-}
-
-export interface FormActionItem {
-  id: string
-  name: string
-  type: string
-  quantity?: number
-  price: number
-  isQuantifiable: boolean
-  backendId: string
-}
-
-// ============================================
-// PATIENT
-// ============================================
-
+/**
+ * @deprecated Use ClinicContact with nested properties instead
+ */
 export interface Address {
   street?: string
   sector?: string
@@ -169,44 +191,48 @@ export interface Address {
   country?: string
 }
 
+/**
+ * @deprecated Use Patient.primaryPhoneNumber and related fields instead
+ */
 export interface ContactInfo {
   phone?: string
   email?: string
   address?: Address
 }
 
+/**
+ * @deprecated Use Patient.emergencyContact* fields instead
+ */
 export interface EmergencyContact {
   name?: string
   relation?: string
   phone?: string
 }
 
-export interface Patient {
-  id: string
+/**
+ * @deprecated Use PatientInsurance.principalMember* fields instead
+ */
+export interface DominantMember {
   firstName: string
-  lastName?: string
-  middleName?: string
-  dateOfBirth: string
-  gender?: string
-  contactInfo?: ContactInfo
-  emergencyContact?: EmergencyContact
-  nationalId?: string
-  insurances?: PatientInsurance[]
-  registrationDate?: string
-  registeredBy?: string
-  notes?: string
-  latestVisit?: Visit
+  lastName: string
+  phone: string
 }
 
 // ============================================
-// BILLING
+// LEGACY BILLING TYPES
 // ============================================
 
+/**
+ * @deprecated Legacy discount type
+ */
 export interface Discount {
   type: DiscountType
   value: number
 }
 
+/**
+ * @deprecated Legacy billing totals
+ */
 export interface BillTotals {
   beforeDiscount: number
   discount: number
@@ -217,6 +243,9 @@ export interface BillTotals {
   patientBalance: number
 }
 
+/**
+ * @deprecated Use VisitBillingItem instead
+ */
 export interface BillItemDetail {
   id: string
   itemType: string
@@ -225,7 +254,7 @@ export interface BillItemDetail {
   basePriceAtBilling: number
   quantity: number
   paymentMode: PaymentMode
-  insurance?: Insurance
+  insurance?: InsuranceProvider
   insurancePartAmount?: number
   patientPartAmount?: number
   exemptionType?: ExemptionType
@@ -234,13 +263,19 @@ export interface BillItemDetail {
   finalAmountCharged: number
 }
 
+/**
+ * @deprecated Use VisitDepartmentBilling instead
+ */
 export interface BillingItem {
   id: string
   department: Department
-  action?: Action
+  action?: unknown
   items: BillItemDetail[]
 }
 
+/**
+ * @deprecated Use VisitBillingPayment instead
+ */
 export interface Payment {
   id: string
   billId: string
@@ -253,6 +288,9 @@ export interface Payment {
   reference?: string
 }
 
+/**
+ * @deprecated Use VisitBilling instead
+ */
 export interface Bill {
   id: string
   billingDisplayId: string
@@ -268,37 +306,52 @@ export interface Bill {
 }
 
 // ============================================
-// VISITS
+// LEGACY VISIT TYPES
 // ============================================
 
+/**
+ * @deprecated Use VisitDepartment fields instead
+ */
 export interface VisitNote {
   type: NoteType
   text: string
 }
 
+/**
+ * @deprecated Use VisitDepartment.processors instead
+ */
 export interface VisitDepartmentProcessor {
   user: PublicUser
   startTime: string
   endTime?: string
 }
 
+/**
+ * @deprecated Use VisitDepartmentProduct instead
+ */
 export interface VisitAction {
   id?: string
-  action: Action
+  action: unknown
   quantity: number
   doneBy: PublicUser
   paymentStatus: PaymentStatus
 }
 
+/**
+ * @deprecated Use VisitDepartmentProduct instead
+ */
 export interface VisitConsumable {
   id?: string
-  consumable: Consumable
+  consumable: unknown
   quantity: number
   doneBy: PublicUser
   paymentStatus: PaymentStatus
 }
 
-export interface VisitDepartment {
+/**
+ * @deprecated Use VisitDepartment from api-types instead
+ */
+export interface VisitDepartmentLegacy {
   id?: string
   department: Department
   status: DepartmentStatus
@@ -312,100 +365,29 @@ export interface VisitDepartment {
   notes?: VisitNote[]
 }
 
-export interface Visit {
+/**
+ * @deprecated Use Visit from api-types instead
+ */
+export interface VisitLegacy {
   id?: string
   patient: Patient
-  insurances?: Insurance[]
+  insurances?: InsuranceProvider[]
   visitDate?: string
   registeredBy: PublicUser
   visitStatus: VisitStatus
   visitType: VisitType
-  departments?: VisitDepartment[]
+  departments?: VisitDepartmentLegacy[]
   visitNotes?: VisitNote[]
   billingStatus: BillingStatus
 }
 
 // ============================================
-// FORMS
+// LEGACY FORM TYPES
 // ============================================
 
-export interface ConditionalRendering {
-  dependsOn: string
-  condition: string
-  value?: string
-  itemType?: string
-}
-
-export interface TableConfig {
-  mode: string
-  rows: number
-  columns: number
-  headerPlacement: string
-  columnHeaders?: string[]
-  rowHeaders?: string[]
-}
-
-export interface LabRecordRowConfig {
-  id: string
-  name: string
-  unitMode?: 'dropdown' | 'none'
-  unitOptions?: string[]
-  defaultUnit?: string
-  resultOptions?: string[]
-}
-
-export interface LabRecordConfig {
-  layout: 'valueUnit' | 'result'
-  rows: LabRecordRowConfig[]
-}
-
-export interface FormField {
-  id: string
-  label: string
-  type: string
-  placeholder?: string
-  required?: boolean
-  order: number
-  hideLabel?: boolean
-  boldLabel?: boolean
-  italicLabel?: boolean
-  underlineLabel?: boolean
-  centerLabel?: boolean
-  conditionalRendering?: ConditionalRendering
-  options?: string[]
-  tableConfig?: TableConfig
-  labRecordConfig?: LabRecordConfig
-}
-
-export interface FormSection {
-  id: string
-  title: string
-  boldTitle?: boolean
-  italicTitle?: boolean
-  underlineTitle?: boolean
-  centerTitle?: boolean
-  columns: number
-  order: number
-  fields?: FormField[]
-}
-
-export interface Form {
-  id: string
-  departmentId: string
-  title: string
-  description?: string
-  status: FormStatus
-  version?: string
-  createdAt: string
-  updatedAt: string
-  createdBy?: string
-  updatedBy?: string
-  sections?: FormSection[]
-  fields?: FormField[]
-  actions?: FormActionItem[]
-  meta?: string
-}
-
+/**
+ * @deprecated Use FormListItem instead
+ */
 export interface FormListItem {
   id: string
   departmentId: string
@@ -416,6 +398,9 @@ export interface FormListItem {
   updatedAt: string
 }
 
+/**
+ * @deprecated Use FormVersion instead
+ */
 export interface FormVersionItem {
   id: string
   formId: string
@@ -425,7 +410,7 @@ export interface FormVersionItem {
   createdBy?: string
   sections?: FormSection[]
   fields?: FormField[]
-  actions?: FormActionItem[]
+  actions?: FormAction[]
   meta?: string
 }
 
@@ -433,6 +418,9 @@ export interface FormVersionItem {
 // PAGINATION
 // ============================================
 
+/**
+ * Legacy pagination wrapper - use PaginationInfo from api-types
+ */
 export interface PageInfo<T> {
   content: T[]
   totalPages: number
@@ -442,24 +430,18 @@ export interface PageInfo<T> {
 }
 
 // ============================================
-// QUERY RESPONSE TYPES
+// QUERY RESPONSE TYPE ALIASES
 // ============================================
 
-export type UserListResponse = ApiResponse<User[]>
-export type UserResponse = ApiResponse<User>
-export type AuthResponse = ApiResponse<AuthPayload>
+export type UserListResponse = ApiResponse<Worker[]>
+export type UserResponse = ApiResponse<Worker>
+export type AuthResponse = ApiResponse<{ user: Worker; accessToken: string; refreshToken: string }>
 export type PatientResponse = ApiResponse<Patient>
 export type PatientPageResponse = ApiResponse<PageInfo<Patient>>
 export type DepartmentResponse = ApiResponse<Department>
 export type DepartmentListResponse = ApiResponse<Department[]>
-export type InsuranceResponse = ApiResponse<Insurance>
-export type InsuranceListResponse = ApiResponse<Insurance[]>
-export type ActionResponse = ApiResponse<Action>
-export type ActionPageResponse = ApiResponse<PageInfo<Action>>
-export type ActionListResponse = ApiResponse<Action[]>
-export type ConsumableResponse = ApiResponse<Consumable>
-export type ConsumablePageResponse = ApiResponse<PageInfo<Consumable>>
-export type ConsumableListResponse = ApiResponse<Consumable[]>
+export type InsuranceResponse = ApiResponse<InsuranceProvider>
+export type InsuranceListResponse = ApiResponse<InsuranceProvider[]>
 export type VisitResponse = ApiResponse<Visit>
 export type VisitListResponse = ApiResponse<Visit[]>
 export type VisitPageResponse = ApiResponse<PageInfo<Visit>>
@@ -471,9 +453,21 @@ export type FormVersionListResponse = ApiResponse<FormVersionItem[]>
 export type MessageResponse = ApiResponse<null>
 
 // ============================================
-// INPUT TYPES FOR MUTATIONS
+// LEGACY INPUT TYPES (Kept for backward compatibility)
 // ============================================
 
+/**
+ * @deprecated Use CreatePatientInsuranceInput from api-input-types instead
+ */
+export interface DominantMemberInput {
+  firstName: string
+  lastName: string
+  phone: string
+}
+
+/**
+ * @deprecated Use UpdatePatientInput from api-input-types instead
+ */
 export interface AddressInput {
   street?: string
   sector?: string
@@ -481,24 +475,27 @@ export interface AddressInput {
   country?: string
 }
 
+/**
+ * @deprecated Use UpdatePatientInput from api-input-types instead
+ */
 export interface ContactInfoInput {
   phone?: string
   email?: string
   address?: AddressInput
 }
 
+/**
+ * @deprecated Use UpdatePatientInput from api-input-types instead
+ */
 export interface EmergencyContactInput {
   name?: string
   relation?: string
   phone?: string
 }
 
-export interface DominantMemberInput {
-  firstName: string
-  lastName: string
-  phone: string
-}
-
+/**
+ * @deprecated Use CreatePatientInsuranceInput from api-input-types instead
+ */
 export interface PatientInsuranceInput {
   insuranceId: string
   insuranceCardNumber: string
@@ -506,7 +503,10 @@ export interface PatientInsuranceInput {
   dominantMember?: DominantMemberInput
 }
 
-export interface PatientInput {
+/**
+ * @deprecated Use CreatePatientInput from api-input-types instead
+ */
+export interface PatientInputLegacy {
   firstName: string
   lastName?: string
   middleName?: string
@@ -519,6 +519,9 @@ export interface PatientInput {
   notes?: string
 }
 
+/**
+ * @deprecated Use CreateProductInput from api-input-types instead
+ */
 export interface ActionInput {
   name: string
   quantifiable: boolean
@@ -527,6 +530,9 @@ export interface ActionInput {
   clinicPrice: number
 }
 
+/**
+ * @deprecated Use CreateProductInput from api-input-types instead
+ */
 export interface ConsumableInput {
   name: string
   quantifiable: boolean
@@ -535,26 +541,41 @@ export interface ConsumableInput {
   clinicPrice: number
 }
 
+/**
+ * @deprecated Use CreateDepartmentInput from api-input-types instead
+ */
 export interface DepartmentInput {
   name: string
 }
 
+/**
+ * @deprecated Use CreateInsuranceProviderInput from api-input-types instead
+ */
 export interface InsuranceInput {
   name: string
   acronym: string
   coveragePercentage: number
 }
 
+/**
+ * @deprecated Legacy coverage request
+ */
 export interface CoverageRequestInput {
   insuranceId: string
   price: number
 }
 
+/**
+ * @deprecated Legacy discount input
+ */
 export interface DiscountInput {
   type: DiscountType
   value: number
 }
 
+/**
+ * @deprecated Legacy billing item request
+ */
 export interface BillItemRequestInput {
   itemType: string
   itemId: string
@@ -563,12 +584,18 @@ export interface BillItemRequestInput {
   itemDiscount?: DiscountInput
 }
 
+/**
+ * @deprecated Legacy billing item request
+ */
 export interface BillingItemRequestInput {
   departmentId: string
   actionId?: string
   items: BillItemRequestInput[]
 }
 
+/**
+ * @deprecated Legacy billing request
+ */
 export interface BillingRequestInput {
   visitId: string
   note?: string
@@ -576,6 +603,9 @@ export interface BillingRequestInput {
   billingItems: BillingItemRequestInput[]
 }
 
+/**
+ * @deprecated Legacy payment request
+ */
 export interface PaymentRequestInput {
   billId: string
   scope: PaymentScope
@@ -585,11 +615,17 @@ export interface PaymentRequestInput {
   reference?: string
 }
 
+/**
+ * @deprecated Use AddVisitPreInstructionsInput from api-input-types instead
+ */
 export interface VisitNoteInput {
   type: string
   text: string
 }
 
+/**
+ * @deprecated Legacy visit action input
+ */
 export interface VisitActionInput {
   action: EntityIdInput
   quantity?: number
@@ -597,10 +633,16 @@ export interface VisitActionInput {
   paymentStatus: PaymentStatus
 }
 
+/**
+ * @deprecated Legacy entity ID input
+ */
 export interface EntityIdInput {
   id: string
 }
 
+/**
+ * @deprecated Legacy visit consumable input
+ */
 export interface VisitConsumableInput {
   consumable: EntityIdInput
   quantity?: number
@@ -608,12 +650,18 @@ export interface VisitConsumableInput {
   paymentStatus: PaymentStatus
 }
 
+/**
+ * @deprecated Use CreateVisitDepartmentInput from api-input-types instead
+ */
 export interface VisitDepartmentProcessorInput {
   userId?: string
   time: string
 }
 
-export interface VisitDepartmentInput {
+/**
+ * @deprecated Use CreateVisitDepartmentInput from api-input-types instead
+ */
+export interface VisitDepartmentInputLegacy {
   department: EntityIdInput
   status: DepartmentStatus
   transferredBy?: string
@@ -624,30 +672,45 @@ export interface VisitDepartmentInput {
   consumables?: VisitConsumableInput[]
 }
 
-export interface CreateVisitInput {
+/**
+ * @deprecated Use CreateVisitInput from api-input-types instead
+ */
+export interface CreateVisitInputLegacy {
   patientId: string
   visitDate?: string
   linkedPatientInsuranceIds?: string[]
-  departments?: VisitDepartmentInput[]
+  departments?: VisitDepartmentInputLegacy[]
   visitNotes?: VisitNoteInput[]
 }
 
+/**
+ * @deprecated Legacy department operation input
+ */
 export interface AddDepartmentInput {
   visitId: string
   departmentId: string
 }
 
+/**
+ * @deprecated Legacy department operation input
+ */
 export interface ProcessDepartmentInput {
   visitId: string
   departmentId: string
 }
 
+/**
+ * @deprecated Legacy department operation input
+ */
 export interface AddProcessorInput {
   visitId: string
   departmentId: string
   userId: string
 }
 
+/**
+ * @deprecated Legacy department operation input
+ */
 export interface AddActionInput {
   visitId: string
   departmentId: string
@@ -655,6 +718,9 @@ export interface AddActionInput {
   quantity?: number
 }
 
+/**
+ * @deprecated Legacy department operation input
+ */
 export interface AddConsumableInput {
   visitId: string
   departmentId: string
@@ -662,18 +728,27 @@ export interface AddConsumableInput {
   quantity?: number
 }
 
+/**
+ * @deprecated Legacy operation input
+ */
 export interface AddNoteInput {
   visitId: string
   departmentId?: string
   note: VisitNoteInput
 }
 
+/**
+ * @deprecated Legacy operation input
+ */
 export interface RemoveItemInput {
   visitId: string
   departmentId: string
   itemId: string
 }
 
+/**
+ * @deprecated Legacy operation input
+ */
 export interface UpdateQuantityInput {
   visitId: string
   departmentId: string
@@ -681,59 +756,9 @@ export interface UpdateQuantityInput {
   quantity: number
 }
 
-export interface ConditionalRenderingInput {
-  dependsOn: string
-  condition: string
-  value?: string
-  itemType?: string
-}
-
-export interface TableConfigInput {
-  mode: string
-  rows: number
-  columns: number
-  headerPlacement: string
-  columnHeaders?: string[]
-  rowHeaders?: string[]
-}
-
-export interface FormFieldInput {
-  id: string
-  label: string
-  type: string
-  placeholder?: string
-  required?: boolean
-  order: number
-  hideLabel?: boolean
-  boldLabel?: boolean
-  italicLabel?: boolean
-  underlineLabel?: boolean
-  centerLabel?: boolean
-  conditionalRendering?: ConditionalRenderingInput
-  options?: string[]
-  tableConfig?: TableConfigInput
-}
-
-export interface FormSectionInput {
-  id: string
-  title: string
-  boldTitle?: boolean
-  italicTitle?: boolean
-  underlineTitle?: boolean
-  centerTitle?: boolean
-  columns: number
-  order: number
-  fields?: FormFieldInput[]
-}
-
-export interface FormInput {
-  title: string
-  description?: string
-  sections?: FormSectionInput[]
-  fields?: FormFieldInput[]
-  actions?: FormActionItem[]
-}
-
+/**
+ * @deprecated Use VisitFilterInput instead
+ */
 export interface VisitFilterInput {
   status?: VisitStatus
   billingStatus?: BillingStatus
@@ -743,6 +768,9 @@ export interface VisitFilterInput {
   toDate?: string
 }
 
+/**
+ * @deprecated Use SearchPatientsInput from api-input-types instead
+ */
 export interface PatientFilterInput {
   name?: string
   age?: number
