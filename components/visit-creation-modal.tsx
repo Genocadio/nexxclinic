@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Search, User, ArrowLeft, Edit, X } from "lucide-react"
+import { Search, User, ArrowLeft, Edit, X, ShieldPlus } from "lucide-react"
 import { toast } from "react-toastify"
 import PatientEditModal from "@/components/patient-edit-modal"
+import { AddPatientInsuranceModal } from "@/components/patient/add-patient-insurance-modal"
 import { DepartmentAutocomplete } from "@/components/ui/department-autocomplete"
 
 const TRIAGE_SERVICE_ID = '__TRIAGE__'
@@ -32,8 +33,8 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(preSelectedPatientId || null)
   const [selectedPatient, setSelectedPatient] = useState<any>(null)
 
-  const { patient: preSelectedPatientData, loading: _patientLoading } = usePatient(preSelectedPatientId || null)
-  const { patient: selectedPatientDetails } = usePatient(selectedPatientId && !preSelectedPatientId ? selectedPatientId : null)
+  const { patient: preSelectedPatientData, loading: _patientLoading, refetch: refetchPreSelectedPatient } = usePatient(preSelectedPatientId || null)
+  const { patient: selectedPatientDetails, refetch: refetchSelectedPatientDetails } = usePatient(selectedPatientId && !preSelectedPatientId ? selectedPatientId : null)
   const { departments, loading: departmentsLoading } = useDepartments()
   const { createVisit, loading: visitLoading } = useCreateVisit()
   
@@ -51,6 +52,8 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
   const [showNotesSection, setShowNotesSection] = useState(false)
   const [editPatientModal, setEditPatientModal] = useState(false)
   const [selectedPatientForEdit, setSelectedPatientForEdit] = useState<Patient | null>(null)
+  const [showAddInsuranceModal, setShowAddInsuranceModal] = useState(false)
+  const [addInsurancePatientId, setAddInsurancePatientId] = useState<string | null>(null)
   const [hoveredPatientId, setHoveredPatientId] = useState<string | null>(null)
 
   // Only fetch patients when search is triggered
@@ -59,6 +62,17 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
     0,
     20
   )
+
+  const { patient: insuranceTargetPatient, refetch: refetchInsuranceTargetPatient } = usePatient(
+    showAddInsuranceModal ? addInsurancePatientId : null,
+  )
+
+  const handleInsuranceSaved = async () => {
+    await refetchPatients()
+    await refetchInsuranceTargetPatient()
+    if (selectedPatientId) await refetchSelectedPatientDetails()
+    if (preSelectedPatientId) await refetchPreSelectedPatient()
+  }
 
   const canContinueFromSelection = Boolean(selectedPatientId && (!preSelectedPatientId || selectedPatient))
   const triageSelected = selectedServiceId === TRIAGE_SERVICE_ID
@@ -447,7 +461,7 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
                     {displayedPatients.map((patient: Patient) => (
                       <div
                         key={patient.id}
-                        className={`relative p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                        className={`group relative p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
                           selectedPatientId === patient.id
                             ? "border-primary bg-primary/5"
                             : "border-border/50 hover:border-border"
@@ -497,18 +511,36 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
                               </div>
                             )}
                           </div>
+                          <div className="flex items-center gap-1 shrink-0">
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation()
-                              setHoveredPatientId(patient.id)
+                              setAddInsurancePatientId(patient.id)
+                              setShowAddInsuranceModal(true)
                             }}
                             className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Add insurance"
+                          >
+                            <ShieldPlus className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedPatientForEdit(patient)
+                              setEditPatientModal(true)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Edit patient"
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -523,9 +555,39 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
           <div className="space-y-4 bg-[#F2EAE5] dark:bg-[#2a2520] p-4 rounded-2xl">
             {/* Selected Patient Info */}
             <div className="bg-white/50 dark:bg-black/20 p-3 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <User className="w-4 h-4" />
-                <span className="font-medium">Selected Patient</span>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  <span className="font-medium">Selected Patient</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      setAddInsurancePatientId(selectedPatient.id)
+                      setShowAddInsuranceModal(true)
+                    }}
+                  >
+                    <ShieldPlus className="w-3.5 h-3.5 mr-1" />
+                    Add insurance
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      setSelectedPatientForEdit(selectedPatient)
+                      setEditPatientModal(true)
+                    }}
+                  >
+                    <Edit className="w-3.5 h-3.5 mr-1" />
+                    Edit
+                  </Button>
+                </div>
               </div>
               <div className="text-sm">
                 <div className="font-medium">{selectedPatient.firstName} {selectedPatient.lastName}</div>
@@ -537,11 +599,28 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
             </div>
 
             {/* Insurance Selection - Multiple */}
-            {selectedPatient.patientInsurances && selectedPatient.patientInsurances.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <label className="block text-sm font-medium text-foreground">
                   Insurance for Visit (Select one or more)
                 </label>
+                {(!selectedPatient.patientInsurances || selectedPatient.patientInsurances.length === 0) && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs"
+                    onClick={() => {
+                      setAddInsurancePatientId(selectedPatient.id)
+                      setShowAddInsuranceModal(true)
+                    }}
+                  >
+                    Add insurance to patient
+                  </Button>
+                )}
+              </div>
+            {selectedPatient.patientInsurances && selectedPatient.patientInsurances.length > 0 && (
+              <div>
                 <div className="space-y-2 max-h-32 overflow-y-auto border rounded-lg p-3">
                   {selectedPatient.patientInsurances.map((insurance: any) => (
                     <label key={insurance.id} className="flex items-center space-x-2 cursor-pointer">
@@ -576,6 +655,12 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
                 )}
               </div>
             )}
+            {(!selectedPatient.patientInsurances || selectedPatient.patientInsurances.length === 0) && (
+              <div className="rounded-lg border border-dashed border-border/70 px-3 py-4 text-center">
+                <p className="text-xs text-muted-foreground">No insurances on this patient yet.</p>
+              </div>
+            )}
+            </div>
 
             {/* Department Selection */}
             <div>
@@ -702,6 +787,21 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
         </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {insuranceTargetPatient && (
+        <AddPatientInsuranceModal
+          open={showAddInsuranceModal}
+          onOpenChange={(open) => {
+            setShowAddInsuranceModal(open)
+            if (!open) setAddInsurancePatientId(null)
+          }}
+          patientId={insuranceTargetPatient.id}
+          patientDateOfBirth={insuranceTargetPatient.dateOfBirth}
+          patientInsurances={insuranceTargetPatient.patientInsurances || []}
+          onSuccess={handleInsuranceSaved}
+          context="reception"
+        />
+      )}
 
       <PatientEditModal
         isOpen={editPatientModal}

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { CheckCircle2, FilePenLine, Loader2, Minus, Plus, Search, X as XIcon } from "lucide-react"
 import type { Patient } from "@/lib/types"
 import { normalizeConsultationAnswersResult, useConsultationAnswers, useLatestForm, useFormVersionHistory } from "@/hooks/forms"
-import AddActionConsumableModal from "@/components/add-action-consumable-modal"
+import AddVisitDepartmentProductModal from "@/components/visit/add-visit-department-product-modal"
 import FormActionsDisplay from "@/components/form-actions-display"
 import { ConsultationSidePanels } from "@/components/consultation/consultation-side-panels"
 import { useVisit } from "@/hooks/visits/hooks"
@@ -1665,14 +1665,14 @@ export default function ConsultationViewBackbone({
         })()
       )}
 
-      <AddActionConsumableModal
-        isOpen={showAddActionModal}
+      <AddVisitDepartmentProductModal
+        open={showAddActionModal}
         onClose={() => setShowAddActionModal(false)}
-        departments={[]}
-        currentDepartmentId={departmentId}
+        visitDepartments={visit?.departments || []}
+        currentCatalogDepartmentId={departmentId}
         viewMode={departmentId ? 'service' : 'all'}
-        onAdd={(type: any, item: any, quantity: number, departmentIdParam: string) => {
-          handleAddAction(type, item, quantity, departmentIdParam || departmentId || '')
+        onAdd={(type: 'action' | 'consumable', item: { id: string; name: string }, quantity: number, departmentIdParam: string) => {
+          void handleAddAction(type, item, quantity, departmentIdParam || departmentId || '')
           setShowAddActionModal(false)
         }}
         existingProductReferenceIds={existingProductReferenceIds}
