@@ -2,7 +2,8 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useRegisterPatient, useInsurances, useDepartments, useCreateVisit, usePatients, type PatientRegistrationInput, type PatientFilterInput, type Patient, type Visit } from "@/hooks/auth-hooks"
+import { useRegisterPatient, useInsurances, useDepartments, useCreateVisit, usePatients } from "@/hooks/auth-hooks"
+import type { Patient, Visit, PatientFilterInput, CreatePatientInput as PatientRegistrationInput } from "@/lib/api-types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"

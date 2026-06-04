@@ -1,752 +1,182 @@
-// ============================================
-// ENUMS
-// ============================================
-
-export type Role = "ADMIN" | "MANAGER" | "RECEPTIONIST" | "OPHTHALMOLOGIST" | "NURSE" | "DOCTOR" | "SPECIALIST" | "FINANCE"
-export type Status = "SUCCESS" | "ERROR" | "WARNING" | "UNAUTHENTICATED" | "UNAUTHORIZED" | "RESET_PASSWORD"
-export type VisitStatus = "CREATED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
-export type VisitType = "INPATIENT" | "OUTPATIENT" | "TELEMEDICINE"
-export type DepartmentStatus = "PENDING" | "CREATED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
-export type BillStatus = "PENDING" | "PARTIALLY_PAID" | "PAID" | "CANCELLED"
-export type PaymentMode = "PRIVATE" | "INSURANCE" | "MIXED"
-export type PaymentStatus = "PENDING" | "BILLED"
-export type BillingStatus = "PENDING" | "BILLED" | "PARTIALLY_BILLED"
-export type PaymentMethod = "CASH" | "MOMO" | "BANK_TRANSFER" | "CARD"
-export type PaymentScope = "DEPARTMENT" | "FULL"
-export type ExemptionType = "NONE" | "PATIENT_PART" | "FULL"
-export type DiscountType = "NONE" | "FIXED" | "PERCENTAGE"
-export type NoteType = "GENERAL" | "DIAGNOSIS" | "PRESCRIPTION" | "OBSERVATION" | "INTERNAL"
-export type FormStatus = "DRAFT" | "FINAL"
-export type ActivationStatus = "PENDING" | "ACTIVE" | "INACTIVE"
+/**
+ * lib/types.ts - Re-export canonical types only
+ * SINGLE SOURCE OF TRUTH: lib/api-types.ts
+ * This file only re-exports for backward compatibility
+ * 
+ * All entity types, input types, and enums come from:
+ * - lib/api-types.ts (canonical entity & enum definitions)
+ * - lib/api-input-types.ts (canonical input definitions)
+ * - Aligned 100% with user.graphqls schema
+ */
 
 // ============================================
-// USER & AUTHENTICATION
+// RE-EXPORT ALL CANONICAL TYPES
 // ============================================
 
-export interface User {
-  id: string
-  name: string
-  email: string
-  phoneNumber: string
-  title?: string
-  roles: Role[]
-  active: boolean
-  departments?: Department[]
-}
+export type {
+  // Enums
+  ResponseStatus,
+  RoleName,
+  AccountStatus,
+  Gender,
+  DocumentType,
+  ProductType,
+  ProductUnit,
+  MustPrescribedBy,
+  DrugAdministrationFrequency,
+  DepartmentInsurancePolicyMode,
+  VisitStatus,
+  VisitProductStatus,
+  VisitDepartmentStatus,
+  EncounterType,
+  VisitBillingStatus,
+  ClinicContactType,
+  FormStatus,
+  FieldType,
+  TableMode,
+  ConditionalCondition,
+  AnswerStatus,
+  VisitPreInstructionProductStatus,
+  PaymentMethod,
+  // Entity Types
+  ApiResponse,
+  PaginationInfo,
+  PaginatedResponse,
+  Worker,
+  Patient,
+  Department,
+  InsuranceProvider,
+  PatientInsurance,
+  Product,
+  ProductInsuranceCoverage,
+  Visit,
+  VisitDepartment,
+  VisitDepartmentProduct,
+  VisitDepartmentDiagnosis,
+  VisitDepartmentMedication,
+  VisitVitalSignsGroup,
+  VitalMeasurement,
+  VisitPreInstruction,
+  VisitPreInstructionMedication,
+  VisitPreInstructionProduct,
+  VisitBilling,
+  VisitDepartmentBilling,
+  DepartmentInsuranceBilling,
+  VisitBillingItem,
+  VisitBillingPayment,
+  Form,
+  FormVersion,
+  FormSection,
+  FormField,
+  FormAction,
+  TableConfig,
+  ConditionalRendering,
+  ConsultationAnswer,
+  ClinicProfile,
+  ClinicContact,
+  ClinicMetadata,
+  AuditLog,
+  User,
+  Insurance,
+} from "./api-types"
 
-export interface ClinicProfile {
-  id: string
-  name?: string | null
-  address?: string | null
-  contacts?: ClinicContact[] | null
-  tinNumber?: string | null
-  logoUrl?: string | null
-  metadata?: { [key: string]: string } | null
-  createdAt?: string
-  updatedAt?: string
-}
-
-export interface ClinicContact {
-  contactType: "PHONE" | "EMAIL" | "POBOX"
-  value: string
-  description?: string | null
-}
-
-export interface PublicUser {
-  id: string
-  name: string
-  title?: string
-  departmentNames?: string[]
-}
-
-export interface AuthPayload {
-  token: string
-  user: User
-}
-
-// ============================================
-// MESSAGES & RESPONSES
-// ============================================
-
-export interface Message {
-  text: string
-  type: string
-}
-
-export type ApiResponse<T> = {
-  status: Status
-  data?: T
-  messages?: Message[]
-}
-
-// ============================================
-// INSURANCE
-// ============================================
-
-export interface Insurance {
-  id: string
-  name: string
-  acronym: string
-  coveragePercentage: number
-}
-
-export interface PatientInsurance {
-  id: string
-  insurance: Insurance
-  insuranceCardNumber: string
-  dominantMember?: DominantMember
-  status: ActivationStatus
-}
-
-export interface DominantMember {
-  firstName: string
-  lastName: string
-  phone: string
-}
-
-// ============================================
-// DEPARTMENT
-// ============================================
-
-export interface Department {
-  id: string
-  name: string
-  nursing?: boolean
-  supportRequests?: boolean
-  actions?: Action[]
-  consumables?: Consumable[]
-  exemptedInsurances?: Insurance[]
-}
-
-// ============================================
-// ACTIONS & CONSUMABLES
-// ============================================
-
-export interface CoverageResponse {
-  id: string
-  insurance: Insurance
-  price: number
-}
-
-export interface Action {
-  id: string
-  name?: string
-  quantifiable: boolean
-  type: string
-  privatePrice: number
-  clinicPrice?: number
-  insuranceCoverages?: CoverageResponse[]
-}
-
-export interface Consumable {
-  id: string
-  name?: string
-  quantifiable: boolean
-  type: string
-  privatePrice: number
-  clinicPrice?: number
-  insuranceCoverages?: CoverageResponse[]
-}
-
-export interface FormActionItem {
-  id: string
-  name: string
-  type: string
-  quantity?: number
-  price: number
-  isQuantifiable: boolean
-  backendId: string
-}
-
-// ============================================
-// PATIENT
-// ============================================
-
-export interface Address {
-  street?: string
-  sector?: string
-  district?: string
-  country?: string
-}
-
-export interface ContactInfo {
-  phone?: string
-  email?: string
-  address?: Address
-}
-
-export interface EmergencyContact {
-  name?: string
-  relation?: string
-  phone?: string
-}
-
-export interface Patient {
-  id: string
-  firstName: string
-  lastName?: string
-  middleName?: string
-  dateOfBirth: string
-  gender?: string
-  contactInfo?: ContactInfo
-  emergencyContact?: EmergencyContact
-  nationalId?: string
-  insurances?: PatientInsurance[]
-  registrationDate?: string
-  registeredBy?: string
-  notes?: string
-  latestVisit?: Visit
-}
+// Re-export all input types
+export type {
+  WorkerDocumentInput,
+  SelfRegisterInput,
+  AdminCreateUserInput,
+  AdminUpdateUserInput,
+  ActivateUserInput,
+  DeactivateUserInput,
+  LoginInput,
+  SetInitialPasswordInput,
+  RefreshSessionInput,
+  RefreshTokenInput,
+  LogoutInput,
+  UpdateMyProfileInput,
+  ChangeMyPasswordInput,
+  AdminTriggerPasswordResetInput,
+  AdminSetUserSessionLimitInput,
+  CreateInsuranceProviderInput,
+  UpdateInsuranceProviderInput,
+  SearchInsuranceProvidersInput,
+  CreatePatientInput,
+  UpdatePatientInput,
+  SearchPatientsInput,
+  CreatePatientInsuranceInput,
+  UpdatePatientInsuranceInput,
+  CreateProductInsuranceCoverageInput,
+  UpdateProductInsuranceCoverageInput,
+  CreateProductInput,
+  UpdateProductInput,
+  SearchProductsInput,
+  CreateDepartmentInput,
+  UpdateDepartmentInput,
+  SearchDepartmentsInput,
+  CreateVisitInput,
+  ChangeVisitDateInput,
+  CreateVisitDepartmentInput,
+  CreateVisitDepartmentProductItemInput,
+  CreateVisitDepartmentProductInput,
+  AddChildVisitDepartmentProductInput,
+  AddChildVisitDepartmentInput,
+  UpdateVisitDepartmentProductStatusInput,
+  UpdateVisitDepartmentStatusInput,
+  UpdateVisitDepartmentProductQuantityInput,
+  SearchVisitsInput,
+  SearchPatientHistoryInput,
+  BillingPaymentInput,
+  BillVisitDepartmentProductInput,
+  BillVisitDepartmentInput,
+  BillVisitInput,
+  RecordVisitBillingPaymentInput,
+  AddVisitVitalSignItemInput,
+  AddVisitVitalSignsInput,
+  AddVisitPreInstructionMedicationInput,
+  AddVisitPreInstructionProductInput,
+  AddVisitPreInstructionItemInput,
+  AddVisitPreInstructionsInput,
+  AddDiagnosisInput,
+  AddMedicationInput,
+  ConditionalRenderingInput,
+  TableConfigInput,
+  LabRecordRowInput,
+  LabRecordConfigInput,
+  FormFieldInput,
+  FormSectionInput,
+  FormActionInput,
+  FormInput,
+  ConsultationAnswersInput,
+  KeyValueInput,
+  ClinicContactInput,
+  ClinicMetadataInput,
+  UpdateClinicProfileInput,
+} from "./api-input-types"
 
 // ============================================
-// BILLING
+// UTILITY RESPONSE TYPE ALIASES
 // ============================================
 
-export interface Discount {
-  type: DiscountType
-  value: number
-}
+import type { ApiResponse, Worker, Patient, Department, InsuranceProvider, Visit, Form, PageInfo } from "./api-types"
 
-export interface BillTotals {
-  beforeDiscount: number
-  discount: number
-  afterDiscount: number
-  patientTotalDue: number
-  insuranceTotalCover: number
-  patientTotalPaid: number
-  patientBalance: number
-}
+export type UserListResponse = ApiResponse<Worker[]>
+export type UserResponse = ApiResponse<Worker>
+export type AuthResponse = ApiResponse<{ user: Worker; accessToken: string; refreshToken: string }>
+export type PatientResponse = ApiResponse<Patient>
+export type DepartmentResponse = ApiResponse<Department>
+export type DepartmentListResponse = ApiResponse<Department[]>
+export type InsuranceResponse = ApiResponse<InsuranceProvider>
+export type InsuranceListResponse = ApiResponse<InsuranceProvider[]>
+export type VisitResponse = ApiResponse<Visit>
+export type VisitListResponse = ApiResponse<Visit[]>
+export type FormResponse = ApiResponse<Form>
+export type MessageResponse = ApiResponse<null>
 
-export interface BillItemDetail {
-  id: string
-  itemType: string
-  itemId: string
-  name: string
-  basePriceAtBilling: number
-  quantity: number
-  paymentMode: PaymentMode
-  insurance?: Insurance
-  insurancePartAmount?: number
-  patientPartAmount?: number
-  exemptionType?: ExemptionType
-  exemptionReason?: string
-  itemDiscount?: Discount
-  finalAmountCharged: number
-}
-
-export interface BillingItem {
-  id: string
-  department: Department
-  action?: Action
-  items: BillItemDetail[]
-}
-
-export interface Payment {
-  id: string
-  billId: string
-  scope: PaymentScope
-  department?: Department
-  method: PaymentMethod
-  amount: number
-  receivedByUser: PublicUser
-  receivedAt: string
-  reference?: string
-}
-
-export interface Bill {
-  id: string
-  billingDisplayId: string
-  visit: Visit
-  billedByUser: PublicUser
-  billedAt: string
-  note?: string
-  globalDiscount?: Discount
-  totals: BillTotals
-  status: BillStatus
-  billingItems?: BillingItem[]
-  payments?: Payment[]
-}
-
-// ============================================
-// VISITS
-// ============================================
-
-export interface VisitNote {
-  type: NoteType
-  text: string
-}
-
-export interface VisitDepartmentProcessor {
-  user: PublicUser
-  startTime: string
-  endTime?: string
-}
-
-export interface VisitAction {
-  id?: string
-  action: Action
-  quantity: number
-  doneBy: PublicUser
-  paymentStatus: PaymentStatus
-}
-
-export interface VisitConsumable {
-  id?: string
-  consumable: Consumable
-  quantity: number
-  doneBy: PublicUser
-  paymentStatus: PaymentStatus
-}
-
-export interface VisitDepartment {
-  id?: string
-  department: Department
-  status: DepartmentStatus
-  billingStatus: BillStatus
-  transferredBy?: PublicUser
-  transferTime?: string
-  processors?: VisitDepartmentProcessor[]
-  completedTime?: string
-  actions?: VisitAction[]
-  consumables?: VisitConsumable[]
-  notes?: VisitNote[]
-}
-
-export interface Visit {
-  id?: string
-  patient: Patient
-  insurances?: Insurance[]
-  visitDate?: string
-  registeredBy: PublicUser
-  visitStatus: VisitStatus
-  visitType: VisitType
-  departments?: VisitDepartment[]
-  visitNotes?: VisitNote[]
-  billingStatus: BillingStatus
-}
-
-// ============================================
-// FORMS
-// ============================================
-
-export interface ConditionalRendering {
-  dependsOn: string
-  condition: string
-  value?: string
-  itemType?: string
-}
-
-export interface TableConfig {
-  mode: string
-  rows: number
-  columns: number
-  headerPlacement: string
-  columnHeaders?: string[]
-  rowHeaders?: string[]
-}
-
-export interface LabRecordRowConfig {
-  id: string
-  name: string
-  unitMode?: 'dropdown' | 'none'
-  unitOptions?: string[]
-  defaultUnit?: string
-  resultOptions?: string[]
-}
-
-export interface LabRecordConfig {
-  layout: 'valueUnit' | 'result'
-  rows: LabRecordRowConfig[]
-}
-
-export interface FormField {
-  id: string
-  label: string
-  type: string
-  placeholder?: string
-  required?: boolean
-  order: number
-  hideLabel?: boolean
-  boldLabel?: boolean
-  italicLabel?: boolean
-  underlineLabel?: boolean
-  centerLabel?: boolean
-  conditionalRendering?: ConditionalRendering
-  options?: string[]
-  tableConfig?: TableConfig
-  labRecordConfig?: LabRecordConfig
-}
-
-export interface FormSection {
-  id: string
-  title: string
-  boldTitle?: boolean
-  italicTitle?: boolean
-  underlineTitle?: boolean
-  centerTitle?: boolean
-  columns: number
-  order: number
-  fields?: FormField[]
-}
-
-export interface Form {
-  id: string
-  departmentId: string
-  title: string
-  description?: string
-  status: FormStatus
-  version?: string
-  createdAt: string
-  updatedAt: string
-  createdBy?: string
-  updatedBy?: string
-  sections?: FormSection[]
-  fields?: FormField[]
-  actions?: FormActionItem[]
-  meta?: string
-}
-
-export interface FormListItem {
-  id: string
-  departmentId: string
-  title: string
-  status: FormStatus
-  version?: string
-  createdAt: string
-  updatedAt: string
-}
-
-export interface FormVersionItem {
-  id: string
-  formId: string
-  versionNumber: string
-  status: FormStatus
-  createdAt: string
-  createdBy?: string
-  sections?: FormSection[]
-  fields?: FormField[]
-  actions?: FormActionItem[]
-  meta?: string
-}
-
-// ============================================
-// PAGINATION
-// ============================================
-
+// Legacy pagination wrapper - use PaginationInfo from api-types for new code
 export interface PageInfo<T> {
   content: T[]
   totalPages: number
   totalElements: number
   size: number
   number: number
-}
-
-// ============================================
-// QUERY RESPONSE TYPES
-// ============================================
-
-export type UserListResponse = ApiResponse<User[]>
-export type UserResponse = ApiResponse<User>
-export type AuthResponse = ApiResponse<AuthPayload>
-export type PatientResponse = ApiResponse<Patient>
-export type PatientPageResponse = ApiResponse<PageInfo<Patient>>
-export type DepartmentResponse = ApiResponse<Department>
-export type DepartmentListResponse = ApiResponse<Department[]>
-export type InsuranceResponse = ApiResponse<Insurance>
-export type InsuranceListResponse = ApiResponse<Insurance[]>
-export type ActionResponse = ApiResponse<Action>
-export type ActionPageResponse = ApiResponse<PageInfo<Action>>
-export type ActionListResponse = ApiResponse<Action[]>
-export type ConsumableResponse = ApiResponse<Consumable>
-export type ConsumablePageResponse = ApiResponse<PageInfo<Consumable>>
-export type ConsumableListResponse = ApiResponse<Consumable[]>
-export type VisitResponse = ApiResponse<Visit>
-export type VisitListResponse = ApiResponse<Visit[]>
-export type VisitPageResponse = ApiResponse<PageInfo<Visit>>
-export type BillResponse = ApiResponse<Bill>
-export type PaymentResponse = ApiResponse<Payment>
-export type FormResponse = ApiResponse<Form>
-export type FormListResponse = ApiResponse<FormListItem[]>
-export type FormVersionListResponse = ApiResponse<FormVersionItem[]>
-export type MessageResponse = ApiResponse<null>
-
-// ============================================
-// INPUT TYPES FOR MUTATIONS
-// ============================================
-
-export interface AddressInput {
-  street?: string
-  sector?: string
-  district?: string
-  country?: string
-}
-
-export interface ContactInfoInput {
-  phone?: string
-  email?: string
-  address?: AddressInput
-}
-
-export interface EmergencyContactInput {
-  name?: string
-  relation?: string
-  phone?: string
-}
-
-export interface DominantMemberInput {
-  firstName: string
-  lastName: string
-  phone: string
-}
-
-export interface PatientInsuranceInput {
-  insuranceId: string
-  insuranceCardNumber: string
-  providingCompanyOrEmployer: string
-  dominantMember?: DominantMemberInput
-}
-
-export interface PatientInput {
-  firstName: string
-  lastName?: string
-  middleName?: string
-  dateOfBirth: string
-  gender?: string
-  contactInfo?: ContactInfoInput
-  emergencyContact?: EmergencyContactInput
-  nationalId?: string
-  insurances?: PatientInsuranceInput[]
-  notes?: string
-}
-
-export interface ActionInput {
-  name: string
-  quantifiable: boolean
-  type: string
-  privatePrice: number
-  clinicPrice: number
-}
-
-export interface ConsumableInput {
-  name: string
-  quantifiable: boolean
-  type: string
-  privatePrice: number
-  clinicPrice: number
-}
-
-export interface DepartmentInput {
-  name: string
-}
-
-export interface InsuranceInput {
-  name: string
-  acronym: string
-  coveragePercentage: number
-}
-
-export interface CoverageRequestInput {
-  insuranceId: string
-  price: number
-}
-
-export interface DiscountInput {
-  type: DiscountType
-  value: number
-}
-
-export interface BillItemRequestInput {
-  itemType: string
-  itemId: string
-  quantity: number
-  insuranceId?: string
-  itemDiscount?: DiscountInput
-}
-
-export interface BillingItemRequestInput {
-  departmentId: string
-  actionId?: string
-  items: BillItemRequestInput[]
-}
-
-export interface BillingRequestInput {
-  visitId: string
-  note?: string
-  globalDiscount?: DiscountInput
-  billingItems: BillingItemRequestInput[]
-}
-
-export interface PaymentRequestInput {
-  billId: string
-  scope: PaymentScope
-  departmentId?: string
-  method: PaymentMethod
-  amount: number
-  reference?: string
-}
-
-export interface VisitNoteInput {
-  type: string
-  text: string
-}
-
-export interface VisitActionInput {
-  action: EntityIdInput
-  quantity?: number
-  doneBy?: string
-  paymentStatus: PaymentStatus
-}
-
-export interface EntityIdInput {
-  id: string
-}
-
-export interface VisitConsumableInput {
-  consumable: EntityIdInput
-  quantity?: number
-  doneBy?: string
-  paymentStatus: PaymentStatus
-}
-
-export interface VisitDepartmentProcessorInput {
-  userId?: string
-  time: string
-}
-
-export interface VisitDepartmentInput {
-  department: EntityIdInput
-  status: DepartmentStatus
-  transferredBy?: string
-  transferTime?: string
-  processors?: VisitDepartmentProcessorInput[]
-  completedTime?: string
-  actions?: VisitActionInput[]
-  consumables?: VisitConsumableInput[]
-}
-
-export interface CreateVisitInput {
-  patientId: string
-  visitDate?: string
-  linkedPatientInsuranceIds?: string[]
-  departments?: VisitDepartmentInput[]
-  visitNotes?: VisitNoteInput[]
-}
-
-export interface AddDepartmentInput {
-  visitId: string
-  departmentId: string
-}
-
-export interface ProcessDepartmentInput {
-  visitId: string
-  departmentId: string
-}
-
-export interface AddProcessorInput {
-  visitId: string
-  departmentId: string
-  userId: string
-}
-
-export interface AddActionInput {
-  visitId: string
-  departmentId: string
-  actionId: string
-  quantity?: number
-}
-
-export interface AddConsumableInput {
-  visitId: string
-  departmentId: string
-  consumableId: string
-  quantity?: number
-}
-
-export interface AddNoteInput {
-  visitId: string
-  departmentId?: string
-  note: VisitNoteInput
-}
-
-export interface RemoveItemInput {
-  visitId: string
-  departmentId: string
-  itemId: string
-}
-
-export interface UpdateQuantityInput {
-  visitId: string
-  departmentId: string
-  itemId: string
-  quantity: number
-}
-
-export interface ConditionalRenderingInput {
-  dependsOn: string
-  condition: string
-  value?: string
-  itemType?: string
-}
-
-export interface TableConfigInput {
-  mode: string
-  rows: number
-  columns: number
-  headerPlacement: string
-  columnHeaders?: string[]
-  rowHeaders?: string[]
-}
-
-export interface FormFieldInput {
-  id: string
-  label: string
-  type: string
-  placeholder?: string
-  required?: boolean
-  order: number
-  hideLabel?: boolean
-  boldLabel?: boolean
-  italicLabel?: boolean
-  underlineLabel?: boolean
-  centerLabel?: boolean
-  conditionalRendering?: ConditionalRenderingInput
-  options?: string[]
-  tableConfig?: TableConfigInput
-}
-
-export interface FormSectionInput {
-  id: string
-  title: string
-  boldTitle?: boolean
-  italicTitle?: boolean
-  underlineTitle?: boolean
-  centerTitle?: boolean
-  columns: number
-  order: number
-  fields?: FormFieldInput[]
-}
-
-export interface FormInput {
-  title: string
-  description?: string
-  sections?: FormSectionInput[]
-  fields?: FormFieldInput[]
-  actions?: FormActionItem[]
-}
-
-export interface VisitFilterInput {
-  status?: VisitStatus
-  billingStatus?: BillingStatus
-  visitType?: VisitType
-  patientName?: string
-  fromDate?: string
-  toDate?: string
-}
-
-export interface PatientFilterInput {
-  name?: string
-  age?: number
-  dob?: string
-  phoneNumber?: string
-  insuranceName?: string
 }

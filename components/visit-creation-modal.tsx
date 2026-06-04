@@ -2,7 +2,8 @@
 
 import type React from "react"
 import { useState, useEffect, useCallback } from "react"
-import { usePatients, useDepartments, useCreateVisit, usePatient, type Patient, type PatientFilterInput } from "@/hooks/auth-hooks"
+import { usePatients, useDepartments, useCreateVisit, usePatient } from "@/hooks/auth-hooks"
+import type { Patient, PatientFilterInput } from "@/lib/api-types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"

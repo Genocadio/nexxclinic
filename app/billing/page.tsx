@@ -8,7 +8,8 @@ import { BillingData, BillingItem, buildProductCoverageMaps, getItemInsuranceSpl
 import Header from '@/components/header';
 import { useAuth } from '@/lib/auth-context';
 import { useSearchParams } from 'next/navigation';
-import { useVisit, type Visit, useInsurances, useCreateBill, useGetBillByVisit, useGenerateInvoice, useCompleteVisit } from '@/hooks/auth-hooks';
+import { useVisit, useInsurances, useCreateBill, useGetBillByVisit, useGenerateInvoice, useCompleteVisit } from '@/hooks/auth-hooks';
+import type { Visit } from '@/lib/api-types';
 import { useUpdateVisitDepartmentStatus } from '@/hooks/auth-hooks';
 import { useAddVisitNote } from '@/hooks/auth-hooks';
 import { useAddProductToVisitDepartment, useLinkVisitInsurances, useUnlinkVisitInsurances, useUpdateProductQuantity } from '@/hooks/visits/hooks';

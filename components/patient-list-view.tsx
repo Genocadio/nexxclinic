@@ -1,6 +1,6 @@
 "use client"
 
-import type { Patient, Consultation, ConsultationStatus } from "@/lib/types"
+import type { Patient } from "@/lib/api-types"
 import { ArrowLeft, History } from "lucide-react"
 import { useState } from "react"
 import MedicalHistory from "@/components/medical-history"

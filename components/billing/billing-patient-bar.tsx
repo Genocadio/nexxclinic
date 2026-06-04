@@ -5,17 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
-
-type PatientInsurance = {
-  id: string;
-  insuranceCardNumber?: string | null;
-  insurance: {
-    id: string | number;
-    acronym: string;
-    name: string;
-    coveragePercentage: number;
-  };
-};
+import type { PatientInsurance } from '@/lib/api-types';
 
 type BillingPatientBarProps = {
   patientName: string;
