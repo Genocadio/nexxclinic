@@ -2,38 +2,16 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useUpdatePatient, useInsurances } from "@/hooks/auth-hooks"
-import type { Patient, UpdatePatientInput as PatientRegistrationInput } from "@/lib/api-types"
+import { useUpdatePatient } from "@/hooks/auth-hooks"
+import type { Patient, Gender } from "@/lib/api-types"
+import type { UpdatePatientInput } from "@/lib/api-input-types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { AlertCircle, Check, ChevronsUpDown } from "lucide-react"
+import { AlertCircle } from "lucide-react"
 import { toast } from "react-toastify"
-import { cn } from "@/lib/utils"
 import { sanitizeEmailInput, sanitizePhoneInput } from "@/lib/validation-utils"
-
-const calculateAge = (dateOfBirth: string): number => {
-  if (!dateOfBirth) return 0
-  const today = new Date()
-  const birthDate = new Date(dateOfBirth)
-  let age = today.getFullYear() - birthDate.getFullYear()
-  const monthDiff = today.getMonth() - birthDate.getMonth()
-
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--
-  }
-
-  return age
-}
-
-const isDominantMemberRequired = (dateOfBirth: string, hasInsurance: boolean): boolean => {
-  if (!hasInsurance) return false
-  const age = calculateAge(dateOfBirth)
-  return age <= 18
-}
 
 interface PatientEditModalProps {
   isOpen: boolean
@@ -42,38 +20,29 @@ interface PatientEditModalProps {
   onPatientUpdated?: (patient: Patient) => void
 }
 
+const emptyForm: UpdatePatientInput = {
+  firstName: "",
+  lastName: "",
+  middleName: "",
+  dateOfBirth: "",
+  gender: undefined,
+  primaryPhoneNumber: "",
+  alternativePhone: "",
+  village: "",
+  city: "",
+  district: "",
+  postalAddress: "",
+  nationalIdNumber: "",
+  passportNumber: "",
+  emergencyContactName: "",
+  emergencyContactRelationship: "",
+  emergencyContactPhoneNumber: "",
+}
+
 export default function PatientEditModal({ isOpen, onClose, patient, onPatientUpdated }: PatientEditModalProps) {
   const { updatePatient, loading } = useUpdatePatient()
-  const { insurances, loading: insurancesLoading } = useInsurances()
   const [error, setError] = useState("")
-  const [insurancePopoverOpen, setInsurancePopoverOpen] = useState<{ [key: number]: boolean }>({})
-  const [showNotes, setShowNotes] = useState(false)
-
-  const [formData, setFormData] = useState<PatientRegistrationInput>({
-    firstName: "",
-    lastName: "",
-    middleName: "",
-    dateOfBirth: "",
-    gender: "",
-    contactInfo: {
-      phone: "",
-      email: "",
-      address: {
-        street: "",
-        sector: "",
-        district: "",
-        country: ""
-      }
-    },
-    emergencyContact: {
-      name: "",
-      relation: "",
-      phone: ""
-    },
-    nationalId: "",
-    insurances: [],
-    notes: ""
-  })
+  const [formData, setFormData] = useState<UpdatePatientInput>(emptyForm)
 
   // Populate form when patient data is available
   useEffect(() => {
@@ -83,108 +52,29 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
         lastName: patient.lastName || "",
         middleName: patient.middleName || "",
         dateOfBirth: patient.dateOfBirth || "",
-        gender: patient.gender || "",
-        contactInfo: {
-          phone: patient.contactInfo?.phone || "",
-          email: patient.contactInfo?.email || "",
-          address: {
-            street: patient.contactInfo?.address?.street || "",
-            sector: patient.contactInfo?.address?.sector || "",
-            district: patient.contactInfo?.address?.district || "",
-            country: patient.contactInfo?.address?.country || ""
-          }
-        },
-        emergencyContact: {
-          name: patient.emergencyContact?.name || "",
-          relation: patient.emergencyContact?.relation || "",
-          phone: patient.emergencyContact?.phone || ""
-        },
-        nationalId: patient.nationalId || "",
-        insurances: patient.insurances?.map(ins => ({
-          id: ins.id,
-          insuranceId: parseInt(ins.insurance.id),
-          insuranceCardNumber: ins.insuranceCardNumber || "",
-          providingCompanyOrEmployer: (ins as any).providingCompanyOrEmployer || "",
-          dominantMember: ins.dominantMember ? {
-            firstName: ins.dominantMember.firstName || "",
-            lastName: ins.dominantMember.lastName || "",
-            phone: ins.dominantMember.phone || ""
-          } : undefined,
-        })) || [],
-        notes: patient.notes || ""
+        gender: patient.gender as Gender | undefined,
+        primaryPhoneNumber: patient.primaryPhoneNumber || "",
+        alternativePhone: patient.alternativePhone || "",
+        village: patient.village || "",
+        city: patient.city || "",
+        district: patient.district || "",
+        postalAddress: patient.postalAddress || "",
+        nationalIdNumber: patient.nationalIdNumber || "",
+        passportNumber: patient.passportNumber || "",
+        emergencyContactName: patient.emergencyContactName || "",
+        emergencyContactRelationship: patient.emergencyContactRelationship || "",
+        emergencyContactPhoneNumber: patient.emergencyContactPhoneNumber || "",
       })
       setError("")
     }
   }, [patient, isOpen])
 
-  const handleInputChange = (field: string, value: string) => {
-    const sanitizedValue =
-      field === 'contactInfo.email'
-        ? sanitizeEmailInput(value)
-        : field === 'contactInfo.phone' || field === 'emergencyContact.phone'
-          ? sanitizePhoneInput(value)
-          : value
-
-    setFormData(prev => {
-      const keys = field.split('.')
-      const updated = { ...prev }
-
-      let current: any = updated
-      for (let i = 0; i < keys.length - 1; i++) {
-        if (!current[keys[i]]) {
-          current[keys[i]] = {}
-        }
-        current = current[keys[i]]
-      }
-
-      current[keys[keys.length - 1]] = sanitizedValue
-      return updated
-    })
-  }
-
-  const updateInsurance = (index: number, field: string, value: any) => {
-    const sanitizedValue = field === 'dominantMember.phone' ? sanitizePhoneInput(String(value)) : value
-    setFormData(prev => {
-      const newInsurances = [...(prev.insurances || [])]
-      const keys = field.split('.')
-      let current: any = newInsurances[index]
-      for (let i = 0; i < keys.length - 1; i++) {
-        if (!current[keys[i]]) {
-          current[keys[i]] = {}
-        }
-        current = current[keys[i]]
-      }
-      current[keys[keys.length - 1]] = sanitizedValue
-      return { ...prev, insurances: newInsurances }
-    })
-  }
-
-  const removeInsurance = (index: number) => {
-    setFormData(prev => {
-      const newInsurances = (prev.insurances || []).filter((_, i) => i !== index)
-      return { ...prev, insurances: newInsurances }
-    })
-  }
-
-  const addInsurance = () => {
-    setFormData(prev => ({
-      ...prev,
-      insurances: [
-        ...(prev.insurances || []),
-        {
-          insuranceId: 0,
-          insuranceCardNumber: "",
-          providingCompanyOrEmployer: "",
-          dominantMember: { firstName: "", lastName: "", phone: "" },
-        }
-      ]
-    }))
-  }
-
-  const getInsuranceName = (insuranceId: number) => {
-    if (!insuranceId || insuranceId === 0) return "Select insurance..."
-    const insurance = insurances.find(ins => ins.id === insuranceId)
-    return insurance ? `${insurance.name} (${insurance.acronym})` : "Select insurance..."
+  const handleChange = (field: keyof UpdatePatientInput, value: string) => {
+    const sanitized =
+      field === "primaryPhoneNumber" || field === "alternativePhone" || field === "emergencyContactPhoneNumber"
+        ? sanitizePhoneInput(value)
+        : value
+    setFormData(prev => ({ ...prev, [field]: sanitized }))
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -195,29 +85,6 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
       return
     }
 
-    const hasInsurance = (formData.insurances?.length ?? 0) > 0
-    const dominantMemberRequired = isDominantMemberRequired(formData.dateOfBirth, hasInsurance)
-
-    if (dominantMemberRequired) {
-      for (let i = 0; i < (formData.insurances?.length || 0); i++) {
-        const insurance = formData.insurances![i]
-        if (!insurance.dominantMember?.firstName || !insurance.dominantMember?.lastName || !insurance.dominantMember?.phone) {
-          toast.error(`Insurance #${i + 1}: Dominant member information (First Name, Last Name, Phone) is required for patients 18 years or younger`)
-          return
-        }
-      }
-    }
-
-    if (formData.insurances && formData.insurances.length > 0) {
-      for (let i = 0; i < formData.insurances.length; i++) {
-        const insurance = formData.insurances[i]
-        if (!insurance.insuranceCardNumber || !insurance.providingCompanyOrEmployer) {
-          toast.error(`Insurance #${i + 1}: Card number and providing company/employer are required`)
-          return
-        }
-      }
-    }
-
     try {
       if (!patient?.id) {
         toast.error("Patient ID not found")
@@ -225,18 +92,18 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
       }
 
       const result = await updatePatient(patient.id, formData)
-      if (result.status === 'SUCCESS') {
+      if (result.status === "SUCCESS") {
         toast.success(result.message || "Patient updated successfully!")
         if (onPatientUpdated && result.data) {
           onPatientUpdated(result.data)
         }
         onClose()
       } else {
-        const message = result.message || result.messages?.[0]?.text || 'Patient update failed'
+        const message = (result as any).message || (result as any).messages?.[0]?.text || "Patient update failed"
         toast.error(message)
       }
-    } catch (error) {
-      toast.error('Network error occurred')
+    } catch {
+      toast.error("Network error occurred")
     }
   }
 
@@ -252,82 +119,84 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
 
         <div className="overflow-y-auto scrollbar-hide pr-2 max-h-[calc(90vh-180px)] pb-20">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {error}
+              </div>
+            )}
+
             {/* Basic Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  First Name *
-                </label>
+                <label className="block text-sm font-medium text-foreground mb-1.5">First Name *</label>
                 <Input
                   type="text"
-                  value={formData.firstName}
-                  onChange={(e) => handleInputChange('firstName', e.target.value)}
+                  value={formData.firstName || ""}
+                  onChange={(e) => handleChange("firstName", e.target.value)}
                   placeholder="Enter first name"
-                  className="w-full"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Last Name
-                </label>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Last Name</label>
                 <Input
                   type="text"
-                  value={formData.lastName}
-                  onChange={(e) => handleInputChange('lastName', e.target.value)}
+                  value={formData.lastName || ""}
+                  onChange={(e) => handleChange("lastName", e.target.value)}
                   placeholder="Enter last name"
-                  className="w-full"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Middle Name
-                </label>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Middle Name</label>
                 <Input
                   type="text"
-                  value={formData.middleName}
-                  onChange={(e) => handleInputChange('middleName', e.target.value)}
+                  value={formData.middleName || ""}
+                  onChange={(e) => handleChange("middleName", e.target.value)}
                   placeholder="Enter middle name"
-                  className="w-full"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Date of Birth *
-                </label>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Date of Birth *</label>
                 <Input
                   type="date"
-                  value={formData.dateOfBirth}
-                  onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                  className="w-full"
+                  value={formData.dateOfBirth || ""}
+                  onChange={(e) => handleChange("dateOfBirth", e.target.value)}
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Gender
-                </label>
-                <Select value={formData.gender} onValueChange={(value) => handleInputChange('gender', value)}>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Gender</label>
+                <Select
+                  value={formData.gender || ""}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value as Gender }))}
+                >
                   <SelectTrigger suppressHydrationWarning>
                     <SelectValue placeholder="Select gender" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="M">Male</SelectItem>
-                    <SelectItem value="F">Female</SelectItem>
-                    <SelectItem value="O">Other</SelectItem>
+                    <SelectItem value="MALE">Male</SelectItem>
+                    <SelectItem value="FEMALE">Female</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  National ID
-                </label>
+                <label className="block text-sm font-medium text-foreground mb-1.5">National ID</label>
                 <Input
                   type="text"
-                  value={formData.nationalId}
-                  onChange={(e) => handleInputChange('nationalId', e.target.value)}
+                  value={formData.nationalIdNumber || ""}
+                  onChange={(e) => handleChange("nationalIdNumber", e.target.value)}
                   placeholder="Enter national ID"
-                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Passport Number</label>
+                <Input
+                  type="text"
+                  value={formData.passportNumber || ""}
+                  onChange={(e) => handleChange("passportNumber", e.target.value)}
+                  placeholder="Enter passport number"
                 />
               </div>
             </div>
@@ -337,27 +206,21 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
               <h3 className="text-lg font-semibold mb-4">Contact Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
-                    Phone
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Phone</label>
                   <Input
                     type="tel"
-                    value={formData.contactInfo?.phone}
-                    onChange={(e) => handleInputChange('contactInfo.phone', e.target.value)}
-                    placeholder="Enter phone number"
-                    className="w-full"
+                    value={formData.primaryPhoneNumber || ""}
+                    onChange={(e) => handleChange("primaryPhoneNumber", e.target.value)}
+                    placeholder="Enter primary phone number"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
-                    Email
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Alternative Phone</label>
                   <Input
-                    type="email"
-                    value={formData.contactInfo?.email}
-                    onChange={(e) => handleInputChange('contactInfo.email', e.target.value)}
-                    placeholder="Enter email address"
-                    className="w-full"
+                    type="tel"
+                    value={formData.alternativePhone || ""}
+                    onChange={(e) => handleChange("alternativePhone", e.target.value)}
+                    placeholder="Enter alternative phone"
                   />
                 </div>
               </div>
@@ -368,31 +231,27 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input
                     type="text"
-                    value={formData.contactInfo?.address?.street}
-                    onChange={(e) => handleInputChange('contactInfo.address.street', e.target.value)}
-                    placeholder="Street"
-                    className="w-full"
+                    value={formData.village || ""}
+                    onChange={(e) => handleChange("village", e.target.value)}
+                    placeholder="Village"
                   />
                   <Input
                     type="text"
-                    value={formData.contactInfo?.address?.sector}
-                    onChange={(e) => handleInputChange('contactInfo.address.sector', e.target.value)}
-                    placeholder="Sector"
-                    className="w-full"
+                    value={formData.city || ""}
+                    onChange={(e) => handleChange("city", e.target.value)}
+                    placeholder="City"
                   />
                   <Input
                     type="text"
-                    value={formData.contactInfo?.address?.district}
-                    onChange={(e) => handleInputChange('contactInfo.address.district', e.target.value)}
+                    value={formData.district || ""}
+                    onChange={(e) => handleChange("district", e.target.value)}
                     placeholder="District"
-                    className="w-full"
                   />
                   <Input
                     type="text"
-                    value={formData.contactInfo?.address?.country}
-                    onChange={(e) => handleInputChange('contactInfo.address.country', e.target.value)}
-                    placeholder="Country"
-                    className="w-full"
+                    value={formData.postalAddress || ""}
+                    onChange={(e) => handleChange("postalAddress", e.target.value)}
+                    placeholder="Postal Address"
                   />
                 </div>
               </div>
@@ -404,225 +263,32 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Input
                   type="text"
-                  value={formData.emergencyContact?.name}
-                  onChange={(e) => handleInputChange('emergencyContact.name', e.target.value)}
+                  value={formData.emergencyContactName || ""}
+                  onChange={(e) => handleChange("emergencyContactName", e.target.value)}
                   placeholder="Contact name"
-                  className="w-full"
                 />
                 <Input
                   type="text"
-                  value={formData.emergencyContact?.relation}
-                  onChange={(e) => handleInputChange('emergencyContact.relation', e.target.value)}
-                  placeholder="Relation"
-                  className="w-full"
+                  value={formData.emergencyContactRelationship || ""}
+                  onChange={(e) => handleChange("emergencyContactRelationship", e.target.value)}
+                  placeholder="Relationship"
                 />
                 <Input
                   type="tel"
-                  value={formData.emergencyContact?.phone}
-                  onChange={(e) => handleInputChange('emergencyContact.phone', e.target.value)}
+                  value={formData.emergencyContactPhoneNumber || ""}
+                  onChange={(e) => handleChange("emergencyContactPhoneNumber", e.target.value)}
                   placeholder="Phone number"
-                  className="w-full"
                 />
               </div>
             </div>
 
-            {/* Insurance Information */}
-            <div className="border-t pt-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Insurance Information</h3>
-                <Button type="button" onClick={addInsurance} size="sm" className="rounded-full px-4 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md">
-                  Add Insurance
-                </Button>
-              </div>
-
-              {formData.insurances?.map((insurance, index) => (
-                <div key={index} className="border rounded-lg p-4 mb-4">
-                  <div className="flex justify-between items-start mb-4">
-                    <h4 className="font-medium">Insurance #{index + 1}</h4>
-                    <Button
-                      type="button"
-                      onClick={() => removeInsurance(index)}
-                      size="sm"
-                      className="rounded-full bg-red-500 hover:bg-red-600 text-white"
-                    >
-                      Remove
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">
-                        Insurance Provider
-                      </label>
-                      <Popover
-                        open={insurancePopoverOpen[index] || false}
-                        onOpenChange={(open) => setInsurancePopoverOpen(prev => ({ ...prev, [index]: open }))}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={insurancePopoverOpen[index]}
-                            className="w-full justify-between"
-                          >
-                            {getInsuranceName(insurance.insuranceId)}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-full p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder="Search insurance..." />
-                            <CommandList>
-                              <CommandEmpty>No insurance found.</CommandEmpty>
-                              <CommandGroup>
-                                {insurances.map((ins) => (
-                                  <CommandItem
-                                    key={ins.id}
-                                    value={`${ins.name} ${ins.acronym}`}
-                                    onSelect={() => {
-                                      updateInsurance(index, 'insuranceId', ins.id)
-                                      setInsurancePopoverOpen(prev => ({ ...prev, [index]: false }))
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        insurance.insuranceId === ins.id ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    {ins.name} ({ins.acronym})
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">
-                        Card Number *
-                      </label>
-                      <Input
-                        type="text"
-                        value={insurance.insuranceCardNumber}
-                        onChange={(e) => updateInsurance(index, 'insuranceCardNumber', e.target.value)}
-                        placeholder="Enter card number"
-                        className="w-full"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">
-                        Providing Company / Employer *
-                      </label>
-                      <Input
-                        type="text"
-                        value={insurance.providingCompanyOrEmployer}
-                        onChange={(e) => updateInsurance(index, 'providingCompanyOrEmployer', e.target.value)}
-                        placeholder="Enter company or employer"
-                        className="w-full"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <h5 className="text-sm font-medium text-foreground mb-2">
-                      Dominant Member Information
-                      {isDominantMemberRequired(formData.dateOfBirth, true) && (
-                        <span className="text-red-500 ml-1">*</span>
-                      )}
-                      <span className="text-xs text-muted-foreground ml-2">
-                        ({isDominantMemberRequired(formData.dateOfBirth, true) ? 'Required' : 'Optional'} for patients ≤18 years)
-                      </span>
-                    </h5>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-foreground mb-1">
-                          First Name
-                          {isDominantMemberRequired(formData.dateOfBirth, true) && (
-                            <span className="text-red-500 ml-1">*</span>
-                          )}
-                        </label>
-                        <Input
-                          type="text"
-                          value={insurance.dominantMember?.firstName || ""}
-                          onChange={(e) => updateInsurance(index, 'dominantMember.firstName', e.target.value)}
-                          placeholder="First name"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-foreground mb-1">
-                          Last Name
-                          {isDominantMemberRequired(formData.dateOfBirth, true) && (
-                            <span className="text-red-500 ml-1">*</span>
-                          )}
-                        </label>
-                        <Input
-                          type="text"
-                          value={insurance.dominantMember?.lastName || ""}
-                          onChange={(e) => updateInsurance(index, 'dominantMember.lastName', e.target.value)}
-                          placeholder="Last name"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-foreground mb-1">
-                          Phone
-                          {isDominantMemberRequired(formData.dateOfBirth, true) && (
-                            <span className="text-red-500 ml-1">*</span>
-                          )}
-                        </label>
-                        <Input
-                          type="tel"
-                          value={insurance.dominantMember?.phone || ""}
-                          onChange={(e) => updateInsurance(index, 'dominantMember.phone', e.target.value)}
-                          placeholder="Phone number"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Notes */}
-            <div className="border-t pt-6">
-              {!showNotes ? (
-                <Button type="button" onClick={() => setShowNotes(true)} className="rounded-full px-4 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md">
-                  Add Notes
-                </Button>
-              ) : (
-                <>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
-                    Notes
-                  </label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => handleInputChange('notes', e.target.value)}
-                    placeholder="Enter any additional notes"
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    rows={4}
-                  />
-                </>
-              )}
-            </div>
+            <DialogFooter>
+              <Button variant="outline" type="button" onClick={onClose}>Cancel</Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
           </form>
-        </div>
-
-        {/* Floating action bar */}
-        <div className="fixed bottom-6 left-0 right-0 flex justify-center pointer-events-none">
-          <div className="bg-white/20 backdrop-blur-xl shadow-2xl rounded-full px-6 py-3 flex gap-3 pointer-events-auto border border-white/30">
-            <Button variant="outline" onClick={onClose} className="rounded-full px-6 border-red-500 text-red-600 hover:bg-red-50">
-              Cancel
-            </Button>
-            <Button onClick={(e) => handleSubmit(e as any)} disabled={loading} className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-lg hover:shadow-xl transition-all duration-200">
-              {loading ? "Saving..." : "Save Changes"}
-            </Button>
-          </div>
         </div>
       </DialogContent>
     </Dialog>

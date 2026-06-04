@@ -360,12 +360,12 @@ export default function DashboardPage() {
   }
 
   const canDischargeVisit = (visit: Visit) => {
-    if (visit.visitStatus === 'COMPLETED' || visit.visitStatus === 'CANCELLED') return false
+    if (visit.status === 'COMPLETED' || visit.status === 'CANCELLED') return false
     if (hasIncompleteDepartments(visit)) return false
     return !hasUnbilledItems(visit) || hasNoBillables(visit)
   }
 
-  const isDischarged = (visit: Visit) => visit.visitStatus === 'COMPLETED' && !hasUnbilledItems(visit)
+  const isDischarged = (visit: Visit) => visit.status === 'COMPLETED' && !hasUnbilledItems(visit)
 
   const isVisitDepartmentBillingOrCompleted = (visit: Visit, departmentStatus: string) => {
     const normalizedDepartmentStatus = String(departmentStatus || '').toUpperCase()
@@ -506,7 +506,7 @@ export default function DashboardPage() {
     if (statusFilter === "BILLING") {
       filtered = filtered.filter((visit) => hasUnbilledItems(visit))
     } else if (statusFilter !== "all") {
-      filtered = filtered.filter(visit => visit.visitStatus === statusFilter)
+      filtered = filtered.filter(visit => visit.status === statusFilter)
     }
 
     return filtered
@@ -535,7 +535,7 @@ export default function DashboardPage() {
   }
 
   const canAddDepartment = (visit: Visit) => {
-    return visit.visitStatus !== 'COMPLETED'
+    return visit.status !== 'COMPLETED'
   }
 
   const handleAddDepartment = (visit: Visit) => {
@@ -908,8 +908,8 @@ export default function DashboardPage() {
                           canSeeVisitActionButtons,
                           canSeeConsultButton,
                           canConsultVisit: canConsultVisit(visit),
-                          visitStatus: visit.visitStatus,
-                          statusCheck: visit.visitStatus === 'CREATED' || visit.visitStatus === 'IN_PROGRESS',
+                          visitStatus: visit.status,
+                          statusCheck: visit.status === 'CREATED' || visit.status === 'IN_PROGRESS',
                         }
                         const unbilledProductCount = countUnbilledProducts(visit)
                         const unbilledProductNames = getUnbilledProductNames(visit)
@@ -928,10 +928,10 @@ export default function DashboardPage() {
                           <div className={viewMode === "grid" ? "h-full flex flex-col justify-between gap-4" : "flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-3"}>
                             <div className={viewMode === "grid" ? "space-y-2" : "flex items-center gap-3 flex-1"}>
                               <div className={viewMode === "grid" ? "flex items-center gap-2" : "contents"}>
-                                {visit.visitStatus === 'CREATED' && <AlertCircle className="w-4 h-4 text-secondary flex-shrink-0" />}
-                                {visit.visitStatus === 'IN_PROGRESS' && <Clock className="w-4 h-4 text-accent flex-shrink-0" />}
-                                {visit.visitStatus === 'COMPLETED' && <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />}
-                                {visit.visitStatus === 'CANCELLED' && <AlertCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+                                {visit.status === 'CREATED' && <AlertCircle className="w-4 h-4 text-secondary flex-shrink-0" />}
+                                {visit.status === 'IN_PROGRESS' && <Clock className="w-4 h-4 text-accent flex-shrink-0" />}
+                                {visit.status === 'COMPLETED' && <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />}
+                                {visit.status === 'CANCELLED' && <AlertCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <h3 className="font-medium text-foreground truncate cursor-help">
@@ -948,8 +948,8 @@ export default function DashboardPage() {
                                           <div key={dept.id} className="border-b border-border/30 pb-2 last:border-b-0 last:pb-0">
                                             <p className="font-medium">{dept.department?.name || "Unknown Department"}</p>
                                             <p>Status: {dept.status || "-"}</p>
-                                            <p>Transfer: {formatDepartmentTime(dept.transferTime)}</p>
-                                            <p>Completed: {formatDepartmentTime(dept.completedTime)}</p>
+                                            <p>Checked in: {formatDepartmentTime(dept.createdAt)}</p>
+                                            <p>Completed: {formatDepartmentTime(dept.completedAt)}</p>
                                           </div>
                                         ))
                                       )}
@@ -982,7 +982,7 @@ export default function DashboardPage() {
                                 )}
                                 {isReceptionistOnly && (
                                   <p className="text-xs text-muted-foreground truncate">
-                                    Status: {visit.visitStatus}
+                                    Status: {visit.status}
                                   </p>
                                 )}
                               </div>
@@ -1086,7 +1086,7 @@ export default function DashboardPage() {
                                 )
                               })()}
 
-                              {canSeeVisitActionButtons && hasNurseRole && (visit.visitStatus === 'CREATED' || visit.visitStatus === 'IN_PROGRESS') && (
+                              {canSeeVisitActionButtons && hasNurseRole && (visit.status === 'CREATED' || visit.status === 'IN_PROGRESS') && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <button
@@ -1108,7 +1108,7 @@ export default function DashboardPage() {
                               )}
                               {canSeeVisitActionButtons
                                 && hasConsultationRole
-                                && (visit.visitStatus === 'COMPLETED' || visit.visitStatus === 'CANCELLED')
+                                && (visit.status === 'COMPLETED' || visit.status === 'CANCELLED')
                                 && !Boolean(getMatchingUserDepartment(visit, { mustBeClosed: true })) && (
                                 <>
                                   <Tooltip>

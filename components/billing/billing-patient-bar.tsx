@@ -72,7 +72,7 @@ export function BillingPatientBar({
                     title="Used for billing on this visit"
                   >
                     <Shield className="h-3 w-3 mr-1" />
-                    {pIns.insurance.acronym}
+                    {pIns.insuranceProvider.acronym}
                   </Badge>
                 ))
               ) : (
@@ -146,15 +146,15 @@ export function BillingPatientBar({
                                 disabled={addingVisitInsurance}
                                 onChange={() => onToggleInsurance(pIns.id, !usedOnVisit)}
                                 className="mt-0.5 h-3.5 w-3.5 accent-primary"
-                                aria-label={`Use ${pIns.insurance.acronym} on this visit`}
+                                aria-label={`Use ${pIns.insuranceProvider.acronym} on this visit`}
                               />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="font-semibold text-foreground">
-                                    {pIns.insurance.acronym}
+                                    {pIns.insuranceProvider.acronym}
                                   </span>
                                   <span className="text-[10px] text-muted-foreground truncate max-w-[8rem]">
-                                    {pIns.insurance.name}
+                                    {pIns.insuranceProvider.insuranceName}
                                   </span>
                                 </div>
                                 <p className="text-[10px] text-muted-foreground truncate mt-0.5">

@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuth } from "@/lib/auth-context"
-import type { Doctor } from "@/lib/types"
+import type { Worker } from "@/lib/api-types"
 import { LogOut, Moon, Sun, UserCog } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
 import { useRouter, usePathname } from "next/navigation"
@@ -10,7 +10,7 @@ import { hasAdminAccess } from "@/lib/role-utils"
 import { getClinicDisplayName, getClinicLogoUrl } from "@/lib/clinic-profile"
 
 interface HeaderProps {
-  doctor: Doctor | null
+  doctor: Worker | null
 }
 
 export default function Header({ doctor }: HeaderProps) {
@@ -53,7 +53,7 @@ export default function Header({ doctor }: HeaderProps) {
               className="flex items-center gap-2 hover:bg-muted/50 rounded-full p-2 transition-all duration-200 backdrop-blur-sm"
             >
               <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200">
-                {getInitials(doctor.name)}
+              {getInitials(`${doctor.firstName} ${doctor.lastName || ''}`)}
               </div>
             </button>
 
@@ -65,8 +65,8 @@ export default function Header({ doctor }: HeaderProps) {
                 />
                 <div className="absolute right-0 mt-2 w-56 bg-background border border-border rounded-2xl shadow-xl z-[100] overflow-hidden isolate">
                   <div className="px-4 py-3 border-b border-border/30">
-                    <p className="text-sm font-semibold text-card-foreground">{doctor.name}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{doctor.specialization}</p>
+                    <p className="text-sm font-semibold text-card-foreground">{doctor.firstName} {doctor.lastName}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{doctor.roles?.join(', ') || ''}</p>
                   </div>
                   {isAdminPath ? (
                     <button

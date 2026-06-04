@@ -204,9 +204,11 @@ export enum VisitPreInstructionProductStatus {
 
 export enum PaymentMethod {
   CASH = "CASH",
-  MOMO = "MOMO",
-  BANK_TRANSFER = "BANK_TRANSFER",
+  MOBILE_MONEY = "MOBILE_MONEY",
   CARD = "CARD",
+  BANK_TRANSFER = "BANK_TRANSFER",
+  CHEQUE = "CHEQUE",
+  MIXED = "MIXED",
 }
 
 // ============================================
@@ -739,7 +741,8 @@ export interface ClinicContact {
  * ClinicMetadata - Metadata for clinic
  */
 export interface ClinicMetadata {
-  [key: string]: string | number | boolean
+  key: string
+  value: string
 }
 
 // ============================================

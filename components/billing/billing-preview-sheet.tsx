@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { X, ChevronRight } from "lucide-react"
-import type { Visit } from "@/hooks/types"
+import type { Visit } from "@/lib/api-types"
 import type { BillingData } from "@/lib/billing-utils"
 import type { Bill } from "@/hooks/types"
 
@@ -55,7 +55,7 @@ export function BillingPreviewSheet({
   }, [open, selectedDepartmentId])
 
   const topLevelDepartments = useMemo(
-    () => visit?.departments?.filter((dept) => dept.status !== 'CANCELLED') || [],
+    () => visit?.departments?.filter((dept) => dept.status !== 'COMPLETED') || [],
     [visit?.departments],
   )
 
@@ -104,14 +104,15 @@ export function BillingPreviewSheet({
         departmentName: activeDepartment.department?.name || '' as string,
         groupLabel: 'Invoice'
       }))
+      const computedTotal = items.reduce((sum: number, it: { price: number; quantity: number }) => sum + it.price * it.quantity, 0)
       return items.length > 0 ? [{
         groupLabel: 'Invoice',
         status: '',
-        totalAmount: billingData.totalAmount || 0,
-        insuranceCoveredAmount: billingData.insuranceCoveredAmount || 0,
-        patientPayableAmount: billingData.patientPayableAmount || 0,
-        paidAmount: billingData.paidAmount || 0,
-        outstandingAmount: billingData.outstandingAmount || 0,
+        totalAmount: computedTotal,
+        insuranceCoveredAmount: 0,
+        patientPayableAmount: computedTotal,
+        paidAmount: 0,
+        outstandingAmount: computedTotal,
         items,
       }] : []
     }
@@ -150,7 +151,6 @@ export function BillingPreviewSheet({
     return groups
   }, [billingData, activeDepartment, visitBillingRaw])
 
-  const departmentSubtotal = invoiceGroups.reduce((sum, group) => sum + group.items.reduce((inner, item) => inner + item.price * item.quantity, 0), 0)
   const departmentTotal = invoiceGroups.reduce((sum, group) => sum + group.totalAmount, 0)
   const departmentPaid = invoiceGroups.reduce((sum, group) => sum + group.paidAmount, 0)
   const departmentOutstanding = invoiceGroups.reduce((sum, group) => sum + group.outstandingAmount, 0)
@@ -332,32 +332,5 @@ export function BillingPreviewSheet({
       </aside>
     </div>,
     document.body,
-  )
-}
-
-function InfoCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-white p-4 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-      <p className="mt-2 text-sm font-medium text-foreground">{value || 'N/A'}</p>
-    </div>
-  )
-}
-
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-slate-50 p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
-    </div>
-  )
-}
-
-function SummaryItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-foreground">{value}</span>
-    </div>
   )
 }

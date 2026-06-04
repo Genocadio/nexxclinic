@@ -182,12 +182,10 @@ export function ConsultationSidePanels({
             {idPanel.pinned && <span className="text-xs bg-white/30 px-2 py-1 rounded">Pinned</span>}
           </div>
           <div className="p-4 space-y-2 text-sm">
-            <div className="font-medium text-foreground">{patient.name}</div>
-            <div className="text-muted-foreground">Age: {patient.age}</div>
-            <div className="text-muted-foreground">Gender: {patient.gender}</div>
+            <div className="font-medium text-foreground">{patient.firstName} {patient.lastName}</div>
             <div className="text-muted-foreground">DOB: {formatDateOnly(patient.dateOfBirth)}</div>
-            {patient.phone && <div className="text-muted-foreground">Phone: {patient.phone}</div>}
-            {patient.email && <div className="text-muted-foreground">Email: {patient.email}</div>}
+            <div className="text-muted-foreground">Gender: {patient.gender}</div>
+            {patient.primaryPhoneNumber && <div className="text-muted-foreground">Phone: {patient.primaryPhoneNumber}</div>}
           </div>
         </div>
       )}

@@ -2,9 +2,8 @@
 
 import { useState } from "react"
 import type { Patient } from "@/lib/api-types"
-import { ArrowLeft, Plus, Trash2, Save, AlertCircle, CheckCircle } from "lucide-react"
+import { ArrowLeft, Save, AlertCircle, CheckCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 
 // Legacy type definitions - should be replaced with api-types when schema is available
 interface VitalSigns {
@@ -168,11 +167,11 @@ function SummaryTab({
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Gender:</span>
-              <span className="text-foreground">{patient.gender === "M" ? "Male" : "Female"}</span>
+              <span className="text-foreground">{patient.gender === "MALE" ? "Male" : patient.gender === "FEMALE" ? "Female" : "Other"}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Contact:</span>
-              <span className="text-foreground">{patient.contactInfo?.phone}</span>
+              <span className="text-foreground">{patient.primaryPhoneNumber}</span>
             </div>
           </div>
         </div>

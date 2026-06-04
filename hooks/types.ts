@@ -81,79 +81,10 @@ export type {
   AuditLog,
   User,
   Insurance,
-  // Input Types - CANONICAL SOURCE
-  WorkerDocumentInput,
-  SelfRegisterInput,
-  AdminCreateUserInput,
-  AdminUpdateUserInput,
-  ActivateUserInput,
-  DeactivateUserInput,
-  LoginInput,
-  SetInitialPasswordInput,
-  RefreshSessionInput,
-  RefreshTokenInput,
-  LogoutInput,
-  UpdateMyProfileInput,
-  ChangeMyPasswordInput,
-  AdminTriggerPasswordResetInput,
-  AdminSetUserSessionLimitInput,
-  CreateInsuranceProviderInput,
-  UpdateInsuranceProviderInput,
-  SearchInsuranceProvidersInput,
-  CreatePatientInput,
-  UpdatePatientInput,
-  SearchPatientsInput,
-  CreatePatientInsuranceInput,
-  UpdatePatientInsuranceInput,
-  CreateProductInsuranceCoverageInput,
-  UpdateProductInsuranceCoverageInput,
-  CreateProductInput,
-  UpdateProductInput,
-  SearchProductsInput,
-  CreateDepartmentInput,
-  UpdateDepartmentInput,
-  SearchDepartmentsInput,
-  CreateVisitInput,
-  ChangeVisitDateInput,
-  CreateVisitDepartmentInput,
-  CreateVisitDepartmentProductItemInput,
-  CreateVisitDepartmentProductInput,
-  AddChildVisitDepartmentProductInput,
-  AddChildVisitDepartmentInput,
-  UpdateVisitDepartmentProductStatusInput,
-  UpdateVisitDepartmentStatusInput,
-  UpdateVisitDepartmentProductQuantityInput,
-  SearchVisitsInput,
-  SearchPatientHistoryInput,
-  BillingPaymentInput,
-  BillVisitDepartmentProductInput,
-  BillVisitDepartmentInput,
-  BillVisitInput,
-  RecordVisitBillingPaymentInput,
-  AddVisitVitalSignItemInput,
-  AddVisitVitalSignsInput,
-  AddVisitPreInstructionMedicationInput,
-  AddVisitPreInstructionProductInput,
-  AddVisitPreInstructionItemInput,
-  AddVisitPreInstructionsInput,
-  AddDiagnosisInput,
-  AddMedicationInput,
-  ConditionalRenderingInput,
-  TableConfigInput,
-  LabRecordRowInput,
-  LabRecordConfigInput,
-  FormFieldInput,
-  FormSectionInput,
-  FormActionInput,
-  FormInput,
-  ConsultationAnswersInput,
-  KeyValueInput,
-  ClinicContactInput,
-  ClinicMetadataInput,
-  UpdateClinicProfileInput,
 } from "@/lib/api-types"
 
 export type {
+  // Input Types - CANONICAL SOURCE (from api-input-types)
   WorkerDocumentInput,
   SelfRegisterInput,
   AdminCreateUserInput,
@@ -273,4 +204,21 @@ export interface InvoiceResponse {
   data?: {
     invoiceUrl?: string
   }
+}
+
+/**
+ * Bill - Represents a finalized billing record (hook-level summary)
+ * Used by billing preview and summary components
+ */
+export interface Bill {
+  id: string
+  visitId: string
+  totalAmount: number
+  insuranceCoveredAmount: number
+  patientPayableAmount: number
+  paidAmount: number
+  outstandingAmount: number
+  status: string
+  createdAt: string
+  updatedAt: string
 }
