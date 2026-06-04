@@ -35,6 +35,7 @@ export const CLINIC_PROFILE_QUERY = gql`
       data {
         id
         name
+        username
         address
         contacts {
           contactType
@@ -43,7 +44,10 @@ export const CLINIC_PROFILE_QUERY = gql`
         }
         tinNumber
         logoUrl
-        metadata
+        metadata {
+        key
+        value
+      }
         createdAt
         updatedAt
       }

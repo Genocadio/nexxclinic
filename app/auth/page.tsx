@@ -1,212 +1,277 @@
-"use client"
+/*  ==============================
+    pages/auth/page.tsx (fixed)
+   ============================== */
 
-import { Suspense, useEffect, useMemo, useState } from "react"
-import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
-import { Eye, EyeOff } from "lucide-react"
-import { toast } from "react-toastify"
+"use client";
 
-import { useAuth } from "@/lib/auth-context"
-import { getClinicDisplayName, getClinicLogoUrl } from "@/lib/clinic-profile"
-import { getPostLoginPath } from "@/lib/role-utils"
-import { sanitizeEmailInput, sanitizeEmailOrPhoneInput, sanitizePhoneInput, validateEmailOrPhone } from "@/lib/validation-utils"
-import { ThemeSwitcher } from "@/components/theme-switcher"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
+import { toast } from "react-toastify";
 
-type FieldErrors = Partial<Record<"email" | "password" | "name" | "phoneNumber" | "phone" | "title", string>>
+/* ---- custom hooks ----------------------------------------------------- */
+import { useClinicProfile } from "@/hooks/auth-hooks";          // ← new
+import { useAuth } from "@/lib/auth-context";                 // ← now includes setClinicProfile
 
-function AuthPageContent() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { isAuthenticated, isLoading, doctor, clinicProfile, login, register } = useAuth()
+/* ---- helpers ---------------------------------------------------------- */
+import { getClinicDisplayName, getClinicLogoUrl } from "@/lib/clinic-profile";
+import { getPostLoginPath } from "@/lib/role-utils";
 
-  const initialMode = useMemo(() => (searchParams.get("mode") === "register" ? "register" : "login"), [searchParams])
-  const [mode, setMode] = useState<"login" | "register">(initialMode)
+/* ---- form utils -------------------------------------------------------- */
+import {
+  sanitizeEmailInput,
+  sanitizeEmailOrPhoneInput,
+  sanitizePhoneInput,
+  validateEmailOrPhone,
+} from "@/lib/validation-utils";
 
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
+/* ---- ui --------------------------------------------------------------- */
+import { ThemeSwitcher } from "@/components/theme-switcher";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 
-  const [name, setName] = useState("")
-  const [phoneNumber, setPhoneNumber] = useState("")
-  const [title, setTitle] = useState("")
-  const [errors, setErrors] = useState<FieldErrors>({})
-  const [isLoadingForm, setIsLoadingForm] = useState(false)
+type FieldErrors = Partial<
+  Record<"email" | "password" | "name" | "phoneNumber" | "phone" | "title", string>
+>;
 
-  const clinicName = getClinicDisplayName(clinicProfile)
-  const clinicLogoUrl = getClinicLogoUrl(clinicProfile)
-  const showBrandSkeleton = isLoading
-  const baseInputClass = "rounded-xl border-slate-300 bg-white/95 text-slate-900 placeholder:text-slate-500 shadow-sm focus-visible:border-slate-500 focus-visible:ring-slate-300/70 dark:border-input dark:bg-input/30 dark:text-foreground dark:placeholder:text-muted-foreground"
+export function AuthPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  /* --------------------------------------------------------------------- */
+  /* 1️⃣  Use the AuthProvider ------------------------------------------------- */
+  /* --------------------------------------------------------------------- */
+  const {
+    isAuthenticated,
+    isLoading,
+    doctor,
+    clinicProfile,            // <- real profile (may be null until set)
+    login,
+    register,
+    setClinicProfile,         // ← exposed by the provider
+  } = useAuth();
+
+  /* --------------------------------------------------------------------- */
+  /* 2️⃣  Fetch clinic profile from the backend                            */
+  /* --------------------------------------------------------------------- */
+  const {
+    clinicProfile: fetchedClinicProfile,
+    loading: clinicLoading,
+  } = useClinicProfile();   // runs on every mount of /auth
+
+  /* Push fetched data into context (and localStorage via setClinicProfile) */
+useEffect(() => {
+    if (!clinicLoading && fetchedClinicProfile && !clinicProfile) {
+      setClinicProfile(fetchedClinicProfile);
+    }
+  }, [fetchedClinicProfile, clinicLoading, clinicProfile, setClinicProfile]);
+
+
+  /* --------------------------------------------------------------------- */
+  /* 3️⃣  Tab mode & form state                                           */
+  /* --------------------------------------------------------------------- */
+  const initialMode = useMemo(
+    () => (searchParams.get("mode") === "register" ? "register" : "login"),
+    [searchParams]
+  );
+  const [mode, setMode] = useState<"login" | "register">(initialMode);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [name, setName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [title, setTitle] = useState("");
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [isLoadingForm, setIsLoadingForm] = useState(false);
+
+  /* --------------------------------------------------------------------- */
+  /* 4️⃣  UI helpers                                                      */
+  /* --------------------------------------------------------------------- */
+  const clinicName = getClinicDisplayName(clinicProfile);
+  const clinicLogoUrl = getClinicLogoUrl(clinicProfile);
+  // Show skeleton while either the auth context or the profile query
+  // is still loading. After first render `clinicLoading` will be true.
+  const showBrandSkeleton = isLoading || clinicLoading;
+  const baseInputClass =
+    "rounded-xl border-slate-300 bg-white/95 text-slate-900 placeholder:text-slate-500 shadow-sm focus-visible:border-slate-500 focus-visible:ring-slate-300/70 dark:border-input dark:bg-input/30 dark:text-foreground dark:placeholder:text-muted-foreground";
 
   const tabButtonClass = (isActive: boolean) =>
     `rounded-xl transition-all duration-300 ${
       isActive
         ? "shadow-md"
         : "text-slate-700 hover:text-slate-900 hover:bg-white/80 dark:text-slate-300 dark:hover:text-slate-50 dark:hover:bg-slate-700/60"
-    }`
+    }`;
+
+  /* --------------------------------------------------------------------- */
+  /* 5️⃣  Handlers                                                       */
+  /* --------------------------------------------------------------------- */
 
   useEffect(() => {
-    setMode(initialMode)
-  }, [initialMode])
+    setMode(initialMode);
+  }, [initialMode]);
 
+  // Redirect after login
   useEffect(() => {
     if (isAuthenticated) {
-      const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
-      router.replace(getPostLoginPath(roles))
+      const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[];
+      router.replace(getPostLoginPath(roles));
     }
-  }, [doctor, isAuthenticated, router])
+  }, [doctor, isAuthenticated, router]);
 
   const switchMode = (next: "login" | "register") => {
-    setMode(next)
-    setErrors({})
-    router.replace(next === "register" ? "/auth?mode=register" : "/auth")
-  }
+    setMode(next);
+    setErrors({});
+    router.replace(next === "register" ? "/auth?mode=register" : "/auth");
+  };
 
   const clearError = (field: keyof FieldErrors) => {
     setErrors((prev) => {
-      if (!prev[field]) return prev
-      const next = { ...prev }
-      delete next[field]
-      return next
-    })
-  }
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
+  /* ---- Validation helpers ------------------------------------------------- */
   const validateEmailField = (value: string) => {
-    let error = ""
+    let error = "";
     if (value.trim()) {
       if (!value.includes("@") || !value.includes(".")) {
-        error = "Please enter a valid email address"
+        error = "Please enter a valid email address";
       }
     }
-    setErrors((prev) => ({ ...prev, email: error || undefined }))
-  }
+    setErrors((prev) => ({ ...prev, email: error || undefined }));
+  };
 
   const validatePhoneField = (value: string) => {
-    let error = ""
+    let error = "";
     if (value.trim()) {
       if (value.includes("@")) {
-        error = "Please enter a valid phone number, not email"
+        error = "Please enter a valid phone number, not email";
       } else {
-        const phoneValidation = validateEmailOrPhone(value)
+        const phoneValidation = validateEmailOrPhone(value);
         if (!phoneValidation.valid) {
-          error = "Please enter a valid phone number"
+          error = "Please enter a valid phone number";
         }
       }
     }
-    setErrors((prev) => ({ ...prev, phone: error || undefined }))
-  }
+    setErrors((prev) => ({ ...prev, phone: error || undefined }));
+  };
 
   const validateLoginIdentifierField = (value: string) => {
-    const trimmedValue = value.trim()
+    const trimmedValue = value.trim();
     if (!trimmedValue) {
-      setErrors((prev) => ({ ...prev, email: undefined }))
-      return
+      setErrors((prev) => ({ ...prev, email: undefined }));
+      return;
     }
-
-    const validation = validateEmailOrPhone(trimmedValue)
-    setErrors((prev) => ({ ...prev, email: validation.valid ? undefined : validation.error }))
-  }
+    const validation = validateEmailOrPhone(trimmedValue);
+    setErrors((prev) => ({
+      ...prev,
+      email: validation.valid ? undefined : validation.error,
+    }));
+  };
 
   const validateForm = (currentMode: "login" | "register"): FieldErrors => {
-    const nextErrors: FieldErrors = {}
+    const nextErrors: FieldErrors = {};
 
     if (currentMode === "login") {
-      const emailOrPhoneValidation = validateEmailOrPhone(email)
+      const emailOrPhoneValidation = validateEmailOrPhone(email);
       if (!emailOrPhoneValidation.valid) {
-        nextErrors.email = emailOrPhoneValidation.error
+        nextErrors.email = emailOrPhoneValidation.error;
       }
     } else {
       if (!email.trim()) {
-        nextErrors.email = "Email is required"
+        nextErrors.email = "Email is required";
       } else if (!email.includes("@") || !email.includes(".")) {
-        nextErrors.email = "Please enter a valid email address"
+        nextErrors.email = "Please enter a valid email address";
       }
 
       if (!phoneNumber.trim()) {
-        nextErrors.phone = "Phone number is required"
+        nextErrors.phone = "Phone number is required";
       } else {
-        const phoneValidation = validateEmailOrPhone(phoneNumber)
+        const phoneValidation = validateEmailOrPhone(phoneNumber);
         if (!phoneValidation.valid) {
           if (phoneNumber.includes("@")) {
-            nextErrors.phone = "Please enter a valid phone number, not email"
+            nextErrors.phone = "Please enter a valid phone number, not email";
           } else {
-            nextErrors.phone = "Please enter a valid phone number"
+            nextErrors.phone = "Please enter a valid phone number";
           }
         }
       }
     }
 
     if (currentMode === "register" && !password.trim()) {
-      nextErrors.password = "Password is required"
+      nextErrors.password = "Password is required";
     }
 
     if (currentMode === "register") {
-      if (!name.trim()) nextErrors.name = "Full name is required"
+      if (!name.trim()) nextErrors.name = "Full name is required";
     }
 
-    return nextErrors
-  }
+    return nextErrors;
+  };
 
   const getWelcomeName = () => {
     if (typeof window !== "undefined") {
       try {
-        const storedDoctor = localStorage.getItem("doctor")
+        const storedDoctor = localStorage.getItem("doctor");
         if (storedDoctor) {
-          const parsedDoctor = JSON.parse(storedDoctor) as { name?: string }
+          const parsedDoctor = JSON.parse(storedDoctor) as { name?: string };
           if (parsedDoctor?.name?.trim()) {
-            return parsedDoctor.name.trim()
+            return parsedDoctor.name.trim();
           }
         }
       } catch {
-        // Fallback to email-derived name below.
+        // fallback below
       }
     }
 
     if (email.includes("@")) {
-      const emailPrefix = email.split("@")[0]?.trim()
+      const emailPrefix = email.split("@")[0]?.trim();
       if (emailPrefix) {
         return emailPrefix
           .replace(/[._-]+/g, " ")
-          .replace(/\b\w/g, (char) => char.toUpperCase())
+          .replace(/\b\w/g, (char) => char.toUpperCase());
       }
     }
 
-    return "Doctor"
-  }
+    return "Doctor";
+  };
 
   const getStoredRoles = () => {
-    if (typeof window === "undefined") {
-      return [] as string[]
-    }
+    if (typeof window === "undefined") return [] as string[];
 
     try {
-      const storedDoctor = localStorage.getItem("doctor")
-      if (!storedDoctor) return []
-      const parsedDoctor = JSON.parse(storedDoctor) as { roles?: string[] } | null
-      return parsedDoctor?.roles || []
+      const storedDoctor = localStorage.getItem("doctor");
+      if (!storedDoctor) return [];
+      const parsedDoctor = JSON.parse(storedDoctor) as { roles?: string[] } | null;
+      return parsedDoctor?.roles || [];
     } catch {
-      return []
+      return [];
     }
-  }
+  };
 
+  /* ---- Submit handlers ------------------------------------------------- */
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    const validationErrors = validateForm("login")
+    const validationErrors = validateForm("login");
     if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors)
-      return
+      setErrors(validationErrors);
+      return;
     }
 
-    setErrors({})
-    setIsLoadingForm(true)
+    setErrors({});
+    setIsLoadingForm(true);
 
     try {
-      const result = await login(email, password)
+      const result = await login(email, password);
       if (result.success) {
-        const welcomeName = getWelcomeName()
+        const welcomeName = getWelcomeName();
         toast.success(`Welcome back, ${welcomeName}`, {
           position: "top-center",
           autoClose: 2200,
@@ -216,64 +281,72 @@ function AuthPageContent() {
           pauseOnFocusLoss: false,
           closeButton: false,
           className: "nexx-toast-welcome",
-        })
-        router.replace(getPostLoginPath(getStoredRoles()))
-        return
+        });
+        router.replace(getPostLoginPath(getStoredRoles()));
+        return;
       }
 
       if (result.requiresPasswordSetup) {
-        const params = new URLSearchParams({ identifier: email })
-        router.replace(`/create-password?${params.toString()}`)
-        return
+        const params = new URLSearchParams({ identifier: email });
+        router.replace(`/create-password?${params.toString()}`);
+        return;
       }
 
-      toast.error(result.message || "Login failed")
+      toast.error(result.message || "Login failed");
     } catch {
-      toast.error("Login failed")
+      toast.error("Login failed");
     } finally {
-      setIsLoadingForm(false)
+      setIsLoadingForm(false);
     }
-  }
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    const validationErrors = validateForm("register")
+    const validationErrors = validateForm("register");
     if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors)
-      return
+      setErrors(validationErrors);
+      return;
     }
 
-    setErrors({})
-    setIsLoadingForm(true)
+    setErrors({});
+    setIsLoadingForm(true);
 
     try {
-      const result = await register(name, email, password, phoneNumber, title)
+      const result = await register(name, email, password, phoneNumber, title);
       if (result.success) {
-        toast.success(result.message || "Registration successful")
-        switchMode("login")
-        return
+        toast.success(result.message || "Registration successful");
+        switchMode("login");
+        return;
       }
 
-      toast.error(result.message || "Registration failed")
+      toast.error(result.message || "Registration failed");
     } catch {
-      toast.error("Registration failed")
+      toast.error("Registration failed");
     } finally {
-      setIsLoadingForm(false)
+      setIsLoadingForm(false);
     }
-  }
+  };
+
+  /* --------------------------------------------------------------------- */
+  /* 6️⃣  Render                                                          */
+  /* --------------------------------------------------------------------- */
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-amber-50 to-orange-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center px-4 py-8">
+      {/* Background decoration */}
       <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-orange-200/50 blur-3xl dark:bg-orange-500/20" />
       <div className="pointer-events-none absolute -right-24 bottom-0 h-80 w-80 rounded-full bg-cyan-200/40 blur-3xl dark:bg-cyan-500/20" />
 
+      {/* Theme switcher */}
       <div className="absolute right-4 top-4 z-20 rounded-2xl border border-slate-300/90 bg-white/90 p-1.5 shadow-lg ring-1 ring-white/80 backdrop-blur-md dark:border-white/15 dark:bg-slate-900/70 dark:ring-white/10 sm:right-6 sm:top-6">
         <ThemeSwitcher />
       </div>
 
+      {/* Main card */}
       <div className="w-full max-w-md relative z-10">
         <div className="mb-8 text-center fly-in fly-in-1">
+          {/* Logo */}
           <div className="flex items-center justify-center mb-4 fly-in fly-in-2">
             {showBrandSkeleton ? (
               <Skeleton className="h-16 w-16 rounded-2xl bg-white/70 dark:bg-slate-900/60 ring-1 ring-white/60 dark:ring-white/10" />
@@ -283,6 +356,8 @@ function AuthPageContent() {
               </div>
             )}
           </div>
+
+          {/* Title */}
           {showBrandSkeleton ? (
             <div className="space-y-3 flex flex-col items-center fly-in fly-in-3">
               <Skeleton className="h-8 w-44 rounded-xl bg-white/70 dark:bg-slate-900/60" />
@@ -296,7 +371,9 @@ function AuthPageContent() {
           )}
         </div>
 
+        {/* Form card */}
         <div className="rounded-3xl border border-slate-300/90 dark:border-white/10 bg-white/88 dark:bg-slate-900/70 backdrop-blur-xl p-8 shadow-2xl ring-1 ring-white/90 dark:ring-white/5 space-y-5 fly-in fly-in-5">
+          {/* Mode tabs */}
           <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-100/90 dark:border-white/10 dark:bg-slate-800/80 p-1 ring-1 ring-white/90 dark:ring-white/10 fly-in fly-in-6">
             <Button type="button" variant={mode === "login" ? "default" : "ghost"} className={tabButtonClass(mode === "login")} onClick={() => switchMode("login")} disabled={isLoadingForm}>
               Login
@@ -306,6 +383,7 @@ function AuthPageContent() {
             </Button>
           </div>
 
+          {/* Form panel */}
           <div key={mode} className="mode-switch-panel">
             {mode === "login" ? (
               <form onSubmit={handleLogin} className="space-y-4 fly-in fly-in-7">
@@ -316,9 +394,9 @@ function AuthPageContent() {
                     disabled={isLoadingForm}
                     value={email}
                     onChange={(e) => {
-                      const cleanedValue = sanitizeEmailOrPhoneInput(e.target.value)
-                      setEmail(cleanedValue)
-                      validateLoginIdentifierField(cleanedValue)
+                      const cleanedValue = sanitizeEmailOrPhoneInput(e.target.value);
+                      setEmail(cleanedValue);
+                      validateLoginIdentifierField(cleanedValue);
                     }}
                     placeholder="dr.name@eyecare.com or +256701234567 or 0712345678"
                     className={`w-full ${baseInputClass} ${errors.email ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
@@ -333,18 +411,13 @@ function AuthPageContent() {
                       disabled={isLoadingForm}
                       value={password}
                       onChange={(e) => {
-                        setPassword(e.target.value)
-                        clearError("password")
+                        setPassword(e.target.value);
+                        clearError("password");
                       }}
                       placeholder="Enter your password"
                       className={`w-full pr-10 ${baseInputClass} ${errors.password ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
                     />
-                    <button
-                      type="button"
-                      disabled={isLoadingForm}
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors"
-                    >
+                    <button type="button" disabled={isLoadingForm} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors">
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
@@ -363,8 +436,8 @@ function AuthPageContent() {
                     disabled={isLoadingForm}
                     value={name}
                     onChange={(e) => {
-                      setName(e.target.value)
-                      clearError("name")
+                      setName(e.target.value);
+                      clearError("name");
                     }}
                     placeholder="Enter your full name"
                     className={`${baseInputClass} ${errors.name ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
@@ -378,9 +451,9 @@ function AuthPageContent() {
                     disabled={isLoadingForm}
                     value={email}
                     onChange={(e) => {
-                      const cleanedValue = sanitizeEmailInput(e.target.value)
-                      setEmail(cleanedValue)
-                      validateEmailField(cleanedValue)
+                      const cleanedValue = sanitizeEmailInput(e.target.value);
+                      setEmail(cleanedValue);
+                      validateEmailField(cleanedValue);
                     }}
                     placeholder="dr.name@eyecare.com"
                     className={`${baseInputClass} ${errors.email ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
@@ -394,9 +467,9 @@ function AuthPageContent() {
                     disabled={isLoadingForm}
                     value={phoneNumber}
                     onChange={(e) => {
-                      const cleanedValue = sanitizePhoneInput(e.target.value)
-                      setPhoneNumber(cleanedValue)
-                      validatePhoneField(cleanedValue)
+                      const cleanedValue = sanitizePhoneInput(e.target.value);
+                      setPhoneNumber(cleanedValue);
+                      validatePhoneField(cleanedValue);
                     }}
                     placeholder="+256701234567 or 0712345678"
                     className={`${baseInputClass} ${errors.phone ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
@@ -410,8 +483,8 @@ function AuthPageContent() {
                     disabled={isLoadingForm}
                     value={title}
                     onChange={(e) => {
-                      setTitle(e.target.value)
-                      clearError("title")
+                      setTitle(e.target.value);
+                      clearError("title");
                     }}
                     placeholder="Enter your title"
                     className={`${baseInputClass} ${errors.title ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
@@ -426,18 +499,13 @@ function AuthPageContent() {
                       disabled={isLoadingForm}
                       value={password}
                       onChange={(e) => {
-                        setPassword(e.target.value)
-                        clearError("password")
+                        setPassword(e.target.value);
+                        clearError("password");
                       }}
                       placeholder="Enter your password"
                       className={`w-full pr-10 ${baseInputClass} ${errors.password ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
                     />
-                    <button
-                      type="button"
-                      disabled={isLoadingForm}
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors"
-                    >
+                    <button type="button" disabled={isLoadingForm} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors">
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
@@ -449,14 +517,21 @@ function AuthPageContent() {
               </form>
             )}
 
+            {/* Link below the form */}
             <p className="text-xs text-muted-foreground text-center fly-in fly-in-8">
               {mode === "login" ? (
                 <>
-                  Need an account? <Link href="/auth?mode=register" className="text-primary hover:underline">Register</Link>
+                  Need an account?{" "}
+                  <Link href="/auth?mode=register" className="text-primary hover:underline">
+                    Register
+                  </Link>
                 </>
               ) : (
                 <>
-                  Already have an account? <Link href="/auth" className="text-primary hover:underline">Login</Link>
+                  Already have an account?{" "}
+                  <Link href="/auth" className="text-primary hover:underline">
+                    Login
+                  </Link>
                 </>
               )}
             </p>
@@ -464,13 +539,13 @@ function AuthPageContent() {
         </div>
       </div>
 
+      {/* Animation CSS */}
       <style jsx>{`
         .fly-in {
           opacity: 0;
           animation: flyIn 560ms cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
           will-change: transform, opacity;
         }
-
         .fly-in-1 { animation-delay: 30ms; }
         .fly-in-2 { animation-delay: 80ms; }
         .fly-in-3 { animation-delay: 130ms; }
@@ -494,7 +569,7 @@ function AuthPageContent() {
           100% {
             opacity: 1;
             transform: translateY(0) scale(1);
-            filter: blur(0);
+            filter: none;
           }
         }
 
@@ -502,7 +577,6 @@ function AuthPageContent() {
           animation: modeSwitchIn 320ms cubic-bezier(0.2, 0.75, 0.35, 1) both;
           transform-origin: top center;
         }
-
         @keyframes modeSwitchIn {
           0% {
             opacity: 0;
@@ -515,24 +589,28 @@ function AuthPageContent() {
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .fly-in {
-            opacity: 1;
-            animation: none;
-          }
-
+          .fly-in,
           .mode-switch-panel {
             animation: none;
+            opacity: 1;
           }
         }
       `}</style>
     </div>
-  )
+  );
 }
 
+/* ------------------------------------------------------------------------ */
+/* Page wrapper – provides suspense fallback                               */
+/* ------------------------------------------------------------------------ */
 export default function AuthPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-slate-100 via-amber-50 to-orange-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" />}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-slate-100 via-amber-50 to-orange-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" />
+      }
+    >
       <AuthPageContent />
     </Suspense>
-  )
+  );
 }
