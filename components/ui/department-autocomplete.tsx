@@ -7,10 +7,10 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 
-export interface DepartmentOption {
-  id: string | number
-  name: string
-}
+import type { Department } from '@/lib/api-types'
+
+// Re-export Department as DepartmentOption for compatibility
+export type DepartmentOption = Pick<Department, 'id' | 'name'>
 
 interface DepartmentAutocompleteProps {
   departments: DepartmentOption[]

@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useQuery } from "@apollo/client"
 import { GET_PATIENT_HISTORY_QUERY } from "@/hooks/queries/visits"
 import { ChevronDown, X, Calendar, Filter, ChevronRight } from "lucide-react"
-import type { Visit, VisitDepartment } from "@/lib/types"
+import type { Visit, VisitDepartment } from "@/lib/api-types"
 import { toast } from "react-toastify"
 import { useDepartments } from "@/hooks/departments/hooks"
 

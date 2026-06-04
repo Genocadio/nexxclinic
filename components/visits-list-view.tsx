@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { useVisits, useDepartments, type Visit, useGenerateInvoice } from "@/hooks/auth-hooks"
+import { useVisits, useDepartments, useGenerateInvoice } from "@/hooks/auth-hooks"
+import type { Visit } from "@/lib/api-types"
 import { useLazyQuery } from "@apollo/client"
 import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
 import { toast } from "react-toastify"
