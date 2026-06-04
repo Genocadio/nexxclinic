@@ -34,6 +34,24 @@ export interface User {
   departments?: Department[]
 }
 
+export interface ClinicProfile {
+  id: string
+  name?: string | null
+  address?: string | null
+  contacts?: ClinicContact[] | null
+  tinNumber?: string | null
+  logoUrl?: string | null
+  metadata?: { [key: string]: string } | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface ClinicContact {
+  contactType: "PHONE" | "EMAIL" | "POBOX"
+  value: string
+  description?: string | null
+}
+
 export interface PublicUser {
   id: string
   name: string

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Building2, Package, ShieldCheck, Users } from 'lucide-react'
+import { LayoutDashboard, Building2, Package, ShieldCheck, Users, BadgeInfo } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
@@ -10,6 +10,7 @@ import { isManagerWithoutAdmin } from '@/lib/role-utils'
 
 const adminDockItems = [
   { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+  { label: 'Clinic Profile', path: '/admin/clinic-profile', icon: BadgeInfo },
   { label: 'Departments', path: '/admin/departments', icon: Building2 },
   { label: 'Products', path: '/admin/products', icon: Package },
   { label: 'Insurances', path: '/admin/insurances', icon: ShieldCheck },

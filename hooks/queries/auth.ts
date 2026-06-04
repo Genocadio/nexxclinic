@@ -26,6 +26,31 @@ export const ME_QUERY = gql`
   }
 `
 
+export const CLINIC_PROFILE_QUERY = gql`
+  query ClinicProfile {
+    clinicProfile {
+      status
+      message
+
+      data {
+        id
+        name
+        address
+        contacts {
+          contactType
+          value
+          description
+        }
+        tinNumber
+        logoUrl
+        metadata
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`
+
 export const GET_USERS_QUERY = gql`
   query GetUsers {
     listUsers {

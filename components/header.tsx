@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import { useAuth } from "@/lib/auth-context"
 import type { Doctor } from "@/lib/types"
 import { LogOut, Moon, Sun, UserCog } from "lucide-react"
@@ -8,6 +7,7 @@ import { useTheme } from "@/lib/theme-context"
 import { useRouter, usePathname } from "next/navigation"
 import { useState } from "react"
 import { hasAdminAccess } from "@/lib/role-utils"
+import { getClinicDisplayName, getClinicLogoUrl } from "@/lib/clinic-profile"
 
 interface HeaderProps {
   doctor: Doctor | null
@@ -16,12 +16,14 @@ interface HeaderProps {
 export default function Header({ doctor }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { logout } = useAuth()
+  const { logout, clinicProfile } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
   const canAccessAdmin = hasAdminAccess(roles)
   const isAdminPath = pathname?.startsWith("/admin")
+  const clinicName = getClinicDisplayName(clinicProfile)
+  const clinicLogoUrl = getClinicLogoUrl(clinicProfile)
 
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/)
@@ -37,18 +39,9 @@ export default function Header({ doctor }: HeaderProps) {
         onClick={() => router.push(isAdminPath ? "/admin" : "/")}
         className="flex items-center gap-3 hover:opacity-90 transition-all duration-200 cursor-pointer"
       >
-        <div className="relative h-10 w-10">
-          <Image
-            src="/FullLogo.png"
-            alt="med logo"
-            fill
-            sizes="40px"
-            className="object-contain"
-            priority
-          />
-        </div>
+        <img src={clinicLogoUrl} alt={`${clinicName} logo`} className="h-10 w-10 object-contain" />
         <div>
-          <h1 className="text-lg font-bold text-card-foreground">med</h1>
+          <h1 className="text-lg font-bold text-card-foreground">{clinicName}</h1>
         </div>
       </button>
 

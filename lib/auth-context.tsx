@@ -2,16 +2,19 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
-import type { Doctor } from "./types"
+import type { Doctor, ClinicProfile } from "./types"
 import { useLogin, useRegister, type LoginResponse, type RegisterResponse } from "@/hooks/auth-hooks"
+import { getStoredClinicProfile, normalizeClinicProfile, setStoredClinicProfile } from "@/lib/clinic-profile"
 
 interface AuthContextType {
   doctor: Doctor | null
+  clinicProfile: ClinicProfile | null
   isAuthenticated: boolean
   isLoading: boolean
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string; requiresPasswordSetup?: boolean }>
   register: (name: string, email: string, password: string, phoneNumber: string, title: string) => Promise<{ success: boolean; message?: string }>
   logout: () => void
+  setClinicProfile: (clinicProfile: ClinicProfile | null) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -49,12 +52,14 @@ function getStoredDoctor(): Doctor | null {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [doctor, setDoctor] = useState<Doctor | null>(null)
+  const [clinicProfile, setClinicProfileState] = useState<ClinicProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const { login: loginMutation } = useLogin()
   const { register: registerMutation } = useRegister()
 
   useEffect(() => {
     setDoctor(getStoredDoctor())
+    setClinicProfileState(getStoredClinicProfile())
     setIsLoading(false)
   }, [])
 
@@ -69,6 +74,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Store user object (now includes department from login hook)
         const userToStore = JSON.stringify(user)
         localStorage.setItem('doctor', userToStore)
+        const clinicProfileFromLogin = normalizeClinicProfile(response.data.clinicProfile)
+        if (clinicProfileFromLogin) {
+          setStoredClinicProfile(clinicProfileFromLogin)
+          setClinicProfileState(clinicProfileFromLogin)
+        }
         console.log('=== AUTH CONTEXT STORED TO LOCALSTORAGE ===', {
           doctor: JSON.parse(userToStore),
           storedString: userToStore,
@@ -124,6 +134,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setDoctor(null)
   }
 
+  const setClinicProfile = (nextClinicProfile: ClinicProfile | null) => {
+    const normalized = normalizeClinicProfile(nextClinicProfile)
+    setClinicProfileState(normalized)
+    setStoredClinicProfile(normalized)
+  }
+
   // Listen for global logout events (triggered by Apollo error link)
   useEffect(() => {
     const handleExternalLogout = () => logout()
@@ -141,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ doctor, isAuthenticated: !!doctor, isLoading, login, register, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ doctor, clinicProfile, isAuthenticated: !!doctor, isLoading, login, register, logout, setClinicProfile }}>{children}</AuthContext.Provider>
   )
 }
 

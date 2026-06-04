@@ -169,3 +169,28 @@ export const DELETE_USER_PASSWORD_MUTATION = gql`
     }
   }
 `
+
+export const UPDATE_CLINIC_PROFILE_MUTATION = gql`
+  mutation UpdateClinicProfile($input: UpdateClinicProfileInput!) {
+    updateClinicProfile(input: $input) {
+      status
+      message
+
+      data {
+        id
+        name
+        address
+        contacts {
+          contactType
+          value
+          description
+        }
+        tinNumber
+        logoUrl
+        metadata
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`

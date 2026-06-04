@@ -1,3 +1,5 @@
+import type { ClinicProfile } from "@/lib/types"
+
 export interface ApiResponse<T> {
   status: string
   message?: string
@@ -28,6 +30,7 @@ export interface LoginResponse {
         name: string
       }[]
     }
+    clinicProfile?: ClinicProfile | null
     needsPasswordSetup?: boolean
   }
   messages?: {

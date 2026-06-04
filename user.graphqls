@@ -133,6 +133,12 @@ enum VisitBillingStatus {
   PAID
 }
 
+enum ClinicContactType {
+  PHONE
+  EMAIL
+  POBOX
+}
+
 enum FormStatus {
   DRAFT
   FINAL
@@ -609,12 +615,18 @@ type ClinicProfile {
   id: ID!
   name: String
   address: String
-  contacts: JSON
+  contacts: [ClinicContact!]!
   tinNumber: String
   logoUrl: String
   metadata: JSON
   createdAt: String!
   updatedAt: String!
+}
+
+type ClinicContact {
+  contactType: ClinicContactType!
+  value: String!
+  description: String
 }
 
 type ClinicProfileResponse implements ApiResponse {
@@ -1288,13 +1300,24 @@ input ConsultationAnswersInput {
   answers: String
 }
 
+input KeyValueInput {
+  key: String!
+  value: String
+}
+
 input UpdateClinicProfileInput {
   name: String
   address: String
   logoUrl: String
   tinNumber: String
-  contacts: JSON
-  metadata: JSON
+  contacts: [ClinicContactInput!]
+  metadata: [KeyValueInput!]
+}
+
+input ClinicContactInput {
+  contactType: ClinicContactType!
+  value: String!
+  description: String
 }
 
 type Query {

@@ -1,8 +1,40 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client'
 import { getErrorMessage } from '@/lib/error-utils'
-import { LOGIN_MUTATION, SET_INITIAL_PASSWORD_MUTATION, REGISTER_MUTATION, ADMIN_CREATE_USER_MUTATION, ADMIN_UPDATE_USER_MUTATION, ACTIVATE_USER_MUTATION, DEACTIVATE_USER_MUTATION, UPDATE_USER_ROLES_MUTATION, UPDATE_MY_PROFILE_MUTATION, CHANGE_PASSWORD_MUTATION, DELETE_USER_PASSWORD_MUTATION } from '../mutations'
-import { ME_QUERY, GET_USERS_QUERY } from '../queries'
+import { LOGIN_MUTATION, SET_INITIAL_PASSWORD_MUTATION, REGISTER_MUTATION, ADMIN_CREATE_USER_MUTATION, ADMIN_UPDATE_USER_MUTATION, ACTIVATE_USER_MUTATION, DEACTIVATE_USER_MUTATION, UPDATE_USER_ROLES_MUTATION, UPDATE_MY_PROFILE_MUTATION, CHANGE_PASSWORD_MUTATION, DELETE_USER_PASSWORD_MUTATION, UPDATE_CLINIC_PROFILE_MUTATION } from '../mutations'
+import { ME_QUERY, GET_USERS_QUERY, CLINIC_PROFILE_QUERY } from '../queries'
 import type { LoginResponse, UserAccount, UserResponse, RegisterResponse } from '../types'
+import type { ClinicContact, ClinicProfile } from '@/lib/types'
+
+interface ClinicProfileResponseData {
+  clinicProfile: {
+    status: string
+    message?: string
+    data?: ClinicProfile | null
+  }
+}
+
+interface UpdateClinicProfileResponseData {
+  updateClinicProfile: {
+    status: string
+    message?: string
+    data?: ClinicProfile | null
+  }
+}
+
+const mapClinicProfile = (profile?: ClinicProfile | null): ClinicProfile | null => {
+  if (!profile) return null
+  return {
+    id: String(profile.id || ''),
+    name: profile.name?.trim() || undefined,
+    address: profile.address?.trim() || undefined,
+    contacts: profile.contacts ?? null,
+    tinNumber: profile.tinNumber?.trim() || undefined,
+    logoUrl: profile.logoUrl?.trim() || undefined,
+    metadata: profile.metadata ?? null,
+    createdAt: profile.createdAt || undefined,
+    updatedAt: profile.updatedAt || undefined,
+  }
+}
 
 export function useLogin() {
   const client = useApolloClient()
@@ -46,6 +78,7 @@ export function useLogin() {
         const token = payload.data.accessToken
         const loginUser = payload.data.user
         let user = loginUser ? buildUser(loginUser) : buildUser()
+        let clinicProfile: ClinicProfile | null = null
 
         if (!loginUser) {
           try {
@@ -63,6 +96,17 @@ export function useLogin() {
           }
         }
 
+        try {
+          const clinicProfileResult = await client.query({
+            query: CLINIC_PROFILE_QUERY,
+            fetchPolicy: 'no-cache',
+            context: { headers: { Authorization: `Bearer ${token}` } },
+          })
+          clinicProfile = mapClinicProfile(clinicProfileResult?.data?.clinicProfile?.data)
+        } catch {
+          clinicProfile = null
+        }
+
         // Log what will be stored
         console.log('=== BUILT USER (before storage) ===', user)
         console.log('=== STORING TO LOCALSTORAGE ===', JSON.stringify(user))
@@ -74,6 +118,7 @@ export function useLogin() {
             accessToken: token,
             refreshToken: payload.data.refreshToken,
             user,
+            clinicProfile,
           },
           messages: payload.message ? [{ text: payload.message, type: 'SUCCESS' }] : undefined,
         } as LoginResponse
@@ -183,6 +228,54 @@ export function useRegister() {
   }
 
   return { register, loading, error }
+}
+
+export function useClinicProfile() {
+  const { data, loading, error, refetch } = useQuery<ClinicProfileResponseData>(CLINIC_PROFILE_QUERY, {
+    fetchPolicy: 'cache-and-network',
+  })
+
+  return {
+    clinicProfile: mapClinicProfile(data?.clinicProfile?.data),
+    loading,
+    error: error?.message || null,
+    refetch,
+  }
+}
+
+export function useUpsertClinicProfile() {
+  const [mutate, { loading, error }] = useMutation<UpdateClinicProfileResponseData>(UPDATE_CLINIC_PROFILE_MUTATION)
+
+  const upsertClinicProfile = async (input: {
+    name?: string
+    address?: string
+    contacts?: ClinicContact[] | null
+    tinNumber?: string
+    logoUrl?: string
+    metadata?: { [key: string]: string } | null
+  }) => {
+    const { data } = await mutate({
+      variables: {
+        input: {
+          name: input.name,
+          address: input.address,
+          contacts: input.contacts,
+          tinNumber: input.tinNumber,
+          logoUrl: input.logoUrl,
+          metadata: input.metadata,
+        },
+      },
+    })
+
+    const payload = data?.updateClinicProfile
+    return {
+      status: payload?.status || 'ERROR',
+      message: payload?.message,
+      data: mapClinicProfile(payload?.data),
+    }
+  }
+
+  return { upsertClinicProfile, loading, error: error?.message || null }
 }
 
 export function useUsers() {

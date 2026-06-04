@@ -1,25 +1,26 @@
 "use client"
 
 import { Suspense, useEffect, useMemo, useState } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Eye, EyeOff } from "lucide-react"
 import { toast } from "react-toastify"
 
 import { useAuth } from "@/lib/auth-context"
+import { getClinicDisplayName, getClinicLogoUrl } from "@/lib/clinic-profile"
 import { getPostLoginPath } from "@/lib/role-utils"
 import { sanitizeEmailInput, sanitizeEmailOrPhoneInput, sanitizePhoneInput, validateEmailOrPhone } from "@/lib/validation-utils"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type FieldErrors = Partial<Record<"email" | "password" | "name" | "phoneNumber" | "phone" | "title", string>>
 
 function AuthPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { isAuthenticated, doctor, login, register } = useAuth()
+  const { isAuthenticated, isLoading, doctor, clinicProfile, login, register } = useAuth()
 
   const initialMode = useMemo(() => (searchParams.get("mode") === "register" ? "register" : "login"), [searchParams])
   const [mode, setMode] = useState<"login" | "register">(initialMode)
@@ -34,6 +35,9 @@ function AuthPageContent() {
   const [errors, setErrors] = useState<FieldErrors>({})
   const [isLoadingForm, setIsLoadingForm] = useState(false)
 
+  const clinicName = getClinicDisplayName(clinicProfile)
+  const clinicLogoUrl = getClinicLogoUrl(clinicProfile)
+  const showBrandSkeleton = isLoading
   const baseInputClass = "rounded-xl border-slate-300 bg-white/95 text-slate-900 placeholder:text-slate-500 shadow-sm focus-visible:border-slate-500 focus-visible:ring-slate-300/70 dark:border-input dark:bg-input/30 dark:text-foreground dark:placeholder:text-muted-foreground"
 
   const tabButtonClass = (isActive: boolean) =>
@@ -109,21 +113,17 @@ function AuthPageContent() {
     const nextErrors: FieldErrors = {}
 
     if (currentMode === "login") {
-      // Login: combined email or phone input
       const emailOrPhoneValidation = validateEmailOrPhone(email)
       if (!emailOrPhoneValidation.valid) {
         nextErrors.email = emailOrPhoneValidation.error
       }
     } else {
-      // Register: separate email and phone, both required
-      // Validate email
       if (!email.trim()) {
         nextErrors.email = "Email is required"
       } else if (!email.includes("@") || !email.includes(".")) {
         nextErrors.email = "Please enter a valid email address"
       }
 
-      // Validate phone
       if (!phoneNumber.trim()) {
         nextErrors.phone = "Phone number is required"
       } else {
@@ -164,7 +164,6 @@ function AuthPageContent() {
       }
     }
 
-    // If input is email, extract name from email prefix
     if (email.includes("@")) {
       const emailPrefix = email.split("@")[0]?.trim()
       if (emailPrefix) {
@@ -200,6 +199,7 @@ function AuthPageContent() {
       setErrors(validationErrors)
       return
     }
+
     setErrors({})
     setIsLoadingForm(true)
 
@@ -243,6 +243,7 @@ function AuthPageContent() {
       setErrors(validationErrors)
       return
     }
+
     setErrors({})
     setIsLoadingForm(true)
 
@@ -274,39 +275,33 @@ function AuthPageContent() {
       <div className="w-full max-w-md relative z-10">
         <div className="mb-8 text-center fly-in fly-in-1">
           <div className="flex items-center justify-center mb-4 fly-in fly-in-2">
-            <div className="relative h-16 w-16 rounded-2xl bg-white/70 dark:bg-slate-900/60 backdrop-blur-md shadow-lg ring-1 ring-white/60 dark:ring-white/10">
-              <Image
-                src="/FullLogo.png"
-                alt="med logo"
-                fill
-                sizes="64px"
-                className="object-contain"
-                priority
-              />
-            </div>
+            {showBrandSkeleton ? (
+              <Skeleton className="h-16 w-16 rounded-2xl bg-white/70 dark:bg-slate-900/60 ring-1 ring-white/60 dark:ring-white/10" />
+            ) : (
+              <div className="relative h-16 w-16 rounded-2xl bg-white/70 dark:bg-slate-900/60 backdrop-blur-md shadow-lg ring-1 ring-white/60 dark:ring-white/10 overflow-hidden flex items-center justify-center">
+                <img src={clinicLogoUrl} alt={`${clinicName} logo`} className="h-16 w-16 object-contain" />
+              </div>
+            )}
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-50 mb-2 fly-in fly-in-3">med</h1>
-          <p className="text-slate-600 dark:text-slate-300 fly-in fly-in-4">Welcome back</p>
+          {showBrandSkeleton ? (
+            <div className="space-y-3 flex flex-col items-center fly-in fly-in-3">
+              <Skeleton className="h-8 w-44 rounded-xl bg-white/70 dark:bg-slate-900/60" />
+              <Skeleton className="h-4 w-28 rounded-xl bg-white/60 dark:bg-slate-900/50" />
+            </div>
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-50 mb-2 fly-in fly-in-3">{clinicName}</h1>
+              <p className="text-slate-600 dark:text-slate-300 fly-in fly-in-4">Welcome back</p>
+            </>
+          )}
         </div>
 
         <div className="rounded-3xl border border-slate-300/90 dark:border-white/10 bg-white/88 dark:bg-slate-900/70 backdrop-blur-xl p-8 shadow-2xl ring-1 ring-white/90 dark:ring-white/5 space-y-5 fly-in fly-in-5">
           <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-100/90 dark:border-white/10 dark:bg-slate-800/80 p-1 ring-1 ring-white/90 dark:ring-white/10 fly-in fly-in-6">
-            <Button
-              type="button"
-              variant={mode === "login" ? "default" : "ghost"}
-              className={tabButtonClass(mode === "login")}
-              onClick={() => switchMode("login")}
-              disabled={isLoadingForm}
-            >
+            <Button type="button" variant={mode === "login" ? "default" : "ghost"} className={tabButtonClass(mode === "login")} onClick={() => switchMode("login")} disabled={isLoadingForm}>
               Login
             </Button>
-            <Button
-              type="button"
-              variant={mode === "register" ? "default" : "ghost"}
-              className={tabButtonClass(mode === "register")}
-              onClick={() => switchMode("register")}
-              disabled={isLoadingForm}
-            >
+            <Button type="button" variant={mode === "register" ? "default" : "ghost"} className={tabButtonClass(mode === "register")} onClick={() => switchMode("register")} disabled={isLoadingForm}>
               Register
             </Button>
           </div>
