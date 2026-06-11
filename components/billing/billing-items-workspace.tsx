@@ -18,6 +18,7 @@ type BillingItemsWorkspaceProps = {
   selectedItemIds: string[]
   selectedCountLabel: string
   canAddItems: boolean
+  canEdit?: boolean
   visitInsuranceOptions: BillingInsuranceOption[]
   onServiceChange: (serviceName: string) => void
   onAddItem: () => void
@@ -35,6 +36,7 @@ export function BillingItemsWorkspace({
   selectedItemIds,
   selectedCountLabel,
   canAddItems,
+  canEdit = true,
   visitInsuranceOptions,
   onServiceChange,
   onAddItem,
@@ -94,6 +96,7 @@ export function BillingItemsWorkspace({
               hideDepartmentHeaders
               allDepartments={[]}
               hideTypeColumn
+              canEdit={canEdit}
             />
           </div>
         </div>
