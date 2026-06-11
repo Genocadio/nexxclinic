@@ -86,6 +86,17 @@ export function BillingPageContent() {
     [existingVisitBilling],
   );
 
+  // Determine if user can edit billing items based on role
+  // Only FINANCE role can edit items. CASHIER users cannot delete or adjust quantities
+  const canEditBillingItems = useMemo(() => {
+    if (!doctor?.roles) return true; // Default to true if no roles defined
+    const roles = (doctor.roles as string[]) || [];
+    const hasFinanceRole = roles.includes('FINANCE');
+    
+    // Only FINANCE role can edit items, CASHIER cannot
+    return hasFinanceRole;
+  }, [doctor?.roles]);
+
   const mapPaymentStatus = (status?: string, itemId?: string): BillingItem['paymentStatus'] => {
     if (status === 'BILLED') return 'paid';
     if (existingVisitBilling && itemId && isVisitDepartmentProductBilled(existingVisitBilling, itemId)) {
@@ -926,6 +937,7 @@ export function BillingPageContent() {
           selectedItemIds={selectedItemIds}
           selectedCountLabel={`${selectedItemIds.length}/${itemsToDisplay.filter((i) => i.paymentStatus !== 'paid').length} selected`}
           canAddItems={!canEditBilling && hasRemainingToBill}
+          canEdit={canEditBillingItems}
           visitInsuranceOptions={visitInsuranceOptions}
           onServiceChange={setActiveService}
           onAddItem={() => setShowAddProductModal(true)}

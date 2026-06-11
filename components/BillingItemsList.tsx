@@ -35,6 +35,7 @@ type BillingItemsListProps = {
   hideDepartmentHeaders?: boolean;
   allDepartments?: string[];
   hideTypeColumn?: boolean;
+  canEdit?: boolean;
 };
 
 const getPaymentStatusColor = (status: BillingItem['paymentStatus'] | 'exempted') => {
@@ -83,6 +84,7 @@ export function BillingItemsList({
   hideDepartmentHeaders = false,
   allDepartments = [],
   hideTypeColumn = true,
+  canEdit = true,
 }: BillingItemsListProps) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState<string>('');
@@ -149,7 +151,7 @@ export function BillingItemsList({
   };
 
   const renderQuantityCell = (item: BillingItem) => {
-    if (item.paymentStatus === 'paid' || !onQuantityChange) {
+    if (item.paymentStatus === 'paid' || !onQuantityChange || !canEdit) {
       return <span className="tabular-nums">{item.quantity}</span>;
     }
 
@@ -523,15 +525,17 @@ export function BillingItemsList({
                                   <SelectItem value="full">Full exemption</SelectItem>
                                 </SelectContent>
                               </Select>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onItemRemove(item.id)}
-                                disabled={item.paymentStatus === 'paid'}
-                                className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10 disabled:opacity-30"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                              {canEdit && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => onItemRemove(item.id)}
+                                  disabled={item.paymentStatus === 'paid'}
+                                  className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10 disabled:opacity-30"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
                             </div>
                           </td>
                         </tr>

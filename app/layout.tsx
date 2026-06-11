@@ -70,18 +70,23 @@ export default function RootLayout({
         </ThemeProvider>
         <ToastContainer
           position="top-right"
-          autoClose={5000}
+          autoClose={4000}
           hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick
+          newestOnTop={true}
+          closeOnClick={true}
           rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
+          pauseOnFocusLoss={true}
+          draggable={false}
+          pauseOnHover={true}
           theme="colored"
           className="nexx-toast-container"
           toastClassName="nexx-toast"
+          bodyClassName="flex items-center"
           progressClassName="nexx-toast-progress"
+          transition={undefined}
+          limit={3}
+          closeButton={true}
+          stacked={false}
         />
         <Analytics />
       </body>
