@@ -77,12 +77,13 @@ export function AddPatientInsuranceModal({
   const [formErrors, setFormErrors] = useState<SavePatientInsuranceFieldErrors>({})
 
   const selectableInsurances = useMemo(
-    () => availableInsurances?.filter(
-      (ins) => !patientInsurances.some(
-        (pIns) => String(pIns.insuranceProvider.id) === String(ins.id),
-      ),
-    ) || [],
-    [availableInsurances, patientInsurances],
+    () => availableInsurances || [],
+    [availableInsurances],
+  )
+
+  const alreadyAddedInsuranceIds = useMemo(
+    () => new Set(patientInsurances.map((pIns) => String(pIns.insuranceProvider.id))),
+    [patientInsurances],
   )
 
   const resetForm = () => {
@@ -161,11 +162,21 @@ export function AddPatientInsuranceModal({
                 <SelectValue placeholder="Select Insurance" />
               </SelectTrigger>
               <SelectContent>
-                {selectableInsurances.map((insurance) => (
-                  <SelectItem key={insurance.id} value={String(insurance.id)}>
-                    {insurance.acronym} - {insurance.insuranceName} ({insurance.defaultCoveragePercentage}%)
-                  </SelectItem>
-                ))}
+                {selectableInsurances.map((insurance) => {
+                  const isAlreadyAdded = alreadyAddedInsuranceIds.has(String(insurance.id))
+                  return (
+                    <SelectItem 
+                      key={insurance.id} 
+                      value={String(insurance.id)}
+                      disabled={isAlreadyAdded}
+                    >
+                      <span className={isAlreadyAdded ? 'opacity-50' : ''}>
+                        {insurance.acronym} - {insurance.insuranceName} ({insurance.defaultCoveragePercentage}%)
+                        {isAlreadyAdded && ' (Already Added)'}
+                      </span>
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
           </div>
