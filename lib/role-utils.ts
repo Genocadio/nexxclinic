@@ -35,3 +35,8 @@ export const canManagerAccessAdminPath = (pathname: string | null) => {
 }
 
 export const getPostLoginPath = (roles: string[]) => (isManagerOnly(roles) ? "/admin" : "/")
+
+export const canAccessBilling = (roles: string[]) => {
+  // Only users with FINANCE or CASHIER roles can access billing
+  return hasRole(roles, "FINANCE") || hasRole(roles, "CASHIER")
+}

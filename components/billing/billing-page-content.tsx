@@ -87,17 +87,14 @@ export function BillingPageContent() {
   );
 
   // Determine if user can edit billing items based on role
-  // FINANCE and RECEPTION roles can edit, CASHIER (non-reception) cannot
+  // Only FINANCE role can edit items. CASHIER users cannot delete or adjust quantities
   const canEditBillingItems = useMemo(() => {
     if (!doctor?.roles) return true; // Default to true if no roles defined
-    const roles = doctor.roles.map(r => typeof r === 'string' ? r : r);
+    const roles = (doctor.roles as string[]) || [];
     const hasFinanceRole = roles.includes('FINANCE');
-    const hasReceptionRole = roles.includes('RECEPTION');
-    const hasCashierRole = roles.includes('CASHIER');
     
-    // Allow editing if user has FINANCE role or RECEPTION role
-    // Only restrict if user ONLY has CASHIER role (non-reception)
-    return hasFinanceRole || hasReceptionRole || !hasCashierRole;
+    // Only FINANCE role can edit items, CASHIER cannot
+    return hasFinanceRole;
   }, [doctor?.roles]);
 
   const mapPaymentStatus = (status?: string, itemId?: string): BillingItem['paymentStatus'] => {
