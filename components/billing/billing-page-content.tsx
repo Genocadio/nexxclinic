@@ -818,17 +818,55 @@ export function BillingPageContent() {
       setAddingBillingItem(true);
       const response = await addProduct(visit.id, catalogDepartmentId, item.id, quantity);
       if (response?.status === 'SUCCESS') {
-        await refetchVisit();
+        // Add the new product to billing data state directly instead of refetching
+        if (billingData && response.data) {
+          const newProduct = response.data;
+          const departmentInfo = visit.departments?.find(d => 
+            d.id === catalogDepartmentId || d.id === newProduct.rootVisitDepartmentId
+          );
+          
+          const newBillingItem: BillingItem = {
+            id: newProduct.id || '',
+            name: newProduct.productName || item.name,
+            quantity: newProduct.quantity || quantity,
+            price: newProduct.unitPrice || 0,
+            type: 'product',
+            visitDepartmentId: newProduct.visitDepartmentId || catalogDepartmentId,
+            rootVisitDepartmentId: newProduct.rootVisitDepartmentId || catalogDepartmentId,
+            departmentId: departmentInfo?.department?.id,
+            departmentName: departmentInfo?.department?.name || 'General',
+            departmentStatus: departmentInfo?.status,
+            paymentStatus: 'pending',
+            exempted: false,
+            exemptionType: 'none',
+            selectedInsuranceId: undefined,
+            doneBy: {
+              name: doctor?.firstName || 'Doctor',
+              title: '',
+            },
+          };
+          
+          setBillingData((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              items: [...prev.items, newBillingItem],
+              updatedAt: new Date().toISOString(),
+            };
+          });
+        } else {
+          // Fallback to refetch if response data is incomplete
+          await refetchVisit();
+        }
         setShowAddProductModal(false);
+        toast.success('Product added successfully');
       } else {
         const errorMsg = response?.messages?.[0]?.text || 'Failed to add product';
         toast.error(errorMsg);
-        await refetchVisit();
       }
     } catch (err) {
       console.error('Failed to add product to visit:', err);
       toast.error('Failed to add product. Please try again.');
-      await refetchVisit();
     } finally {
       setAddingBillingItem(false);
     }
