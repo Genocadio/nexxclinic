@@ -491,12 +491,28 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
                               )}
                             </div>
                             {hoveredPatientId === patient.id && (
-                              <div className="mt-2 space-y-1 text-[13px] text-foreground">
-                                <div className="text-xs text-muted-foreground">
-                                  Insurances: {patient.patientInsurances && patient.patientInsurances.length > 0
-                                    ? patient.patientInsurances.map((ins: any) => `${ins.insuranceProvider.acronym}${ins.insuranceProviderCardNumber ? ` - ${ins.insuranceProviderCardNumber}` : ""}`).join(", ")
-                                    : "None"}
-                                </div>
+                              <div className="mt-2 space-y-2 text-[13px]">
+                                {patient.patientInsurances && patient.patientInsurances.length > 0 && (
+                                  <div className="bg-gradient-to-r from-primary/10 to-transparent rounded-lg p-2 border border-primary/20">
+                                    <div className="text-xs font-medium text-foreground mb-1">Insurance Providers:</div>
+                                    <div className="space-y-1">
+                                      {patient.patientInsurances.map((ins: any, idx: number) => (
+                                        <div key={idx} className="text-xs text-foreground flex items-start gap-1">
+                                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mt-1 flex-shrink-0"></span>
+                                          <div>
+                                            <div className="font-medium">{ins.insuranceProvider.insuranceName} ({ins.insuranceProvider.acronym})</div>
+                                            {ins.insuranceCardNumber && (
+                                              <div className="text-muted-foreground text-[11px]">Card: {ins.insuranceCardNumber}</div>
+                                            )}
+                                            {ins.principalMemberName && (
+                                              <div className="text-muted-foreground text-[11px]">Member: {ins.principalMemberName}</div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                                 <div className="text-xs text-muted-foreground">
                                   {patient.lastVisit && (patient.lastVisit.status === 'CREATED' || patient.lastVisit.status === 'IN_PROGRESS') ? (
                                     <span className="text-orange-600 dark:text-orange-400 font-medium">
@@ -623,7 +639,7 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
               <div>
                 <div className="space-y-2 max-h-32 overflow-y-auto border rounded-lg p-3">
                   {selectedPatient.patientInsurances.map((insurance: any) => (
-                    <label key={insurance.id} className="flex items-center space-x-2 cursor-pointer">
+                    <label key={insurance.id} className="flex items-center space-x-2 cursor-pointer hover:bg-muted/30 p-2 rounded transition-colors">
                       <input
                         type="checkbox"
                         checked={selectedInsuranceIds.includes(insurance.id)}
@@ -636,10 +652,17 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
                         }}
                         className="rounded"
                       />
-                      <span className="text-sm">
-                        {insurance.insuranceProvider.acronym}
-                        {insurance.insuranceProviderCardNumber && ` - ${insurance.insuranceProviderCardNumber}`}
-                      </span>
+                      <div className="text-sm">
+                        <div className="font-medium">
+                          {insurance.insuranceProvider.insuranceName} ({insurance.insuranceProvider.acronym})
+                        </div>
+                        {insurance.insuranceCardNumber && (
+                          <div className="text-xs text-muted-foreground">Card: {insurance.insuranceCardNumber}</div>
+                        )}
+                        {insurance.principalMemberName && (
+                          <div className="text-xs text-muted-foreground">Member: {insurance.principalMemberName}</div>
+                        )}
+                      </div>
                     </label>
                   ))}
                 </div>

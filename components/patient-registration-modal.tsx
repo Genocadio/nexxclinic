@@ -823,12 +823,28 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
                         </div>
                         {patient.patientInsurances && patient.patientInsurances.length > 0 && (
                           <div className="mt-3 pt-3 border-t">
-                            <div className="text-xs font-medium text-foreground mb-2">Insurance:</div>
-                            <div className="space-y-1">
+                            <div className="text-xs font-medium text-foreground mb-2">Insurances:</div>
+                            <div className="flex flex-wrap gap-2">
                               {patient.patientInsurances.map((insurance, idx) => (
-                                <div key={idx} className="text-xs bg-muted/50 rounded-xl px-3 py-2 border border-border/40">
-                                  <div className="font-medium">{insurance.insuranceProvider.insuranceName} ({insurance.insuranceProvider.acronym})</div>
-                                  <div className="text-muted-foreground">Card: {insurance.insuranceCardNumber}</div>
+                                <div 
+                                  key={idx} 
+                                  className="relative group text-xs bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg px-3 py-2 border border-primary/30 cursor-help hover:border-primary/50 transition-colors"
+                                >
+                                  <span className="font-medium text-foreground">
+                                    {insurance.insuranceProvider.acronym || insurance.insuranceProvider.insuranceName}
+                                  </span>
+                                  
+                                  {/* Hover Tooltip */}
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                                    <div className="bg-slate-900 dark:bg-slate-700 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
+                                      <div className="font-semibold">{insurance.insuranceProvider.insuranceName}</div>
+                                      <div className="text-xs text-slate-300">Card: {insurance.insuranceCardNumber}</div>
+                                      {insurance.principalMemberName && (
+                                        <div className="text-xs text-slate-300">Member: {insurance.principalMemberName}</div>
+                                      )}
+                                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-700"></div>
+                                    </div>
+                                  </div>
                                 </div>
                               ))}
                             </div>

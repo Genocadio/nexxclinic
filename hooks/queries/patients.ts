@@ -28,6 +28,19 @@ export const GET_PATIENTS_QUERY = gql`
           status
           visitDate
         }
+        patientInsurances {
+          id
+          insuranceCardNumber
+          principalMember
+          principalMemberName
+          principalMemberPhoneNumber
+          insuranceProvider {
+            id
+            insuranceName
+            acronym
+            defaultCoveragePercentage
+          }
+        }
         createdAt
       }
       pagination {
