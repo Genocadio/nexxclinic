@@ -81,7 +81,6 @@ export default function RootLayout({
           theme="colored"
           className="nexx-toast-container"
           toastClassName="nexx-toast"
-          bodyClassName="flex items-center"
           progressClassName="nexx-toast-progress"
           transition={undefined}
           limit={3}

@@ -9,11 +9,11 @@ import { Spinner } from '@/components/ui/spinner';
 import { BillingPageContent } from '@/components/billing/billing-page-content';
 
 function BillingPageGuard() {
-  const { doctor, loading } = useAuth();
+  const { doctor, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (loading) return;
+    if (isLoading) return;
 
     if (!doctor) {
       router.push('/login');
@@ -25,9 +25,9 @@ function BillingPageGuard() {
       router.push('/');
       return;
     }
-  }, [doctor, loading, router]);
+  }, [doctor, isLoading, router]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Spinner />
