@@ -26,8 +26,7 @@ import {
   visitBillingLineTotal,
 } from '@/lib/visit-billing-utils';
 import { useUpdateVisitDepartmentStatus } from '@/hooks/auth-hooks';
-import { useAddVisitNote } from '@/hooks/auth-hooks';
-import { useAddProductToVisitDepartment, useLinkVisitInsurances, useUnlinkVisitInsurances, useUpdateProductQuantity } from '@/hooks/visits/hooks';
+import { useAddProductToVisitDepartment, useLinkVisitInsurances, useUnlinkVisitInsurances, useUpdateProductQuantity, useVisitDepartmentNotes, useAddVisitDepartmentNote, useMarkVisitDepartmentNotesViewed } from '@/hooks/visits/hooks';
 import { Spinner } from '@/components/ui/spinner';
 import VisitNotesFloating from '@/components/visit-notes-floating';
 import { BillingPatientBar } from '@/components/billing/billing-patient-bar';
@@ -78,7 +77,8 @@ export function BillingPageContent() {
   const [showExemptionsWindow, setShowExemptionsWindow] = useState(false);
   const { addProduct } = useAddProductToVisitDepartment();
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus();
-  const { addVisitNote } = useAddVisitNote();
+  const { addVisitDepartmentNote } = useAddVisitDepartmentNote();
+  const { markNotesViewed } = useMarkVisitDepartmentNotesViewed();
   const { completeVisit } = useCompleteVisit();
 
   const existingBillingTotals = useMemo(
@@ -383,12 +383,12 @@ export function BillingPageContent() {
     [billingData?.items]
   );
 
-  const billingScopedNotes: Array<{
-    id?: string
-    note?: string
-    scope: 'visit' | 'department'
-    departmentName?: string
-  }> = [];
+  const firstBillingDepartment = topLevelBillingDepartments[0]
+  const firstBillingDepartmentId = firstBillingDepartment?.id
+  const { notes: billingDepartmentNotes, loading: notesLoading, refetch: refetchNotes } = useVisitDepartmentNotes(
+    visitId,
+    firstBillingDepartmentId || null
+  )
 
   const hasUnbilledItems = (visitData: Visit | undefined) => {
     if (!visitData) return false;
@@ -1005,17 +1005,31 @@ export function BillingPageContent() {
 
       <VisitNotesFloating
         title="Billing Notes & Report"
-        notes={billingScopedNotes}
+        notes={billingDepartmentNotes}
         allowedDisplayTypes={['BILLING']}
-        noteTypes={['REPORT']}
-        onAddNote={async (_type, text) => {
-          if (!visit?.id) {
-            throw new Error('Visit not found')
+        noteTypes={[
+          'BILLING',
+          'FORMS',
+          'CONSULTATION',
+          'ADMIN',
+          'PUBLIC',
+        ]}
+        onAddNote={async (noteType, content) => {
+          const visitDepartmentId = String(firstBillingDepartmentId || '')
+          if (!visitDepartmentId) {
+            throw new Error('No department selected for billing note')
           }
-          const result = await addVisitNote(String(visit.id), 'REPORT', text)
+
+          const result = await addVisitDepartmentNote(visitDepartmentId, content, noteType)
           if (result?.status !== 'SUCCESS') {
-            throw new Error(result?.messages?.[0]?.text || 'Failed to add billing note')
+            throw new Error(result?.message || 'Failed to add note')
           }
+          await refetchNotes()
+          await refetchVisit()
+        }}
+        onMarkAsViewed={async (noteId) => {
+          await markNotesViewed(String(firstBillingDepartmentId || ''))
+          await refetchNotes()
           await refetchVisit()
         }}
       />

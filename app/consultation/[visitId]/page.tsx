@@ -1,7 +1,8 @@
 "use client"
 
 import { useParams, useRouter } from "next/navigation"
-import { useAddDepartmentNote, useCompleteConsultationVisit, useVisit } from "@/hooks/auth-hooks"
+import { useCompleteConsultationVisit, useVisit } from "@/hooks/auth-hooks"
+import { useVisitDepartmentNotes, useAddVisitDepartmentNote, useMarkVisitDepartmentNotesViewed } from "@/hooks/visits/hooks"
 import { useAuth } from "@/lib/auth-context"
 import ConsultationViewBackbone from "@/components/consultation-view-backbone"
 import VisitNotesFloating from "@/components/visit-notes-floating"
@@ -23,9 +24,17 @@ export default function ConsultationPage() {
   const { doctor } = useAuth()
   const { visit, loading, error, refetch } = useVisit(visitId)
   const { completeConsultationVisit } = useCompleteConsultationVisit()
-  const { addDepartmentNote } = useAddDepartmentNote()
+  const { addVisitDepartmentNote } = useAddVisitDepartmentNote()
+  const { markNotesViewed } = useMarkVisitDepartmentNotesViewed()
   const [notesOpen, setNotesOpen] = useState(false)
   const [requestProductsOpen, setRequestProductsOpen] = useState(false)
+
+  const firstDepartment = visit?.departments?.[0]
+  const firstVisitDepartmentId = firstDepartment?.id
+  const { notes: departmentNotes, loading: notesLoading, refetch: refetchNotes } = useVisitDepartmentNotes(
+    visitId,
+    firstVisitDepartmentId || null
+  )
 
   // Redirect to dashboard if visit not found after loading completes
   useEffect(() => {
@@ -81,9 +90,7 @@ export default function ConsultationPage() {
     )
   }
 
-  const firstDepartment = visit.departments?.[0]
   const firstDepartmentId = firstDepartment?.department?.id || firstDepartment?.id
-  const firstVisitDepartmentId = firstDepartment?.id
   const firstDepartmentStatus = firstDepartment?.status
 
   const consultation = {
@@ -134,8 +141,6 @@ export default function ConsultationPage() {
   }
 
   const patient: Patient = visit.patient
-
-  const scopedNotes: Array<{ id?: string; note?: string; scope: "visit" | "department"; departmentName?: string }> = []
 
   const existingProducts: FormAction[] = (firstDepartment?.products || []).map((line) => ({
     id: line.id,
@@ -246,30 +251,33 @@ export default function ConsultationPage() {
       />
       <VisitNotesFloating
         title="Consultation Notes"
-        notes={scopedNotes}
+        notes={departmentNotes}
         noteTypes={[
-          'GENERAL',
-          'DIAGNOSIS',
-          'PRESCRIPTION',
-          'OBSERVATION',
-          'INTERNAL',
-          'RECEPTION',
-          'REPORT',
           'BILLING',
+          'FORMS',
+          'CONSULTATION',
+          'ADMIN',
+          'PUBLIC',
         ]}
         open={notesOpen}
         onOpenChange={setNotesOpen}
         hideToggleButton
-        onAddNote={async (type, text) => {
-          const departmentToSave = String(firstDepartmentId || '')
-          if (!departmentToSave) {
+        onAddNote={async (noteType, content) => {
+          const visitDepartmentId = String(firstVisitDepartmentId || '')
+          if (!visitDepartmentId) {
             throw new Error('No department selected for consultation note')
           }
 
-          const result = await addDepartmentNote(visit.id, departmentToSave, type, text)
+          const result = await addVisitDepartmentNote(visitDepartmentId, content, noteType)
           if (result?.status !== 'SUCCESS') {
-            throw new Error(result?.messages?.[0]?.text || 'Failed to add note')
+            throw new Error(result?.message || 'Failed to add note')
           }
+          await refetchNotes()
+          await refetch()
+        }}
+        onMarkAsViewed={async (noteId) => {
+          await markNotesViewed(String(firstVisitDepartmentId || ''))
+          await refetchNotes()
           await refetch()
         }}
       />

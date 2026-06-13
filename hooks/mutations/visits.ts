@@ -592,3 +592,58 @@ export const COMPLETE_CONSULTATION_VISIT_MUTATION = gql`
     }
   }
 `
+
+export const ADD_VISIT_DEPARTMENT_NOTE_MUTATION = gql`
+  mutation AddVisitDepartmentNote($input: AddVisitDepartmentNoteInput!) {
+    addVisitDepartmentNote(input: $input) {
+      status
+      message
+      data {
+        id
+        visitDepartmentId
+        content
+        createdBy {
+          id
+          firstName
+          lastName
+        }
+        viewed
+        createdAt
+      }
+    }
+  }
+`
+
+export const MARK_VISIT_DEPARTMENT_NOTE_VIEWED_MUTATION = gql`
+  mutation MarkVisitDepartmentNoteViewed($noteId: ID!) {
+    markVisitDepartmentNoteViewed(noteId: $noteId) {
+      status
+      message
+      data {
+        id
+        visitDepartmentId
+        content
+        createdBy {
+          id
+          firstName
+          lastName
+        }
+        viewed
+        createdAt
+      }
+    }
+  }
+`
+
+export const MARK_VISIT_DEPARTMENT_NOTES_VIEWED_MUTATION = gql`
+  mutation MarkVisitDepartmentNotesViewed($visitDepartmentId: ID!) {
+    markVisitDepartmentNotesViewed(visitDepartmentId: $visitDepartmentId) {
+      status
+      message
+      data {
+        totalNotes
+        newNotes
+      }
+    }
+  }
+`

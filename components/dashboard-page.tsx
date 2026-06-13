@@ -820,6 +820,7 @@ export default function DashboardPage() {
                         const billedProductCount = countBilledProducts(visit)
                         const billedProductNames = getBilledProductNames(visit)
                         const departmentsReadyForBilling = getDepartmentsReadyForBilling(visit)
+                        const totalNewNotes = (visit.departments || []).reduce((sum, dept) => sum + (dept.notes?.newNotes || 0), 0)
                         if (process.env.NODE_ENV !== 'production') {
                           // eslint-disable-next-line no-console
                           console.debug(`[ConsultButton check for ${visit.patient.firstName} ${visit.patient.lastName}]:`, consultButtonDebug)
@@ -836,6 +837,11 @@ export default function DashboardPage() {
                                 {visit.status === 'IN_PROGRESS' && <Clock className="w-4 h-4 text-accent flex-shrink-0" />}
                                 {visit.status === 'COMPLETED' && <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />}
                                 {visit.status === 'CANCELLED' && <AlertCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+                                {totalNewNotes > 0 && (
+                                  <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full">
+                                    {totalNewNotes}
+                                  </span>
+                                )}
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <h3 className="font-medium text-foreground truncate cursor-help">
@@ -854,6 +860,9 @@ export default function DashboardPage() {
                                             <p>Status: {dept.status || "-"}</p>
                                             <p>Checked in: {formatDepartmentTime(dept.createdAt)}</p>
                                             <p>Completed: {formatDepartmentTime(dept.completedAt)}</p>
+                                            {dept.notes && dept.notes.newNotes > 0 && (
+                                              <p className="text-red-500 font-semibold">{dept.notes.newNotes} new note(s)</p>
+                                            )}
                                           </div>
                                         ))
                                       )}

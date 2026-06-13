@@ -394,6 +394,14 @@ export interface Visit {
 }
 
 /**
+ * VisitDepartmentNotesSummary - Summary of notes for a visit department
+ */
+export interface VisitDepartmentNotesSummary {
+  totalNotes: number
+  newNotes: number
+}
+
+/**
  * VisitDepartment - Department services rendered during a visit
  */
 export interface VisitDepartment {
@@ -408,6 +416,7 @@ export interface VisitDepartment {
   diagnostics?: VisitDepartmentDiagnosis[] | null
   medications?: VisitDepartmentMedication[] | null
   preInstructions: VisitPreInstruction[]
+  notes?: VisitDepartmentNotesSummary | null
   createdAt: string
   updatedAt: string
 }

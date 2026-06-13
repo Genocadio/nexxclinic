@@ -206,6 +206,10 @@ export const GET_VISIT_QUERY = gql`
               lastName
             }
           }
+          notes {
+            totalNotes
+            newNotes
+          }
           createdAt
           updatedAt
         }
@@ -308,6 +312,10 @@ export const VISITS_QUERY = gql`
               updatedAt
             }
           }
+          notes {
+            totalNotes
+            newNotes
+          }
         }
       }
       pagination {
@@ -396,6 +404,27 @@ export const DASHBOARD_STATS_QUERY = gql`
         completedVisits
         inProgressVisits
         totalRevenue
+      }
+    }
+  }
+`
+
+export const VISIT_DEPARTMENT_NOTES_QUERY = gql`
+  query GetVisitDepartmentNotes($visitId: ID!, $visitDepartmentId: ID!) {
+    visitDepartmentNotes(visitId: $visitId, visitDepartmentId: $visitDepartmentId) {
+      status
+      message
+      data {
+        id
+        visitDepartmentId
+        content
+        createdBy {
+          id
+          firstName
+          lastName
+        }
+        viewed
+        createdAt
       }
     }
   }

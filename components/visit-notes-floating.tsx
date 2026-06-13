@@ -9,10 +9,16 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface VisitNoteItem {
-  type?: string | null
-  text?: string | null
-  scope?: 'visit' | 'department'
-  departmentName?: string
+  id?: string
+  content?: string | null
+  noteType?: string | null
+  createdBy?: {
+    id?: string
+    firstName?: string
+    lastName?: string
+  }
+  createdAt?: string
+  viewed?: boolean
 }
 
 interface VisitNotesFloatingProps {
@@ -20,10 +26,13 @@ interface VisitNotesFloatingProps {
   noteTypes: string[]
   title?: string
   allowedDisplayTypes?: string[]
-  onAddNote?: (type: string, text: string) => Promise<void>
+  onAddNote?: (noteType: string, content: string) => Promise<void>
+  onMarkAsViewed?: (noteId: string) => Promise<void>
   open?: boolean
   onOpenChange?: (open: boolean) => void
   hideToggleButton?: boolean
+  visitId?: string
+  visitDepartmentId?: string
 }
 
 export default function VisitNotesFloating({
@@ -32,6 +41,7 @@ export default function VisitNotesFloating({
   title = "Visit Notes",
   allowedDisplayTypes,
   onAddNote,
+  onMarkAsViewed,
   open,
   onOpenChange,
   hideToggleButton = false,
@@ -62,7 +72,7 @@ export default function VisitNotesFloating({
     }
 
     const allowed = new Set(allowedDisplayTypes)
-    return (notes || []).filter((note) => note?.type && allowed.has(String(note.type)))
+    return (notes || []).filter((note) => note?.noteType && allowed.has(String(note.noteType)))
   }, [allowedDisplayTypes, notes])
 
   const handleAdd = async () => {
@@ -80,6 +90,15 @@ export default function VisitNotesFloating({
       console.error("Failed to add note", error)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleMarkAsViewed = async (noteId: string) => {
+    if (!onMarkAsViewed) return
+    try {
+      await onMarkAsViewed(noteId)
+    } catch (error: any) {
+      console.error("Failed to mark note as viewed", error)
     }
   }
 
@@ -198,16 +217,21 @@ export default function VisitNotesFloating({
               <p className="text-xs text-muted-foreground">No notes yet.</p>
             ) : (
               visibleNotes.map((note, idx) => (
-                <div key={`${note.type || "note"}-${idx}`} className="rounded-lg border border-border/60 bg-card/80 p-2">
+                <div
+                  key={`${note.id || note.noteType || "note"}-${idx}`}
+                  className="rounded-lg border border-border/60 bg-card/80 p-2"
+                  onClick={() => !note.viewed && note.id ? handleMarkAsViewed(note.id) : undefined}
+                >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{note.type || "GENERAL"}</p>
-                    <span className="text-[10px] font-semibold rounded-full border border-border/70 px-2 py-0.5 text-muted-foreground">
-                      {note.scope === 'department'
-                        ? `Department${note.departmentName ? `: ${note.departmentName}` : ''}`
-                        : 'Visit'}
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {note.noteType || "GENERAL"}
+                      {!note.viewed && <span className="ml-1 text-[9px] bg-primary text-primary-foreground px-1 rounded-full">NEW</span>}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground">
+                      {note.createdBy ? `${note.createdBy.firstName} ${note.createdBy.lastName}` : 'Unknown'}
                     </span>
                   </div>
-                  {formatLineBlocks(note.text || "")}
+                  {formatLineBlocks(note.content || "")}
                 </div>
               ))
             )}
