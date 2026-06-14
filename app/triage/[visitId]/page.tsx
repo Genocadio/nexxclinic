@@ -16,6 +16,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { handleResponse } from "@/lib/response-handler"
 import { useAddVisitVitalSigns, useVisit, useDepartments, useAddDepartmentToVisit, normalizeVisitVitalSigns } from "@/hooks/auth-hooks"
 import { AddDepartmentModal } from "@/components/add-department-modal"
+// NEW: departmental notes wrapper
+import DepartmentNotesFloating from "@/components/department-notes-floating"
 
 interface VitalRow {
   id: string
@@ -189,7 +191,7 @@ export default function TriagePage() {
           </div>
         </div>
 
-        {/* current vitals centered */}
+        {/* current vitals centered — GLOBAL to the visit, unchanged */}
         <div className="flex justify-center">
           <div className="w-full max-w-3xl">
             <Card className="border-border/60 bg-card/90 shadow-lg backdrop-blur-xl">
@@ -351,6 +353,21 @@ export default function TriagePage() {
               </TooltipProvider>
             </div>
           </div>
+        )}
+
+        {/*
+          ── Department notes (floating, right-side) ──────────────────────────
+          Rendered only when the visit has at least 1 department.
+          Vitals above remain GLOBAL to the visit — this component only
+          handles notes, scoped per-department with tab switching.
+        */}
+        {(visit.departments?.length ?? 0) > 0 && (
+          <DepartmentNotesFloating
+            visitId={visit.id}
+            visitDepartments={visit.departments ?? []}
+            noteTypes={["GENERAL", "CONSULTATION"]}
+            allowedDisplayTypes={["GENERAL", "CONSULTATION"]}
+          />
         )}
 
       </main>

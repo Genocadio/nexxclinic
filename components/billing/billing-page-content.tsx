@@ -1008,11 +1008,7 @@ export function BillingPageContent() {
         notes={billingDepartmentNotes}
         allowedDisplayTypes={['BILLING']}
         noteTypes={[
-          'BILLING',
-          'FORMS',
-          'CONSULTATION',
-          'ADMIN',
-          'PUBLIC',
+          'CONSULTATION'
         ]}
         onAddNote={async (noteType, content) => {
           const visitDepartmentId = String(firstBillingDepartmentId || '')

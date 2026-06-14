@@ -423,6 +423,7 @@ export const VISIT_DEPARTMENT_NOTES_QUERY = gql`
           firstName
           lastName
         }
+        noteType
         viewed
         createdAt
       }

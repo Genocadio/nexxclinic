@@ -7,6 +7,7 @@ import { toast } from "react-toastify"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useAuth} from "@/lib/auth-context";
 
 interface VisitNoteItem {
   id?: string
@@ -47,6 +48,7 @@ export default function VisitNotesFloating({
   hideToggleButton = false,
 }: VisitNotesFloatingProps) {
   const [internalOpen, setInternalOpen] = useState(false)
+  const { doctor } = useAuth()
   const controlled = typeof open === 'boolean'
   const isOpen = controlled ? open : internalOpen
   const setOpenState = (value: boolean) => {
@@ -190,7 +192,7 @@ export default function VisitNotesFloating({
           <Button
             type="button"
             size="icon"
-            className="relative rounded-full h-12 w-12 border-2 border-white/30 bg-card/90 text-foreground hover:bg-card shadow-lg"
+            className="relative rounded-full h-12 w-12 border-2 border-white bg-card text-foreground hover:bg-card shadow-lg"
             onClick={() => setOpenState(!isOpen)}
             aria-label="Toggle notes"
             title="Notes"
@@ -206,7 +208,7 @@ export default function VisitNotesFloating({
       )}
 
       {isOpen && (
-        <div className="fixed right-20 top-1/2 -translate-y-1/2 w-[360px] max-w-[calc(100vw-7rem)] z-40 bg-card border border-border rounded-2xl shadow-2xl p-4 space-y-4">
+        <div className="fixed right-20 top-1/2 -translate-y-1/2 w-90 max-w-[calc(100vw-7rem)] z-40 bg-card border border-border rounded-2xl shadow-2xl p-4 space-y-4 backdrop-blur-none">
           <div>
             <h3 className="text-sm font-semibold text-foreground">{title}</h3>
             <p className="text-xs text-muted-foreground">View and add notes</p>
@@ -219,7 +221,7 @@ export default function VisitNotesFloating({
               visibleNotes.map((note, idx) => (
                 <div
                   key={`${note.id || note.noteType || "note"}-${idx}`}
-                  className="rounded-lg border border-border/60 bg-card/80 p-2"
+                  className="rounded-lg border border-border bg-card p-2"
                   onClick={() => !note.viewed && note.id ? handleMarkAsViewed(note.id) : undefined}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -227,9 +229,27 @@ export default function VisitNotesFloating({
                       {note.noteType || "GENERAL"}
                       {!note.viewed && <span className="ml-1 text-[9px] bg-primary text-primary-foreground px-1 rounded-full">NEW</span>}
                     </p>
-                    <span className="text-[10px] text-muted-foreground">
-                      {note.createdBy ? `${note.createdBy.firstName} ${note.createdBy.lastName}` : 'Unknown'}
-                    </span>
+
+
+                    {(() => {
+                      const createdBy = note.createdBy
+                      if (!createdBy) return <span className="text-[10px] text-muted-foreground">Unknown</span>
+
+                      if (doctor && createdBy.id === doctor.id) {
+                        return <span className="text-[10px] text-muted-foreground italic">You</span>
+                      }
+                      const hasFirst = !!createdBy.firstName?.trim()
+                      const hasLast = !!createdBy.lastName?.trim()
+
+                      if(hasFirst && !hasLast) return null
+                      const fullName = [
+                          createdBy.firstName?.trim(),
+                          createdBy.lastName?.trim(),
+                      ].filter(Boolean).join(' ')
+                      return  fullName ? (
+                          <span className="text-[10px] text-muted-foreground">{fullName}</span>
+                      ) : null
+                    })()}
                   </div>
                   {formatLineBlocks(note.content || "")}
                 </div>
@@ -252,7 +272,7 @@ export default function VisitNotesFloating({
                     <SelectTrigger className="h-7 min-h-0 w-auto rounded-full border-border/70 bg-background/80 px-3 py-0 text-[11px] font-semibold text-muted-foreground leading-none [&>svg]:hidden">
                       <SelectValue placeholder="Type" />
                     </SelectTrigger>
-                    <SelectContent className="min-w-[120px] rounded-xl p-1">
+                    <SelectContent className="min-w-30 rounded-xl p-1">
                       {noteTypes.map((type) => (
                         <SelectItem key={type} value={type} className="h-7 text-[11px] leading-none px-2">
                           {type}
