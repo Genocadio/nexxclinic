@@ -77,7 +77,7 @@ interface ConsultationSidePanelsProps {
   setHistoryPanel: (state: PanelState) => void
   onOpenHistory?: () => void
   vitals?: any[]
-  visitInsurances?: Array<{ id: string; insuranceProvider: { acronym: string; insuranceName: string } }>
+  visitInsurances?: Array<{ id: string; insuranceProvider: { acronym?: string | null; insuranceName: string } }>
 }
 
 export function ConsultationSidePanels({
