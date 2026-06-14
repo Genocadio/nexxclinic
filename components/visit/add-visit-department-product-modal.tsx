@@ -14,6 +14,16 @@ type ProductPickerItem = {
   name: string
 }
 
+type PatientInsurance = {
+  id: string
+  insuranceProvider: {
+    id: string
+    insuranceName: string
+    acronym: string
+    defaultCoveragePercentage: number
+  }
+}
+
 type AddVisitDepartmentProductModalProps = {
   open: boolean
   onClose: () => void
@@ -31,6 +41,7 @@ type AddVisitDepartmentProductModalProps = {
   ) => void | Promise<void>
   existingProductReferenceIds?: string[]
   isSubmitting?: boolean
+  linkedInsurances?: PatientInsurance[]
 }
 
 /**
@@ -47,6 +58,7 @@ export function AddVisitDepartmentProductModal({
   onAdd,
   existingProductReferenceIds,
   isSubmitting = false,
+  linkedInsurances = [],
 }: AddVisitDepartmentProductModalProps) {
   const departmentOptions = useMemo(
     () => buildVisitDepartmentProductOptions(visitDepartments),
@@ -73,6 +85,7 @@ export function AddVisitDepartmentProductModal({
       onAdd={onAdd}
       existingProductReferenceIds={resolvedExistingIds}
       isSubmitting={isSubmitting}
+      linkedInsurances={linkedInsurances}
     />
   )
 }

@@ -1085,6 +1085,7 @@ export function BillingPageContent() {
         viewMode="service"
         onAdd={handleAddProduct}
         isSubmitting={addingBillingItem}
+        linkedInsurances={visit?.linkedInsurances || []}
       />
 
       <BillingExemptionsPanel
