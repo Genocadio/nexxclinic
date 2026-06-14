@@ -55,7 +55,6 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
   const solidPanelClass = "rounded-2xl border border-border/60 bg-white dark:bg-slate-950 shadow-sm"
   const fieldValue = (value?: string | null) => value ?? ""
   const [error, setError] = useState("")
-  const [showNotes, setShowNotes] = useState(false)
   const [insurancePopoverOpen, setInsurancePopoverOpen] = useState<{ [key: number]: boolean }>({})
   const [editPatientModal, setEditPatientModal] = useState(false)
   const [selectedPatientForEdit, setSelectedPatientForEdit] = useState<Patient | null>(null)
@@ -125,7 +124,6 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
     },
     nationalIdNumber: "",
     insurances: [],
-    notes: ""
   })
 
   const handleInputChange = (field: string, value: string) => {
@@ -698,41 +696,7 @@ export default function PatientRegistrationModal({ isOpen, onClose, onPatientReg
             ))}
           </div>
 
-          {/* Notes */}
-          <div className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}>
-            {!showNotes ? (
-              <button
-                type="button"
-                onClick={() => setShowNotes(true)}
-                className="rounded-full px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md text-xs sm:text-base"
-              >
-                + Notes
-              </button>
-            ) : (
-              <div>
-                <div className="flex justify-between items-center mb-2 sm:mb-3">
-                  <label className="block text-xs sm:text-sm font-medium text-foreground">
-                    Notes
-                  </label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowNotes(false)}
-                  >
-                    Hide
-                  </Button>
-                </div>
-                <textarea
-                  value={fieldValue(formData.notes)}
-                  onChange={(e) => handleInputChange('notes', e.target.value)}
-                  placeholder="Enter any additional notes"
-                  className="w-full p-3 border border-border/70 rounded-lg bg-white dark:bg-gray-900 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                  rows={3}
-                />
-              </div>
-            )}
-          </div>
+
 
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-8 pt-3 sm:pt-6 border-t border-border/30 sticky md:sticky bottom-0 left-0 right-0 bg-gradient-to-t from-background dark:from-gray-900 to-background/95 dark:to-gray-900/95 -mx-2 sm:-mx-4 px-2 sm:px-4 pb-2 sm:pb-4 z-50">
               <button type="button" onClick={onClose} className="rounded-full px-4 py-2 sm:py-2.5 bg-background dark:bg-gray-900 border border-border/70 text-foreground hover:bg-muted/40 dark:hover:bg-muted/50 shadow-lg text-xs sm:text-base flex-1 sm:flex-initial">

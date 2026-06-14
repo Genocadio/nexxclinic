@@ -1554,6 +1554,7 @@ export default function ConsultationViewBackbone({
       <ConsultationSidePanels
         patient={patient}
         vitals={visit?.vitalSigns || []}
+        visitInsurances={visit?.patient?.patientInsurances || []}
         idPanel={idPanel}
         vitalsPanel={vitalsPanel}
         historyPanel={historyPanel}
