@@ -184,9 +184,6 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
       setShouldSearch(false)
       setSelectedServiceId(TRIAGE_SERVICE_ID)
       setSelectedInsuranceIds([])
-      setVisitNoteText("")
-      setVisitNoteDepartment("visit")
-      setQueuedNotes([])
     }
   }, [isOpen])
 
@@ -270,11 +267,8 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
     setSearchFilterType("name")
     setPatientFilter({})
     setShouldSearch(false)
-    setSelectedServiceId(TRIAGE_SERVICE_ID)
-    setSelectedInsuranceIds([])
-    setVisitNoteText("")
-    setVisitNoteDepartment("visit")
-    setQueuedNotes([])
+      setSelectedServiceId(TRIAGE_SERVICE_ID)
+      setSelectedInsuranceIds([])
     onClose()
   }
 
@@ -286,9 +280,6 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
       setCurrentStep("patient-selection")
       setSelectedServiceId(TRIAGE_SERVICE_ID)
       setSelectedInsuranceIds([])
-      setVisitNoteText("")
-      setVisitNoteDepartment("visit")
-      setQueuedNotes([])
     }
   }
 
