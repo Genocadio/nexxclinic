@@ -11,6 +11,28 @@ import { useProductSearch } from "@/hooks/products"
 
 type ProductTypeFilter = 'ALL' | 'DRUG' | 'MEDICAL_ACT' | 'BIOLOGICAL_ACT' | 'CONSUMABLE_DEVICE'
 
+interface InsuranceCoverage {
+  id: string
+  insuranceProvider: {
+    id: string
+    insuranceName: string
+    acronym: string
+    defaultCoveragePercentage: number
+  }
+  cost: number
+  covered: boolean
+}
+
+interface PatientInsurance {
+  id: string
+  insuranceProvider: {
+    id: string
+    insuranceName: string
+    acronym: string
+    defaultCoveragePercentage: number
+  }
+}
+
 interface ActionOrConsumable {
   id: string
   name: string
@@ -18,6 +40,9 @@ interface ActionOrConsumable {
   isQuantifiable?: boolean
   type?: ProductTypeFilter
   description?: string
+  insuranceCoverages?: InsuranceCoverage[]
+  clinicPrice?: number | null
+  privateRhicPrice?: number | null
 }
 
 interface AddActionConsumableModalProps {
@@ -29,6 +54,7 @@ interface AddActionConsumableModalProps {
   onAdd: (type: 'action' | 'consumable', item: ActionOrConsumable, quantity: number, departmentId: string) => void
   existingProductReferenceIds?: string[]
   isSubmitting?: boolean
+  linkedInsurances?: PatientInsurance[]
 }
 
 export default function AddActionConsumableModal({
@@ -40,6 +66,7 @@ export default function AddActionConsumableModal({
   onAdd,
   existingProductReferenceIds = [],
   isSubmitting = false,
+  linkedInsurances = [],
 }: AddActionConsumableModalProps) {
   const filterOptions: ProductTypeFilter[] = ['ALL', 'DRUG', 'MEDICAL_ACT', 'BIOLOGICAL_ACT', 'CONSUMABLE_DEVICE']
   const [productType, setProductType] = useState<ProductTypeFilter>('ALL')
@@ -55,6 +82,43 @@ export default function AddActionConsumableModal({
   const isFetchingMoreRef = useRef(false)
   const existingProductIdSet = new Set((existingProductReferenceIds || []).map(String))
   const selectedAlreadyAdded = selectedItem ? existingProductIdSet.has(selectedItem.id) : false
+
+  // Helper to get insurance-aware pricing
+  const getInsuranceAwarePricing = (item: ActionOrConsumable) => {
+    if (!linkedInsurances || linkedInsurances.length === 0) {
+      // No insurance - show clinic price or private price
+      return {
+        price: item.clinicPrice ?? item.privateRhicPrice ?? 0,
+        coverage: null,
+        isCovered: false,
+        coverageDetails: []
+      }
+    }
+
+    // Get matching insurance coverages
+    const insuranceProviderIds = new Set(linkedInsurances.map(ins => ins.insuranceProvider.id))
+    const matchingCoverages = (item.insuranceCoverages || []).filter(cov =>
+      insuranceProviderIds.has(cov.insuranceProvider.id)
+    )
+
+    if (matchingCoverages.length === 0) {
+      // Insurance linked but no coverage for this product
+      return {
+        price: item.clinicPrice ?? item.privateRhicPrice ?? 0,
+        coverage: null,
+        isCovered: false,
+        coverageDetails: []
+      }
+    }
+
+    // Return all matching coverages for display
+    return {
+      price: matchingCoverages[0]?.cost || 0,
+      coverage: matchingCoverages[0],
+      isCovered: matchingCoverages.length > 0 && matchingCoverages[0].covered && matchingCoverages[0].cost > 0,
+      coverageDetails: matchingCoverages
+    }
+  }
   const {
     products: searchedProducts,
     loading,
@@ -275,9 +339,39 @@ export default function AddActionConsumableModal({
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex-1">
                             <div className="font-medium">{item.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {item.privatePrice.toLocaleString()} RWF
-                            </div>
+                            {(() => {
+                              const pricing = getInsuranceAwarePricing(item)
+                              return (
+                                <div className="text-sm mt-1 space-y-1">
+                                  {pricing.coverageDetails.length > 0 ? (
+                                    pricing.coverageDetails.map((coverage, idx) => (
+                                      <div key={idx} className="flex items-center gap-2">
+                                        <span className="text-primary font-semibold">
+                                          {coverage.cost.toLocaleString()} RWF
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {coverage.insuranceProvider.acronym}
+                                        </span>
+                                        {coverage.cost === 0 && (
+                                          <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded">
+                                            Not Covered
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div className="text-muted-foreground">
+                                      {pricing.price.toLocaleString()} RWF
+                                      {linkedInsurances.length > 0 && (
+                                        <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 ml-2 px-1.5 py-0.5 rounded inline-block">
+                                          Not Covered
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })()}
                             {hoveredItemId === item.id && (
                               <div className="mt-2 rounded-md border border-border/50 bg-muted/30 p-2 text-xs text-muted-foreground">
                                 {item.description?.trim() || 'No description available'}
@@ -311,10 +405,40 @@ export default function AddActionConsumableModal({
                     <span className="text-sm font-medium">Selected Product</span>
                   </div>
                   <div className="text-sm text-muted-foreground mb-2">{selectedItem.name}</div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Unit Price:</span>
-                    <span className="font-semibold">{selectedItem.privatePrice.toLocaleString()} RWF</span>
-                  </div>
+                  {(() => {
+                    const pricing = getInsuranceAwarePricing(selectedItem)
+                    return (
+                      <div className="space-y-1">
+                        {pricing.coverageDetails.length > 0 ? (
+                          pricing.coverageDetails.map((coverage, idx) => (
+                            <div key={idx} className="flex justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">Unit Price ({coverage.insuranceProvider.acronym}):</span>
+                                {coverage.cost === 0 && (
+                                  <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded">
+                                    Not Covered
+                                  </span>
+                                )}
+                              </div>
+                              <span className="font-semibold">{coverage.cost.toLocaleString()} RWF</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted-foreground">Unit Price:</span>
+                              {linkedInsurances.length > 0 && (
+                                <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1.5 py-0.5 rounded">
+                                  Not Covered
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-semibold">{pricing.price.toLocaleString()} RWF</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
                 {selectedAlreadyAdded && (
                   <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -335,12 +459,18 @@ export default function AddActionConsumableModal({
                     placeholder="Enter quantity"
                     className="h-10"
                   />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Total:</span>
-                    <span className="font-semibold text-foreground">
-                      {(selectedItem.privatePrice * (parseInt(quantity, 10) || 1)).toLocaleString()} RWF
-                    </span>
-                  </div>
+                  {(() => {
+                    const pricing = getInsuranceAwarePricing(selectedItem)
+                    const qtyNum = parseInt(quantity, 10) || 1
+                    return (
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Total:</span>
+                        <span className="font-semibold text-foreground">
+                          {(pricing.price * qtyNum).toLocaleString()} RWF
+                        </span>
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
 

@@ -1677,6 +1677,7 @@ export default function ConsultationViewBackbone({
           setShowAddActionModal(false)
         }}
         existingProductReferenceIds={existingProductReferenceIds}
+        linkedInsurances={visit?.linkedInsurances || []}
       />
 
       <Sheet open={requestProductsModalOpen} onOpenChange={setRequestProductsModalOpen}>

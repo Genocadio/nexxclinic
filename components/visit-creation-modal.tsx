@@ -46,10 +46,7 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
   
   const [selectedServiceId, setSelectedServiceId] = useState<string>(TRIAGE_SERVICE_ID)
   const [selectedInsuranceIds, setSelectedInsuranceIds] = useState<string[]>([])
-  const [visitNoteText, setVisitNoteText] = useState("")
-  const [visitNoteDepartment, setVisitNoteDepartment] = useState<string>("visit")
-  const [queuedNotes, setQueuedNotes] = useState<Array<{ id: string; text: string; departmentId?: string }>>([])
-  const [showNotesSection, setShowNotesSection] = useState(false)
+
   const [editPatientModal, setEditPatientModal] = useState(false)
   const [selectedPatientForEdit, setSelectedPatientForEdit] = useState<Patient | null>(null)
   const [showAddInsuranceModal, setShowAddInsuranceModal] = useState(false)
@@ -235,19 +232,8 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
     }
 
     try {
-      const visitLevelNotes = queuedNotes.map((note) => {
-        if (!note.departmentId) {
-          return { type: 'GENERAL', text: note.text }
-        }
-
-        const departmentName = departments.find((dept) => String(dept.id) === String(note.departmentId))?.name
-        const label = departmentName ? `[${departmentName}] ` : ''
-        return { type: 'GENERAL', text: `${label}${note.text}` }
-      })
-
       const visitInput: any = {
         patientId: selectedPatientId,
-        visitNotes: visitLevelNotes,
       }
 
       if (hasSelectedDepartment) {
@@ -311,24 +297,6 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
     : hasSelectedDepartment
       ? departments.find((dept) => String(dept.id) === String(selectedServiceId))?.name || 'Selected department'
       : ''
-
-  const handleQueueNote = () => {
-    const text = visitNoteText.trim()
-    if (!text) return
-
-    const note = {
-      id: `note-${Date.now()}`,
-      text,
-      departmentId: visitNoteDepartment !== 'visit' ? visitNoteDepartment : undefined,
-    }
-
-    setQueuedNotes((prev) => [...prev, note])
-    setVisitNoteText("")
-  }
-
-  const handleRemoveQueuedNote = (id: string) => {
-    setQueuedNotes((prev) => prev.filter((note) => note.id !== id))
-  }
 
   return (
     <>
@@ -707,85 +675,7 @@ export default function VisitCreationModal({ isOpen, onClose, onVisitCreated, pr
 
             {/* Notes Section Toggle */}
             <div className="pt-1">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowNotesSection(!showNotesSection)}
-                className="w-full justify-center gap-2 text-sm"
-              >
-                {showNotesSection ? (
-                  <>
-                    <X className="w-4 h-4" />
-                    Hide Notes
-                  </>
-                ) : (
-                  <>
-                    <Edit className="w-4 h-4" />
-                    Add Notes {queuedNotes.length > 0 && `(${queuedNotes.length})`}
-                  </>
-                )}
-              </Button>
 
-              {showNotesSection && (
-                <div className="mt-2 space-y-2 border rounded-lg p-2 bg-white/40 dark:bg-black/20">
-                  <label className="block text-sm font-medium text-foreground mb-2">Reception Notes (General)</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_170px_auto] gap-2 items-center">
-                    <Input
-                      value={visitNoteText}
-                      onChange={(e) => setVisitNoteText(e.target.value)}
-                      placeholder="Write a general note..."
-                    />
-                    <Select value={visitNoteDepartment} onValueChange={setVisitNoteDepartment}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Applies to" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="visit">Visit (General)</SelectItem>
-                        {hasSelectedDepartment
-                          ? departments
-                              .filter((dept) => String(dept.id) === String(selectedServiceId))
-                              .map((dept) => (
-                                <SelectItem key={`dept-note-${dept.id}`} value={String(dept.id)}>
-                                  Department: {dept.name}
-                                </SelectItem>
-                              ))
-                          : null}
-                      </SelectContent>
-                    </Select>
-                    <Button type="button" variant="outline" onClick={handleQueueNote}>
-                      Add Note
-                    </Button>
-                  </div>
-
-                  {queuedNotes.length > 0 && (
-                    <div className="space-y-2 max-h-32 overflow-y-auto pt-1">
-                      {queuedNotes.map((note) => {
-                        const departmentName = note.departmentId
-                          ? departments.find((dept) => String(dept.id) === String(note.departmentId))?.name
-                          : undefined
-
-                        return (
-                          <div key={note.id} className="rounded-md border border-border/70 bg-background/80 px-3 py-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                                {departmentName ? `Department: ${departmentName}` : 'Visit'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveQueuedNote(note.id)}
-                                className="text-xs text-muted-foreground hover:text-foreground"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                            <p className="text-sm text-foreground whitespace-pre-wrap">{note.text}</p>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         )}
