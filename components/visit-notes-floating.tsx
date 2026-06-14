@@ -208,13 +208,13 @@ export default function VisitNotesFloating({
       )}
 
       {isOpen && (
-        <div className="fixed right-20 top-1/2 -translate-y-1/2 w-90 max-w-[calc(100vw-7rem)] z-40 bg-card border border-border rounded-2xl shadow-2xl p-4 space-y-4 backdrop-blur-none">
+        <div className="fixed right-20 top-1/2 -translate-y-1/2 w-90 max-w-[calc(100vw-7rem)] z-40 bg-background border border-border rounded-2xl shadow-2xl p-4 space-y-4">
           <div>
             <h3 className="text-sm font-semibold text-foreground">{title}</h3>
             <p className="text-xs text-muted-foreground">View and add notes</p>
           </div>
 
-          <div className="max-h-56 overflow-y-auto rounded-xl border border-border/70 bg-background/70 p-3 space-y-2">
+          <div className="max-h-56 overflow-y-auto rounded-xl border border-border bg-card p-3 space-y-2">
             {visibleNotes.length === 0 ? (
               <p className="text-xs text-muted-foreground">No notes yet.</p>
             ) : (
@@ -269,7 +269,7 @@ export default function VisitNotesFloating({
 
                 {noteTypes.length > 1 ? (
                   <Select value={selectedType} onValueChange={setSelectedType}>
-                    <SelectTrigger className="h-7 min-h-0 w-auto rounded-full border-border/70 bg-background/80 px-3 py-0 text-[11px] font-semibold text-muted-foreground leading-none [&>svg]:hidden">
+                    <SelectTrigger className="h-7 min-h-0 w-auto rounded-full border-border bg-muted px-3 py-0 text-[11px] font-semibold text-foreground leading-none [&>svg]:hidden">
                       <SelectValue placeholder="Type" />
                     </SelectTrigger>
                     <SelectContent className="min-w-30 rounded-xl p-1">
@@ -327,7 +327,7 @@ export default function VisitNotesFloating({
                 }}
                 rows={5}
                 placeholder="Write note..."
-                className="bg-background/80 border-border/80"
+                className="bg-muted border-border"
               />
 
               <div className="flex justify-end gap-2">
