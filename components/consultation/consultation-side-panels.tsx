@@ -77,6 +77,7 @@ interface ConsultationSidePanelsProps {
   setHistoryPanel: (state: PanelState) => void
   onOpenHistory?: () => void
   vitals?: any[]
+  visitInsurances?: Array<{ id: string; insuranceProvider: { acronym: string; insuranceName: string } }>
 }
 
 export function ConsultationSidePanels({
@@ -89,6 +90,7 @@ export function ConsultationSidePanels({
   setHistoryPanel,
   onOpenHistory,
   vitals = [],
+  visitInsurances = [],
 }: ConsultationSidePanelsProps) {
   const activePanels = [
     { key: 'id', active: idPanel.pinned || idPanel.hover },
@@ -186,6 +188,28 @@ export function ConsultationSidePanels({
             <div className="text-muted-foreground">DOB: {formatDateOnly(patient.dateOfBirth)}</div>
             <div className="text-muted-foreground">Gender: {patient.gender}</div>
             {patient.primaryPhoneNumber && <div className="text-muted-foreground">Phone: {patient.primaryPhoneNumber}</div>}
+            <div className="pt-2 border-t border-border/40">
+              {visitInsurances && visitInsurances.length > 0 ? (
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold text-foreground uppercase tracking-wide">Insurance</div>
+                  <div className="flex flex-wrap gap-1">
+                    {visitInsurances.map((ins) => (
+                      <span
+                        key={ins.id}
+                        className="inline-block bg-gradient-to-r from-primary/20 to-primary/10 text-primary px-2 py-1 rounded-full text-xs font-medium border border-primary/30"
+                        title={ins.insuranceProvider.insuranceName}
+                      >
+                        {ins.insuranceProvider.acronym || ins.insuranceProvider.insuranceName}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs font-medium text-muted-foreground">
+                  <span className="inline-block bg-muted/40 px-2 py-1 rounded-full">Private</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
