@@ -1,32 +1,47 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useVisits, useDepartments, useGenerateInvoice } from "@/hooks/auth-hooks"
-import type { Visit, VisitBilling } from "@/lib/api-types"
-import { mapGqlVisitBilling } from "@/lib/visit-billing-utils"
+import { useState } from "react";
+import {
+  useVisits,
+  useDepartments,
+  useGenerateInvoice,
+} from "@/hooks/auth-hooks";
+import type { Visit, VisitBilling } from "@/lib/api-types";
+import { mapGqlVisitBilling } from "@/lib/visit-billing-utils";
 import {
   getDerivedVisitBillingStatus,
   visitHasUnbilledProducts,
   visitProductsFullySettled,
-} from "@/lib/visit-product-utils"
-import { useLazyQuery } from "@apollo/client"
-import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
-import { toast } from "react-toastify"
-import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
-import { BillingPreviewSheet } from '@/components/billing/billing-preview-sheet'
-import { useRouter } from "next/navigation"
-import { Search, Calendar, Clock, CheckCircle, AlertCircle, User, ReceiptText, Plus, Stethoscope, Activity } from "lucide-react"
-import { useTheme } from "@/lib/theme-context"
-import { useAuth } from "@/lib/auth-context"
-import { AddDepartmentModal } from "./add-department-modal"
+} from "@/lib/visit-product-utils";
+import { useLazyQuery } from "@apollo/client";
+import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries";
+import { toast } from "react-toastify";
+import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils";
+import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet";
+import { useRouter } from "next/navigation";
+import {
+  Search,
+  Calendar,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  User,
+  ReceiptText,
+  Plus,
+  Stethoscope,
+  Activity,
+} from "lucide-react";
+import { useTheme } from "@/lib/theme-context";
+import { useAuth } from "@/lib/auth-context";
+import { AddDepartmentModal } from "./add-department-modal";
 
 interface VisitsListViewProps {
-  visits: Visit[]
-  onVisitSelect: (visit: Visit) => void
-  onConsultVisit: (visit: Visit) => void
-  searchQuery: string
-  onSearchChange: (query: string) => void
-  refetchVisits?: () => void
+  visits: Visit[];
+  onVisitSelect: (visit: Visit) => void;
+  onConsultVisit: (visit: Visit) => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+  refetchVisits?: () => void;
 }
 
 export default function VisitsListView({
@@ -35,152 +50,182 @@ export default function VisitsListView({
   onConsultVisit,
   searchQuery,
   onSearchChange,
-  refetchVisits
+  refetchVisits,
 }: VisitsListViewProps) {
-  const router = useRouter()
-  const { departments, refetch: refetchDepartments } = useDepartments()
-  const { theme } = useTheme()
-  const isDark = theme === "dark"
-  const { doctor } = useAuth()
-  const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false)
-  const [selectedVisitForDepartment, setSelectedVisitForDepartment] = useState<Visit | null>(null)
-  const { generateInvoice } = useGenerateInvoice()
-  const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
-  const [previewingVisitId, setPreviewingVisitId] = useState<string | null>(null)
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewVisitBilling, setPreviewVisitBilling] = useState<VisitBilling | null>(null)
-  const [previewDepartmentId, setPreviewDepartmentId] = useState<string | null>(null)
-  const [previewVisit, setPreviewVisit] = useState<Visit | null>(null)
-  const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null)
+  const router = useRouter();
+  const { departments, refetch: refetchDepartments } = useDepartments();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const { doctor } = useAuth();
+  const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false);
+  const [selectedVisitForDepartment, setSelectedVisitForDepartment] =
+    useState<Visit | null>(null);
+  const { generateInvoice } = useGenerateInvoice();
+  const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY);
+  const [previewingVisitId, setPreviewingVisitId] = useState<string | null>(
+    null,
+  );
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewVisitBilling, setPreviewVisitBilling] =
+    useState<VisitBilling | null>(null);
+  const [previewDepartmentId, setPreviewDepartmentId] = useState<string | null>(
+    null,
+  );
+  const [previewVisit, setPreviewVisit] = useState<Visit | null>(null);
+  const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null);
+
+  const handleDownloadInvoice = async (
+    departmentInsuranceBillingId: string,
+  ) => {
+    const invoiceUrl = await resolveInvoiceUrl(
+      departmentInsuranceBillingId,
+      generateInvoice,
+    );
+    openInvoicePreview(invoiceUrl);
+  };
 
   const handlePreviewInvoice = async (visit: Visit) => {
     try {
-      setPreviewingVisitId(visit.id)
+      setPreviewingVisitId(visit.id);
 
-      const billRes = await getVisitBillings({ variables: { visitId: visit.id } })
-      const gqlVisitBilling = billRes.data?.visitBilling?.data
+      const billRes = await getVisitBillings({
+        variables: { visitId: visit.id },
+      });
+      const gqlVisitBilling = billRes.data?.visitBilling?.data;
 
       if (!gqlVisitBilling) {
-        toast.error('No bill found for this visit.')
-        return
+        toast.error("No bill found for this visit.");
+        return;
       }
 
-      setPreviewVisitBilling(mapGqlVisitBilling(gqlVisitBilling))
-      setPreviewVisit(visit)
+      setPreviewVisitBilling(mapGqlVisitBilling(gqlVisitBilling));
+      setPreviewVisit(visit);
 
       // choose initial department if available
-      const topLevelDepartments = (visit?.departments || []).filter((d) => d.status !== 'CANCELLED')
-      if (topLevelDepartments.length === 1) setPreviewDepartmentId(topLevelDepartments[0].id)
+      const topLevelDepartments = (visit?.departments || []).filter(
+        (d) => d.status !== "CANCELLED",
+      );
+      if (topLevelDepartments.length === 1)
+        setPreviewDepartmentId(topLevelDepartments[0].id);
 
-      setPreviewStartedAt(Date.now())
-      setPreviewOpen(true)
+      setPreviewStartedAt(Date.now());
+      setPreviewOpen(true);
     } catch (err: unknown) {
-      console.error('Preview invoice error:', err)
-      const message = err instanceof Error ? err.message : 'Failed to load bill for preview'
-      toast.error(message)
+      console.error("Preview invoice error:", err);
+      const message =
+        err instanceof Error ? err.message : "Failed to load bill for preview";
+      toast.error(message);
     } finally {
-      setPreviewingVisitId(null)
+      setPreviewingVisitId(null);
     }
-  }
+  };
 
   const hasUnbilledItems = (visit: Visit) => {
-    if (visitProductsFullySettled(visit)) return false
-    return visitHasUnbilledProducts(visit)
-  }
+    if (visitProductsFullySettled(visit)) return false;
+    return visitHasUnbilledProducts(visit);
+  };
 
   const canAddDepartment = (visit: Visit) => {
-    return getDerivedVisitBillingStatus(visit) !== 'BILLED' && visit.status !== 'IN_PROGRESS'
-  }
+    return (
+      getDerivedVisitBillingStatus(visit) !== "BILLED" &&
+      visit.status !== "IN_PROGRESS"
+    );
+  };
 
   const handleAddDepartment = (visit: Visit) => {
-    setSelectedVisitForDepartment(visit)
-    setAddDepartmentModalOpen(true)
-  }
+    setSelectedVisitForDepartment(visit);
+    setAddDepartmentModalOpen(true);
+  };
 
   const handleAddDepartmentSuccess = () => {
     // Refetch visits and departments data after successful addition
-    refetchVisits?.()
-    refetchDepartments()
-  }
+    refetchVisits?.();
+    refetchDepartments();
+  };
 
   const getTriageDuration = (visit: Visit) => {
-    const startedAt = new Date(visit.visitDate).getTime()
-    if (Number.isNaN(startedAt)) return 'Triage'
+    const startedAt = new Date(visit.visitDate).getTime();
+    if (Number.isNaN(startedAt)) return "Triage";
 
-    const elapsedMs = Math.max(Date.now() - startedAt, 0)
-    const totalMinutes = Math.floor(elapsedMs / 60000)
-    const hours = Math.floor(totalMinutes / 60)
-    const minutes = totalMinutes % 60
+    const elapsedMs = Math.max(Date.now() - startedAt, 0);
+    const totalMinutes = Math.floor(elapsedMs / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
 
     if (hours <= 0) {
-      return `Triage • ${minutes}m`
+      return `Triage • ${minutes}m`;
     }
 
-    return `Triage • ${hours}h ${minutes}m`
-  }
+    return `Triage • ${hours}h ${minutes}m`;
+  };
 
   const handleGoToBilling = (visit: Visit) => {
-    router.push(`/billing?visitId=${visit.id}&patientId=${visit.patient.id}`)
-  }
+    router.push(`/billing?visitId=${visit.id}&patientId=${visit.patient.id}`);
+  };
 
   const handleTriageVisit = (visit: Visit) => {
-    router.push(`/triage/${visit.id}`)
-  }
+    router.push(`/triage/${visit.id}`);
+  };
 
-  const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
-  const isClinicianLike = roles.includes("CLINICIAN") || roles.includes("DOCTOR")
-  const hasNurseRole = roles.includes("NURSE")
-  const hasReceptionistRole = roles.includes("RECEPTIONIST") || roles.includes("RECEPTION")
-  const hasFinanceRole = roles.includes("FINANCE")
+  const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles ||
+    []) as string[];
+  const isClinicianLike =
+    roles.includes("CLINICIAN") || roles.includes("DOCTOR");
+  const hasNurseRole = roles.includes("NURSE");
+  const hasReceptionistRole =
+    roles.includes("RECEPTIONIST") || roles.includes("RECEPTION");
+  const hasFinanceRole = roles.includes("FINANCE");
 
   const getUserDepartmentIds = () => {
-    if (!doctor) return []
-    const anyDoc = doctor as any
+    if (!doctor) return [];
+    const anyDoc = doctor as any;
     // Extract departments from stored user object
-    const depts = Array.isArray(anyDoc.departments) ? anyDoc.departments : []
+    const depts = Array.isArray(anyDoc.departments) ? anyDoc.departments : [];
     if (depts.length > 0) {
-      return depts.map((dept: { id?: string }) => String(dept.id || '')).filter(Boolean)
+      return depts
+        .map((dept: { id?: string }) => String(dept.id || ""))
+        .filter(Boolean);
     }
 
     // Backward compatibility for older stored sessions
-    const dept = anyDoc.department
+    const dept = anyDoc.department;
     if (dept && dept.id) {
-      return [String(dept.id)]
+      return [String(dept.id)];
     }
-    return []
-  }
+    return [];
+  };
 
-  const userDepartmentIds = getUserDepartmentIds()
+  const userDepartmentIds = getUserDepartmentIds();
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'CREATED':
-        return <AlertCircle className="w-4 h-4 text-secondary" />
-      case 'IN_PROGRESS':
-        return <Clock className="w-4 h-4 text-accent" />
-      case 'COMPLETED':
-        return <CheckCircle className="w-4 h-4 text-primary" />
-      case 'CANCELLED':
-        return <AlertCircle className="w-4 h-4 text-muted-foreground" />
+      case "CREATED":
+        return <AlertCircle className="w-4 h-4 text-secondary" />;
+      case "IN_PROGRESS":
+        return <Clock className="w-4 h-4 text-accent" />;
+      case "COMPLETED":
+        return <CheckCircle className="w-4 h-4 text-primary" />;
+      case "CANCELLED":
+        return <AlertCircle className="w-4 h-4 text-muted-foreground" />;
       default:
-        return <AlertCircle className="w-4 h-4 text-muted-foreground" />
+        return <AlertCircle className="w-4 h-4 text-muted-foreground" />;
     }
-  }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'CREATED':
-        return 'text-secondary'
-      case 'IN_PROGRESS':
-        return 'text-accent'
-      case 'COMPLETED':
-        return 'text-primary'
-      case 'CANCELLED':
-        return 'text-muted-foreground'
+      case "CREATED":
+        return "text-secondary";
+      case "IN_PROGRESS":
+        return "text-accent";
+      case "COMPLETED":
+        return "text-primary";
+      case "CANCELLED":
+        return "text-muted-foreground";
       default:
-        return 'text-muted-foreground'
+        return "text-muted-foreground";
     }
-  }
+  };
 
   return (
     <div
@@ -224,16 +269,18 @@ export default function VisitsListView({
                       {visit.patient.firstName} {visit.patient.lastName}
                     </h3>
                     <p className="text-sm text-muted-foreground dark:text-slate-300 truncate">
-                      Visit #{visit.id.slice(-8)} • {new Date(visit.visitDate).toLocaleDateString()}
+                      Visit #{visit.id.slice(-8)} •{" "}
+                      {new Date(visit.visitDate).toLocaleDateString()}
                     </p>
                     {/* Show active department for progress tracking when visit is not completed/cancelled */}
-                    {visit.status !== 'COMPLETED' && visit.status !== 'CANCELLED' && (
-                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                        {visit.departments?.length === 0
-                          ? `Active Department: ${getTriageDuration(visit)}`
-                          : `Active Department: ${visit.departments?.find(dept => dept.status === 'ACTIVE')?.department?.name || 'None'}`}
-                      </p>
-                    )}
+                    {visit.status !== "COMPLETED" &&
+                      visit.status !== "CANCELLED" && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          {visit.departments?.length === 0
+                            ? `Active Department: ${getTriageDuration(visit)}`
+                            : `Active Department: ${visit.departments?.find((dept) => dept.status === "ACTIVE")?.department?.name || "None"}`}
+                        </p>
+                      )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap justify-end lg:justify-start lg:flex-nowrap">
@@ -241,29 +288,39 @@ export default function VisitsListView({
                     // Match any visit department on the visit against user's departments
                     // and only allow consultation when that visit department is not completed/cancelled.
                     const matchingDept = visit.departments?.find((d) => {
-                      const deptId = String(d?.department?.id || d?.id || '')
-                      const isDepartmentOpen = d?.status !== 'COMPLETED' && d?.status !== 'CANCELLED'
-                      return deptId && userDepartmentIds.includes(deptId) && isDepartmentOpen
-                    })
+                      const deptId = String(d?.department?.id || d?.id || "");
+                      const isDepartmentOpen =
+                        d?.status !== "COMPLETED" && d?.status !== "CANCELLED";
+                      return (
+                        deptId &&
+                        userDepartmentIds.includes(deptId) &&
+                        isDepartmentOpen
+                      );
+                    });
 
-                    const canUserConsultThisVisit = isClinicianLike && Boolean(matchingDept)
-                    const showConsultButton = canUserConsultThisVisit
-                    const showTriageButton = (visit.status === 'CREATED' || visit.status === 'IN_PROGRESS') && hasNurseRole
+                    const canUserConsultThisVisit =
+                      isClinicianLike && Boolean(matchingDept);
+                    const showConsultButton = canUserConsultThisVisit;
+                    const showTriageButton =
+                      (visit.status === "CREATED" ||
+                        visit.status === "IN_PROGRESS") &&
+                      hasNurseRole;
 
-                    if (process.env.NODE_ENV !== 'production') {
+                    if (process.env.NODE_ENV !== "production") {
                       try {
                         // eslint-disable-next-line no-console
-                        console.debug('VisitsListView debug:', {
+                        console.debug("VisitsListView debug:", {
                           doctor,
                           roles,
                           userDepartmentIds,
                           visitId: visit.id,
-                          matchingDeptId: matchingDept?.department?.id || matchingDept?.id,
+                          matchingDeptId:
+                            matchingDept?.department?.id || matchingDept?.id,
                           matchingDeptStatus: matchingDept?.status,
                           canUserConsultThisVisit,
                           showConsultButton,
                           showTriageButton,
-                        })
+                        });
                       } catch (e) {
                         // ignore
                       }
@@ -274,30 +331,38 @@ export default function VisitsListView({
                         {showConsultButton && (
                           <button
                             onClick={(e) => {
-                              e.stopPropagation()
-                              onConsultVisit(visit)
+                              e.stopPropagation();
+                              onConsultVisit(visit);
                             }}
                             title="Start Consult"
                             className="px-2 sm:px-4 py-1.5 sm:py-2 bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
                           >
                             <Stethoscope className="w-4 h-4 flex-shrink-0" />
-                            <span className="hidden sm:inline lg:hidden">Consult</span>
-                            <span className="hidden lg:inline">Start Consult</span>
+                            <span className="hidden sm:inline lg:hidden">
+                              Consult
+                            </span>
+                            <span className="hidden lg:inline">
+                              Start Consult
+                            </span>
                           </button>
                         )}
 
                         {showTriageButton && (
                           <button
                             onClick={(e) => {
-                              e.stopPropagation()
-                              handleTriageVisit(visit)
+                              e.stopPropagation();
+                              handleTriageVisit(visit);
                             }}
                             title="Open Triage"
                             className="px-2 sm:px-4 py-1.5 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
                           >
                             <Activity className="w-4 h-4 flex-shrink-0" />
-                            <span className="hidden sm:inline lg:hidden">Triage</span>
-                            <span className="hidden lg:inline">Open Triage</span>
+                            <span className="hidden sm:inline lg:hidden">
+                              Triage
+                            </span>
+                            <span className="hidden lg:inline">
+                              Open Triage
+                            </span>
                           </button>
                         )}
 
@@ -305,57 +370,72 @@ export default function VisitsListView({
                         {hasReceptionistRole && canAddDepartment(visit) && (
                           <button
                             onClick={(e) => {
-                              e.stopPropagation()
-                              handleAddDepartment(visit)
+                              e.stopPropagation();
+                              handleAddDepartment(visit);
                             }}
                             title="Add Department"
                             className="px-2 sm:px-4 py-1.5 sm:py-2 bg-purple-500 hover:bg-purple-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
                           >
                             <Plus className="w-4 h-4 flex-shrink-0" />
-                            <span className="hidden sm:inline lg:hidden">Dept</span>
-                            <span className="hidden lg:inline">Add Department</span>
+                            <span className="hidden sm:inline lg:hidden">
+                              Dept
+                            </span>
+                            <span className="hidden lg:inline">
+                              Add Department
+                            </span>
                           </button>
                         )}
                         {/* Bill Visit: only for FINANCE role */}
                         {hasFinanceRole && hasUnbilledItems(visit) && (
                           <button
                             onClick={(e) => {
-                              e.stopPropagation()
-                              handleGoToBilling(visit)
+                              e.stopPropagation();
+                              handleGoToBilling(visit);
                             }}
                             title="Bill Visit"
                             className="px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
                           >
                             <ReceiptText className="w-4 h-4 flex-shrink-0" />
-                            <span className="hidden sm:inline lg:hidden">Bill</span>
+                            <span className="hidden sm:inline lg:hidden">
+                              Bill
+                            </span>
                             <span className="hidden lg:inline">Bill Visit</span>
                           </button>
                         )}
                         {/* Preview Invoice: only for FINANCE role if billed */}
-                        {hasFinanceRole && getDerivedVisitBillingStatus(visit) === 'BILLED' && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              void handlePreviewInvoice(visit)
-                            }}
-                            title="Preview Invoice"
-                            disabled={previewingVisitId === visit.id}
-                            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
-                          >
-                            <ReceiptText className={`w-4 h-4 flex-shrink-0 ${previewingVisitId === visit.id ? 'animate-spin' : ''}`} />
-                            <span className="hidden sm:inline lg:hidden">Invoice</span>
-                            <span className="hidden lg:inline">Preview Invoice</span>
-                          </button>
-                        )}
+                        {hasFinanceRole &&
+                          getDerivedVisitBillingStatus(visit) === "BILLED" && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handlePreviewInvoice(visit);
+                              }}
+                              title="Preview Invoice"
+                              disabled={previewingVisitId === visit.id}
+                              className="px-2 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
+                            >
+                              <ReceiptText
+                                className={`w-4 h-4 flex-shrink-0 ${previewingVisitId === visit.id ? "animate-spin" : ""}`}
+                              />
+                              <span className="hidden sm:inline lg:hidden">
+                                Invoice
+                              </span>
+                              <span className="hidden lg:inline">
+                                Preview Invoice
+                              </span>
+                            </button>
+                          )}
                       </>
-                    )
+                    );
                   })()}
 
-                  
                   <div className="text-right text-xs sm:text-sm ml-auto lg:ml-0 dark:text-slate-100">
                     {/* Only show visit status if COMPLETED or CANCELLED */}
-                    {visit.status === 'COMPLETED' || visit.status === 'CANCELLED' ? (
-                      <span className={`font-medium ${getStatusColor(visit.status)}`}>
+                    {visit.status === "COMPLETED" ||
+                    visit.status === "CANCELLED" ? (
+                      <span
+                        className={`font-medium ${getStatusColor(visit.status)}`}
+                      >
                         {visit.status}
                       </span>
                     ) : (
@@ -364,7 +444,10 @@ export default function VisitsListView({
                       </span>
                     )}
                     <p className="text-xs text-muted-foreground dark:text-slate-300 mt-1">
-                      {visit.patient.gender} • {new Date().getFullYear() - new Date(visit.patient.dateOfBirth).getFullYear()} years old
+                      {visit.patient.gender} •{" "}
+                      {new Date().getFullYear() -
+                        new Date(visit.patient.dateOfBirth).getFullYear()}{" "}
+                      years old
                     </p>
                   </div>
                 </div>
@@ -373,38 +456,39 @@ export default function VisitsListView({
           ))
         )}
       </div>
-      
+
       {/* Add Department Modal */}
       {selectedVisitForDepartment && (
         <AddDepartmentModal
           visit={selectedVisitForDepartment}
           isOpen={addDepartmentModalOpen}
           onClose={() => {
-            setAddDepartmentModalOpen(false)
-            setSelectedVisitForDepartment(null)
+            setAddDepartmentModalOpen(false);
+            setSelectedVisitForDepartment(null);
           }}
           onSuccess={handleAddDepartmentSuccess}
         />
       )}
-      
-          <BillingPreviewSheet
-            open={previewOpen}
-            onOpenChange={(open) => {
-              setPreviewOpen(open)
-              if (!open) {
-                setPreviewVisitBilling(null)
-                setPreviewDepartmentId(null)
-                setPreviewVisit(null)
-                setPreviewStartedAt(null)
-              }
-            }}
-            visit={previewVisit}
-            billingData={null}
-            visitBilling={previewVisitBilling}
-            selectedDepartmentId={previewDepartmentId}
-            onDepartmentSelect={setPreviewDepartmentId}
-            previewStartedAt={previewStartedAt}
-          />
+
+      <BillingPreviewSheet
+        open={previewOpen}
+        onOpenChange={(open) => {
+          setPreviewOpen(open);
+          if (!open) {
+            setPreviewVisitBilling(null);
+            setPreviewDepartmentId(null);
+            setPreviewVisit(null);
+            setPreviewStartedAt(null);
+          }
+        }}
+        visit={previewVisit}
+        billingData={null}
+        visitBilling={previewVisitBilling}
+        selectedDepartmentId={previewDepartmentId}
+        onDepartmentSelect={setPreviewDepartmentId}
+        previewStartedAt={previewStartedAt}
+        onPrintInvoice={handleDownloadInvoice}
+      />
     </div>
-  )
+  );
 }
