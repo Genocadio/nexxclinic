@@ -18,9 +18,17 @@ interface PreviewSheetProps {
   open: boolean;
   onClose: () => void;
   form: SavedForm | null;
+  answers?: FormAnswers;
+  edit?: boolean;
 }
 
-export function PreviewSheet({ open, onClose, form }: PreviewSheetProps) {
+export function PreviewSheet({
+  open,
+  onClose,
+  form,
+  answers,
+  edit = true,
+}: PreviewSheetProps) {
   const [mounted, setMounted] = useState(false);
   // Key is bumped whenever the sheet opens so FormRenderer resets cleanly
   const [renderKey, setRenderKey] = useState(0);
@@ -74,7 +82,9 @@ export function PreviewSheet({ open, onClose, form }: PreviewSheetProps) {
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
               <Terminal className="h-3 w-3" />
-              Answer mode — submit logs to console
+              {edit
+                ? "Answer mode — submit logs to console"
+                : "Preview mode — read-only answers"}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -103,9 +113,11 @@ export function PreviewSheet({ open, onClose, form }: PreviewSheetProps) {
               key={renderKey}
               form={form}
               showTitle={false}
-              validate={true}
+              validate={edit}
               submitLabel="Submit (logs to console)"
               onSubmit={handleSubmit}
+              initialAnswers={answers}
+              edit={edit}
             />
           </div>
         </div>

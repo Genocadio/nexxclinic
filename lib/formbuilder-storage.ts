@@ -23,7 +23,9 @@ export type BlockType =
   | "medication_mini"
   | "lab_record"
   | "product_listener"
-  | "layout";
+  | "layout"
+  | "media_embed"
+  | "file_upload";
 
 export interface FormBlock {
   id: string;
@@ -71,6 +73,30 @@ export interface FormBlock {
   productListenerCenter?: boolean;
   /** Optional condition that controls whether this block is shown at fill-time */
   conditionalRendering?: BlockConditional;
+
+  // ── Media embed (static image inserted into form content) ──
+  /** Public URL of the inserted image */
+  mediaUrl?: string;
+  /** Storage path for the image in Supabase */
+  mediaPath?: string;
+  /** Caption shown below image */
+  mediaCaption?: string;
+  /** Display width: "sm" | "md" | "lg" | "full" */
+  mediaWidth?: "sm" | "md" | "lg" | "full";
+
+  // ── File upload answer field ──
+  /**
+   * Which file types are allowed:
+   * - "images" → image/*
+   * - "images_videos" → image/*, video/*
+   * - "documents" → .pdf,.doc,.docx,.txt,.xlsx,.csv
+   * - "all" → *
+   */
+  uploadMode?: "images" | "images_videos" | "documents" | "all";
+  /** Allow multiple file uploads */
+  uploadMultiple?: boolean;
+  /** Max number of files (only relevant if uploadMultiple = true) */
+  uploadMaxFiles?: number;
 }
 
 export interface LabRow {
@@ -395,6 +421,17 @@ export function fbMakeBlock(type: BlockType): FormBlock {
         type,
         label: "Add Product / Procedure",
         productListenerCenter: false,
+      };
+    case "media_embed":
+      return { id, type, mediaUrl: "", mediaWidth: "md", align: "center" };
+    case "file_upload":
+      return {
+        id,
+        type,
+        label: "Upload Files",
+        required: false,
+        uploadMode: "images",
+        uploadMultiple: false,
       };
     default:
       return { id, type };

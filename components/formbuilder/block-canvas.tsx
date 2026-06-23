@@ -43,6 +43,10 @@ import type {
 } from "@/lib/formbuilder-storage";
 import { fbGenId, fbMakeBlock } from "@/lib/formbuilder-storage";
 import { MedicalBlockItem } from "@/components/formbuilder/medical-block-item";
+import {
+  MediaEmbedBlockItem,
+  FileUploadBlockItem,
+} from "@/components/formbuilder/media-block-item";
 import { ConditionalConfig } from "@/components/formbuilder/conditional-config";
 
 // ─── InlineRichEditor — contentEditable paragraph/cell editor with chip tokens ─
@@ -403,6 +407,13 @@ const PALETTE_GROUPS: {
     items: [{ type: "signature", label: "Signature", icon: "✒" }],
   },
   {
+    label: "Media",
+    items: [
+      { type: "media_embed", label: "Insert Image", icon: "🖼" },
+      { type: "file_upload", label: "File Upload", icon: "📎" },
+    ],
+  },
+  {
     label: "Clinical",
     items: [
       { type: "diagnostic_record", label: "Diagnosis Block", icon: "🩻" },
@@ -459,6 +470,8 @@ const COLUMN_BLOCK_TYPES: { type: BlockType; label: string; icon: string }[] = [
   { type: "table", label: "Table", icon: "⊞" },
   { type: "signature", label: "Signature", icon: "✒" },
   { type: "divider", label: "Divider", icon: "—" },
+  { type: "media_embed", label: "Image", icon: "🖼" },
+  { type: "file_upload", label: "Upload", icon: "📎" },
 ];
 
 function ColumnBlockAdder({ onAdd }: { onAdd: (type: BlockType) => void }) {
@@ -550,6 +563,9 @@ function BlockItem({
   const [optionsInput, setOptionsInput] = useState(
     block.options?.join("\n") ?? "",
   );
+  const [inlineSelectOptionDrafts, setInlineSelectOptionDrafts] = useState<
+    Record<string, string>
+  >({});
 
   // ── Rich-editor refs: paragraph gets its own, active table cell gets its own ───
   const paragraphEditorRef = useRef<InlineRichEditorHandle>(null);
@@ -588,6 +604,33 @@ function BlockItem({
   }, [isActive]);
 
   const isTextual = TEXTUAL_TYPES.includes(block.type);
+  const isParagraphBlock = block.type === "paragraph";
+  const activeParagraphInlineFieldIds = Array.from(
+    (block.content ?? "").matchAll(/\[\[([^\]]+)\]\]/g),
+  ).map((m) => m[1]);
+  const activeParagraphInlineFields = activeParagraphInlineFieldIds
+    .map((id) => (block.inlineFields ?? []).find((f) => f.id === id))
+    .filter(Boolean) as InlineAnswerField[];
+
+  useEffect(() => {
+    if (!isParagraphBlock || !isActive) return;
+    const drafts = Object.fromEntries(
+      activeParagraphInlineFields
+        .filter((field) => field.fieldType === "select")
+        .map((field) => [field.id, field.options?.join(", ") ?? ""]),
+    );
+    setInlineSelectOptionDrafts((prev) => {
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(drafts);
+      if (
+        prevKeys.length === nextKeys.length &&
+        nextKeys.every((key) => prev[key] === drafts[key])
+      ) {
+        return prev;
+      }
+      return drafts;
+    });
+  }, [isParagraphBlock, isActive, block.content, block.inlineFields]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Inline answer field handlers (paragraph blocks only) ─────────────────
 
@@ -867,15 +910,22 @@ function BlockItem({
                     <Input
                       className="h-6 text-xs flex-1 min-w-[120px]"
                       placeholder="opt1, opt2, opt3…"
-                      value={field.options?.join(", ") ?? ""}
+                      value={inlineSelectOptionDrafts[field.id] ?? ""}
                       onChange={(e) =>
+                        setInlineSelectOptionDrafts((prev) => ({
+                          ...prev,
+                          [field.id]: e.target.value,
+                        }))
+                      }
+                      onBlur={() => {
+                        const draft = inlineSelectOptionDrafts[field.id] ?? "";
                         handleUpdateInlineField(field.id, {
-                          options: e.target.value
+                          options: draft
                             .split(",")
                             .map((o) => o.trim())
                             .filter(Boolean),
-                        })
-                      }
+                        });
+                      }}
                     />
                   )}
 
@@ -1736,6 +1786,57 @@ function BlockItem({
     "lab_record",
     "product_listener",
   ];
+
+  if (block.type === "media_embed") {
+    return (
+      <BlockWrapper
+        block={block}
+        isActive={isActive}
+        isFirst={isFirst}
+        isLast={isLast}
+        hovered={hovered}
+        setHovered={setHovered}
+        onActivate={onActivate}
+        onDelete={onDelete}
+        onMoveUp={onMoveUp}
+        onMoveDown={onMoveDown}
+        onAddBelow={onAddBelow}
+        allBlocks={allBlocks}
+        onBlockChange={onChange}
+      >
+        <MediaEmbedBlockItem
+          block={block}
+          isActive={isActive}
+          onChange={onChange}
+        />
+      </BlockWrapper>
+    );
+  }
+  if (block.type === "file_upload") {
+    return (
+      <BlockWrapper
+        block={block}
+        isActive={isActive}
+        isFirst={isFirst}
+        isLast={isLast}
+        hovered={hovered}
+        setHovered={setHovered}
+        onActivate={onActivate}
+        onDelete={onDelete}
+        onMoveUp={onMoveUp}
+        onMoveDown={onMoveDown}
+        onAddBelow={onAddBelow}
+        allBlocks={allBlocks}
+        onBlockChange={onChange}
+      >
+        <FileUploadBlockItem
+          block={block}
+          isActive={isActive}
+          onChange={onChange}
+        />
+      </BlockWrapper>
+    );
+  }
 
   if (MEDICAL_TYPES.includes(block.type)) {
     return (
