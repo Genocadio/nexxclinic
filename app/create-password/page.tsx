@@ -31,7 +31,7 @@ function CreatePasswordPageContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  const handleCreatePassword = async (e: React.FormEvent) => {
+  const handleCreatePassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (!identifier || !password || !confirmPassword) {

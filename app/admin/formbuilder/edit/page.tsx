@@ -16,6 +16,7 @@ import {
 import { TEMPLATE_PRESETS } from "@/lib/formbuilder-presets";
 import { BlockCanvas } from "@/components/formbuilder/block-canvas";
 import { PreviewSheet } from "@/components/formbuilder/preview-sheet";
+import { FormRenderer } from "@/components/formbuilder/form-renderer";
 import {
   ArrowLeft,
   Save,
@@ -25,7 +26,27 @@ import {
   PenLine,
   Undo2,
   Redo2,
+  Columns,
+  Layout,
+  Settings,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const TYPE_COLORS: Record<string, string> = {
   consultation:
@@ -57,6 +78,8 @@ function FormEditor() {
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"edit" | "split" | "preview">("edit");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   // ── History (undo / redo) ────────────────────────────────────────
@@ -285,19 +308,58 @@ function FormEditor() {
         </span>
 
         {/* Save status */}
-        <div className="shrink-0 hidden md:flex items-center gap-1.5 text-xs text-muted-foreground min-w-[100px]">
+        <div className="shrink-0 hidden lg:flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-[80px]">
           {saving ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" /> Saving…
             </>
           ) : savedAt ? (
             <>
-              <CheckCircle className="h-3 w-3 text-emerald-500" /> Saved{" "}
-              {savedAt.toLocaleTimeString()}
+              <CheckCircle className="h-3 w-3 text-emerald-500" /> Saved
             </>
           ) : (
-            <span className="opacity-50">Auto-save on</span>
+            <span className="opacity-50 uppercase tracking-tighter">Auto-save</span>
           )}
+        </div>
+
+        {/* View mode toggle */}
+        <div className="flex items-center bg-muted/50 p-0.5 rounded-lg border border-border/50 shrink-0">
+          <Button
+            size="sm"
+            variant="ghost"
+            className={cn(
+              "h-7 px-2 text-[10px] gap-1.5 uppercase tracking-wider font-bold",
+              viewMode === "edit" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setViewMode("edit")}
+          >
+            <Layout className="h-3 w-3" />
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className={cn(
+              "h-7 px-2 text-[10px] gap-1.5 uppercase tracking-wider font-bold",
+              viewMode === "split" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setViewMode("split")}
+          >
+            <Columns className="h-3 w-3" />
+            Split
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className={cn(
+              "h-7 px-2 text-[10px] gap-1.5 uppercase tracking-wider font-bold",
+              viewMode === "preview" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setViewMode("preview")}
+          >
+            <Eye className="h-3 w-3" />
+            Preview
+          </Button>
         </div>
 
         {/* Actions */}
@@ -335,6 +397,15 @@ function FormEditor() {
           </Button>
           <Button
             size="sm"
+            variant="outline"
+            className="h-8 gap-1.5"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Settings</span>
+          </Button>
+          <Button
+            size="sm"
             className="h-8 gap-1.5 bg-[#FF6900] hover:bg-[#e05f00] text-white"
             onClick={handleManualSave}
           >
@@ -346,7 +417,28 @@ function FormEditor() {
 
       {/* ── Canvas (fills remaining height) ── */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
-        <BlockCanvas blocks={blocks} onChange={setBlocks} />
+        {/* Editor column */}
+        {(viewMode === "edit" || viewMode === "split") && (
+          <div className={cn("flex-1 min-w-0 flex flex-col", viewMode === "split" && "border-r border-border")}>
+            <BlockCanvas blocks={blocks} onChange={setBlocks} />
+          </div>
+        )}
+
+        {/* Preview column */}
+        {(viewMode === "preview" || viewMode === "split") && (
+          <div className="flex-1 min-w-0 overflow-y-auto bg-muted/10">
+            <div className="max-w-2xl mx-auto px-8 py-12">
+              <div className="bg-background shadow-sm border rounded-2xl p-8 min-h-[80vh]">
+                <FormRenderer
+                  form={previewForm}
+                  showTitle={true}
+                  edit={true}
+                  onSubmit={(ans) => console.log("Preview submit", ans)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Preview sheet ── */}
@@ -355,6 +447,85 @@ function FormEditor() {
         onClose={() => setPreviewOpen(false)}
         form={previewForm}
       />
+
+      {/* ── Settings Dialog ── */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Form Settings</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                placeholder="Optional description for the form…"
+                value={form.description ?? ""}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                className="h-20 text-sm"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Primary Color</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={form.theme?.primaryColor ?? "#FF6900"}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      theme: { ...form.theme, primaryColor: e.target.value },
+                    })
+                  }
+                  className="h-10 w-10 rounded cursor-pointer border-none bg-transparent"
+                />
+                <Input
+                  value={form.theme?.primaryColor ?? "#FF6900"}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      theme: { ...form.theme, primaryColor: e.target.value },
+                    })
+                  }
+                  className="h-9 font-mono uppercase text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Logo Placement</Label>
+              <Select
+                value={form.theme?.logoPlacement ?? "left"}
+                onValueChange={(val: any) =>
+                  setForm({
+                    ...form,
+                    theme: { ...form.theme, logoPlacement: val },
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setSettingsOpen(false);
+                handleManualSave();
+              }}
+            >
+              Apply & Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

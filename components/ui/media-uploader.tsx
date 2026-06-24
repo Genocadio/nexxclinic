@@ -7,7 +7,7 @@ import {
   type DragEvent,
   type ChangeEvent,
 } from 'react'
-import { uploadFile, type UploadResult } from '@/lib/storage-service'
+import { uploadFile, type UploadResult, type StorageBucket } from '@/lib/storage-service'
 import { Upload, X, ImageIcon, FileText, Film, FolderOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 // ─── Public interface ─────────────────────────────────────────────────────────
 
 export interface MediaUploaderProps {
-  bucket: 'form' | 'main'
+  bucket: StorageBucket
   /** Full storage path for the upload — filename will be appended automatically */
   storagePath: string
   /** MIME accept string, e.g. "image/*" or "image/*,video/*" */

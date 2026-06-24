@@ -55,7 +55,7 @@ export function CarePlanDialog({ open, onOpenChange, onSave, editingPlan }: Care
     setTimes(times.filter((t) => t !== time))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     const plan: CarePlan = {

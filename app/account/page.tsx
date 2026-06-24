@@ -33,7 +33,7 @@ export default function AccountPage() {
     setPhoneNumber(doctor.phoneNumber || "")
   }, [doctor])
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
+  const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (!name || !email || !phoneNumber) {
@@ -56,7 +56,7 @@ export default function AccountPage() {
     }
   }
 
-  const handleChangePassword = async (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (!currentPassword || !newPassword || !confirmPassword) {

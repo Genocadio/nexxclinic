@@ -256,7 +256,7 @@ useEffect(() => {
   };
 
   /* ---- Submit handlers ------------------------------------------------- */
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const validationErrors = validateForm("login");
@@ -300,7 +300,7 @@ useEffect(() => {
     }
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const validationErrors = validateForm("register");

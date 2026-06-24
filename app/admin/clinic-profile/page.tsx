@@ -375,8 +375,8 @@ export default function ClinicProfilePage() {
                 </label>
                 {sourceProfile?.id ? (
                   <MediaUploader
-                    bucket="main"
-                    storagePath={`logos/${sourceProfile.id}`}
+                    bucket="clinic_data"
+                    storagePath={`clinics/${sourceProfile.id}/logo`}
                     accept="image/*"
                     multiple={false}
                     label="Upload logo"

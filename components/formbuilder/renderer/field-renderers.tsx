@@ -1,11 +1,22 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { CheckCircle2 } from "lucide-react";
 import type { InlineAnswerField } from "@/lib/formbuilder-storage";
 import { INLINE_WIDTH } from "./utils";
 
-function ReadonlyValue({ value, emptyLabel = "—" }: { value: string; emptyLabel?: string }) {
-  return <span className="inline-block min-h-7 px-2 py-1 text-sm rounded border border-dashed border-border bg-muted/30">{value || emptyLabel}</span>;
+function ReadonlyValue({
+  value,
+  emptyLabel = "—",
+}: {
+  value: string;
+  emptyLabel?: string;
+}) {
+  return (
+    <span className="inline-block min-h-7 px-2 py-1 text-sm rounded border border-dashed border-border bg-muted/30">
+      {value || emptyLabel}
+    </span>
+  );
 }
 
 export function SignatureCanvas({
@@ -35,7 +46,11 @@ export function SignatureCanvas({
   if (!edit) {
     return value ? (
       <div className="space-y-1">
-        <img src={value} alt="Signature" className="max-w-full h-20 object-contain border-b-2 border-dashed border-slate-400 dark:border-slate-600 rounded bg-slate-50/40 dark:bg-slate-800/20" />
+        <img
+          src={value}
+          alt="Signature"
+          className="max-w-full h-20 object-contain border-b-2 border-dashed border-slate-400 dark:border-slate-600 rounded bg-slate-50/40 dark:bg-slate-800/20"
+        />
       </div>
     ) : (
       <div className="h-20 rounded border-b-2 border-dashed border-slate-400 dark:border-slate-600 bg-slate-50/40 dark:bg-slate-800/20 flex items-center justify-center text-xs text-muted-foreground">
@@ -96,23 +111,32 @@ export function SignatureCanvas({
 
   return (
     <div className="space-y-1">
-      <canvas
-        ref={canvasRef}
-        width={400}
-        height={80}
-        className={`w-full border-b-2 border-dashed rounded cursor-crosshair touch-none ${
-          isError
-            ? "border-red-400 bg-red-50/30 dark:bg-red-950/20"
-            : "border-slate-400 dark:border-slate-600 bg-slate-50/40 dark:bg-slate-800/20"
-        }`}
-        onMouseDown={startDraw}
-        onMouseMove={draw}
-        onMouseUp={endDraw}
-        onMouseLeave={endDraw}
-        onTouchStart={startDraw}
-        onTouchMove={draw}
-        onTouchEnd={endDraw}
-      />
+      <div className="relative group">
+        <canvas
+          ref={canvasRef}
+          width={400}
+          height={80}
+          className={`w-full border-b-2 border-dashed rounded cursor-crosshair touch-none transition-colors ${
+            value
+              ? "border-emerald-400 bg-emerald-50/10 dark:bg-emerald-900/5"
+              : isError
+                ? "border-red-400 bg-red-50/30 dark:bg-red-950/20"
+                : "border-slate-400 dark:border-slate-600 bg-slate-50/40 dark:bg-slate-800/20"
+          }`}
+          onMouseDown={startDraw}
+          onMouseMove={draw}
+          onMouseUp={endDraw}
+          onMouseLeave={endDraw}
+          onTouchStart={startDraw}
+          onTouchMove={draw}
+          onTouchEnd={endDraw}
+        />
+        {value && (
+          <div className="absolute top-2 right-2 pointer-events-none animate-in zoom-in duration-300">
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+          </div>
+        )}
+      </div>
       <div className="flex items-center justify-between">
         <span className="text-[10px] text-muted-foreground/50">Sign above</span>
         {value && (
@@ -216,5 +240,102 @@ export function AnswerInlineField({
       value={value}
       onChange={(e) => onChange(e.target.value)}
     />
+  );
+}
+
+export function FieldShell({
+  label,
+  required,
+  children,
+  error,
+}: {
+  label?: string;
+  required?: boolean;
+  children: React.ReactNode;
+  error?: string;
+}) {
+  return (
+    <div className="my-3">
+      <label className="text-sm font-medium block mb-1">
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      {children}
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+    </div>
+  );
+}
+
+export function ChoiceGroup({
+  type,
+  block,
+  value,
+  isError,
+  edit,
+  onChange,
+}: {
+  type: "checkbox" | "radio";
+  block: {
+    id: string;
+    label?: string;
+    required?: boolean;
+    options?: string[];
+  };
+  value: string[] | string;
+  isError: boolean;
+  edit: boolean;
+  onChange: (next: string[] | string) => void;
+}) {
+  const selected = value;
+  const toggle = (opt: string) => {
+    if (type === "checkbox") {
+      const current = Array.isArray(selected) ? selected : [];
+      onChange(
+        current.includes(opt)
+          ? current.filter((o) => o !== opt)
+          : [...current, opt],
+      );
+      return;
+    }
+    onChange(opt);
+  };
+  return (
+    <div className="my-3">
+      <label className="text-sm font-medium block mb-1.5">
+        {block.label}
+        {block.required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      <div
+        className={`space-y-1.5 ${isError ? "rounded-md p-2 -m-2 ring-1 ring-red-400/50 bg-red-50/20 dark:bg-red-950/10" : ""}`}
+      >
+        {(block.options ?? []).map((opt: string) => (
+          <label
+            key={opt}
+            className="flex items-center gap-2 text-sm cursor-pointer"
+          >
+            <input
+              type={type}
+              name={type === "radio" ? `radio_${block.id}` : undefined}
+              checked={
+                type === "checkbox"
+                  ? Array.isArray(selected) && selected.includes(opt)
+                  : selected === opt
+              }
+              onChange={() => toggle(opt)}
+              className="h-4 w-4 rounded border-2 border-border accent-primary"
+              disabled={!edit}
+            />
+            {opt}
+          </label>
+        ))}
+      </div>
+      {isError && (
+        <p className="text-xs text-red-500 mt-1">
+          {type === "checkbox"
+            ? "Please select at least one option."
+            : "Please select an option."}
+        </p>
+      )}
+    </div>
   );
 }

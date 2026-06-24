@@ -14,11 +14,11 @@ export function uid() {
   return `_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
-export function splitInitialAnswers(initialAnswers?: FormAnswers) {
+export function splitInitialAnswers(initialAnswers: FormAnswers = {}) {
   const blockAnswers: FormAnswers = {};
   const inlineAnswers: Record<string, string> = {};
 
-  Object.entries(initialAnswers ?? {}).forEach(([key, value]) => {
+  Object.entries(initialAnswers).forEach(([key, value]) => {
     if (key.includes("__")) {
       inlineAnswers[key] =
         typeof value === "string" ? value : String(value ?? "");
@@ -36,6 +36,7 @@ export function isBlockViolating(
 ): boolean {
   if (!block.required) return false;
   const v = answers[block.id];
+  if (v === undefined || v === null) return true;
   switch (block.type) {
     case "text_input":
     case "textarea_input":
@@ -83,4 +84,27 @@ export function collectAnswerableBlocks(blocks: FormBlock[]): FormBlock[] {
 
 export function shouldRenderBlock(block: FormBlock, answers: FormAnswers) {
   return shouldShowBlock(block, answers);
+}
+
+export function replacePlaceholders(
+  text: string,
+  context: { doctor: any; clinicProfile: any },
+) {
+  if (!text) return "";
+  let result = text;
+
+  const mapping: Record<string, string> = {
+    "{{doctor_name}}": context.doctor?.fullName || "",
+    "{{doctor_title}}": context.doctor?.title || "",
+    "{{clinic_name}}": context.clinicProfile?.name || "",
+    "{{clinic_address}}": context.clinicProfile?.address || "",
+    "{{clinic_phone}}": context.clinicProfile?.phone || "",
+    "{{date_today}}": new Date().toLocaleDateString(),
+  };
+
+  Object.entries(mapping).forEach(([key, val]) => {
+    result = result.split(key).join(val);
+  });
+
+  return result;
 }

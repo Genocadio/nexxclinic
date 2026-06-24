@@ -55,7 +55,22 @@ A modern, professional ophthalmic consultation management system built with Next
    Create a `.env.local` file in the root directory:
    ```env
    NEXT_PUBLIC_API_BASE_URL=your-graphql-api-url
+   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
    ```
+
+## Storage Configuration (Supabase)
+
+This project uses Supabase Storage with the following buckets:
+
+- `clinic_data`: Stores clinic logos and user profile photos.
+  - Paths: `clinics/{clinicId}/logo`, `users/{userId}/photo`
+- `form_data`: Stores media files inserted into form templates.
+  - Paths: `clinics/{clinicId}/forms/media/{blockId}`
+- `form_answers`: Stores files uploaded by users as form answers.
+  - Paths: `clinics/{clinicId}/answers/{blockId}`
+
+Ensure these buckets are created in your Supabase project and have appropriate public or authenticated access policies.
 
 4. **Run the development server**
    ```bash

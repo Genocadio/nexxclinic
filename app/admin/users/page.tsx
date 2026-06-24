@@ -199,7 +199,7 @@ export default function ManageUsersPage() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!firstName || selectedRoles.length === 0) {
@@ -326,7 +326,7 @@ export default function ManageUsersPage() {
     }
   };
 
-  const handleConfirmActivation = async (e: React.FormEvent) => {
+  const handleConfirmActivation = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!activationUser) return;
@@ -569,8 +569,8 @@ export default function ManageUsersPage() {
                     </label>
                     {editingUserId ? (
                       <MediaUploader
-                        bucket="main"
-                        storagePath={`workers/${editingUserId}`}
+                        bucket="clinic_data"
+                        storagePath={`users/${editingUserId}/photo`}
                         accept="image/*"
                         multiple={false}
                         label="Upload photo"

@@ -182,12 +182,24 @@ export type FormTemplateType =
   | "report"
   | "custom";
 
+export interface FormTheme {
+  primaryColor?: string;
+  logoUrl?: string;
+  logoPlacement?: "left" | "center" | "right";
+  fontFamily?: string;
+}
+
 export interface SavedForm {
   id: string;
   name: string;
   type: FormTemplateType;
+  category?: string;
+  version?: number;
+  isPublished?: boolean;
+  parentId?: string;
   description?: string;
   blocks: FormBlock[];
+  theme?: FormTheme;
   createdAt: string;
   updatedAt: string;
 }
@@ -222,19 +234,24 @@ export function fbGetForm(id: string): SavedForm | null {
 }
 
 export function fbSaveForm(
-  form: Omit<SavedForm, "id" | "createdAt" | "updatedAt"> & { id?: string },
+  form: Omit<SavedForm, "id" | "createdAt" | "updatedAt"> & {
+    id?: string;
+    createNewVersion?: boolean;
+  },
 ): SavedForm {
   const all = read();
   const now = new Date().toISOString();
 
-  if (form.id) {
+  if (form.id && !form.createNewVersion) {
     const existing = all.find((f) => f.id === form.id);
     const updated: SavedForm = {
       ...form,
       id: form.id,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
+      version: form.version ?? existing?.version ?? 1,
     };
+    delete (updated as any).createNewVersion;
     write(
       existing
         ? all.map((f) => (f.id === form.id ? updated : f))
@@ -243,12 +260,21 @@ export function fbSaveForm(
     return updated;
   }
 
+  // New form or new version
+  const parentId = form.createNewVersion ? form.id : undefined;
+  const version = form.createNewVersion
+    ? (all.find((f) => f.id === form.id)?.version ?? 0) + 1
+    : (form.version ?? 1);
+
   const created: SavedForm = {
     ...form,
     id: `fb_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    parentId,
+    version,
     createdAt: now,
     updatedAt: now,
   };
+  delete (created as any).createNewVersion;
   write([...all, created]);
   return created;
 }

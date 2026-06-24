@@ -13,6 +13,7 @@ export interface FormRendererProps {
   className?: string;
   initialAnswers?: FormAnswers;
   edit?: boolean;
+  mode?: "full" | "wizard";
 }
 
 export interface DiagEntry {
@@ -57,6 +58,7 @@ export interface AnswerBlockProps {
   inlineAnswers: Record<string, string>;
   onInlineChange: (key: string, value: string) => void;
   edit: boolean;
+  context?: { doctor: any; clinicProfile: any };
 }
 
 export type { FormBlock, InlineAnswerField, LabRow, LayoutColumn, SavedForm, TableCell };

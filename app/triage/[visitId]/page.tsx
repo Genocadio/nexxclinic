@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useState, type SyntheticEvent } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, Trash2, Activity, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -102,7 +102,7 @@ export default function TriagePage() {
   const removeRow = (rowId: string) => setRows((rs) => rs.filter((r) => r.id !== rowId))
   const resetRows = () => setRows(defaultRows())
 
-  const handleSubmit = async (e?: FormEvent): Promise<boolean> => {
+  const handleSubmit = async (e?: SyntheticEvent): Promise<boolean> => {
     if (e) e.preventDefault()
     const rowsToSend = rows.filter((row) => row.isPreset ? !!row.value.trim() : !!(row.measurementName.trim() || row.value.trim() || row.unit.trim()))
     if (!rowsToSend.length) { toast.error("Add at least one vital sign before saving."); return false }

@@ -74,7 +74,7 @@ export function AddRecordDialog({
     setItems(items.filter((item) => item.id !== itemId))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (items.length === 0 || !recordSummary.trim()) return

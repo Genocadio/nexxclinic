@@ -2,6 +2,8 @@ import { getSupabaseClient } from "@/lib/supabase-client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type StorageBucket = "clinic_data" | "form_data" | "form_answers";
+
 export interface UploadResult {
   path: string;
   url: string;
@@ -23,7 +25,7 @@ export interface StoredFile {
  * JS SDK does not expose upload-progress events.
  */
 export async function uploadFile(
-  bucket: "form" | "main",
+  bucket: StorageBucket,
   storagePath: string,
   file: File,
   onProgress?: (percent: number) => void,
@@ -54,7 +56,7 @@ export async function uploadFile(
  * Empty-folder placeholder objects are filtered out automatically.
  */
 export async function listFiles(
-  bucket: "form" | "main",
+  bucket: StorageBucket,
   folder: string,
 ): Promise<StoredFile[]> {
   const supabase = getSupabaseClient();

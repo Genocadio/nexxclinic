@@ -24,7 +24,7 @@ export default function SetupPasswordPage() {
   // Get user identifier from URL params (passed from login)
   const identifier = searchParams.get("identifier") || ""
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (!identifier) {

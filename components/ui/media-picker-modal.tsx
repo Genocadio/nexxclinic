@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { listFiles } from '@/lib/storage-service'
+import { listFiles, type StorageBucket } from '@/lib/storage-service'
 import { X, RefreshCw, Image as ImageIcon, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 export interface MediaPickerModalProps {
   open: boolean
   onClose: () => void
-  bucket: 'form' | 'main'
+  bucket: StorageBucket
   /** Folder prefix to list, e.g. `forms/${formId}/insert` */
   folder: string
   onPick: (file: { url: string; path: string; name: string }) => void

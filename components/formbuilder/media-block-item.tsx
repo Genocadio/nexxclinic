@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import type { UploadResult } from "@/lib/storage-service";
 
+import { useAuth } from "@/lib/auth-context";
+
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
 function CfgSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -85,12 +87,14 @@ export function MediaEmbedBlockItem({
   isActive,
   onChange,
 }: MediaEmbedBlockItemProps) {
+  const { clinicProfile } = useAuth();
   const [showUploader, setShowUploader] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
 
   const align = block.align ?? "center";
   const width = block.mediaWidth ?? "md";
-  const storagePath = `forms/${block.id}/insert`;
+  const clinicId = clinicProfile?.id || "default";
+  const storagePath = `clinics/${clinicId}/forms/media/${block.id}`;
 
   function handleUploaded(files: UploadResult[]) {
     const first = files[0];
@@ -167,7 +171,7 @@ export function MediaEmbedBlockItem({
             {showUploader && (
               <div className="mt-2">
                 <MediaUploader
-                  bucket="form"
+                  bucket="form_data"
                   storagePath={storagePath}
                   accept="image/*"
                   multiple={false}
@@ -241,7 +245,7 @@ export function MediaEmbedBlockItem({
       <MediaPickerModal
         open={showPicker}
         onClose={() => setShowPicker(false)}
-        bucket="form"
+        bucket="form_data"
         folder={storagePath}
         accept="images"
         title="Pick an image"
