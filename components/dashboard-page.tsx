@@ -178,8 +178,7 @@ export default function DashboardPage() {
     useState<Visit | null>(null);
   const [previewConsultationOpen, setPreviewConsultationOpen] = useState(false);
   const [previewConsultationContext, setPreviewConsultationContext] = useState<{
-    consultationId: string;
-    departmentId: string;
+    answerId: string;
     departmentName: string;
     patientName: string;
     previewStartedAt: number;
@@ -477,41 +476,27 @@ export default function DashboardPage() {
 
   const handlePreviewConsultation = (visit: Visit) => {
     const previewStartedAt = Date.now();
-    const savedPreviewContext = getSavedConsultationPreviewContext(visit.id);
-    const matchedClosedDepartment = getMatchingUserDepartment(visit, {
-      mustBeClosed: true,
-    });
-    const departmentId = String(
-      savedPreviewContext?.visitDepartmentId ||
-        savedPreviewContext?.departmentId ||
-        matchedClosedDepartment?.department?.id ||
-        matchedClosedDepartment?.id ||
-        "",
-    );
+    const matchedClosedDepartment =
+      (visit.departments || []).find((dept) => {
+        const normalizedStatus = String(dept.status || "").toUpperCase();
+        return (
+          Boolean(dept.answerId) &&
+          (normalizedStatus === "COMPLETED" || normalizedStatus === "BILLING")
+        );
+      }) || getMatchingUserDepartment(visit, { mustBeClosed: true });
 
-    if (!departmentId) {
-      toast.error(
-        "No completed or billed department found for consultation preview.",
-      );
+    const answerId = String(matchedClosedDepartment?.answerId || "");
+
+    if (!answerId) {
+      toast.error("No saved consultation answer found for preview.");
       return;
     }
 
     const departmentName =
-      savedPreviewContext?.departmentName ||
-      matchedClosedDepartment?.department?.name ||
-      "Department";
-
-    console.log("[ConsultationPreview] clicked", {
-      consultationId: visit.id,
-      departmentId,
-      visitDepartmentId: savedPreviewContext?.visitDepartmentId || null,
-      usedSavedContext: Boolean(savedPreviewContext?.departmentId),
-      previewStartedAt,
-    });
+      matchedClosedDepartment?.department?.name || "Department";
 
     setPreviewConsultationContext({
-      consultationId: visit.id,
-      departmentId,
+      answerId,
       departmentName,
       patientName:
         `${visit.patient.firstName} ${visit.patient.lastName}`.trim(),
@@ -1465,14 +1450,12 @@ export default function DashboardPage() {
           patientId={String(patientHistoryVisit.patient.id)}
           currentVisitId={String(patientHistoryVisit.id)}
           onPreviewDepartmentAnswers={({
-            visitId,
-            visitDepartmentId,
+            answerId,
             departmentName,
             patientName,
           }) => {
             setPreviewConsultationContext({
-              consultationId: visitId,
-              departmentId: visitDepartmentId,
+              answerId,
               departmentName,
               patientName,
               previewStartedAt: Date.now(),
@@ -1524,8 +1507,7 @@ export default function DashboardPage() {
             setPreviewConsultationContext(null);
           }
         }}
-        consultationId={previewConsultationContext?.consultationId || null}
-        departmentId={previewConsultationContext?.departmentId || null}
+        answerId={previewConsultationContext?.answerId || null}
         departmentName={previewConsultationContext?.departmentName}
         patientName={previewConsultationContext?.patientName}
         previewStartedAt={previewConsultationContext?.previewStartedAt || null}
