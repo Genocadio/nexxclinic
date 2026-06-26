@@ -6,10 +6,14 @@ import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, CheckCircle, FilePenLine, Loader2 } from "lucide-react";
-import { fbGetForm, type SavedForm } from "@/lib/formbuilder-storage";
+import { ArrowLeft, CheckCircle, FilePenLine, Loader2, AlertCircle } from "lucide-react";
 import { TEMPLATE_PRESETS } from "@/lib/formbuilder-presets";
+import type { FormBlock, SavedForm } from "@/lib/formbuilder-storage";
 import { FormRenderer, type FormAnswers } from "@/components/formbuilder/form-renderer";
+import {
+  useGetStandaloneForm,
+  useSaveStandaloneAnswer,
+} from "@/hooks/standalone-forms";
 
 const TYPE_COLORS: Record<string, string> = {
   consultation:
@@ -27,39 +31,77 @@ const TYPE_COLORS: Record<string, string> = {
 function FormAnswerPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { doctor } = useAuth();
+  const { doctor, isAuthenticated, isLoading: authLoading } = useAuth();
   const formId = searchParams.get("id");
 
-  const [mounted, setMounted] = useState(false);
-  const [form, setForm] = useState<SavedForm | null>(null);
+  const { form: backendForm, loading, error } = useGetStandaloneForm(formId, { skip: authLoading || !isAuthenticated });
+  const { saveAnswer, loading: submitting, error: submitError } = useSaveStandaloneAnswer();
+
   const [submittedAnswers, setSubmittedAnswers] = useState<FormAnswers | null>(null);
 
+  // Redirect if no id
   useEffect(() => {
-    setMounted(true);
-    if (!formId) {
-      router.replace("/admin/formbuilder");
-      return;
-    }
-    const loaded = fbGetForm(formId);
-    if (!loaded) {
-      router.replace("/admin/formbuilder");
-      return;
-    }
-    setForm(loaded);
+    if (!formId) router.replace("/admin/formbuilder");
   }, [formId, router]);
 
+  // Redirect if form not found after loading (wait for auth to resolve first)
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    if (!loading && !backendForm && formId && !error) {
+      router.replace("/admin/formbuilder");
+    }
+  }, [authLoading, isAuthenticated, loading, backendForm, formId, error, router]);
+
   const preset = useMemo(
-    () => TEMPLATE_PRESETS.find((p) => p.type === form?.type),
-    [form?.type],
+    () => TEMPLATE_PRESETS.find((p) => p.type === backendForm?.type),
+    [backendForm?.type],
   );
 
-  if (!mounted || !form) {
+  const handleSubmit = async (answers: FormAnswers) => {
+    const versionId = backendForm?.activeVersion?.id;
+    if (versionId) {
+      try {
+        await saveAnswer(versionId, answers as Record<string, unknown>, "SUBMITTED");
+      } catch {
+        // submitError shown in UI
+      }
+    }
+    setSubmittedAnswers(answers);
+  };
+
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-2 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          {error}
+        </div>
+      </div>
+    );
+  }
+
+  if (!backendForm) return null;
+
+  // Build SavedForm-compatible object for the renderer
+  const rendererForm: SavedForm = {
+    id: backendForm.id,
+    name: backendForm.name,
+    type: backendForm.type as any,
+    blocks: (backendForm.activeVersion?.blocks as FormBlock[]) ?? [],
+    version: backendForm.activeVersion?.majorVersion ?? 1,
+    description: backendForm.description,
+    theme: backendForm.activeVersion?.theme as any,
+    createdAt: backendForm.createdAt,
+    updatedAt: backendForm.updatedAt,
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -78,16 +120,16 @@ function FormAnswerPageInner() {
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold text-foreground truncate">
-                  {form.name}
+                  {backendForm.name}
                 </h1>
                 {preset && (
-                  <Badge className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[form.type] ?? ""}`}>
+                  <Badge className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[backendForm.type] ?? ""}`}>
                     {preset.emoji} {preset.label}
                   </Badge>
                 )}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                Answer this form using the reusable answer renderer.
+                Fill in and submit this form.
               </p>
             </div>
           </div>
@@ -96,7 +138,7 @@ function FormAnswerPageInner() {
             <Button
               variant="outline"
               className="gap-1.5"
-              onClick={() => router.push(`/admin/formbuilder/edit?id=${form.id}`)}
+              onClick={() => router.push(`/admin/formbuilder/edit?id=${backendForm.id}`)}
             >
               <FilePenLine className="h-4 w-4" />
               Edit Form
@@ -104,15 +146,26 @@ function FormAnswerPageInner() {
           </div>
         </div>
 
+        {/* Submit error */}
+        {submitError && (
+          <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-xl px-4 py-3">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {submitError}
+          </div>
+        )}
+
+        {/* Success banner */}
         {submittedAnswers && (
           <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 px-4 py-3 flex items-start gap-2">
             <CheckCircle className="h-4 w-4 mt-0.5 text-emerald-600 shrink-0" />
             <div>
               <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
-                Form submitted in answer mode
+                Form submitted successfully
               </p>
               <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
-                Answers were captured successfully in the reusable renderer. They are currently kept in page state only.
+                {backendForm.activeVersion?.id
+                  ? "Answers saved to the backend."
+                  : "Answers captured in page state (no version id available)."}
               </p>
             </div>
           </div>
@@ -121,11 +174,11 @@ function FormAnswerPageInner() {
         <div className="rounded-2xl border border-border bg-card shadow-sm">
           <div className="px-6 py-5 sm:px-8 sm:py-8">
             <FormRenderer
-              form={form}
+              form={rendererForm}
               showTitle={false}
               validate={true}
-              submitLabel="Submit Answers"
-              onSubmit={setSubmittedAnswers}
+              submitLabel={submitting ? "Submitting…" : "Submit Answers"}
+              onSubmit={handleSubmit}
               edit={true}
             />
           </div>

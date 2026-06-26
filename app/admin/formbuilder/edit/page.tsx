@@ -7,16 +7,15 @@ import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  fbGetForm,
-  fbSaveForm,
-  type FormBlock,
-  type SavedForm,
-} from "@/lib/formbuilder-storage";
+import type { FormBlock, SavedForm } from "@/lib/formbuilder-storage";
 import { TEMPLATE_PRESETS } from "@/lib/formbuilder-presets";
 import { BlockCanvas } from "@/components/formbuilder/block-canvas";
 import { PreviewSheet } from "@/components/formbuilder/preview-sheet";
 import { FormRenderer } from "@/components/formbuilder/form-renderer";
+import {
+  useGetStandaloneForm,
+  useUpdateStandaloneForm,
+} from "@/hooks/standalone-forms";
 import {
   ArrowLeft,
   Save,
@@ -29,6 +28,7 @@ import {
   Columns,
   Layout,
   Settings,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -66,49 +66,43 @@ const TYPE_COLORS: Record<string, string> = {
 function FormEditor() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { doctor } = useAuth();
+  const { doctor, isAuthenticated, isLoading: authLoading } = useAuth();
 
   const formId = searchParams.get("id");
 
-  const [form, setForm] = useState<SavedForm | null>(null);
-  // Blocks raw state — updated by both direct edits and undo/redo
+  // ── Backend data ──────────────────────────────────────────────────
+  const { form: backendForm, loading: loadingForm } = useGetStandaloneForm(formId, { skip: authLoading || !isAuthenticated });
+  const { updateForm, loading: saving, error: saveError } = useUpdateStandaloneForm();
+
+  // ── Local editor state ────────────────────────────────────────────
   const [blocks, setBlocksRaw] = useState<FormBlock[]>([]);
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [theme, setTheme] = useState<Record<string, any>>({});
   const [editingName, setEditingName] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
-  const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"edit" | "split" | "preview">("edit");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
-  // ── History (undo / redo) ────────────────────────────────────────
-  // `past`   = stack of states we can undo to (oldest first)
-  // `future` = stack of states we can redo to (next-to-restore first)
+  // ── History (undo / redo) ─────────────────────────────────────────
   const [past, setPast] = useState<FormBlock[][]>([]);
   const [future, setFuture] = useState<FormBlock[][]>([]);
-
-  // Reference to the "before" snapshot for the current editing sequence.
-  // Cleared when the debounce fires and the snapshot is committed to `past`.
   const pendingSnapshotRef = useRef<FormBlock[] | null>(null);
   const histTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const canUndo = past.length > 0;
   const canRedo = future.length > 0;
 
-  // Blocks setter used by BlockCanvas — records history with 600ms debounce
-  // so rapid typing produces a single undo step rather than one per character.
   const setBlocks = useCallback(
     (newBlocks: FormBlock[]) => {
-      // First change in a sequence: capture the state *before* this change
       if (pendingSnapshotRef.current === null) {
         pendingSnapshotRef.current = blocks;
       }
-      // Any new edit invalidates the redo stack
       setFuture([]);
       setBlocksRaw(newBlocks);
 
-      // Debounce: only push to `past` after 600ms of no further edits
       if (histTimerRef.current) clearTimeout(histTimerRef.current);
       histTimerRef.current = setTimeout(() => {
         if (pendingSnapshotRef.current !== null) {
@@ -122,13 +116,11 @@ function FormEditor() {
 
   const undo = useCallback(() => {
     if (!canUndo) return;
-    // Cancel any pending debounced snapshot — the undo itself is the checkpoint
     if (histTimerRef.current) {
       clearTimeout(histTimerRef.current);
       histTimerRef.current = null;
     }
     pendingSnapshotRef.current = null;
-
     const prev = past[past.length - 1];
     setPast((p) => p.slice(0, -1));
     setFuture((f) => [blocks, ...f.slice(0, 49)]);
@@ -142,7 +134,6 @@ function FormEditor() {
       histTimerRef.current = null;
     }
     pendingSnapshotRef.current = null;
-
     const next = future[0];
     setFuture((f) => f.slice(1));
     setPast((p) => [...p.slice(-49), blocks]);
@@ -152,36 +143,52 @@ function FormEditor() {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load form on mount
+  // Populate local state once backend form loads
   useEffect(() => {
-    setMounted(true);
-    if (!formId) {
-      router.replace("/admin/formbuilder");
-      return;
-    }
-    const loaded = fbGetForm(formId);
-    if (!loaded) {
-      router.replace("/admin/formbuilder");
-      return;
-    }
-    setForm(loaded);
-    setBlocksRaw(loaded.blocks);
-    setName(loaded.name);
-    // Don't treat initial load as an undoable action
+    if (!backendForm || initialized) return;
+    setName(backendForm.name);
+    setDescription(backendForm.description ?? "");
+    setTheme((backendForm.activeVersion?.theme as Record<string, any>) ?? {});
+    setBlocksRaw((backendForm.activeVersion?.blocks as FormBlock[]) ?? []);
     setPast([]);
     setFuture([]);
+    setInitialized(true);
+  }, [backendForm, initialized]);
+
+  // Redirect if no id
+  useEffect(() => {
+    if (!formId) router.replace("/admin/formbuilder");
   }, [formId, router]);
 
-  // Auto-save whenever blocks or name changes (debounced 1.5s)
+  // Redirect if form not found after loading (wait for auth to resolve first)
   useEffect(() => {
-    if (!form || !mounted) return;
+    if (authLoading || !isAuthenticated) return;
+    if (!loadingForm && initialized === false && !backendForm && formId) {
+      router.replace("/admin/formbuilder");
+    }
+  }, [authLoading, isAuthenticated, loadingForm, backendForm, initialized, formId, router]);
+
+  // Auto-save (debounced 1.5s)
+  useEffect(() => {
+    if (!initialized || !backendForm) return;
 
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
 
-    autoSaveTimer.current = setTimeout(() => {
-      const updated = fbSaveForm({ ...form, name, blocks });
-      setForm(updated);
-      setSavedAt(new Date());
+    autoSaveTimer.current = setTimeout(async () => {
+      try {
+        await updateForm(backendForm.id, {
+          name,
+          description,
+          type: backendForm.type,
+          category: backendForm.category,
+          isTemplate: backendForm.isTemplate,
+          blocks,
+          theme,
+        });
+        setSavedAt(new Date());
+      } catch {
+        // silent — user can manually save
+      }
     }, 1500);
 
     return () => {
@@ -189,30 +196,36 @@ function FormEditor() {
     };
   }, [blocks, name]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleManualSave = useCallback(() => {
-    if (!form) return;
-    setSaving(true);
-    const updated = fbSaveForm({ ...form, name, blocks });
-    setForm(updated);
-    setSavedAt(new Date());
-    setTimeout(() => setSaving(false), 500);
-  }, [form, name, blocks]);
+  const handleManualSave = useCallback(async () => {
+    if (!backendForm) return;
+    try {
+      await updateForm(backendForm.id, {
+        name,
+        description,
+        type: backendForm.type,
+        category: backendForm.category,
+        isTemplate: backendForm.isTemplate,
+        blocks,
+        theme,
+      });
+      setSavedAt(new Date());
+    } catch {
+      // error shown via saveError
+    }
+  }, [backendForm, name, description, blocks, theme, updateForm]);
 
-  // Keyboard shortcuts: Cmd/Ctrl+S, Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const ctrl = e.metaKey || e.ctrlKey;
       if (!ctrl) return;
 
-      // Save: always intercept
       if (e.key === "s") {
         e.preventDefault();
         handleManualSave();
         return;
       }
 
-      // Undo / Redo: only when focus is NOT in a text field so that
-      // native textarea undo still works when the user is typing.
       const inTextField =
         document.activeElement instanceof HTMLTextAreaElement ||
         document.activeElement instanceof HTMLInputElement;
@@ -234,7 +247,7 @@ function FormEditor() {
     return () => window.removeEventListener("keydown", handler);
   }, [handleManualSave, undo, redo]);
 
-  if (!mounted || !form) {
+  if (loadingForm || !initialized) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -242,10 +255,22 @@ function FormEditor() {
     );
   }
 
-  const preset = TEMPLATE_PRESETS.find((p) => p.type === form.type);
+  if (!backendForm) return null;
 
-  // The form object for preview includes latest blocks and name
-  const previewForm: SavedForm = { ...form, name, blocks };
+  const preset = TEMPLATE_PRESETS.find((p) => p.type === backendForm.type);
+
+  // Build a SavedForm-compatible object for the preview renderer
+  const previewForm: SavedForm = {
+    id: backendForm.id,
+    name,
+    type: backendForm.type as any,
+    blocks,
+    version: backendForm.activeVersion?.majorVersion ?? 1,
+    description,
+    theme,
+    createdAt: backendForm.createdAt,
+    updatedAt: backendForm.updatedAt,
+  };
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
@@ -292,10 +317,9 @@ function FormEditor() {
             </button>
           )}
 
-          {/* Type badge */}
           {preset && (
             <Badge
-              className={`text-[10px] px-1.5 py-0 shrink-0 ${TYPE_COLORS[form.type] ?? ""}`}
+              className={`text-[10px] px-1.5 py-0 shrink-0 ${TYPE_COLORS[backendForm.type] ?? ""}`}
             >
               {preset.emoji} {preset.label}
             </Badge>
@@ -312,6 +336,11 @@ function FormEditor() {
           {saving ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+            </>
+          ) : saveError ? (
+            <>
+              <AlertCircle className="h-3 w-3 text-destructive" />
+              <span className="text-destructive">Error</span>
             </>
           ) : savedAt ? (
             <>
@@ -364,7 +393,6 @@ function FormEditor() {
 
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
-          {/* Undo / Redo */}
           <Button
             size="icon"
             variant="ghost"
@@ -408,23 +436,26 @@ function FormEditor() {
             size="sm"
             className="h-8 gap-1.5 bg-[#FF6900] hover:bg-[#e05f00] text-white"
             onClick={handleManualSave}
+            disabled={saving}
           >
-            <Save className="h-3.5 w-3.5" />
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
             <span className="hidden sm:inline">Save</span>
           </Button>
         </div>
       </div>
 
-      {/* ── Canvas (fills remaining height) ── */}
+      {/* ── Canvas ── */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
-        {/* Editor column */}
         {(viewMode === "edit" || viewMode === "split") && (
           <div className={cn("flex-1 min-w-0 flex flex-col", viewMode === "split" && "border-r border-border")}>
             <BlockCanvas blocks={blocks} onChange={setBlocks} />
           </div>
         )}
 
-        {/* Preview column */}
         {(viewMode === "preview" || viewMode === "split") && (
           <div className="flex-1 min-w-0 overflow-y-auto bg-muted/10">
             <div className="max-w-2xl mx-auto px-8 py-12">
@@ -459,8 +490,8 @@ function FormEditor() {
               <Label>Description</Label>
               <Textarea
                 placeholder="Optional description for the form…"
-                value={form.description ?? ""}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 className="h-20 text-sm"
               />
             </div>
@@ -470,22 +501,16 @@ function FormEditor() {
               <div className="flex items-center gap-3">
                 <input
                   type="color"
-                  value={form.theme?.primaryColor ?? "#FF6900"}
+                  value={theme?.primaryColor ?? "#FF6900"}
                   onChange={(e) =>
-                    setForm({
-                      ...form,
-                      theme: { ...form.theme, primaryColor: e.target.value },
-                    })
+                    setTheme((t) => ({ ...t, primaryColor: e.target.value }))
                   }
                   className="h-10 w-10 rounded cursor-pointer border-none bg-transparent"
                 />
                 <Input
-                  value={form.theme?.primaryColor ?? "#FF6900"}
+                  value={theme?.primaryColor ?? "#FF6900"}
                   onChange={(e) =>
-                    setForm({
-                      ...form,
-                      theme: { ...form.theme, primaryColor: e.target.value },
-                    })
+                    setTheme((t) => ({ ...t, primaryColor: e.target.value }))
                   }
                   className="h-9 font-mono uppercase text-xs"
                 />
@@ -495,12 +520,9 @@ function FormEditor() {
             <div className="space-y-2">
               <Label>Logo Placement</Label>
               <Select
-                value={form.theme?.logoPlacement ?? "left"}
+                value={theme?.logoPlacement ?? "left"}
                 onValueChange={(val: any) =>
-                  setForm({
-                    ...form,
-                    theme: { ...form.theme, logoPlacement: val },
-                  })
+                  setTheme((t) => ({ ...t, logoPlacement: val }))
                 }
               >
                 <SelectTrigger>
@@ -530,7 +552,7 @@ function FormEditor() {
   );
 }
 
-// ─── Page export (wraps in Suspense for useSearchParams) ─────────────────────
+// ─── Page export ──────────────────────────────────────────────────────────────
 
 export default function FormBuilderEditPage() {
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
@@ -8,16 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import {
-  fbGetAllForms,
-  fbDeleteForm,
-  fbDuplicateForm,
-  fbSaveForm,
-  type SavedForm,
-  type FormTemplateType,
-} from "@/lib/formbuilder-storage";
 import { getPreset, TEMPLATE_PRESETS } from "@/lib/formbuilder-presets";
+import type { FormTemplateType } from "@/lib/formbuilder-storage";
 import { TemplatePicker } from "@/components/formbuilder/template-picker";
+import {
+  useGetStandaloneForms,
+  useCreateStandaloneForm,
+  useDeleteStandaloneForm,
+  useDuplicateStandaloneForm,
+  type StandaloneForm,
+} from "@/hooks/standalone-forms";
 import {
   Plus,
   Search,
@@ -30,7 +30,20 @@ import {
   LayoutGrid,
   List,
   ClipboardPenLine,
+  CloudUpload,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const TYPE_LABELS: Record<FormTemplateType, string> = {
   consultation: "Consultation",
@@ -76,42 +89,207 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString();
 }
 
+// ─── Save-templates dialog ────────────────────────────────────────────────────
+
+interface SaveTemplatesDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function SaveTemplatesDialog({ open, onClose, onSaved }: SaveTemplatesDialogProps) {
+  const { createForm, loading } = useCreateStandaloneForm();
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const total = TEMPLATE_PRESETS.length;
+  const current = TEMPLATE_PRESETS[currentIdx];
+
+  const handleSaveOne = useCallback(async () => {
+    if (!current) return;
+    setError(null);
+    try {
+      const preset = getPreset(current.type as FormTemplateType);
+      const blocks = preset ? preset.blocks() : [];
+      await createForm({
+        name: current.label,
+        description: `Default ${current.label} template`,
+        type: current.type,
+        isTemplate: true,
+        blocks,
+      });
+      if (currentIdx + 1 >= total) {
+        setDone(true);
+        onSaved();
+      } else {
+        setCurrentIdx((i) => i + 1);
+      }
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to save template");
+    }
+  }, [current, currentIdx, total, createForm, onSaved]);
+
+  const handleSkip = () => {
+    if (currentIdx + 1 >= total) {
+      setDone(true);
+      onSaved();
+    } else {
+      setCurrentIdx((i) => i + 1);
+    }
+  };
+
+  const handleClose = () => {
+    setCurrentIdx(0);
+    setDone(false);
+    setError(null);
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CloudUpload className="h-5 w-5 text-[#FF6900]" />
+            Save Templates to Backend
+          </DialogTitle>
+          <DialogDescription>
+            No forms found in the backend. Would you like to save the built-in
+            templates to your backend one by one?
+          </DialogDescription>
+        </DialogHeader>
+
+        {done ? (
+          <div className="py-6 text-center space-y-2">
+            <p className="text-sm font-medium text-emerald-600">
+              All templates processed!
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Your templates are now saved to the backend.
+            </p>
+          </div>
+        ) : (
+          <div className="py-4 space-y-4">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>
+                Template {currentIdx + 1} of {total}
+              </span>
+              <span className="font-medium text-foreground">
+                {current?.emoji} {current?.label}
+              </span>
+            </div>
+
+            {/* Progress bar */}
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#FF6900] transition-all"
+                style={{ width: `${((currentIdx) / total) * 100}%` }}
+              />
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Save <span className="font-semibold text-foreground">{current?.label}</span> template to backend?
+            </p>
+
+            {error && (
+              <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {error}
+              </div>
+            )}
+          </div>
+        )}
+
+        <DialogFooter className="gap-2">
+          {done ? (
+            <Button onClick={handleClose}>Done</Button>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" onClick={handleClose}>
+                Cancel All
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleSkip} disabled={loading}>
+                Skip
+              </Button>
+              <Button
+                size="sm"
+                className="bg-[#FF6900] hover:bg-[#e05f00] text-white gap-1.5"
+                onClick={handleSaveOne}
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <CloudUpload className="h-3.5 w-3.5" />
+                )}
+                Save
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
 export default function FormBuilderListPage() {
   const router = useRouter();
-  const { doctor } = useAuth();
-  const [forms, setForms] = useState<SavedForm[]>([]);
+  const { doctor, isAuthenticated, isLoading: authLoading } = useAuth();
+
+  const { forms, loading, error, refetch } = useGetStandaloneForms({ skip: authLoading || !isAuthenticated });
+  const { createForm, loading: creating } = useCreateStandaloneForm();
+  const { deleteForm } = useDeleteStandaloneForm();
+  const { duplicateForm } = useDuplicateStandaloneForm();
+
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [category, setCategory] = useState<FormTemplateType | "all">("all");
-  const [mounted, setMounted] = useState(false);
+  const [saveTemplatesOpen, setSaveTemplatesOpen] = useState(false);
+  const [templatePromptShown, setTemplatePromptShown] = useState(false);
 
-  const reload = useCallback(() => setForms(fbGetAllForms()), []);
+  // Show save-templates dialog once when backend is empty after loading
+  const shouldPrompt =
+    !loading && !error && forms.length === 0 && !templatePromptShown;
 
-  useEffect(() => {
-    setMounted(true);
-    reload();
-  }, [reload]);
+  if (shouldPrompt && !saveTemplatesOpen) {
+    setTemplatePromptShown(true);
+    setSaveTemplatesOpen(true);
+  }
 
-  const handleCreate = (name: string, type: FormTemplateType) => {
+  const handleCreate = async (name: string, type: FormTemplateType) => {
     const preset = getPreset(type);
     const blocks = preset ? preset.blocks() : [];
-    const saved = fbSaveForm({ name, type, blocks, version: 1 });
-    setPickerOpen(false);
-    router.push(`/admin/formbuilder/edit?id=${saved.id}`);
+    try {
+      const created = await createForm({ name, type, blocks, isTemplate: false });
+      setPickerOpen(false);
+      refetch();
+      router.push(`/admin/formbuilder/edit?id=${created.id}`);
+    } catch (err: any) {
+      alert(err?.message ?? "Failed to create form");
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("Delete this form? This cannot be undone.")) return;
-    fbDeleteForm(id);
-    reload();
+    try {
+      await deleteForm(id, true);
+      refetch();
+    } catch (err: any) {
+      alert(err?.message ?? "Failed to delete form");
+    }
   };
 
-  const handleDuplicate = (id: string) => {
-    const copy = fbDuplicateForm(id);
-    if (copy) {
-      reload();
+  const handleDuplicate = async (id: string) => {
+    try {
+      const copy = await duplicateForm(id);
+      refetch();
       router.push(`/admin/formbuilder/edit?id=${copy.id}`);
+    } catch (err: any) {
+      alert(err?.message ?? "Failed to duplicate form");
     }
   };
 
@@ -119,10 +297,10 @@ export default function FormBuilderListPage() {
     (f) =>
       (category === "all" || f.type === category) &&
       (f.name.toLowerCase().includes(search.toLowerCase()) ||
-        TYPE_LABELS[f.type].toLowerCase().includes(search.toLowerCase())),
+        TYPE_LABELS[f.type as FormTemplateType]
+          ?.toLowerCase()
+          .includes(search.toLowerCase())),
   );
-
-  if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -144,18 +322,49 @@ export default function FormBuilderListPage() {
                 Form Builder
               </h1>
               <p className="text-sm text-muted-foreground mt-0.5">
-                {forms.length} form{forms.length !== 1 ? "s" : ""} saved locally
+                {loading ? (
+                  <span className="flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Loading…
+                  </span>
+                ) : (
+                  `${forms.length} form${forms.length !== 1 ? "s" : ""}`
+                )}
               </p>
             </div>
           </div>
-          <Button
-            onClick={() => setPickerOpen(true)}
-            className="bg-[#FF6900] hover:bg-[#e05f00] text-white gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            New Form
-          </Button>
+          <div className="flex items-center gap-2">
+            {forms.length === 0 && !loading && (
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setSaveTemplatesOpen(true)}
+              >
+                <CloudUpload className="h-4 w-4" />
+                Save Templates
+              </Button>
+            )}
+            <Button
+              onClick={() => setPickerOpen(true)}
+              disabled={creating}
+              className="bg-[#FF6900] hover:bg-[#e05f00] text-white gap-2"
+            >
+              {creating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              New Form
+            </Button>
+          </div>
         </div>
+
+        {/* Error banner */}
+        {error && (
+          <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-xl px-4 py-3">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
 
         <div className="flex flex-col md:flex-row gap-8">
           {/* Sidebar */}
@@ -191,7 +400,7 @@ export default function FormBuilderListPage() {
             ))}
           </aside>
 
-          {/* Form List area */}
+          {/* Form list area */}
           <div className="flex-1 min-w-0 space-y-6">
             {/* Filters */}
             <div className="flex items-center gap-3 flex-wrap">
@@ -224,8 +433,20 @@ export default function FormBuilderListPage() {
               </div>
             </div>
 
+            {/* Loading skeleton */}
+            {loading && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-36 rounded-2xl border border-border bg-muted/30 animate-pulse"
+                  />
+                ))}
+              </div>
+            )}
+
             {/* Empty state */}
-            {filtered.length === 0 && (
+            {!loading && filtered.length === 0 && (
               <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground">
                 <FileText className="h-12 w-12 mb-4 opacity-30" />
                 {forms.length === 0 ? (
@@ -234,16 +455,26 @@ export default function FormBuilderListPage() {
                       No forms yet
                     </p>
                     <p className="text-sm mt-1">
-                      Create your first form using a preset template or a blank
-                      canvas.
+                      Create your first form or save the built-in templates to
+                      your backend.
                     </p>
-                    <Button
-                      className="mt-4 bg-[#FF6900] hover:bg-[#e05f00] text-white gap-2"
-                      onClick={() => setPickerOpen(true)}
-                    >
-                      <Plus className="h-4 w-4" />
-                      New Form
-                    </Button>
+                    <div className="flex items-center gap-2 mt-4">
+                      <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => setSaveTemplatesOpen(true)}
+                      >
+                        <CloudUpload className="h-4 w-4" />
+                        Save Templates
+                      </Button>
+                      <Button
+                        className="bg-[#FF6900] hover:bg-[#e05f00] text-white gap-2"
+                        onClick={() => setPickerOpen(true)}
+                      >
+                        <Plus className="h-4 w-4" />
+                        New Form
+                      </Button>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -260,12 +491,14 @@ export default function FormBuilderListPage() {
             )}
 
             {/* Grid view */}
-            {viewMode === "grid" && filtered.length > 0 && (
+            {!loading && viewMode === "grid" && filtered.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filtered.map((form) => {
                   const preset = TEMPLATE_PRESETS.find(
                     (p) => p.type === form.type,
                   );
+                  const blockCount =
+                    form.activeVersion?.blocks?.length ?? 0;
                   return (
                     <div
                       key={form.id}
@@ -274,7 +507,6 @@ export default function FormBuilderListPage() {
                         router.push(`/admin/formbuilder/edit?id=${form.id}`)
                       }
                     >
-                      {/* Card top colour strip */}
                       <div
                         className={`h-1.5 ${preset?.color.includes("blue") ? "bg-blue-400" : preset?.color.includes("rose") ? "bg-rose-400" : preset?.color.includes("amber") ? "bg-amber-400" : preset?.color.includes("emerald") ? "bg-emerald-400" : preset?.color.includes("purple") ? "bg-purple-400" : "bg-slate-400"}`}
                       />
@@ -284,25 +516,29 @@ export default function FormBuilderListPage() {
                             <span className="text-xl">
                               {preset?.emoji ?? "📄"}
                             </span>
-                            {form.version && form.version > 1 && (
+                            {form.isTemplate && (
                               <Badge variant="outline" className="text-[9px]">
-                                v{form.version}
+                                Template
                               </Badge>
                             )}
                           </div>
                           <Badge
-                            className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[form.type]}`}
+                            className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[form.type as FormTemplateType] ?? ""}`}
                           >
-                            {TYPE_LABELS[form.type]}
+                            {TYPE_LABELS[form.type as FormTemplateType] ?? form.type}
                           </Badge>
                         </div>
                         <div className="flex-1">
                           <h3 className="text-sm font-semibold text-foreground line-clamp-2">
                             {form.name}
                           </h3>
+                          {form.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                              {form.description}
+                            </p>
+                          )}
                           <p className="text-xs text-muted-foreground mt-1">
-                            {form.blocks.length} block
-                            {form.blocks.length !== 1 ? "s" : ""}
+                            {blockCount} block{blockCount !== 1 ? "s" : ""}
                           </p>
                         </div>
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground border-t border-border/50 pt-2">
@@ -368,7 +604,7 @@ export default function FormBuilderListPage() {
             )}
 
             {/* List view */}
-            {viewMode === "list" && filtered.length > 0 && (
+            {!loading && viewMode === "list" && filtered.length > 0 && (
               <div className="border border-border rounded-2xl overflow-hidden">
                 {filtered.map((form, idx) => {
                   const preset = TEMPLATE_PRESETS.find(
@@ -388,21 +624,21 @@ export default function FormBuilderListPage() {
                           <p className="text-sm font-medium text-foreground truncate">
                             {form.name}
                           </p>
-                          {form.version && form.version > 1 && (
+                          {form.isTemplate && (
                             <Badge variant="outline" className="text-[9px]">
-                              v{form.version}
+                              Template
                             </Badge>
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {form.blocks.length} blocks · updated{" "}
-                          {timeAgo(form.updatedAt)}
+                          {form.activeVersion?.blocks?.length ?? 0} blocks ·
+                          updated {timeAgo(form.updatedAt)}
                         </p>
                       </div>
                       <Badge
-                        className={`text-[10px] px-1.5 py-0 shrink-0 ${TYPE_COLORS[form.type]}`}
+                        className={`text-[10px] px-1.5 py-0 shrink-0 ${TYPE_COLORS[form.type as FormTemplateType] ?? ""}`}
                       >
-                        {TYPE_LABELS[form.type]}
+                        {TYPE_LABELS[form.type as FormTemplateType] ?? form.type}
                       </Badge>
                       <div
                         className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
@@ -423,7 +659,9 @@ export default function FormBuilderListPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push(`/admin/formbuilder/edit?id=${form.id}`);
+                            router.push(
+                              `/admin/formbuilder/edit?id=${form.id}`,
+                            );
                           }}
                           title="Edit"
                           className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -464,6 +702,15 @@ export default function FormBuilderListPage() {
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onCreate={handleCreate}
+      />
+
+      <SaveTemplatesDialog
+        open={saveTemplatesOpen}
+        onClose={() => setSaveTemplatesOpen(false)}
+        onSaved={() => {
+          setSaveTemplatesOpen(false);
+          refetch();
+        }}
       />
     </div>
   );

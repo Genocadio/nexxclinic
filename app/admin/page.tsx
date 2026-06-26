@@ -3,7 +3,7 @@
 import Header from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
-import { Package, ShieldCheck, Building2, Users, BadgeInfo } from "lucide-react"
+import { Package, ShieldCheck, Building2, Users, BadgeInfo, FileText } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { isManagerWithoutAdmin } from "@/lib/role-utils"
 
@@ -13,6 +13,7 @@ const adminActions = [
   { label: "Manage Products", icon: Package, path: "/admin/products" },
   { label: "Manage Departments", icon: Building2, path: "/admin/departments" },
   { label: "Manage Users", icon: Users, path: "/admin/users" },
+  { label: "Manage Forms", icon: FileText, path: "/admin/formbuilder" },
 ]
 
 export default function AdminDashboardPage() {
@@ -56,8 +57,9 @@ export default function AdminDashboardPage() {
                     {label === "Clinic Profile" ? "Read and update clinic branding and details" :
                       label === "Manage Insurances" ? "Create, edit, and delete insurances" :
                       label === "Manage Products" ? "Create, edit, and delete products" :
-                        label === "Manage Departments" ? "Organize hospital departments" :
-                          "Manage system users and permissions"}
+                      label === "Manage Departments" ? "Organize hospital departments" :
+                      label === "Manage Forms" ? "Build and manage clinic forms" :
+                      "Manage system users and permissions"}
                   </p>
                 </div>
               </div>

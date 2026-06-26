@@ -60,7 +60,12 @@ const statusLink = new ApolloLink((operation, forward) => {
       .filter((status): status is string => Boolean(status))
 
     if (statuses.includes('UNAUTHENTICATED')) {
-      handleUnauthenticatedSession('Your session has expired. Please login again.')
+      // Only treat as session expiry if the user had a token (i.e. was logged in).
+      // If there is no token, the query fired before auth resolved — ignore it.
+      const hasToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('authToken'))
+      if (hasToken) {
+        handleUnauthenticatedSession('Your session has expired. Please login again.')
+      }
       return result
     }
 
@@ -78,14 +83,18 @@ const statusLink = new ApolloLink((operation, forward) => {
 
 const authMiddleware = new ApolloLink((operation, forward) => {
   // Get the authentication token from local storage if it exists
-  const token = localStorage.getItem('authToken')
+  const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
 
   // Add the authorization header to the request
-  operation.setContext({
+  // Only set the header when a token exists — sending an empty string
+  // causes some backends to treat the request as unauthenticated even
+  // though the header is technically present.
+  operation.setContext(({ headers = {} }) => ({
     headers: {
-      authorization: token ? `Bearer ${token}` : '',
+      ...headers,
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
-  })
+  }))
 
   return forward(operation)
 })
@@ -137,7 +146,10 @@ const errorLink = onError(({ graphQLErrors, networkError, operation }) => {
     })()
 
     if (unauthenticatedFromNetworkError) {
-      handleUnauthenticatedSession('Your session has expired. Please login again.')
+      const hasToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('authToken'))
+      if (hasToken) {
+        handleUnauthenticatedSession('Your session has expired. Please login again.')
+      }
       return
     }
 
@@ -164,7 +176,10 @@ const errorLink = onError(({ graphQLErrors, networkError, operation }) => {
   })
 
   if (hasUnauthenticatedGraphQLError) {
-    handleUnauthenticatedSession('Your session has expired. Please login again.')
+    const hasToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('authToken'))
+    if (hasToken) {
+      handleUnauthenticatedSession('Your session has expired. Please login again.')
+    }
     return
   }
 

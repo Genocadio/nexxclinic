@@ -185,6 +185,7 @@ enum ConditionalCondition {
 enum AnswerStatus {
   DRAFT
   FINAL
+  SUBMITTED
 }
 
 interface ApiResponse {
@@ -410,6 +411,8 @@ type Department {
   nursing: Boolean!
   supportRequests: Boolean!
   requestsProducts: Boolean!
+  standaloneForms: [StandaloneForm!]!
+  defaultStandaloneForm: StandaloneForm
 }
 
 type DepartmentResponse implements ApiResponse {
@@ -485,6 +488,7 @@ type VisitDepartment {
   medications: [VisitDepartmentMedication!]
   preInstructions: [VisitPreInstruction!]!
   notes: VisitDepartmentNotesSummary!
+  answerId: ID
   createdAt: String!
   updatedAt: String!
 }
