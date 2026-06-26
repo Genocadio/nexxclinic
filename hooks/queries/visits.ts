@@ -76,6 +76,7 @@ const childVisitDepartmentFields = `
   products {
     ${visitDepartmentProductFields}
   }
+  answerId
   createdAt
   updatedAt
 `
@@ -210,6 +211,7 @@ export const GET_VISIT_QUERY = gql`
             totalNotes
             newNotes
           }
+          answerId
           createdAt
           updatedAt
         }

@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +13,9 @@ import {
   Trash2,
 } from "lucide-react";
 import type { FormBlock } from "@/lib/formbuilder-storage";
+import type { MedicalBlockHandlers } from "../extensions/types";
+import { ProductListenerWithVisitSync } from "./product-listener-sync";
+import { EntryList, PTYPE_COLOR, PTYPE_LABEL } from "./medical-shared";
 import type {
   AddedProduct,
   DiagEntry,
@@ -22,39 +26,28 @@ import type {
 } from "./types";
 import { uid } from "./utils";
 
-const PTYPE_LABEL: Record<string, string> = {
-  DRUG: "Drug",
-  MEDICAL_ACT: "Procedure",
-  BIOLOGICAL_ACT: "Biological",
-  CONSUMABLE_DEVICE: "Consumable",
-};
-
-const PTYPE_COLOR: Record<string, string> = {
-  DRUG: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  MEDICAL_ACT:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-  BIOLOGICAL_ACT:
-    "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
-  CONSUMABLE_DEVICE:
-    "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
-};
-
 export function DiagnosticAnswerBlock({
   block,
   value,
   onChange,
   isError,
   edit,
+  handlers,
 }: {
   block: FormBlock;
   value: DiagEntry[];
   onChange: (v: DiagEntry[]) => void;
   isError?: boolean;
   edit: boolean;
+  handlers?: MedicalBlockHandlers;
 }) {
-  const add = (diagnosis: string, description?: string) => {
+  const add = async (diagnosis: string, description?: string) => {
     const name = diagnosis.trim();
     if (!name) return;
+    if (handlers?.onAddDiagnosis) {
+      await handlers.onAddDiagnosis(name, description);
+      return;
+    }
     onChange([
       ...value,
       {
@@ -108,16 +101,22 @@ function DiagnosticDraft({
   onAdd,
   placeholder,
 }: {
-  onAdd: (diagnosis: string, description?: string) => void;
+  onAdd: (diagnosis: string, description?: string) => void | Promise<void>;
   placeholder: string;
 }) {
   const [draftDiag, setDraftDiag] = React.useState("");
   const [draftDesc, setDraftDesc] = React.useState("");
-  const submit = () => {
-    if (!draftDiag.trim()) return;
-    onAdd(draftDiag, draftDesc);
-    setDraftDiag("");
-    setDraftDesc("");
+  const [submitting, setSubmitting] = React.useState(false);
+  const submit = async () => {
+    if (!draftDiag.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await onAdd(draftDiag, draftDesc);
+      setDraftDiag("");
+      setDraftDesc("");
+    } finally {
+      setSubmitting(false);
+    }
   };
   return (
     <>
@@ -140,7 +139,7 @@ function DiagnosticDraft({
           type="button"
           size="sm"
           onClick={submit}
-          disabled={!draftDiag.trim()}
+          disabled={!draftDiag.trim() || submitting}
           className="h-7 rounded-full gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
         >
           <Plus className="h-3 w-3" /> Add Diagnosis
@@ -156,14 +155,30 @@ export function MedFullAnswerBlock({
   onChange,
   isError,
   edit,
+  handlers,
 }: {
   block: FormBlock;
   value: MedFullEntry[];
   onChange: (v: MedFullEntry[]) => void;
   isError?: boolean;
   edit: boolean;
+  handlers?: MedicalBlockHandlers;
 }) {
   const remove = (id: string) => onChange(value.filter((e) => e.id !== id));
+  const addEntry = async (draft: Omit<MedFullEntry, "id">) => {
+    if (handlers?.onAddMedicationFull) {
+      await handlers.onAddMedicationFull(draft);
+      return;
+    }
+    onChange([
+      ...value,
+      {
+        id: `mf${uid()}`,
+        ...draft,
+        notes: draft.notes?.trim() || undefined,
+      },
+    ]);
+  };
   return (
     <div className="my-3">
       <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5">
@@ -176,16 +191,7 @@ export function MedFullAnswerBlock({
       >
         {edit && (
           <MedFullDraft
-            onAdd={(draft) =>
-              onChange([
-                ...value,
-                {
-                  id: `mf${uid()}`,
-                  ...draft,
-                  notes: draft.notes?.trim() || undefined,
-                },
-              ])
-            }
+            onAdd={addEntry}
             placeholder={block.placeholder || "Medication name…"}
           />
         )}
@@ -214,7 +220,7 @@ function MedFullDraft({
   onAdd,
   placeholder,
 }: {
-  onAdd: (v: Omit<MedFullEntry, "id">) => void;
+  onAdd: (v: Omit<MedFullEntry, "id">) => void | Promise<void>;
   placeholder: string;
 }) {
   const [draft, setDraft] = React.useState({
@@ -224,6 +230,7 @@ function MedFullDraft({
     days: "",
     notes: "",
   });
+  const [submitting, setSubmitting] = React.useState(false);
   const upd =
     (k: keyof typeof draft) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -233,10 +240,15 @@ function MedFullDraft({
     draft.frequency.trim() &&
     draft.amount.trim() &&
     draft.days.trim();
-  const submit = () => {
-    if (!canAdd) return;
-    onAdd(draft);
-    setDraft({ name: "", frequency: "", amount: "", days: "", notes: "" });
+  const submit = async () => {
+    if (!canAdd || submitting) return;
+    setSubmitting(true);
+    try {
+      await onAdd(draft);
+      setDraft({ name: "", frequency: "", amount: "", days: "", notes: "" });
+    } finally {
+      setSubmitting(false);
+    }
   };
   return (
     <>
@@ -278,7 +290,7 @@ function MedFullDraft({
           type="button"
           size="sm"
           onClick={submit}
-          disabled={!canAdd}
+          disabled={!canAdd || submitting}
           className="h-7 rounded-full gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white"
         >
           <Plus className="h-3 w-3" /> Add Medication
@@ -294,14 +306,30 @@ export function MedMiniAnswerBlock({
   onChange,
   isError,
   edit,
+  handlers,
 }: {
   block: FormBlock;
   value: MedMiniEntry[];
   onChange: (v: MedMiniEntry[]) => void;
   isError?: boolean;
   edit: boolean;
+  handlers?: MedicalBlockHandlers;
 }) {
   const remove = (id: string) => onChange(value.filter((e) => e.id !== id));
+  const addEntry = async (name: string, notes?: string) => {
+    if (handlers?.onAddMedicationMini) {
+      await handlers.onAddMedicationMini(name, notes);
+      return;
+    }
+    onChange([
+      ...value,
+      {
+        id: `mm${uid()}`,
+        name: name.trim(),
+        notes: notes?.trim() || undefined,
+      },
+    ]);
+  };
   return (
     <div className="my-3">
       <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5">
@@ -314,16 +342,7 @@ export function MedMiniAnswerBlock({
       >
         {edit && (
           <MedMiniDraft
-            onAdd={(name, notes) =>
-              onChange([
-                ...value,
-                {
-                  id: `mm${uid()}`,
-                  name: name.trim(),
-                  notes: notes?.trim() || undefined,
-                },
-              ])
-            }
+            onAdd={addEntry}
             placeholder={block.placeholder || "Medication name…"}
           />
         )}
@@ -349,16 +368,22 @@ function MedMiniDraft({
   onAdd,
   placeholder,
 }: {
-  onAdd: (name: string, notes?: string) => void;
+  onAdd: (name: string, notes?: string) => void | Promise<void>;
   placeholder: string;
 }) {
   const [draftName, setDraftName] = React.useState("");
   const [draftNotes, setDraftNotes] = React.useState("");
-  const submit = () => {
-    if (!draftName.trim()) return;
-    onAdd(draftName, draftNotes);
-    setDraftName("");
-    setDraftNotes("");
+  const [submitting, setSubmitting] = React.useState(false);
+  const submit = async () => {
+    if (!draftName.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await onAdd(draftName, draftNotes);
+      setDraftName("");
+      setDraftNotes("");
+    } finally {
+      setSubmitting(false);
+    }
   };
   return (
     <>
@@ -381,7 +406,7 @@ function MedMiniDraft({
           type="button"
           size="sm"
           onClick={submit}
-          disabled={!draftName.trim()}
+          disabled={!draftName.trim() || submitting}
           className="h-7 rounded-full gap-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
         >
           <Plus className="h-3 w-3" /> Add Medication
@@ -557,13 +582,30 @@ export function ProductListenerAnswerBlock({
   onChange,
   isError,
   edit,
+  handlers,
 }: {
   block: FormBlock;
   value: AddedProduct[];
   onChange: (v: AddedProduct[]) => void;
   isError?: boolean;
   edit: boolean;
+  handlers?: MedicalBlockHandlers;
 }) {
+  if (handlers?.onOpenProductPicker) {
+    return (
+      <ProductListenerWithVisitSync
+        block={block}
+        value={value}
+        onChange={onChange}
+        isError={isError}
+        edit={edit}
+        handlers={handlers}
+        visitId={handlers.visitId}
+        departmentId={handlers.departmentId}
+      />
+    );
+  }
+
   const remove = (id: string) =>
     onChange(value.filter((item) => item.id !== id));
   return (
@@ -683,42 +725,3 @@ function ProductDraft({
     </div>
   );
 }
-
-function EntryList<T extends { id: string }>({
-  items,
-  render,
-  onRemove,
-  emptyLabel,
-}: {
-  items: T[];
-  render: (item: T) => React.ReactNode;
-  onRemove?: (id: string) => void;
-  emptyLabel: string;
-}) {
-  if (items.length === 0) {
-    return <p className="text-xs text-muted-foreground italic">{emptyLabel}</p>;
-  }
-  return (
-    <div className="space-y-1.5 pt-2 border-t border-border/50">
-      {items.map((item) => (
-        <div
-          key={item.id}
-          className="flex items-start gap-2 px-2.5 py-1.5 rounded-md border border-border bg-background text-sm"
-        >
-          {render(item)}
-          {onRemove && (
-            <button
-              type="button"
-              onClick={() => onRemove(item.id)}
-              className="mt-0.5 p-0.5 text-muted-foreground hover:text-destructive shrink-0"
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-import * as React from "react";

@@ -417,6 +417,7 @@ export interface VisitDepartment {
   medications?: VisitDepartmentMedication[] | null
   preInstructions: VisitPreInstruction[]
   notes?: VisitDepartmentNotesSummary | null
+  answerId?: string | null
   createdAt: string
   updatedAt: string
 }

@@ -22,6 +22,7 @@ import {
   splitInitialAnswers,
 
 } from "./renderer/utils";
+import { createExtensionBlockHandlersResolver } from "./extensions";
 import { useAuth } from "@/lib/auth-context";
 import {
   ChevronLeft,
@@ -31,7 +32,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type { FormAnswers } from "./renderer/types";
+export type { FormAnswers, FormRendererProps } from "./renderer/types";
+export type { FormRendererExtension, MedicalBlockHandlers } from "./extensions/types";
+export { useConsultationVisitExtension } from "./extensions/consultation-visit";
+export { ConsultationFormRenderer } from "./consultation-form-renderer";
 
 export function FormRenderer({
   form,
@@ -45,12 +49,31 @@ export function FormRenderer({
   initialAnswers = {},
   edit = true,
   mode = "full",
+  extensions,
+  controlledAnswers,
+  onControlledAnswersChange,
 }: FormRendererProps) {
   const initial = useMemo(
     () => splitInitialAnswers(initialAnswers),
     [initialAnswers],
   );
-  const [answers, setAnswers] = useState<FormAnswers>(initial.blockAnswers);
+  const isControlled = controlledAnswers !== undefined;
+  const [internalAnswers, setInternalAnswers] = useState<FormAnswers>(initial.blockAnswers);
+  const answers = isControlled ? controlledAnswers : internalAnswers;
+  const setAnswers = useCallback(
+    (updater: FormAnswers | ((prev: FormAnswers) => FormAnswers)) => {
+      const resolve = (prev: FormAnswers) =>
+        typeof updater === "function"
+          ? (updater as (p: FormAnswers) => FormAnswers)(prev)
+          : updater;
+      if (isControlled) {
+        onControlledAnswersChange?.(resolve(controlledAnswers));
+      } else {
+        setInternalAnswers(resolve);
+      }
+    },
+    [isControlled, controlledAnswers, onControlledAnswersChange],
+  );
   const [inlineAnswers, setInlineAnswers] = useState<Record<string, string>>(
     initial.inlineAnswers,
   );
@@ -64,6 +87,10 @@ export function FormRenderer({
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const getBlockHandlers = useMemo(
+    () => createExtensionBlockHandlersResolver(extensions),
+    [extensions],
+  );
 
   const notifyChange = useCallback(
     (ans: FormAnswers, inline: Record<string, string>) => {
@@ -81,7 +108,7 @@ export function FormRenderer({
         return next;
       });
     },
-    [edit, inlineAnswers, notifyChange],
+    [edit, inlineAnswers, notifyChange, setAnswers],
   );
 
   const handleInlineChange = useCallback(
@@ -246,6 +273,8 @@ export function FormRenderer({
                   onInlineChange={handleInlineChange}
                   edit={edit}
                   context={context}
+                  blockHandlers={getBlockHandlers(block)}
+                  getBlockHandlers={getBlockHandlers}
                 />
               </div>
             ))
@@ -325,6 +354,7 @@ export function FormRenderer({
           </div>
         </div>
       )}
+
     </div>
   );
 }

@@ -28,6 +28,8 @@ export function AnswerBlock({
   onInlineChange,
   edit,
   context,
+  blockHandlers,
+  getBlockHandlers,
 }: AnswerBlockProps) {
   if (!shouldRenderBlock(block, answers)) return null;
 
@@ -273,6 +275,7 @@ export function AnswerBlock({
           onChange={(v: any) => onAnswerChange(block.id, v)}
           isError={isError}
           edit={edit}
+          handlers={blockHandlers}
         />
       );
     case "medication_full":
@@ -283,6 +286,7 @@ export function AnswerBlock({
           onChange={(v: any) => onAnswerChange(block.id, v)}
           isError={isError}
           edit={edit}
+          handlers={blockHandlers}
         />
       );
     case "medication_mini":
@@ -293,6 +297,7 @@ export function AnswerBlock({
           onChange={(v: any) => onAnswerChange(block.id, v)}
           isError={isError}
           edit={edit}
+          handlers={blockHandlers}
         />
       );
     case "lab_record":
@@ -313,6 +318,7 @@ export function AnswerBlock({
           onChange={(v: any) => onAnswerChange(block.id, v)}
           isError={isError}
           edit={edit}
+          handlers={blockHandlers}
         />
       );
     case "media_embed": {
@@ -369,6 +375,7 @@ export function AnswerBlock({
           onInlineChange={onInlineChange}
           edit={edit}
           context={ctx}
+          getBlockHandlers={getBlockHandlers}
         />
       );
     default:

@@ -177,6 +177,7 @@ export function LayoutAnswerBlock({
   onInlineChange,
   edit,
   context,
+  getBlockHandlers,
 }: AnswerBlockProps) {
   const columns = block.layoutColumns ?? [];
   const numCols = columns.length;
@@ -203,6 +204,8 @@ export function LayoutAnswerBlock({
               onInlineChange={onInlineChange}
               edit={edit}
               context={context}
+              blockHandlers={getBlockHandlers?.(b)}
+              getBlockHandlers={getBlockHandlers}
             />
           ))}
         </div>

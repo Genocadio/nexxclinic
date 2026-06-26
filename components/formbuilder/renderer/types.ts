@@ -1,4 +1,5 @@
 import type { FormBlock, InlineAnswerField, LabRow, LayoutColumn, SavedForm, TableCell } from "@/lib/formbuilder-storage";
+import type { MedicalBlockHandlers } from "../extensions/types";
 
 export type FormAnswers = Record<string, unknown>;
 
@@ -14,6 +15,11 @@ export interface FormRendererProps {
   initialAnswers?: FormAnswers;
   edit?: boolean;
   mode?: "full" | "wizard";
+  /** Optional extensions (e.g. consultation visit sync listener) */
+  extensions?: import("../extensions/types").FormRendererExtension[];
+  /** Controlled answers — use with extensions that mutate answer state */
+  controlledAnswers?: FormAnswers;
+  onControlledAnswersChange?: (answers: FormAnswers) => void;
 }
 
 export interface DiagEntry {
@@ -48,6 +54,10 @@ export interface AddedProduct {
   type: string;
   qty: number;
   price: number;
+  /** Visit department product line id when synced via consultation extension */
+  backendId?: string;
+  catalogProductId?: string;
+  removedFromVisit?: boolean;
 }
 
 export interface AnswerBlockProps {
@@ -59,6 +69,9 @@ export interface AnswerBlockProps {
   onInlineChange: (key: string, value: string) => void;
   edit: boolean;
   context?: { doctor: any; clinicProfile: any };
+  /** Per-block handlers from FormRenderer extensions */
+  blockHandlers?: MedicalBlockHandlers;
+  getBlockHandlers?: (block: FormBlock) => MedicalBlockHandlers | undefined;
 }
 
 export type { FormBlock, InlineAnswerField, LabRow, LayoutColumn, SavedForm, TableCell };

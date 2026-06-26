@@ -154,6 +154,7 @@ export type GqlVisitDepartment = {
     supportRequests?: boolean | null
   } | null
   processors?: GqlWorkerRef[] | null
+  answerId?: string | null
   createdAt?: string | null
   updatedAt?: string | null
 }
@@ -450,6 +451,7 @@ export function mapGqlVisitDepartment(department: GqlVisitDepartment): VisitDepa
       createdAt: medication.createdAt || EMPTY_TIMESTAMP,
     })),
     preInstructions: [],
+    answerId: department.answerId ?? null,
     createdAt: department.createdAt || EMPTY_TIMESTAMP,
     updatedAt: department.updatedAt || EMPTY_TIMESTAMP,
   }

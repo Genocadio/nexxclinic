@@ -26,6 +26,7 @@ import { ProductAutocomplete } from '@/components/ui/product-autocomplete'
 import { InsuranceAutocomplete } from '@/components/ui/insurance-autocomplete'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft, Plus, Pencil, Trash, X, FileText } from 'lucide-react'
+import { DepartmentFormsPanel } from '@/components/admin/department-forms-panel'
 import { useToast } from '@/hooks/use-toast'
 
 export default function DepartmentsPage() {
@@ -567,14 +568,6 @@ export default function DepartmentsPage() {
                   <p className="text-xs text-muted-foreground">Manage default products and insurance policies</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push(`/admin/forms/manage?departmentId=${selectedDepartment.id}&departmentName=${encodeURIComponent(selectedDepartment.name)}`)}
-                    className="rounded-full"
-                  >
-                    <FileText className="h-4 w-4 mr-2" /> Manage Forms
-                  </Button>
                   <Button variant="outline" size="sm" onClick={openEditModal} className="rounded-full">
                     <Pencil className="h-4 w-4 mr-2" /> Edit
                   </Button>
@@ -712,6 +705,11 @@ export default function DepartmentsPage() {
                   )}
                 </div>
               </div>
+
+              <DepartmentFormsPanel
+                departmentId={String(selectedDepartment.id)}
+                departmentName={selectedDepartment.name}
+              />
 
             </>
           )}

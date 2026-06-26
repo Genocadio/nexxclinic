@@ -117,3 +117,84 @@ export const SAVE_STANDALONE_ANSWER_MUTATION = gql`
     }
   }
 `
+
+export const SAVE_VISIT_STANDALONE_ANSWER_MUTATION = gql`
+  mutation SaveVisitStandaloneAnswer(
+    $visitId: ID!
+    $departmentId: ID!
+    $formVersionId: ID!
+    $answers: JSON!
+    $status: AnswerStatus
+    $score: Float
+  ) {
+    saveVisitStandaloneAnswer(
+      visitId: $visitId
+      departmentId: $departmentId
+      formVersionId: $formVersionId
+      answers: $answers
+      status: $status
+      score: $score
+    ) {
+      status
+      message
+      data {
+        answer {
+          id
+          answers
+          score
+          status
+          visitId
+          submittedAt
+          createdAt
+          updatedAt
+          formVersion {
+            id
+          }
+        }
+        visitDepartment {
+          id
+          answerId
+        }
+      }
+    }
+  }
+`
+
+export const LINK_STANDALONE_FORM_TO_DEPARTMENT_MUTATION = gql`
+  mutation LinkStandaloneFormToDepartment($departmentId: ID!, $formId: ID!) {
+    linkStandaloneFormToDepartment(departmentId: $departmentId, formId: $formId) {
+      status
+      message
+      data {
+        id
+        name
+        activeVersion {
+          id
+        }
+      }
+    }
+  }
+`
+
+export const UNLINK_STANDALONE_FORM_FROM_DEPARTMENT_MUTATION = gql`
+  mutation UnlinkStandaloneFormFromDepartment($departmentId: ID!, $formId: ID!) {
+    unlinkStandaloneFormFromDepartment(departmentId: $departmentId, formId: $formId) {
+      status
+      message
+      data
+    }
+  }
+`
+
+export const SET_DEFAULT_STANDALONE_FORM_FOR_DEPARTMENT_MUTATION = gql`
+  mutation SetDefaultStandaloneFormForDepartment($departmentId: ID!, $formId: ID!) {
+    setDefaultStandaloneFormForDepartment(departmentId: $departmentId, formId: $formId) {
+      status
+      message
+      data {
+        id
+        name
+      }
+    }
+  }
+`
