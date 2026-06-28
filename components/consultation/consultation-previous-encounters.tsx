@@ -273,7 +273,7 @@ export function ConsultationPreviousEncounters({
   if (!showVisitCard && !showDepartmentCard) return null;
 
   return (
-    <div className="fixed top-28 left-20 md:left-24 xl:left-[max(6rem,calc(50%-38rem))] z-[70] flex w-[min(88vw,22rem)] flex-col gap-3 lg:w-[20rem]">
+    <div className="fixed bottom-6 left-20 md:left-24 xl:left-[max(6rem,calc(50%-38rem))] z-[70] flex w-[min(88vw,22rem)] flex-col gap-3 lg:w-[20rem]">
       {showVisitCard && lastVisit && (
         <ExpandableCard
           title="Previous clinic visit"
