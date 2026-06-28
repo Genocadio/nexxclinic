@@ -30,6 +30,7 @@ type Props = {
 };
 
 const AUTO_DISMISS_MS = 120000;
+const DEFAULT_EXPANDED_MS = 40000;
 
 function formatWhen(value?: string | null) {
   if (!value) return "Unknown time";
@@ -178,7 +179,7 @@ function ExpandableCard({
   onDismiss: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const expanded = !minimized || hovered;
+  const expanded = hovered || !minimized;
 
   return (
     <div
@@ -233,6 +234,18 @@ export function ConsultationPreviousEncounters({
   const [dismissedDepartmentCard, setDismissedDepartmentCard] = useState(false);
   const [visitMinimized, setVisitMinimized] = useState(false);
   const [departmentMinimized, setDepartmentMinimized] = useState(false);
+
+  useEffect(() => {
+    setVisitMinimized(false);
+    setDepartmentMinimized(false);
+
+    const minimizeTimer = window.setTimeout(() => {
+      setVisitMinimized(true);
+      setDepartmentMinimized(true);
+    }, DEFAULT_EXPANDED_MS);
+
+    return () => window.clearTimeout(minimizeTimer);
+  }, [data?.lastVisit?.id, data?.lastDepartmentVisit?.visitDepartment?.id]);
 
   useEffect(() => {
     if (!hasAnsweredCurrentForm) return;
