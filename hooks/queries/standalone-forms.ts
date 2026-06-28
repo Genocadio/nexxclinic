@@ -1,8 +1,16 @@
-import { gql } from '@apollo/client'
+import { gql } from "@apollo/client";
 
 export const GET_STANDALONE_FORMS_QUERY = gql`
-  query GetStandaloneForms($isTemplate: Boolean, $category: String) {
-    getStandaloneForms(isTemplate: $isTemplate, category: $category) {
+  query GetStandaloneForms(
+    $isTemplate: Boolean
+    $category: String
+    $name: String
+  ) {
+    getStandaloneForms(
+      isTemplate: $isTemplate
+      category: $category
+      name: $name
+    ) {
       status
       message
       data {
@@ -29,7 +37,7 @@ export const GET_STANDALONE_FORMS_QUERY = gql`
       }
     }
   }
-`
+`;
 
 export const GET_STANDALONE_FORM_QUERY = gql`
   query GetStandaloneForm($id: ID!) {
@@ -60,7 +68,7 @@ export const GET_STANDALONE_FORM_QUERY = gql`
       }
     }
   }
-`
+`;
 
 const STANDALONE_FORM_FRAGMENT = gql`
   fragment StandaloneFormFields on StandaloneForm {
@@ -85,7 +93,7 @@ const STANDALONE_FORM_FRAGMENT = gql`
       createdAt
     }
   }
-`
+`;
 
 export const GET_DEPARTMENT_FORMS_QUERY = gql`
   query GetDepartmentForms($departmentId: ID!) {
@@ -106,7 +114,32 @@ export const GET_DEPARTMENT_FORMS_QUERY = gql`
     }
   }
   ${STANDALONE_FORM_FRAGMENT}
-`
+`;
+
+export const GET_STANDALONE_ANSWERS_QUERY = gql`
+  query GetStandaloneAnswers($formId: ID, $patientId: ID) {
+    getStandaloneAnswers(formId: $formId, patientId: $patientId) {
+      id
+      score
+      status
+      patientId
+      visitId
+      submittedAt
+      createdAt
+      updatedAt
+      form {
+        id
+        name
+      }
+      formVersion {
+        id
+        versionLabel
+        majorVersion
+        minorVersion
+      }
+    }
+  }
+`;
 
 export const GET_STANDALONE_ANSWER_QUERY = gql`
   query GetStandaloneAnswer($id: ID!) {
@@ -141,4 +174,4 @@ export const GET_STANDALONE_ANSWER_QUERY = gql`
     }
   }
   ${STANDALONE_FORM_FRAGMENT}
-`
+`;

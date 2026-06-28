@@ -161,27 +161,50 @@ export default function ClinicProfilePage() {
 
   const handleSave = async () => {
     try {
+      const trimmedName = name.trim();
+      const trimmedTinNumber = tinNumber.trim();
+      const normalizedContacts = contacts
+        .map((contact) => ({
+          contactType: contact.contactType as ClinicContactType,
+          value: contact.value.trim(),
+          description: contact.description.trim() || undefined,
+        }))
+        .filter((contact) => contact.value);
+      const normalizedMetadata = metadataPairs.reduce(
+        (acc, { key, value }) => {
+          const k = key?.trim();
+          if (!k) return acc;
+          acc[k] = value;
+          return acc;
+        },
+        {} as { [key: string]: string },
+      );
+
+      if (!trimmedName) {
+        toast.error("Clinic name is required");
+        return;
+      }
+
+      if (!trimmedTinNumber) {
+        toast.error("TIN number is required");
+        return;
+      }
+
+      if (normalizedContacts.length === 0) {
+        toast.error("At least one clinic contact is required");
+        return;
+      }
+
       const response = await upsertClinicProfile({
-        name: name.trim() || undefined,
+        name: trimmedName,
         address: address.trim() || undefined,
-        tinNumber: tinNumber.trim() || undefined,
+        tinNumber: trimmedTinNumber,
         logoUrl: logoUrl.trim() || undefined,
-        contacts: contacts
-          .map((contact) => ({
-            contactType: contact.contactType as ClinicContactType,
-            value: contact.value.trim(),
-            description: contact.description.trim() || undefined,
-          }))
-          .filter((contact) => contact.value),
-        metadata: metadataPairs.reduce(
-          (acc, { key, value }) => {
-            const k = key?.trim();
-            if (!k) return acc;
-            acc[k] = value;
-            return acc;
-          },
-          {} as { [key: string]: string },
-        ),
+        contacts: normalizedContacts,
+        metadata:
+          Object.keys(normalizedMetadata).length > 0
+            ? normalizedMetadata
+            : undefined,
       });
 
       if (response.status === "SUCCESS") {

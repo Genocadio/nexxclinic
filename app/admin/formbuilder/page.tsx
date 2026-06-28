@@ -97,7 +97,11 @@ interface SaveTemplatesDialogProps {
   onSaved: () => void;
 }
 
-function SaveTemplatesDialog({ open, onClose, onSaved }: SaveTemplatesDialogProps) {
+function SaveTemplatesDialog({
+  open,
+  onClose,
+  onSaved,
+}: SaveTemplatesDialogProps) {
   const { createForm, loading } = useCreateStandaloneForm();
   const [currentIdx, setCurrentIdx] = useState(0);
   const [done, setDone] = useState(false);
@@ -184,12 +188,16 @@ function SaveTemplatesDialog({ open, onClose, onSaved }: SaveTemplatesDialogProp
             <div className="h-1.5 bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full bg-[#FF6900] transition-all"
-                style={{ width: `${((currentIdx) / total) * 100}%` }}
+                style={{ width: `${(currentIdx / total) * 100}%` }}
               />
             </div>
 
             <p className="text-sm text-muted-foreground">
-              Save <span className="font-semibold text-foreground">{current?.label}</span> template to backend?
+              Save{" "}
+              <span className="font-semibold text-foreground">
+                {current?.label}
+              </span>{" "}
+              template to backend?
             </p>
 
             {error && (
@@ -209,7 +217,12 @@ function SaveTemplatesDialog({ open, onClose, onSaved }: SaveTemplatesDialogProp
               <Button variant="ghost" size="sm" onClick={handleClose}>
                 Cancel All
               </Button>
-              <Button variant="outline" size="sm" onClick={handleSkip} disabled={loading}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSkip}
+                disabled={loading}
+              >
                 Skip
               </Button>
               <Button
@@ -239,17 +252,21 @@ export default function FormBuilderListPage() {
   const router = useRouter();
   const { doctor, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  const { forms, loading, error, refetch } = useGetStandaloneForms({ skip: authLoading || !isAuthenticated });
-  const { createForm, loading: creating } = useCreateStandaloneForm();
-  const { deleteForm } = useDeleteStandaloneForm();
-  const { duplicateForm } = useDuplicateStandaloneForm();
-
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [category, setCategory] = useState<FormTemplateType | "all">("all");
   const [saveTemplatesOpen, setSaveTemplatesOpen] = useState(false);
   const [templatePromptShown, setTemplatePromptShown] = useState(false);
+
+  const { forms, loading, error, refetch } = useGetStandaloneForms({
+    category: category === "all" ? undefined : category,
+    name: search.trim() || undefined,
+    skip: authLoading || !isAuthenticated,
+  });
+  const { createForm, loading: creating } = useCreateStandaloneForm();
+  const { deleteForm } = useDeleteStandaloneForm();
+  const { duplicateForm } = useDuplicateStandaloneForm();
 
   // Show save-templates dialog once when backend is empty after loading
   const shouldPrompt =
@@ -264,7 +281,12 @@ export default function FormBuilderListPage() {
     const preset = getPreset(type);
     const blocks = preset ? preset.blocks() : [];
     try {
-      const created = await createForm({ name, type, blocks, isTemplate: false });
+      const created = await createForm({
+        name,
+        type,
+        blocks,
+        isTemplate: false,
+      });
       setPickerOpen(false);
       refetch();
       router.push(`/admin/formbuilder/edit?id=${created.id}`);
@@ -293,13 +315,8 @@ export default function FormBuilderListPage() {
     }
   };
 
-  const filtered = forms.filter(
-    (f) =>
-      (category === "all" || f.type === category) &&
-      (f.name.toLowerCase().includes(search.toLowerCase()) ||
-        TYPE_LABELS[f.type as FormTemplateType]
-          ?.toLowerCase()
-          .includes(search.toLowerCase())),
+  const filtered = forms.filter((f) =>
+    search.trim() ? true : category === "all" || f.type === category,
   );
 
   return (
@@ -327,7 +344,7 @@ export default function FormBuilderListPage() {
                     <Loader2 className="h-3 w-3 animate-spin" /> Loading…
                   </span>
                 ) : (
-                  `${forms.length} form${forms.length !== 1 ? "s" : ""}`
+                  `${forms.length} form${forms.length !== 1 ? "s" : ""} • ${forms.filter((form) => form.isTemplate).length} template${forms.filter((form) => form.isTemplate).length !== 1 ? "s" : ""}`
                 )}
               </p>
             </div>
@@ -497,8 +514,7 @@ export default function FormBuilderListPage() {
                   const preset = TEMPLATE_PRESETS.find(
                     (p) => p.type === form.type,
                   );
-                  const blockCount =
-                    form.activeVersion?.blocks?.length ?? 0;
+                  const blockCount = form.activeVersion?.blocks?.length ?? 0;
                   return (
                     <div
                       key={form.id}
@@ -525,7 +541,8 @@ export default function FormBuilderListPage() {
                           <Badge
                             className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[form.type as FormTemplateType] ?? ""}`}
                           >
-                            {TYPE_LABELS[form.type as FormTemplateType] ?? form.type}
+                            {TYPE_LABELS[form.type as FormTemplateType] ??
+                              form.type}
                           </Badge>
                         </div>
                         <div className="flex-1">
@@ -547,21 +564,25 @@ export default function FormBuilderListPage() {
                             {timeAgo(form.updatedAt)}
                           </span>
                           <div
-                            className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="flex items-center gap-1"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <button
-                              title="Answer now"
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              title="View answers"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 router.push(
                                   `/admin/formbuilder/answer?id=${form.id}`,
                                 );
                               }}
-                              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                              className="h-7 gap-1.5 px-2 text-[11px]"
                             >
                               <ClipboardPenLine className="h-3 w-3" />
-                            </button>
+                              View answers
+                            </Button>
                             <button
                               title="Edit"
                               onClick={(e) => {
@@ -638,24 +659,29 @@ export default function FormBuilderListPage() {
                       <Badge
                         className={`text-[10px] px-1.5 py-0 shrink-0 ${TYPE_COLORS[form.type as FormTemplateType] ?? ""}`}
                       >
-                        {TYPE_LABELS[form.type as FormTemplateType] ?? form.type}
+                        {TYPE_LABELS[form.type as FormTemplateType] ??
+                          form.type}
                       </Badge>
                       <div
-                        className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                        className="flex items-center gap-1 shrink-0"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <button
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
                             router.push(
                               `/admin/formbuilder/answer?id=${form.id}`,
                             );
                           }}
-                          title="Answer now"
-                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                          title="View answers"
+                          className="h-7 gap-1.5 px-2 text-[11px]"
                         >
                           <ClipboardPenLine className="h-3.5 w-3.5" />
-                        </button>
+                          View answers
+                        </Button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
