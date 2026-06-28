@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@apollo/client";
 import {
   GET_STANDALONE_FORMS_QUERY,
   GET_STANDALONE_FORM_QUERY,
-  GET_STANDALONE_ANSWERS_QUERY,
+  GET_STANDALONE_FORM_ANSWERS_QUERY,
 } from "../queries/standalone-forms";
 import {
   CREATE_STANDALONE_FORM_MUTATION,
@@ -53,10 +53,12 @@ export interface StandaloneFormInput {
 
 export interface StandaloneAnswerListItem {
   id: string;
+  answers?: Record<string, unknown> | string | null;
   score?: number | null;
   status: string;
   patientId?: string | null;
   visitId?: string | null;
+  submittedBy?: string | null;
   submittedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -138,21 +140,19 @@ export function useGetStandaloneForm(
 /** Fetch answers for a standalone form */
 export function useGetStandaloneAnswers(
   formId: string | null,
-  options?: { patientId?: string | null; skip?: boolean },
+  options?: { skip?: boolean },
 ) {
   const { data, loading, error, refetch } = useQuery(
-    GET_STANDALONE_ANSWERS_QUERY,
+    GET_STANDALONE_FORM_ANSWERS_QUERY,
     {
-      variables: {
-        formId,
-        patientId: options?.patientId ?? null,
-      },
+      variables: { formId },
       skip: !formId || options?.skip,
       fetchPolicy: "cache-and-network",
     },
   );
 
-  const answers: StandaloneAnswerListItem[] = data?.getStandaloneAnswers ?? [];
+  const answers: StandaloneAnswerListItem[] =
+    data?.getStandaloneFormAnswers?.data ?? [];
 
   return { answers, loading, error: error?.message ?? null, refetch };
 }

@@ -116,26 +116,32 @@ export const GET_DEPARTMENT_FORMS_QUERY = gql`
   ${STANDALONE_FORM_FRAGMENT}
 `;
 
-export const GET_STANDALONE_ANSWERS_QUERY = gql`
-  query GetStandaloneAnswers($formId: ID, $patientId: ID) {
-    getStandaloneAnswers(formId: $formId, patientId: $patientId) {
-      id
-      score
+export const GET_STANDALONE_FORM_ANSWERS_QUERY = gql`
+  query GetStandaloneFormAnswers($formId: ID!) {
+    getStandaloneFormAnswers(formId: $formId) {
       status
-      patientId
-      visitId
-      submittedAt
-      createdAt
-      updatedAt
-      form {
+      message
+      data {
         id
-        name
-      }
-      formVersion {
-        id
-        versionLabel
-        majorVersion
-        minorVersion
+        answers
+        score
+        status
+        patientId
+        visitId
+        submittedBy
+        submittedAt
+        createdAt
+        updatedAt
+        form {
+          id
+          name
+        }
+        formVersion {
+          id
+          versionLabel
+          majorVersion
+          minorVersion
+        }
       }
     }
   }

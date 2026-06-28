@@ -16,6 +16,7 @@ import {
   useCreateStandaloneForm,
   useDeleteStandaloneForm,
   useDuplicateStandaloneForm,
+  useUpdateStandaloneForm,
   type StandaloneForm,
 } from "@/hooks/standalone-forms";
 import {
@@ -265,6 +266,7 @@ export default function FormBuilderListPage() {
     skip: authLoading || !isAuthenticated,
   });
   const { createForm, loading: creating } = useCreateStandaloneForm();
+  const { updateForm, loading: updatingForm } = useUpdateStandaloneForm();
   const { deleteForm } = useDeleteStandaloneForm();
   const { duplicateForm } = useDuplicateStandaloneForm();
 
@@ -312,6 +314,28 @@ export default function FormBuilderListPage() {
       router.push(`/admin/formbuilder/edit?id=${copy.id}`);
     } catch (err: any) {
       alert(err?.message ?? "Failed to duplicate form");
+    }
+  };
+
+  const handleToggleTemplate = async (form: StandaloneForm) => {
+    if (!form.activeVersion) {
+      alert("This form has no active version to update.");
+      return;
+    }
+
+    try {
+      await updateForm(form.id, {
+        name: form.name,
+        description: form.description,
+        type: form.type,
+        category: form.category,
+        isTemplate: !form.isTemplate,
+        blocks: form.activeVersion.blocks,
+        theme: form.activeVersion.theme,
+      });
+      refetch();
+    } catch (err: any) {
+      alert(err?.message ?? "Failed to update template status");
     }
   };
 
@@ -606,6 +630,23 @@ export default function FormBuilderListPage() {
                               <Copy className="h-3 w-3" />
                             </button>
                             <button
+                              title={
+                                form.isTemplate
+                                  ? "Unset as template"
+                                  : "Set as template"
+                              }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleTemplate(form);
+                              }}
+                              disabled={updatingForm}
+                              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-50"
+                            >
+                              <Badge className="h-3 w-3 p-0 text-[8px] bg-transparent text-current border-0 shadow-none">
+                                T
+                              </Badge>
+                            </button>
+                            <button
                               title="Delete"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -703,6 +744,23 @@ export default function FormBuilderListPage() {
                           className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
                         >
                           <Copy className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleTemplate(form);
+                          }}
+                          title={
+                            form.isTemplate
+                              ? "Unset as template"
+                              : "Set as template"
+                          }
+                          disabled={updatingForm}
+                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-50"
+                        >
+                          <Badge className="h-3.5 w-3.5 p-0 text-[8px] bg-transparent text-current border-0 shadow-none">
+                            T
+                          </Badge>
                         </button>
                         <button
                           onClick={(e) => {

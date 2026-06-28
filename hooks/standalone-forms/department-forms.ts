@@ -21,20 +21,27 @@ export interface DepartmentFormsResult {
 }
 
 function unwrapDepartmentForms(data: unknown): DepartmentFormsResult {
-  const payload = (data as { getDepartmentForms?: { data?: DepartmentFormsResult } })
-    ?.getDepartmentForms;
+  const payload = (
+    data as { getDepartmentForms?: { data?: DepartmentFormsResult } }
+  )?.getDepartmentForms;
   return {
     forms: payload?.data?.forms ?? [],
     defaultForm: payload?.data?.defaultForm ?? null,
   };
 }
 
-export function useDepartmentForms(departmentId: string | null, options?: { skip?: boolean }) {
-  const { data, loading, error, refetch } = useQuery(GET_DEPARTMENT_FORMS_QUERY, {
-    variables: { departmentId },
-    skip: !departmentId || options?.skip,
-    fetchPolicy: "cache-and-network",
-  });
+export function useDepartmentForms(
+  departmentId: string | null,
+  options?: { skip?: boolean },
+) {
+  const { data, loading, error, refetch } = useQuery(
+    GET_DEPARTMENT_FORMS_QUERY,
+    {
+      variables: { departmentId },
+      skip: !departmentId || options?.skip,
+      fetchPolicy: "cache-and-network",
+    },
+  );
 
   const result = unwrapDepartmentForms(data);
   return {
@@ -47,24 +54,19 @@ export function useDepartmentForms(departmentId: string | null, options?: { skip
 }
 
 export function useSearchStandaloneForms(search: string) {
+  const query = search.trim();
   const { data, loading } = useQuery(GET_STANDALONE_FORMS_QUERY, {
-    variables: { isTemplate: false },
-    fetchPolicy: "cache-first",
+    variables: {
+      isTemplate: false,
+      name: query || undefined,
+    },
+    skip: !query,
+    fetchPolicy: "cache-and-network",
   });
 
   const forms: StandaloneForm[] = data?.getStandaloneForms?.data ?? [];
-  const query = search.trim().toLowerCase();
-  const filtered = query
-    ? forms.filter(
-        (form) =>
-          form.name.toLowerCase().includes(query) ||
-          String(form.category || "")
-            .toLowerCase()
-            .includes(query),
-      )
-    : forms;
 
-  return { forms: filtered, loading };
+  return { forms, loading: query ? loading : false };
 }
 
 export function useDepartmentFormLinking(departmentId: string | null) {
@@ -84,7 +86,9 @@ export function useDepartmentFormLinking(departmentId: string | null) {
       variables: { departmentId, formId },
     });
     if (data?.linkStandaloneFormToDepartment?.status === "ERROR") {
-      throw new Error(data.linkStandaloneFormToDepartment.message ?? "Failed to link form");
+      throw new Error(
+        data.linkStandaloneFormToDepartment.message ?? "Failed to link form",
+      );
     }
     return data?.linkStandaloneFormToDepartment?.data;
   };
@@ -96,7 +100,8 @@ export function useDepartmentFormLinking(departmentId: string | null) {
     });
     if (data?.unlinkStandaloneFormFromDepartment?.status === "ERROR") {
       throw new Error(
-        data.unlinkStandaloneFormFromDepartment.message ?? "Failed to unlink form",
+        data.unlinkStandaloneFormFromDepartment.message ??
+          "Failed to unlink form",
       );
     }
   };
@@ -108,7 +113,8 @@ export function useDepartmentFormLinking(departmentId: string | null) {
     });
     if (data?.setDefaultStandaloneFormForDepartment?.status === "ERROR") {
       throw new Error(
-        data.setDefaultStandaloneFormForDepartment.message ?? "Failed to set default form",
+        data.setDefaultStandaloneFormForDepartment.message ??
+          "Failed to set default form",
       );
     }
     return data?.setDefaultStandaloneFormForDepartment?.data;
