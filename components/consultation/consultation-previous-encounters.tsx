@@ -273,7 +273,7 @@ export function ConsultationPreviousEncounters({
   if (!showVisitCard && !showDepartmentCard) return null;
 
   return (
-    <div className="fixed bottom-24 right-6 z-[70] flex w-[min(92vw,32rem)] flex-col gap-3">
+    <div className="fixed bottom-24 left-4 md:left-6 xl:left-[max(1rem,calc(50%-42rem))] z-[70] flex w-[min(88vw,22rem)] flex-col gap-3 lg:w-[20rem]">
       {showVisitCard && lastVisit && (
         <ExpandableCard
           title="Previous clinic visit"
@@ -317,7 +317,7 @@ export function ConsultationPreviousEncounters({
           onDismiss={() => setDismissedDepartmentCard(true)}
         >
           <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2">
               <div className="rounded-xl border border-border/70 bg-background/70 p-3">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <Stethoscope className="h-3.5 w-3.5" /> Diagnoses
@@ -335,6 +335,15 @@ export function ConsultationPreviousEncounters({
                   {currentDepartmentSummary.medications
                     .slice(0, 2)
                     .join(", ") || "No medications recorded"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-background/70 p-3">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <History className="h-3.5 w-3.5" /> Products
+                </div>
+                <p className="mt-2 text-sm text-foreground">
+                  {currentDepartmentSummary.products.slice(0, 2).join(", ") ||
+                    "No products recorded"}
                 </p>
               </div>
             </div>
