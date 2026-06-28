@@ -1,296 +1,347 @@
-"use client"
+"use client";
 
-import React, { useState } from "react"
-import Header from "@/components/header"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { useAuth } from "@/lib/auth-context"
-import { 
-  useProductsPaginated, 
-  useInsurances, 
-  useCreateProduct, 
-  useUpdateProduct, 
-  useDeleteProduct, 
-  useAddProductInsuranceCoverage, 
-  useRemoveProductInsuranceCoverage 
-} from "@/hooks/auth-hooks"
-import { Pencil, Trash2, ArrowLeft, Plus, X, Shield, RefreshCw } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
-import { useRouter } from "next/navigation"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { toast } from "react-toastify"
+import React, { useState } from "react";
+import Header from "@/components/header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/lib/auth-context";
+import {
+  useProductsPaginated,
+  useInsurances,
+  useCreateProduct,
+  useUpdateProduct,
+  useDeleteProduct,
+  useAddProductInsuranceCoverage,
+  useRemoveProductInsuranceCoverage,
+} from "@/hooks/auth-hooks";
+import {
+  Pencil,
+  Trash2,
+  ArrowLeft,
+  Plus,
+  X,
+  Shield,
+  RefreshCw,
+} from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
+import { useRouter } from "next/navigation";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "react-toastify";
 
-const PRODUCT_TYPE_OPTIONS = ["DRUG", "MEDICAL_ACT", "BIOLOGICAL_ACT", "CONSUMABLE_DEVICE"] as const
-type ProductTypeOption = typeof PRODUCT_TYPE_OPTIONS[number]
+const PRODUCT_TYPE_OPTIONS = [
+  "DRUG",
+  "MEDICAL_ACT",
+  "BIOLOGICAL_ACT",
+  "CONSUMABLE_DEVICE",
+] as const;
+type ProductTypeOption = (typeof PRODUCT_TYPE_OPTIONS)[number];
 
 export default function ManageProductsPage() {
-  const router = useRouter()
-  const { doctor } = useAuth()
-  
+  const router = useRouter();
+  const { doctor } = useAuth();
+
   // Search and filter states
-  const [searchQuery, setSearchQuery] = useState("")
-  const [searchName, setSearchName] = useState("")
-  const [filterType, setFilterType] = useState<string>("ALL")
-  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchName, setSearchName] = useState("");
+  const [filterType, setFilterType] = useState<string>("ALL");
+
   // Query hook
-  const { 
-    products, 
-    loading: productsLoading, 
-    error: productsError, 
-    hasMore, 
-    loadMore, 
-    refresh 
+  const {
+    products,
+    loading: productsLoading,
+    error: productsError,
+    hasMore,
+    loadMore,
+    refresh,
   } = useProductsPaginated({
     name: searchName || undefined,
     type: filterType !== "ALL" ? (filterType as any) : undefined,
-    size: 30
-  })
+    size: 30,
+  });
 
-  const { insurances, loading: insurancesLoading } = useInsurances()
-  
-  const { createProduct } = useCreateProduct()
-  const { updateProduct } = useUpdateProduct()
-  const { deleteProduct } = useDeleteProduct()
-  const { addCoverage } = useAddProductInsuranceCoverage()
-  const { removeCoverage } = useRemoveProductInsuranceCoverage()
-  
-  const [saving, setSaving] = useState(false)
-  
+  const { insurances, loading: insurancesLoading } = useInsurances();
+
+  const { createProduct } = useCreateProduct();
+  const { updateProduct } = useUpdateProduct();
+  const { deleteProduct } = useDeleteProduct();
+  const { addCoverage } = useAddProductInsuranceCoverage();
+  const { removeCoverage } = useRemoveProductInsuranceCoverage();
+
+  const [saving, setSaving] = useState(false);
+
   // Selected item for detail view
-  const [selectedItem, setSelectedItem] = useState<any | null>(null)
-  
+  const [selectedItem, setSelectedItem] = useState<any | null>(null);
+
   // Add/Edit modal state
-  const [addEditModalOpen, setAddEditModalOpen] = useState(false)
-  const [modalMode, setModalMode] = useState<"add" | "edit">("add")
-  const [itemName, setItemName] = useState("")
-  const [itemDescription, setItemDescription] = useState("")
-  const [itemType, setItemType] = useState<ProductTypeOption>("MEDICAL_ACT")
-  const [itemPrice, setItemPrice] = useState("")
-  const [itemClinicPrice, setItemClinicPrice] = useState("")
-  const [itemQuantifiable, setItemQuantifiable] = useState(true)
-  const [editingItemId, setEditingItemId] = useState<string | null>(null)
-  
+  const [addEditModalOpen, setAddEditModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"add" | "edit">("add");
+  const [itemName, setItemName] = useState("");
+  const [itemDescription, setItemDescription] = useState("");
+  const [itemType, setItemType] = useState<ProductTypeOption>("MEDICAL_ACT");
+  const [itemPrice, setItemPrice] = useState("");
+  const [itemClinicPrice, setItemClinicPrice] = useState("");
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+
   // Insurance coverage state for detail panel
-  const [newCoverageInsuranceId, setNewCoverageInsuranceId] = useState("")
-  const [newCoveragePrice, setNewCoveragePrice] = useState("")
+  const [newCoverageInsuranceId, setNewCoverageInsuranceId] = useState("");
+  const [newCoveragePrice, setNewCoveragePrice] = useState("");
 
   const resetItemForm = () => {
-    setItemName("")
-    setItemDescription("")
-    setItemType("MEDICAL_ACT")
-    setItemPrice("")
-    setItemClinicPrice("")
-    setItemQuantifiable(true)
-    setEditingItemId(null)
-  }
+    setItemName("");
+    setItemDescription("");
+    setItemType("MEDICAL_ACT");
+    setItemPrice("");
+    setItemClinicPrice("");
+    setEditingItemId(null);
+  };
 
   const openAddModal = () => {
-    resetItemForm()
-    setModalMode("add")
-    setAddEditModalOpen(true)
-  }
+    resetItemForm();
+    setModalMode("add");
+    setAddEditModalOpen(true);
+  };
 
   const openEditModal = (item: any) => {
-    const incomingType = String(item.type || "").toUpperCase() as ProductTypeOption
+    const incomingType = String(
+      item.type || "",
+    ).toUpperCase() as ProductTypeOption;
 
-    setEditingItemId(item.id)
-    setItemName(item.name)
-    setItemDescription(item.description || "")
-    setItemType(PRODUCT_TYPE_OPTIONS.includes(incomingType) ? incomingType : "MEDICAL_ACT")
-    setItemPrice(String(item.privatePrice))
-    setItemClinicPrice(item.clinicPrice ? String(item.clinicPrice) : "")
-    setItemQuantifiable(item.quantifiable)
-    setModalMode("edit")
-    setAddEditModalOpen(true)
-  }
+    setEditingItemId(item.id);
+    setItemName(item.name);
+    setItemDescription(item.description || "");
+    setItemType(
+      PRODUCT_TYPE_OPTIONS.includes(incomingType)
+        ? incomingType
+        : "MEDICAL_ACT",
+    );
+    setItemPrice(String(item.privateRhicPrice ?? ""));
+    setItemClinicPrice(item.clinicPrice ? String(item.clinicPrice) : "");
+    setModalMode("edit");
+    setAddEditModalOpen(true);
+  };
 
   const handleCreateItem = async () => {
     if (!itemName || !itemType || !itemPrice) {
-      toast.warn("Please fill in all required fields.")
-      return
+      toast.warn("Please fill in all required fields.");
+      return;
     }
-    setSaving(true)
+    setSaving(true);
     try {
       const createdResp = await createProduct({
         name: itemName,
-        code: itemName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || `product-${Date.now()}`,
+        code:
+          itemName
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-") || `product-${Date.now()}`,
         description: itemDescription || itemName,
         type: itemType,
-        unit: 'PCS',
+        unit: "PCS",
         privateRhicPrice: Number(itemPrice),
         clinicPrice: itemClinicPrice ? Number(itemClinicPrice) : undefined,
         insuranceCoverages: [],
-      })
-      await refresh()
-      if (createdResp?.status === 'SUCCESS') {
-        toast.success(createdResp.message || 'Product created successfully!')
-        resetItemForm()
-        setAddEditModalOpen(false)
-        if (createdResp.data) setSelectedItem(createdResp.data)
+      });
+      await refresh();
+      if (createdResp?.status === "SUCCESS") {
+        toast.success(createdResp.message || "Product created successfully!");
+        resetItemForm();
+        setAddEditModalOpen(false);
+        if (createdResp.data) setSelectedItem(createdResp.data);
       } else {
-        toast.error(createdResp?.message || 'Failed to create product')
+        toast.error(createdResp?.message || "Failed to create product");
       }
     } catch (err) {
-      console.error(err)
-      toast.error('Failed to create product')
+      console.error(err);
+      toast.error("Failed to create product");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleUpdateItem = async () => {
     if (!editingItemId || !itemName || !itemType || !itemPrice) {
-      toast.warn("Please fill in all required fields.")
-      return
+      toast.warn("Please fill in all required fields.");
+      return;
     }
-    setSaving(true)
+    setSaving(true);
     try {
       const updatedResp = await updateProduct(editingItemId, {
         name: itemName,
-        code: itemName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || `product-${editingItemId}`,
+        code:
+          itemName
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-") || `product-${editingItemId}`,
         description: itemDescription || itemName,
         type: itemType,
-        unit: 'PCS',
+        unit: "PCS",
         privateRhicPrice: Number(itemPrice),
         clinicPrice: itemClinicPrice ? Number(itemClinicPrice) : undefined,
-      })
-      await refresh()
-      if (updatedResp?.status === 'SUCCESS') {
-        toast.success(updatedResp.message || 'Product updated successfully!')
+      });
+      await refresh();
+      if (updatedResp?.status === "SUCCESS") {
+        toast.success(updatedResp.message || "Product updated successfully!");
       } else {
-        toast.error(updatedResp?.message || 'Failed to update product')
+        toast.error(updatedResp?.message || "Failed to update product");
       }
-      
+
       // Update selected item in view immediately
       if (selectedItem && selectedItem.id === editingItemId) {
-        const updatedData = updatedResp?.data
+        const updatedData = updatedResp?.data;
         setSelectedItem({
           ...selectedItem,
           ...(updatedData || {}),
           name: itemName,
           description: itemDescription,
           type: itemType,
-          privatePrice: Number(itemPrice),
+          privateRhicPrice: Number(itemPrice),
           clinicPrice: itemClinicPrice ? Number(itemClinicPrice) : undefined,
-        })
+        });
       }
-      
-      resetItemForm()
-      setAddEditModalOpen(false)
+
+      resetItemForm();
+      setAddEditModalOpen(false);
     } catch (err) {
-      toast.error('Failed to update product')
+      toast.error("Failed to update product");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleDeleteItem = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this product?")) return
-    setSaving(true)
+    if (!confirm("Are you sure you want to delete this product?")) return;
+    setSaving(true);
     try {
-      const resp = await deleteProduct(id)
-      await refresh()
-      if (resp?.status === 'SUCCESS') {
-        toast.success(resp.message || 'Product deleted successfully!')
+      const resp = await deleteProduct(id);
+      await refresh();
+      if (resp?.status === "SUCCESS") {
+        toast.success(resp.message || "Product deleted successfully!");
         if (selectedItem && selectedItem.id === id) {
-          setSelectedItem(null)
+          setSelectedItem(null);
         }
       } else {
-        toast.error(resp?.message || 'Failed to delete product')
+        toast.error(resp?.message || "Failed to delete product");
       }
     } catch (err) {
-      toast.error('Failed to delete product')
+      toast.error("Failed to delete product");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleSearch = () => {
-    setSearchName(searchQuery)
-    setSelectedItem(null)
-  }
+    setSearchName(searchQuery);
+    setSelectedItem(null);
+  };
 
   const handleClearSearch = () => {
-    setSearchQuery("")
-    setSearchName("")
-    setSelectedItem(null)
-  }
+    setSearchQuery("");
+    setSearchName("");
+    setSelectedItem(null);
+  };
 
   const handleTypeFilterChange = (type: string) => {
-    setFilterType(type)
-    setSelectedItem(null)
-  }
+    setFilterType(type);
+    setSelectedItem(null);
+  };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.currentTarget
+    const target = e.currentTarget;
     if (target.scrollHeight - target.scrollTop <= target.clientHeight + 80) {
       if (hasMore && !productsLoading && !saving) {
-        loadMore()
+        loadMore();
       }
     }
-  }
+  };
 
   const handleAddCoverage = async () => {
     if (!selectedItem || !newCoverageInsuranceId || !newCoveragePrice) {
-      toast.warn("Please select insurance and enter price")
-      return
+      toast.warn("Please select insurance and enter price");
+      return;
     }
-    setSaving(true)
+    setSaving(true);
     try {
-      const resultResp = await addCoverage(selectedItem.id, newCoverageInsuranceId, Number(newCoveragePrice))
-      await refresh()
-      if (resultResp?.status === 'SUCCESS') {
-        toast.success(resultResp.message || 'Insurance coverage added successfully!')
-        setNewCoverageInsuranceId("")
-        setNewCoveragePrice("")
-        if (resultResp.data) setSelectedItem(resultResp.data)
+      const resultResp = await addCoverage(
+        selectedItem.id,
+        newCoverageInsuranceId,
+        Number(newCoveragePrice),
+      );
+      await refresh();
+      if (resultResp?.status === "SUCCESS") {
+        toast.success(
+          resultResp.message || "Insurance coverage added successfully!",
+        );
+        setNewCoverageInsuranceId("");
+        setNewCoveragePrice("");
+        if (resultResp.data) setSelectedItem(resultResp.data);
       } else {
-        toast.error(resultResp?.message || 'Failed to add coverage')
+        toast.error(resultResp?.message || "Failed to add coverage");
       }
     } catch (err) {
-      toast.error('Failed to add coverage')
+      toast.error("Failed to add coverage");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleRemoveCoverage = async (insuranceId: string) => {
-    if (!selectedItem) return
-    setSaving(true)
+    if (!selectedItem) return;
+    setSaving(true);
     try {
-      const targetCov = selectedItem.insuranceCoverages?.find((cov: any) => String(cov.insuranceProvider?.id || cov.insurance?.id) === String(insuranceId))
+      const targetCov = selectedItem.insuranceCoverages?.find(
+        (cov: any) =>
+          String(cov.insuranceProvider?.id || cov.insurance?.id) ===
+          String(insuranceId),
+      );
       if (!targetCov) {
-        toast.error("Coverage not found")
-        return
+        toast.error("Coverage not found");
+        return;
       }
-      const resp = await removeCoverage(targetCov.id)
-      await refresh()
-      if (resp?.status === 'SUCCESS') {
-        toast.success(resp.message || 'Insurance coverage removed successfully!')
+      const resp = await removeCoverage(targetCov.id);
+      await refresh();
+      if (resp?.status === "SUCCESS") {
+        toast.success(
+          resp.message || "Insurance coverage removed successfully!",
+        );
 
         // Update local selection
         setSelectedItem({
           ...selectedItem,
-          insuranceCoverages: (selectedItem.insuranceCoverages || []).filter((cov: any) => String(cov.insuranceProvider?.id || cov.insurance?.id) !== String(insuranceId))
-        })
+          insuranceCoverages: (selectedItem.insuranceCoverages || []).filter(
+            (cov: any) =>
+              String(cov.insuranceProvider?.id || cov.insurance?.id) !==
+              String(insuranceId),
+          ),
+        });
       } else {
-        toast.error(resp?.message || 'Failed to remove coverage')
+        toast.error(resp?.message || "Failed to remove coverage");
       }
     } catch (err) {
-      toast.error('Failed to remove coverage')
+      toast.error("Failed to remove coverage");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-background">
       <Header doctor={doctor} />
       <main className="max-w-7xl mx-auto px-6 py-10">
-        
         {/* Title Bar */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
@@ -298,13 +349,17 @@ export default function ManageProductsPage() {
               variant="outline"
               size="icon"
               className="rounded-full"
-              onClick={() => router.push('/admin')}
+              onClick={() => router.push("/admin")}
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Manage Products</h1>
-              <p className="text-muted-foreground">Create, edit, and manage products and insurance coverages.</p>
+              <h1 className="text-2xl font-bold text-foreground">
+                Manage Products
+              </h1>
+              <p className="text-muted-foreground">
+                Create, edit, and manage products and insurance coverages.
+              </p>
             </div>
           </div>
           <Button
@@ -325,12 +380,16 @@ export default function ManageProductsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleSearch()
+                if (e.key === "Enter") handleSearch();
               }}
               className="flex-1 rounded-xl"
             />
             {searchQuery && (
-              <Button variant="outline" onClick={handleClearSearch} className="rounded-xl">
+              <Button
+                variant="outline"
+                onClick={handleClearSearch}
+                className="rounded-xl"
+              >
                 Clear
               </Button>
             )}
@@ -338,7 +397,7 @@ export default function ManageProductsPage() {
               Search
             </Button>
           </div>
-          
+
           <div className="w-full md:w-64">
             <Select value={filterType} onValueChange={handleTypeFilterChange}>
               <SelectTrigger className="rounded-xl">
@@ -347,7 +406,9 @@ export default function ManageProductsPage() {
               <SelectContent>
                 <SelectItem value="ALL">All Types</SelectItem>
                 {PRODUCT_TYPE_OPTIONS.map((opt) => (
-                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  <SelectItem key={opt} value={opt}>
+                    {opt}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -355,8 +416,9 @@ export default function ManageProductsPage() {
         </div>
 
         {/* Two-column Layout */}
-        <div className={`grid grid-cols-1 ${selectedItem ? "lg:grid-cols-2" : ""} gap-6`}>
-          
+        <div
+          className={`grid grid-cols-1 ${selectedItem ? "lg:grid-cols-2" : ""} gap-6`}
+        >
           {/* Left Column - Infinite Scroll List */}
           <section className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg flex flex-col min-h-[500px]">
             <p className="text-sm font-semibold text-foreground mb-4">
@@ -364,12 +426,10 @@ export default function ManageProductsPage() {
             </p>
 
             {productsError && (
-              <p className="text-destructive text-sm py-4">
-                {productsError}
-              </p>
+              <p className="text-destructive text-sm py-4">{productsError}</p>
             )}
 
-            <div 
+            <div
               onScroll={handleScroll}
               className="flex-1 space-y-2 max-h-[calc(100vh-320px)] overflow-y-auto pr-2 scrollbar-thin"
             >
@@ -377,27 +437,34 @@ export default function ManageProductsPage() {
                 <div
                   key={item.id}
                   className={`flex items-center justify-between bg-card/60 dark:bg-slate-900/60 border rounded-xl px-4 py-3 cursor-pointer transition-all hover:border-primary ${
-                    selectedItem?.id === item.id ? 'border-primary bg-primary/10' : 'border-border/40 dark:border-slate-800'
+                    selectedItem?.id === item.id
+                      ? "border-primary bg-primary/10"
+                      : "border-border/40 dark:border-slate-800"
                   }`}
                   onClick={() => setSelectedItem(item)}
                 >
                   <div className="flex-1">
                     <p className="font-semibold text-foreground">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">{item.type} • {item.privatePrice} RWF</p>
-                    {item.insuranceCoverages && item.insuranceCoverages.length > 0 && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <Shield className="h-3 w-3 text-blue-500" />
-                        <span className="text-xs text-blue-500">{item.insuranceCoverages.length} coverage(s)</span>
-                      </div>
-                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {item.type} • {item.privateRhicPrice ?? 0} RWF
+                    </p>
+                    {item.insuranceCoverages &&
+                      item.insuranceCoverages.length > 0 && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Shield className="h-3 w-3 text-blue-500" />
+                          <span className="text-xs text-blue-500">
+                            {item.insuranceCoverages.length} coverage(s)
+                          </span>
+                        </div>
+                      )}
                   </div>
                   <Button
                     size="icon"
                     variant="ghost"
                     className="h-8 w-8 rounded-full hover:bg-destructive/10"
                     onClick={(e) => {
-                      e.stopPropagation()
-                      handleDeleteItem(item.id)
+                      e.stopPropagation();
+                      handleDeleteItem(item.id);
                     }}
                     disabled={saving}
                   >
@@ -409,7 +476,10 @@ export default function ManageProductsPage() {
               {productsLoading && products.length === 0 && (
                 <div className="space-y-2 pt-2">
                   {[...Array(5)].map((_, idx) => (
-                    <Skeleton key={idx} className="h-16 w-full rounded-xl animate-pulse" />
+                    <Skeleton
+                      key={idx}
+                      className="h-16 w-full rounded-xl animate-pulse"
+                    />
                   ))}
                 </div>
               )}
@@ -423,7 +493,9 @@ export default function ManageProductsPage() {
               )}
 
               {!productsLoading && products.length === 0 && (
-                <p className="text-sm text-center text-muted-foreground py-10">No products found.</p>
+                <p className="text-sm text-center text-muted-foreground py-10">
+                  No products found.
+                </p>
               )}
 
               {!hasMore && products.length > 0 && (
@@ -438,12 +510,13 @@ export default function ManageProductsPage() {
           {selectedItem && (
             <section className="bg-card/40 dark:bg-slate-900/40 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg min-h-[500px]">
               <div className="space-y-6">
-                
                 {/* Details Header */}
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-bold text-foreground">{selectedItem.name}</h3>
+                      <h3 className="text-xl font-bold text-foreground">
+                        {selectedItem.name}
+                      </h3>
                       <div className="flex items-center gap-2">
                         <Button
                           size="icon"
@@ -465,17 +538,30 @@ export default function ManageProductsPage() {
                         </Button>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2 text-sm text-muted-foreground bg-muted/20 dark:bg-slate-800/10 p-4 rounded-xl border border-border/20">
-                      <p><strong>Code:</strong> {selectedItem.code}</p>
-                      <p><strong>Type:</strong> {selectedItem.type}</p>
-                      <p><strong>Private Price:</strong> {selectedItem.privatePrice} RWF</p>
+                      <p>
+                        <strong>Code:</strong> {selectedItem.code}
+                      </p>
+                      <p>
+                        <strong>Type:</strong> {selectedItem.type}
+                      </p>
+                      <p>
+                        <strong>Private RHIC Price:</strong>{" "}
+                        {selectedItem.privateRhicPrice ?? 0} RWF
+                      </p>
                       {selectedItem.clinicPrice && (
-                        <p><strong>Clinic Price:</strong> {selectedItem.clinicPrice} RWF</p>
+                        <p>
+                          <strong>Clinic Price:</strong>{" "}
+                          {selectedItem.clinicPrice} RWF
+                        </p>
                       )}
-                      <p><strong>Quantifiable:</strong> {selectedItem.quantifiable ? 'Yes' : 'No'}</p>
+
                       {selectedItem.description && (
-                        <p><strong>Description:</strong> {selectedItem.description}</p>
+                        <p>
+                          <strong>Description:</strong>{" "}
+                          {selectedItem.description}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -488,19 +574,28 @@ export default function ManageProductsPage() {
                     Insurance Coverages
                   </h4>
 
-                  {selectedItem.insuranceCoverages && selectedItem.insuranceCoverages.length > 0 ? (
+                  {selectedItem.insuranceCoverages &&
+                  selectedItem.insuranceCoverages.length > 0 ? (
                     <div className="space-y-2 mb-4">
                       {selectedItem.insuranceCoverages.map((coverage: any) => {
-                        const provider = coverage.insuranceProvider || coverage.insurance
+                        const provider =
+                          coverage.insuranceProvider || coverage.insurance;
                         return (
                           <div
                             key={coverage.id}
                             className="flex items-center justify-between bg-muted/30 dark:bg-slate-800/30 rounded-xl px-3 py-2 border border-border/10"
                           >
                             <div>
-                              <p className="font-semibold text-sm">{provider?.insuranceName || provider?.name} ({provider?.acronym})</p>
+                              <p className="font-semibold text-sm">
+                                {provider?.insuranceName || provider?.name} (
+                                {provider?.acronym})
+                              </p>
                               <p className="text-xs text-muted-foreground">
-                                Cost: {coverage.cost || coverage.price || 0} RWF • Coverage: {provider?.defaultCoveragePercentage || provider?.coveragePercentage}%
+                                Cost: {coverage.cost || coverage.price || 0} RWF
+                                • Coverage:{" "}
+                                {provider?.defaultCoveragePercentage ||
+                                  provider?.coveragePercentage}
+                                %
                               </p>
                             </div>
                             <Button
@@ -513,36 +608,59 @@ export default function ManageProductsPage() {
                               <X className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
-                        )
+                        );
                       })}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground mb-4">No insurance coverages set up yet.</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      No insurance coverages set up yet.
+                    </p>
                   )}
 
                   {/* Add New Coverage Form */}
                   <div className="border-t border-border/50 pt-4">
-                    <p className="text-xs font-semibold mb-3 text-foreground">Add New Coverage</p>
+                    <p className="text-xs font-semibold mb-3 text-foreground">
+                      Add New Coverage
+                    </p>
                     <div className="grid grid-cols-2 gap-3 mb-3">
                       <div>
                         <Label className="text-xs">Insurance</Label>
-                        <Select value={newCoverageInsuranceId} onValueChange={setNewCoverageInsuranceId}>
+                        <Select
+                          value={newCoverageInsuranceId}
+                          onValueChange={setNewCoverageInsuranceId}
+                        >
                           <SelectTrigger className="h-9 rounded-xl">
                             <SelectValue placeholder="Select insurance" />
                           </SelectTrigger>
                           <SelectContent>
                             {insurancesLoading ? (
-                              <SelectItem value="loading" disabled>Loading...</SelectItem>
-                            ) : insurances.filter((ins: any) => 
-                              !selectedItem.insuranceCoverages?.some((cov: any) => {
-                                const providerId = cov.insuranceProvider?.id || cov.insurance?.id
-                                return String(providerId) === String(ins.id)
-                              })
-                            ).map((insurance: any) => (
-                              <SelectItem key={insurance.id} value={insurance.id.toString()}>
-                                {insurance.name} ({insurance.acronym})
+                              <SelectItem value="loading" disabled>
+                                Loading...
                               </SelectItem>
-                            ))}
+                            ) : (
+                              insurances
+                                .filter(
+                                  (ins: any) =>
+                                    !selectedItem.insuranceCoverages?.some(
+                                      (cov: any) => {
+                                        const providerId =
+                                          cov.insuranceProvider?.id ||
+                                          cov.insurance?.id;
+                                        return (
+                                          String(providerId) === String(ins.id)
+                                        );
+                                      },
+                                    ),
+                                )
+                                .map((insurance: any) => (
+                                  <SelectItem
+                                    key={insurance.id}
+                                    value={insurance.id.toString()}
+                                  >
+                                    {insurance.name} ({insurance.acronym})
+                                  </SelectItem>
+                                ))
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
@@ -559,7 +677,9 @@ export default function ManageProductsPage() {
                     </div>
                     <Button
                       onClick={handleAddCoverage}
-                      disabled={saving || !newCoverageInsuranceId || !newCoveragePrice}
+                      disabled={
+                        saving || !newCoverageInsuranceId || !newCoveragePrice
+                      }
                       size="sm"
                       className="w-full rounded-full"
                     >
@@ -568,7 +688,6 @@ export default function ManageProductsPage() {
                     </Button>
                   </div>
                 </div>
-
               </div>
             </section>
           )}
@@ -593,22 +712,44 @@ export default function ManageProductsPage() {
                   {modalMode === "add" ? "Create Product" : "Edit Product"}
                 </DialogTitle>
                 <DialogDescription>
-                  Fill in the details below to {modalMode === "add" ? "create a new" : "update the"} product.
+                  Fill in the details below to{" "}
+                  {modalMode === "add" ? "create a new" : "update the"} product.
                 </DialogDescription>
               </DialogHeader>
 
               <div className="flex-1 overflow-y-auto pr-2 space-y-4 my-4 scrollbar-thin">
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-muted-foreground">Name *</Label>
-                  <Input placeholder="Product Name" value={itemName} onChange={(e) => setItemName(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Name *
+                  </Label>
+                  <Input
+                    placeholder="Product Name"
+                    value={itemName}
+                    onChange={(e) => setItemName(e.target.value)}
+                    className="rounded-xl bg-white dark:bg-slate-950"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-muted-foreground">Description (Optional)</Label>
-                  <Input placeholder="Description" value={itemDescription} onChange={(e) => setItemDescription(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Description (Optional)
+                  </Label>
+                  <Input
+                    placeholder="Description"
+                    value={itemDescription}
+                    onChange={(e) => setItemDescription(e.target.value)}
+                    className="rounded-xl bg-white dark:bg-slate-950"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-muted-foreground">Product Type *</Label>
-                  <Select value={itemType} onValueChange={(value) => setItemType(value as ProductTypeOption)}>
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Product Type *
+                  </Label>
+                  <Select
+                    value={itemType}
+                    onValueChange={(value) =>
+                      setItemType(value as ProductTypeOption)
+                    }
+                  >
                     <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
@@ -622,29 +763,52 @@ export default function ManageProductsPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-muted-foreground">Private Price (RWF) *</Label>
-                  <Input placeholder="Private Price" type="number" value={itemPrice} onChange={(e) => setItemPrice(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Private Price (RWF) *
+                  </Label>
+                  <Input
+                    placeholder="Private Price"
+                    type="number"
+                    value={itemPrice}
+                    onChange={(e) => setItemPrice(e.target.value)}
+                    className="rounded-xl bg-white dark:bg-slate-950"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-muted-foreground">Clinic Price (RWF) (Optional)</Label>
-                  <Input placeholder="Clinic Price" type="number" value={itemClinicPrice} onChange={(e) => setItemClinicPrice(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
-                </div>
-                <div className="flex items-center gap-2 pt-2">
-                  <Checkbox
-                    id="quantifiable-modal"
-                    checked={itemQuantifiable}
-                    onCheckedChange={(checked) => setItemQuantifiable(!!checked)}
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Clinic Price (RWF) (Optional)
+                  </Label>
+                  <Input
+                    placeholder="Clinic Price"
+                    type="number"
+                    value={itemClinicPrice}
+                    onChange={(e) => setItemClinicPrice(e.target.value)}
+                    className="rounded-xl bg-white dark:bg-slate-950"
                   />
-                  <Label htmlFor="quantifiable-modal" className="text-sm font-semibold text-foreground cursor-pointer select-none">Quantifiable</Label>
                 </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border/30 sticky bottom-0 bg-background/95 dark:bg-slate-900/95 -mx-2 px-2 pb-2">
-                <Button variant="outline" onClick={() => setAddEditModalOpen(false)} disabled={saving} className="rounded-full px-5">
+                <Button
+                  variant="outline"
+                  onClick={() => setAddEditModalOpen(false)}
+                  disabled={saving}
+                  className="rounded-full px-5"
+                >
                   Cancel
                 </Button>
-                <Button onClick={modalMode === "add" ? handleCreateItem : handleUpdateItem} disabled={saving} className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md">
-                  {saving ? "Saving..." : modalMode === "add" ? "Create Product" : "Update Product"}
+                <Button
+                  onClick={
+                    modalMode === "add" ? handleCreateItem : handleUpdateItem
+                  }
+                  disabled={saving}
+                  className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md"
+                >
+                  {saving
+                    ? "Saving..."
+                    : modalMode === "add"
+                      ? "Create Product"
+                      : "Update Product"}
                 </Button>
               </div>
             </div>
@@ -652,5 +816,5 @@ export default function ManageProductsPage() {
         </Dialog>
       </main>
     </div>
-  )
+  );
 }

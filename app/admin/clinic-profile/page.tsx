@@ -415,13 +415,6 @@ export default function ClinicProfilePage() {
                     Save clinic profile first to enable logo upload.
                   </div>
                 )}
-                {/* Keep manual URL override for existing URL logos */}
-                <Input
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                  placeholder="Or paste a URL directly…"
-                  className="rounded-xl mt-1"
-                />
               </div>
               <div className="space-y-3 md:col-span-2">
                 <div className="flex items-center justify-between gap-3">

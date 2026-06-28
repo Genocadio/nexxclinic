@@ -326,7 +326,9 @@ export default function ManageUsersPage() {
     }
   };
 
-  const handleConfirmActivation = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleConfirmActivation = async (
+    e: React.FormEvent<HTMLFormElement>,
+  ) => {
     e.preventDefault();
 
     if (!activationUser) return;
@@ -587,12 +589,6 @@ export default function ManageUsersPage() {
                         editing.
                       </div>
                     )}
-                    <Input
-                      placeholder="Or paste a photo URL directly…"
-                      value={profilePhotoUrl}
-                      onChange={(e) => setProfilePhotoUrl(e.target.value)}
-                      className="rounded-xl bg-white dark:bg-slate-950 mt-1"
-                    />
                   </div>
                   <div className="space-y-1 md:col-span-2">
                     <label className="text-xs font-semibold text-muted-foreground">
