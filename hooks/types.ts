@@ -5,7 +5,7 @@
  * This file only contains hook-specific wrappers for API responses
  */
 
-import type { Worker, ClinicProfile, ApiResponse } from "@/lib/api-types"
+import type { Worker, ClinicProfile, ApiResponse } from "@/lib/api-types";
 
 // ============================================
 // RE-EXPORTS FROM CANONICAL TYPES
@@ -78,7 +78,7 @@ export type {
   AuditLog,
   User,
   Insurance,
-} from "@/lib/api-types"
+} from "@/lib/api-types";
 
 export type {
   // Input Types - CANONICAL SOURCE (from api-input-types)
@@ -151,7 +151,7 @@ export type {
   ClinicContactInput,
   ClinicMetadataInput,
   UpdateClinicProfileInput,
-} from "@/lib/api-input-types"
+} from "@/lib/api-input-types";
 
 // ============================================
 // HOOK-SPECIFIC RESPONSE WRAPPERS (ONLY)
@@ -159,20 +159,20 @@ export type {
 
 /** @deprecated Use Worker from api-types */
 export type UserAccount = Worker & {
-  gender?: string | null
-  dateOfBirth?: string | null
-  profilePhotoUrl?: string | null
-}
+  gender?: string | null;
+  dateOfBirth?: string | null;
+  profilePhotoUrl?: string | null;
+};
 
 /** Hook response wrapper for user mutations */
-export type UserResponse = ApiResponse<Worker>
+export type UserResponse = ApiResponse<Worker>;
 
 /** Self-registration response wrapper */
 export interface RegisterResponse {
-  status: string
-  message?: string
-  data?: Worker
-  messages?: { text: string; type: string }[]
+  status: string;
+  message?: string;
+  data?: Worker;
+  messages?: { text: string; type: string }[];
 }
 
 /**
@@ -180,29 +180,29 @@ export interface RegisterResponse {
  * Used by authentication hooks
  */
 export interface LoginResponse {
-  status: string
-  message?: string
+  status: string;
+  message?: string;
   data?: {
-    token?: string
-    accessToken?: string
-    refreshToken?: string
-    user?: Worker
-    clinicProfile?: ClinicProfile | null
-    needsPasswordSetup?: boolean
-  }
+    token?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    user?: Worker;
+    clinicProfile?: ClinicProfile | null;
+    needsPasswordSetup?: boolean;
+  };
   messages?: {
-    text: string
-    type: string
-  }[]
+    text: string;
+    type: string;
+  }[];
 }
 
 /**
  * Invoice response wrapper - hook specific
  */
 export interface InvoiceResponse {
-  status: string
-  message?: string
+  status: string;
+  message?: string;
   data?: {
-    invoiceUrl?: string
-  }
+    invoiceUrl?: string;
+  };
 }

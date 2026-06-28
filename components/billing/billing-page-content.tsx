@@ -437,9 +437,22 @@ export function BillingPageContent() {
   const hasRemainingToBill = Boolean(
     billingData?.items.some((item) => item.paymentStatus !== "paid"),
   );
-  const canEditBilling = Boolean(existingVisitBilling) || billJustCreated;
+  const hasFinanceRole = useMemo(() => {
+    if (!doctor?.roles) return false;
+    return ((doctor.roles as string[]) || []).includes("FINANCE");
+  }, [doctor?.roles]);
+  const hasCashierRole = useMemo(() => {
+    if (!doctor?.roles) return false;
+    return ((doctor.roles as string[]) || []).includes("CASHIER");
+  }, [doctor?.roles]);
+  const isAlreadyBilled = Boolean(existingVisitBilling);
+  const canEditBilling = !isAlreadyBilled && hasFinanceRole;
+  const canViewBilledReadOnly =
+    isAlreadyBilled && (hasFinanceRole || hasCashierRole);
   const showBillingDock =
-    canEditBilling || (!existingVisitBilling && hasRemainingToBill);
+    canViewBilledReadOnly ||
+    canEditBilling ||
+    (!existingVisitBilling && hasRemainingToBill);
 
   const handleDownloadInvoice = async (
     departmentInsuranceBillingId: string,
@@ -664,6 +677,7 @@ export function BillingPageContent() {
 
       const input = {
         visitId: billingData.visitId,
+        notes: billingData.notes?.trim() || undefined,
         departments: Array.from(billableByDepartment.values()).map(
           (department) => ({
             visitDepartmentId: department.visitDepartmentId,
@@ -1125,8 +1139,10 @@ export function BillingPageContent() {
           items={itemsToDisplay}
           selectedItemIds={selectedItemIds}
           selectedCountLabel={`${selectedItemIds.length}/${itemsToDisplay.filter((i) => i.paymentStatus !== "paid").length} selected`}
-          canAddItems={!canEditBilling && hasRemainingToBill}
-          canEdit={canEditBillingItems}
+          canAddItems={
+            !isAlreadyBilled && !canEditBilling && hasRemainingToBill
+          }
+          canEdit={!isAlreadyBilled && canEditBillingItems && canEditBilling}
           visitInsuranceOptions={visitInsuranceOptions}
           onServiceChange={setActiveService}
           onAddItem={() => setShowAddProductModal(true)}
@@ -1249,6 +1265,8 @@ export function BillingPageContent() {
         }}
         onDiscountInputValueChange={setDiscountInputValue}
         onDiscountChange={handleDiscountChange}
+        billingNotes={billingData.notes || ""}
+        onBillingNotesChange={handleNotesChange}
         onConfirm={async () => {
           if (confirmSheetMode === "complete") {
             setShowCompleteBillConfirm(false);
@@ -1299,6 +1317,7 @@ export function BillingPageContent() {
         onDepartmentSelect={setPreviewDepartmentId}
         previewStartedAt={previewStartedAt}
         onPrintInvoice={handleDownloadInvoice}
+        onDownloadInvoice={handleDownloadInvoice}
         printingInvoice={generatingInvoice}
       />
     </div>

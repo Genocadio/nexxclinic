@@ -39,6 +39,7 @@ interface BillingPreviewSheetProps {
   onDepartmentSelect?: (departmentId: string) => void;
   previewStartedAt?: number | null;
   onPrintInvoice?: (departmentInsuranceBillingId: string) => Promise<void>;
+  onDownloadInvoice?: (departmentInsuranceBillingId: string) => Promise<void>;
   printingInvoice?: boolean;
 }
 
@@ -52,6 +53,7 @@ export function BillingPreviewSheet({
   onDepartmentSelect,
   previewStartedAt,
   onPrintInvoice,
+  onDownloadInvoice,
   printingInvoice = false,
 }: BillingPreviewSheetProps) {
   const [isRendered, setIsRendered] = useState(open);
@@ -433,13 +435,30 @@ export function BillingPreviewSheet({
                               className="border border-border"
                             >
                               <div className="border-b border-border bg-slate-50 px-3 py-2 text-sm font-semibold text-foreground dark:bg-slate-800">
-                                {invoiceGroups.length > 1
-                                  ? `Invoice option ${groupIndex + 1}`
-                                  : "Invoice"}
-                                {group.status ? ` • ${group.status}` : ""}
-                                {group.insuranceLabel
-                                  ? ` • ${group.insuranceLabel}`
-                                  : ""}
+                                <div className="flex items-center justify-between gap-3">
+                                  <div>
+                                    {invoiceGroups.length > 1
+                                      ? `Invoice option ${groupIndex + 1}`
+                                      : "Invoice"}
+                                    {group.status ? ` • ${group.status}` : ""}
+                                    {group.insuranceLabel
+                                      ? ` • ${group.insuranceLabel}`
+                                      : ""}
+                                  </div>
+                                  {group.id ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void (
+                                          onDownloadInvoice || onPrintInvoice
+                                        )?.(group.id!)
+                                      }
+                                      className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                                    >
+                                      Download invoice
+                                    </button>
+                                  ) : null}
+                                </div>
                               </div>
                               <table className="w-full border-collapse text-sm">
                                 <thead className="bg-transparent">

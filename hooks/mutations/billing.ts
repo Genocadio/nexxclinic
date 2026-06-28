@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client'
+import { gql } from "@apollo/client";
 
 export const CREATE_BILL_MUTATION = gql`
   mutation BillVisit($input: BillVisitInput!) {
@@ -24,7 +24,6 @@ export const CREATE_BILL_MUTATION = gql`
             patientPayableAmount
             paidAmount
             outstandingAmount
-            invoiceUrl
             items {
               id
               visitDepartmentProductId
@@ -40,11 +39,13 @@ export const CREATE_BILL_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const GENERATE_INVOICE_MUTATION = gql`
   mutation GenerateInvoice($departmentInsuranceBillingId: ID!) {
-    generateInvoice(departmentInsuranceBillingId: $departmentInsuranceBillingId) {
+    generateInvoice(
+      departmentInsuranceBillingId: $departmentInsuranceBillingId
+    ) {
       status
       message
       data {
@@ -52,4 +53,4 @@ export const GENERATE_INVOICE_MUTATION = gql`
       }
     }
   }
-`
+`;

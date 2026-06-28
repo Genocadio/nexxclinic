@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client'
+import { gql } from "@apollo/client";
 
 export const GET_BILL_BY_VISIT_QUERY = gql`
   query GetVisitBilling($visitId: ID!) {
@@ -24,7 +24,6 @@ export const GET_BILL_BY_VISIT_QUERY = gql`
             patientPayableAmount
             paidAmount
             outstandingAmount
-            invoiceUrl
             items {
               id
               visitDepartmentProductId
@@ -44,7 +43,7 @@ export const GET_BILL_BY_VISIT_QUERY = gql`
       }
     }
   }
-`
+`;
 
 export const GET_INVOICE_QUERY = gql`
   query GetInvoice($departmentInsuranceBillingId: ID!) {
@@ -56,5 +55,4 @@ export const GET_INVOICE_QUERY = gql`
       }
     }
   }
-`
-
+`;

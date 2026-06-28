@@ -1,39 +1,45 @@
-"use client"
+"use client";
 
-import { useEffect, useMemo, useState } from "react"
-import { StickyNote } from "lucide-react"
-import { toast } from "react-toastify"
+import { useEffect, useMemo, useState } from "react";
+import { StickyNote } from "lucide-react";
+import { toast } from "react-toastify";
 
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useAuth} from "@/lib/auth-context";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAuth } from "@/lib/auth-context";
 
 interface VisitNoteItem {
-  id?: string
-  content?: string | null
-  noteType?: string | null
+  id?: string;
+  content?: string | null;
+  noteType?: string | null;
   createdBy?: {
-    id?: string
-    firstName?: string
-    lastName?: string
-  }
-  createdAt?: string
-  viewed?: boolean
+    id?: string;
+    firstName?: string;
+    lastName?: string;
+  };
+  createdAt?: string;
+  viewed?: boolean;
 }
 
 interface VisitNotesFloatingProps {
-  notes: VisitNoteItem[]
-  noteTypes: string[]
-  title?: string
-  allowedDisplayTypes?: string[]
-  onAddNote?: (noteType: string, content: string) => Promise<void>
-  onMarkAsViewed?: (noteId: string) => Promise<void>
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
-  hideToggleButton?: boolean
-  visitId?: string
-  visitDepartmentId?: string
+  notes: VisitNoteItem[];
+  noteTypes: string[];
+  title?: string;
+  allowedDisplayTypes?: string[];
+  onAddNote?: (noteType: string, content: string) => Promise<void>;
+  onMarkAsViewed?: (noteId: string) => Promise<void>;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideToggleButton?: boolean;
+  visitId?: string;
+  visitDepartmentId?: string;
 }
 
 export default function VisitNotesFloating({
@@ -47,143 +53,161 @@ export default function VisitNotesFloating({
   onOpenChange,
   hideToggleButton = false,
 }: VisitNotesFloatingProps) {
-  const [internalOpen, setInternalOpen] = useState(false)
-  const { doctor } = useAuth()
-  const controlled = typeof open === 'boolean'
-  const isOpen = controlled ? open : internalOpen
+  const [internalOpen, setInternalOpen] = useState(false);
+  const { doctor } = useAuth();
+  const controlled = typeof open === "boolean";
+  const isOpen = controlled ? open : internalOpen;
   const setOpenState = (value: boolean) => {
     if (controlled) {
-      onOpenChange?.(value)
+      onOpenChange?.(value);
     } else {
-      setInternalOpen(value)
+      setInternalOpen(value);
     }
-  }
-  const [text, setText] = useState("")
-  const [selectedType, setSelectedType] = useState(noteTypes[0] || "GENERAL")
-  const [submitting, setSubmitting] = useState(false)
+  };
+  const [text, setText] = useState("");
+  const [selectedType, setSelectedType] = useState(noteTypes[0] || "PUBLIC");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!noteTypes.includes(selectedType)) {
-      setSelectedType(noteTypes[0] || "GENERAL")
+      setSelectedType(noteTypes[0] || "PUBLIC");
     }
-  }, [noteTypes, selectedType])
+  }, [noteTypes, selectedType]);
 
   const visibleNotes = useMemo(() => {
     if (!allowedDisplayTypes || allowedDisplayTypes.length === 0) {
-      return notes || []
+      return notes || [];
     }
 
-    const allowed = new Set(allowedDisplayTypes)
-    return (notes || []).filter((note) => note?.noteType && allowed.has(String(note.noteType)))
-  }, [allowedDisplayTypes, notes])
+    const allowed = new Set(allowedDisplayTypes);
+    return (notes || []).filter(
+      (note) => note?.noteType && allowed.has(String(note.noteType)),
+    );
+  }, [allowedDisplayTypes, notes]);
+
+  const unreadNotesCount = useMemo(
+    () => (visibleNotes || []).filter((note) => !note?.viewed).length,
+    [visibleNotes],
+  );
 
   const handleAdd = async () => {
-    if (!onAddNote) return
-    const trimmed = text.trim()
-    if (!trimmed) return
+    if (!onAddNote) return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
 
-    setSubmitting(true)
+    setSubmitting(true);
     try {
-      await onAddNote(selectedType, trimmed)
-      setText("")
+      await onAddNote(selectedType, trimmed);
+      setText("");
     } catch (error: any) {
-      const message = error?.message || "Failed to save note"
-      toast.error(message)
-      console.error("Failed to add note", error)
+      const message = error?.message || "Failed to save note";
+      toast.error(message);
+      console.error("Failed to add note", error);
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const handleMarkAsViewed = async (noteId: string) => {
-    if (!onMarkAsViewed) return
+    if (!onMarkAsViewed) return;
     try {
-      await onMarkAsViewed(noteId)
+      await onMarkAsViewed(noteId);
     } catch (error: any) {
-      console.error("Failed to mark note as viewed", error)
+      console.error("Failed to mark note as viewed", error);
     }
-  }
+  };
 
   const addBulletPrefix = () => {
-    setText((prev) => (prev ? `${prev}\n- ` : '- '))
-  }
+    setText((prev) => (prev ? `${prev}\n- ` : "- "));
+  };
 
   const addNumberPrefix = () => {
     setText((prev) => {
-      if (!prev) return '1. '
-      const lines = prev.split('\n')
-      const last = lines[lines.length - 1] || ''
-      const match = last.match(/^(\d+)\.\s/)
-      const next = match ? Number(match[1]) + 1 : 1
-      return `${prev}\n${next}. `
-    })
-  }
+      if (!prev) return "1. ";
+      const lines = prev.split("\n");
+      const last = lines[lines.length - 1] || "";
+      const match = last.match(/^(\d+)\.\s/);
+      const next = match ? Number(match[1]) + 1 : 1;
+      return `${prev}\n${next}. `;
+    });
+  };
 
   const formatLineBlocks = (content: string) => {
-    const lines = content.split('\n')
-    const blocks: Array<{ type: 'ul' | 'ol' | 'p'; items: string[] }> = []
+    const lines = content.split("\n");
+    const blocks: Array<{ type: "ul" | "ol" | "p"; items: string[] }> = [];
 
-    const pushBlock = (type: 'ul' | 'ol' | 'p', value: string) => {
-      const last = blocks[blocks.length - 1]
+    const pushBlock = (type: "ul" | "ol" | "p", value: string) => {
+      const last = blocks[blocks.length - 1];
       if (last && last.type === type) {
-        last.items.push(value)
-        return
+        last.items.push(value);
+        return;
       }
-      blocks.push({ type, items: [value] })
-    }
+      blocks.push({ type, items: [value] });
+    };
 
     lines.forEach((rawLine) => {
-      const line = rawLine.trimEnd()
-      if (!line.trim()) return
+      const line = rawLine.trimEnd();
+      if (!line.trim()) return;
 
-      if (line.startsWith('- ')) {
-        pushBlock('ul', line.slice(2))
-        return
+      if (line.startsWith("- ")) {
+        pushBlock("ul", line.slice(2));
+        return;
       }
 
-      const numbered = line.match(/^\d+\.\s+(.*)$/)
+      const numbered = line.match(/^\d+\.\s+(.*)$/);
       if (numbered) {
-        pushBlock('ol', numbered[1])
-        return
+        pushBlock("ol", numbered[1]);
+        return;
       }
 
-      pushBlock('p', line)
-    })
+      pushBlock("p", line);
+    });
 
     if (blocks.length === 0) {
-      return <p className="text-xs text-muted-foreground">No content</p>
+      return <p className="text-xs text-muted-foreground">No content</p>;
     }
 
     return (
       <div className="space-y-1">
         {blocks.map((block, idx) => {
-          if (block.type === 'ul') {
+          if (block.type === "ul") {
             return (
-              <ul key={`ul-${idx}`} className="list-disc pl-4 text-xs text-foreground space-y-0.5">
+              <ul
+                key={`ul-${idx}`}
+                className="list-disc pl-4 text-xs text-foreground space-y-0.5"
+              >
                 {block.items.map((item, itemIdx) => (
                   <li key={`ul-${idx}-${itemIdx}`}>{item}</li>
                 ))}
               </ul>
-            )
+            );
           }
 
-          if (block.type === 'ol') {
+          if (block.type === "ol") {
             return (
-              <ol key={`ol-${idx}`} className="list-decimal pl-4 text-xs text-foreground space-y-0.5">
+              <ol
+                key={`ol-${idx}`}
+                className="list-decimal pl-4 text-xs text-foreground space-y-0.5"
+              >
                 {block.items.map((item, itemIdx) => (
                   <li key={`ol-${idx}-${itemIdx}`}>{item}</li>
                 ))}
               </ol>
-            )
+            );
           }
 
           return block.items.map((item, itemIdx) => (
-            <p key={`p-${idx}-${itemIdx}`} className="text-xs text-foreground whitespace-pre-wrap">{item}</p>
-          ))
+            <p
+              key={`p-${idx}-${itemIdx}`}
+              className="text-xs text-foreground whitespace-pre-wrap"
+            >
+              {item}
+            </p>
+          ));
         })}
       </div>
-    )
-  }
+    );
+  };
 
   return (
     <>
@@ -198,9 +222,9 @@ export default function VisitNotesFloating({
             title="Notes"
           >
             <StickyNote className="h-5 w-5" />
-            {!isOpen && visibleNotes.length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-pulse">
-                {visibleNotes.length}
+            {!isOpen && unreadNotesCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-bounce">
+                {unreadNotesCount}
               </span>
             )}
           </Button>
@@ -222,33 +246,53 @@ export default function VisitNotesFloating({
                 <div
                   key={`${note.id || note.noteType || "note"}-${idx}`}
                   className="rounded-lg border border-border bg-card p-2"
-                  onClick={() => !note.viewed && note.id ? handleMarkAsViewed(note.id) : undefined}
+                  onClick={() =>
+                    !note.viewed && note.id
+                      ? handleMarkAsViewed(note.id)
+                      : undefined
+                  }
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {note.noteType || "GENERAL"}
-                      {!note.viewed && <span className="ml-1 text-[9px] bg-primary text-primary-foreground px-1 rounded-full">NEW</span>}
+                      {note.noteType || "PUBLIC"}
+                      {!note.viewed && (
+                        <span className="ml-1 text-[9px] bg-primary text-primary-foreground px-1 rounded-full animate-pulse">
+                          NEW
+                        </span>
+                      )}
                     </p>
 
-
                     {(() => {
-                      const createdBy = note.createdBy
-                      if (!createdBy) return <span className="text-[10px] text-muted-foreground">Unknown</span>
+                      const createdBy = note.createdBy;
+                      if (!createdBy)
+                        return (
+                          <span className="text-[10px] text-muted-foreground">
+                            Unknown
+                          </span>
+                        );
 
                       if (doctor && createdBy.id === doctor.id) {
-                        return <span className="text-[10px] text-muted-foreground italic">You</span>
+                        return (
+                          <span className="text-[10px] text-muted-foreground italic">
+                            You
+                          </span>
+                        );
                       }
-                      const hasFirst = !!createdBy.firstName?.trim()
-                      const hasLast = !!createdBy.lastName?.trim()
+                      const hasFirst = !!createdBy.firstName?.trim();
+                      const hasLast = !!createdBy.lastName?.trim();
 
-                      if(hasFirst && !hasLast) return null
+                      if (hasFirst && !hasLast) return null;
                       const fullName = [
-                          createdBy.firstName?.trim(),
-                          createdBy.lastName?.trim(),
-                      ].filter(Boolean).join(' ')
-                      return  fullName ? (
-                          <span className="text-[10px] text-muted-foreground">{fullName}</span>
-                      ) : null
+                        createdBy.firstName?.trim(),
+                        createdBy.lastName?.trim(),
+                      ]
+                        .filter(Boolean)
+                        .join(" ");
+                      return fullName ? (
+                        <span className="text-[10px] text-muted-foreground">
+                          {fullName}
+                        </span>
+                      ) : null;
                     })()}
                   </div>
                   {formatLineBlocks(note.content || "")}
@@ -260,10 +304,20 @@ export default function VisitNotesFloating({
           {onAddNote && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <Button type="button" variant="outline" className="h-7 rounded-full px-3 text-[11px]" onClick={addBulletPrefix}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-7 rounded-full px-3 text-[11px]"
+                  onClick={addBulletPrefix}
+                >
                   • List
                 </Button>
-                <Button type="button" variant="outline" className="h-7 rounded-full px-3 text-[11px]" onClick={addNumberPrefix}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-7 rounded-full px-3 text-[11px]"
+                  onClick={addNumberPrefix}
+                >
                   1. Numbered
                 </Button>
 
@@ -274,7 +328,11 @@ export default function VisitNotesFloating({
                     </SelectTrigger>
                     <SelectContent className="min-w-30 rounded-xl p-1">
                       {noteTypes.map((type) => (
-                        <SelectItem key={type} value={type} className="h-7 text-[11px] leading-none px-2">
+                        <SelectItem
+                          key={type}
+                          value={type}
+                          className="h-7 text-[11px] leading-none px-2"
+                        >
                           {type}
                         </SelectItem>
                       ))}
@@ -291,38 +349,40 @@ export default function VisitNotesFloating({
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key !== 'Enter' || e.shiftKey) return
+                  if (e.key !== "Enter" || e.shiftKey) return;
 
-                  const textarea = e.currentTarget
-                  const cursorPos = textarea.selectionStart
-                  const textBeforeCursor = text.slice(0, cursorPos)
-                  const lines = textBeforeCursor.split('\n')
-                  const currentLine = lines[lines.length - 1] || ''
+                  const textarea = e.currentTarget;
+                  const cursorPos = textarea.selectionStart;
+                  const textBeforeCursor = text.slice(0, cursorPos);
+                  const lines = textBeforeCursor.split("\n");
+                  const currentLine = lines[lines.length - 1] || "";
 
-                  const bulletMatch = currentLine.match(/^(\s*)-\s/)
+                  const bulletMatch = currentLine.match(/^(\s*)-\s/);
                   if (bulletMatch) {
-                    e.preventDefault()
-                    const indent = bulletMatch[1]
-                    const textAfterCursor = text.slice(cursorPos)
-                    const updated = `${textBeforeCursor}\n${indent}- ${textAfterCursor}`
-                    setText(updated)
+                    e.preventDefault();
+                    const indent = bulletMatch[1];
+                    const textAfterCursor = text.slice(cursorPos);
+                    const updated = `${textBeforeCursor}\n${indent}- ${textAfterCursor}`;
+                    setText(updated);
                     setTimeout(() => {
-                      textarea.selectionStart = textarea.selectionEnd = cursorPos + indent.length + 3
-                    }, 0)
-                    return
+                      textarea.selectionStart = textarea.selectionEnd =
+                        cursorPos + indent.length + 3;
+                    }, 0);
+                    return;
                   }
 
-                  const numberedMatch = currentLine.match(/^(\s*)(\d+)\.\s/)
+                  const numberedMatch = currentLine.match(/^(\s*)(\d+)\.\s/);
                   if (numberedMatch) {
-                    e.preventDefault()
-                    const indent = numberedMatch[1]
-                    const nextNum = Number(numberedMatch[2]) + 1
-                    const textAfterCursor = text.slice(cursorPos)
-                    const updated = `${textBeforeCursor}\n${indent}${nextNum}. ${textAfterCursor}`
-                    setText(updated)
+                    e.preventDefault();
+                    const indent = numberedMatch[1];
+                    const nextNum = Number(numberedMatch[2]) + 1;
+                    const textAfterCursor = text.slice(cursorPos);
+                    const updated = `${textBeforeCursor}\n${indent}${nextNum}. ${textAfterCursor}`;
+                    setText(updated);
                     setTimeout(() => {
-                      textarea.selectionStart = textarea.selectionEnd = cursorPos + indent.length + String(nextNum).length + 3
-                    }, 0)
+                      textarea.selectionStart = textarea.selectionEnd =
+                        cursorPos + indent.length + String(nextNum).length + 3;
+                    }, 0);
                   }
                 }}
                 rows={5}
@@ -331,7 +391,12 @@ export default function VisitNotesFloating({
               />
 
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" className="h-8 rounded-full" onClick={() => setText("")}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 rounded-full"
+                  onClick={() => setText("")}
+                >
                   Clear
                 </Button>
                 <Button
@@ -348,5 +413,5 @@ export default function VisitNotesFloating({
         </div>
       )}
     </>
-  )
+  );
 }

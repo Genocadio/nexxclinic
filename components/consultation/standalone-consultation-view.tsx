@@ -140,6 +140,9 @@ export function StandaloneConsultationView({
   const { markNotesViewed } = useMarkVisitDepartmentNotesViewed();
   const { notes: departmentNotes, refetch: refetchNotes } =
     useVisitDepartmentNotes(visit.id, firstVisitDepartmentId || null);
+  const unreadNotesCount = (departmentNotes || []).filter(
+    (note: any) => !note?.viewed,
+  ).length;
 
   const [rendererForm, setRendererForm] = useState<SavedForm | null>(null);
   const [formVersionId, setFormVersionId] = useState<string | null>(null);
@@ -684,11 +687,16 @@ export function StandaloneConsultationView({
           variant="ghost"
           size="icon"
           onClick={() => setNotesOpen((prev) => !prev)}
-          className="rounded-full border border-border/70 bg-background p-2"
+          className="relative rounded-full border border-border/70 bg-background p-2"
           title="Notes"
           aria-label="Open notes"
         >
           <StickyNote className="h-5 w-5" />
+          {!notesOpen && unreadNotesCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-bounce">
+              {unreadNotesCount}
+            </span>
+          )}
         </Button>
       </div>
 
