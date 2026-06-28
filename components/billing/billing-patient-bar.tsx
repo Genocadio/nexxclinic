@@ -1,17 +1,22 @@
-'use client';
+"use client";
 
-import { Plus, Shield, ChevronDown, Info } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Separator } from '@/components/ui/separator';
-import type { PatientInsurance } from '@/lib/api-types';
+import { Plus, Shield, ChevronDown, Info } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
+import type { PatientInsurance } from "@/lib/api-types";
 
 type BillingPatientBarProps = {
   patientName: string;
   patientAge: number;
   gender: string;
   visitDate: string;
+  patientIdentifier?: string;
   patientIdNumber?: string;
   patientInsurances: PatientInsurance[];
   activeInsuranceIds: Set<string>;
@@ -25,6 +30,7 @@ export function BillingPatientBar({
   patientAge,
   gender,
   visitDate,
+  patientIdentifier,
   patientIdNumber,
   patientInsurances,
   activeInsuranceIds,
@@ -32,11 +38,13 @@ export function BillingPatientBar({
   onToggleInsurance,
   onAddInsurance,
 }: BillingPatientBarProps) {
-  const visitActiveInsurances = patientInsurances.filter((p) => activeInsuranceIds.has(p.id));
+  const visitActiveInsurances = patientInsurances.filter((p) =>
+    activeInsuranceIds.has(p.id),
+  );
   const visitDateLabel = new Date(visitDate).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 
   return (
@@ -45,18 +53,33 @@ export function BillingPatientBar({
         <div className="w-full min-w-0 mx-auto px-2 sm:px-4 md:px-[1cm] lg:px-[2cm]">
           <div className="flex items-center gap-4 min-w-0">
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              <h1 className="text-sm font-semibold text-foreground truncate">{patientName}</h1>
-              <Separator orientation="vertical" className="h-4 hidden sm:block" />
+              <h1 className="text-sm font-semibold text-foreground truncate">
+                {patientName}
+              </h1>
+              <Separator
+                orientation="vertical"
+                className="h-4 hidden sm:block"
+              />
               <div className="hidden sm:flex items-center gap-2.5 text-xs text-muted-foreground shrink-0">
                 <span>{patientAge}y</span>
                 <span className="text-border">·</span>
-                <span className="capitalize">{gender || '—'}</span>
+                <span className="capitalize">{gender || "—"}</span>
                 <span className="text-border">·</span>
                 <span>{visitDateLabel}</span>
+                {patientIdentifier && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span className="font-mono text-[11px]">
+                      {patientIdentifier}
+                    </span>
+                  </>
+                )}
                 {patientIdNumber && (
                   <>
                     <span className="text-border">·</span>
-                    <span className="font-mono text-[11px]">{patientIdNumber}</span>
+                    <span className="font-mono text-[11px]">
+                      {patientIdNumber}
+                    </span>
                   </>
                 )}
               </div>
@@ -76,7 +99,9 @@ export function BillingPatientBar({
                   </Badge>
                 ))
               ) : (
-                <span className="text-[11px] text-muted-foreground">No insurance on this visit</span>
+                <span className="text-[11px] text-muted-foreground">
+                  No insurance on this visit
+                </span>
               )}
 
               <Popover>
@@ -90,14 +115,19 @@ export function BillingPatientBar({
                     <ChevronDown className="h-3 w-3 ml-1" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-[22rem] p-0 rounded-xl overflow-hidden">
+                <PopoverContent
+                  align="end"
+                  className="w-[22rem] p-0 rounded-xl overflow-hidden"
+                >
                   <div className="px-3 pt-3 pb-2 border-b border-border/60 bg-muted/30">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="text-xs font-semibold text-foreground">Patient insurances</p>
+                        <p className="text-xs font-semibold text-foreground">
+                          Patient insurances
+                        </p>
                         <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
-                          Insurances are stored on the patient record. Check those to use for billing on
-                          this visit.
+                          Insurances are stored on the patient record. Check
+                          those to use for billing on this visit.
                         </p>
                       </div>
                       <Button
@@ -136,15 +166,17 @@ export function BillingPatientBar({
                               key={pIns.id}
                               className={`flex items-start gap-2.5 text-xs rounded-lg border px-2.5 py-2 cursor-pointer transition-colors ${
                                 usedOnVisit
-                                  ? 'border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10'
-                                  : 'border-border/60 hover:bg-muted/50'
+                                  ? "border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10"
+                                  : "border-border/60 hover:bg-muted/50"
                               }`}
                             >
                               <input
                                 type="checkbox"
                                 checked={usedOnVisit}
                                 disabled={addingVisitInsurance}
-                                onChange={() => onToggleInsurance(pIns.id, !usedOnVisit)}
+                                onChange={() =>
+                                  onToggleInsurance(pIns.id, !usedOnVisit)
+                                }
                                 className="mt-0.5 h-3.5 w-3.5 accent-primary"
                                 aria-label={`Use ${pIns.insuranceProvider.acronym} on this visit`}
                               />
@@ -158,16 +190,18 @@ export function BillingPatientBar({
                                   </span>
                                 </div>
                                 <p className="text-[10px] text-muted-foreground truncate mt-0.5">
-                                  Card: {pIns.insuranceCardNumber || '—'}
+                                  Card: {pIns.insuranceCardNumber || "—"}
                                 </p>
                                 <p
                                   className={`text-[10px] mt-0.5 font-medium ${
                                     usedOnVisit
-                                      ? 'text-emerald-600 dark:text-emerald-400'
-                                      : 'text-muted-foreground'
+                                      ? "text-emerald-600 dark:text-emerald-400"
+                                      : "text-muted-foreground"
                                   }`}
                                 >
-                                  {usedOnVisit ? 'Used on this visit' : 'On patient record only'}
+                                  {usedOnVisit
+                                    ? "Used on this visit"
+                                    : "On patient record only"}
                                 </p>
                               </div>
                             </label>
@@ -179,9 +213,11 @@ export function BillingPatientBar({
                     <div className="mt-3 flex gap-2 rounded-lg bg-muted/40 border border-border/50 px-2.5 py-2">
                       <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
                       <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        <span className="font-medium text-foreground">Add to patient</span> saves a new
-                        insurance on the patient profile. Then check it here to apply it to this visit
-                        for billing.
+                        <span className="font-medium text-foreground">
+                          Add to patient
+                        </span>{" "}
+                        saves a new insurance on the patient profile. Then check
+                        it here to apply it to this visit for billing.
                       </p>
                     </div>
                   </div>

@@ -1078,6 +1078,12 @@ export default function DashboardPage() {
                                     </TooltipTrigger>
                                     <TooltipContent className="max-w-sm">
                                       <div className="space-y-2 text-xs">
+                                        {visit.patient.patientIdentifier && (
+                                          <p className="font-mono text-[11px] text-muted-foreground">
+                                            ID:{" "}
+                                            {visit.patient.patientIdentifier}
+                                          </p>
+                                        )}
                                         <p className="font-semibold">
                                           Departments history
                                         </p>

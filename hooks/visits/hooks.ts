@@ -313,7 +313,7 @@ export function useVisit(id: string | null) {
 }
 
 export function useLastPatientDepartmentVisit(
-  patientId: string | null,
+  visitId: string | null,
   departmentId: string | null,
   options?: { skip?: boolean },
 ) {
@@ -321,8 +321,8 @@ export function useLastPatientDepartmentVisit(
     useQuery<LastPatientDepartmentVisitQueryData>(
       LAST_PATIENT_DEPARTMENT_VISIT_QUERY,
       {
-        variables: { patientId, departmentId },
-        skip: !patientId || !departmentId || options?.skip,
+        variables: { visitId, departmentId },
+        skip: !visitId || !departmentId || options?.skip,
         fetchPolicy: "cache-and-network",
       },
     );

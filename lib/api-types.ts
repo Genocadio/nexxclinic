@@ -272,6 +272,7 @@ export interface Patient {
   firstName: string;
   middleName?: string | null;
   lastName?: string | null;
+  patientIdentifier?: string | null;
   dateOfBirth: string;
   gender: Gender;
   primaryPhoneNumber?: string | null;

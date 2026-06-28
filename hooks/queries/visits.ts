@@ -96,6 +96,7 @@ export const GET_VISIT_QUERY = gql`
           firstName
           lastName
           middleName
+          patientIdentifier
           gender
           dateOfBirth
           primaryPhoneNumber
@@ -234,6 +235,7 @@ export const VISITS_QUERY = gql`
           id
           firstName
           lastName
+          patientIdentifier
           primaryPhoneNumber
         }
         linkedInsurances {
@@ -347,6 +349,7 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
           firstName
           lastName
           middleName
+          patientIdentifier
           dateOfBirth
           gender
         }
@@ -399,11 +402,8 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
 `;
 
 export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
-  query LastPatientDepartmentVisit($patientId: ID!, $departmentId: ID!) {
-    lastPatientDepartmentVisit(
-      patientId: $patientId
-      departmentId: $departmentId
-    ) {
+  query LastPatientDepartmentVisit($visitId: ID!, $departmentId: ID!) {
+    lastPatientDepartmentVisit(visitId: $visitId, departmentId: $departmentId) {
       status
       message
       data {
@@ -416,6 +416,7 @@ export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
             firstName
             lastName
             middleName
+            patientIdentifier
             dateOfBirth
             gender
           }

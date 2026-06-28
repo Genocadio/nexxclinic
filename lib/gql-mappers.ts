@@ -55,6 +55,7 @@ export type GqlPatient = {
   firstName: string;
   middleName?: string | null;
   lastName?: string | null;
+  patientIdentifier?: string | null;
   dateOfBirth?: string | null;
   gender?: string | null;
   primaryPhoneNumber?: string | null;
@@ -315,6 +316,7 @@ export function mapGqlPatient(patient: GqlPatient): Patient {
     firstName: patient.firstName,
     middleName: patient.middleName,
     lastName: patient.lastName,
+    patientIdentifier: patient.patientIdentifier,
     dateOfBirth: patient.dateOfBirth || EMPTY_TIMESTAMP,
     gender: parseGender(patient.gender),
     primaryPhoneNumber: patient.primaryPhoneNumber,
@@ -348,6 +350,8 @@ export function mapGqlPatientSummary(patient: {
     id: patient.id,
     firstName: patient.firstName,
     lastName: patient.lastName,
+    patientIdentifier: (patient as { patientIdentifier?: string | null })
+      .patientIdentifier,
     dateOfBirth: EMPTY_TIMESTAMP,
     gender: Gender.OTHER,
     primaryPhoneNumber: patient.primaryPhoneNumber,

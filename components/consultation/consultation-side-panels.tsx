@@ -1,61 +1,110 @@
-"use client"
+"use client";
 
-import { useEffect, useMemo, useState } from "react"
-import { User, HeartPulse, History as HistoryIcon, ChevronLeft, ChevronRight } from "lucide-react"
-import { formatDateOnly } from "@/lib/utils"
-import type { Patient } from "@/lib/types"
-import { normalizeVisitVitalSigns } from "@/hooks/auth-hooks"
+import { useEffect, useMemo, useState } from "react";
+import {
+  User,
+  HeartPulse,
+  History as HistoryIcon,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { formatDateOnly } from "@/lib/utils";
+import type { Patient } from "@/lib/types";
+import { normalizeVisitVitalSigns } from "@/hooks/auth-hooks";
 
 interface PanelState {
-  pinned: boolean
-  hover: boolean
+  pinned: boolean;
+  hover: boolean;
 }
 
-function VitalsPanel({ vitals, slotStyle, pinned }: { vitals: any[]; slotStyle: any; pinned: boolean }) {
-  const [index, setIndex] = useState(0)
+function VitalsPanel({
+  vitals,
+  slotStyle,
+  pinned,
+}: {
+  vitals: any[];
+  slotStyle: any;
+  pinned: boolean;
+}) {
+  const [index, setIndex] = useState(0);
 
-  const groups = useMemo(() => normalizeVisitVitalSigns(vitals), [vitals])
+  const groups = useMemo(() => normalizeVisitVitalSigns(vitals), [vitals]);
 
   useEffect(() => {
-    setIndex((i) => Math.min(i, Math.max(0, groups.length - 1)))
-  }, [groups.length])
+    setIndex((i) => Math.min(i, Math.max(0, groups.length - 1)));
+  }, [groups.length]);
 
-  const current = groups[index]
+  const current = groups[index];
 
   return (
-    <div className="fixed z-40 w-80 bg-white/20 backdrop-blur-xl border border-white/30 rounded-xl shadow-2xl overflow-hidden transition-all duration-300" style={slotStyle}>
+    <div
+      className="fixed z-40 w-80 bg-white/20 backdrop-blur-xl border border-white/30 rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
+      style={slotStyle}
+    >
       <div className="flex items-center justify-between p-3 border-b border-border">
         <p className="text-sm font-semibold">Vital Signs</p>
-        {pinned && <span className="text-xs bg-white/30 px-2 py-1 rounded">Pinned</span>}
+        {pinned && (
+          <span className="text-xs bg-white/30 px-2 py-1 rounded">Pinned</span>
+        )}
       </div>
       <div className="p-3">
         {groups.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No vitals recorded</div>
+          <div className="text-sm text-muted-foreground">
+            No vitals recorded
+          </div>
         ) : (
           <>
             <div className="mb-2 flex items-start justify-between gap-2">
               <div className="min-w-0 text-xs text-muted-foreground">
                 <div className="truncate font-medium text-foreground">
-                  {current?.createdAt && current.createdAt !== 'unknown' ? `Recorded ${new Date(current.createdAt).toLocaleString()}` : 'Recorded'}
-                  {current?.addedBy ? ` • ${current.addedBy.firstName || ''} ${current.addedBy.lastName || ''}` : ''}
+                  {current?.createdAt && current.createdAt !== "unknown"
+                    ? `Recorded ${new Date(current.createdAt).toLocaleString()}`
+                    : "Recorded"}
+                  {current?.addedBy
+                    ? ` • ${current.addedBy.firstName || ""} ${current.addedBy.lastName || ""}`
+                    : ""}
                 </div>
               </div>
               {groups.length > 1 && (
                 <div className="flex items-center gap-1">
-                  <button onClick={() => setIndex((i) => Math.max(0, i - 1))} className="p-1 rounded hover:bg-muted/40" disabled={index === 0} aria-label="Previous vitals"><ChevronLeft className="w-4 h-4" /></button>
-                  <button onClick={() => setIndex((i) => Math.min(groups.length - 1, i + 1))} className="p-1 rounded hover:bg-muted/40" disabled={index === groups.length - 1} aria-label="Next vitals"><ChevronRight className="w-4 h-4" /></button>
+                  <button
+                    onClick={() => setIndex((i) => Math.max(0, i - 1))}
+                    className="p-1 rounded hover:bg-muted/40"
+                    disabled={index === 0}
+                    aria-label="Previous vitals"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() =>
+                      setIndex((i) => Math.min(groups.length - 1, i + 1))
+                    }
+                    className="p-1 rounded hover:bg-muted/40"
+                    disabled={index === groups.length - 1}
+                    aria-label="Next vitals"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
               )}
             </div>
 
             <div className="space-y-2">
               {current.measurements.map((v: any) => (
-                <div key={v.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/20 px-3 py-2">
+                <div
+                  key={v.id}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/20 px-3 py-2"
+                >
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-foreground">{v.measurementName}</div>
+                    <div className="truncate text-sm font-medium text-foreground">
+                      {v.measurementName}
+                    </div>
                   </div>
                   <div className="whitespace-nowrap text-right text-lg font-bold text-indigo-700 dark:text-indigo-300">
-                    {v.value} <span className="text-sm font-medium text-muted-foreground">{v.unit}</span>
+                    {v.value}{" "}
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {v.unit}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -64,20 +113,23 @@ function VitalsPanel({ vitals, slotStyle, pinned }: { vitals: any[]; slotStyle: 
         )}
       </div>
     </div>
-  )
+  );
 }
 
 interface ConsultationSidePanelsProps {
-  patient: Patient
-  idPanel: PanelState
-  vitalsPanel: PanelState
-  historyPanel: PanelState
-  setIdPanel: (state: PanelState) => void
-  setVitalsPanel: (state: PanelState) => void
-  setHistoryPanel: (state: PanelState) => void
-  onOpenHistory?: () => void
-  vitals?: any[]
-  visitInsurances?: Array<{ id: string; insuranceProvider: { acronym?: string | null; insuranceName: string } }>
+  patient: Patient;
+  idPanel: PanelState;
+  vitalsPanel: PanelState;
+  historyPanel: PanelState;
+  setIdPanel: (state: PanelState) => void;
+  setVitalsPanel: (state: PanelState) => void;
+  setHistoryPanel: (state: PanelState) => void;
+  onOpenHistory?: () => void;
+  vitals?: any[];
+  visitInsurances?: Array<{
+    id: string;
+    insuranceProvider: { acronym?: string | null; insuranceName: string };
+  }>;
 }
 
 export function ConsultationSidePanels({
@@ -93,52 +145,65 @@ export function ConsultationSidePanels({
   visitInsurances = [],
 }: ConsultationSidePanelsProps) {
   const activePanels = [
-    { key: 'id', active: idPanel.pinned || idPanel.hover },
-    { key: 'vitals', active: vitalsPanel.pinned || vitalsPanel.hover },
-    { key: 'history', active: historyPanel.pinned || historyPanel.hover },
-  ].filter(p => p.active)
+    { key: "id", active: idPanel.pinned || idPanel.hover },
+    { key: "vitals", active: vitalsPanel.pinned || vitalsPanel.hover },
+    { key: "history", active: historyPanel.pinned || historyPanel.hover },
+  ].filter((p) => p.active);
 
-  const getPanelSlot = (panelKey: string): 'single' | 'upper' | 'lower' | 'middle' => {
-    if (activePanels.length === 0) return 'single'
-    if (activePanels.length === 1) return 'single'
+  const getPanelSlot = (
+    panelKey: string,
+  ): "single" | "upper" | "lower" | "middle" => {
+    if (activePanels.length === 0) return "single";
+    if (activePanels.length === 1) return "single";
     if (activePanels.length === 2) {
-      const panelIndex = activePanels.findIndex(p => p.key === panelKey)
-      return panelIndex === 0 ? 'upper' : 'lower'
+      const panelIndex = activePanels.findIndex((p) => p.key === panelKey);
+      return panelIndex === 0 ? "upper" : "lower";
     }
-    const panelIndex = activePanels.findIndex(p => p.key === panelKey)
-    return panelIndex === 0 ? 'upper' : panelIndex === 1 ? 'middle' : 'lower'
-  }
+    const panelIndex = activePanels.findIndex((p) => p.key === panelKey);
+    return panelIndex === 0 ? "upper" : panelIndex === 1 ? "middle" : "lower";
+  };
 
-  const getPositionStyle = (slot: 'single' | 'upper' | 'lower' | 'middle', count: number) => {
-    const base = { left: '5rem', transform: 'translateY(-50%)' }
-    if (count <= 1) return { ...base, top: '50%' }
+  const getPositionStyle = (
+    slot: "single" | "upper" | "lower" | "middle",
+    count: number,
+  ) => {
+    const base = { left: "5rem", transform: "translateY(-50%)" };
+    if (count <= 1) return { ...base, top: "50%" };
     if (count === 2) {
-      return slot === 'upper'
-        ? { ...base, top: '30%' }
-        : { ...base, top: '70%' }
+      return slot === "upper"
+        ? { ...base, top: "30%" }
+        : { ...base, top: "70%" };
     }
-    if (slot === 'upper') return { ...base, top: '25%' }
-    if (slot === 'middle') return { ...base, top: '50%' }
-    return { ...base, top: '75%' }
-  }
+    if (slot === "upper") return { ...base, top: "25%" };
+    if (slot === "middle") return { ...base, top: "50%" };
+    return { ...base, top: "75%" };
+  };
 
-  const handlePanelClick = (panelKey: 'id' | 'vitals' | 'history') => {
-    if (panelKey === 'id') {
-      setIdPanel({ ...idPanel, pinned: !idPanel.pinned, hover: false })
-    } else if (panelKey === 'vitals') {
-      setVitalsPanel({ ...vitalsPanel, pinned: !vitalsPanel.pinned, hover: false })
-    } else if (panelKey === 'history') {
+  const handlePanelClick = (panelKey: "id" | "vitals" | "history") => {
+    if (panelKey === "id") {
+      setIdPanel({ ...idPanel, pinned: !idPanel.pinned, hover: false });
+    } else if (panelKey === "vitals") {
+      setVitalsPanel({
+        ...vitalsPanel,
+        pinned: !vitalsPanel.pinned,
+        hover: false,
+      });
+    } else if (panelKey === "history") {
       if (onOpenHistory) {
-        onOpenHistory()
-        return
+        onOpenHistory();
+        return;
       }
-      setHistoryPanel({ ...historyPanel, pinned: !historyPanel.pinned, hover: false })
+      setHistoryPanel({
+        ...historyPanel,
+        pinned: !historyPanel.pinned,
+        hover: false,
+      });
     }
-  }
+  };
 
-  const showIdPanel = idPanel.pinned || idPanel.hover
-  const showVitalsPanel = vitalsPanel.pinned || vitalsPanel.hover
-  const showHistoryPanel = historyPanel.pinned || historyPanel.hover
+  const showIdPanel = idPanel.pinned || idPanel.hover;
+  const showVitalsPanel = vitalsPanel.pinned || vitalsPanel.hover;
+  const showHistoryPanel = historyPanel.pinned || historyPanel.hover;
 
   return (
     <>
@@ -146,30 +211,44 @@ export function ConsultationSidePanels({
       <div className="fixed left-6 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-2 bg-card/60 backdrop-blur-xl border border-border/50 rounded-full p-2 shadow-2xl">
         <button
           title="Identification"
-          className={`p-2 rounded-full transition-colors ${idPanel.pinned ? 'bg-white/40 ring-2 ring-white/60' : 'hover:bg-muted'}`}
-          onMouseEnter={() => setIdPanel({ ...idPanel, hover: !idPanel.pinned })}
+          className={`p-2 rounded-full transition-colors ${idPanel.pinned ? "bg-white/40 ring-2 ring-white/60" : "hover:bg-muted"}`}
+          onMouseEnter={() =>
+            setIdPanel({ ...idPanel, hover: !idPanel.pinned })
+          }
           onMouseLeave={() => setIdPanel({ ...idPanel, hover: false })}
-          onClick={() => handlePanelClick('id')}
+          onClick={() => handlePanelClick("id")}
         >
-          <User className={`w-5 h-5 ${idPanel.pinned ? 'text-foreground' : 'text-muted-foreground'}`} />
+          <User
+            className={`w-5 h-5 ${idPanel.pinned ? "text-foreground" : "text-muted-foreground"}`}
+          />
         </button>
         <button
           title="Vital Signs"
-          className={`p-2 rounded-full transition-colors ${vitalsPanel.pinned ? 'bg-white/40 ring-2 ring-white/60' : 'hover:bg-muted'}`}
-          onMouseEnter={() => setVitalsPanel({ ...vitalsPanel, hover: !vitalsPanel.pinned })}
+          className={`p-2 rounded-full transition-colors ${vitalsPanel.pinned ? "bg-white/40 ring-2 ring-white/60" : "hover:bg-muted"}`}
+          onMouseEnter={() =>
+            setVitalsPanel({ ...vitalsPanel, hover: !vitalsPanel.pinned })
+          }
           onMouseLeave={() => setVitalsPanel({ ...vitalsPanel, hover: false })}
-          onClick={() => handlePanelClick('vitals')}
+          onClick={() => handlePanelClick("vitals")}
         >
-          <HeartPulse className={`w-5 h-5 ${vitalsPanel.pinned ? 'text-foreground' : 'text-muted-foreground'}`} />
+          <HeartPulse
+            className={`w-5 h-5 ${vitalsPanel.pinned ? "text-foreground" : "text-muted-foreground"}`}
+          />
         </button>
         <button
           title="History"
-          className={`p-2 rounded-full transition-colors ${historyPanel.pinned ? 'bg-white/40 ring-2 ring-white/60' : 'hover:bg-muted'}`}
-          onMouseEnter={() => setHistoryPanel({ ...historyPanel, hover: !historyPanel.pinned })}
-          onMouseLeave={() => setHistoryPanel({ ...historyPanel, hover: false })}
-          onClick={() => handlePanelClick('history')}
+          className={`p-2 rounded-full transition-colors ${historyPanel.pinned ? "bg-white/40 ring-2 ring-white/60" : "hover:bg-muted"}`}
+          onMouseEnter={() =>
+            setHistoryPanel({ ...historyPanel, hover: !historyPanel.pinned })
+          }
+          onMouseLeave={() =>
+            setHistoryPanel({ ...historyPanel, hover: false })
+          }
+          onClick={() => handlePanelClick("history")}
         >
-          <HistoryIcon className={`w-5 h-5 ${historyPanel.pinned ? 'text-foreground' : 'text-muted-foreground'}`} />
+          <HistoryIcon
+            className={`w-5 h-5 ${historyPanel.pinned ? "text-foreground" : "text-muted-foreground"}`}
+          />
         </button>
       </div>
 
@@ -177,21 +256,44 @@ export function ConsultationSidePanels({
       {showIdPanel && (
         <div
           className="fixed z-40 w-80 bg-white/20 backdrop-blur-xl border border-white/30 rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
-          style={getPositionStyle(getPanelSlot('id'), activePanels.length) as any}
+          style={
+            getPositionStyle(getPanelSlot("id"), activePanels.length) as any
+          }
         >
           <div className="flex items-center justify-between p-3 border-b border-border">
             <p className="text-sm font-semibold">Identification</p>
-            {idPanel.pinned && <span className="text-xs bg-white/30 px-2 py-1 rounded">Pinned</span>}
+            {idPanel.pinned && (
+              <span className="text-xs bg-white/30 px-2 py-1 rounded">
+                Pinned
+              </span>
+            )}
           </div>
           <div className="p-4 space-y-2 text-sm">
-            <div className="font-medium text-foreground">{patient.firstName} {patient.lastName}</div>
-            <div className="text-muted-foreground">DOB: {formatDateOnly(patient.dateOfBirth)}</div>
-            <div className="text-muted-foreground">Gender: {patient.gender}</div>
-            {patient.primaryPhoneNumber && <div className="text-muted-foreground">Phone: {patient.primaryPhoneNumber}</div>}
+            <div className="font-medium text-foreground">
+              {patient.firstName} {patient.lastName}
+            </div>
+            {patient.patientIdentifier && (
+              <div className="text-muted-foreground">
+                ID: {patient.patientIdentifier}
+              </div>
+            )}
+            <div className="text-muted-foreground">
+              DOB: {formatDateOnly(patient.dateOfBirth)}
+            </div>
+            <div className="text-muted-foreground">
+              Gender: {patient.gender}
+            </div>
+            {patient.primaryPhoneNumber && (
+              <div className="text-muted-foreground">
+                Phone: {patient.primaryPhoneNumber}
+              </div>
+            )}
             <div className="pt-2 border-t border-border/40">
               {visitInsurances && visitInsurances.length > 0 ? (
                 <div className="space-y-1">
-                  <div className="text-xs font-semibold text-foreground uppercase tracking-wide">Insurance</div>
+                  <div className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                    Insurance
+                  </div>
                   <div className="flex flex-wrap gap-1">
                     {visitInsurances.map((ins) => (
                       <span
@@ -199,14 +301,17 @@ export function ConsultationSidePanels({
                         className="inline-block bg-gradient-to-r from-primary/20 to-primary/10 text-primary px-2 py-1 rounded-full text-xs font-medium border border-primary/30"
                         title={ins.insuranceProvider.insuranceName}
                       >
-                        {ins.insuranceProvider.acronym || ins.insuranceProvider.insuranceName}
+                        {ins.insuranceProvider.acronym ||
+                          ins.insuranceProvider.insuranceName}
                       </span>
                     ))}
                   </div>
                 </div>
               ) : (
                 <div className="text-xs font-medium text-muted-foreground">
-                  <span className="inline-block bg-muted/40 px-2 py-1 rounded-full">Private</span>
+                  <span className="inline-block bg-muted/40 px-2 py-1 rounded-full">
+                    Private
+                  </span>
                 </div>
               )}
             </div>
@@ -215,18 +320,33 @@ export function ConsultationSidePanels({
       )}
 
       {showVitalsPanel && (
-        <VitalsPanel vitals={vitals} slotStyle={getPositionStyle(getPanelSlot('vitals'), activePanels.length) as any} pinned={vitalsPanel.pinned} />
+        <VitalsPanel
+          vitals={vitals}
+          slotStyle={
+            getPositionStyle(getPanelSlot("vitals"), activePanels.length) as any
+          }
+          pinned={vitalsPanel.pinned}
+        />
       )}
 
       {/* History Panel */}
       {!onOpenHistory && showHistoryPanel && (
         <div
           className="fixed z-40 w-96 bg-white/20 backdrop-blur-xl border border-white/30 rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
-          style={getPositionStyle(getPanelSlot('history'), activePanels.length) as any}
+          style={
+            getPositionStyle(
+              getPanelSlot("history"),
+              activePanels.length,
+            ) as any
+          }
         >
           <div className="flex items-center justify-between p-3 border-b border-border">
             <p className="text-sm font-semibold">History</p>
-            {historyPanel.pinned && <span className="text-xs bg-white/30 px-2 py-1 rounded">Pinned</span>}
+            {historyPanel.pinned && (
+              <span className="text-xs bg-white/30 px-2 py-1 rounded">
+                Pinned
+              </span>
+            )}
           </div>
           <div className="p-4 space-y-3 text-sm">
             <div>
@@ -247,5 +367,5 @@ export function ConsultationSidePanels({
         </div>
       )}
     </>
-  )
+  );
 }

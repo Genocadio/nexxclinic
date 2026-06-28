@@ -1121,6 +1121,7 @@ export function BillingPageContent() {
         patientAge={billingData.patientAge}
         gender={billingData.gender}
         visitDate={billingData.visitDate}
+        patientIdentifier={visit.patient.patientIdentifier || undefined}
         patientIdNumber={billingData.patientId_Number}
         patientInsurances={patientInsurances}
         activeInsuranceIds={visitInsuranceIds}

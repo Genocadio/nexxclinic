@@ -146,9 +146,9 @@ export function StandaloneConsultationView({
     (note: any) => !note?.viewed,
   ).length;
   const { data: previousEncounterData } = useLastPatientDepartmentVisit(
-    patient.id,
+    visit.id,
     catalogDepartmentId || null,
-    { skip: !patient.id || !catalogDepartmentId },
+    { skip: !visit.id || !catalogDepartmentId },
   );
 
   const [rendererForm, setRendererForm] = useState<SavedForm | null>(null);
