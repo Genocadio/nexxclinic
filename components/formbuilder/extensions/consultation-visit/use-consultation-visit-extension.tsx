@@ -103,9 +103,17 @@ export function useConsultationVisitExtension(
   const { updateQuantity } = useUpdateProductQuantity();
 
   const [productModalOpen, setProductModalOpen] = useState(false);
-  const [activeProductBlockId, setActiveProductBlockId] = useState<string | null>(null);
-  const [fieldActions, setFieldActions] = useState<Record<string, FormAction[]>>({});
+  const [activeProductBlockId, setActiveProductBlockId] = useState<
+    string | null
+  >(null);
+  const [fieldActions, setFieldActions] = useState<
+    Record<string, FormAction[]>
+  >({});
   const hydrationDoneRef = useRef(false);
+  const syncNoticeRef = useRef<{
+    level: "info" | "warning";
+    message: string;
+  } | null>(null);
 
   const activeDepartment = useMemo(
     () => resolveVisitDepartment(visitDepartments, visitDepartmentId),
@@ -134,7 +142,9 @@ export function useConsultationVisitExtension(
     setFieldActions((prev) => {
       const next = { ...prev };
       productBlocks.forEach((block) => {
-        const items = (Array.isArray(answers[block.id]) ? answers[block.id] : []) as ReturnType<typeof formActionToAddedProduct>[];
+        const items = (
+          Array.isArray(answers[block.id]) ? answers[block.id] : []
+        ) as ReturnType<typeof formActionToAddedProduct>[];
         next[block.id] = items.map(addedProductToFormAction);
       });
       return next;
@@ -152,12 +162,29 @@ export function useConsultationVisitExtension(
 
     setAnswers((prev) => {
       let next = prev;
+      let changed = false;
       if (activeDepartment) {
-        const clinical = hydrateClinicalAnswers(form.blocks, next, activeDepartment);
-        if (clinical) next = clinical;
+        const clinical = hydrateClinicalAnswers(
+          form.blocks,
+          next,
+          activeDepartment,
+        );
+        if (clinical) {
+          next = clinical;
+          changed = true;
+        }
       }
       const products = hydrateProductAnswers(form.blocks, next, visitProducts);
-      if (products) next = products;
+      if (products) {
+        next = products;
+        changed = true;
+      }
+      if (changed) {
+        syncNoticeRef.current = {
+          level: "info",
+          message: "Existing consultation data was synced into this form.",
+        };
+      }
       return next === prev ? prev : next;
     });
 
@@ -174,7 +201,12 @@ export function useConsultationVisitExtension(
   }, [form, visitProducts, setAnswers]);
 
   const extractBackendProductId = useCallback(
-    (result: { data?: { products?: Array<{ id?: string; product?: { id?: string } }> } }, catalogId: string) => {
+    (
+      result: {
+        data?: { products?: Array<{ id?: string; product?: { id?: string } }> };
+      },
+      catalogId: string,
+    ) => {
       if (Array.isArray(result.data?.products)) {
         const match = result.data.products.find(
           (p) => String(p?.product?.id) === String(catalogId),
@@ -189,7 +221,12 @@ export function useConsultationVisitExtension(
   const handleAddProduct = useCallback(
     async (
       type: "action" | "consumable",
-      item: { id: string; name: string; privatePrice?: number; isQuantifiable?: boolean },
+      item: {
+        id: string;
+        name: string;
+        privatePrice?: number;
+        isQuantifiable?: boolean;
+      },
       quantity: number,
     ) => {
       if (!activeProductBlockId || productsLocked) return;
@@ -211,7 +248,9 @@ export function useConsultationVisitExtension(
             ) || [],
         }));
         setAnswers((prev) => {
-          const items = (Array.isArray(prev[blockId]) ? prev[blockId] : []) as ReturnType<typeof formActionToAddedProduct>[];
+          const items = (
+            Array.isArray(prev[blockId]) ? prev[blockId] : []
+          ) as ReturnType<typeof formActionToAddedProduct>[];
           return {
             ...prev,
             [blockId]: items.map((p) =>
@@ -250,13 +289,14 @@ export function useConsultationVisitExtension(
         [blockId]: [...(prev[blockId] || []), newAction],
       }));
       setAnswers((prev) => {
-        const items = (Array.isArray(prev[blockId]) ? prev[blockId] : []) as ReturnType<typeof formActionToAddedProduct>[];
+        const items = (
+          Array.isArray(prev[blockId]) ? prev[blockId] : []
+        ) as ReturnType<typeof formActionToAddedProduct>[];
         return {
           ...prev,
           [blockId]: [...items, formActionToAddedProduct(newAction)],
         };
       });
-      onVisitRefetch?.();
     },
     [
       activeProductBlockId,
@@ -284,7 +324,9 @@ export function useConsultationVisitExtension(
           [blockId]: prev[blockId]?.filter((a) => a.id !== actionId) || [],
         }));
         setAnswers((prev) => {
-          const items = (Array.isArray(prev[blockId]) ? prev[blockId] : []) as ReturnType<typeof formActionToAddedProduct>[];
+          const items = (
+            Array.isArray(prev[blockId]) ? prev[blockId] : []
+          ) as ReturnType<typeof formActionToAddedProduct>[];
           return { ...prev, [blockId]: items.filter((p) => p.id !== actionId) };
         });
         return;
@@ -293,7 +335,8 @@ export function useConsultationVisitExtension(
       const result = await removeProduct(action.backendId);
       const ok =
         result?.status === "SUCCESS" ||
-        (typeof result?.message === "string" && /not found/i.test(result.message));
+        (typeof result?.message === "string" &&
+          /not found/i.test(result.message));
 
       if (ok) {
         setFieldActions((prev) => ({
@@ -301,10 +344,11 @@ export function useConsultationVisitExtension(
           [blockId]: prev[blockId]?.filter((a) => a.id !== actionId) || [],
         }));
         setAnswers((prev) => {
-          const items = (Array.isArray(prev[blockId]) ? prev[blockId] : []) as ReturnType<typeof formActionToAddedProduct>[];
+          const items = (
+            Array.isArray(prev[blockId]) ? prev[blockId] : []
+          ) as ReturnType<typeof formActionToAddedProduct>[];
           return { ...prev, [blockId]: items.filter((p) => p.id !== actionId) };
         });
-        onVisitRefetch?.();
       }
     },
     [fieldActions, removeProduct, setAnswers, onVisitRefetch],
@@ -324,7 +368,9 @@ export function useConsultationVisitExtension(
           ) || [],
       }));
       setAnswers((prev) => {
-        const items = (Array.isArray(prev[blockId]) ? prev[blockId] : []) as ReturnType<typeof formActionToAddedProduct>[];
+        const items = (
+          Array.isArray(prev[blockId]) ? prev[blockId] : []
+        ) as ReturnType<typeof formActionToAddedProduct>[];
         return {
           ...prev,
           [blockId]: items.map((p) =>
@@ -359,14 +405,16 @@ export function useConsultationVisitExtension(
         }
         return { ...prev, [blockId]: [...existing, entry] };
       });
-      onVisitRefetch?.();
       return true;
     },
     [visitDepartmentId, addDiagnosis, setAnswers, onVisitRefetch],
   );
 
   const handleAddMedicationFull = useCallback(
-    async (blockId: string, entry: Omit<import("../../renderer/types").MedFullEntry, "id">) => {
+    async (
+      blockId: string,
+      entry: Omit<import("../../renderer/types").MedFullEntry, "id">,
+    ) => {
       if (!visitDepartmentId) return false;
       const instructions = buildLongMedicationInstructions(entry);
       const result = await addMedication(
@@ -396,7 +444,6 @@ export function useConsultationVisitExtension(
         }
         return { ...prev, [blockId]: [...existing, record] };
       });
-      onVisitRefetch?.();
       return true;
     },
     [visitDepartmentId, addMedication, setAnswers, onVisitRefetch],
@@ -430,7 +477,6 @@ export function useConsultationVisitExtension(
         }
         return { ...prev, [blockId]: [...existing, record] };
       });
-      onVisitRefetch?.();
       return true;
     },
     [visitDepartmentId, addMedication, setAnswers, onVisitRefetch],
@@ -449,7 +495,9 @@ export function useConsultationVisitExtension(
   );
 
   const getBlockHandlers = useCallback(
-    (block: import("@/lib/formbuilder-storage").FormBlock): MedicalBlockHandlers | null => {
+    (
+      block: import("@/lib/formbuilder-storage").FormBlock,
+    ): MedicalBlockHandlers | null => {
       if (!edit) return { productsLocked: true };
 
       switch (block.type) {

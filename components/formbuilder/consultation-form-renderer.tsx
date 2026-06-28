@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { FormRenderer } from "./form-renderer";
+import { useMemo, useState, forwardRef } from "react";
+import { FormRenderer, type FormRendererHandle } from "./form-renderer";
 import { useConsultationVisitExtension } from "./extensions/consultation-visit";
 import type { ConsultationVisitExtensionOptions } from "./extensions/consultation-visit";
 import type { FormAnswers, FormRendererProps } from "./renderer/types";
@@ -30,22 +30,28 @@ type ConsultationFormRendererProps = Omit<
  * Keeps answers in controlled mode so products/diagnostics/medications
  * stay balanced with the visit department.
  */
-export function ConsultationFormRenderer({
-  visitId,
-  visitDepartmentId,
-  departmentId,
-  visitDepartments,
-  visitStatus,
-  visitDepartmentStatus,
-  existingProducts,
-  onVisitRefetch,
-  initialAnswers = {},
-  onChange,
-  form,
-  controlledAnswers: controlledAnswersProp,
-  onControlledAnswersChange,
-  ...rest
-}: ConsultationFormRendererProps) {
+export const ConsultationFormRenderer = forwardRef<
+  FormRendererHandle,
+  ConsultationFormRendererProps
+>(function ConsultationFormRenderer(
+  {
+    visitId,
+    visitDepartmentId,
+    departmentId,
+    visitDepartments,
+    visitStatus,
+    visitDepartmentStatus,
+    existingProducts,
+    onVisitRefetch,
+    initialAnswers = {},
+    onChange,
+    form,
+    controlledAnswers: controlledAnswersProp,
+    onControlledAnswersChange,
+    ...rest
+  },
+  ref,
+) {
   const [internalAnswers, setInternalAnswers] = useState<FormAnswers>(() => ({
     ...initialAnswers,
   }));
@@ -55,7 +61,9 @@ export function ConsultationFormRenderer({
     ? (next: FormAnswers | ((prev: FormAnswers) => FormAnswers)) => {
         const resolved =
           typeof next === "function"
-            ? (next as (prev: FormAnswers) => FormAnswers)(controlledAnswersProp)
+            ? (next as (prev: FormAnswers) => FormAnswers)(
+                controlledAnswersProp,
+              )
             : next;
         onControlledAnswersChange?.(resolved);
       }
@@ -98,6 +106,7 @@ export function ConsultationFormRenderer({
   return (
     <>
       <FormRenderer
+        ref={ref}
         form={form}
         initialAnswers={initialAnswers}
         controlledAnswers={answers}
@@ -113,4 +122,4 @@ export function ConsultationFormRenderer({
       {consultationExtension.renderOverlay?.()}
     </>
   );
-}
+});

@@ -27,9 +27,7 @@ export interface MedicalBlockHandlers {
   ) => Promise<boolean>;
 
   /** Medication blocks — sync add to visit department */
-  onAddMedicationFull?: (
-    entry: Omit<MedFullEntry, "id">,
-  ) => Promise<boolean>;
+  onAddMedicationFull?: (entry: Omit<MedFullEntry, "id">) => Promise<boolean>;
   onAddMedicationMini?: (name: string, notes?: string) => Promise<boolean>;
 
   visitId?: string;
@@ -56,6 +54,14 @@ export interface FormRendererExtension {
   renderOverlay?: () => ReactNode;
   /** Called whenever merged answers change. */
   onAnswersChange?: (answers: FormAnswers) => void;
+  /** Optional non-blocking sync notice surfaced by parent screens. */
+  getSyncNotice?: () => { level: "info" | "warning"; message: string } | null;
 }
 
-export type { AddedProduct, DiagEntry, MedFullEntry, MedMiniEntry, FormAnswers };
+export type {
+  AddedProduct,
+  DiagEntry,
+  MedFullEntry,
+  MedMiniEntry,
+  FormAnswers,
+};

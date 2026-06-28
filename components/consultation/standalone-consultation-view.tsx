@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FormRendererHandle } from "@/components/formbuilder/form-renderer";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -147,6 +148,21 @@ export function StandaloneConsultationView({
   const [saveStatus, setSaveStatus] = useState<"saved" | "dirty" | "saving">(
     "saved",
   );
+
+  const hasAnyAnswerContent = useMemo(() => {
+    const hasContent = (value: unknown): boolean => {
+      if (value == null) return false;
+      if (typeof value === "string") return value.trim().length > 0;
+      if (typeof value === "number" || typeof value === "boolean") return true;
+      if (Array.isArray(value)) return value.some(hasContent);
+      if (typeof value === "object") {
+        return Object.values(value as Record<string, unknown>).some(hasContent);
+      }
+      return false;
+    };
+
+    return Object.values(answers || {}).some(hasContent);
+  }, [answers]);
   const [notesOpen, setNotesOpen] = useState(false);
   const [patientHistoryOpen, setPatientHistoryOpen] = useState(false);
   const [previewConsultationOpen, setPreviewConsultationOpen] = useState(false);
@@ -204,6 +220,7 @@ export function StandaloneConsultationView({
   const saveInFlightRef = useRef(false);
   const autoPinnedVitalsRef = useRef(false);
   const investigationProductSearchRef = useRef<HTMLInputElement>(null);
+  const formRendererRef = useRef<FormRendererHandle | null>(null);
 
   const patientLabel = useMemo(() => {
     const name = [patient.firstName, patient.lastName]
@@ -273,14 +290,18 @@ export function StandaloneConsultationView({
     async (
       nextAnswers: FormAnswers,
       status: "DRAFT" | "FINAL",
-      options?: { silent?: boolean },
+      options?: { silent?: boolean; skipDuplicateCheck?: boolean },
     ) => {
       if (!formVersionId || !catalogDepartmentId) {
         throw new Error("Form context is missing");
       }
 
       const snapshot = buildAnswersSnapshot(nextAnswers);
-      if (status === "DRAFT" && snapshot === lastSavedSnapshotRef.current) {
+      if (
+        status === "DRAFT" &&
+        !options?.skipDuplicateCheck &&
+        snapshot === lastSavedSnapshotRef.current
+      ) {
         setSaveStatus("saved");
         return null;
       }
@@ -406,9 +427,8 @@ export function StandaloneConsultationView({
       saveInFlightRef.current = true;
       try {
         await persistAnswers(answers, "DRAFT", { silent: true });
-      } catch (err: unknown) {
+      } catch (_err: unknown) {
         setSaveStatus("dirty");
-        toast.error(err instanceof Error ? err.message : "Auto-save failed");
       } finally {
         saveInFlightRef.current = false;
       }
@@ -423,7 +443,7 @@ export function StandaloneConsultationView({
 
   const handleManualSave = async () => {
     try {
-      await persistAnswers(answers, "DRAFT");
+      await persistAnswers(answers, "DRAFT", { skipDuplicateCheck: true });
       toast.success("Draft saved");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Save failed");
@@ -431,8 +451,14 @@ export function StandaloneConsultationView({
   };
 
   const handleComplete = async () => {
+    const valid = formRendererRef.current?.validateAndShowErrors() ?? true;
+    if (!valid) {
+      toast.error("Please complete required fields before finalising");
+      return;
+    }
+
     try {
-      await persistAnswers(answers, "FINAL");
+      await persistAnswers(answers, "FINAL", { skipDuplicateCheck: true });
       toast.success("Consultation completed");
       router.push("/");
     } catch (err: unknown) {
@@ -566,6 +592,14 @@ export function StandaloneConsultationView({
   }
 
   if (!rendererForm || !formVersionId) {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center py-24 text-muted-foreground gap-2">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Loading consultation form…
+        </div>
+      );
+    }
     return (
       <div className="rounded-xl border border-dashed p-8 text-center space-y-3">
         <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
@@ -621,9 +655,11 @@ export function StandaloneConsultationView({
       />
 
       <ConsultationFormRenderer
+        ref={formRendererRef}
         form={rendererForm}
         showTitle={false}
         hideSubmit
+        validate={false}
         initialAnswers={initialAnswers}
         controlledAnswers={answers}
         onControlledAnswersChange={setAnswers}
@@ -640,6 +676,10 @@ export function StandaloneConsultationView({
       {!patientHistoryOpen && (
         <ConsultationBottomDock
           onComplete={() => setShowFinalizeConfirm(true)}
+          saveIndicator={{
+            visible: hasAnyAnswerContent,
+            status: saveStatus,
+          }}
         />
       )}
 
@@ -1080,28 +1120,6 @@ export function StandaloneConsultationView({
           )}
         </SheetContent>
       </Sheet>
-
-      <div className="fixed right-6 top-20 z-[120] pointer-events-none">
-        <div className="group pointer-events-auto inline-flex items-center rounded-full border border-border/70 bg-background/95 px-2 py-2 shadow-lg backdrop-blur transition-all duration-200 hover:pl-3 hover:pr-4">
-          <span
-            className={`h-2.5 w-2.5 rounded-full ${
-              saveStatus === "saving"
-                ? "bg-orange-500"
-                : saveStatus === "dirty"
-                  ? "bg-red-500"
-                  : "bg-green-500"
-            }`}
-            aria-hidden="true"
-          />
-          <span className="max-w-0 overflow-hidden whitespace-nowrap pl-0 text-xs font-medium text-muted-foreground opacity-0 transition-all duration-200 group-hover:max-w-24 group-hover:pl-2 group-hover:opacity-100">
-            {saveStatus === "saving"
-              ? "Saving"
-              : saveStatus === "dirty"
-                ? "Unsaved"
-                : "Saved"}
-          </span>
-        </div>
-      </div>
 
       <VisitNotesFloating
         title="Consultation Notes"
