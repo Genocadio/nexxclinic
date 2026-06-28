@@ -393,6 +393,16 @@ export interface Visit {
   vitalSigns: VisitVitalSignsGroup[];
 }
 
+export interface LastDepartmentVisitInfo {
+  visitId: string;
+  visitDepartment: VisitDepartment;
+}
+
+export interface LastPatientDepartmentVisitOutput {
+  lastVisit?: Visit | null;
+  lastDepartmentVisit?: LastDepartmentVisitInfo | null;
+}
+
 /**
  * VisitDepartmentNotesSummary - Summary of notes for a visit department
  */

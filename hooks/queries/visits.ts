@@ -398,6 +398,110 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
   }
 `;
 
+export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
+  query LastPatientDepartmentVisit($patientId: ID!, $departmentId: ID!) {
+    lastPatientDepartmentVisit(
+      patientId: $patientId
+      departmentId: $departmentId
+    ) {
+      status
+      message
+      data {
+        lastVisit {
+          id
+          status
+          visitDate
+          patient {
+            id
+            firstName
+            lastName
+            middleName
+            dateOfBirth
+            gender
+          }
+          departments {
+            id
+            department {
+              id
+              name
+            }
+            status
+            completedAt
+            diagnostics {
+              id
+              diagnosisName
+              icd11Code
+              createdAt
+            }
+            medications {
+              id
+              medicationName
+              instructions
+              createdAt
+            }
+            products {
+              id
+              product {
+                id
+                name
+                code
+                type
+              }
+              quantity
+              price
+              status
+              createdAt
+            }
+            createdAt
+            updatedAt
+            answerId
+          }
+        }
+        lastDepartmentVisit {
+          visitId
+          visitDepartment {
+            id
+            department {
+              id
+              name
+            }
+            status
+            completedAt
+            diagnostics {
+              id
+              diagnosisName
+              icd11Code
+              createdAt
+            }
+            medications {
+              id
+              medicationName
+              instructions
+              createdAt
+            }
+            products {
+              id
+              product {
+                id
+                name
+                code
+                type
+              }
+              quantity
+              price
+              status
+              createdAt
+            }
+            createdAt
+            updatedAt
+            answerId
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const DASHBOARD_STATS_QUERY = gql`
   query DashboardStats($days: Int!) {
     dashboardStats(days: $days) {

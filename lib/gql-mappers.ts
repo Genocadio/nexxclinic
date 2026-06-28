@@ -22,170 +22,174 @@ import {
   type VisitDepartmentProduct,
   type VisitProductStatus,
   type Worker,
-} from "@/lib/api-types"
+  type LastDepartmentVisitInfo,
+  type LastPatientDepartmentVisitOutput,
+} from "@/lib/api-types";
 
-const EMPTY_TIMESTAMP = ""
+const EMPTY_TIMESTAMP = "";
 
 export type GqlInsuranceProvider = {
-  id: string
-  insuranceName: string
-  acronym?: string | null
-  defaultCoveragePercentage?: number | null
-  supportedByClinic?: boolean | null
-  iconUrl?: string | null
-}
+  id: string;
+  insuranceName: string;
+  acronym?: string | null;
+  defaultCoveragePercentage?: number | null;
+  supportedByClinic?: boolean | null;
+  iconUrl?: string | null;
+};
 
 export type GqlPatientInsurance = {
-  id: string
-  insuranceCardNumber: string
-  providingCompanyOrEmployer?: string | null
-  principalMember?: boolean | null
-  principalMemberName?: string | null
-  principalMemberPhoneNumber?: string | null
-  validFrom?: string | null
-  validUntil?: string | null
-  insuranceProvider: GqlInsuranceProvider
-  patient?: { id: string } | null
-}
+  id: string;
+  insuranceCardNumber: string;
+  providingCompanyOrEmployer?: string | null;
+  principalMember?: boolean | null;
+  principalMemberName?: string | null;
+  principalMemberPhoneNumber?: string | null;
+  validFrom?: string | null;
+  validUntil?: string | null;
+  insuranceProvider: GqlInsuranceProvider;
+  patient?: { id: string } | null;
+};
 
 export type GqlPatient = {
-  id: string
-  firstName: string
-  middleName?: string | null
-  lastName?: string | null
-  dateOfBirth?: string | null
-  gender?: string | null
-  primaryPhoneNumber?: string | null
-  alternativePhone?: string | null
-  village?: string | null
-  city?: string | null
-  district?: string | null
-  postalAddress?: string | null
-  nationalIdNumber?: string | null
-  passportNumber?: string | null
-  emergencyContactName?: string | null
-  emergencyContactRelationship?: string | null
-  emergencyContactPhoneNumber?: string | null
-  patientInsurances?: GqlPatientInsurance[] | null
-  createdAt?: string | null
-  updatedAt?: string | null
-}
+  id: string;
+  firstName: string;
+  middleName?: string | null;
+  lastName?: string | null;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  primaryPhoneNumber?: string | null;
+  alternativePhone?: string | null;
+  village?: string | null;
+  city?: string | null;
+  district?: string | null;
+  postalAddress?: string | null;
+  nationalIdNumber?: string | null;
+  passportNumber?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactRelationship?: string | null;
+  emergencyContactPhoneNumber?: string | null;
+  patientInsurances?: GqlPatientInsurance[] | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
 
 export type GqlWorkerRef = {
-  id: string
-  firstName?: string | null
-  lastName?: string | null
-  email?: string | null
-  phoneNumber?: string | null
-  username?: string | null
-}
+  id: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  phoneNumber?: string | null;
+  username?: string | null;
+};
 
 export type GqlWorker = GqlWorkerRef & {
-  accountStatus?: string | null
-  roles?: string[] | null
-  departments?: Array<{ id: string; name: string }> | null
-  createdAt?: string | null
-  updatedAt?: string | null
-}
+  accountStatus?: string | null;
+  roles?: string[] | null;
+  departments?: Array<{ id: string; name: string }> | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
 
 export type GqlCoverage = {
-  id: string
-  insuranceProvider?: GqlInsuranceProvider | null
-  cost?: number | null
-  covered?: boolean | null
-  requireMedicalAdvisor?: boolean | null
-  mustPrescribedBy?: string | null
-  drugAdministrationFrequency?: string | null
-  authorizationRequestReasons?: string[] | null
-}
+  id: string;
+  insuranceProvider?: GqlInsuranceProvider | null;
+  cost?: number | null;
+  covered?: boolean | null;
+  requireMedicalAdvisor?: boolean | null;
+  mustPrescribedBy?: string | null;
+  drugAdministrationFrequency?: string | null;
+  authorizationRequestReasons?: string[] | null;
+};
 
 export type GqlProduct = {
-  id: string
-  name: string
-  code?: string | null
-  description?: string | null
-  genericName?: string | null
-  type?: string | null
-  unit?: string | null
-  privateRhicPrice?: number | null
-  clinicPrice?: number | null
-  insuranceCoverages?: GqlCoverage[] | null
-}
+  id: string;
+  name: string;
+  code?: string | null;
+  description?: string | null;
+  genericName?: string | null;
+  type?: string | null;
+  unit?: string | null;
+  privateRhicPrice?: number | null;
+  clinicPrice?: number | null;
+  insuranceCoverages?: GqlCoverage[] | null;
+};
 
 export type GqlVisitDepartmentProduct = {
-  id: string
-  product?: GqlProduct | null
-  quantity: number
-  price?: number | null
-  status: string
-  addedBy?: GqlWorkerRef | null
-  billedBy?: GqlWorkerRef | null
-  processor?: GqlWorkerRef | null
-  createdAt?: string | null
-  updatedAt?: string | null
-}
+  id: string;
+  product?: GqlProduct | null;
+  quantity: number;
+  price?: number | null;
+  status: string;
+  addedBy?: GqlWorkerRef | null;
+  billedBy?: GqlWorkerRef | null;
+  processor?: GqlWorkerRef | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
 
 export type GqlVisitDepartment = {
-  id: string
-  status: string
-  encounterType?: string | null
-  completedAt?: string | null
-  childVisitDepartments?: GqlVisitDepartment[] | null
+  id: string;
+  status: string;
+  encounterType?: string | null;
+  completedAt?: string | null;
+  childVisitDepartments?: GqlVisitDepartment[] | null;
   diagnostics?: Array<{
-    id: string
-    diagnosisName: string
-    icd11Code?: string | null
-    createdAt?: string | null
-  }> | null
+    id: string;
+    diagnosisName: string;
+    icd11Code?: string | null;
+    createdAt?: string | null;
+  }> | null;
   medications?: Array<{
-    id: string
-    medicationName: string
-    instructions: string
-    createdAt?: string | null
-  }> | null
-  products?: GqlVisitDepartmentProduct[] | null
-  preInstructions?: unknown[] | null
+    id: string;
+    medicationName: string;
+    instructions: string;
+    createdAt?: string | null;
+  }> | null;
+  products?: GqlVisitDepartmentProduct[] | null;
+  preInstructions?: unknown[] | null;
   department?: {
-    id: string
-    name: string
-    insurancePolicyMode?: string | null
-    requestsProducts?: boolean | null
-    nursing?: boolean | null
-    supportRequests?: boolean | null
-  } | null
-  processors?: GqlWorkerRef[] | null
-  answerId?: string | null
-  createdAt?: string | null
-  updatedAt?: string | null
-}
+    id: string;
+    name: string;
+    insurancePolicyMode?: string | null;
+    requestsProducts?: boolean | null;
+    nursing?: boolean | null;
+    supportRequests?: boolean | null;
+  } | null;
+  processors?: GqlWorkerRef[] | null;
+  answerId?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
 
 export type GqlVisit = {
-  id: string
-  visitDate: string
-  status: string
-  vitalSigns?: unknown[] | null
-  linkedInsurances?: GqlPatientInsurance[] | null
-  patient: GqlPatient
-  departments?: GqlVisitDepartment[] | null
-}
+  id: string;
+  visitDate: string;
+  status: string;
+  vitalSigns?: unknown[] | null;
+  linkedInsurances?: GqlPatientInsurance[] | null;
+  patient: GqlPatient;
+  departments?: GqlVisitDepartment[] | null;
+};
 
 function parseGender(value?: string | null): Gender {
-  const normalized = String(value || "").toUpperCase()
-  if (normalized === Gender.MALE || normalized === "M") return Gender.MALE
-  if (normalized === Gender.FEMALE || normalized === "F") return Gender.FEMALE
-  if (normalized === Gender.OTHER) return Gender.OTHER
-  return Gender.OTHER
+  const normalized = String(value || "").toUpperCase();
+  if (normalized === Gender.MALE || normalized === "M") return Gender.MALE;
+  if (normalized === Gender.FEMALE || normalized === "F") return Gender.FEMALE;
+  if (normalized === Gender.OTHER) return Gender.OTHER;
+  return Gender.OTHER;
 }
 
 function parseEncounterType(value?: string | null): EncounterType {
-  const normalized = String(value || "").toUpperCase()
+  const normalized = String(value || "").toUpperCase();
   if (normalized in EncounterType) {
-    return EncounterType[normalized as keyof typeof EncounterType]
+    return EncounterType[normalized as keyof typeof EncounterType];
   }
-  return EncounterType.OUTPATIENT
+  return EncounterType.OUTPATIENT;
 }
 
-export function mapGqlInsuranceProvider(provider: GqlInsuranceProvider): InsuranceProvider {
+export function mapGqlInsuranceProvider(
+  provider: GqlInsuranceProvider,
+): InsuranceProvider {
   return {
     id: provider.id,
     insuranceName: provider.insuranceName,
@@ -196,10 +200,12 @@ export function mapGqlInsuranceProvider(provider: GqlInsuranceProvider): Insuran
     createdAt: EMPTY_TIMESTAMP,
     updatedAt: EMPTY_TIMESTAMP,
     name: provider.insuranceName,
-  }
+  };
 }
 
-export function mapGqlProductInsuranceCoverage(coverage: GqlCoverage): ProductInsuranceCoverage {
+export function mapGqlProductInsuranceCoverage(
+  coverage: GqlCoverage,
+): ProductInsuranceCoverage {
   return {
     id: String(coverage.id || ""),
     insuranceProvider: mapGqlInsuranceProvider(
@@ -208,13 +214,14 @@ export function mapGqlProductInsuranceCoverage(coverage: GqlCoverage): ProductIn
     cost: Number(coverage.cost ?? 0),
     covered: Boolean(coverage.covered),
     requireMedicalAdvisor: Boolean(coverage.requireMedicalAdvisor),
-    mustPrescribedBy: coverage.mustPrescribedBy as ProductInsuranceCoverage["mustPrescribedBy"],
+    mustPrescribedBy:
+      coverage.mustPrescribedBy as ProductInsuranceCoverage["mustPrescribedBy"],
     drugAdministrationFrequency:
       coverage.drugAdministrationFrequency as ProductInsuranceCoverage["drugAdministrationFrequency"],
     authorizationRequestReasons: coverage.authorizationRequestReasons || [],
     createdAt: EMPTY_TIMESTAMP,
     updatedAt: EMPTY_TIMESTAMP,
-  }
+  };
 }
 
 export function mapGqlProduct(product: GqlProduct): Product {
@@ -228,16 +235,20 @@ export function mapGqlProduct(product: GqlProduct): Product {
     unit: (product.unit as ProductUnit) || ("UNKNOWN" as ProductUnit),
     privateRhicPrice: product.privateRhicPrice,
     clinicPrice: product.clinicPrice,
-    insuranceCoverages: (product.insuranceCoverages || []).map(mapGqlProductInsuranceCoverage),
+    insuranceCoverages: (product.insuranceCoverages || []).map(
+      mapGqlProductInsuranceCoverage,
+    ),
     createdAt: EMPTY_TIMESTAMP,
     updatedAt: EMPTY_TIMESTAMP,
-  }
+  };
 }
 
-export function mapGqlWorkerRef(worker?: GqlWorkerRef | null): Worker | undefined {
-  if (!worker?.id) return undefined
-  const firstName = worker.firstName || ""
-  const lastName = worker.lastName
+export function mapGqlWorkerRef(
+  worker?: GqlWorkerRef | null,
+): Worker | undefined {
+  if (!worker?.id) return undefined;
+  const firstName = worker.firstName || "";
+  const lastName = worker.lastName;
   return {
     id: worker.id,
     firstName,
@@ -250,20 +261,23 @@ export function mapGqlWorkerRef(worker?: GqlWorkerRef | null): Worker | undefine
     departments: [],
     createdAt: EMPTY_TIMESTAMP,
     updatedAt: EMPTY_TIMESTAMP,
-    name: [firstName, lastName].filter(Boolean).join(" ") || worker.email || undefined,
-  }
+    name:
+      [firstName, lastName].filter(Boolean).join(" ") ||
+      worker.email ||
+      undefined,
+  };
 }
 
 function parseAccountStatus(value?: string | null): AccountStatus {
-  const normalized = String(value || "").toUpperCase()
+  const normalized = String(value || "").toUpperCase();
   if (normalized in AccountStatus) {
-    return AccountStatus[normalized as keyof typeof AccountStatus]
+    return AccountStatus[normalized as keyof typeof AccountStatus];
   }
-  return AccountStatus.PENDING
+  return AccountStatus.PENDING;
 }
 
 export function mapGqlWorker(worker?: GqlWorker | null): Worker {
-  const ref = mapGqlWorkerRef(worker)
+  const ref = mapGqlWorkerRef(worker);
   if (!ref) {
     return {
       id: "",
@@ -273,7 +287,7 @@ export function mapGqlWorker(worker?: GqlWorker | null): Worker {
       departments: [],
       createdAt: EMPTY_TIMESTAMP,
       updatedAt: EMPTY_TIMESTAMP,
-    }
+    };
   }
 
   return {
@@ -292,7 +306,7 @@ export function mapGqlWorker(worker?: GqlWorker | null): Worker {
     ),
     createdAt: worker?.createdAt || EMPTY_TIMESTAMP,
     updatedAt: worker?.updatedAt || EMPTY_TIMESTAMP,
-  }
+  };
 }
 
 export function mapGqlPatient(patient: GqlPatient): Patient {
@@ -317,18 +331,18 @@ export function mapGqlPatient(patient: GqlPatient): Patient {
     patientInsurances: [],
     createdAt: patient.createdAt || EMPTY_TIMESTAMP,
     updatedAt: patient.updatedAt || EMPTY_TIMESTAMP,
-  }
-  mapped.patientInsurances = (patient.patientInsurances || []).map((insurance) =>
-    mapGqlPatientInsurance(insurance, mapped),
-  )
-  return mapped
+  };
+  mapped.patientInsurances = (patient.patientInsurances || []).map(
+    (insurance) => mapGqlPatientInsurance(insurance, mapped),
+  );
+  return mapped;
 }
 
 export function mapGqlPatientSummary(patient: {
-  id: string
-  firstName: string
-  lastName?: string | null
-  primaryPhoneNumber?: string | null
+  id: string;
+  firstName: string;
+  lastName?: string | null;
+  primaryPhoneNumber?: string | null;
 }): Patient {
   return {
     id: patient.id,
@@ -340,7 +354,7 @@ export function mapGqlPatientSummary(patient: {
     patientInsurances: [],
     createdAt: EMPTY_TIMESTAMP,
     updatedAt: EMPTY_TIMESTAMP,
-  }
+  };
 }
 
 export function mapGqlPatientInsurance(
@@ -360,7 +374,7 @@ export function mapGqlPatientInsurance(
     validUntil: insurance.validUntil || EMPTY_TIMESTAMP,
     createdAt: EMPTY_TIMESTAMP,
     updatedAt: EMPTY_TIMESTAMP,
-  }
+  };
 }
 
 export function mapGqlVisitDepartmentProduct(
@@ -378,23 +392,27 @@ export function mapGqlVisitDepartmentProduct(
         insuranceCoverages: [],
         createdAt: EMPTY_TIMESTAMP,
         updatedAt: EMPTY_TIMESTAMP,
-      }
+      };
 
   return {
     id: item.id,
     product,
     quantity: Number(item.quantity ?? 0),
-    price: Number(item.price ?? product.clinicPrice ?? product.privateRhicPrice ?? 0),
+    price: Number(
+      item.price ?? product.clinicPrice ?? product.privateRhicPrice ?? 0,
+    ),
     status: item.status as VisitProductStatus,
     addedBy: mapGqlWorkerRef(item.addedBy),
     billedBy: mapGqlWorkerRef(item.billedBy),
     processor: mapGqlWorkerRef(item.processor),
     createdAt: item.createdAt || EMPTY_TIMESTAMP,
     updatedAt: item.updatedAt || EMPTY_TIMESTAMP,
-  }
+  };
 }
 
-export function mapGqlDepartmentSummary(department: NonNullable<GqlVisitDepartment["department"]>): Department {
+export function mapGqlDepartmentSummary(
+  department: NonNullable<GqlVisitDepartment["department"]>,
+): Department {
   return {
     id: department.id,
     name: department.name,
@@ -408,12 +426,14 @@ export function mapGqlDepartmentSummary(department: NonNullable<GqlVisitDepartme
     requestsProducts: department.requestsProducts ?? false,
     createdAt: EMPTY_TIMESTAMP,
     updatedAt: EMPTY_TIMESTAMP,
-  }
+  };
 }
 
-export function mapGqlVisitDepartment(department: GqlVisitDepartment): VisitDepartment {
-  const mappedDepartment = department.department
-    ? mapGqlDepartmentSummary(department.department)
+export function mapGqlVisitDepartment(
+  dept: GqlVisitDepartment,
+): VisitDepartment {
+  const mappedDepartment = dept.department
+    ? mapGqlDepartmentSummary(dept.department)
     : {
         id: "",
         name: "",
@@ -425,36 +445,69 @@ export function mapGqlVisitDepartment(department: GqlVisitDepartment): VisitDepa
         requestsProducts: false,
         createdAt: EMPTY_TIMESTAMP,
         updatedAt: EMPTY_TIMESTAMP,
-      }
+      };
 
   return {
-    id: department.id,
+    id: dept.id,
     department: mappedDepartment,
-    status: department.status as VisitDepartment["status"],
-    encounterType: parseEncounterType(department.encounterType),
-    completedAt: department.completedAt,
-    processors: (department.processors || [])
+    status: dept.status as VisitDepartment["status"],
+    encounterType: parseEncounterType(dept.encounterType),
+    completedAt: dept.completedAt,
+    processors: (dept.processors || [])
       .map(mapGqlWorkerRef)
       .filter((worker): worker is Worker => Boolean(worker)),
-    childVisitDepartments: (department.childVisitDepartments || []).map(mapGqlVisitDepartment),
-    products: (department.products || []).map(mapGqlVisitDepartmentProduct),
-    diagnostics: (department.diagnostics || []).map((diagnosis) => ({
+    childVisitDepartments: (dept.childVisitDepartments || []).map(
+      mapGqlVisitDepartment,
+    ),
+    products: (dept.products || []).map(mapGqlVisitDepartmentProduct),
+    diagnostics: (dept.diagnostics || []).map((diagnosis) => ({
       id: String(diagnosis.id),
       diagnosisName: String(diagnosis.diagnosisName || ""),
       icd11Code: diagnosis.icd11Code,
       createdAt: diagnosis.createdAt || EMPTY_TIMESTAMP,
     })),
-    medications: (department.medications || []).map((medication) => ({
+    medications: (dept.medications || []).map((medication) => ({
       id: String(medication.id),
       medicationName: String(medication.medicationName || ""),
       instructions: String(medication.instructions || ""),
       createdAt: medication.createdAt || EMPTY_TIMESTAMP,
     })),
     preInstructions: [],
-    answerId: department.answerId ?? null,
-    createdAt: department.createdAt || EMPTY_TIMESTAMP,
-    updatedAt: department.updatedAt || EMPTY_TIMESTAMP,
-  }
+    answerId: dept.answerId ?? null,
+    createdAt: dept.createdAt || EMPTY_TIMESTAMP,
+    updatedAt: dept.updatedAt || EMPTY_TIMESTAMP,
+  };
+}
+
+export function mapGqlLastDepartmentVisitInfo(
+  input?: {
+    visitId?: string | null;
+    visitDepartment?: GqlVisitDepartment | null;
+  } | null,
+): LastDepartmentVisitInfo | null {
+  if (!input?.visitId || !input?.visitDepartment) return null;
+  return {
+    visitId: String(input.visitId),
+    visitDepartment: mapGqlVisitDepartment(input.visitDepartment),
+  };
+}
+
+export function mapGqlLastPatientDepartmentVisitOutput(
+  input?: {
+    lastVisit?: GqlVisit | null;
+    lastDepartmentVisit?: {
+      visitId?: string | null;
+      visitDepartment?: GqlVisitDepartment | null;
+    } | null;
+  } | null,
+): LastPatientDepartmentVisitOutput | null {
+  if (!input) return null;
+  return {
+    lastVisit: input.lastVisit ? mapGqlVisit(input.lastVisit) : null,
+    lastDepartmentVisit: mapGqlLastDepartmentVisitInfo(
+      input.lastDepartmentVisit,
+    ),
+  };
 }
 
 export function mapGqlVisit(
@@ -463,7 +516,7 @@ export function mapGqlVisit(
 ): Visit {
   const patient = options?.patientMapper
     ? options.patientMapper(visit.patient)
-    : mapGqlPatient(visit.patient)
+    : mapGqlPatient(visit.patient);
 
   return {
     id: visit.id,
@@ -475,13 +528,13 @@ export function mapGqlVisit(
     ),
     departments: (visit.departments || []).map(mapGqlVisitDepartment),
     vitalSigns: [],
-  }
+  };
 }
 
 export function mapGqlVisitListItem(visit: GqlVisit): Visit {
   const patient = visit.patient.dateOfBirth
     ? mapGqlPatient(visit.patient)
-    : mapGqlPatientSummary(visit.patient)
+    : mapGqlPatientSummary(visit.patient);
 
-  return mapGqlVisit({ ...visit, patient }, { patientMapper: () => patient })
+  return mapGqlVisit({ ...visit, patient }, { patientMapper: () => patient });
 }

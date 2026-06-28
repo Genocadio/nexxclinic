@@ -54,6 +54,8 @@ export type {
   VisitDepartmentProduct,
   VisitDepartmentDiagnosis,
   VisitDepartmentMedication,
+  LastDepartmentVisitInfo,
+  LastPatientDepartmentVisitOutput,
   VisitVitalSignsGroup,
   VitalMeasurement,
   VisitPreInstruction,

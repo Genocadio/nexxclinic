@@ -20,6 +20,7 @@ import type { SavedForm } from "@/lib/formbuilder-storage";
 import { ConsultationFormRenderer } from "@/components/formbuilder/form-renderer";
 import type { FormAnswers } from "@/components/formbuilder/form-renderer";
 import { ConsultationBottomDock } from "@/components/consultation/consultation-bottom-dock";
+import { ConsultationPreviousEncounters } from "@/components/consultation/consultation-previous-encounters";
 import { ConsultationSidePanels } from "@/components/consultation/consultation-side-panels";
 import { ConsultationPreviewSheet } from "@/components/dashboard/consultation-preview-sheet";
 import PatientHistorySidePane from "@/components/patient-history-side-pane";
@@ -54,6 +55,7 @@ import {
   useAddChildVisitDepartment,
   useAddProductToVisitDepartment,
   useAddVisitDepartmentNote,
+  useLastPatientDepartmentVisit,
   useMarkVisitDepartmentNotesViewed,
   useVisitDepartmentNotes,
 } from "@/hooks/visits";
@@ -143,6 +145,11 @@ export function StandaloneConsultationView({
   const unreadNotesCount = (departmentNotes || []).filter(
     (note: any) => !note?.viewed,
   ).length;
+  const { data: previousEncounterData } = useLastPatientDepartmentVisit(
+    patient.id,
+    catalogDepartmentId || null,
+    { skip: !patient.id || !catalogDepartmentId },
+  );
 
   const [rendererForm, setRendererForm] = useState<SavedForm | null>(null);
   const [formVersionId, setFormVersionId] = useState<string | null>(null);
@@ -711,6 +718,22 @@ export function StandaloneConsultationView({
         setVitalsPanel={setVitalsPanel}
         setHistoryPanel={setHistoryPanel}
         onOpenHistory={() => setPatientHistoryOpen(true)}
+      />
+
+      <ConsultationPreviousEncounters
+        data={previousEncounterData}
+        patientName={patientLabel}
+        currentDepartmentId={catalogDepartmentId}
+        hasAnsweredCurrentForm={hasAnyAnswerContent}
+        onPreviewAnswerAction={({ answerId, departmentName, patientName }) => {
+          setPreviewConsultationContext({
+            answerId,
+            departmentName,
+            patientName,
+            previewStartedAt: Date.now(),
+          });
+          setPreviewConsultationOpen(true);
+        }}
       />
 
       <ConsultationFormRenderer
