@@ -51,7 +51,7 @@ export const GET_INVOICE_QUERY = gql`
       status
       message
       data {
-        invoiceUrl
+        signedUrl
       }
     }
   }

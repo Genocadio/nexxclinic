@@ -49,7 +49,7 @@ export const GENERATE_INVOICE_MUTATION = gql`
       status
       message
       data {
-        invoiceUrl
+        signedUrl
       }
     }
   }

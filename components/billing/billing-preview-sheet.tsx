@@ -40,6 +40,8 @@ interface BillingPreviewSheetProps {
   previewStartedAt?: number | null;
   onPrintInvoice?: (departmentInsuranceBillingId: string) => Promise<void>;
   onDownloadInvoice?: (departmentInsuranceBillingId: string) => Promise<void>;
+  onViewMore?: () => void;
+  canViewMore?: boolean;
   printingInvoice?: boolean;
 }
 
@@ -54,6 +56,8 @@ export function BillingPreviewSheet({
   previewStartedAt,
   onPrintInvoice,
   onDownloadInvoice,
+  onViewMore,
+  canViewMore = false,
   printingInvoice = false,
 }: BillingPreviewSheetProps) {
   const [isRendered, setIsRendered] = useState(open);
@@ -367,6 +371,15 @@ export function BillingPreviewSheet({
                 <ScrollArea className="h-full px-4 py-4">
                   <div className="space-y-6 pr-4">
                     <div className="flex items-center justify-end gap-2 no-print">
+                      {canViewMore && onViewMore && (
+                        <button
+                          type="button"
+                          onClick={onViewMore}
+                          className="px-3 py-1 rounded-md border border-border bg-background text-foreground hover:bg-muted"
+                        >
+                          View more
+                        </button>
+                      )}
                       {visitBilling && (
                         <button
                           type="button"

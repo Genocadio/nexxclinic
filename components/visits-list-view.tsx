@@ -175,6 +175,7 @@ export default function VisitsListView({
   const hasReceptionistRole =
     roles.includes("RECEPTIONIST") || roles.includes("RECEPTION");
   const hasFinanceRole = roles.includes("FINANCE");
+  const hasCashierRole = roles.includes("CASHIER");
 
   const getUserDepartmentIds = () => {
     if (!doctor) return [];
@@ -488,6 +489,13 @@ export default function VisitsListView({
         onDepartmentSelect={setPreviewDepartmentId}
         previewStartedAt={previewStartedAt}
         onPrintInvoice={handleDownloadInvoice}
+        onDownloadInvoice={handleDownloadInvoice}
+        canViewMore={hasFinanceRole}
+        onViewMore={() => {
+          if (previewVisit) {
+            router.push(`/billing?visitId=${previewVisit.id}`);
+          }
+        }}
       />
     </div>
   );

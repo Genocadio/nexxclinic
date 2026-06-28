@@ -144,6 +144,7 @@ export default function DashboardPage() {
   const hasReceptionistRole =
     roles.includes("RECEPTIONIST") || roles.includes("RECEPTION");
   const hasFinanceRole = roles.includes("FINANCE");
+  const hasCashierRole = roles.includes("CASHIER");
   const isReceptionistOnly = hasReceptionistRole && roles.length === 1;
   const hasNurseRole = roles.includes("NURSE");
   const hasConsultationRole = roles.some((role) =>
@@ -1530,6 +1531,13 @@ export default function DashboardPage() {
         onDepartmentSelect={setPreviewDepartmentId}
         previewStartedAt={previewStartedAt}
         onPrintInvoice={handleDownloadInvoice}
+        onDownloadInvoice={handleDownloadInvoice}
+        canViewMore={hasFinanceRole}
+        onViewMore={() => {
+          if (previewVisit) {
+            router.push(`/billing?visitId=${previewVisit.id}`);
+          }
+        }}
       />
     </div>
   );

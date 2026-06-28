@@ -22,7 +22,7 @@ import {
 } from "@/lib/visit-product-utils";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   useVisit,
   useCreateBill,
@@ -62,6 +62,7 @@ import { toast } from "react-toastify";
 import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils";
 
 export function BillingPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const visitId = searchParams.get("visitId");
   const autoPrint = searchParams.get("autoprint") === "1";
@@ -1318,6 +1319,10 @@ export function BillingPageContent() {
         previewStartedAt={previewStartedAt}
         onPrintInvoice={handleDownloadInvoice}
         onDownloadInvoice={handleDownloadInvoice}
+        canViewMore={false}
+        onViewMore={() => {
+          router.push(`/billing?visitId=${visit?.id}`);
+        }}
         printingInvoice={generatingInvoice}
       />
     </div>

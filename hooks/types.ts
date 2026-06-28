@@ -203,6 +203,6 @@ export interface InvoiceResponse {
   status: string;
   message?: string;
   data?: {
-    invoiceUrl?: string;
+    signedUrl?: string;
   };
 }
