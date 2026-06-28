@@ -179,9 +179,10 @@ export default function DashboardPage() {
     useState<Visit | null>(null);
   const [previewConsultationOpen, setPreviewConsultationOpen] = useState(false);
   const [previewConsultationContext, setPreviewConsultationContext] = useState<{
-    answerId: string;
+    answerId: string | null;
     departmentName: string;
     patientName: string;
+    visitDepartment: Visit["departments"][number] | null;
     previewStartedAt: number;
   } | null>(null);
   const [patientHistoryOpen, setPatientHistoryOpen] = useState(false);
@@ -486,12 +487,9 @@ export default function DashboardPage() {
         );
       }) || getMatchingUserDepartment(visit, { mustBeClosed: true });
 
-    const answerId = String(matchedClosedDepartment?.answerId || "");
-
-    if (!answerId) {
-      toast.error("No saved consultation answer found for preview.");
-      return;
-    }
+    const answerId = matchedClosedDepartment?.answerId
+      ? String(matchedClosedDepartment.answerId)
+      : null;
 
     const departmentName =
       matchedClosedDepartment?.department?.name || "Department";
@@ -501,6 +499,7 @@ export default function DashboardPage() {
       departmentName,
       patientName:
         `${visit.patient.firstName} ${visit.patient.lastName}`.trim(),
+      visitDepartment: matchedClosedDepartment || null,
       previewStartedAt,
     });
     setPreviewConsultationOpen(true);
@@ -1459,6 +1458,7 @@ export default function DashboardPage() {
               answerId,
               departmentName,
               patientName,
+              visitDepartment: null,
               previewStartedAt: Date.now(),
             });
             setPreviewConsultationOpen(true);
@@ -1511,6 +1511,7 @@ export default function DashboardPage() {
         answerId={previewConsultationContext?.answerId || null}
         departmentName={previewConsultationContext?.departmentName}
         patientName={previewConsultationContext?.patientName}
+        visitDepartment={previewConsultationContext?.visitDepartment || null}
         previewStartedAt={previewConsultationContext?.previewStartedAt || null}
       />
       <BillingPreviewSheet

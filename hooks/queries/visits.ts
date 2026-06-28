@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client'
+import { gql } from "@apollo/client";
 
 /** Product line items on a visit department (parent or child). */
 const visitDepartmentProductFields = `
@@ -44,7 +44,7 @@ const visitDepartmentProductFields = `
   }
   createdAt
   updatedAt
-`
+`;
 
 /** Nested visit department (child of a consultation department). */
 const childVisitDepartmentFields = `
@@ -79,14 +79,14 @@ const childVisitDepartmentFields = `
   answerId
   createdAt
   updatedAt
-`
+`;
 
 export const GET_VISIT_QUERY = gql`
   query GetVisit($id: ID!) {
     visit(visitId: $id) {
       status
       message
-      
+
       data {
         id
         status
@@ -218,14 +218,14 @@ export const GET_VISIT_QUERY = gql`
       }
     }
   }
-`
+`;
 
 export const VISITS_QUERY = gql`
   query GetVisits($input: SearchVisitsInput!) {
     visits(input: $input) {
       status
       message
-      
+
       data {
         id
         status
@@ -251,6 +251,7 @@ export const VISITS_QUERY = gql`
             name
           }
           status
+          answerId
           products {
             id
             product {
@@ -282,6 +283,7 @@ export const VISITS_QUERY = gql`
             id
             status
             completedAt
+            answerId
             department {
               id
               name
@@ -328,14 +330,14 @@ export const VISITS_QUERY = gql`
       }
     }
   }
-`
+`;
 
 export const GET_PATIENT_HISTORY_QUERY = gql`
   query GetPatientHistory($patientId: ID!, $input: SearchPatientHistoryInput!) {
     getPatientHistory(patientId: $patientId, input: $input) {
       status
       message
-      
+
       data {
         id
         status
@@ -356,6 +358,7 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
           }
           status
           completedAt
+          answerId
           diagnostics {
             id
             diagnosisName
@@ -393,14 +396,14 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
       }
     }
   }
-`
+`;
 
 export const DASHBOARD_STATS_QUERY = gql`
   query DashboardStats($days: Int!) {
     dashboardStats(days: $days) {
       status
       message
-      
+
       data {
         totalVisits
         completedVisits
@@ -409,11 +412,14 @@ export const DASHBOARD_STATS_QUERY = gql`
       }
     }
   }
-`
+`;
 
 export const VISIT_DEPARTMENT_NOTES_QUERY = gql`
   query GetVisitDepartmentNotes($visitId: ID!, $visitDepartmentId: ID!) {
-    visitDepartmentNotes(visitId: $visitId, visitDepartmentId: $visitDepartmentId) {
+    visitDepartmentNotes(
+      visitId: $visitId
+      visitDepartmentId: $visitDepartmentId
+    ) {
       status
       message
       data {
@@ -431,4 +437,4 @@ export const VISIT_DEPARTMENT_NOTES_QUERY = gql`
       }
     }
   }
-`
+`;

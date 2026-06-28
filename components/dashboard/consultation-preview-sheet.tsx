@@ -9,6 +9,7 @@ import {
   mapStandaloneAnswerToSavedForm,
   parseStandaloneAnswers,
 } from "@/lib/standalone-form-mapper";
+import type { VisitDepartment } from "@/lib/api-types";
 
 interface ConsultationPreviewSheetProps {
   open: boolean;
@@ -16,6 +17,7 @@ interface ConsultationPreviewSheetProps {
   answerId: string | null;
   departmentName?: string;
   patientName?: string;
+  visitDepartment?: VisitDepartment | null;
   previewStartedAt?: number | null;
 }
 
@@ -25,6 +27,7 @@ export function ConsultationPreviewSheet({
   answerId,
   departmentName,
   patientName,
+  visitDepartment,
   previewStartedAt,
 }: ConsultationPreviewSheetProps) {
   const [previewReadyLogged, setPreviewReadyLogged] = useState(false);
@@ -144,7 +147,76 @@ export function ConsultationPreviewSheet({
                 </p>
               )}
 
-              {!loading && !answerId && (
+              {!loading && !answerId && visitDepartment && (
+                <div className="mx-auto w-full max-w-3xl rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+                  <div>
+                    <h3 className="text-base font-semibold text-foreground">
+                      Department summary
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      No saved form answer exists yet for this department, so
+                      this preview shows recorded department data.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                        Diagnoses
+                      </p>
+                      {visitDepartment.diagnostics?.length ? (
+                        <ul className="space-y-1 text-sm text-foreground list-disc pl-5">
+                          {visitDepartment.diagnostics.map((item) => (
+                            <li key={item.id}>{item.diagnosisName}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No diagnoses recorded.
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                        Medications
+                      </p>
+                      {visitDepartment.medications?.length ? (
+                        <ul className="space-y-1 text-sm text-foreground list-disc pl-5">
+                          {visitDepartment.medications.map((item) => (
+                            <li key={item.id}>{item.medicationName}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No medications recorded.
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                        Products
+                      </p>
+                      {visitDepartment.products?.length ? (
+                        <ul className="space-y-1 text-sm text-foreground list-disc pl-5">
+                          {visitDepartment.products.map((item) => (
+                            <li key={item.id}>
+                              {item.product?.name || "Product"}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No products recorded.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!loading && !answerId && !visitDepartment && (
                 <p className="text-sm text-muted-foreground">
                   No saved consultation answer is available for this department.
                 </p>
