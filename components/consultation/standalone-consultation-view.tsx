@@ -221,6 +221,10 @@ export function StandaloneConsultationView({
   const autoPinnedVitalsRef = useRef(false);
   const investigationProductSearchRef = useRef<HTMLInputElement>(null);
   const formRendererRef = useRef<FormRendererHandle | null>(null);
+  const localAnswerIdRef = useRef<string | null>(
+    answerId ? String(answerId) : null,
+  );
+  const loadedAnswerSignatureRef = useRef<string>("");
 
   const patientLabel = useMemo(() => {
     const name = [patient.firstName, patient.lastName]
@@ -318,6 +322,11 @@ export function StandaloneConsultationView({
         status,
       });
 
+      const savedAnswerId = result?.answer?.id;
+      if (savedAnswerId) {
+        localAnswerIdRef.current = String(savedAnswerId);
+      }
+
       lastSavedSnapshotRef.current = snapshot;
       setSaveStatus("saved");
       hydratedRef.current = true;
@@ -338,6 +347,19 @@ export function StandaloneConsultationView({
   );
 
   useEffect(() => {
+    const nextAnswerId = answerId ? String(answerId) : null;
+    const currentLocalAnswerId = localAnswerIdRef.current;
+
+    if (
+      catalogDepartmentId &&
+      nextAnswerId === currentLocalAnswerId &&
+      hydratedRef.current
+    ) {
+      return;
+    }
+
+    localAnswerIdRef.current = nextAnswerId;
+    loadedAnswerSignatureRef.current = "";
     hydratedRef.current = false;
     lastSavedSnapshotRef.current = "";
     setRendererForm(null);
@@ -351,6 +373,18 @@ export function StandaloneConsultationView({
     if (loading || hydratedRef.current) return;
 
     if (source === "answer" && answer) {
+      const signature = JSON.stringify({
+        id: answer.id,
+        updatedAt: answer.updatedAt,
+        formVersionId: answer.formVersion?.id,
+      });
+      if (
+        loadedAnswerSignatureRef.current === signature &&
+        hydratedRef.current
+      ) {
+        return;
+      }
+
       const mapped = mapStandaloneAnswerToSavedForm(answer);
       if (!mapped) return;
       const parsed = parseStandaloneAnswers(answer.answers) as FormAnswers;
@@ -358,6 +392,8 @@ export function StandaloneConsultationView({
       setFormVersionId(answer.formVersion.id);
       setInitialAnswers(parsed);
       setAnswers(parsed);
+      localAnswerIdRef.current = String(answer.id);
+      loadedAnswerSignatureRef.current = signature;
       lastSavedSnapshotRef.current = buildAnswersSnapshot(parsed);
       hydratedRef.current = true;
       setSaveStatus("saved");
@@ -365,12 +401,25 @@ export function StandaloneConsultationView({
     }
 
     if (source === "department" && defaultForm) {
+      const signature = JSON.stringify({
+        departmentId: catalogDepartmentId,
+        formId: defaultForm.id,
+        formVersionId: defaultForm.activeVersion?.id,
+      });
+      if (
+        loadedAnswerSignatureRef.current === signature &&
+        hydratedRef.current
+      ) {
+        return;
+      }
+
       const mapped = mapStandaloneFormToSavedForm(defaultForm);
       if (!mapped || !defaultForm.activeVersion?.id) return;
       setRendererForm(mapped);
       setFormVersionId(defaultForm.activeVersion.id);
       setInitialAnswers({});
       setAnswers({});
+      loadedAnswerSignatureRef.current = signature;
       lastSavedSnapshotRef.current = buildAnswersSnapshot({});
       hydratedRef.current = true;
       setSaveStatus("saved");

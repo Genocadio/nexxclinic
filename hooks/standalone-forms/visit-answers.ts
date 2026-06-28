@@ -20,19 +20,28 @@ export interface StandaloneFormAnswer {
   formVersion: StandaloneFormVersion;
 }
 
-export function useStandaloneAnswer(answerId: string | null, options?: { skip?: boolean }) {
-  const { data, loading, error, refetch } = useQuery(GET_STANDALONE_ANSWER_QUERY, {
-    variables: { id: answerId },
-    skip: !answerId || options?.skip,
-    fetchPolicy: "network-only",
-  });
+export function useStandaloneAnswer(
+  answerId: string | null,
+  options?: { skip?: boolean },
+) {
+  const { data, loading, error, refetch } = useQuery(
+    GET_STANDALONE_ANSWER_QUERY,
+    {
+      variables: { id: answerId },
+      skip: !answerId || options?.skip,
+      fetchPolicy: "network-only",
+    },
+  );
 
-  const answer: StandaloneFormAnswer | null = data?.getStandaloneAnswer?.data ?? null;
+  const answer: StandaloneFormAnswer | null =
+    data?.getStandaloneAnswer?.data ?? null;
   return { answer, loading, error: error?.message ?? null, refetch };
 }
 
 export function useSaveVisitStandaloneAnswer() {
-  const [mutate, { loading, error }] = useMutation(SAVE_VISIT_STANDALONE_ANSWER_MUTATION);
+  const [mutate, { loading, error }] = useMutation(
+    SAVE_VISIT_STANDALONE_ANSWER_MUTATION,
+  );
 
   const saveVisitAnswer = async (input: {
     visitId: string;
@@ -44,12 +53,11 @@ export function useSaveVisitStandaloneAnswer() {
   }) => {
     const { data } = await mutate({
       variables: input,
-      refetchQueries: [
-        { query: GET_DEPARTMENT_FORMS_QUERY, variables: { departmentId: input.departmentId } },
-      ],
     });
     if (data?.saveVisitStandaloneAnswer?.status === "ERROR") {
-      throw new Error(data.saveVisitStandaloneAnswer.message ?? "Failed to save answer");
+      throw new Error(
+        data.saveVisitStandaloneAnswer.message ?? "Failed to save answer",
+      );
     }
     return data?.saveVisitStandaloneAnswer?.data as {
       answer: StandaloneFormAnswer;
@@ -77,7 +85,9 @@ export function useConsultationFormLoader(options: {
     loading: deptFormsLoading,
     error: deptFormsError,
     refetch: refetchDeptForms,
-  } = useDepartmentFormsForConsultation(options.departmentId, { skip: hasAnswer });
+  } = useDepartmentFormsForConsultation(options.departmentId, {
+    skip: hasAnswer,
+  });
 
   return {
     answer,
@@ -93,11 +103,14 @@ function useDepartmentFormsForConsultation(
   departmentId: string | null,
   options?: { skip?: boolean },
 ) {
-  const { data, loading, error, refetch } = useQuery(GET_DEPARTMENT_FORMS_QUERY, {
-    variables: { departmentId },
-    skip: !departmentId || options?.skip,
-    fetchPolicy: "network-only",
-  });
+  const { data, loading, error, refetch } = useQuery(
+    GET_DEPARTMENT_FORMS_QUERY,
+    {
+      variables: { departmentId },
+      skip: !departmentId || options?.skip,
+      fetchPolicy: "network-only",
+    },
+  );
 
   const defaultForm: StandaloneForm | null =
     data?.getDepartmentForms?.data?.defaultForm ?? null;
