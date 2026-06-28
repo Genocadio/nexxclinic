@@ -116,7 +116,7 @@ function DepartmentRow({
               {department.department?.name || "Department"}
             </p>
             {highlighted && (
-              <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
+              <span className="text-[10px] font-medium text-primary/80">
                 Previous in current department
               </span>
             )}

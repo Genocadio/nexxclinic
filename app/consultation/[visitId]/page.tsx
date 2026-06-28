@@ -111,44 +111,9 @@ export default function ConsultationPage() {
     }),
   );
 
-  const requestProductsEnabled = Boolean(
-    firstDepartment.department?.requestsProducts,
-  );
-
   return (
     <div className="min-h-screen bg-background">
       <Header doctor={doctor} />
-      <div className="fixed right-6 top-1/2 z-50 -translate-y-1/2 flex flex-col items-center gap-3 rounded-full border border-border/60 bg-card/80 p-2 shadow-2xl backdrop-blur">
-        {requestProductsEnabled && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="rounded-full border border-border/70 bg-background p-2"
-            title="Investigations"
-            aria-label="Open investigations"
-            disabled
-          >
-            <FlaskConical className="h-5 w-5" />
-          </Button>
-        )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => setNotesOpen((prev) => !prev)}
-          className="relative rounded-full border border-border/70 bg-background p-2"
-          title="Notes"
-          aria-label="Open notes"
-        >
-          <StickyNote className="h-5 w-5" />
-          {!notesOpen && unreadNotesCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-bounce">
-              {unreadNotesCount}
-            </span>
-          )}
-        </Button>
-      </div>
 
       <StandaloneConsultationView
         visit={visit}
