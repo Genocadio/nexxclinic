@@ -316,10 +316,11 @@ export function StandaloneConsultationView({
 
       const result = await saveVisitAnswer({
         visitId: visit.id,
-        departmentId: catalogDepartmentId,
+        visitDepartmentId: String(visitDepartment.id),
         formVersionId,
         answers: nextAnswers,
         status,
+        answerId: localAnswerIdRef.current,
       });
 
       const savedAnswerId = result?.answer?.id;
@@ -343,6 +344,7 @@ export function StandaloneConsultationView({
       onVisitRefetch,
       saveVisitAnswer,
       visit.id,
+      visitDepartment.id,
     ],
   );
 

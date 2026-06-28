@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client'
+import { gql } from "@apollo/client";
 
 export const CREATE_STANDALONE_FORM_MUTATION = gql`
   mutation CreateStandaloneForm($input: StandaloneFormInput!) {
@@ -28,10 +28,14 @@ export const CREATE_STANDALONE_FORM_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const UPDATE_STANDALONE_FORM_MUTATION = gql`
-  mutation UpdateStandaloneForm($id: ID!, $input: StandaloneFormInput!, $markFinal: Boolean) {
+  mutation UpdateStandaloneForm(
+    $id: ID!
+    $input: StandaloneFormInput!
+    $markFinal: Boolean
+  ) {
     updateStandaloneForm(id: $id, input: $input, markFinal: $markFinal) {
       status
       message
@@ -58,7 +62,7 @@ export const UPDATE_STANDALONE_FORM_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const DELETE_STANDALONE_FORM_MUTATION = gql`
   mutation DeleteStandaloneForm($id: ID!, $confirmDeleteAnswers: Boolean) {
@@ -68,7 +72,7 @@ export const DELETE_STANDALONE_FORM_MUTATION = gql`
       data
     }
   }
-`
+`;
 
 export const DUPLICATE_STANDALONE_FORM_MUTATION = gql`
   mutation DuplicateStandaloneForm($sourceFormId: ID!) {
@@ -98,11 +102,21 @@ export const DUPLICATE_STANDALONE_FORM_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const SAVE_STANDALONE_ANSWER_MUTATION = gql`
-  mutation SaveStandaloneAnswer($formVersionId: ID!, $answers: JSON!, $status: AnswerStatus, $score: Float) {
-    saveStandaloneAnswer(formVersionId: $formVersionId, answers: $answers, status: $status, score: $score) {
+  mutation SaveStandaloneAnswer(
+    $formVersionId: ID!
+    $answers: JSON!
+    $status: AnswerStatus
+    $score: Float
+  ) {
+    saveStandaloneAnswer(
+      formVersionId: $formVersionId
+      answers: $answers
+      status: $status
+      score: $score
+    ) {
       status
       message
       data {
@@ -116,12 +130,44 @@ export const SAVE_STANDALONE_ANSWER_MUTATION = gql`
       }
     }
   }
-`
+`;
+
+export const UPDATE_STANDALONE_ANSWER_MUTATION = gql`
+  mutation UpdateStandaloneAnswer(
+    $answerId: ID!
+    $answers: JSON!
+    $status: AnswerStatus
+    $score: Float
+  ) {
+    updateStandaloneAnswer(
+      answerId: $answerId
+      answers: $answers
+      status: $status
+      score: $score
+    ) {
+      status
+      message
+      data {
+        id
+        answers
+        score
+        status
+        visitId
+        submittedAt
+        createdAt
+        updatedAt
+        formVersion {
+          id
+        }
+      }
+    }
+  }
+`;
 
 export const SAVE_VISIT_STANDALONE_ANSWER_MUTATION = gql`
   mutation SaveVisitStandaloneAnswer(
     $visitId: ID!
-    $departmentId: ID!
+    $visitDepartmentId: ID!
     $formVersionId: ID!
     $answers: JSON!
     $status: AnswerStatus
@@ -129,7 +175,7 @@ export const SAVE_VISIT_STANDALONE_ANSWER_MUTATION = gql`
   ) {
     saveVisitStandaloneAnswer(
       visitId: $visitId
-      departmentId: $departmentId
+      visitDepartmentId: $visitDepartmentId
       formVersionId: $formVersionId
       answers: $answers
       status: $status
@@ -158,11 +204,14 @@ export const SAVE_VISIT_STANDALONE_ANSWER_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const LINK_STANDALONE_FORM_TO_DEPARTMENT_MUTATION = gql`
   mutation LinkStandaloneFormToDepartment($departmentId: ID!, $formId: ID!) {
-    linkStandaloneFormToDepartment(departmentId: $departmentId, formId: $formId) {
+    linkStandaloneFormToDepartment(
+      departmentId: $departmentId
+      formId: $formId
+    ) {
       status
       message
       data {
@@ -174,21 +223,33 @@ export const LINK_STANDALONE_FORM_TO_DEPARTMENT_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const UNLINK_STANDALONE_FORM_FROM_DEPARTMENT_MUTATION = gql`
-  mutation UnlinkStandaloneFormFromDepartment($departmentId: ID!, $formId: ID!) {
-    unlinkStandaloneFormFromDepartment(departmentId: $departmentId, formId: $formId) {
+  mutation UnlinkStandaloneFormFromDepartment(
+    $departmentId: ID!
+    $formId: ID!
+  ) {
+    unlinkStandaloneFormFromDepartment(
+      departmentId: $departmentId
+      formId: $formId
+    ) {
       status
       message
       data
     }
   }
-`
+`;
 
 export const SET_DEFAULT_STANDALONE_FORM_FOR_DEPARTMENT_MUTATION = gql`
-  mutation SetDefaultStandaloneFormForDepartment($departmentId: ID!, $formId: ID!) {
-    setDefaultStandaloneFormForDepartment(departmentId: $departmentId, formId: $formId) {
+  mutation SetDefaultStandaloneFormForDepartment(
+    $departmentId: ID!
+    $formId: ID!
+  ) {
+    setDefaultStandaloneFormForDepartment(
+      departmentId: $departmentId
+      formId: $formId
+    ) {
       status
       message
       data {
@@ -197,4 +258,4 @@ export const SET_DEFAULT_STANDALONE_FORM_FOR_DEPARTMENT_MUTATION = gql`
       }
     }
   }
-`
+`;

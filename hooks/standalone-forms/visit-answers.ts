@@ -3,7 +3,10 @@ import {
   GET_DEPARTMENT_FORMS_QUERY,
   GET_STANDALONE_ANSWER_QUERY,
 } from "../queries/standalone-forms";
-import { SAVE_VISIT_STANDALONE_ANSWER_MUTATION } from "../mutations/standalone-forms";
+import {
+  SAVE_VISIT_STANDALONE_ANSWER_MUTATION,
+  UPDATE_STANDALONE_ANSWER_MUTATION,
+} from "../mutations/standalone-forms";
 import type { StandaloneForm, StandaloneFormVersion } from "./hooks";
 
 export interface StandaloneFormAnswer {
@@ -39,20 +42,54 @@ export function useStandaloneAnswer(
 }
 
 export function useSaveVisitStandaloneAnswer() {
-  const [mutate, { loading, error }] = useMutation(
-    SAVE_VISIT_STANDALONE_ANSWER_MUTATION,
-  );
+  const [saveVisitMutate, { loading: savingVisit, error: saveVisitError }] =
+    useMutation(SAVE_VISIT_STANDALONE_ANSWER_MUTATION);
+  const [
+    updateAnswerMutate,
+    { loading: updatingAnswer, error: updateAnswerError },
+  ] = useMutation(UPDATE_STANDALONE_ANSWER_MUTATION);
 
   const saveVisitAnswer = async (input: {
     visitId: string;
-    departmentId: string;
+    visitDepartmentId: string;
     formVersionId: string;
     answers: Record<string, unknown>;
     status?: "DRAFT" | "FINAL";
     score?: number;
+    answerId?: string | null;
   }) => {
-    const { data } = await mutate({
-      variables: input,
+    if (input.answerId) {
+      const { data } = await updateAnswerMutate({
+        variables: {
+          answerId: input.answerId,
+          answers: input.answers,
+          status: input.status,
+          score: input.score,
+        },
+      });
+      if (data?.updateStandaloneAnswer?.status === "ERROR") {
+        throw new Error(
+          data.updateStandaloneAnswer.message ?? "Failed to update answer",
+        );
+      }
+      return {
+        answer: data?.updateStandaloneAnswer?.data as StandaloneFormAnswer,
+        visitDepartment: {
+          id: input.visitDepartmentId,
+          answerId: input.answerId,
+        },
+      };
+    }
+
+    const { data } = await saveVisitMutate({
+      variables: {
+        visitId: input.visitId,
+        visitDepartmentId: input.visitDepartmentId,
+        formVersionId: input.formVersionId,
+        answers: input.answers,
+        status: input.status,
+        score: input.score,
+      },
     });
     if (data?.saveVisitStandaloneAnswer?.status === "ERROR") {
       throw new Error(
@@ -65,7 +102,11 @@ export function useSaveVisitStandaloneAnswer() {
     };
   };
 
-  return { saveVisitAnswer, loading, error: error?.message ?? null };
+  return {
+    saveVisitAnswer,
+    loading: savingVisit || updatingAnswer,
+    error: saveVisitError?.message ?? updateAnswerError?.message ?? null,
+  };
 }
 
 export function useConsultationFormLoader(options: {
