@@ -144,6 +144,7 @@ export function ConsultationSidePanels({
   vitals = [],
   visitInsurances = [],
 }: ConsultationSidePanelsProps) {
+  const hasVitals = Array.isArray(vitals) && vitals.length > 0;
   const activePanels = [
     { key: "id", active: idPanel.pinned || idPanel.hover },
     { key: "vitals", active: vitalsPanel.pinned || vitalsPanel.hover },
@@ -202,7 +203,8 @@ export function ConsultationSidePanels({
   };
 
   const showIdPanel = idPanel.pinned || idPanel.hover;
-  const showVitalsPanel = vitalsPanel.pinned || vitalsPanel.hover;
+  const showVitalsPanel =
+    hasVitals && (vitalsPanel.pinned || vitalsPanel.hover);
   const showHistoryPanel = historyPanel.pinned || historyPanel.hover;
 
   return (
@@ -223,13 +225,27 @@ export function ConsultationSidePanels({
           />
         </button>
         <button
-          title="Vital Signs"
-          className={`p-2 rounded-full transition-colors ${vitalsPanel.pinned ? "bg-white/40 ring-2 ring-white/60" : "hover:bg-muted"}`}
+          title={hasVitals ? "Vital Signs" : "No vital signs recorded"}
+          className={`p-2 rounded-full transition-colors ${
+            vitalsPanel.pinned
+              ? "bg-white/40 ring-2 ring-white/60"
+              : "hover:bg-muted"
+          } ${!hasVitals ? "opacity-40 cursor-not-allowed" : ""}`}
           onMouseEnter={() =>
-            setVitalsPanel({ ...vitalsPanel, hover: !vitalsPanel.pinned })
+            hasVitals
+              ? setVitalsPanel({ ...vitalsPanel, hover: !vitalsPanel.pinned })
+              : undefined
           }
-          onMouseLeave={() => setVitalsPanel({ ...vitalsPanel, hover: false })}
-          onClick={() => handlePanelClick("vitals")}
+          onMouseLeave={() =>
+            hasVitals
+              ? setVitalsPanel({ ...vitalsPanel, hover: false })
+              : undefined
+          }
+          onClick={() => {
+            if (!hasVitals) return;
+            handlePanelClick("vitals");
+          }}
+          disabled={!hasVitals}
         >
           <HeartPulse
             className={`w-5 h-5 ${vitalsPanel.pinned ? "text-foreground" : "text-muted-foreground"}`}

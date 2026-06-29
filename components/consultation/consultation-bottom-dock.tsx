@@ -19,6 +19,7 @@ interface ConsultationBottomDockProps {
   onTransfer?: () => void;
   saveIndicator?: SaveIndicatorState;
   completeDisabled?: boolean;
+  completeDisabledReason?: string;
 }
 
 export function ConsultationBottomDock({
@@ -26,6 +27,7 @@ export function ConsultationBottomDock({
   onTransfer,
   saveIndicator,
   completeDisabled = false,
+  completeDisabledReason,
 }: ConsultationBottomDockProps) {
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
@@ -54,18 +56,24 @@ export function ConsultationBottomDock({
             ) : null}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg"
-                  onClick={onComplete}
-                  aria-label="Complete"
-                  disabled={completeDisabled}
-                >
-                  <CheckCircle className="h-5 w-5" />
-                </Button>
+                <span>
+                  <Button
+                    size="icon"
+                    className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg"
+                    onClick={onComplete}
+                    aria-label="Complete"
+                    disabled={completeDisabled}
+                  >
+                    <CheckCircle className="h-5 w-5" />
+                  </Button>
+                </span>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Complete</p>
+                <p>
+                  {completeDisabled
+                    ? completeDisabledReason || "Complete"
+                    : "Complete"}
+                </p>
               </TooltipContent>
             </Tooltip>
 

@@ -469,11 +469,18 @@ export function StandaloneConsultationView({
   }, [loading, source, answer, defaultForm]);
 
   useEffect(() => {
+    // Only auto-pin vitals when they exist.
     if (!visit?.vitalSigns?.length || autoPinnedVitalsRef.current) return;
     setVitalsPanel((current) =>
       current.pinned ? current : { ...current, pinned: true, hover: true },
     );
     autoPinnedVitalsRef.current = true;
+  }, [visit?.vitalSigns?.length]);
+
+  useEffect(() => {
+    // If vitals are empty, force-hide the panel and prevent it from staying pinned.
+    if (visit?.vitalSigns?.length) return;
+    setVitalsPanel({ pinned: false, hover: false });
   }, [visit?.vitalSigns?.length]);
 
   useEffect(() => {
@@ -808,6 +815,11 @@ export function StandaloneConsultationView({
             setShowFinalizeConfirm(true);
           }}
           completeDisabled={unreadNotesCount > 0}
+          completeDisabledReason={
+            unreadNotesCount > 0
+              ? `Unread notes: ${unreadNotesCount}. Open notes to read them first.`
+              : undefined
+          }
           saveIndicator={{
             visible: hasAnyAnswerContent,
             status: saveStatus,
