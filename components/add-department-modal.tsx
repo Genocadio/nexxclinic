@@ -1,13 +1,17 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { X, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import type { Visit, Department } from '@/lib/api-types';
-import { useAddDepartmentToVisit, useDepartments } from '@/hooks/auth-hooks';
-import { toast } from 'react-toastify';
-import { handleResponse } from '@/lib/response-handler';
-import { DepartmentAutocomplete } from '@/components/ui/department-autocomplete';
+import { useEffect, useState } from "react";
+import { X, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { Visit, Department } from "@/lib/api-types";
+import {
+  useAddDepartmentToVisit,
+  useDepartments,
+  useSearchWorkers,
+} from "@/hooks/auth-hooks";
+import { toast } from "react-toastify";
+import { handleResponse } from "@/lib/response-handler";
+import { DepartmentAutocomplete } from "@/components/ui/department-autocomplete";
 
 interface AddDepartmentModalProps {
   visit: Visit;
@@ -22,21 +26,39 @@ export function AddDepartmentModal({
   onClose,
   onSuccess,
 }: AddDepartmentModalProps) {
-  const { departments, error: departmentsError, loading: departmentsLoading } = useDepartments();
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
+  const {
+    departments,
+    error: departmentsError,
+    loading: departmentsLoading,
+  } = useDepartments();
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
+  const [mode, setMode] = useState<"department" | "processor">("department");
+  const [processorQuery, setProcessorQuery] = useState("");
+  const [selectedProcessorId, setSelectedProcessorId] = useState<string>("");
+  const [selectedProcessorDepartmentId, setSelectedProcessorDepartmentId] =
+    useState<string>("");
   const { addDepartmentToVisit, loading } = useAddDepartmentToVisit();
+  const { workers: processorWorkers, loading: processorsLoading } =
+    useSearchWorkers({
+      name: processorQuery,
+      role: "CLINICIAN",
+      activeOnly: true,
+    });
 
   useEffect(() => {
     if (!isOpen || !departmentsError) return;
 
-    toast.error(departmentsError || 'Failed to load departments for this visit');
+    toast.error(
+      departmentsError || "Failed to load departments for this visit",
+    );
     onClose();
   }, [departmentsError, isOpen, onClose]);
 
   // Filter out departments already in the visit
-  const existingDepartmentIds = visit.departments?.map(d => String(d.department?.id)) || [];
+  const existingDepartmentIds =
+    visit.departments?.map((d) => String(d.department?.id)) || [];
   const availableDepartments = departments.filter(
-    dept => !existingDepartmentIds.includes(String(dept.id))
+    (dept) => !existingDepartmentIds.includes(String(dept.id)),
   );
 
   if (departmentsError) {
@@ -44,23 +66,40 @@ export function AddDepartmentModal({
   }
 
   const handleSubmit = async () => {
-    if (!selectedDepartmentId) {
-      toast.error('Choose a department before adding it to the visit')
-      return
+    const departmentIdToUse =
+      mode === "processor"
+        ? selectedProcessorDepartmentId || selectedDepartmentId
+        : selectedDepartmentId;
+
+    if (mode === "processor" && !selectedProcessorId) {
+      toast.error("Select a clinician/processor first");
+      return;
+    }
+
+    if (!departmentIdToUse) {
+      toast.error("Choose a department before adding it to the visit");
+      return;
     }
 
     try {
-      const result = await addDepartmentToVisit(visit.id, selectedDepartmentId);
+      const result = await addDepartmentToVisit(
+        visit.id,
+        departmentIdToUse,
+        mode === "processor" ? selectedProcessorId : null,
+      );
 
-      const ok = await handleResponse(result, { successMessage: 'Department added to visit', errorMessage: true })
+      const ok = await handleResponse(result, {
+        successMessage: "Department added to visit",
+        errorMessage: true,
+      });
       if (ok) {
         onSuccess?.();
         onClose();
-        setSelectedDepartmentId('');
+        setSelectedDepartmentId("");
       }
     } catch (error) {
-      console.error('Error adding department:', error);
-      toast.error('Failed to add department to visit');
+      console.error("Error adding department:", error);
+      toast.error("Failed to add department to visit");
     }
   };
 
@@ -97,22 +136,183 @@ export function AddDepartmentModal({
             </div>
           ) : availableDepartments.length === 0 ? (
             <div className="text-center py-6 text-slate-500 dark:text-slate-400">
-              <p className="text-sm">All departments have been added to this visit</p>
+              <p className="text-sm">
+                All departments have been added to this visit
+              </p>
             </div>
           ) : (
             <>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Select Department
-                </label>
-                <DepartmentAutocomplete
-                  departments={availableDepartments}
-                  selectedDepartmentId={selectedDepartmentId}
-                  onDepartmentSelect={setSelectedDepartmentId}
-                  placeholder="Choose a department"
-                  disabled={departmentsLoading}
-                />
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={mode === "department" ? "default" : "outline"}
+                  onClick={() => {
+                    setMode("department");
+                    setProcessorQuery("");
+                    setSelectedProcessorId("");
+                    setSelectedProcessorDepartmentId("");
+                  }}
+                >
+                  Department
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={mode === "processor" ? "default" : "outline"}
+                  onClick={() => {
+                    setMode("processor");
+                    setSelectedDepartmentId("");
+                  }}
+                >
+                  Clinician
+                </Button>
               </div>
+
+              {mode === "processor" ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Search clinician (type at least 2 letters)
+                    </label>
+                    <input
+                      value={processorQuery}
+                      onChange={(e) => {
+                        setProcessorQuery(e.target.value);
+                        setSelectedProcessorId("");
+                        setSelectedProcessorDepartmentId("");
+                      }}
+                      placeholder="Search by name..."
+                      className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm"
+                    />
+                    {processorsLoading && processorQuery.trim().length >= 2 && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Searching...
+                      </p>
+                    )}
+                  </div>
+
+                  {processorWorkers.length > 0 && (
+                    <div className="max-h-40 overflow-y-auto rounded-md border border-border">
+                      {processorWorkers.map((w: any) => {
+                        const fullName =
+                          `${w.firstName || ""} ${w.lastName || ""}`.trim();
+                        return (
+                          <button
+                            key={w.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedProcessorId(String(w.id));
+                              const depts = Array.isArray(w.departments)
+                                ? w.departments
+                                : [];
+                              if (depts.length === 1) {
+                                setSelectedProcessorDepartmentId(
+                                  String(depts[0].id),
+                                );
+                              } else {
+                                setSelectedProcessorDepartmentId("");
+                              }
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${
+                              String(w.id) === String(selectedProcessorId)
+                                ? "bg-muted"
+                                : ""
+                            }`}
+                          >
+                            <div className="font-medium">
+                              {fullName || "Unnamed"}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {Array.isArray(w.departments) &&
+                              w.departments.length > 0
+                                ? `Departments: ${w.departments.map((d: any) => d.name).join(", ")}`
+                                : "No department linked"}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {selectedProcessorId
+                    ? (() => {
+                        const chosen = processorWorkers.find(
+                          (w: any) =>
+                            String(w.id) === String(selectedProcessorId),
+                        );
+                        const linked = Array.isArray(chosen?.departments)
+                          ? chosen.departments
+                          : [];
+
+                        if (linked.length > 1) {
+                          return (
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Choose which department for this clinician
+                              </label>
+                              <select
+                                value={selectedProcessorDepartmentId}
+                                onChange={(e) =>
+                                  setSelectedProcessorDepartmentId(
+                                    e.target.value,
+                                  )
+                                }
+                                className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm"
+                              >
+                                <option value="">Select department...</option>
+                                {linked
+                                  .filter((d: any) =>
+                                    availableDepartments.some(
+                                      (ad) => String(ad.id) === String(d.id),
+                                    ),
+                                  )
+                                  .map((d: any) => (
+                                    <option key={d.id} value={String(d.id)}>
+                                      {d.name}
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+                          );
+                        }
+
+                        // If none linked OR exactly one linked (auto-set), allow selecting from all available.
+                        if (linked.length === 0) {
+                          return (
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Select Department for clinician
+                              </label>
+                              <DepartmentAutocomplete
+                                departments={availableDepartments}
+                                selectedDepartmentId={selectedDepartmentId}
+                                onDepartmentSelect={setSelectedDepartmentId}
+                                placeholder="Choose a department"
+                                disabled={departmentsLoading}
+                              />
+                            </div>
+                          );
+                        }
+
+                        return null;
+                      })()
+                    : null}
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Select Department
+                  </label>
+                  <DepartmentAutocomplete
+                    departments={availableDepartments}
+                    selectedDepartmentId={selectedDepartmentId}
+                    onDepartmentSelect={setSelectedDepartmentId}
+                    placeholder="Choose a department"
+                    disabled={departmentsLoading}
+                  />
+                </div>
+              )}
 
               <div className="flex gap-3 mt-6">
                 <Button
@@ -126,10 +326,18 @@ export function AddDepartmentModal({
                 <Button
                   onClick={handleSubmit}
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                  disabled={!selectedDepartmentId || loading}
+                  disabled={
+                    loading ||
+                    (mode === "department" && !selectedDepartmentId) ||
+                    (mode === "processor" &&
+                      (!selectedProcessorId ||
+                        !(
+                          selectedProcessorDepartmentId || selectedDepartmentId
+                        )))
+                  }
                 >
                   <Plus className="h-4 w-4 mr-1" />
-                  {loading ? 'Adding...' : 'Add Department'}
+                  {loading ? "Adding..." : "Add Department"}
                 </Button>
               </div>
             </>

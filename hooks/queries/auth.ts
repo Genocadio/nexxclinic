@@ -1,11 +1,11 @@
-import { gql } from '@apollo/client'
+import { gql } from "@apollo/client";
 
 export const ME_QUERY = gql`
   query Me {
     me {
       status
       message
-      
+
       data {
         id
         firstName
@@ -24,7 +24,7 @@ export const ME_QUERY = gql`
       }
     }
   }
-`
+`;
 
 export const CLINIC_PROFILE_QUERY = gql`
   query ClinicProfile {
@@ -45,22 +45,22 @@ export const CLINIC_PROFILE_QUERY = gql`
         tinNumber
         logoUrl
         metadata {
-        key
-        value
-      }
+          key
+          value
+        }
         createdAt
         updatedAt
       }
     }
   }
-`
+`;
 
 export const GET_USERS_QUERY = gql`
   query GetUsers {
     listUsers {
       status
       message
-      
+
       data {
         id
         firstName
@@ -79,4 +79,4 @@ export const GET_USERS_QUERY = gql`
       }
     }
   }
-`
+`;

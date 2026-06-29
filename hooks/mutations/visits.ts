@@ -1,11 +1,11 @@
-import { gql } from '@apollo/client'
+import { gql } from "@apollo/client";
 
 export const CREATE_VISIT_MUTATION = gql`
   mutation CreateVisit($input: CreateVisitInput!) {
     createVisit(input: $input) {
       status
       message
-      
+
       data {
         id
         visitDate
@@ -34,14 +34,14 @@ export const CREATE_VISIT_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const ADD_VISIT_NOTE_MUTATION = gql`
   mutation AddVisitNote($visitId: ID!, $note: String!) {
     addVisitNote(visitId: $visitId, note: $note) {
       status
       message
-      
+
       data {
         id
         note
@@ -55,7 +55,7 @@ export const ADD_VISIT_NOTE_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const ADD_VISIT_VITAL_SIGNS_MUTATION = gql`
   mutation AddVisitVitalSigns($input: AddVisitVitalSignsInput!) {
@@ -91,14 +91,22 @@ export const ADD_VISIT_VITAL_SIGNS_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const ADD_DEPARTMENT_NOTE_MUTATION = gql`
-  mutation AddDepartmentNote($visitId: ID!, $departmentId: ID!, $note: String!) {
-    addDepartmentNote(visitId: $visitId, departmentId: $departmentId, note: $note) {
+  mutation AddDepartmentNote(
+    $visitId: ID!
+    $departmentId: ID!
+    $note: String!
+  ) {
+    addDepartmentNote(
+      visitId: $visitId
+      departmentId: $departmentId
+      note: $note
+    ) {
       status
       message
-      
+
       data {
         id
         note
@@ -112,7 +120,7 @@ export const ADD_DEPARTMENT_NOTE_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const ADD_CHILD_VISIT_DEPARTMENT_MUTATION = gql`
   mutation AddChildVisitDepartment($input: AddChildVisitDepartmentInput!) {
@@ -144,7 +152,7 @@ export const ADD_CHILD_VISIT_DEPARTMENT_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const ADD_DIAGNOSIS_MUTATION = gql`
   mutation AddDiagnosis($input: AddDiagnosisInput!) {
@@ -169,7 +177,7 @@ export const ADD_DIAGNOSIS_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const ADD_MEDICATION_MUTATION = gql`
   mutation AddMedication($input: AddMedicationInput!) {
@@ -194,7 +202,7 @@ export const ADD_MEDICATION_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const UPSERT_CONSULTATION_ANSWERS_MUTATION = gql`
   mutation UpsertConsultationAnswers($input: ConsultationAnswersInput!) {
@@ -218,11 +226,14 @@ export const UPSERT_CONSULTATION_ANSWERS_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const GENERATE_CONSULTATION_PDF_MUTATION = gql`
   mutation GenerateConsultationPdf($consultationId: ID!, $departmentId: ID!) {
-    generateConsultationPdf(consultationId: $consultationId, departmentId: $departmentId) {
+    generateConsultationPdf(
+      consultationId: $consultationId
+      departmentId: $departmentId
+    ) {
       status
       message
       data {
@@ -231,7 +242,7 @@ export const GENERATE_CONSULTATION_PDF_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const PROCESS_VISIT_DEPARTMENT_MUTATION = gql`
   mutation ProcessVisitDepartment($visitId: ID!, $departmentId: ID!) {
@@ -246,14 +257,16 @@ export const PROCESS_VISIT_DEPARTMENT_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const ADD_PRODUCT_TO_VISIT_DEPARTMENT_MUTATION = gql`
-  mutation AddVisitDepartmentProduct($input: CreateVisitDepartmentProductInput!) {
+  mutation AddVisitDepartmentProduct(
+    $input: CreateVisitDepartmentProductInput!
+  ) {
     addVisitDepartmentProduct(input: $input) {
       status
       message
-      
+
       data {
         id
         department {
@@ -281,14 +294,14 @@ export const ADD_PRODUCT_TO_VISIT_DEPARTMENT_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const COMPLETE_VISIT_DEPARTMENT_MUTATION = gql`
   mutation CompleteVisitDepartment($visitId: ID!, $departmentId: ID!) {
     completeVisitDepartment(visitId: $visitId, departmentId: $departmentId) {
       status
       message
-      
+
       data {
         id
         status
@@ -296,14 +309,16 @@ export const COMPLETE_VISIT_DEPARTMENT_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const UPDATE_VISIT_DEPARTMENT_STATUS_MUTATION = gql`
-  mutation UpdateVisitDepartmentStatus($input: UpdateVisitDepartmentStatusInput!) {
+  mutation UpdateVisitDepartmentStatus(
+    $input: UpdateVisitDepartmentStatusInput!
+  ) {
     updateVisitDepartmentStatus(input: $input) {
       status
       message
-      
+
       data {
         id
         status
@@ -316,11 +331,19 @@ export const UPDATE_VISIT_DEPARTMENT_STATUS_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const ADD_DEPARTMENT_TO_VISIT_MUTATION = gql`
-  mutation AddDepartmentToVisit($visitId: ID!, $departmentId: ID!) {
-    addVisitDepartment(visitId: $visitId, departmentId: $departmentId) {
+  mutation AddDepartmentToVisit(
+    $visitId: ID!
+    $departmentId: ID!
+    $processorId: ID
+  ) {
+    addVisitDepartment(
+      visitId: $visitId
+      departmentId: $departmentId
+      processorId: $processorId
+    ) {
       status
       message
       data {
@@ -341,7 +364,7 @@ export const ADD_DEPARTMENT_TO_VISIT_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const LINK_VISIT_INSURANCES_MUTATION = gql`
   mutation LinkVisitInsurances($visitId: ID!, $insuranceIds: [ID!]!) {
@@ -368,7 +391,7 @@ export const LINK_VISIT_INSURANCES_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const UNLINK_VISIT_INSURANCES_MUTATION = gql`
   mutation UnlinkVisitInsurances($visitId: ID!, $insuranceIds: [ID!]!) {
@@ -395,10 +418,12 @@ export const UNLINK_VISIT_INSURANCES_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const UPDATE_VISIT_DEPARTMENT_PRODUCT_QUANTITY_MUTATION = gql`
-  mutation UpdateVisitDepartmentProductQuantity($input: UpdateVisitDepartmentProductQuantityInput!) {
+  mutation UpdateVisitDepartmentProductQuantity(
+    $input: UpdateVisitDepartmentProductQuantityInput!
+  ) {
     updateVisitDepartmentProductQuantity(input: $input) {
       status
       message
@@ -423,10 +448,12 @@ export const UPDATE_VISIT_DEPARTMENT_PRODUCT_QUANTITY_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const UPDATE_VISIT_DEPARTMENT_PRODUCT_STATUS_MUTATION = gql`
-  mutation UpdateVisitDepartmentProductStatus($input: UpdateVisitDepartmentProductStatusInput!) {
+  mutation UpdateVisitDepartmentProductStatus(
+    $input: UpdateVisitDepartmentProductStatusInput!
+  ) {
     updateVisitDepartmentProductStatus(input: $input) {
       status
       message
@@ -451,11 +478,13 @@ export const UPDATE_VISIT_DEPARTMENT_PRODUCT_STATUS_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION = gql`
   mutation RemoveVisitDepartmentProduct($visitDepartmentProductId: ID!) {
-    removeVisitDepartmentProduct(visitDepartmentProductId: $visitDepartmentProductId) {
+    removeVisitDepartmentProduct(
+      visitDepartmentProductId: $visitDepartmentProductId
+    ) {
       status
       message
       data {
@@ -479,79 +508,199 @@ export const REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const REMOVE_ACTION_FROM_VISIT_DEPARTMENT_MUTATION = gql`
-  mutation RemoveActionFromVisitDepartment($visitId: ID!, $departmentId: ID!, $itemId: ID!) {
-    removeActionFromVisitDepartment(input: { visitId: $visitId, departmentId: $departmentId, itemId: $itemId }) {
+  mutation RemoveActionFromVisitDepartment(
+    $visitId: ID!
+    $departmentId: ID!
+    $itemId: ID!
+  ) {
+    removeActionFromVisitDepartment(
+      input: { visitId: $visitId, departmentId: $departmentId, itemId: $itemId }
+    ) {
       status
       data {
         id
         departments {
           id
           status
-          actions { id action { id name type privatePrice } quantity }
-          consumables { id consumable { id name type privatePrice } quantity }
+          actions {
+            id
+            action {
+              id
+              name
+              type
+              privatePrice
+            }
+            quantity
+          }
+          consumables {
+            id
+            consumable {
+              id
+              name
+              type
+              privatePrice
+            }
+            quantity
+          }
         }
       }
-      messages { text type }
+      messages {
+        text
+        type
+      }
     }
   }
-`
+`;
 
 export const REMOVE_CONSUMABLE_FROM_VISIT_DEPARTMENT_MUTATION = gql`
-  mutation RemoveConsumableFromVisitDepartment($visitId: ID!, $departmentId: ID!, $itemId: ID!) {
-    removeConsumableFromVisitDepartment(input: { visitId: $visitId, departmentId: $departmentId, itemId: $itemId }) {
+  mutation RemoveConsumableFromVisitDepartment(
+    $visitId: ID!
+    $departmentId: ID!
+    $itemId: ID!
+  ) {
+    removeConsumableFromVisitDepartment(
+      input: { visitId: $visitId, departmentId: $departmentId, itemId: $itemId }
+    ) {
       status
       data {
         id
         departments {
           id
           status
-          actions { id action { id name type privatePrice } quantity }
-          consumables { id consumable { id name type privatePrice } quantity }
+          actions {
+            id
+            action {
+              id
+              name
+              type
+              privatePrice
+            }
+            quantity
+          }
+          consumables {
+            id
+            consumable {
+              id
+              name
+              type
+              privatePrice
+            }
+            quantity
+          }
         }
       }
-      messages { text type }
+      messages {
+        text
+        type
+      }
     }
   }
-`
+`;
 
 export const UPDATE_ACTION_QUANTITY_MUTATION = gql`
-  mutation UpdateActionQuantity($visitId: ID!, $departmentId: ID!, $itemId: ID!, $quantity: Int!) {
-    updateActionQuantity(input: { visitId: $visitId, departmentId: $departmentId, itemId: $itemId, quantity: $quantity }) {
+  mutation UpdateActionQuantity(
+    $visitId: ID!
+    $departmentId: ID!
+    $itemId: ID!
+    $quantity: Int!
+  ) {
+    updateActionQuantity(
+      input: {
+        visitId: $visitId
+        departmentId: $departmentId
+        itemId: $itemId
+        quantity: $quantity
+      }
+    ) {
       status
       data {
         id
         departments {
           id
           status
-          actions { id action { id name type privatePrice } quantity }
-          consumables { id consumable { id name type privatePrice } quantity }
+          actions {
+            id
+            action {
+              id
+              name
+              type
+              privatePrice
+            }
+            quantity
+          }
+          consumables {
+            id
+            consumable {
+              id
+              name
+              type
+              privatePrice
+            }
+            quantity
+          }
         }
       }
-      messages { text type }
+      messages {
+        text
+        type
+      }
     }
   }
-`
+`;
 
 export const UPDATE_CONSUMABLE_QUANTITY_MUTATION = gql`
-  mutation UpdateConsumableQuantity($visitId: ID!, $departmentId: ID!, $itemId: ID!, $quantity: Int!) {
-    updateConsumableQuantity(input: { visitId: $visitId, departmentId: $departmentId, itemId: $itemId, quantity: $quantity }) {
+  mutation UpdateConsumableQuantity(
+    $visitId: ID!
+    $departmentId: ID!
+    $itemId: ID!
+    $quantity: Int!
+  ) {
+    updateConsumableQuantity(
+      input: {
+        visitId: $visitId
+        departmentId: $departmentId
+        itemId: $itemId
+        quantity: $quantity
+      }
+    ) {
       status
       data {
         id
         departments {
           id
           status
-          actions { id action { id name type privatePrice } quantity }
-          consumables { id consumable { id name type privatePrice } quantity }
+          actions {
+            id
+            action {
+              id
+              name
+              type
+              privatePrice
+            }
+            quantity
+          }
+          consumables {
+            id
+            consumable {
+              id
+              name
+              type
+              privatePrice
+            }
+            quantity
+          }
         }
       }
-      messages { text type }
+      messages {
+        text
+        type
+      }
     }
   }
-`
+`;
 
 export const COMPLETE_VISIT_MUTATION = gql`
   mutation CompleteVisit($visitId: ID!) {
@@ -564,10 +713,13 @@ export const COMPLETE_VISIT_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const COMPLETE_CONSULTATION_VISIT_MUTATION = gql`
-  mutation CompleteConsultationVisit($input: ConsultationAnswersInput!, $final: Boolean!) {
+  mutation CompleteConsultationVisit(
+    $input: ConsultationAnswersInput!
+    $final: Boolean!
+  ) {
     completeConsultationVisit(input: $input, final: $final) {
       status
       message
@@ -591,7 +743,7 @@ export const COMPLETE_CONSULTATION_VISIT_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const ADD_VISIT_DEPARTMENT_NOTE_MUTATION = gql`
   mutation AddVisitDepartmentNote($input: AddVisitDepartmentNoteInput!) {
@@ -612,7 +764,7 @@ export const ADD_VISIT_DEPARTMENT_NOTE_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const MARK_VISIT_DEPARTMENT_NOTE_VIEWED_MUTATION = gql`
   mutation MarkVisitDepartmentNoteViewed($noteId: ID!) {
@@ -633,7 +785,7 @@ export const MARK_VISIT_DEPARTMENT_NOTE_VIEWED_MUTATION = gql`
       }
     }
   }
-`
+`;
 
 export const MARK_VISIT_DEPARTMENT_NOTES_VIEWED_MUTATION = gql`
   mutation MarkVisitDepartmentNotesViewed($visitDepartmentId: ID!) {
@@ -646,4 +798,4 @@ export const MARK_VISIT_DEPARTMENT_NOTES_VIEWED_MUTATION = gql`
       }
     }
   }
-`
+`;

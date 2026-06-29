@@ -975,12 +975,14 @@ export function useAddDepartmentToVisit() {
   const addDepartmentToVisit = async (
     visitId: string,
     departmentId: string,
+    processorId?: string | null,
   ): Promise<ApiResponse<any>> => {
     try {
       const result = await mutation({
         variables: {
           visitId,
           departmentId,
+          processorId: processorId || null,
         },
         refetchQueries: ["GetVisits", "GetVisit"],
         awaitRefetchQueries: true,
