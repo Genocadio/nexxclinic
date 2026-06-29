@@ -356,12 +356,7 @@ export function BillingPageContent() {
 
   const handlePaymentMethodChange = (
     method:
-      | "CASH"
-      | "MOBILE_MONEY"
-      | "CARD"
-      | "BANK_TRANSFER"
-      | "CHEQUE"
-      | "MIXED",
+      "CASH" | "MOBILE_MONEY" | "CARD" | "BANK_TRANSFER" | "CHEQUE" | "MIXED",
   ) => {
     setBillingData((prev) =>
       prev
@@ -529,6 +524,10 @@ export function BillingPageContent() {
     refetch: refetchNotes,
   } = useVisitDepartmentNotes(visitId, firstBillingDepartmentId || null);
 
+  const unreadBillingNotesCount = (billingDepartmentNotes || []).filter(
+    (note: any) => !note?.viewed,
+  ).length;
+
   const hasUnbilledItems = (visitData: Visit | undefined) => {
     if (!visitData) return false;
     if (visitProductsFullySettled(visitData)) return false;
@@ -557,6 +556,11 @@ export function BillingPageContent() {
 
   const handleDischargeVisit = async () => {
     if (!visit) return;
+
+    if (unreadBillingNotesCount > 0) {
+      toast.warn("Please view the notes first before completing this visit.");
+      return;
+    }
 
     const confirmed = window.confirm(
       "All billable items are settled. Discharge this patient and complete visit?",
@@ -605,6 +609,11 @@ export function BillingPageContent() {
 
   const handleGenerateBill = async () => {
     if (!billingData || creatingBill) return;
+
+    if (unreadBillingNotesCount > 0) {
+      toast.warn("Please view the notes first before completing the bill.");
+      return;
+    }
 
     const unbilledItems = selectedItems.filter(
       (item) => item.paymentStatus !== "paid",
@@ -1174,7 +1183,14 @@ export function BillingPageContent() {
             generatingInvoice={generatingInvoice}
             isEditingBill={isEditingBill}
             exemptionCount={exemptionCount}
+            hasUnreadNotes={unreadBillingNotesCount > 0}
             onCompleteBill={() => {
+              if (unreadBillingNotesCount > 0) {
+                toast.warn(
+                  "Please view the notes first before completing the bill.",
+                );
+                return;
+              }
               setConfirmSheetMode("complete");
               handleAmountPaidChange(displayTotals.totalAmount);
               setShowCompleteBillConfirm(true);
@@ -1182,6 +1198,10 @@ export function BillingPageContent() {
             onPreview={() => void handlePreviewBilling()}
             onPrint={() => void handlePrintBillingInvoice()}
             onEditBilling={() => {
+              if (unreadBillingNotesCount > 0) {
+                toast.warn("Please view the notes first before continuing.");
+                return;
+              }
               setIsEditingBill(true);
               setShowDiscountControls(true);
               setConfirmSheetMode("edit");

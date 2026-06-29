@@ -539,6 +539,12 @@ export function StandaloneConsultationView({
   };
 
   const handleComplete = async () => {
+    if (unreadNotesCount > 0) {
+      toast.warn("Please view the notes first before completing this visit.");
+      setNotesOpen(true);
+      return;
+    }
+
     const valid = formRendererRef.current?.validateAndShowErrors() ?? true;
     if (!valid) {
       toast.error("Please complete required fields before finalising");
@@ -819,6 +825,7 @@ export function StandaloneConsultationView({
             </Button>
             <Button
               type="button"
+              disabled={unreadNotesCount > 0}
               onClick={() => {
                 setShowFinalizeConfirm(false);
                 void handleComplete();

@@ -1,61 +1,76 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Header from "@/components/header"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
-import { useAuth } from "@/lib/auth-context"
+import { useState } from "react";
+import { MediaUploader } from "@/components/ui/media-uploader";
+import Header from "@/components/header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/lib/auth-context";
 import {
   useCreateInsuranceProvider,
   useDeleteInsuranceProvider,
   useInsurances,
   useUpdateInsuranceProvider,
-} from "@/hooks/auth-hooks"
-import { Pencil, Trash2, ArrowLeft, Plus } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useRouter } from "next/navigation"
-import { toast } from "react-toastify"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+} from "@/hooks/auth-hooks";
+import { Pencil, Trash2, ArrowLeft, Plus } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function ManageInsurancesPage() {
-  const router = useRouter()
-  const { doctor } = useAuth()
-  const { insurances, loading, error, refetch } = useInsurances({ supportedByClinic: null, page: 0, size: 200 })
-  const { createInsuranceProvider } = useCreateInsuranceProvider()
-  const { updateInsuranceProvider } = useUpdateInsuranceProvider()
-  const { deleteInsuranceProvider } = useDeleteInsuranceProvider()
-  const [name, setName] = useState("")
-  const [acronym, setAcronym] = useState("")
-  const [coverage, setCoverage] = useState("")
-  const [iconUrl, setIconUrl] = useState("")
-  const [supportedByClinic, setSupportedByClinic] = useState(true)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [modalOpen, setModalOpen] = useState(false)
+  const router = useRouter();
+  const { doctor } = useAuth();
+  const { insurances, loading, error, refetch } = useInsurances({
+    supportedByClinic: null,
+    page: 0,
+    size: 200,
+  });
+  const { createInsuranceProvider } = useCreateInsuranceProvider();
+  const { updateInsuranceProvider } = useUpdateInsuranceProvider();
+  const { deleteInsuranceProvider } = useDeleteInsuranceProvider();
+  const [name, setName] = useState("");
+  const [acronym, setAcronym] = useState("");
+  const [coverage, setCoverage] = useState("");
+  const [iconUrl, setIconUrl] = useState("");
+  const [supportedByClinic, setSupportedByClinic] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const resetForm = () => {
-    setName("")
-    setAcronym("")
-    setCoverage("")
-    setIconUrl("")
-    setSupportedByClinic(true)
-    setEditingId(null)
-  }
+    setName("");
+    setAcronym("");
+    setCoverage("");
+    setIconUrl("");
+    setSupportedByClinic(true);
+    setEditingId(null);
+  };
 
   const openAddModal = () => {
-    resetForm()
-    setModalOpen(true)
-  }
+    resetForm();
+    setModalOpen(true);
+  };
 
   const handleCreate = async () => {
-    if (!name || !acronym || !coverage) return
-    const coverageValue = Number(coverage)
-    if (Number.isNaN(coverageValue) || coverageValue < 0 || coverageValue > 100) {
-      toast.warn("Invalid coverage: Coverage must be between 0 and 100.")
-      return
+    if (!name || !acronym || !coverage) return;
+    const coverageValue = Number(coverage);
+    if (
+      Number.isNaN(coverageValue) ||
+      coverageValue < 0 ||
+      coverageValue > 100
+    ) {
+      toast.warn("Invalid coverage: Coverage must be between 0 and 100.");
+      return;
     }
-    setSaving(true)
+    setSaving(true);
     try {
       const response = await createInsuranceProvider({
         insuranceName: name,
@@ -63,30 +78,36 @@ export default function ManageInsurancesPage() {
         defaultCoveragePercentage: coverageValue,
         supportedByClinic,
         iconUrl: iconUrl || undefined,
-      })
-      if (response?.status === 'SUCCESS') {
-        await refetch()
-        toast.success(response?.message || "Insurance provider created successfully!")
-        resetForm()
-        setModalOpen(false)
+      });
+      if (response?.status === "SUCCESS") {
+        await refetch();
+        toast.success(
+          response?.message || "Insurance provider created successfully!",
+        );
+        resetForm();
+        setModalOpen(false);
       } else {
-        toast.error(response?.message || "Failed to create insurance provider")
+        toast.error(response?.message || "Failed to create insurance provider");
       }
     } catch (err: any) {
-      toast.error(err?.message || "Failed to create insurance provider")
+      toast.error(err?.message || "Failed to create insurance provider");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleUpdate = async () => {
-    if (editingId == null || !name || !acronym || !coverage) return
-    const coverageValue = Number(coverage)
-    if (Number.isNaN(coverageValue) || coverageValue < 0 || coverageValue > 100) {
-      toast.warn("Invalid coverage: Coverage must be between 0 and 100.")
-      return
+    if (editingId == null || !name || !acronym || !coverage) return;
+    const coverageValue = Number(coverage);
+    if (
+      Number.isNaN(coverageValue) ||
+      coverageValue < 0 ||
+      coverageValue > 100
+    ) {
+      toast.warn("Invalid coverage: Coverage must be between 0 and 100.");
+      return;
     }
-    setSaving(true)
+    setSaving(true);
     try {
       const response = await updateInsuranceProvider(editingId, {
         insuranceName: name,
@@ -94,40 +115,44 @@ export default function ManageInsurancesPage() {
         defaultCoveragePercentage: coverageValue,
         supportedByClinic,
         iconUrl: iconUrl || undefined,
-      })
-      if (response?.status === 'SUCCESS') {
-        await refetch()
-        toast.success(response?.message || "Insurance provider updated successfully!")
-        resetForm()
-        setModalOpen(false)
+      });
+      if (response?.status === "SUCCESS") {
+        await refetch();
+        toast.success(
+          response?.message || "Insurance provider updated successfully!",
+        );
+        resetForm();
+        setModalOpen(false);
       } else {
-        toast.error(response?.message || "Failed to update insurance provider")
+        toast.error(response?.message || "Failed to update insurance provider");
       }
     } catch (err: any) {
-      toast.error(err?.message || "Failed to update insurance provider")
+      toast.error(err?.message || "Failed to update insurance provider");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this insurance provider?")) return
-    setSaving(true)
+    if (!confirm("Delete this insurance provider?")) return;
+    setSaving(true);
     try {
-      const response = await deleteInsuranceProvider(id)
-      if (response?.status === 'SUCCESS') {
-        await refetch()
-        if (editingId === id) resetForm()
-        toast.success(response?.message || "Insurance provider deleted successfully!")
+      const response = await deleteInsuranceProvider(id);
+      if (response?.status === "SUCCESS") {
+        await refetch();
+        if (editingId === id) resetForm();
+        toast.success(
+          response?.message || "Insurance provider deleted successfully!",
+        );
       } else {
-        toast.error(response?.message || "Delete failed: Please try again.")
+        toast.error(response?.message || "Delete failed: Please try again.");
       }
     } catch (err: any) {
-      toast.error(err?.message || "Failed to delete insurance provider")
+      toast.error(err?.message || "Failed to delete insurance provider");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -140,13 +165,17 @@ export default function ManageInsurancesPage() {
               variant="outline"
               size="icon"
               className="rounded-full"
-              onClick={() => router.push('/admin')}
+              onClick={() => router.push("/admin")}
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Manage Insurances</h1>
-              <p className="text-muted-foreground">Create, edit, and delete insurances.</p>
+              <h1 className="text-2xl font-bold text-foreground">
+                Manage Insurances
+              </h1>
+              <p className="text-muted-foreground">
+                Create, edit, and delete insurances.
+              </p>
             </div>
           </div>
           <Button
@@ -169,51 +198,118 @@ export default function ManageInsurancesPage() {
         </div>
 
         {/* Register / Edit Insurance Dialog Modal */}
-        <Dialog open={modalOpen} onOpenChange={(open) => {
-          setModalOpen(open)
-          if (!open) resetForm()
-        }}>
+        <Dialog
+          open={modalOpen}
+          onOpenChange={(open) => {
+            setModalOpen(open);
+            if (!open) resetForm();
+          }}
+        >
           <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/25 border border-white/20 rounded-3xl shadow-2xl p-3 flex flex-col">
             <div className="flex-1 overflow-hidden bg-[#FBF2ED] dark:bg-slate-900 border border-border/40 dark:border-slate-800 rounded-2xl p-6 flex flex-col shadow-lg">
               <DialogHeader>
                 <DialogTitle className="text-xl font-bold text-foreground">
-                  {editingId ? "Edit Insurance Provider" : "Register Insurance Provider"}
+                  {editingId
+                    ? "Edit Insurance Provider"
+                    : "Register Insurance Provider"}
                 </DialogTitle>
                 <DialogDescription>
-                  {editingId ? "Modify the fields below to update the insurance provider." : "Fill in the details below to create and register a new insurance provider."}
+                  {editingId
+                    ? "Modify the fields below to update the insurance provider."
+                    : "Fill in the details below to create and register a new insurance provider."}
                 </DialogDescription>
               </DialogHeader>
 
               <div className="flex-1 overflow-y-auto pr-2 space-y-5 my-4 scrollbar-thin">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Insurance Name *</label>
-                  <Input placeholder="e.g. RSSB" value={name} onChange={(e) => setName(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                  <label className="text-xs font-semibold text-muted-foreground">
+                    Insurance Name *
+                  </label>
+                  <Input
+                    placeholder="e.g. RSSB"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="rounded-xl bg-white dark:bg-slate-950"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Acronym *</label>
-                  <Input placeholder="e.g. RSSB" value={acronym} onChange={(e) => setAcronym(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                  <label className="text-xs font-semibold text-muted-foreground">
+                    Acronym *
+                  </label>
+                  <Input
+                    placeholder="e.g. RSSB"
+                    value={acronym}
+                    onChange={(e) => setAcronym(e.target.value)}
+                    className="rounded-xl bg-white dark:bg-slate-950"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Default Coverage Percentage *</label>
-                  <Input placeholder="e.g. 85" type="number" value={coverage} onChange={(e) => setCoverage(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                  <label className="text-xs font-semibold text-muted-foreground">
+                    Default Coverage Percentage *
+                  </label>
+                  <Input
+                    placeholder="e.g. 85"
+                    type="number"
+                    value={coverage}
+                    onChange={(e) => setCoverage(e.target.value)}
+                    className="rounded-xl bg-white dark:bg-slate-950"
+                  />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Icon URL (optional)</label>
-                  <Input placeholder="https://..." value={iconUrl} onChange={(e) => setIconUrl(e.target.value)} className="rounded-xl bg-white dark:bg-slate-950" />
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground">
+                    Coverage document (upload)
+                  </label>
+
+                  <MediaUploader
+                    bucket="clinic_data"
+                    storagePath="insurances/coverage"
+                    accept="image/*,application/pdf"
+                    multiple={false}
+                    disabled={saving}
+                    currentUrl={iconUrl || undefined}
+                    hint="Upload the insurance coverage document (PDF/image)."
+                    onUploaded={(files) => {
+                      const first = files[0];
+                      setIconUrl(first?.url || "");
+                    }}
+                    onError={(err) => {
+                      console.error("Coverage upload error:", err);
+                    }}
+                  />
+
+                  {/* Hidden storage field (we store the uploaded file URL) */}
+                  <Input type="hidden" value={iconUrl} readOnly />
                 </div>
                 <div className="flex items-center gap-2 pt-2">
-                  <Checkbox id="supported-checkbox" checked={supportedByClinic} onCheckedChange={(checked) => setSupportedByClinic(Boolean(checked))} />
-                  <label htmlFor="supported-checkbox" className="text-sm font-semibold text-foreground cursor-pointer select-none">Supported by clinic</label>
+                  <Checkbox
+                    id="supported-checkbox"
+                    checked={supportedByClinic}
+                    onCheckedChange={(checked) =>
+                      setSupportedByClinic(Boolean(checked))
+                    }
+                  />
+                  <label
+                    htmlFor="supported-checkbox"
+                    className="text-sm font-semibold text-foreground cursor-pointer select-none"
+                  >
+                    Supported by clinic
+                  </label>
                 </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border/30 sticky bottom-0 bg-background/95 dark:bg-slate-900/95 -mx-2 px-2 pb-2">
-                <Button type="button" variant="outline" className="rounded-full px-5" onClick={() => setModalOpen(false)} disabled={saving}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-full px-5"
+                  onClick={() => setModalOpen(false)}
+                  disabled={saving}
+                >
                   Cancel
                 </Button>
-                <Button 
-                  onClick={editingId ? handleUpdate : handleCreate} 
-                  className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md" 
+                <Button
+                  onClick={editingId ? handleUpdate : handleCreate}
+                  className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md"
                   disabled={saving}
                 >
                   {editingId ? "Update Provider" : "Register Provider"}
@@ -225,21 +321,30 @@ export default function ManageInsurancesPage() {
 
         {/* Existing Insurances Panel */}
         <section className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
-          <p className="text-sm font-semibold text-foreground">Existing Insurances</p>
+          <p className="text-sm font-semibold text-foreground">
+            Existing Insurances
+          </p>
 
           <div className="space-y-2">
             {loading ? (
               <div className="space-y-2">
                 {[...Array(3)].map((_, idx) => (
-                  <Skeleton key={idx} className="h-14 w-full rounded-xl animate-pulse" />
+                  <Skeleton
+                    key={idx}
+                    className="h-14 w-full rounded-xl animate-pulse"
+                  />
                 ))}
               </div>
             ) : error ? (
               <p className="text-destructive text-sm">
-                {typeof error === 'string' ? error : 'Failed to load insurances'}
+                {typeof error === "string"
+                  ? error
+                  : "Failed to load insurances"}
               </p>
             ) : insurances.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No insurances yet.</p>
+              <p className="text-sm text-muted-foreground">
+                No insurances yet.
+              </p>
             ) : (
               <div className="space-y-2">
                 {insurances.map((ins) => (
@@ -250,7 +355,11 @@ export default function ManageInsurancesPage() {
                     <div>
                       <p className="font-medium text-foreground">{ins.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {ins.acronym} • {ins.defaultCoveragePercentage}% coverage • {ins.supportedByClinic ? "Clinic Supported" : "External"}
+                        {ins.acronym} • {ins.defaultCoveragePercentage}%
+                        coverage •{" "}
+                        {ins.supportedByClinic
+                          ? "Clinic Supported"
+                          : "External"}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -259,13 +368,13 @@ export default function ManageInsurancesPage() {
                         variant="outline"
                         className="rounded-full"
                         onClick={() => {
-                          setEditingId(ins.id)
-                          setName(ins.insuranceName || "")
-                          setAcronym(ins.acronym || "")
-                          setCoverage(String(ins.defaultCoveragePercentage))
-                          setIconUrl(ins.iconUrl || "")
-                          setSupportedByClinic(Boolean(ins.supportedByClinic))
-                          setModalOpen(true)
+                          setEditingId(ins.id);
+                          setName(ins.insuranceName || "");
+                          setAcronym(ins.acronym || "");
+                          setCoverage(String(ins.defaultCoveragePercentage));
+                          setIconUrl(ins.iconUrl || "");
+                          setSupportedByClinic(Boolean(ins.supportedByClinic));
+                          setModalOpen(true);
                         }}
                       >
                         <Pencil className="h-4 w-4" />
@@ -288,5 +397,5 @@ export default function ManageInsurancesPage() {
         </section>
       </main>
     </div>
-  )
+  );
 }

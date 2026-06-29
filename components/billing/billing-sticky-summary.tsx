@@ -1,10 +1,15 @@
-'use client';
+"use client";
 
-import { Receipt, Printer, Pencil, Eye } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import type { VisitBilling } from '@/lib/api-types';
-import { getVisitBillingTotals } from '@/lib/visit-billing-utils';
+import { Receipt, Printer, Pencil, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import type { VisitBilling } from "@/lib/api-types";
+import { getVisitBillingTotals } from "@/lib/visit-billing-utils";
 
 type BillingTotals = {
   subtotal: number;
@@ -27,6 +32,7 @@ type BillingStickySummaryProps = {
   generatingInvoice: boolean;
   isEditingBill: boolean;
   exemptionCount: number;
+  hasUnreadNotes?: boolean;
   onCompleteBill: () => void;
   onPreview: () => void;
   onPrint: () => void;
@@ -42,7 +48,7 @@ function formatRwf(amount: number) {
 export function BillingStickySummary({
   totals,
   amountPaid,
-  currency = 'RWF',
+  currency = "RWF",
   activeService,
   selectedCount = 0,
   existingVisitBilling,
@@ -52,6 +58,7 @@ export function BillingStickySummary({
   generatingInvoice,
   isEditingBill,
   exemptionCount,
+  hasUnreadNotes = false,
   onCompleteBill,
   onPreview,
   onPrint,
@@ -61,7 +68,9 @@ export function BillingStickySummary({
 }: BillingStickySummaryProps) {
   const remaining = Math.max(0, totals.totalAmount - amountPaid);
   const showActions = canEditBilling || hasRemainingToBill;
-  const billingTotals = existingVisitBilling ? getVisitBillingTotals(existingVisitBilling) : null;
+  const billingTotals = existingVisitBilling
+    ? getVisitBillingTotals(existingVisitBilling)
+    : null;
 
   if (!showActions && !existingVisitBilling) return null;
 
@@ -69,113 +78,135 @@ export function BillingStickySummary({
     <div className="flex-shrink-0 border-t border-border bg-card/80 backdrop-blur-xl py-3">
       <div className="px-6">
         <div className="w-full min-w-0 mx-auto px-2 sm:px-4 md:px-[1cm] lg:px-[2cm]">
-      <div className="flex items-center gap-4 lg:gap-6">
-        {/* Totals — compact horizontal strip */}
-        <div className="flex-1 flex items-center gap-4 lg:gap-6 min-w-0 overflow-x-auto">
-          <div className="flex items-center gap-4 lg:gap-5 text-xs shrink-0">
-            <SummaryLine label="Service Total" value={formatRwf(totals.subtotal)} />
-            {totals.insuranceCoverage > 0 && (
-              <SummaryLine
-                label="Insurance"
-                value={`−${totals.insuranceCoverage.toLocaleString()} ${currency}`}
-                className="text-emerald-600 dark:text-emerald-400"
-              />
-            )}
-            <SummaryLine label="Patient" value={formatRwf(totals.patientResponsibility)} />
-            {totals.discount > 0 && (
-              <SummaryLine
-                label="Discount"
-                value={`−${totals.discount.toLocaleString()} ${currency}`}
-                className="text-red-500 dark:text-red-400"
-              />
-            )}
-          </div>
-
-          <div className="h-8 w-px bg-border shrink-0 hidden sm:block" />
-
-          <div className="shrink-0">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
-              {activeService ? `${activeService} · Due` : 'Amount Due'}
-            </p>
-            {selectedCount > 0 && !existingVisitBilling && (
-              <p className="text-[10px] text-muted-foreground">
-                {selectedCount} item{selectedCount !== 1 ? 's' : ''} selected
-              </p>
-            )}
-            <p className="text-xl font-bold text-[#FF6900] tabular-nums leading-tight">
-              {formatRwf(totals.totalAmount)}
-            </p>
-            {!existingVisitBilling && amountPaid > 0 && (
-              <p className="text-[10px] text-muted-foreground tabular-nums">
-                Paid {amountPaid.toLocaleString()} · Remaining {remaining.toLocaleString()}
-              </p>
-            )}
-          </div>
-
-          {existingVisitBilling && billingTotals && (
-            <div className="hidden md:flex items-center gap-3 text-[11px] text-muted-foreground shrink-0 border-l border-border pl-4">
-              <span>
-                Billed <span className="font-medium text-foreground">{existingVisitBilling.id.slice(0, 8)}…</span>
-              </span>
-              <span>
-                Balance {billingTotals.outstandingAmount.toLocaleString()} {currency}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <TooltipProvider delayDuration={300}>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {!canEditBilling && hasRemainingToBill && (
-              <>
-                {exemptionCount > 0 && (
-                  <ActionButton
-                    icon={Receipt}
-                    label={`Exemptions (${exemptionCount})`}
-                    onClick={onManageExemptions}
-                    badge={exemptionCount}
+          <div className="flex items-center gap-4 lg:gap-6">
+            {/* Totals — compact horizontal strip */}
+            <div className="flex-1 flex items-center gap-4 lg:gap-6 min-w-0 overflow-x-auto">
+              <div className="flex items-center gap-4 lg:gap-5 text-xs shrink-0">
+                <SummaryLine
+                  label="Service Total"
+                  value={formatRwf(totals.subtotal)}
+                />
+                {totals.insuranceCoverage > 0 && (
+                  <SummaryLine
+                    label="Insurance"
+                    value={`−${totals.insuranceCoverage.toLocaleString()} ${currency}`}
+                    className="text-emerald-600 dark:text-emerald-400"
                   />
                 )}
-                <Button
-                  size="sm"
-                  className="h-9 rounded-full bg-[#FF6900] hover:bg-[#e05f00] text-white text-xs px-4"
-                  disabled={creatingBill}
-                  onClick={onCompleteBill}
-                >
-                  <Receipt className="h-3.5 w-3.5 mr-1.5" />
-                  {creatingBill ? 'Processing…' : 'Complete Bill'}
-                </Button>
-              </>
-            )}
-
-            {existingVisitBilling && (
-              <ActionButton icon={Eye} label="Preview bill" onClick={onPreview} />
-            )}
-
-            {canEditBilling && (
-              <>
-                <ActionButton icon={Pencil} label="Edit billing" onClick={onEditBilling} />
-                <ActionButton
-                  icon={Printer}
-                  label={generatingInvoice ? 'Loading PDF…' : 'Print invoice'}
-                  onClick={onPrint}
-                  disabled={generatingInvoice}
+                <SummaryLine
+                  label="Patient"
+                  value={formatRwf(totals.patientResponsibility)}
                 />
-                {isEditingBill && (
-                  <Button
-                    size="sm"
-                    className="h-9 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
-                    onClick={onDoneEditing}
-                  >
-                    Done
-                  </Button>
+                {totals.discount > 0 && (
+                  <SummaryLine
+                    label="Discount"
+                    value={`−${totals.discount.toLocaleString()} ${currency}`}
+                    className="text-red-500 dark:text-red-400"
+                  />
                 )}
-              </>
-            )}
+              </div>
+
+              <div className="h-8 w-px bg-border shrink-0 hidden sm:block" />
+
+              <div className="shrink-0">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                  {activeService ? `${activeService} · Due` : "Amount Due"}
+                </p>
+                {selectedCount > 0 && !existingVisitBilling && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {selectedCount} item{selectedCount !== 1 ? "s" : ""}{" "}
+                    selected
+                  </p>
+                )}
+                <p className="text-xl font-bold text-[#FF6900] tabular-nums leading-tight">
+                  {formatRwf(totals.totalAmount)}
+                </p>
+                {!existingVisitBilling && amountPaid > 0 && (
+                  <p className="text-[10px] text-muted-foreground tabular-nums">
+                    Paid {amountPaid.toLocaleString()} · Remaining{" "}
+                    {remaining.toLocaleString()}
+                  </p>
+                )}
+              </div>
+
+              {existingVisitBilling && billingTotals && (
+                <div className="hidden md:flex items-center gap-3 text-[11px] text-muted-foreground shrink-0 border-l border-border pl-4">
+                  <span>
+                    Billed{" "}
+                    <span className="font-medium text-foreground">
+                      {existingVisitBilling.id.slice(0, 8)}…
+                    </span>
+                  </span>
+                  <span>
+                    Balance {billingTotals.outstandingAmount.toLocaleString()}{" "}
+                    {currency}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <TooltipProvider delayDuration={300}>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {!canEditBilling && hasRemainingToBill && (
+                  <>
+                    {exemptionCount > 0 && (
+                      <ActionButton
+                        icon={Receipt}
+                        label={`Exemptions (${exemptionCount})`}
+                        onClick={onManageExemptions}
+                        badge={exemptionCount}
+                      />
+                    )}
+                    <Button
+                      size="sm"
+                      className="h-9 rounded-full bg-[#FF6900] hover:bg-[#e05f00] text-white text-xs px-4"
+                      disabled={creatingBill || hasUnreadNotes}
+                      onClick={onCompleteBill}
+                    >
+                      <Receipt className="h-3.5 w-3.5 mr-1.5" />
+                      {creatingBill ? "Processing…" : "Complete Bill"}
+                    </Button>
+                  </>
+                )}
+
+                {existingVisitBilling && (
+                  <ActionButton
+                    icon={Eye}
+                    label="Preview bill"
+                    onClick={onPreview}
+                  />
+                )}
+
+                {canEditBilling && (
+                  <>
+                    <ActionButton
+                      icon={Pencil}
+                      label="Edit billing"
+                      onClick={onEditBilling}
+                    />
+                    <ActionButton
+                      icon={Printer}
+                      label={
+                        generatingInvoice ? "Loading PDF…" : "Print invoice"
+                      }
+                      onClick={onPrint}
+                      disabled={generatingInvoice}
+                    />
+                    {isEditingBill && (
+                      <Button
+                        size="sm"
+                        className="h-9 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                        onClick={onDoneEditing}
+                      >
+                        Done
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            </TooltipProvider>
           </div>
-        </TooltipProvider>
-      </div>
         </div>
       </div>
     </div>
@@ -185,7 +216,7 @@ export function BillingStickySummary({
 function SummaryLine({
   label,
   value,
-  className = '',
+  className = "",
 }: {
   label: string;
   value: string;

@@ -38,7 +38,7 @@ function VitalsPanel({
 
   return (
     <div
-      className="fixed z-40 w-80 bg-white/20 backdrop-blur-xl border border-white/30 rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
+      className="fixed z-40 w-80 bg-background border border-border rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
       style={slotStyle}
     >
       <div className="flex items-center justify-between p-3 border-b border-border">
@@ -255,7 +255,7 @@ export function ConsultationSidePanels({
       {/* Identification Panel */}
       {showIdPanel && (
         <div
-          className="fixed z-40 w-80 bg-white/20 backdrop-blur-xl border border-white/30 rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
+          className="fixed z-40 w-80 bg-background border border-border rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
           style={
             getPositionStyle(getPanelSlot("id"), activePanels.length) as any
           }
