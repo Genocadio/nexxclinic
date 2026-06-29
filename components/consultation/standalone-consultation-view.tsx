@@ -362,6 +362,10 @@ export function StandaloneConsultationView({
     const nextAnswerId = answerId ? String(answerId) : null;
     const currentLocalAnswerId = localAnswerIdRef.current;
 
+    if (!nextAnswerId && currentLocalAnswerId && hydratedRef.current) {
+      return;
+    }
+
     if (
       catalogDepartmentId &&
       nextAnswerId === currentLocalAnswerId &&
@@ -665,7 +669,7 @@ export function StandaloneConsultationView({
       <div className="rounded-xl border border-dashed p-8 text-center space-y-3">
         <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
         <p className="text-sm text-muted-foreground">
-          {answerId
+          {answerId || localAnswerIdRef.current
             ? "Could not load the saved consultation answer."
             : "No default form is linked to this department. Link one in Admin → Departments."}
         </p>
