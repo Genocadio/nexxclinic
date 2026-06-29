@@ -180,34 +180,38 @@ export function LayoutAnswerBlock({
   getBlockHandlers,
 }: AnswerBlockProps) {
   const columns = block.layoutColumns ?? [];
-  const numCols = columns.length;
-  const gridClass =
-    numCols <= 1
-      ? "grid-cols-1"
-      : numCols === 2
-        ? "grid-cols-1 sm:grid-cols-2"
-        : numCols === 3
-          ? "grid-cols-1 sm:grid-cols-3"
-          : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
+  const numCols = Math.max(1, columns.length || 1);
+  const desktopColumns = Math.min(numCols, 4);
+
   return (
-    <div className={`my-3 grid ${gridClass} gap-4`}>
+    <div
+      className="my-3 grid gap-4"
+      style={{
+        gridTemplateColumns:
+          numCols <= 1
+            ? "minmax(0, 1fr)"
+            : `repeat(${desktopColumns}, minmax(0, 1fr))`,
+      }}
+    >
       {columns.map((col) => (
-        <div key={col.id} className="min-w-0 space-y-0">
-          {col.blocks.map((b) => (
-            <AnswerBlock
-              key={b.id}
-              block={b}
-              answers={answers}
-              onAnswerChange={onAnswerChange}
-              showErrors={showErrors}
-              inlineAnswers={inlineAnswers}
-              onInlineChange={onInlineChange}
-              edit={edit}
-              context={context}
-              blockHandlers={getBlockHandlers?.(b)}
-              getBlockHandlers={getBlockHandlers}
-            />
-          ))}
+        <div key={col.id} className="min-w-0 overflow-x-auto rounded-lg">
+          <div className="min-w-0 space-y-0">
+            {col.blocks.map((b) => (
+              <AnswerBlock
+                key={b.id}
+                block={b}
+                answers={answers}
+                onAnswerChange={onAnswerChange}
+                showErrors={showErrors}
+                inlineAnswers={inlineAnswers}
+                onInlineChange={onInlineChange}
+                edit={edit}
+                context={context}
+                blockHandlers={getBlockHandlers?.(b)}
+                getBlockHandlers={getBlockHandlers}
+              />
+            ))}
+          </div>
         </div>
       ))}
     </div>

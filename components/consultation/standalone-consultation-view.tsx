@@ -12,6 +12,7 @@ import {
   Minus,
   Plus,
   Search,
+  MessageSquarePlus,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import type { Patient, Visit, VisitDepartment } from "@/lib/api-types";
@@ -184,6 +185,12 @@ export function StandaloneConsultationView({
   } | null>(null);
   const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
   const [requestProductsOpen, setRequestProductsOpen] = useState(false);
+  const [activeChildNotesDepartmentId, setActiveChildNotesDepartmentId] =
+    useState<string | null>(null);
+  const [childNoteDraft, setChildNoteDraft] = useState("");
+  const [addingChildNoteForId, setAddingChildNoteForId] = useState<
+    string | null
+  >(null);
   const [selectedRequestDepartmentId, setSelectedRequestDepartmentId] =
     useState<string | null>(null);
   const [productSearchQuery, setProductSearchQuery] = useState("");
@@ -252,6 +259,22 @@ export function StandaloneConsultationView({
   );
   const childInvestigationDepartments =
     parentVisitDepartment?.childVisitDepartments || [];
+  const activeChildNotesDepartment = activeChildNotesDepartmentId
+    ? childInvestigationDepartments.find(
+        (dept) => String(dept.id) === String(activeChildNotesDepartmentId),
+      ) || null
+    : null;
+  const {
+    notes: activeChildDepartmentNotes = [],
+    refetch: refetchActiveChildNotes,
+  } = useVisitDepartmentNotes(visit.id, activeChildNotesDepartmentId || null);
+  const hasUnreadChildRequestNotes = childInvestigationDepartments.some(
+    (dept) => (dept.notes?.newNotes || 0) > 0,
+  );
+  const childRequestUnreadNotesCount = childInvestigationDepartments.reduce(
+    (sum, dept) => sum + (dept.notes?.newNotes || 0),
+    0,
+  );
 
   const {
     departments: supportDepartments = [],
@@ -685,12 +708,17 @@ export function StandaloneConsultationView({
             type="button"
             variant="ghost"
             size="icon"
-            className="rounded-full border border-border/70 bg-background p-2"
+            className="relative rounded-full border border-border/70 bg-background p-2"
             title="Investigations"
             aria-label="Open investigations"
             onClick={() => setRequestProductsOpen(true)}
           >
             <FlaskConical className="h-5 w-5" />
+            {!requestProductsOpen && hasUnreadChildRequestNotes && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-bounce">
+                {childRequestUnreadNotesCount}
+              </span>
+            )}
           </Button>
         )}
         <Button
@@ -869,19 +897,41 @@ export function StandaloneConsultationView({
                               No products listed yet.
                             </p>
                           )}
-                          {canAddMoreProducts && (
+                          <div className="mt-3 flex flex-col gap-2">
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="mt-3 w-full"
-                              onClick={() =>
-                                handleContinueExistingChildRequest(childDept)
-                              }
+                              className="w-full"
+                              onClick={() => {
+                                setActiveChildNotesDepartmentId(
+                                  String(childDept.id),
+                                );
+                                setChildNoteDraft("");
+                              }}
                             >
-                              Add more products
+                              <MessageSquarePlus className="mr-2 h-4 w-4" />
+                              Add consultation note
+                              {(childDept.notes?.newNotes || 0) > 0 && (
+                                <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground animate-bounce">
+                                  {childDept.notes?.newNotes || 0}
+                                </span>
+                              )}
                             </Button>
-                          )}
+                            {canAddMoreProducts && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                onClick={() =>
+                                  handleContinueExistingChildRequest(childDept)
+                                }
+                              >
+                                Add more products
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -1161,6 +1211,132 @@ export function StandaloneConsultationView({
                     </ul>
                   </div>
                 )}
+              </div>
+            )}
+
+            {activeChildNotesDepartment && (
+              <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold">
+                      {activeChildNotesDepartment.department?.name || "Service"}{" "}
+                      notes
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Consultation notes dedicated to this child request.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setActiveChildNotesDepartmentId(null);
+                      setChildNoteDraft("");
+                    }}
+                  >
+                    Close
+                  </Button>
+                </div>
+
+                <div className="max-h-40 space-y-2 overflow-y-auto rounded-xl border border-border bg-background p-3">
+                  {activeChildDepartmentNotes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No notes yet.
+                    </p>
+                  ) : (
+                    activeChildDepartmentNotes.map((note: any) => (
+                      <div
+                        key={note.id}
+                        className="rounded-lg border border-border/70 bg-card p-2"
+                        onClick={async () => {
+                          if (!note?.viewed && activeChildNotesDepartmentId) {
+                            await markNotesViewed(activeChildNotesDepartmentId);
+                            await refetchActiveChildNotes();
+                            onVisitRefetch?.();
+                          }
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {note.noteType || "CONSULTATION"}
+                            {!note.viewed && (
+                              <span className="ml-1 rounded-full bg-primary px-1 text-[9px] text-primary-foreground animate-pulse">
+                                NEW
+                              </span>
+                            )}
+                          </p>
+                          <span className="text-[10px] text-muted-foreground">
+                            {note.createdAt
+                              ? new Date(note.createdAt).toLocaleString()
+                              : ""}
+                          </span>
+                        </div>
+                        <p className="mt-1 whitespace-pre-wrap text-xs text-foreground">
+                          {note.content || ""}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <textarea
+                    value={childNoteDraft}
+                    onChange={(event) => setChildNoteDraft(event.target.value)}
+                    placeholder="Add consultation note for this child request..."
+                    className="min-h-24 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      Saved as consultation notes on this child visit
+                      department.
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={
+                        !childNoteDraft.trim() ||
+                        addingChildNoteForId === activeChildNotesDepartment.id
+                      }
+                      onClick={async () => {
+                        const visitDepartmentId = String(
+                          activeChildNotesDepartment.id || "",
+                        );
+                        if (!visitDepartmentId) return;
+                        setAddingChildNoteForId(visitDepartmentId);
+                        try {
+                          const result = await addVisitDepartmentNote(
+                            visitDepartmentId,
+                            childNoteDraft.trim(),
+                            "CONSULTATION",
+                          );
+                          if (result?.status !== "SUCCESS") {
+                            throw new Error(
+                              result?.message || "Failed to add note",
+                            );
+                          }
+                          await markNotesViewed(visitDepartmentId);
+                          setChildNoteDraft("");
+                          await refetchActiveChildNotes();
+                          onVisitRefetch?.();
+                        } catch (err: unknown) {
+                          toast.error(
+                            err instanceof Error
+                              ? err.message
+                              : "Failed to add note",
+                          );
+                        } finally {
+                          setAddingChildNoteForId(null);
+                        }
+                      }}
+                    >
+                      {addingChildNoteForId === activeChildNotesDepartment.id
+                        ? "Saving..."
+                        : "Save note"}
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

@@ -1,7 +1,12 @@
 "use client";
 
 import React from "react";
-import { BlockType, FormBlock, fbGenId, fbMakeBlock } from "@/lib/formbuilder-storage";
+import {
+  BlockType,
+  FormBlock,
+  fbGenId,
+  fbMakeBlock,
+} from "@/lib/formbuilder-storage";
 import { BlockWrapper } from "./block-wrapper";
 
 interface LayoutBlockEditorProps {
@@ -47,14 +52,7 @@ export function LayoutBlockEditor({
   const columns = block.layoutColumns ?? [];
   const numCols = columns.length;
 
-  const gridClass =
-    numCols <= 1
-      ? "grid-cols-1"
-      : numCols === 2
-        ? "grid-cols-1 sm:grid-cols-2"
-        : numCols === 3
-          ? "grid-cols-1 sm:grid-cols-3"
-          : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
+  const desktopColumns = Math.min(Math.max(1, numCols), 4);
 
   const updateColumn = (colId: string, newBlocks: FormBlock[]) =>
     onChange({
@@ -125,14 +123,20 @@ export function LayoutBlockEditor({
       )}
 
       {/* Columns grid */}
-      <div className={`grid ${gridClass} gap-3`}>
+      <div
+        className="grid gap-3"
+        style={{
+          gridTemplateColumns:
+            numCols <= 1
+              ? "minmax(0, 1fr)"
+              : `repeat(${desktopColumns}, minmax(0, 1fr))`,
+        }}
+      >
         {columns.map((col, colIdx) => (
           <div
             key={col.id}
-            className={`min-w-0 flex flex-col rounded-lg transition-colors ${
-              isActive
-                ? "border border-dashed border-border/50 bg-muted/5"
-                : ""
+            className={`min-w-0 overflow-x-auto flex flex-col rounded-lg transition-colors ${
+              isActive ? "border border-dashed border-border/50 bg-muted/5" : ""
             }`}
             onClick={(e) => {
               if (!isActive) {
@@ -155,7 +159,7 @@ export function LayoutBlockEditor({
                   Empty
                 </div>
               )}
-              {col.blocks.map((nb, nbIdx) => 
+              {col.blocks.map((nb, nbIdx) =>
                 renderBlockItem({
                   key: nb.id,
                   block: nb,
@@ -190,24 +194,18 @@ export function LayoutBlockEditor({
                   onMoveUp: () => {
                     if (nbIdx === 0) return;
                     const arr = [...col.blocks];
-                    [arr[nbIdx], arr[nbIdx - 1]] = [
-                      arr[nbIdx - 1],
-                      arr[nbIdx],
-                    ];
+                    [arr[nbIdx], arr[nbIdx - 1]] = [arr[nbIdx - 1], arr[nbIdx]];
                     updateColumn(col.id, arr);
                   },
                   onMoveDown: () => {
                     if (nbIdx === col.blocks.length - 1) return;
                     const arr = [...col.blocks];
-                    [arr[nbIdx], arr[nbIdx + 1]] = [
-                      arr[nbIdx + 1],
-                      arr[nbIdx],
-                    ];
+                    [arr[nbIdx], arr[nbIdx + 1]] = [arr[nbIdx + 1], arr[nbIdx]];
                     updateColumn(col.id, arr);
                   },
                   onAddBelow: (type?: BlockType) =>
                     addToColumn(col.id, type ?? "paragraph"),
-                })
+                }),
               )}
             </div>
 
