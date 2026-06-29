@@ -136,6 +136,9 @@ export function StandaloneConsultationView({
       departmentId: catalogDepartmentId,
       answerId,
     });
+
+  const isFinalisedAnswer =
+    String(answer?.status || "").toUpperCase() === "FINAL";
   const { saveVisitAnswer, loading: saving } = useSaveVisitStandaloneAnswer();
   const { addChildVisitDepartment } = useAddChildVisitDepartment();
   const { addProduct } = useAddProductToVisitDepartment();
@@ -484,6 +487,7 @@ export function StandaloneConsultationView({
 
   useEffect(() => {
     if (!hydratedRef.current) return;
+    if (isFinalisedAnswer) return;
 
     const currentSnapshot = buildAnswersSnapshot(answers);
     if (currentSnapshot === lastSavedSnapshotRef.current) {
@@ -545,11 +549,8 @@ export function StandaloneConsultationView({
       return;
     }
 
-    const valid = formRendererRef.current?.validateAndShowErrors() ?? true;
-    if (!valid) {
-      toast.error("Please complete required fields before finalising");
-      return;
-    }
+    // NOTE: validation is triggered by the "Finalise and Complete" button.
+    // This handler assumes validation has already passed.
 
     try {
       await persistAnswers(answers, "FINAL", { skipDuplicateCheck: true });
@@ -779,7 +780,8 @@ export function StandaloneConsultationView({
         form={rendererForm}
         showTitle={false}
         hideSubmit
-        validate={false}
+        validate
+        edit={!isFinalisedAnswer}
         initialAnswers={initialAnswers}
         controlledAnswers={answers}
         onControlledAnswersChange={setAnswers}
@@ -793,9 +795,19 @@ export function StandaloneConsultationView({
         onVisitRefetch={onVisitRefetch}
       />
 
-      {!patientHistoryOpen && (
+      {!patientHistoryOpen && !isFinalisedAnswer && (
         <ConsultationBottomDock
-          onComplete={() => setShowFinalizeConfirm(true)}
+          onComplete={() => {
+            if (unreadNotesCount > 0) {
+              toast.warn(
+                "Please view the notes first before completing this visit.",
+              );
+              setNotesOpen(true);
+              return;
+            }
+            setShowFinalizeConfirm(true);
+          }}
+          completeDisabled={unreadNotesCount > 0}
           saveIndicator={{
             visible: hasAnyAnswerContent,
             status: saveStatus,
@@ -826,7 +838,16 @@ export function StandaloneConsultationView({
             <Button
               type="button"
               disabled={unreadNotesCount > 0}
-              onClick={() => {
+              onClick={async () => {
+                const valid =
+                  formRendererRef.current?.validateAndShowErrors() ?? true;
+                if (!valid) {
+                  // keep dialog open so user sees why they can't finalise
+                  toast.error(
+                    "Please complete required fields before finalising",
+                  );
+                  return;
+                }
                 setShowFinalizeConfirm(false);
                 void handleComplete();
               }}

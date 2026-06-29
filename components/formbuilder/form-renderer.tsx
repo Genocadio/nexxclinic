@@ -189,10 +189,15 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
       if (!validate) return true;
       if (hasViolations) {
         setShowErrors(true);
+        // focus first invalid block to make it obvious what to fix
+        const first = violations[0];
+        if (first?.id) {
+          scrollToBlock(String(first.id));
+        }
         return false;
       }
       return true;
-    }, [validate, hasViolations]);
+    }, [validate, hasViolations, violations]);
 
     useImperativeHandle(
       ref,
