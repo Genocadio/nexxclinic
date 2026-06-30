@@ -458,17 +458,6 @@ export default function VisitNotesFloating({
                     </Button>
                   </>
                 )}
-
-                {/* When empty, show a subtle tick indicator (no action) */}
-                {!hasDraft && (
-                  <div
-                    className="h-9 w-9 rounded-full border border-border/60 flex items-center justify-center text-muted-foreground"
-                    title="No draft"
-                    aria-label="No draft"
-                  >
-                    <Check className="h-4 w-4" />
-                  </div>
-                )}
               </div>
             </div>
           )}
