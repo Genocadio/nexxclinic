@@ -62,7 +62,7 @@ export default function PatientListView({
   );
 
   // Patient.lastVisit was removed from API schema.
-  const visitSummaries = useMemo(() => [], []);
+  const visitSummaries = useMemo<PatientVisitSummary[]>(() => [], []);
 
   const filteredVisits = visitSummaries.filter(
     (visit) => filterStatus === "all" || visit.status === filterStatus,
