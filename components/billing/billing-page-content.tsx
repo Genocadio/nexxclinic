@@ -1252,7 +1252,11 @@ export function BillingPageContent() {
             onDoneEditing={async () => {
               setShowDiscountControls(false);
               setIsEditingBill(false);
-              toast.success("Billing edit mode closed");
+              // Reset UI back to normal (leave billed state as-is)
+              setConfirmSheetMode("complete");
+              await refetchVisit();
+              await refetchBill();
+              toast.success("Billing edit mode cancelled");
             }}
             onManageExemptions={() => setShowExemptionsWindow(true)}
           />

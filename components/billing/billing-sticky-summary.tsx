@@ -149,33 +149,34 @@ export function BillingStickySummary({
             {/* Actions */}
             <TooltipProvider delayDuration={300}>
               <div className="flex items-center gap-1.5 shrink-0">
-                {!existingVisitBilling && hasRemainingToBill && (
-                  <>
-                    {exemptionCount > 0 && (
-                      <ActionButton
-                        icon={Receipt}
-                        label={`Exemptions (${exemptionCount})`}
-                        onClick={onManageExemptions}
-                        badge={exemptionCount}
-                      />
-                    )}
-                    <Button
-                      size="sm"
-                      className="h-9 rounded-full bg-[#FF6900] hover:bg-[#e05f00] text-white text-xs px-4"
-                      disabled={creatingBill || hasUnreadNotes}
-                      onClick={onCompleteBill}
-                    >
-                      <Receipt className="h-3.5 w-3.5 mr-1.5" />
-                      {creatingBill
-                        ? "Processing…"
-                        : isEditingBill
-                          ? "Complete Edit"
-                          : "Complete Bill"}
-                    </Button>
-                  </>
-                )}
+                {hasRemainingToBill &&
+                  (!existingVisitBilling || isEditingBill) && (
+                    <>
+                      {exemptionCount > 0 && (
+                        <ActionButton
+                          icon={Receipt}
+                          label={`Exemptions (${exemptionCount})`}
+                          onClick={onManageExemptions}
+                          badge={exemptionCount}
+                        />
+                      )}
+                      <Button
+                        size="sm"
+                        className="h-9 rounded-full bg-[#FF6900] hover:bg-[#e05f00] text-white text-xs px-4"
+                        disabled={creatingBill || hasUnreadNotes}
+                        onClick={onCompleteBill}
+                      >
+                        <Receipt className="h-3.5 w-3.5 mr-1.5" />
+                        {creatingBill
+                          ? "Processing…"
+                          : isEditingBill
+                            ? "Complete Edit"
+                            : "Complete Bill"}
+                      </Button>
+                    </>
+                  )}
 
-                {existingVisitBilling && (
+                {existingVisitBilling && !isEditingBill && (
                   <>
                     <ActionButton
                       icon={Printer}
@@ -188,27 +189,29 @@ export function BillingStickySummary({
                   </>
                 )}
 
-                {canEditBilling && (
+                {existingVisitBilling && canEditBilling && (
                   <>
-                    <ActionButton
-                      icon={Pencil}
-                      label="Edit billing"
-                      onClick={onEditBilling}
-                      disabled={!canAct}
-                      tooltipOverride={
-                        !canAct
-                          ? "View unread notes to enable billing actions"
-                          : undefined
-                      }
-                    />
-
-                    {isEditingBill && (
+                    {!isEditingBill ? (
+                      <ActionButton
+                        icon={Pencil}
+                        label="Edit billing"
+                        onClick={onEditBilling}
+                        disabled={!canAct}
+                        tooltipOverride={
+                          !canAct
+                            ? "View unread notes to enable billing actions"
+                            : undefined
+                        }
+                      />
+                    ) : (
                       <Button
                         size="sm"
-                        className="h-9 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                        variant="outline"
+                        className="h-9 rounded-full text-xs"
                         onClick={onDoneEditing}
+                        disabled={!canAct}
                       >
-                        Done
+                        Cancel edit
                       </Button>
                     )}
                   </>
