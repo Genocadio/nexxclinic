@@ -1,6 +1,6 @@
 "use client";
 
-import { Receipt, Printer, Pencil, Eye } from "lucide-react";
+import { Receipt, Printer, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -162,23 +162,21 @@ export function BillingStickySummary({
                     <Button
                       size="sm"
                       className="h-9 rounded-full bg-[#FF6900] hover:bg-[#e05f00] text-white text-xs px-4"
-                      disabled={creatingBill || !canAct}
+                      disabled={creatingBill || hasUnreadNotes}
                       onClick={onCompleteBill}
                     >
                       <Receipt className="h-3.5 w-3.5 mr-1.5" />
-                      {creatingBill ? "Processing…" : "Complete Bill"}
+                      {creatingBill
+                        ? "Processing…"
+                        : isEditingBill
+                          ? "Complete Edit"
+                          : "Complete Bill"}
                     </Button>
                   </>
                 )}
 
                 {existingVisitBilling && (
                   <>
-                    <ActionButton
-                      icon={Eye}
-                      label={canEditBilling ? "Edit bill" : "Preview bill"}
-                      onClick={onPreview}
-                      disabled={!canAct}
-                    />
                     <ActionButton
                       icon={Printer}
                       label={
@@ -197,6 +195,11 @@ export function BillingStickySummary({
                       label="Edit billing"
                       onClick={onEditBilling}
                       disabled={!canAct}
+                      tooltipOverride={
+                        !canAct
+                          ? "View unread notes to enable billing actions"
+                          : undefined
+                      }
                     />
 
                     {isEditingBill && (
@@ -242,12 +245,14 @@ function ActionButton({
   onClick,
   disabled,
   badge,
+  tooltipOverride,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   onClick: () => void;
   disabled?: boolean;
   badge?: number;
+  tooltipOverride?: string;
 }) {
   return (
     <Tooltip>
@@ -268,7 +273,7 @@ function ActionButton({
           )}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent>{tooltipOverride || label}</TooltipContent>
     </Tooltip>
   );
 }

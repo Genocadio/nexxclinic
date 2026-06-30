@@ -444,9 +444,10 @@ export function BillingPageContent() {
     return ((doctor.roles as string[]) || []).includes("CASHIER");
   }, [doctor?.roles]);
   const isAlreadyBilled = Boolean(existingVisitBilling);
+  const isEditMode = Boolean(isEditingBill);
 
   // Role rules:
-  // - CASHIER: can bill (complete) but cannot edit an existing bill.
+  // - CASHIER: can bill (complete) but cannot edit bills/items.
   // - FINANCE: can bill and can edit.
   const canEditBilling = hasFinanceRole;
   const canBill = hasFinanceRole || hasCashierRole;
@@ -532,7 +533,14 @@ export function BillingPageContent() {
     refetch: refetchNotes,
   } = useVisitDepartmentNotes(visitId, firstBillingDepartmentId || null);
 
-  const unreadBillingNotesCount = (billingDepartmentNotes || []).filter(
+  // In Billing UI, only BILLING + PUBLIC notes should be considered/visible.
+  const billingVisibleNotes = (billingDepartmentNotes || []).filter(
+    (note: any) =>
+      String(note?.noteType || "") === "BILLING" ||
+      String(note?.noteType || "") === "PUBLIC",
+  );
+
+  const unreadBillingNotesCount = billingVisibleNotes.filter(
     (note: any) => !note?.viewed,
   ).length;
 
@@ -1174,15 +1182,18 @@ export function BillingPageContent() {
           selectedItemIds={selectedItemIds}
           selectedCountLabel={`${selectedItemIds.length}/${itemsToDisplay.filter((i) => i.paymentStatus !== "paid").length} selected`}
           canAddItems={
-            !isAlreadyBilled &&
+            // In edit mode (FINANCE), allow adding/deleting/editing items again.
+            // Block all edits when there are unread notes.
+            (isEditMode || !isAlreadyBilled) &&
             canBill &&
             hasRemainingToBill &&
             unreadBillingNotesCount === 0
           }
           canEdit={
-            !isAlreadyBilled &&
+            // Only FINANCE can edit items. In edit mode they can edit even if already billed.
             canEditBillingItems &&
             canEditBilling &&
+            (isEditMode || !isAlreadyBilled) &&
             unreadBillingNotesCount === 0
           }
           visitInsuranceOptions={visitInsuranceOptions}
@@ -1208,7 +1219,7 @@ export function BillingPageContent() {
               ).length
             }
             existingVisitBilling={existingVisitBilling}
-            canEditBilling={canEditBilling && unreadBillingNotesCount === 0}
+            canEditBilling={canEditBilling}
             hasRemainingToBill={hasRemainingToBill}
             creatingBill={creatingBill || editingBill}
             generatingInvoice={generatingInvoice}
@@ -1222,7 +1233,7 @@ export function BillingPageContent() {
                 );
                 return;
               }
-              setConfirmSheetMode("complete");
+              setConfirmSheetMode(isEditMode ? "edit" : "complete");
               handleAmountPaidChange(displayTotals.totalAmount);
               setShowCompleteBillConfirm(true);
             }}
@@ -1261,9 +1272,9 @@ export function BillingPageContent() {
 
       <VisitNotesFloating
         title="Billing Notes & Report"
-        notes={billingDepartmentNotes}
-        allowedDisplayTypes={["BILLING"]}
-        noteTypes={["CONSULTATION"]}
+        notes={billingVisibleNotes}
+        allowedDisplayTypes={["BILLING", "PUBLIC"]}
+        noteTypes={["BILLING", "PUBLIC"]}
         onAddNote={async (noteType, content) => {
           const visitDepartmentId = String(firstBillingDepartmentId || "");
           if (!visitDepartmentId) {
