@@ -68,6 +68,7 @@ export function BillingStickySummary({
 }: BillingStickySummaryProps) {
   const remaining = Math.max(0, totals.totalAmount - amountPaid);
   const showActions = canEditBilling || hasRemainingToBill;
+  const canAct = !hasUnreadNotes;
   const billingTotals = existingVisitBilling
     ? getVisitBillingTotals(existingVisitBilling)
     : null;
@@ -148,7 +149,7 @@ export function BillingStickySummary({
             {/* Actions */}
             <TooltipProvider delayDuration={300}>
               <div className="flex items-center gap-1.5 shrink-0">
-                {!canEditBilling && hasRemainingToBill && (
+                {!existingVisitBilling && hasRemainingToBill && (
                   <>
                     {exemptionCount > 0 && (
                       <ActionButton
@@ -161,7 +162,7 @@ export function BillingStickySummary({
                     <Button
                       size="sm"
                       className="h-9 rounded-full bg-[#FF6900] hover:bg-[#e05f00] text-white text-xs px-4"
-                      disabled={creatingBill || hasUnreadNotes}
+                      disabled={creatingBill || !canAct}
                       onClick={onCompleteBill}
                     >
                       <Receipt className="h-3.5 w-3.5 mr-1.5" />
@@ -171,11 +172,22 @@ export function BillingStickySummary({
                 )}
 
                 {existingVisitBilling && (
-                  <ActionButton
-                    icon={Eye}
-                    label="Preview bill"
-                    onClick={onPreview}
-                  />
+                  <>
+                    <ActionButton
+                      icon={Eye}
+                      label={canEditBilling ? "Edit bill" : "Preview bill"}
+                      onClick={onPreview}
+                      disabled={!canAct}
+                    />
+                    <ActionButton
+                      icon={Printer}
+                      label={
+                        generatingInvoice ? "Loading PDF…" : "Print invoice"
+                      }
+                      onClick={onPrint}
+                      disabled={generatingInvoice || !canAct}
+                    />
+                  </>
                 )}
 
                 {canEditBilling && (
@@ -184,15 +196,9 @@ export function BillingStickySummary({
                       icon={Pencil}
                       label="Edit billing"
                       onClick={onEditBilling}
+                      disabled={!canAct}
                     />
-                    <ActionButton
-                      icon={Printer}
-                      label={
-                        generatingInvoice ? "Loading PDF…" : "Print invoice"
-                      }
-                      onClick={onPrint}
-                      disabled={generatingInvoice}
-                    />
+
                     {isEditingBill && (
                       <Button
                         size="sm"

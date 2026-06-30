@@ -442,7 +442,13 @@ export function BillingPageContent() {
     return ((doctor.roles as string[]) || []).includes("CASHIER");
   }, [doctor?.roles]);
   const isAlreadyBilled = Boolean(existingVisitBilling);
-  const canEditBilling = !isAlreadyBilled && hasFinanceRole;
+
+  // Role rules:
+  // - CASHIER: can bill (complete) but cannot edit an existing bill.
+  // - FINANCE: can bill and can edit.
+  const canEditBilling = hasFinanceRole;
+  const canBill = hasFinanceRole || hasCashierRole;
+
   const canViewBilledReadOnly =
     isAlreadyBilled && (hasFinanceRole || hasCashierRole);
   const showBillingDock =
@@ -1151,9 +1157,17 @@ export function BillingPageContent() {
           selectedItemIds={selectedItemIds}
           selectedCountLabel={`${selectedItemIds.length}/${itemsToDisplay.filter((i) => i.paymentStatus !== "paid").length} selected`}
           canAddItems={
-            !isAlreadyBilled && !canEditBilling && hasRemainingToBill
+            !isAlreadyBilled &&
+            canBill &&
+            hasRemainingToBill &&
+            unreadBillingNotesCount === 0
           }
-          canEdit={!isAlreadyBilled && canEditBillingItems && canEditBilling}
+          canEdit={
+            !isAlreadyBilled &&
+            canEditBillingItems &&
+            canEditBilling &&
+            unreadBillingNotesCount === 0
+          }
           visitInsuranceOptions={visitInsuranceOptions}
           onServiceChange={setActiveService}
           onAddItem={() => setShowAddProductModal(true)}
@@ -1177,7 +1191,7 @@ export function BillingPageContent() {
               ).length
             }
             existingVisitBilling={existingVisitBilling}
-            canEditBilling={canEditBilling}
+            canEditBilling={canEditBilling && unreadBillingNotesCount === 0}
             hasRemainingToBill={hasRemainingToBill}
             creatingBill={creatingBill}
             generatingInvoice={generatingInvoice}
