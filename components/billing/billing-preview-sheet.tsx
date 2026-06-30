@@ -395,13 +395,6 @@ export function BillingPreviewSheet({
                             : "Print invoice"}
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => window.print()}
-                        className="px-3 py-1 rounded-md bg-muted text-foreground"
-                      >
-                        Print summary
-                      </button>
                     </div>
 
                     <div className="grid gap-2 sm:grid-cols-2">
