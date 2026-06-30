@@ -1,32 +1,35 @@
-"use client"
+"use client";
 
-import type { Patient } from "@/lib/api-types"
-import { VisitStatus } from "@/lib/api-types"
-import { getPatientAge, getPatientDisplayName } from "@/lib/patient-display-utils"
-import { ArrowLeft } from "lucide-react"
+import type { Patient } from "@/lib/api-types";
+import { VisitStatus } from "@/lib/api-types";
+import {
+  getPatientAge,
+  getPatientDisplayName,
+} from "@/lib/patient-display-utils";
+import { ArrowLeft } from "lucide-react";
 
-type VisitSummaryStatus = "pending" | "ongoing" | "completed"
+type VisitSummaryStatus = "pending" | "ongoing" | "completed";
 
 interface PatientVisitSummary {
-  id: string
-  date: string
-  status: VisitSummaryStatus
-  chiefComplaint?: string
+  id: string;
+  date: string;
+  status: VisitSummaryStatus;
+  chiefComplaint?: string;
 }
 
 interface PatientListProps {
-  patient: Patient
-  onConsultationSelect: (visit: PatientVisitSummary) => void
-  onNewConsultation: (patient: Patient) => void
-  filterStatus: VisitSummaryStatus | "all"
-  setFilterStatus: (status: VisitSummaryStatus | "all") => void
-  onBack: () => void
+  patient: Patient;
+  onConsultationSelect: (visit: PatientVisitSummary) => void;
+  onNewConsultation: (patient: Patient) => void;
+  filterStatus: VisitSummaryStatus | "all";
+  setFilterStatus: (status: VisitSummaryStatus | "all") => void;
+  onBack: () => void;
 }
 
 function mapVisitStatus(status: VisitStatus): VisitSummaryStatus {
-  if (status === VisitStatus.COMPLETED) return "completed"
-  if (status === VisitStatus.IN_PROGRESS) return "ongoing"
-  return "pending"
+  if (status === VisitStatus.COMPLETED) return "completed";
+  if (status === VisitStatus.IN_PROGRESS) return "ongoing";
+  return "pending";
 }
 
 export default function PatientList({
@@ -37,24 +40,21 @@ export default function PatientList({
   setFilterStatus,
   onBack,
 }: PatientListProps) {
-  const visitSummaries: PatientVisitSummary[] = patient.lastVisit
-    ? [{
-        id: patient.lastVisit.id,
-        date: patient.lastVisit.visitDate,
-        status: mapVisitStatus(patient.lastVisit.status),
-        chiefComplaint: "Visit",
-      }]
-    : []
+  // Patient.lastVisit was removed from API schema.
+  const visitSummaries: PatientVisitSummary[] = [];
 
   const filteredVisits = visitSummaries.filter(
     (visit) => filterStatus === "all" || visit.status === filterStatus,
-  )
+  );
 
   const stats = {
-    pending: visitSummaries.filter((visit) => visit.status === "pending").length,
-    ongoing: visitSummaries.filter((visit) => visit.status === "ongoing").length,
-    completed: visitSummaries.filter((visit) => visit.status === "completed").length,
-  }
+    pending: visitSummaries.filter((visit) => visit.status === "pending")
+      .length,
+    ongoing: visitSummaries.filter((visit) => visit.status === "ongoing")
+      .length,
+    completed: visitSummaries.filter((visit) => visit.status === "completed")
+      .length,
+  };
 
   return (
     <div className="h-full flex flex-col bg-card">
@@ -68,8 +68,12 @@ export default function PatientList({
         </button>
 
         <div className="mb-4">
-          <h2 className="font-semibold text-card-foreground">{getPatientDisplayName(patient)}</h2>
-          <p className="text-xs text-muted-foreground">Age: {getPatientAge(patient) ?? "—"}</p>
+          <h2 className="font-semibold text-card-foreground">
+            {getPatientDisplayName(patient)}
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Age: {getPatientAge(patient) ?? "—"}
+          </p>
         </div>
 
         <button
@@ -113,7 +117,9 @@ export default function PatientList({
                 <p className="text-sm font-medium text-foreground truncate">
                   {visit.chiefComplaint || "Follow-up visit"}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">{visit.date}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {visit.date}
+                </p>
                 <span
                   className={`inline-block mt-2 px-2 py-1 rounded text-xs font-medium ${
                     visit.status === "completed"
@@ -131,5 +137,5 @@ export default function PatientList({
         </div>
       </div>
     </div>
-  )
+  );
 }

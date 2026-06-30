@@ -57,8 +57,11 @@ export function AddDepartmentModal({
   // Filter out departments already in the visit
   const existingDepartmentIds =
     visit.departments?.map((d) => String(d.department?.id)) || [];
+  const isDepartmentAlreadyInVisit = (departmentId: string) =>
+    existingDepartmentIds.includes(String(departmentId));
+
   const availableDepartments = departments.filter(
-    (dept) => !existingDepartmentIds.includes(String(dept.id)),
+    (dept) => !isDepartmentAlreadyInVisit(String(dept.id)),
   );
 
   if (departmentsError) {
@@ -197,37 +200,82 @@ export function AddDepartmentModal({
                       {processorWorkers.map((w: any) => {
                         const fullName =
                           `${w.firstName || ""} ${w.lastName || ""}`.trim();
+
+                        const linkedDepartments: any[] = Array.isArray(
+                          w.departments,
+                        )
+                          ? w.departments
+                          : [];
+                        const linkedAlreadyAdded = linkedDepartments.filter(
+                          (d) => isDepartmentAlreadyInVisit(String(d.id)),
+                        );
+                        const linkedAvailable = linkedDepartments.filter(
+                          (d) => !isDepartmentAlreadyInVisit(String(d.id)),
+                        );
+
+                        const isFullyAlreadyAdded =
+                          linkedDepartments.length > 0 &&
+                          linkedAvailable.length === 0;
+
                         return (
                           <button
                             key={w.id}
                             type="button"
+                            disabled={isFullyAlreadyAdded}
                             onClick={() => {
+                              if (isFullyAlreadyAdded) return;
+
                               setSelectedProcessorId(String(w.id));
-                              const depts = Array.isArray(w.departments)
-                                ? w.departments
-                                : [];
-                              if (depts.length === 1) {
+                              if (linkedAvailable.length === 1) {
                                 setSelectedProcessorDepartmentId(
-                                  String(depts[0].id),
+                                  String(linkedAvailable[0].id),
                                 );
                               } else {
                                 setSelectedProcessorDepartmentId("");
                               }
                             }}
-                            className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${
+                            className={`w-full text-left px-3 py-2 text-sm border-b last:border-b-0 border-border/60 ${
+                              isFullyAlreadyAdded
+                                ? "opacity-50 cursor-not-allowed"
+                                : "hover:bg-muted"
+                            } ${
                               String(w.id) === String(selectedProcessorId)
                                 ? "bg-muted"
                                 : ""
                             }`}
                           >
-                            <div className="font-medium">
-                              {fullName || "Unnamed"}
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="font-medium">
+                                {fullName || "Unnamed"}
+                              </div>
+                              {isFullyAlreadyAdded && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                                  Already added
+                                </span>
+                              )}
                             </div>
-                            <div className="text-xs text-muted-foreground">
-                              {Array.isArray(w.departments) &&
-                              w.departments.length > 0
-                                ? `Departments: ${w.departments.map((d: any) => d.name).join(", ")}`
-                                : "No department linked"}
+
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {linkedDepartments.length > 0 ? (
+                                <>
+                                  <div>
+                                    Departments:{" "}
+                                    {linkedDepartments
+                                      .map((d: any) => d.name)
+                                      .join(", ")}
+                                  </div>
+                                  {linkedAlreadyAdded.length > 0 && (
+                                    <div>
+                                      Already in visit:{" "}
+                                      {linkedAlreadyAdded
+                                        .map((d: any) => d.name)
+                                        .join(", ")}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                "No department linked"
+                              )}
                             </div>
                           </button>
                         );
@@ -284,13 +332,44 @@ export function AddDepartmentModal({
                               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                                 Select Department for clinician
                               </label>
-                              <DepartmentAutocomplete
-                                departments={availableDepartments}
-                                selectedDepartmentId={selectedDepartmentId}
-                                onDepartmentSelect={setSelectedDepartmentId}
-                                placeholder="Choose a department"
-                                disabled={departmentsLoading}
-                              />
+
+                              <div className="space-y-2">
+                                {departments
+                                  .filter(
+                                    (d) =>
+                                      !isDepartmentAlreadyInVisit(String(d.id)),
+                                  )
+                                  .map((d) => (
+                                    <button
+                                      key={d.id}
+                                      type="button"
+                                      onClick={() =>
+                                        setSelectedDepartmentId(String(d.id))
+                                      }
+                                      className="w-full flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
+                                    >
+                                      <span>{d.name}</span>
+                                    </button>
+                                  ))}
+
+                                {departments
+                                  .filter((d) =>
+                                    isDepartmentAlreadyInVisit(String(d.id)),
+                                  )
+                                  .map((d) => (
+                                    <button
+                                      key={d.id}
+                                      type="button"
+                                      disabled
+                                      className="w-full flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm opacity-50 cursor-not-allowed"
+                                    >
+                                      <span>{d.name}</span>
+                                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                                        Already added
+                                      </span>
+                                    </button>
+                                  ))}
+                              </div>
                             </div>
                           );
                         }
@@ -304,13 +383,41 @@ export function AddDepartmentModal({
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                     Select Department
                   </label>
-                  <DepartmentAutocomplete
-                    departments={availableDepartments}
-                    selectedDepartmentId={selectedDepartmentId}
-                    onDepartmentSelect={setSelectedDepartmentId}
-                    placeholder="Choose a department"
-                    disabled={departmentsLoading}
-                  />
+
+                  <div className="space-y-2">
+                    {departments
+                      .filter((d) => !isDepartmentAlreadyInVisit(String(d.id)))
+                      .map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => setSelectedDepartmentId(String(d.id))}
+                          className={`w-full flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm hover:bg-muted ${
+                            String(d.id) === String(selectedDepartmentId)
+                              ? "bg-muted"
+                              : ""
+                          }`}
+                        >
+                          <span>{d.name}</span>
+                        </button>
+                      ))}
+
+                    {departments
+                      .filter((d) => isDepartmentAlreadyInVisit(String(d.id)))
+                      .map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          disabled
+                          className="w-full flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm opacity-50 cursor-not-allowed"
+                        >
+                          <span>{d.name}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                            Already added
+                          </span>
+                        </button>
+                      ))}
+                  </div>
                 </div>
               )}
 

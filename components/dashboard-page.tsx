@@ -1332,22 +1332,24 @@ export default function DashboardPage() {
                                 {canSeeAddDepartment &&
                                   canAddDepartment(visit) &&
                                   !isDischarged(visit) && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleAddDepartment(visit);
-                                      }}
-                                      title="Add Department"
-                                      className="px-2 sm:px-4 py-1.5 sm:py-2 bg-purple-500 hover:bg-purple-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
-                                    >
-                                      <Plus className="w-4 h-4 flex-shrink-0" />
-                                      <span className="hidden sm:inline lg:hidden">
-                                        Dept
-                                      </span>
-                                      <span className="hidden lg:inline">
-                                        Add Department
-                                      </span>
-                                    </button>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleAddDepartment(visit);
+                                          }}
+                                          title="Add Department"
+                                          aria-label="Add Department"
+                                          className="h-9 w-9 sm:h-10 sm:w-10 bg-purple-500 hover:bg-purple-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                        >
+                                          <Plus className="w-4 h-4 flex-shrink-0" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Add Department</p>
+                                      </TooltipContent>
+                                    </Tooltip>
                                   )}
                                 {canSeeVisitActionButtons &&
                                   canDischargeVisit(visit) &&

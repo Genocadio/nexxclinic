@@ -1,31 +1,31 @@
-"use client"
+"use client";
 
-import type { Patient, Visit } from "@/lib/api-types"
-import { VisitStatus } from "@/lib/api-types"
+import type { Patient, Visit } from "@/lib/api-types";
+import { VisitStatus } from "@/lib/api-types";
 import {
   formatPatientGender,
   getPatientAge,
   getPatientDisplayName,
   getPatientPhone,
-} from "@/lib/patient-display-utils"
-import { ArrowLeft, History } from "lucide-react"
-import { useMemo, useState } from "react"
-import MedicalHistory from "@/components/medical-history"
+} from "@/lib/patient-display-utils";
+import { ArrowLeft, History } from "lucide-react";
+import { useMemo, useState } from "react";
+import MedicalHistory from "@/components/medical-history";
 
-type VisitSummaryStatus = "pending" | "ongoing" | "completed"
+type VisitSummaryStatus = "pending" | "ongoing" | "completed";
 
 interface PatientVisitSummary {
-  id: string
-  date: string
-  status: VisitSummaryStatus
-  chiefComplaint?: string
-  diagnosis?: string
+  id: string;
+  date: string;
+  status: VisitSummaryStatus;
+  chiefComplaint?: string;
+  diagnosis?: string;
 }
 
 function mapVisitStatusToSummary(status: Visit["status"]): VisitSummaryStatus {
-  if (status === VisitStatus.COMPLETED) return "completed"
-  if (status === VisitStatus.IN_PROGRESS) return "ongoing"
-  return "pending"
+  if (status === VisitStatus.COMPLETED) return "completed";
+  if (status === VisitStatus.IN_PROGRESS) return "ongoing";
+  return "pending";
 }
 
 function visitToSummary(visit: Visit): PatientVisitSummary {
@@ -34,17 +34,17 @@ function visitToSummary(visit: Visit): PatientVisitSummary {
     date: visit.visitDate,
     status: mapVisitStatusToSummary(visit.status),
     chiefComplaint: "Visit",
-  }
+  };
 }
 
 interface PatientListViewProps {
-  patient: Patient
-  onConsultationSelect: (visit: PatientVisitSummary) => void
-  onNewConsultation: (patient: Patient) => void
-  onBack: () => void
-  patientsList: Patient[]
-  setPatientsList: (patients: Patient[]) => void
-  isCompletedPatient?: boolean
+  patient: Patient;
+  onConsultationSelect: (visit: PatientVisitSummary) => void;
+  onNewConsultation: (patient: Patient) => void;
+  onBack: () => void;
+  patientsList: Patient[];
+  setPatientsList: (patients: Patient[]) => void;
+  isCompletedPatient?: boolean;
 }
 
 export default function PatientListView({
@@ -54,26 +54,31 @@ export default function PatientListView({
   onBack,
   isCompletedPatient = false,
 }: PatientListViewProps) {
-  const [filterStatus, setFilterStatus] = useState<VisitSummaryStatus | "all">("all")
-  const [activeSection, setActiveSection] = useState<"overview" | "history">("overview")
+  const [filterStatus, setFilterStatus] = useState<VisitSummaryStatus | "all">(
+    "all",
+  );
+  const [activeSection, setActiveSection] = useState<"overview" | "history">(
+    "overview",
+  );
 
-  const visitSummaries = useMemo(
-    () => (patient.lastVisit ? [visitToSummary(patient.lastVisit)] : []),
-    [patient.lastVisit],
-  )
+  // Patient.lastVisit was removed from API schema.
+  const visitSummaries = useMemo(() => [], []);
 
   const filteredVisits = visitSummaries.filter(
     (visit) => filterStatus === "all" || visit.status === filterStatus,
-  )
+  );
 
   const stats = {
-    pending: visitSummaries.filter((visit) => visit.status === "pending").length,
-    ongoing: visitSummaries.filter((visit) => visit.status === "ongoing").length,
-    completed: visitSummaries.filter((visit) => visit.status === "completed").length,
-  }
+    pending: visitSummaries.filter((visit) => visit.status === "pending")
+      .length,
+    ongoing: visitSummaries.filter((visit) => visit.status === "ongoing")
+      .length,
+    completed: visitSummaries.filter((visit) => visit.status === "completed")
+      .length,
+  };
 
-  const displayName = getPatientDisplayName(patient)
-  const age = getPatientAge(patient)
+  const displayName = getPatientDisplayName(patient);
+  const age = getPatientAge(patient);
 
   return (
     <div className="min-h-screen bg-background">
@@ -89,9 +94,12 @@ export default function PatientListView({
             </button>
 
             <div className="mb-4">
-              <h2 className="font-semibold text-card-foreground text-lg">{displayName}</h2>
+              <h2 className="font-semibold text-card-foreground text-lg">
+                {displayName}
+              </h2>
               <p className="text-xs text-muted-foreground mt-1">
-                {age != null ? `${age} years` : "Age unknown"} • {formatPatientGender(patient.gender)}
+                {age != null ? `${age} years` : "Age unknown"} •{" "}
+                {formatPatientGender(patient.gender)}
               </p>
             </div>
 
@@ -132,20 +140,26 @@ export default function PatientListView({
           {activeSection === "overview" && (
             <>
               <div className="p-3 border-b border-border space-y-2">
-                {(["pending", "ongoing", "completed"] as const).map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => setFilterStatus(status)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${
-                      filterStatus === status
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground hover:bg-muted/70"
-                    }`}
-                  >
-                    <span>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
-                    <span className="text-xs font-semibold">{stats[status]}</span>
-                  </button>
-                ))}
+                {(["pending", "ongoing", "completed"] as const).map(
+                  (status) => (
+                    <button
+                      key={status}
+                      onClick={() => setFilterStatus(status)}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${
+                        filterStatus === status
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-foreground hover:bg-muted/70"
+                      }`}
+                    >
+                      <span>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </span>
+                      <span className="text-xs font-semibold">
+                        {stats[status]}
+                      </span>
+                    </button>
+                  ),
+                )}
               </div>
 
               <div className="flex-1 overflow-y-auto">
@@ -164,7 +178,9 @@ export default function PatientListView({
                         <p className="text-sm font-medium text-foreground truncate">
                           {visit.chiefComplaint || "Follow-up visit"}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">{visit.date}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {visit.date}
+                        </p>
                         <span
                           className={`inline-block mt-2 px-2 py-1 rounded text-xs font-medium ${
                             visit.status === "completed"
@@ -174,7 +190,8 @@ export default function PatientListView({
                                 : "bg-secondary/20 text-secondary"
                           }`}
                         >
-                          {visit.status.charAt(0).toUpperCase() + visit.status.slice(1)}
+                          {visit.status.charAt(0).toUpperCase() +
+                            visit.status.slice(1)}
                         </span>
                       </button>
                     ))
@@ -191,20 +208,32 @@ export default function PatientListView({
               <>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="bg-card border border-border rounded-lg p-4">
-                    <p className="text-xs text-muted-foreground mb-2">Location</p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Location
+                    </p>
                     <p className="text-foreground text-sm">
-                      {[patient.village, patient.city, patient.district].filter(Boolean).join(", ") || "—"}
+                      {[patient.village, patient.city, patient.district]
+                        .filter(Boolean)
+                        .join(", ") || "—"}
                     </p>
                   </div>
                   <div className="bg-card border border-border rounded-lg p-4">
-                    <p className="text-xs text-muted-foreground mb-2">Contact Information</p>
-                    <p className="text-foreground text-sm">{getPatientPhone(patient) || "—"}</p>
-                    <p className="text-foreground text-sm">{patient.postalAddress || "—"}</p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Contact Information
+                    </p>
+                    <p className="text-foreground text-sm">
+                      {getPatientPhone(patient) || "—"}
+                    </p>
+                    <p className="text-foreground text-sm">
+                      {patient.postalAddress || "—"}
+                    </p>
                   </div>
                   <div className="bg-card border border-border rounded-lg p-4">
-                    <p className="text-xs text-muted-foreground mb-2">Activity</p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Activity
+                    </p>
                     <p className="text-foreground text-sm font-medium">
-                      {patient.lastVisit?.visitDate || "No recent visit"}
+                      No recent visit
                     </p>
                     <p className="text-muted-foreground text-xs mt-1">
                       {visitSummaries.length} recorded visit(s)
@@ -214,7 +243,9 @@ export default function PatientListView({
 
                 <div className="bg-card border border-border rounded-lg">
                   <div className="p-4 border-b border-border">
-                    <h3 className="font-semibold text-card-foreground">Recent Visits</h3>
+                    <h3 className="font-semibold text-card-foreground">
+                      Recent Visits
+                    </h3>
                   </div>
 
                   <div className="p-4">
@@ -226,8 +257,12 @@ export default function PatientListView({
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div>
-                            <p className="font-medium text-foreground">{visit.chiefComplaint || "Routine visit"}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{visit.date}</p>
+                            <p className="font-medium text-foreground">
+                              {visit.chiefComplaint || "Routine visit"}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {visit.date}
+                            </p>
                           </div>
                           <span
                             className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
@@ -238,14 +273,17 @@ export default function PatientListView({
                                   : "bg-secondary/20 text-secondary"
                             }`}
                           >
-                            {visit.status.charAt(0).toUpperCase() + visit.status.slice(1)}
+                            {visit.status.charAt(0).toUpperCase() +
+                              visit.status.slice(1)}
                           </span>
                         </div>
                       </button>
                     ))}
 
                     {visitSummaries.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">No visits yet</p>
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No visits yet
+                      </p>
                     )}
                   </div>
                 </div>
@@ -266,5 +304,5 @@ export default function PatientListView({
         </div>
       </div>
     </div>
-  )
+  );
 }

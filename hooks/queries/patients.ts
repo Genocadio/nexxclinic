@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client'
+import { gql } from "@apollo/client";
 
 export const GET_PATIENTS_QUERY = gql`
   query SearchPatients($input: SearchPatientsInput) {
@@ -23,11 +23,6 @@ export const GET_PATIENTS_QUERY = gql`
         emergencyContactName
         emergencyContactRelationship
         emergencyContactPhoneNumber
-        lastVisit {
-          id
-          status
-          visitDate
-        }
         patientInsurances {
           id
           insuranceCardNumber
@@ -49,7 +44,7 @@ export const GET_PATIENTS_QUERY = gql`
       }
     }
   }
-`
+`;
 
 export const GET_PATIENT_QUERY = gql`
   query GetPatient($patientId: ID!) {
@@ -74,11 +69,6 @@ export const GET_PATIENT_QUERY = gql`
         emergencyContactName
         emergencyContactRelationship
         emergencyContactPhoneNumber
-        lastVisit {
-          id
-          status
-          visitDate
-        }
         createdAt
       }
     }
@@ -99,5 +89,4 @@ export const GET_PATIENT_QUERY = gql`
       }
     }
   }
-`
-
+`;
