@@ -177,8 +177,8 @@ function FormAnswerPageInner() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-6">
-          <aside className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-6 items-start">
+          <aside className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden xl:sticky xl:top-6 self-start z-10">
             <div className="border-b border-border px-4 py-4">
               <div className="flex items-center gap-2">
                 <ClipboardList className="h-4 w-4 text-muted-foreground" />
