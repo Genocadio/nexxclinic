@@ -115,8 +115,7 @@ export function BillingStickySummary({
                 </p>
                 {selectedCount > 0 && !existingVisitBilling && (
                   <p className="text-[10px] text-muted-foreground">
-                    {selectedCount} item{selectedCount !== 1 ? "s" : ""}{" "}
-                    selected
+                    {selectedCount} item{selectedCount !== 1 ? "s" : ""}
                   </p>
                 )}
                 <p className="text-xl font-bold text-[#FF6900] tabular-nums leading-tight">

@@ -97,7 +97,8 @@ export function BillingPageContent() {
   );
   const [didAutoPrint, setDidAutoPrint] = useState(false);
   const [activeService, setActiveService] = useState<string>("");
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  // No per-item selection: billing is always all-or-nothing per visit department.
+  // Items are removed from the list to exclude them, not deselected.
   const [showAddInsuranceModal, setShowAddInsuranceModal] = useState(false);
   const [showDiscountControls, setShowDiscountControls] = useState(false);
   const [isEditingBill, setIsEditingBill] = useState(false);
@@ -125,6 +126,11 @@ export function BillingPageContent() {
     [existingVisitBilling],
   );
 
+  // In edit mode the UI behaves as if no bill exists yet — items become
+  // unbilled/selectable and totals recalculate from scratch. We still keep
+  // the real existingVisitBilling for deciding which mutation to call on submit.
+  const effectiveVisitBilling = isEditingBill ? null : existingVisitBilling;
+
   // Determine if user can edit billing items based on role
   // Only FINANCE role can edit items. CASHIER users cannot delete or adjust quantities
   const canEditBillingItems = useMemo(() => {
@@ -140,6 +146,11 @@ export function BillingPageContent() {
     status?: string,
     itemId?: string,
   ): BillingItem["paymentStatus"] => {
+    // In edit mode treat everything as pending so items become selectable again
+    if (isEditingBill) {
+      if (status === "EXEMPTED") return "exempted";
+      return "pending";
+    }
     if (status === "BILLED") return "paid";
     if (
       existingVisitBilling &&
@@ -174,7 +185,11 @@ export function BillingPageContent() {
 
   useEffect(() => {
     if (!visit) return;
-    const mapped = mapVisitToBillingData(visit, { existingVisitBilling });
+    // Use effectiveVisitBilling so that entering edit mode re-maps all items
+    // as pending (unbilled) — giving us a clean slate for recalculation.
+    const mapped = mapVisitToBillingData(visit, {
+      existingVisitBilling: effectiveVisitBilling,
+    });
     const shouldUpdateBillingData =
       !billingData ||
       billingData.visitId !== mapped.visitId ||
@@ -188,19 +203,10 @@ export function BillingPageContent() {
 
     if (shouldUpdateBillingData) {
       setBillingData(mapped);
-      const unbilledItems = mapped.items.filter(
-        (item) => item.paymentStatus !== "paid",
-      );
-      const newSelectedIds = unbilledItems.map((item) => item.id);
-      if (
-        newSelectedIds.length !== selectedItemIds.length ||
-        newSelectedIds.some((id, index) => id !== selectedItemIds[index])
-      ) {
-        setSelectedItemIds(newSelectedIds);
-      }
     }
   }, [
     visit?.id,
+    isEditingBill,
     existingVisitBilling?.id,
     existingBillingTotals?.paidAmount,
     existingBillingTotals?.totalAmount,
@@ -213,23 +219,6 @@ export function BillingPageContent() {
       setActiveService((prev) => prev || firstDept);
     }
   }, [billingData]);
-
-  // When view mode changes to service or active service changes, update selection
-  useEffect(() => {
-    if (!activeService || !billingData) return;
-    const serviceItems = billingData.items.filter(
-      (item) =>
-        (item.departmentName || "General") === activeService &&
-        item.paymentStatus !== "paid",
-    );
-    const newSelectedIds = serviceItems.map((item) => item.id);
-    if (
-      newSelectedIds.length !== selectedItemIds.length ||
-      newSelectedIds.some((id, index) => id !== selectedItemIds[index])
-    ) {
-      setSelectedItemIds(newSelectedIds);
-    }
-  }, [activeService, billingData?.items.length, selectedItemIds]);
 
   // Calculate totals for a given items subset (selected, unbilled lines only)
   const calculateTotalsForItems = useCallback(
@@ -395,26 +384,6 @@ export function BillingPageContent() {
     );
   };
 
-  const handleSelectionToggle = (itemId: string, checked: boolean) => {
-    setSelectedItemIds((prev) => {
-      const set = new Set(prev);
-      if (checked) set.add(itemId);
-      else set.delete(itemId);
-      return Array.from(set);
-    });
-  };
-
-  const handleSelectAll = (itemIds: string[], checked: boolean) => {
-    setSelectedItemIds((prev) => {
-      const set = new Set(prev);
-      itemIds.forEach((id) => {
-        if (checked) set.add(id);
-        else set.delete(id);
-      });
-      return Array.from(set);
-    });
-  };
-
   const itemsByService = (serviceName: string) => {
     if (!billingData) return [] as BillingItem[];
     return billingData.items.filter(
@@ -429,8 +398,9 @@ export function BillingPageContent() {
     );
   }, [billingData, activeService]);
 
+  // Always bill all pending items — no partial selection.
   const selectedItems = billingData
-    ? billingData.items.filter((it) => selectedItemIds.includes(it.id))
+    ? billingData.items.filter((it) => it.paymentStatus !== "paid")
     : [];
   const hasRemainingToBill = Boolean(
     billingData?.items.some((item) => item.paymentStatus !== "paid"),
@@ -445,6 +415,8 @@ export function BillingPageContent() {
   }, [doctor?.roles]);
   const isAlreadyBilled = Boolean(existingVisitBilling);
   const isEditMode = Boolean(isEditingBill);
+  // For UI purposes (item states, dock, etc.) treat billed visit as unbilled while in edit mode
+  const effectiveIsAlreadyBilled = isAlreadyBilled && !isEditMode;
 
   // Role rules:
   // - CASHIER: can bill (complete) but cannot edit bills/items.
@@ -453,11 +425,11 @@ export function BillingPageContent() {
   const canBill = hasFinanceRole || hasCashierRole;
 
   const canViewBilledReadOnly =
-    isAlreadyBilled && (hasFinanceRole || hasCashierRole);
+    effectiveIsAlreadyBilled && (hasFinanceRole || hasCashierRole);
   const showBillingDock =
     canViewBilledReadOnly ||
     canEditBilling ||
-    (!existingVisitBilling && hasRemainingToBill);
+    (!effectiveIsAlreadyBilled && hasRemainingToBill);
 
   const handleDownloadInvoice = async (
     departmentInsuranceBillingId: string,
@@ -469,17 +441,14 @@ export function BillingPageContent() {
     openInvoicePreview(invoiceUrl);
   };
 
-  // Sticky summary reflects only selected, unbilled items in the current view
+  // Totals always cover all pending items in the current service tab
   const displayTotals = useMemo(() => {
     if (!billingData) return emptyTotals;
-
     const itemsForTotals = itemsToDisplay.filter(
-      (item) =>
-        selectedItemIds.includes(item.id) && item.paymentStatus !== "paid",
+      (item) => item.paymentStatus !== "paid",
     );
-
     return calculateTotalsForItems(itemsForTotals);
-  }, [billingData, itemsToDisplay, selectedItemIds, calculateTotalsForItems]);
+  }, [billingData, itemsToDisplay, calculateTotalsForItems]);
 
   useEffect(() => {
     if (!billingData) return;
@@ -640,11 +609,7 @@ export function BillingPageContent() {
         await handleDischargeVisit();
         return;
       }
-      toast.warning(
-        selectedItems.length === 0
-          ? "Select at least one item to bill"
-          : "All selected items are already billed",
-      );
+      toast.warning("All items are already billed.");
       return;
     }
 
@@ -1179,21 +1144,16 @@ export function BillingPageContent() {
           activeService={activeService}
           allServiceNames={allServiceNames}
           items={itemsToDisplay}
-          selectedItemIds={selectedItemIds}
-          selectedCountLabel={`${selectedItemIds.length}/${itemsToDisplay.filter((i) => i.paymentStatus !== "paid").length} selected`}
           canAddItems={
-            // In edit mode (FINANCE), allow adding/deleting/editing items again.
-            // Block all edits when there are unread notes.
-            (isEditMode || !isAlreadyBilled) &&
+            !effectiveIsAlreadyBilled &&
             canBill &&
             hasRemainingToBill &&
             unreadBillingNotesCount === 0
           }
           canEdit={
-            // Only FINANCE can edit items. In edit mode they can edit even if already billed.
+            !effectiveIsAlreadyBilled &&
             canEditBillingItems &&
             canEditBilling &&
-            (isEditMode || !isAlreadyBilled) &&
             unreadBillingNotesCount === 0
           }
           visitInsuranceOptions={visitInsuranceOptions}
@@ -1202,8 +1162,6 @@ export function BillingPageContent() {
           onItemChange={handleItemChange}
           onItemRemove={handleItemRemove}
           onQuantityChange={handleQuantityChange}
-          onSelectionToggle={handleSelectionToggle}
-          onSelectAll={handleSelectAll}
         />
 
         {showBillingDock && (
@@ -1212,13 +1170,10 @@ export function BillingPageContent() {
             amountPaid={billingData.amountPaid || 0}
             activeService={activeService}
             selectedCount={
-              itemsToDisplay.filter(
-                (item) =>
-                  selectedItemIds.includes(item.id) &&
-                  item.paymentStatus !== "paid",
-              ).length
+              itemsToDisplay.filter((item) => item.paymentStatus !== "paid")
+                .length
             }
-            existingVisitBilling={existingVisitBilling}
+            existingVisitBilling={isEditMode ? null : existingVisitBilling}
             canEditBilling={canEditBilling}
             hasRemainingToBill={hasRemainingToBill}
             creatingBill={creatingBill || editingBill}
@@ -1233,7 +1188,9 @@ export function BillingPageContent() {
                 );
                 return;
               }
+              // In edit mode open confirm with edit flow, else normal complete
               setConfirmSheetMode(isEditMode ? "edit" : "complete");
+              setShowDiscountControls(isEditMode);
               handleAmountPaidChange(displayTotals.totalAmount);
               setShowCompleteBillConfirm(true);
             }}
@@ -1244,19 +1201,18 @@ export function BillingPageContent() {
                 toast.warn("Please view the notes first before continuing.");
                 return;
               }
+              // Just toggle edit mode — do NOT open the confirm sheet.
+              // The page re-maps items as unbilled, user edits like 1st-time billing.
               setIsEditingBill(true);
-              setShowDiscountControls(true);
-              setConfirmSheetMode("edit");
-              setShowCompleteBillConfirm(true);
             }}
             onDoneEditing={async () => {
               setShowDiscountControls(false);
               setIsEditingBill(false);
-              // Reset UI back to normal (leave billed state as-is)
               setConfirmSheetMode("complete");
+              // Refetch so items revert back to their billed/paid state
               await refetchVisit();
               await refetchBill();
-              toast.success("Billing edit mode cancelled");
+              toast.info("Edit mode cancelled");
             }}
             onManageExemptions={() => setShowExemptionsWindow(true)}
           />
@@ -1307,7 +1263,6 @@ export function BillingPageContent() {
         open={showCompleteBillConfirm}
         onOpenChange={setShowCompleteBillConfirm}
         items={billingData.items}
-        selectedItemIds={selectedItemIds}
         totals={displayTotals}
         amountPaid={billingData.amountPaid || 0}
         paymentMethod={billingData.paymentMethod || "MOBILE_MONEY"}

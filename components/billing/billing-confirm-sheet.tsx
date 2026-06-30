@@ -33,16 +33,10 @@ type BillingConfirmSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   items: BillingItem[];
-  selectedItemIds: string[];
   totals: BillingTotals;
   amountPaid: number;
   paymentMethod:
-    | "CASH"
-    | "MOBILE_MONEY"
-    | "CARD"
-    | "BANK_TRANSFER"
-    | "CHEQUE"
-    | "MIXED";
+    "CASH" | "MOBILE_MONEY" | "CARD" | "BANK_TRANSFER" | "CHEQUE" | "MIXED";
   creatingBill: boolean;
   showItemsReview?: boolean;
   showDiscountControls: boolean;
@@ -50,12 +44,7 @@ type BillingConfirmSheetProps = {
   discountInputValue: number;
   onPaymentMethodChange: (
     method:
-      | "CASH"
-      | "MOBILE_MONEY"
-      | "CARD"
-      | "BANK_TRANSFER"
-      | "CHEQUE"
-      | "MIXED",
+      "CASH" | "MOBILE_MONEY" | "CARD" | "BANK_TRANSFER" | "CHEQUE" | "MIXED",
   ) => void;
   onAmountPaidChange: (amount: number) => void;
   onShowDiscountControls: (show: boolean) => void;
@@ -71,7 +60,6 @@ export function BillingConfirmSheet({
   open,
   onOpenChange,
   items,
-  selectedItemIds,
   totals,
   amountPaid,
   paymentMethod,
@@ -90,10 +78,7 @@ export function BillingConfirmSheet({
   onBillingNotesChange,
   onConfirm,
 }: BillingConfirmSheetProps) {
-  const itemsToBill = items.filter(
-    (item) =>
-      selectedItemIds.includes(item.id) && item.paymentStatus !== "paid",
-  );
+  const itemsToBill = items.filter((item) => item.paymentStatus !== "paid");
   const remaining = Math.max(0, totals.totalAmount - amountPaid);
   const [showNotes, setShowNotes] = useState(false);
   const [noteReason, setNoteReason] = useState<string>("");
