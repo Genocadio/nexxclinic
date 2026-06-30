@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { StickyNote } from "lucide-react";
+import { StickyNote, Send, X, Check, Eye } from "lucide-react";
 import { toast } from "react-toastify";
 
 import { Button } from "@/components/ui/button";
@@ -108,12 +108,32 @@ export default function VisitNotesFloating({
     }
   };
 
+  const handleClear = () => {
+    setText("");
+  };
+
+  const hasDraft = text.trim().length > 0;
+
   const handleMarkAsViewed = async (noteId: string) => {
     if (!onMarkAsViewed) return;
     try {
       await onMarkAsViewed(noteId);
     } catch (error: any) {
       console.error("Failed to mark note as viewed", error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    if (!onMarkAsViewed) return;
+    const unread = (visibleNotes || []).filter(
+      (note) => !note?.viewed && note?.id,
+    );
+    if (unread.length === 0) return;
+
+    try {
+      await Promise.all(unread.map((note) => onMarkAsViewed(String(note.id))));
+    } catch (error: any) {
+      console.error("Failed to mark notes as viewed", error);
     }
   };
 
@@ -390,23 +410,65 @@ export default function VisitNotesFloating({
                 className="bg-muted border-border"
               />
 
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-8 rounded-full"
-                  onClick={() => setText("")}
-                >
-                  Clear
-                </Button>
-                <Button
-                  type="button"
-                  className="h-8 rounded-full"
-                  onClick={handleAdd}
-                  disabled={submitting || text.trim().length === 0}
-                >
-                  {submitting ? "Saving..." : "Add Note"}
-                </Button>
+              <div className="flex items-center justify-end gap-2">
+                {/* Mark read (always visible if handler provided) */}
+                {onMarkAsViewed && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 rounded-full"
+                    onClick={markAllAsRead}
+                    disabled={unreadNotesCount === 0}
+                    aria-label="Mark all as read"
+                    title="Mark all as read"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                )}
+
+                {/* Draft actions: show only when textarea has content */}
+                {hasDraft && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 rounded-full"
+                      onClick={handleClear}
+                      aria-label="Clear"
+                      title="Clear"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      className="h-9 w-9 rounded-full"
+                      onClick={handleAdd}
+                      disabled={submitting}
+                      aria-label="Send note"
+                      title="Send note"
+                    >
+                      {submitting ? (
+                        <Check className="h-4 w-4 opacity-60" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </>
+                )}
+
+                {/* When empty, show a subtle tick indicator (no action) */}
+                {!hasDraft && (
+                  <div
+                    className="h-9 w-9 rounded-full border border-border/60 flex items-center justify-center text-muted-foreground"
+                    title="No draft"
+                    aria-label="No draft"
+                  >
+                    <Check className="h-4 w-4" />
+                  </div>
+                )}
               </div>
             </div>
           )}
