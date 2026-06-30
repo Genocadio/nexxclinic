@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useLazyQuery } from "@apollo/client";
 import { GET_BILL_BY_VISIT_QUERY, GET_INVOICE_QUERY } from "../queries";
-import { CREATE_BILL_MUTATION, GENERATE_INVOICE_MUTATION } from "../mutations";
+import {
+  CREATE_BILL_MUTATION,
+  EDIT_BILL_MUTATION,
+  GENERATE_INVOICE_MUTATION,
+} from "../mutations";
 import type { VisitBilling, ApiResponse } from "../types";
 import type { InvoiceResponse } from "../types";
 import {
@@ -20,6 +24,14 @@ export interface VisitBillingsQueryData {
 
 export interface CreateBillPayload {
   billVisit: {
+    status: string;
+    message?: string;
+    data?: GqlVisitBilling | null;
+  };
+}
+
+export interface EditBillPayload {
+  editBillVisit: {
     status: string;
     message?: string;
     data?: GqlVisitBilling | null;
@@ -116,6 +128,53 @@ export function useCreateBill() {
   };
 
   return { createBill, loading, error };
+}
+
+export function useEditBill() {
+  const [editBillMutation, { loading, error }] =
+    useMutation<EditBillPayload>(EDIT_BILL_MUTATION);
+
+  const editBill = async (input: {
+    visitId: string;
+    notes?: string;
+    departments: {
+      visitDepartmentId: string;
+      products: {
+        visitDepartmentProductId: string;
+        parentVisitDepartmentId: string;
+        patientInsuranceId?: string;
+        quantity?: number;
+        unitPrice?: number;
+        isExempted?: boolean;
+      }[];
+      payments?: {
+        amount: number;
+        paymentMethod:
+          | "CASH"
+          | "MOBILE_MONEY"
+          | "CARD"
+          | "BANK_TRANSFER"
+          | "CHEQUE"
+          | "MIXED";
+        reference?: string;
+      }[];
+    }[];
+  }): Promise<ApiResponse<VisitBilling>> => {
+    try {
+      const result = await editBillMutation({ variables: { input } });
+      const payload = result?.data?.editBillVisit;
+      return {
+        status: payload?.status || "ERROR",
+        message: payload?.message,
+        data: payload?.data ? mapGqlVisitBilling(payload.data) : undefined,
+      };
+    } catch (err) {
+      console.error("Edit bill error:", err);
+      throw err;
+    }
+  };
+
+  return { editBill, loading, error };
 }
 
 export function useGenerateInvoice() {

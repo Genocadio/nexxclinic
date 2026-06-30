@@ -26,6 +26,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   useVisit,
   useCreateBill,
+  useEditBill,
   useGetVisitBilling,
   useGenerateInvoice,
   useCompleteVisit,
@@ -68,6 +69,7 @@ export function BillingPageContent() {
   const autoPrint = searchParams.get("autoprint") === "1";
   const { visit, loading, error, refetch: refetchVisit } = useVisit(visitId);
   const { createBill, loading: creatingBill } = useCreateBill();
+  const { editBill, loading: editingBill } = useEditBill();
   const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice();
   const {
     visitBilling: existingVisitBilling,
@@ -614,7 +616,7 @@ export function BillingPageContent() {
   };
 
   const handleGenerateBill = async () => {
-    if (!billingData || creatingBill) return;
+    if (!billingData || creatingBill || editingBill) return;
 
     if (unreadBillingNotesCount > 0) {
       toast.warn("Please view the notes first before completing the bill.");
@@ -703,7 +705,9 @@ export function BillingPageContent() {
         ),
       };
 
-      const response = await createBill(input);
+      const response = existingVisitBilling
+        ? await editBill(input)
+        : await createBill(input);
 
       if (response.status === "SUCCESS") {
         setBillJustCreated(true);
@@ -757,16 +761,29 @@ export function BillingPageContent() {
         await refetchVisit();
         await refetchBill();
         await handlePreviewBilling();
-        toast.success("Bill created successfully!");
+        toast.success(
+          existingVisitBilling
+            ? "Bill updated successfully!"
+            : "Bill created successfully!",
+        );
       } else {
         const errorMsg =
           response.messages?.map((m) => m.text).join(", ") ||
-          "Failed to create bill";
+          existingVisitBilling
+            ? "Failed to update bill"
+            : "Failed to create bill";
         toast.error(errorMsg);
       }
     } catch (err) {
-      console.error("Error creating bill:", err);
-      toast.error("Failed to create bill. Please try again.");
+      console.error(
+        existingVisitBilling ? "Error updating bill:" : "Error creating bill:",
+        err,
+      );
+      toast.error(
+        existingVisitBilling
+          ? "Failed to update bill. Please try again."
+          : "Failed to create bill. Please try again.",
+      );
     }
   };
 
@@ -1193,7 +1210,7 @@ export function BillingPageContent() {
             existingVisitBilling={existingVisitBilling}
             canEditBilling={canEditBilling && unreadBillingNotesCount === 0}
             hasRemainingToBill={hasRemainingToBill}
-            creatingBill={creatingBill}
+            creatingBill={creatingBill || editingBill}
             generatingInvoice={generatingInvoice}
             isEditingBill={isEditingBill}
             exemptionCount={exemptionCount}

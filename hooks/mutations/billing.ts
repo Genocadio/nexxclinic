@@ -41,6 +41,47 @@ export const CREATE_BILL_MUTATION = gql`
   }
 `;
 
+export const EDIT_BILL_MUTATION = gql`
+  mutation EditBillVisit($input: BillVisitInput!) {
+    editBillVisit(input: $input) {
+      status
+      message
+      data {
+        id
+        visitId
+        departments {
+          id
+          status
+          totalAmount
+          insuranceCoveredAmount
+          patientPayableAmount
+          paidAmount
+          outstandingAmount
+          insuranceBillings {
+            id
+            status
+            totalAmount
+            insuranceCoveredAmount
+            patientPayableAmount
+            paidAmount
+            outstandingAmount
+            items {
+              id
+              visitDepartmentProductId
+              productId
+              productName
+              unitPriceSnapshot
+              quantitySnapshot
+              insuranceCoveredAmount
+              patientPayableAmount
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const GENERATE_INVOICE_MUTATION = gql`
   mutation GenerateInvoice($departmentInsuranceBillingId: ID!) {
     generateInvoice(
