@@ -4,10 +4,9 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   BillingData,
   BillingItem,
-  buildProductCoverageMaps,
   getItemInsuranceSplit,
   applyInsuranceSelectionToItem,
-  resolveBillingUnitPrice,
+
 } from "@/lib/billing-utils";
 import {
   flattenVisitDepartmentsForBilling,
@@ -33,11 +32,9 @@ import {
 } from "@/hooks/auth-hooks";
 import type { Visit } from "@/lib/api-types";
 import {
-  flattenVisitBillingItems,
-  getLatestDepartmentInsuranceBillingId,
   getVisitBillingTotals,
   isVisitDepartmentProductBilled,
-  visitBillingLineTotal,
+
 } from "@/lib/visit-billing-utils";
 import { useUpdateVisitDepartmentStatus } from "@/hooks/auth-hooks";
 import {
@@ -73,7 +70,6 @@ export function BillingPageContent() {
   const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice();
   const {
     visitBilling: existingVisitBilling,
-    loading: loadingBill,
     refetch: refetchBill,
   } = useGetVisitBilling(visitId);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -144,28 +140,6 @@ export function BillingPageContent() {
     // Only FINANCE role can edit items, CASHIER cannot
     return hasFinanceRole;
   }, [doctor?.roles]);
-
-  const mapPaymentStatus = (
-    status?: string,
-    itemId?: string,
-  ): BillingItem["paymentStatus"] => {
-    // In edit mode treat everything as pending so items become selectable again
-    if (isEditingBill) {
-      if (status === "EXEMPTED") return "exempted";
-      return "pending";
-    }
-    if (status === "BILLED") return "paid";
-    if (
-      existingVisitBilling &&
-      itemId &&
-      isVisitDepartmentProductBilled(existingVisitBilling, itemId)
-    ) {
-      return "paid";
-    }
-    if (status === "EXEMPTED") return "exempted";
-    return "pending";
-  };
-
   useEffect(() => {
     if (!visit?.id) return;
     const newIds = (visit.linkedInsurances || []).map((insurance) =>
@@ -703,7 +677,9 @@ export function BillingPageContent() {
                 item.rootVisitDepartmentId || item.visitDepartmentId || "",
               );
               if (!deptId) return;
-              getOrCreateDept(deptId).removedProductIds.push(item.id);
+              if (item.productId) {
+                getOrCreateDept(deptId).removedProductIds.push(item.productId);
+              }
             });
 
           const editPayments =
