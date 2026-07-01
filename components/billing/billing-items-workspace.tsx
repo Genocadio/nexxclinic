@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import type { ComponentProps } from "react";
 import { BillingItemsList } from "@/components/BillingItemsList";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ type BillingItemsWorkspaceProps = {
   items: BillingItem[];
   canAddItems: boolean;
   canEdit?: boolean;
+  editMode?: boolean;
   visitInsuranceOptions: BillingInsuranceOption[];
   onServiceChange: (serviceName: string) => void;
   onAddItem: () => void;
@@ -31,6 +32,7 @@ export function BillingItemsWorkspace({
   items,
   canAddItems,
   canEdit = true,
+  editMode = false,
   visitInsuranceOptions,
   onServiceChange,
   onAddItem,
@@ -42,9 +44,17 @@ export function BillingItemsWorkspace({
     <div className="flex-1 flex flex-col min-h-0 p-6">
       <div className="flex-1 flex flex-col min-h-0 w-full min-w-0 mx-auto px-2 sm:px-4 md:px-[1cm] lg:px-[2cm]">
         <div className="flex items-center justify-between gap-3 mb-2 flex-shrink-0">
-          <h2 className="text-sm font-semibold text-foreground">
-            Items to Bill
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-foreground">
+              Items to Bill
+            </h2>
+            {editMode && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 border border-amber-300 dark:border-amber-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                <Pencil className="h-2.5 w-2.5" />
+                Edit Mode
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {canAddItems && (
               <Button
@@ -88,6 +98,7 @@ export function BillingItemsWorkspace({
               allDepartments={[]}
               hideTypeColumn
               canEdit={canEdit}
+              editMode={editMode}
             />
           </div>
         </div>

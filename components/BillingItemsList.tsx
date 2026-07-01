@@ -48,6 +48,8 @@ type BillingItemsListProps = {
   allDepartments?: string[];
   hideTypeColumn?: boolean;
   canEdit?: boolean;
+  /** When true all "paid" guards are lifted so Finance can reconfigure everything. */
+  editMode?: boolean;
 };
 
 const getPaymentStatusColor = (
@@ -101,7 +103,12 @@ export function BillingItemsList({
   allDepartments = [],
   hideTypeColumn = true,
   canEdit = true,
+  editMode = false,
 }: BillingItemsListProps) {
+  // In edit mode items with paymentStatus "paid" are treated as editable.
+  // We use this helper instead of checking paymentStatus directly.
+  const isPaidLocked = (item: BillingItem) =>
+    !editMode && item.paymentStatus === "paid";
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState<string>("");
   const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
@@ -143,7 +150,7 @@ export function BillingItemsList({
   };
 
   const canEditUnitPrice = (item: BillingItem) =>
-    item.paymentStatus !== "paid" && !item.selectedInsuranceId;
+    !isPaidLocked(item) && !item.selectedInsuranceId;
 
   const applyQuantity = async (item: BillingItem, nextQty: number) => {
     const quantity = Math.max(1, Math.floor(nextQty));
@@ -156,7 +163,7 @@ export function BillingItemsList({
   };
 
   const renderQuantityCell = (item: BillingItem) => {
-    if (item.paymentStatus === "paid" || !onQuantityChange || !canEdit) {
+    if (isPaidLocked(item) || !onQuantityChange || !canEdit) {
       return <span className="tabular-nums">{item.quantity}</span>;
     }
 
@@ -361,7 +368,7 @@ export function BillingItemsList({
                                 isExempted
                                   ? "bg-purple-50 dark:bg-purple-950/20"
                                   : ""
-                              } ${item.paymentStatus === "paid" ? "opacity-70" : ""}`}
+                              } ${isPaidLocked(item) ? "opacity-70" : ""}`}
                             >
                               <td className="py-2 px-3">
                                 <p className="font-medium text-foreground text-sm leading-tight">
@@ -483,7 +490,7 @@ export function BillingItemsList({
                                   }}
                                   disabled={
                                     availableInsurances.length === 0 ||
-                                    item.paymentStatus === "paid"
+                                    isPaidLocked(item)
                                   }
                                 >
                                   <SelectTrigger className="h-7 text-[11px] border-0 bg-transparent shadow-none px-1">
@@ -575,7 +582,7 @@ export function BillingItemsList({
                                       }
                                       onItemChange(updated);
                                     }}
-                                    disabled={item.paymentStatus === "paid"}
+                                    disabled={isPaidLocked(item)}
                                   >
                                     <SelectTrigger className="h-7 text-[10px] w-[7.5rem]">
                                       <SelectValue placeholder="Exemption" />
@@ -599,7 +606,7 @@ export function BillingItemsList({
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => onItemRemove(item.id)}
-                                      disabled={item.paymentStatus === "paid"}
+                                      disabled={isPaidLocked(item)}
                                       className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10 disabled:opacity-30"
                                     >
                                       <Trash2 className="h-3.5 w-3.5" />

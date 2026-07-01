@@ -185,10 +185,12 @@ export function BillingPageContent() {
 
   useEffect(() => {
     if (!visit) return;
-    // Use effectiveVisitBilling so that entering edit mode re-maps all items
-    // as pending (unbilled) — giving us a clean slate for recalculation.
+    // In edit mode pass editMode:true so the mapper forces all items to
+    // "pending" regardless of their backend BILLED status, giving a clean
+    // slate identical to first-time billing.
     const mapped = mapVisitToBillingData(visit, {
       existingVisitBilling: effectiveVisitBilling,
+      editMode: isEditingBill,
     });
     const shouldUpdateBillingData =
       !billingData ||
@@ -1144,17 +1146,22 @@ export function BillingPageContent() {
           activeService={activeService}
           allServiceNames={allServiceNames}
           items={itemsToDisplay}
+          editMode={isEditMode}
           canAddItems={
-            !effectiveIsAlreadyBilled &&
-            canBill &&
-            hasRemainingToBill &&
-            unreadBillingNotesCount === 0
+            // Edit mode (Finance): can add products even on already-billed visits.
+            // Normal mode: only when not yet billed and no unread notes.
+            unreadBillingNotesCount === 0 &&
+            (isEditMode
+              ? canEditBilling
+              : !effectiveIsAlreadyBilled && canBill && hasRemainingToBill)
           }
           canEdit={
-            !effectiveIsAlreadyBilled &&
+            // Edit mode (Finance): full editing power regardless of paid status.
+            // Normal mode: Finance only, not yet billed, no unread notes.
+            unreadBillingNotesCount === 0 &&
             canEditBillingItems &&
             canEditBilling &&
-            unreadBillingNotesCount === 0
+            (isEditMode || !effectiveIsAlreadyBilled)
           }
           visitInsuranceOptions={visitInsuranceOptions}
           onServiceChange={setActiveService}
