@@ -735,6 +735,12 @@ export function BillingPageContent() {
         // Refetch visit and bill data
         await refetchVisit();
         await refetchBill();
+        // If we just finished an edit, exit edit mode before opening preview.
+        if (isEditingBill) {
+          setIsEditingBill(false);
+          setShowDiscountControls(false);
+          setConfirmSheetMode("complete");
+        }
         await handlePreviewBilling();
         toast.success(
           existingVisitBilling
@@ -1292,16 +1298,11 @@ export function BillingPageContent() {
         billingNotes={billingData.notes || ""}
         onBillingNotesChange={handleNotesChange}
         onConfirm={async () => {
-          if (confirmSheetMode === "complete") {
-            setShowCompleteBillConfirm(false);
+          setShowCompleteBillConfirm(false);
+          if (confirmSheetMode === "complete" || confirmSheetMode === "edit") {
+            // Both flows call handleGenerateBill — the function itself decides
+            // whether to call billVisit or editBillVisit based on existingVisitBilling.
             await handleGenerateBill();
-          } else {
-            setShowCompleteBillConfirm(false);
-            setShowDiscountControls(false);
-            setIsEditingBill(false);
-            if (existingVisitBilling) {
-              toast.success("Payment details updated");
-            }
           }
         }}
       />
