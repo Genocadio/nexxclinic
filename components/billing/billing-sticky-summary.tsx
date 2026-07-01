@@ -159,6 +159,17 @@ export function BillingStickySummary({
                           badge={exemptionCount}
                         />
                       )}
+                      {/* In edit mode show Cancel beside Complete Edit */}
+                      {isEditingBill && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-9 rounded-full text-xs"
+                          onClick={onDoneEditing}
+                        >
+                          Cancel
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         className="h-9 rounded-full bg-[#FF6900] hover:bg-[#e05f00] text-white text-xs px-4"
@@ -188,32 +199,18 @@ export function BillingStickySummary({
                   </>
                 )}
 
-                {existingVisitBilling && canEditBilling && (
-                  <>
-                    {!isEditingBill ? (
-                      <ActionButton
-                        icon={Pencil}
-                        label="Edit billing"
-                        onClick={onEditBilling}
-                        disabled={!canAct}
-                        tooltipOverride={
-                          !canAct
-                            ? "View unread notes to enable billing actions"
-                            : undefined
-                        }
-                      />
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-9 rounded-full text-xs"
-                        onClick={onDoneEditing}
-                        disabled={!canAct}
-                      >
-                        Cancel edit
-                      </Button>
-                    )}
-                  </>
+                {existingVisitBilling && canEditBilling && !isEditingBill && (
+                  <ActionButton
+                    icon={Pencil}
+                    label="Edit billing"
+                    onClick={onEditBilling}
+                    disabled={!canAct}
+                    tooltipOverride={
+                      !canAct
+                        ? "View unread notes to enable billing actions"
+                        : undefined
+                    }
+                  />
                 )}
               </div>
             </TooltipProvider>

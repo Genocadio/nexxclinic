@@ -42,51 +42,40 @@ export default function ConsultationPage() {
     }
   }, [loading, visit, error, router]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header doctor={doctor} />
-        <div className="max-w-5xl mx-auto px-6 py-8 space-y-4">
-          <Skeleton className="h-10 w-64 rounded-lg" />
-          {[...Array(3)].map((_, idx) => (
-            <div
-              key={idx}
-              className="bg-card/70 border rounded-2xl p-4 space-y-3"
-            >
-              <Skeleton className="h-5 w-40" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ))}
-        </div>
+  const consultationSkeleton = (
+    <div className="min-h-screen bg-background">
+      <Header doctor={doctor} />
+      <div className="max-w-5xl mx-auto px-6 py-8 space-y-4">
+        <Skeleton className="h-10 w-64 rounded-lg" />
+        {[...Array(3)].map((_, idx) => (
+          <div
+            key={idx}
+            className="bg-card/70 border rounded-2xl p-4 space-y-3"
+          >
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ))}
       </div>
-    );
-  }
+    </div>
+  );
+
+  // While loading (or before visit has arrived), always show skeleton.
+  // This prevents the transient "Visit not found" flash on refresh.
+  if (loading || (!visit && !error)) return consultationSkeleton;
 
   if (error) {
     return (
       <div className="min-h-screen bg-background">
         <Header doctor={doctor} />
         <div className="max-w-5xl mx-auto px-6 py-8">
-          <InlineTryAgain
-            onTryAgain={() => {
-              void refetch();
-            }}
-          />
+          <InlineTryAgain onTryAgain={() => void refetch()} />
         </div>
       </div>
     );
   }
 
-  if (!visit || !firstDepartment) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header doctor={doctor} />
-        <div className="flex items-center justify-center h-[calc(100vh-64px)]">
-          <p className="text-muted-foreground">Visit not found, redirecting…</p>
-        </div>
-      </div>
-    );
-  }
+  if (!visit || !firstDepartment) return consultationSkeleton;
 
   const existingProducts: FormAction[] = (firstDepartment.products || []).map(
     (line) => ({

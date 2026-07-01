@@ -1092,14 +1092,6 @@ export function BillingPageContent() {
     }
   };
 
-  if (!visit) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-2">
-        <p className="text-muted-foreground">Visit not found.</p>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-2">
@@ -1111,7 +1103,9 @@ export function BillingPageContent() {
     );
   }
 
-  if (loading || !billingData) {
+  // Show spinner while loading OR while visit/billingData haven't arrived yet.
+  // This prevents the transient "Visit not found" flash on page refresh.
+  if (loading || !visit || !billingData) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Spinner className="h-8 w-8" />
