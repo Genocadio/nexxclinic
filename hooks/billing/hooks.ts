@@ -130,38 +130,53 @@ export function useCreateBill() {
   return { createBill, loading, error };
 }
 
+export interface EditBillInput {
+  visitId: string;
+  notes?: string;
+  departments: {
+    visitDepartmentId: string;
+    addedProducts?: { productId: string; quantity: number }[];
+    removedProductIds?: string[];
+    updatedProducts?: { productId: string; quantity?: number }[];
+    billProducts: {
+      productId: string;
+      patientInsuranceId?: string;
+      quantity?: number;
+      unitPrice?: number;
+      isExempted?: boolean;
+    }[];
+    payments?: {
+      amount: number;
+      paymentMethod:
+        "CASH" | "MOBILE_MONEY" | "CARD" | "BANK_TRANSFER" | "CHEQUE" | "MIXED";
+      reference?: string;
+    }[];
+  }[];
+}
+
 export function useEditBill() {
   const [editBillMutation, { loading, error }] =
     useMutation<EditBillPayload>(EDIT_BILL_MUTATION);
 
-  const editBill = async (input: {
-    visitId: string;
-    notes?: string;
-    departments: {
-      visitDepartmentId: string;
-      products: {
-        visitDepartmentProductId: string;
-        parentVisitDepartmentId: string;
-        patientInsuranceId?: string;
-        quantity?: number;
-        unitPrice?: number;
-        isExempted?: boolean;
-      }[];
-      payments?: {
-        amount: number;
-        paymentMethod:
-          | "CASH"
-          | "MOBILE_MONEY"
-          | "CARD"
-          | "BANK_TRANSFER"
-          | "CHEQUE"
-          | "MIXED";
-        reference?: string;
-      }[];
-    }[];
-  }): Promise<ApiResponse<VisitBilling>> => {
+  const editBill = async (
+    input: EditBillInput,
+  ): Promise<ApiResponse<VisitBilling>> => {
+    // Map the hook-level input to the GraphQL EditBillVisitInput shape.
+    // Top-level `notes` is distributed as per-department `note`.
+    const gqlInput = {
+      visitId: input.visitId,
+      departments: input.departments.map((dept) => ({
+        visitDepartmentId: dept.visitDepartmentId,
+        addedProducts: dept.addedProducts,
+        removedProductIds: dept.removedProductIds,
+        updatedProducts: dept.updatedProducts,
+        billProducts: dept.billProducts,
+        payments: dept.payments,
+        note: input.notes || undefined,
+      })),
+    };
     try {
-      const result = await editBillMutation({ variables: { input } });
+      const result = await editBillMutation({ variables: { input: gqlInput } });
       const payload = result?.data?.editBillVisit;
       return {
         status: payload?.status || "ERROR",

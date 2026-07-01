@@ -42,7 +42,7 @@ export const CREATE_BILL_MUTATION = gql`
 `;
 
 export const EDIT_BILL_MUTATION = gql`
-  mutation EditBillVisit($input: BillVisitInput!) {
+  mutation EditBillVisit($input: EditBillVisitInput!) {
     editBillVisit(input: $input) {
       status
       message

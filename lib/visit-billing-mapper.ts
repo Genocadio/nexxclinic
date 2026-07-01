@@ -121,6 +121,7 @@ export function mapVisitToBillingData(
 
       items.push({
         id: line.id,
+        productId: String(product.id || ""),
         name: product.name || "Product",
         quantity: line.quantity || 1,
         price,

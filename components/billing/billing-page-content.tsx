@@ -102,6 +102,9 @@ export function BillingPageContent() {
   const [showAddInsuranceModal, setShowAddInsuranceModal] = useState(false);
   const [showDiscountControls, setShowDiscountControls] = useState(false);
   const [isEditingBill, setIsEditingBill] = useState(false);
+  const [editModeSnapshot, setEditModeSnapshot] = useState<
+    BillingItem[] | null
+  >(null);
   const [discountInputType, setDiscountInputType] = useState<
     "PERCENTAGE" | "FIXED"
   >("PERCENTAGE");
@@ -616,73 +619,193 @@ export function BillingPageContent() {
     }
 
     try {
-      const billableByDepartment = new Map<
-        string,
-        {
-          visitDepartmentId: string;
-          products: {
-            visitDepartmentProductId: string;
-            parentVisitDepartmentId: string;
-            patientInsuranceId?: string;
-            quantity?: number;
-            unitPrice?: number;
-            isExempted?: boolean;
-          }[];
-        }
-      >();
+      const response = await (async () => {
+        if (existingVisitBilling) {
+          // ── Edit path: build EditBillVisitInput ──────────────────────────
+          const currentItems = billingData.items;
+          const snapshotItems = editModeSnapshot ?? [];
 
-      unbilledItems.forEach((item) => {
-        const productOwnerVisitDepartmentId = String(
-          item.visitDepartmentId || "",
-        );
-        const rootVisitDepartmentId = String(
-          item.rootVisitDepartmentId || productOwnerVisitDepartmentId,
-        );
-        if (!rootVisitDepartmentId || !productOwnerVisitDepartmentId) return;
-        if (!billableByDepartment.has(rootVisitDepartmentId)) {
-          billableByDepartment.set(rootVisitDepartmentId, {
-            visitDepartmentId: rootVisitDepartmentId,
-            products: [],
+          const snapshotIds = new Set(snapshotItems.map((i) => i.id));
+          const currentIds = new Set(currentItems.map((i) => i.id));
+
+          type DeptEntry = {
+            visitDepartmentId: string;
+            addedProducts: { productId: string; quantity: number }[];
+            removedProductIds: string[];
+            updatedProducts: { productId: string; quantity?: number }[];
+            billProducts: {
+              productId: string;
+              patientInsuranceId?: string;
+              quantity?: number;
+              unitPrice?: number;
+              isExempted?: boolean;
+            }[];
+          };
+
+          const departmentMap = new Map<string, DeptEntry>();
+
+          const getOrCreateDept = (deptId: string): DeptEntry => {
+            if (!departmentMap.has(deptId)) {
+              departmentMap.set(deptId, {
+                visitDepartmentId: deptId,
+                addedProducts: [],
+                removedProductIds: [],
+                updatedProducts: [],
+                billProducts: [],
+              });
+            }
+            return departmentMap.get(deptId)!;
+          };
+
+          // Process current items: populate billProducts + addedProducts/updatedProducts diff
+          currentItems.forEach((item) => {
+            const deptId = String(
+              item.rootVisitDepartmentId || item.visitDepartmentId || "",
+            );
+            if (!deptId || !item.productId) return;
+
+            const dept = getOrCreateDept(deptId);
+
+            dept.billProducts.push({
+              productId: item.productId,
+              quantity: item.quantity,
+              unitPrice: item.price,
+              patientInsuranceId: item.selectedInsuranceId || undefined,
+              isExempted:
+                item.exempted ||
+                item.exemptionType === "full" ||
+                item.exemptionType === "patient-share",
+            });
+
+            if (!snapshotIds.has(item.id)) {
+              // Added during this edit session
+              dept.addedProducts.push({
+                productId: item.productId,
+                quantity: item.quantity,
+              });
+            } else {
+              // Present in both: check for quantity change
+              const orig = snapshotItems.find((s) => s.id === item.id);
+              if (orig && orig.quantity !== item.quantity) {
+                dept.updatedProducts.push({
+                  productId: item.productId,
+                  quantity: item.quantity,
+                });
+              }
+            }
           });
+
+          // Process removed items (in snapshot but no longer in current)
+          snapshotItems
+            .filter((i) => !currentIds.has(i.id))
+            .forEach((item) => {
+              const deptId = String(
+                item.rootVisitDepartmentId || item.visitDepartmentId || "",
+              );
+              if (!deptId) return;
+              getOrCreateDept(deptId).removedProductIds.push(item.id);
+            });
+
+          const editPayments =
+            (billingData.amountPaid || 0) > 0
+              ? [
+                  {
+                    amount: Number(billingData.amountPaid || 0),
+                    paymentMethod: billingData.paymentMethod || "MOBILE_MONEY",
+                  } as const,
+                ]
+              : undefined;
+
+          const editInput = {
+            visitId: billingData.visitId,
+            notes: billingData.notes?.trim() || undefined,
+            departments: Array.from(departmentMap.values()).map((dept) => ({
+              visitDepartmentId: dept.visitDepartmentId,
+              addedProducts:
+                dept.addedProducts.length > 0 ? dept.addedProducts : undefined,
+              removedProductIds:
+                dept.removedProductIds.length > 0
+                  ? dept.removedProductIds
+                  : undefined,
+              updatedProducts:
+                dept.updatedProducts.length > 0
+                  ? dept.updatedProducts
+                  : undefined,
+              billProducts: dept.billProducts,
+              payments: editPayments,
+            })),
+          };
+
+          return editBill(editInput);
         }
-        billableByDepartment.get(rootVisitDepartmentId)!.products.push({
-          visitDepartmentProductId: item.id,
-          parentVisitDepartmentId: productOwnerVisitDepartmentId,
-          patientInsuranceId: item.selectedInsuranceId,
-          quantity: item.quantity,
-          unitPrice: item.price,
-          isExempted:
-            item.exempted ||
-            item.exemptionType === "full" ||
-            item.exemptionType === "patient-share",
+
+        // ── Create path: original BillVisitInput logic (unchanged) ───────
+        const billableByDepartment = new Map<
+          string,
+          {
+            visitDepartmentId: string;
+            products: {
+              visitDepartmentProductId: string;
+              parentVisitDepartmentId: string;
+              patientInsuranceId?: string;
+              quantity?: number;
+              unitPrice?: number;
+              isExempted?: boolean;
+            }[];
+          }
+        >();
+
+        unbilledItems.forEach((item) => {
+          const productOwnerVisitDepartmentId = String(
+            item.visitDepartmentId || "",
+          );
+          const rootVisitDepartmentId = String(
+            item.rootVisitDepartmentId || productOwnerVisitDepartmentId,
+          );
+          if (!rootVisitDepartmentId || !productOwnerVisitDepartmentId) return;
+          if (!billableByDepartment.has(rootVisitDepartmentId)) {
+            billableByDepartment.set(rootVisitDepartmentId, {
+              visitDepartmentId: rootVisitDepartmentId,
+              products: [],
+            });
+          }
+          billableByDepartment.get(rootVisitDepartmentId)!.products.push({
+            visitDepartmentProductId: item.id,
+            parentVisitDepartmentId: productOwnerVisitDepartmentId,
+            patientInsuranceId: item.selectedInsuranceId,
+            quantity: item.quantity,
+            unitPrice: item.price,
+            isExempted:
+              item.exempted ||
+              item.exemptionType === "full" ||
+              item.exemptionType === "patient-share",
+          });
         });
-      });
 
-      const payments =
-        (billingData.amountPaid || 0) > 0
-          ? [
-              {
-                amount: Number(billingData.amountPaid || 0),
-                paymentMethod: billingData.paymentMethod || "MOBILE_MONEY",
-              },
-            ]
-          : undefined;
+        const payments =
+          (billingData.amountPaid || 0) > 0
+            ? [
+                {
+                  amount: Number(billingData.amountPaid || 0),
+                  paymentMethod: billingData.paymentMethod || "MOBILE_MONEY",
+                },
+              ]
+            : undefined;
 
-      const input = {
-        visitId: billingData.visitId,
-        notes: billingData.notes?.trim() || undefined,
-        departments: Array.from(billableByDepartment.values()).map(
-          (department) => ({
-            visitDepartmentId: department.visitDepartmentId,
-            products: department.products,
-            payments,
-          }),
-        ),
-      };
+        const input = {
+          visitId: billingData.visitId,
+          notes: billingData.notes?.trim() || undefined,
+          departments: Array.from(billableByDepartment.values()).map(
+            (department) => ({
+              visitDepartmentId: department.visitDepartmentId,
+              products: department.products,
+              payments,
+            }),
+          ),
+        };
 
-      const response = existingVisitBilling
-        ? await editBill(input)
-        : await createBill(input);
+        return createBill(input);
+      })();
 
       if (response.status === "SUCCESS") {
         setBillJustCreated(true);
@@ -738,6 +861,7 @@ export function BillingPageContent() {
         // If we just finished an edit, exit edit mode before opening preview.
         if (isEditingBill) {
           setIsEditingBill(false);
+          setEditModeSnapshot(null);
           setShowDiscountControls(false);
           setConfirmSheetMode("complete");
         }
@@ -1050,6 +1174,8 @@ export function BillingPageContent() {
 
           const newBillingItem: BillingItem = {
             id: newProduct.id || "",
+            productId: item.id,
+            isNewInEditMode: isEditingBill,
             name: newProduct.productName || item.name,
             quantity: newProduct.quantity || quantity,
             price: newProduct.unitPrice || 0,
@@ -1211,10 +1337,12 @@ export function BillingPageContent() {
               // Just toggle edit mode — do NOT open the confirm sheet.
               // The page re-maps items as unbilled, user edits like 1st-time billing.
               setIsEditingBill(true);
+              setEditModeSnapshot(billingData?.items ?? null);
             }}
             onDoneEditing={async () => {
               setShowDiscountControls(false);
               setIsEditingBill(false);
+              setEditModeSnapshot(null);
               setConfirmSheetMode("complete");
               // Refetch so items revert back to their billed/paid state
               await refetchVisit();
