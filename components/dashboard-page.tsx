@@ -565,11 +565,11 @@ export default function DashboardPage() {
     }
 
     // Navigate to consultation page
-    router.push(`/consultation/${visit.id}`);
+    router.push(`/consultation?visitId=${visit.id}`);
   };
 
   const handleTriageVisit = (visit: Visit) => {
-    router.push(`/triage/${visit.id}`);
+    router.push(`/triage?visitId=${visit.id}`);
   };
 
   const canAddDepartment = (visit: Visit) => {
@@ -629,7 +629,7 @@ export default function DashboardPage() {
   };
 
   const handleEditConsultation = (visit: Visit) => {
-    router.push(`/consultation/${visit.id}`);
+    router.push(`/consultation?visitId=${visit.id}`);
   };
 
   const handleViewPatientHistory = (visit: Visit) => {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState, type SyntheticEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Trash2,
@@ -104,10 +104,10 @@ const createRow = (): VitalRow => ({
   isPreset: false,
 });
 
-export default function TriagePage() {
+function TriagePageInner() {
   const router = useRouter();
-  const params = useParams();
-  const visitId = params.visitId as string;
+  const searchParams = useSearchParams();
+  const visitId = searchParams.get("visitId") || "";
   const { doctor } = useAuth();
   const { visit, loading, error, refetch } = useVisit(visitId);
   const { addVisitVitalSigns, loading: savingVitals } = useAddVisitVitalSigns();
@@ -622,5 +622,13 @@ export default function TriagePage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function TriagePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>}>
+      <TriagePageInner />
+    </Suspense>
   );
 }

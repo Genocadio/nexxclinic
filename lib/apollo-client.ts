@@ -2,7 +2,7 @@ import { ApolloClient, InMemoryCache, HttpLink, ApolloLink } from '@apollo/clien
 import { onError } from '@apollo/client/link/error'
 import { toastResponseStatus, handleUnauthenticatedSession } from '@/lib/response-handler'
 
-const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'
+const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 const uri = `${baseUrl}/graphql`
 
 const httpLink = new HttpLink({ uri, fetch })

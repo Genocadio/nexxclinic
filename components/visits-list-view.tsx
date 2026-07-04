@@ -164,7 +164,7 @@ export default function VisitsListView({
   };
 
   const handleTriageVisit = (visit: Visit) => {
-    router.push(`/triage/${visit.id}`);
+    router.push(`/triage?visitId=${visit.id}`);
   };
 
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles ||
