@@ -1,11 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
+import { getRuntimeConfig } from "@/lib/runtime-config";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-// Lazy singleton — safe for both SSR and client usage
 let _client: ReturnType<typeof createClient> | null = null;
 export function getSupabaseClient() {
-  if (!_client) _client = createClient(url, key);
+  if (!_client) {
+    const { SUPABASE_URL, SUPABASE_ANON_KEY } = getRuntimeConfig();
+    _client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
   return _client;
 }

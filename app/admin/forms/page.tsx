@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getRuntimeConfig } from "@/lib/runtime-config";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
 import { useDepartments } from "@/hooks/auth-hooks";
@@ -4281,8 +4282,7 @@ function FieldEditor({
     const timer = setTimeout(async () => {
       try {
         setItemLoading(true);
-        const baseUrl =
-          process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+        const baseUrl = getRuntimeConfig().API_BASE_URL || "http://backend:8080";
         const token =
           typeof window !== "undefined"
             ? localStorage.getItem("authToken") || ""

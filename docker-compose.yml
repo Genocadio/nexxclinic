@@ -2,16 +2,16 @@ version: "3.9"
 
 services:
   frontend:
-    build:
-      context: .
-      args:
-        # Build args — required! NEXT_PUBLIC_* vars must be present at build time
-        NEXT_PUBLIC_API_BASE_URL: http://backend:8080
-        NEXT_PUBLIC_SUPABASE_URL: http://host.docker.internal:8000
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: your-supabase-anon-key-here
+    # Uses pre-built image from CI — no build args needed
+    image: genoyves/nexclinic-front:latest
+    container_name: nexxclinic-frontend
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      # Runtime-only vars (NODE_ENV is auto, but explicit is fine)
+      # Runtime config — change these per environment, no rebuild required
+      API_BASE_URL: http://backend:8080
+      SUPABASE_URL: http://host.docker.internal:55321
+      SUPABASE_ANON_KEY: your-supabase-anon-key-here
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: 1

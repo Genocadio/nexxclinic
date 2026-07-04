@@ -1,11 +1,16 @@
-import { ApolloClient, InMemoryCache, HttpLink, ApolloLink } from '@apollo/client'
+import { ApolloClient, InMemoryCache, HttpLink, ApolloLink, type NormalizedCacheObject } from '@apollo/client'
 import { onError } from '@apollo/client/link/error'
 import { toastResponseStatus, handleUnauthenticatedSession } from '@/lib/response-handler'
+import { getRuntimeConfig } from '@/lib/runtime-config'
 
-const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || ''
-const uri = `${baseUrl}/graphql`
+function getUri() {
+  const base = getRuntimeConfig().API_BASE_URL || ''
+  return `${base}/graphql`
+}
 
-const httpLink = new HttpLink({ uri, fetch })
+function createHttpLink() {
+  return new HttpLink({ uri: getUri(), fetch })
+}
 
 const UNAUTHORIZED_TOAST_ID = 'global-unauthorized-toast'
 
@@ -188,9 +193,14 @@ const errorLink = onError(({ graphQLErrors, networkError, operation }) => {
   }
 })
 
-const client = new ApolloClient({
-  link: ApolloLink.from([errorLink, authMiddleware, statusLink, httpLink]),
-  cache: new InMemoryCache(),
-})
+let client: ApolloClient<NormalizedCacheObject> | null = null
 
-export default client
+export function getApolloClient(): ApolloClient<NormalizedCacheObject> {
+  if (!client) {
+    client = new ApolloClient({
+      link: ApolloLink.from([errorLink, authMiddleware, statusLink, createHttpLink()]),
+      cache: new InMemoryCache(),
+    })
+  }
+  return client
+}

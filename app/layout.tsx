@@ -29,10 +29,21 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const runtimeConfigJson = JSON.stringify({
+    API_BASE_URL: process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || '',
+    SUPABASE_URL: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+  })
+
   return (
     <html lang="en" suppressHydrationWarning>
     <head>
       <meta name="apple-mobile-web-app-title" content="med" />
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `window.__RUNTIME_CONFIG__ = ${runtimeConfigJson};`,
+        }}
+      />
       <script
         dangerouslySetInnerHTML={{
           __html: `(() => {
