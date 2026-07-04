@@ -4,6 +4,9 @@ import { toastResponseStatus, handleUnauthenticatedSession } from '@/lib/respons
 import { getRuntimeConfig } from '@/lib/runtime-config'
 
 function getUri() {
+  if (typeof window !== 'undefined') {
+    return '/graphql'
+  }
   const base = getRuntimeConfig().API_BASE_URL || ''
   return `${base}/graphql`
 }
