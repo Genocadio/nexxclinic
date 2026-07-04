@@ -113,3 +113,75 @@ export function getInputType(input: string): "email" | "phone_local" | "phone_in
 
   return "email"
 }
+
+export const MONTHS = [
+  { value: "01", label: "January" },
+  { value: "02", label: "February" },
+  { value: "03", label: "March" },
+  { value: "04", label: "April" },
+  { value: "05", label: "May" },
+  { value: "06", label: "June" },
+  { value: "07", label: "July" },
+  { value: "08", label: "August" },
+  { value: "09", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
+] as const
+
+export const DAYS = Array.from({ length: 31 }, (_, i) =>
+  String(i + 1).padStart(2, "0"),
+)
+
+const _currentYear = new Date().getFullYear()
+export const YEARS = Array.from({ length: _currentYear - 1899 }, (_, i) =>
+  String(_currentYear - i),
+)
+
+export function parseDob(dateOfBirth: string) {
+  if (!dateOfBirth) return { day: "", month: "", year: "" }
+  const [y, m, d] = dateOfBirth.split("-")
+  return { day: d || "", month: m || "", year: y || "" }
+}
+
+export function composeDob(day: string, month: string, year: string) {
+  if (!day || !month || !year) return ""
+  return `${year}-${month}-${day}`
+}
+
+export function getDaysInMonth(month: string, year: string) {
+  if (!month || !year) return DAYS
+  const m = Number.parseInt(month, 10)
+  const y = Number.parseInt(year, 10)
+  const lastDay = new Date(y, m, 0).getDate()
+  return Array.from({ length: lastDay }, (_, i) =>
+    String(i + 1).padStart(2, "0"),
+  )
+}
+
+export function validateDateOfBirth(dateOfBirth: string): { valid: boolean; error?: string } {
+  if (!dateOfBirth) {
+    return { valid: false, error: "Date of birth is required" }
+  }
+
+  const date = new Date(dateOfBirth)
+  if (isNaN(date.getTime())) {
+    return { valid: false, error: "Please select a valid date" }
+  }
+
+  if (date > new Date()) {
+    return { valid: false, error: "Date of birth cannot be in the future" }
+  }
+
+  // Verify the parsed date matches (catches Feb 30, etc.)
+  const [y, m, d] = dateOfBirth.split("-").map(Number)
+  if (
+    date.getFullYear() !== y ||
+    date.getMonth() + 1 !== m ||
+    date.getDate() !== d
+  ) {
+    return { valid: false, error: "Please select a valid date" }
+  }
+
+  return { valid: true }
+}

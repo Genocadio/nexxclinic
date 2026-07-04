@@ -74,10 +74,12 @@ export interface RegisterPatientInput {
     phone?: string | null;
     email?: string | null;
     address?: {
-      street?: string | null;
-      sector?: string | null;
-      district?: string | null;
       country?: string | null;
+      province?: string | null;
+      district?: string | null;
+      sector?: string | null;
+      village?: string | null;
+      address?: string | null;
     } | null;
   } | null;
   nationalIdNumber?: string | null;
@@ -397,7 +399,7 @@ export function useRegisterPatient() {
               : input.gender || null,
         primaryPhoneNumber: input.contactInfo?.phone || null,
         alternativePhone: null,
-        village: input.contactInfo?.address?.street || null,
+        village: input.contactInfo?.address?.village || null,
         city: input.contactInfo?.address?.sector || null,
         district: input.contactInfo?.address?.district || null,
         postalAddress: input.contactInfo?.address?.country || null,

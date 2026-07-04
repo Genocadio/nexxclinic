@@ -101,7 +101,32 @@ export function AddPatientInsuranceModal({
   }, [open])
 
   const handleSave = async () => {
-    if (!selectedInsuranceId) return
+    const errors: SavePatientInsuranceFieldErrors = {}
+
+    if (!selectedInsuranceId) {
+      toast.error("Please select an insurance provider")
+      return
+    }
+
+    if (!insuranceCardNumber.trim()) {
+      errors.card = "Insurance card number is required"
+    }
+
+    if (!providingCompanyOrEmployer.trim()) {
+      errors.employer = "Providing company or employer is required"
+    }
+
+    if (dominantRequired) {
+      if (!dominantFirstName.trim() || !dominantLastName.trim() || !dominantPhone.trim()) {
+        errors.dominant =
+          "Dominant member first name, last name, and phone are required for patients 18 years or younger"
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      return
+    }
 
     const result = await savePatientInsurance({
       patientId,

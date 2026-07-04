@@ -2,16 +2,16 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useUpdatePatient } from "@/hooks/auth-hooks"
+import { useUpdatePatient, useInsurances } from "@/hooks/auth-hooks"
 import type { Patient, Gender } from "@/lib/api-types"
 import type { UpdatePatientInput } from "@/lib/api-input-types"
+import type { RegisterPatientInput } from "@/hooks/patients/hooks"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AlertCircle } from "lucide-react"
 import { toast } from "react-toastify"
-import { sanitizeEmailInput, sanitizePhoneInput } from "@/lib/validation-utils"
+import { sanitizeEmailOrPhoneInput, sanitizePhoneInput, validateDateOfBirth } from "@/lib/validation-utils"
+import PatientFormFields from "@/components/patient/patient-form-fields"
 
 interface PatientEditModalProps {
   isOpen: boolean
@@ -20,34 +20,75 @@ interface PatientEditModalProps {
   onPatientUpdated?: (patient: Patient) => void
 }
 
-const emptyForm: UpdatePatientInput = {
-  firstName: "",
-  lastName: "",
-  middleName: "",
-  dateOfBirth: "",
-  gender: undefined,
-  primaryPhoneNumber: "",
-  alternativePhone: "",
-  village: "",
-  city: "",
-  district: "",
-  postalAddress: "",
-  nationalIdNumber: "",
-  passportNumber: "",
-  emergencyContactName: "",
-  emergencyContactRelationship: "",
-  emergencyContactPhoneNumber: "",
+const flatToNested = (flat: UpdatePatientInput): RegisterPatientInput => {
+  const gender = flat.gender === "MALE" ? "M" as const : flat.gender === "FEMALE" ? "F" as const : ""
+  return {
+    firstName: flat.firstName || "",
+    lastName: flat.lastName || "",
+    middleName: flat.middleName || "",
+    dateOfBirth: flat.dateOfBirth || "",
+    gender,
+    contactInfo: {
+      phone: flat.primaryPhoneNumber || "",
+      email: flat.alternativePhone || "",
+      address: {
+        country: flat.postalAddress || "",
+        province: "",
+        district: flat.district || "",
+        sector: flat.city || "",
+        village: flat.village || "",
+        address: "",
+      },
+    },
+    nationalIdNumber: flat.nationalIdNumber || "",
+    emergencyContact: {
+      name: flat.emergencyContactName || "",
+      relation: flat.emergencyContactRelationship || "",
+      phone: flat.emergencyContactPhoneNumber || "",
+    },
+    insurances: [],
+  }
 }
+
+const nestedToFlat = (nested: RegisterPatientInput): UpdatePatientInput => ({
+  firstName: nested.firstName || undefined,
+  lastName: nested.lastName || undefined,
+  middleName: nested.middleName || undefined,
+  dateOfBirth: nested.dateOfBirth || undefined,
+  gender: nested.gender === "M" ? "MALE" as Gender : nested.gender === "F" ? "FEMALE" as Gender : undefined,
+  primaryPhoneNumber: nested.contactInfo?.phone || undefined,
+  alternativePhone: nested.contactInfo?.email || undefined,
+  village: nested.contactInfo?.address?.village || undefined,
+  city: nested.contactInfo?.address?.sector || undefined,
+  district: nested.contactInfo?.address?.district || undefined,
+  postalAddress: nested.contactInfo?.address?.country || undefined,
+  nationalIdNumber: nested.nationalIdNumber || undefined,
+  passportNumber: undefined,
+  emergencyContactName: nested.emergencyContact?.name || undefined,
+  emergencyContactRelationship: nested.emergencyContact?.relation || undefined,
+  emergencyContactPhoneNumber: nested.emergencyContact?.phone || undefined,
+})
 
 export default function PatientEditModal({ isOpen, onClose, patient, onPatientUpdated }: PatientEditModalProps) {
   const { updatePatient, loading } = useUpdatePatient()
+  const { insurances } = useInsurances()
   const [error, setError] = useState("")
-  const [formData, setFormData] = useState<UpdatePatientInput>(emptyForm)
+  const [dateError, setDateError] = useState("")
+  const [formData, setFormData] = useState<RegisterPatientInput>({
+    firstName: "",
+    lastName: "",
+    middleName: "",
+    dateOfBirth: "",
+    gender: "",
+    contactInfo: { phone: "", email: "", address: { country: "", province: "", district: "", sector: "", village: "", address: "" } },
+    emergencyContact: { name: "", relation: "", phone: "" },
+    nationalIdNumber: "",
+    insurances: [],
+  })
 
-  // Populate form when patient data is available
   useEffect(() => {
     if (patient && isOpen) {
-      setFormData({
+      setFormData(flatToNested({
         firstName: patient.firstName || "",
         lastName: patient.lastName || "",
         middleName: patient.middleName || "",
@@ -64,26 +105,139 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
         emergencyContactName: patient.emergencyContactName || "",
         emergencyContactRelationship: patient.emergencyContactRelationship || "",
         emergencyContactPhoneNumber: patient.emergencyContactPhoneNumber || "",
-      })
+      }))
       setError("")
+      setDateError("")
     }
   }, [patient, isOpen])
 
-  const handleChange = (field: keyof UpdatePatientInput, value: string) => {
+  const handleFieldChange = (field: string, value: string) => {
     const sanitized =
-      field === "primaryPhoneNumber" || field === "alternativePhone" || field === "emergencyContactPhoneNumber"
+      field.startsWith("contactInfo.phone") || field === "emergencyContact.phone"
         ? sanitizePhoneInput(value)
-        : value
-    setFormData(prev => ({ ...prev, [field]: sanitized }))
+        : field === "contactInfo.email"
+          ? sanitizeEmailOrPhoneInput(value)
+          : value
+
+    setFormData((prev) => {
+      const keys = field.split(".")
+      const updated = { ...prev }
+      let current: any = updated
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (!current[keys[i]]) current[keys[i]] = {}
+        current = current[keys[i]]
+      }
+      current[keys[keys.length - 1]] = sanitized
+      return updated
+    })
+
+    if (field === "dateOfBirth") setDateError("")
+  }
+
+  const handleCountryChange = (country: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      contactInfo: {
+        ...prev.contactInfo,
+        email: prev.contactInfo?.email,
+        phone: prev.contactInfo?.phone,
+        address: {
+          country,
+          province: "",
+          district: "",
+          sector: "",
+          village: prev.contactInfo?.address?.village || "",
+          address: prev.contactInfo?.address?.address || "",
+        },
+      },
+    }))
+  }
+
+  const handleProvinceChange = (province: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      contactInfo: {
+        ...prev.contactInfo,
+        email: prev.contactInfo?.email,
+        phone: prev.contactInfo?.phone,
+        address: { ...prev.contactInfo?.address, province, district: "", sector: "" },
+      },
+    }))
+  }
+
+  const handleDistrictChange = (district: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      contactInfo: {
+        ...prev.contactInfo,
+        email: prev.contactInfo?.email,
+        phone: prev.contactInfo?.phone,
+        address: { ...prev.contactInfo?.address, district, sector: "" },
+      },
+    }))
+  }
+
+  const handleSectorChange = (sector: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      contactInfo: {
+        ...prev.contactInfo,
+        email: prev.contactInfo?.email,
+        phone: prev.contactInfo?.phone,
+        address: { ...prev.contactInfo?.address, sector },
+      },
+    }))
+  }
+
+  const addInsurance = () => {
+    setFormData((prev) => ({
+      ...prev,
+      insurances: [
+        ...(prev.insurances || []),
+        { insuranceId: "0", insuranceCardNumber: "", providingCompanyOrEmployer: "", dominantMember: { firstName: "", lastName: "", phone: "" } },
+      ],
+    }))
+  }
+
+  const updateInsurance = (index: number, field: string, value: string | number) => {
+    setFormData((prev) => ({
+      ...prev,
+      insurances: (prev.insurances || []).map((insurance, i) => {
+        if (i === index) {
+          if (field.startsWith("dominantMember.")) {
+            const dmField = field.split(".")[1]
+            return { ...insurance, dominantMember: { ...insurance.dominantMember, [dmField]: value } }
+          }
+          return { ...insurance, [field]: value }
+        }
+        return insurance
+      }),
+    }))
+  }
+
+  const removeInsurance = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      insurances: (prev.insurances || []).filter((_, i) => i !== index),
+    }))
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setError("")
 
-    if (!formData.firstName || !formData.dateOfBirth) {
-      toast.error("Please fill in required fields (First Name and Date of Birth)")
+    if (!formData.firstName || !formData.dateOfBirth || !formData.gender) {
+      toast.error("Please fill in required fields (First Name, Date of Birth, and Gender)")
       return
     }
+
+    const dobValidation = validateDateOfBirth(formData.dateOfBirth)
+    if (!dobValidation.valid) {
+      setDateError(dobValidation.error || "Invalid date of birth")
+      toast.error(dobValidation.error || "Invalid date of birth")
+      return
+    }
+    setDateError("")
 
     try {
       if (!patient?.id) {
@@ -91,7 +245,8 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
         return
       }
 
-      const result = await updatePatient(patient.id, formData)
+      const updateInput = nestedToFlat(formData)
+      const result = await updatePatient(patient.id, updateInput)
       if (result.status === "SUCCESS") {
         toast.success(result.message || "Patient updated successfully!")
         if (onPatientUpdated && result.data) {
@@ -109,16 +264,16 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden bg-card/95 backdrop-blur-xl border-border/50 rounded-3xl shadow-2xl">
+      <DialogContent
+        showCloseButton={false}
+        className="sm:max-w-[780px] max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/20 border border-white/20 rounded-3xl shadow-2xl p-2 sm:p-4"
+      >
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">Edit Patient</DialogTitle>
-          <DialogDescription className="text-muted-foreground">
-            Update patient information
-          </DialogDescription>
         </DialogHeader>
 
         <div className="overflow-y-auto scrollbar-hide pr-2 max-h-[calc(90vh-180px)] pb-20">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-6">
             {error && (
               <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive">
                 <AlertCircle className="w-4 h-4 shrink-0" />
@@ -126,163 +281,22 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
               </div>
             )}
 
-            {/* Basic Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">First Name *</label>
-                <Input
-                  type="text"
-                  value={formData.firstName || ""}
-                  onChange={(e) => handleChange("firstName", e.target.value)}
-                  placeholder="Enter first name"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Last Name</label>
-                <Input
-                  type="text"
-                  value={formData.lastName || ""}
-                  onChange={(e) => handleChange("lastName", e.target.value)}
-                  placeholder="Enter last name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Middle Name</label>
-                <Input
-                  type="text"
-                  value={formData.middleName || ""}
-                  onChange={(e) => handleChange("middleName", e.target.value)}
-                  placeholder="Enter middle name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Date of Birth *</label>
-                <Input
-                  type="date"
-                  value={formData.dateOfBirth || ""}
-                  onChange={(e) => handleChange("dateOfBirth", e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Gender</label>
-                <Select
-                  value={formData.gender || ""}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value as Gender }))}
-                >
-                  <SelectTrigger suppressHydrationWarning>
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MALE">Male</SelectItem>
-                    <SelectItem value="FEMALE">Female</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">National ID</label>
-                <Input
-                  type="text"
-                  value={formData.nationalIdNumber || ""}
-                  onChange={(e) => handleChange("nationalIdNumber", e.target.value)}
-                  placeholder="Enter national ID"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Passport Number</label>
-                <Input
-                  type="text"
-                  value={formData.passportNumber || ""}
-                  onChange={(e) => handleChange("passportNumber", e.target.value)}
-                  placeholder="Enter passport number"
-                />
-              </div>
-            </div>
+            <PatientFormFields
+              formData={formData}
+              onFieldChange={handleFieldChange}
+              onCountryChange={handleCountryChange}
+              onProvinceChange={handleProvinceChange}
+              onDistrictChange={handleDistrictChange}
+              onSectorChange={handleSectorChange}
+              onAddInsurance={addInsurance}
+              onUpdateInsurance={updateInsurance}
+              onRemoveInsurance={removeInsurance}
+              availableInsurances={insurances}
+              loading={loading}
+              dateError={dateError}
+            />
 
-            {/* Contact Information */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4">Contact Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Phone</label>
-                  <Input
-                    type="tel"
-                    value={formData.primaryPhoneNumber || ""}
-                    onChange={(e) => handleChange("primaryPhoneNumber", e.target.value)}
-                    placeholder="Enter primary phone number"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Alternative Phone</label>
-                  <Input
-                    type="tel"
-                    value={formData.alternativePhone || ""}
-                    onChange={(e) => handleChange("alternativePhone", e.target.value)}
-                    placeholder="Enter alternative phone"
-                  />
-                </div>
-              </div>
-
-              {/* Address */}
-              <div className="mt-4">
-                <h4 className="text-md font-medium mb-2">Address</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    type="text"
-                    value={formData.village || ""}
-                    onChange={(e) => handleChange("village", e.target.value)}
-                    placeholder="Village"
-                  />
-                  <Input
-                    type="text"
-                    value={formData.city || ""}
-                    onChange={(e) => handleChange("city", e.target.value)}
-                    placeholder="City"
-                  />
-                  <Input
-                    type="text"
-                    value={formData.district || ""}
-                    onChange={(e) => handleChange("district", e.target.value)}
-                    placeholder="District"
-                  />
-                  <Input
-                    type="text"
-                    value={formData.postalAddress || ""}
-                    onChange={(e) => handleChange("postalAddress", e.target.value)}
-                    placeholder="Postal Address"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Emergency Contact */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4">Emergency Contact</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input
-                  type="text"
-                  value={formData.emergencyContactName || ""}
-                  onChange={(e) => handleChange("emergencyContactName", e.target.value)}
-                  placeholder="Contact name"
-                />
-                <Input
-                  type="text"
-                  value={formData.emergencyContactRelationship || ""}
-                  onChange={(e) => handleChange("emergencyContactRelationship", e.target.value)}
-                  placeholder="Relationship"
-                />
-                <Input
-                  type="tel"
-                  value={formData.emergencyContactPhoneNumber || ""}
-                  onChange={(e) => handleChange("emergencyContactPhoneNumber", e.target.value)}
-                  placeholder="Phone number"
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
+            <DialogFooter className="gap-2">
               <Button variant="outline" type="button" onClick={onClose}>Cancel</Button>
               <Button type="submit" disabled={loading}>
                 {loading ? "Saving..." : "Save Changes"}

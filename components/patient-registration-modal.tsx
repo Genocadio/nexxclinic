@@ -13,69 +13,19 @@ import type { Patient, Visit } from "@/lib/api-types";
 import type { SearchPatientsInput } from "@/lib/api-input-types";
 import type { RegisterPatientInput } from "@/hooks/patients/hooks";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { AlertCircle, Check, ChevronsUpDown, Edit } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Edit } from "lucide-react";
 import { toast } from "react-toastify";
-import { cn } from "@/lib/utils";
 import {
   sanitizeEmailOrPhoneInput,
   sanitizePhoneInput,
   validateEmailOrPhone,
+  calculateAge,
+  isDominantMemberRequired,
+  validateDateOfBirth,
 } from "@/lib/validation-utils";
+import PatientFormFields from "@/components/patient/patient-form-fields";
 import PatientEditModal from "@/components/patient-edit-modal";
-
-const calculateAge = (dateOfBirth: string): number => {
-  if (!dateOfBirth) return 0;
-  const today = new Date();
-  const birthDate = new Date(dateOfBirth);
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-
-  if (
-    monthDiff < 0 ||
-    (monthDiff === 0 && today.getDate() < birthDate.getDate())
-  ) {
-    age--;
-  }
-
-  return age;
-};
-
-const isDominantMemberRequired = (
-  dateOfBirth: string,
-  hasInsurance: boolean,
-): boolean => {
-  if (!hasInsurance) return false;
-  const age = calculateAge(dateOfBirth);
-  return age <= 18;
-};
 
 // moved inside component to access insurances safely
 
@@ -99,28 +49,11 @@ export default function PatientRegistrationModal({
 }: PatientRegistrationModalProps) {
   const { registerPatient, loading } = useRegisterPatient();
   const { insurances, loading: insurancesLoading } = useInsurances();
-  const solidFieldClass = "w-full bg-white dark:bg-gray-900 border-border/70";
-  const solidPanelClass =
-    "rounded-2xl border border-border/60 bg-white dark:bg-slate-950 shadow-sm";
-  const fieldValue = (value?: string | null) => value ?? "";
   const [error, setError] = useState("");
-  const [insurancePopoverOpen, setInsurancePopoverOpen] = useState<{
-    [key: number]: boolean;
-  }>({});
+  const [dateError, setDateError] = useState("");
   const [editPatientModal, setEditPatientModal] = useState(false);
   const [selectedPatientForEdit, setSelectedPatientForEdit] =
     useState<Patient | null>(null);
-
-  const getInsuranceName = (insuranceId: string | number) => {
-    if (!insuranceId || String(insuranceId) === "0")
-      return "Select insurance...";
-    const insurance = insurances.find(
-      (ins) => String(ins.id) === String(insuranceId),
-    );
-    return insurance
-      ? `${insurance.insuranceName} (${insurance.acronym || ""})`
-      : "Select insurance...";
-  };
 
   // Search filters for potential duplicate detection
   const [searchFilters, setSearchFilters] = useState<SearchPatientsInput>({});
@@ -177,10 +110,12 @@ export default function PatientRegistrationModal({
       phone: "",
       email: "",
       address: {
-        street: "",
-        sector: "",
-        district: "",
         country: "",
+        province: "",
+        district: "",
+        sector: "",
+        village: "",
+        address: "",
       },
     },
     emergencyContact: {
@@ -213,6 +148,8 @@ export default function PatientRegistrationModal({
 
       return updated;
     });
+
+    if (field === "dateOfBirth") setDateError("");
 
     // Update search filters for duplicate detection
     const nextFirstName =
@@ -334,16 +271,91 @@ export default function PatientRegistrationModal({
     }));
   };
 
+  const handleCountryChange = (country: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      contactInfo: {
+        ...prev.contactInfo,
+        email: prev.contactInfo?.email,
+        phone: prev.contactInfo?.phone,
+        address: {
+          country,
+          province: "",
+          district: "",
+          sector: "",
+          village: prev.contactInfo?.address?.village || "",
+          address: prev.contactInfo?.address?.address || "",
+        },
+      },
+    }));
+  };
+
+  const handleProvinceChange = (province: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      contactInfo: {
+        ...prev.contactInfo,
+        email: prev.contactInfo?.email,
+        phone: prev.contactInfo?.phone,
+        address: {
+          ...prev.contactInfo?.address,
+          province,
+          district: "",
+          sector: "",
+        },
+      },
+    }));
+  };
+
+  const handleDistrictChange = (district: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      contactInfo: {
+        ...prev.contactInfo,
+        email: prev.contactInfo?.email,
+        phone: prev.contactInfo?.phone,
+        address: {
+          ...prev.contactInfo?.address,
+          district,
+          sector: "",
+        },
+      },
+    }));
+  };
+
+  const handleSectorChange = (sector: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      contactInfo: {
+        ...prev.contactInfo,
+        email: prev.contactInfo?.email,
+        phone: prev.contactInfo?.phone,
+        address: {
+          ...prev.contactInfo?.address,
+          sector,
+        },
+      },
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
 
-    if (!formData.firstName || !formData.dateOfBirth) {
+    if (!formData.firstName || !formData.dateOfBirth || !formData.gender) {
       toast.error(
-        "Please fill in required fields (First Name and Date of Birth)",
+        "Please fill in required fields (First Name, Date of Birth, and Gender)",
       );
       return;
     }
+
+    const dobValidation = validateDateOfBirth(formData.dateOfBirth);
+    if (!dobValidation.valid) {
+      setDateError(dobValidation.error || "Invalid date of birth");
+      toast.error(dobValidation.error || "Invalid date of birth");
+      return;
+    }
+    setDateError("");
 
     // Validate email or phone if provided
     if (formData.contactInfo?.email) {
@@ -383,11 +395,13 @@ export default function PatientRegistrationModal({
       for (let i = 0; i < formData.insurances.length; i++) {
         const insurance = formData.insurances[i];
         if (
+          !insurance.insuranceId ||
+          String(insurance.insuranceId) === "0" ||
           !insurance.insuranceCardNumber ||
           !insurance.providingCompanyOrEmployer
         ) {
           toast.error(
-            `Insurance #${i + 1}: Card number and providing company/employer are required`,
+            `Insurance #${i + 1}: Insurance provider, card number, and providing company/employer are required`,
           );
           return;
         }
@@ -417,10 +431,12 @@ export default function PatientRegistrationModal({
             phone: "",
             email: "",
             address: {
-              street: "",
-              sector: "",
-              district: "",
               country: "",
+              province: "",
+              district: "",
+              sector: "",
+              village: "",
+              address: "",
             },
           },
           emergencyContact: {
@@ -462,511 +478,24 @@ export default function PatientRegistrationModal({
             {/* Registration Form */}
             <div className="mx-auto w-full max-w-[760px] overflow-y-auto scrollbar-hide pr-2 pb-20 rounded-2xl border border-border/50 bg-[#FBF2ED] dark:bg-slate-900 shadow-lg p-2 sm:p-4">
               <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-6">
-                {/* Basic Information */}
-                <div
-                  className={`${solidPanelClass} p-2 sm:p-4 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4`}
-                >
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                      First Name *
-                    </label>
-                    <Input
-                      type="text"
-                      value={fieldValue(formData.firstName)}
-                      onChange={(e) =>
-                        handleInputChange("firstName", e.target.value)
-                      }
-                      placeholder="Enter first name"
-                      className={`${solidFieldClass} rounded-xl focus:ring-primary/50`}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                      Last Name
-                    </label>
-                    <Input
-                      type="text"
-                      value={fieldValue(formData.lastName)}
-                      onChange={(e) =>
-                        handleInputChange("lastName", e.target.value)
-                      }
-                      placeholder="Enter last name"
-                      className={solidFieldClass}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                      Middle Name
-                    </label>
-                    <Input
-                      type="text"
-                      value={fieldValue(formData.middleName)}
-                      onChange={(e) =>
-                        handleInputChange("middleName", e.target.value)
-                      }
-                      placeholder="Enter middle name"
-                      className={solidFieldClass}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                      Date of Birth *
-                    </label>
-                    <Input
-                      type="date"
-                      value={fieldValue(formData.dateOfBirth)}
-                      onChange={(e) =>
-                        handleInputChange("dateOfBirth", e.target.value)
-                      }
-                      className={solidFieldClass}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                      Gender
-                    </label>
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3 rounded-xl border border-border/70 bg-background dark:bg-gray-900 p-2 sm:p-3">
-                      <label className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium text-foreground cursor-pointer">
-                        <Checkbox
-                          checked={formData.gender === "M"}
-                          onCheckedChange={(checked) =>
-                            handleInputChange("gender", checked ? "M" : "")
-                          }
-                        />
-                        Male
-                      </label>
-                      <label className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium text-foreground cursor-pointer">
-                        <Checkbox
-                          checked={formData.gender === "F"}
-                          onCheckedChange={(checked) =>
-                            handleInputChange("gender", checked ? "F" : "")
-                          }
-                        />
-                        Female
-                      </label>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                      National ID
-                    </label>
-                    <Input
-                      type="text"
-                      value={fieldValue(formData.nationalIdNumber)}
-                      onChange={(e) =>
-                        handleInputChange("nationalIdNumber", e.target.value)
-                      }
-                      placeholder="Enter national ID"
-                      className={solidFieldClass}
-                    />
-                  </div>
-                </div>
+                <PatientFormFields
+                  formData={formData}
+                  onFieldChange={handleInputChange}
+                  onCountryChange={handleCountryChange}
+                  onProvinceChange={handleProvinceChange}
+                  onDistrictChange={handleDistrictChange}
+                  onSectorChange={handleSectorChange}
+                  onAddInsurance={addInsurance}
+                  onUpdateInsurance={updateInsurance}
+                  onRemoveInsurance={removeInsurance}
+                  availableInsurances={insurances}
+                  loading={loading}
+                  dateError={dateError}
+                />
 
-                {/* Contact Information */}
-                <div
-                  className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}
-                >
-                  <h4 className="text-sm sm:text-md font-medium mb-2 sm:mb-3">
-                    Contact Information
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                        Phone
-                      </label>
-                      <Input
-                        type="tel"
-                        value={fieldValue(formData.contactInfo?.phone)}
-                        onChange={(e) =>
-                          handleInputChange("contactInfo.phone", e.target.value)
-                        }
-                        placeholder="Enter phone number"
-                        className={solidFieldClass}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                        Email or Phone
-                      </label>
-                      <Input
-                        type="text"
-                        value={fieldValue(formData.contactInfo?.email)}
-                        onChange={(e) =>
-                          handleInputChange("contactInfo.email", e.target.value)
-                        }
-                        placeholder="Email (user@domain.com) or Phone (+256701234567 or 0712345678)"
-                        className={solidFieldClass}
-                      />
-                    </div>
-                  </div>
 
-                  {/* Address */}
-                  <div className="mt-2 sm:mt-4">
-                    <h4 className="text-sm sm:text-md font-medium mb-2 sm:mb-2">
-                      Address
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
-                      <Input
-                        type="text"
-                        value={fieldValue(
-                          formData.contactInfo?.address?.street,
-                        )}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "contactInfo.address.street",
-                            e.target.value,
-                          )
-                        }
-                        placeholder="Street"
-                        className={solidFieldClass}
-                      />
-                      <Input
-                        type="text"
-                        value={fieldValue(
-                          formData.contactInfo?.address?.sector,
-                        )}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "contactInfo.address.sector",
-                            e.target.value,
-                          )
-                        }
-                        placeholder="Sector"
-                        className={solidFieldClass}
-                      />
-                      <Input
-                        type="text"
-                        value={fieldValue(
-                          formData.contactInfo?.address?.district,
-                        )}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "contactInfo.address.district",
-                            e.target.value,
-                          )
-                        }
-                        placeholder="District"
-                        className={solidFieldClass}
-                      />
-                      <Input
-                        type="text"
-                        value={fieldValue(
-                          formData.contactInfo?.address?.country,
-                        )}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "contactInfo.address.country",
-                            e.target.value,
-                          )
-                        }
-                        placeholder="Country"
-                        className={solidFieldClass}
-                      />
-                    </div>
-                  </div>
-                </div>
 
-                {/* Emergency Contact */}
-                <div
-                  className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}
-                >
-                  <h3 className="text-sm sm:text-lg font-semibold mb-2 sm:mb-4">
-                    Emergency Contact
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
-                    <Input
-                      type="text"
-                      value={fieldValue(formData.emergencyContact?.name)}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "emergencyContact.name",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="Contact name"
-                      className={solidFieldClass}
-                    />
-                    <Input
-                      type="text"
-                      value={fieldValue(formData.emergencyContact?.relation)}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "emergencyContact.relation",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="Relation"
-                      className={solidFieldClass}
-                    />
-                    <Input
-                      type="tel"
-                      value={fieldValue(formData.emergencyContact?.phone)}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "emergencyContact.phone",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="Phone number"
-                      className={solidFieldClass}
-                    />
-                  </div>
-                </div>
-
-                {/* Insurance Information */}
-                <div
-                  className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                    <h3 className="text-sm sm:text-lg font-semibold">
-                      Insurance
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={addInsurance}
-                      className="rounded-full px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md text-xs sm:text-base inline-block w-fit"
-                    >
-                      + Add
-                    </button>
-                  </div>
-
-                  {formData.insurances?.map((insurance, index) => (
-                    <div
-                      key={index}
-                      className="border border-border/60 rounded-xl sm:rounded-2xl p-2 sm:p-4 mb-2 sm:mb-4 bg-background dark:bg-gray-900 shadow-sm"
-                    >
-                      <div className="flex justify-between items-start mb-2 sm:mb-4">
-                        <h4 className="font-medium text-xs sm:text-base">
-                          Insurance #{index + 1}
-                        </h4>
-                        <button
-                          type="button"
-                          onClick={() => removeInsurance(index)}
-                          className="rounded-full px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs"
-                        >
-                          Remove
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
-                        <div>
-                          <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                            Insurance Provider
-                          </label>
-                          <Popover
-                            open={insurancePopoverOpen[index] || false}
-                            onOpenChange={(open) =>
-                              setInsurancePopoverOpen((prev) => ({
-                                ...prev,
-                                [index]: open,
-                              }))
-                            }
-                          >
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                aria-expanded={insurancePopoverOpen[index]}
-                                className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
-                              >
-                                {getInsuranceName(insurance.insuranceId ?? "")}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent
-                              className="w-full p-0 bg-background dark:bg-gray-900 border-border/70"
-                              align="start"
-                            >
-                              <Command>
-                                <CommandInput placeholder="Search insurance..." />
-                                <CommandList>
-                                  <CommandEmpty>
-                                    No insurance found.
-                                  </CommandEmpty>
-                                  <CommandGroup>
-                                    {insurances.map((ins) => (
-                                      <CommandItem
-                                        key={ins.id}
-                                        value={`${ins.name} ${ins.acronym}`}
-                                        onSelect={() => {
-                                          updateInsurance(
-                                            index,
-                                            "insuranceId",
-                                            ins.id,
-                                          );
-                                          setInsurancePopoverOpen((prev) => ({
-                                            ...prev,
-                                            [index]: false,
-                                          }));
-                                        }}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            String(insurance.insuranceId) ===
-                                              String(ins.id)
-                                              ? "opacity-100"
-                                              : "opacity-0",
-                                          )}
-                                        />
-                                        {ins.name} ({ins.acronym})
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                </CommandList>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                        <div>
-                          <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                            Card Number *
-                          </label>
-                          <Input
-                            type="text"
-                            value={insurance.insuranceCardNumber}
-                            onChange={(e) =>
-                              updateInsurance(
-                                index,
-                                "insuranceCardNumber",
-                                e.target.value,
-                              )
-                            }
-                            placeholder="Enter card number"
-                            className={solidFieldClass}
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
-                        <div>
-                          <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                            Providing Company / Employer *
-                          </label>
-                          <Input
-                            type="text"
-                            value={insurance.providingCompanyOrEmployer}
-                            onChange={(e) =>
-                              updateInsurance(
-                                index,
-                                "providingCompanyOrEmployer",
-                                e.target.value,
-                              )
-                            }
-                            placeholder="Enter company or employer"
-                            className={solidFieldClass}
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div className="mt-2 sm:mt-4">
-                        <h5 className="text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-2">
-                          Dominant Member Information
-                          {isDominantMemberRequired(
-                            formData.dateOfBirth,
-                            true,
-                          ) && <span className="text-red-500 ml-1">*</span>}
-                          <span className="text-xs text-muted-foreground ml-2">
-                            (
-                            {isDominantMemberRequired(
-                              formData.dateOfBirth,
-                              true,
-                            )
-                              ? "Required"
-                              : "Optional"}{" "}
-                            for patients ≤18 years)
-                          </span>
-                        </h5>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
-                          <div>
-                            <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                              First Name
-                              {isDominantMemberRequired(
-                                formData.dateOfBirth,
-                                true,
-                              ) && <span className="text-red-500 ml-1">*</span>}
-                            </label>
-                            <Input
-                              type="text"
-                              value={insurance.dominantMember?.firstName || ""}
-                              onChange={(e) =>
-                                updateInsurance(
-                                  index,
-                                  "dominantMember.firstName",
-                                  e.target.value,
-                                )
-                              }
-                              placeholder="First name"
-                              className={solidFieldClass}
-                              required={isDominantMemberRequired(
-                                formData.dateOfBirth,
-                                true,
-                              )}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                              Last Name
-                              {isDominantMemberRequired(
-                                formData.dateOfBirth,
-                                true,
-                              ) && <span className="text-red-500 ml-1">*</span>}
-                            </label>
-                            <Input
-                              type="text"
-                              value={insurance.dominantMember?.lastName || ""}
-                              onChange={(e) =>
-                                updateInsurance(
-                                  index,
-                                  "dominantMember.lastName",
-                                  e.target.value,
-                                )
-                              }
-                              placeholder="Last name"
-                              className={solidFieldClass}
-                              required={isDominantMemberRequired(
-                                formData.dateOfBirth,
-                                true,
-                              )}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                              Phone
-                              {isDominantMemberRequired(
-                                formData.dateOfBirth,
-                                true,
-                              ) && <span className="text-red-500 ml-1">*</span>}
-                            </label>
-                            <Input
-                              type="tel"
-                              value={insurance.dominantMember?.phone || ""}
-                              onChange={(e) =>
-                                updateInsurance(
-                                  index,
-                                  "dominantMember.phone",
-                                  sanitizePhoneInput(e.target.value),
-                                )
-                              }
-                              placeholder="Phone number"
-                              className={solidFieldClass}
-                              required={isDominantMemberRequired(
-                                formData.dateOfBirth,
-                                true,
-                              )}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-8 pt-3 sm:pt-6 border-t border-border/30 sticky md:sticky bottom-0 left-0 right-0 bg-gradient-to-t from-background dark:from-gray-900 to-background/95 dark:to-gray-900/95 -mx-2 sm:-mx-4 px-2 sm:px-4 pb-2 sm:pb-4 z-50">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-8 pt-3 sm:pt-6 border-t border-border/30 -mx-2 sm:-mx-4 px-2 sm:px-4 pb-2 sm:pb-4">
                   <button
                     type="button"
                     onClick={onClose}
