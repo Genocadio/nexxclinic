@@ -3,6 +3,11 @@ FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
+# Build args — required for NEXT_PUBLIC_* vars (inlined at build time)
+ARG NEXT_PUBLIC_API_BASE_URL
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+
 # Copy package.json only
 COPY package.json ./
 
