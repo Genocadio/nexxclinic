@@ -4,11 +4,9 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { FormBlock } from "@/lib/formbuilder-storage";
 import { MediaUploader } from "@/components/ui/media-uploader";
-import { MediaPickerModal } from "@/components/ui/media-picker-modal";
 import { Input } from "@/components/ui/input";
 import {
   ImagePlus,
-  FolderSearch,
   AlignLeft,
   AlignCenter,
   AlignRight,
@@ -18,10 +16,6 @@ import {
   X,
 } from "lucide-react";
 import type { UploadResult } from "@/lib/storage-service";
-
-import { useAuth } from "@/lib/auth-context";
-
-// ─── Shared primitives ────────────────────────────────────────────────────────
 
 function CfgSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -43,8 +37,6 @@ function CfgRow({ label, children }: { label: string; children: React.ReactNode 
   );
 }
 
-// ─── Width helpers ────────────────────────────────────────────────────────────
-
 const WIDTH_CLASSES: Record<NonNullable<FormBlock["mediaWidth"]>, string> = {
   sm: "max-w-xs",
   md: "max-w-sm",
@@ -57,8 +49,6 @@ const ALIGN_WRAPPER: Record<NonNullable<FormBlock["align"]>, string> = {
   center: "flex justify-center",
   right: "flex justify-end",
 };
-
-// ─── Upload mode hints ────────────────────────────────────────────────────────
 
 const MODE_LABELS: Record<NonNullable<FormBlock["uploadMode"]>, string> = {
   images: "Images only",
@@ -74,8 +64,6 @@ const MODE_HINTS: Record<NonNullable<FormBlock["uploadMode"]>, string> = {
   all: "Any file type",
 };
 
-// ─── MediaEmbedBlockItem ──────────────────────────────────────────────────────
-
 interface MediaEmbedBlockItemProps {
   block: FormBlock;
   isActive: boolean;
@@ -87,14 +75,10 @@ export function MediaEmbedBlockItem({
   isActive,
   onChange,
 }: MediaEmbedBlockItemProps) {
-  const { clinicProfile } = useAuth();
   const [showUploader, setShowUploader] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
 
   const align = block.align ?? "center";
   const width = block.mediaWidth ?? "md";
-  const clinicId = clinicProfile?.id || "default";
-  const storagePath = `clinics/${clinicId}/forms/media/${block.id}`;
 
   function handleUploaded(files: UploadResult[]) {
     const first = files[0];
@@ -106,7 +90,6 @@ export function MediaEmbedBlockItem({
 
   return (
     <div className="w-full">
-      {/* ── Image / placeholder ── */}
       <div className={cn(ALIGN_WRAPPER[align])}>
         {block.mediaUrl ? (
           <div className={cn(WIDTH_CLASSES[width])}>
@@ -129,10 +112,8 @@ export function MediaEmbedBlockItem({
         )}
       </div>
 
-      {/* ── Config panel (active only) ── */}
       {isActive && (
         <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 px-3 pb-3">
-          {/* Upload */}
           <CfgSection title="Image">
             <div className="flex gap-2">
               <button
@@ -147,14 +128,6 @@ export function MediaEmbedBlockItem({
               >
                 <Upload className="size-3.5" />
                 Upload
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowPicker(true)}
-                className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs transition-colors hover:bg-muted/60"
-              >
-                <FolderSearch className="size-3.5" />
-                Browse existing
               </button>
               {block.mediaUrl && (
                 <button
@@ -171,8 +144,6 @@ export function MediaEmbedBlockItem({
             {showUploader && (
               <div className="mt-2">
                 <MediaUploader
-                  bucket="form_data"
-                  storagePath={storagePath}
                   accept="image/*"
                   multiple={false}
                   onUploaded={handleUploaded}
@@ -182,7 +153,6 @@ export function MediaEmbedBlockItem({
             )}
           </CfgSection>
 
-          {/* Alignment */}
           <CfgSection title="Alignment">
             <div className="flex gap-1">
               {(["left", "center", "right"] as const).map((a) => {
@@ -207,7 +177,6 @@ export function MediaEmbedBlockItem({
             </div>
           </CfgSection>
 
-          {/* Width */}
           <CfgSection title="Width">
             <div className="flex gap-1">
               {(["sm", "md", "lg", "full"] as const).map((w) => (
@@ -229,7 +198,6 @@ export function MediaEmbedBlockItem({
             </div>
           </CfgSection>
 
-          {/* Caption */}
           <CfgSection title="Caption (optional)">
             <Input
               value={block.mediaCaption ?? ""}
@@ -240,22 +208,9 @@ export function MediaEmbedBlockItem({
           </CfgSection>
         </div>
       )}
-
-      {/* Picker modal */}
-      <MediaPickerModal
-        open={showPicker}
-        onClose={() => setShowPicker(false)}
-        bucket="form_data"
-        folder={storagePath}
-        accept="images"
-        title="Pick an image"
-        onPick={(file) => onChange({ mediaUrl: file.url, mediaPath: file.path })}
-      />
     </div>
   );
 }
-
-// ─── FileUploadBlockItem ──────────────────────────────────────────────────────
 
 interface FileUploadBlockItemProps {
   block: FormBlock;
@@ -273,7 +228,6 @@ export function FileUploadBlockItem({
 
   return (
     <div className="w-full">
-      {/* ── Upload zone preview ── */}
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/20 px-6 py-8 text-center">
         <FileUp className="size-8 text-muted-foreground/60" />
         <p className="text-sm font-medium">
@@ -290,10 +244,8 @@ export function FileUploadBlockItem({
         )}
       </div>
 
-      {/* ── Config panel (active only) ── */}
       {isActive && (
         <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 px-3 pb-3">
-          {/* Label */}
           <CfgSection title="Label">
             <Input
               value={block.label ?? ""}
@@ -303,7 +255,6 @@ export function FileUploadBlockItem({
             />
           </CfgSection>
 
-          {/* Upload mode */}
           <CfgSection title="Accepted file types">
             <div className="flex flex-col gap-1.5">
               {(["images", "images_videos", "documents", "all"] as const).map((m) => (
@@ -321,7 +272,6 @@ export function FileUploadBlockItem({
             </div>
           </CfgSection>
 
-          {/* Multiple files */}
           <CfgSection title="File count">
             <CfgRow label="">
               <label className="flex cursor-pointer items-center gap-2">
@@ -356,7 +306,6 @@ export function FileUploadBlockItem({
             )}
           </CfgSection>
 
-          {/* Required */}
           <CfgSection title="Validation">
             <label className="flex cursor-pointer items-center gap-2">
               <input

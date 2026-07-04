@@ -1,81 +1,68 @@
-import { getSupabaseClient } from "@/lib/supabase-client";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type StorageBucket = "clinic_data" | "form_data" | "form_answers";
-
 export interface UploadResult {
   path: string;
   url: string;
   name: string;
 }
 
-export interface StoredFile {
-  path: string;
-  url: string;
-  name: string;
-}
-
-// ─── Upload ───────────────────────────────────────────────────────────────────
-
 /**
- * Uploads a single file to Supabase Storage.
- *
- * Progress is simulated in three steps (20 → 80 → 100) because the Supabase
- * JS SDK does not expose upload-progress events.
+ * Uploads a file to the backend via the GraphQL uploadFile mutation.
+ * Uses raw fetch with multipart/form-data (GraphQL multipart request spec).
  */
 export async function uploadFile(
-  bucket: StorageBucket,
-  storagePath: string,
   file: File,
   onProgress?: (percent: number) => void,
 ): Promise<UploadResult> {
-  const supabase = getSupabaseClient();
-
   onProgress?.(20);
 
-  const { error } = await supabase.storage
-    .from(bucket)
-    .upload(storagePath, file, { upsert: true });
+  const query = `
+    mutation UploadFile($file: Upload!) {
+      uploadFile(file: $file) {
+        status
+        message
+        data {
+          id
+          url
+        }
+      }
+    }
+  `;
 
-  if (error) throw new Error(error.message);
+  const formData = new FormData();
+  const operations = JSON.stringify({ query, variables: { file: null } });
+  const map = JSON.stringify({ '0': ['variables.file'] });
+  formData.append('operations', operations);
+  formData.append('map', map);
+  formData.append('0', file);
 
-  onProgress?.(80);
+  const uri =
+    typeof window !== 'undefined'
+      ? '/graphql'
+      : `${process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || ''}/graphql`;
 
-  const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
+  const token =
+    typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+
+  const headers: Record<string, string> = {};
+  if (token) headers['authorization'] = `Bearer ${token}`;
+
+  const response = await fetch(uri, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  const result = await response.json();
+
+  if (result.errors) {
+    throw new Error(result.errors[0]?.message || 'Upload failed');
+  }
 
   onProgress?.(100);
 
-  return { path: storagePath, url: data.publicUrl, name: file.name };
-}
-
-// ─── List ─────────────────────────────────────────────────────────────────────
-
-/**
- * Returns all files stored under `folder` in the given bucket.
- * Empty-folder placeholder objects are filtered out automatically.
- */
-export async function listFiles(
-  bucket: StorageBucket,
-  folder: string,
-): Promise<StoredFile[]> {
-  const supabase = getSupabaseClient();
-
-  const { data, error } = await supabase.storage.from(bucket).list(folder, {
-    limit: 200,
-    sortBy: { column: "created_at", order: "desc" },
-  });
-
-  if (error) throw new Error(error.message);
-  if (!data) return [];
-
-  return data
-    .filter((item) => item.name !== ".emptyFolderPlaceholder")
-    .map((item) => {
-      const path = folder ? `${folder}/${item.name}` : item.name;
-      const { data: urlData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(path);
-      return { path, url: urlData.publicUrl, name: item.name };
-    });
+  const uploadData = result.data?.uploadFile?.data;
+  return {
+    path: uploadData?.id || file.name,
+    url: uploadData?.url || '',
+    name: file.name,
+  };
 }

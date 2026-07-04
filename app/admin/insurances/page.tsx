@@ -261,8 +261,6 @@ export default function ManageInsurancesPage() {
                   </label>
 
                   <MediaUploader
-                    bucket="clinic_data"
-                    storagePath="insurances/coverage"
                     accept="image/*,application/pdf"
                     multiple={false}
                     disabled={saving}

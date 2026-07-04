@@ -7,35 +7,23 @@ import {
   type DragEvent,
   type ChangeEvent,
 } from 'react'
-import { uploadFile, type UploadResult, type StorageBucket } from '@/lib/storage-service'
+import { uploadFile, type UploadResult } from '@/lib/storage-service'
 import { Upload, X, ImageIcon, FileText, Film, FolderOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-// ─── Public interface ─────────────────────────────────────────────────────────
-
 export interface MediaUploaderProps {
-  bucket: StorageBucket
-  /** Full storage path for the upload — filename will be appended automatically */
-  storagePath: string
-  /** MIME accept string, e.g. "image/*" or "image/*,video/*" */
   accept?: string
   multiple?: boolean
   maxFiles?: number
-  /** Shown above the dropzone */
   label?: string
-  /** Small hint text below label */
   hint?: string
   disabled?: boolean
-  /** Called after every batch of successful uploads */
   onUploaded: (files: UploadResult[]) => void
   onError?: (err: string) => void
-  /** When set, renders compact single-image preview with a "Change" button */
   currentUrl?: string
   className?: string
 }
-
-// ─── Internal helpers ─────────────────────────────────────────────────────────
 
 function matchesAccept(file: File, accept?: string): boolean {
   if (!accept) return true
@@ -55,11 +43,7 @@ function DropzoneIcon({ accept }: { accept?: string }) {
   return <FileText className={cls} />
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export function MediaUploader({
-  bucket,
-  storagePath,
   accept,
   multiple = false,
   maxFiles,
@@ -79,11 +63,8 @@ export function MediaUploader({
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
 
-  // True while any file is still in-flight
   const isUploading =
     uploading || Object.values(progress).some((pct) => pct < 100)
-
-  // ── Core upload handler ──────────────────────────────────────────────────
 
   const handleFiles = useCallback(
     async (rawFiles: File[]) => {
@@ -110,11 +91,8 @@ export function MediaUploader({
         const key = file.name
         setProgress((p) => ({ ...p, [key]: 0 }))
 
-        const basePath = storagePath.replace(/\/$/, '')
-        const filePath = `${basePath}/${file.name}`
-
         try {
-          const result = await uploadFile(bucket, filePath, file, (pct) =>
+          const result = await uploadFile(file, (pct) =>
             setProgress((p) => ({ ...p, [key]: pct })),
           )
           results.push(result)
@@ -122,7 +100,6 @@ export function MediaUploader({
           const msg = err instanceof Error ? err.message : 'Upload failed.'
           setError(msg)
           onError?.(msg)
-          // Remove the failed entry so it doesn't linger in progress
           setProgress((p) => {
             const next = { ...p }
             delete next[key]
@@ -138,10 +115,8 @@ export function MediaUploader({
         onUploaded(results)
       }
     },
-    [bucket, storagePath, accept, multiple, maxFiles, disabled, onUploaded, onError],
+    [accept, multiple, maxFiles, disabled, onUploaded, onError],
   )
-
-  // ── Drag & drop handlers ─────────────────────────────────────────────────
 
   const onDragOver = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
@@ -165,7 +140,6 @@ export function MediaUploader({
   const onInputChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
       void handleFiles(Array.from(e.target.files ?? []))
-      // Reset so the same file can be picked again
       e.target.value = ''
     },
     [handleFiles],
@@ -175,8 +149,6 @@ export function MediaUploader({
     setUploaded((prev) => prev.filter((f) => f.path !== path))
 
   const browse = () => !disabled && inputRef.current?.click()
-
-  // ── Compact mode (currentUrl provided) ──────────────────────────────────
 
   if (currentUrl) {
     return (
@@ -210,13 +182,10 @@ export function MediaUploader({
     )
   }
 
-  // ── Full dropzone mode ───────────────────────────────────────────────────
-
   const activeUploads = Object.entries(progress).filter(([, pct]) => pct < 100)
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      {/* Label + hint */}
       {label && (
         <div>
           <p className='text-sm font-medium leading-none'>{label}</p>
@@ -226,7 +195,6 @@ export function MediaUploader({
         </div>
       )}
 
-      {/* Dropzone */}
       <div
         role='button'
         tabIndex={disabled ? -1 : 0}
@@ -279,10 +247,8 @@ export function MediaUploader({
         />
       </div>
 
-      {/* Error */}
       {error && <p className='text-xs text-destructive'>{error}</p>}
 
-      {/* In-progress uploads */}
       {activeUploads.length > 0 && (
         <ul className='flex flex-col gap-2'>
           {activeUploads.map(([name, pct]) => (
@@ -304,7 +270,6 @@ export function MediaUploader({
         </ul>
       )}
 
-      {/* Uploaded files list */}
       {uploaded.length > 0 && (
         <ul className='flex flex-col gap-1'>
           {uploaded.map((file) => (

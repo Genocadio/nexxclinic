@@ -571,8 +571,6 @@ export default function ManageUsersPage() {
                     </label>
                     {editingUserId ? (
                       <MediaUploader
-                        bucket="clinic_data"
-                        storagePath={`users/${editingUserId}/photo`}
                         accept="image/*"
                         multiple={false}
                         label="Upload photo"

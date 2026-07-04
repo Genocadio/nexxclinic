@@ -3,7 +3,6 @@
 import React from "react";
 import { MediaUploader } from "@/components/ui/media-uploader";
 import type { FormBlock } from "@/lib/formbuilder-storage";
-import { useAuth } from "@/lib/auth-context";
 
 export type UploadedAnswerFile = {
   name: string;
@@ -26,7 +25,6 @@ export function FileUploadAnswerBlock({
   isError: boolean;
   edit: boolean;
 }) {
-  const { clinicProfile } = useAuth();
   const accept =
     block.uploadMode === "images"
       ? "image/*"
@@ -44,9 +42,6 @@ export function FileUploadAnswerBlock({
         : block.uploadMode === "documents"
           ? "PDF, Word, Excel, CSV, and text files"
           : "Any file type";
-
-  const clinicId = clinicProfile?.id || "default";
-  const storagePath = `clinics/${clinicId}/answers/${block.id}`;
 
   const removeFile = (index: number) => {
     onChange(value.filter((_, i) => i !== index));
@@ -67,8 +62,6 @@ export function FileUploadAnswerBlock({
 
       {edit && (
         <MediaUploader
-          bucket="form_answers"
-          storagePath={storagePath}
           accept={accept}
           multiple={block.uploadMultiple ?? false}
           maxFiles={block.uploadMaxFiles}

@@ -1,4 +1,5 @@
 scalar JSON
+scalar Upload
 
 enum ResponseStatus {
   SUCCESS
@@ -222,6 +223,17 @@ type StringResponse implements ApiResponse {
   status: ResponseStatus!
   message: String
     data: String
+}
+
+type UploadData {
+  id: ID!
+  url: String
+}
+
+type UploadResponse implements ApiResponse {
+  status: ResponseStatus!
+  message: String
+  data: UploadData
 }
 
 type Worker {
@@ -1539,7 +1551,10 @@ type Mutation {
   editBillVisit(input: EditBillVisitInput!): VisitBillingResponse!
   recordVisitBillingPayment(input: RecordVisitBillingPaymentInput!): VisitBillingResponse!
   generateInvoice(departmentInsuranceBillingId: ID!): InvoiceResponse!
+  flushSoftDeletedVisitProducts(visitId: ID!): BooleanResponse!
   cancelVisit(visitId: ID!): VisitResponse!
   updateClinicProfile(input: UpdateClinicProfileInput!): ClinicProfileResponse!
   deleteClinicProfile: BooleanResponse!
+  uploadFile(file: Upload!): UploadResponse!
+  deleteUpload(id: ID!): BooleanResponse!
 }
