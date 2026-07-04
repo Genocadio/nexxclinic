@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { InsuranceProvider } from "@/lib/api-types"
 import type { RegisterPatientInput } from "@/hooks/patients/hooks"
 import { Input } from "@/components/ui/input"
@@ -80,6 +80,23 @@ export default function PatientFormFields({
     [key: number]: boolean
   }>({})
   const [countryPopoverOpen, setCountryPopoverOpen] = useState(false)
+  const [provincePopoverOpen, setProvincePopoverOpen] = useState(false)
+  const [districtPopoverOpen, setDistrictPopoverOpen] = useState(false)
+  const [sectorPopoverOpen, setSectorPopoverOpen] = useState(false)
+
+  const [dobLocal, setDobLocal] = useState(() => parseDob(formData.dateOfBirth))
+
+  useEffect(() => {
+    setDobLocal(parseDob(formData.dateOfBirth))
+  }, [formData.dateOfBirth])
+
+  const handleDobChange = (part: "day" | "month" | "year", value: string) => {
+    const next = { ...dobLocal, [part]: value }
+    setDobLocal(next)
+    if (next.day && next.month && next.year) {
+      onFieldChange("dateOfBirth", composeDob(next.day, next.month, next.year))
+    }
+  }
 
   const solidFieldClass = "w-full bg-white dark:bg-gray-900 border-border/70"
   const solidPanelClass =
@@ -150,20 +167,14 @@ export default function PatientFormFields({
           </label>
           <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
             <Select
-              value={parseDob(formData.dateOfBirth).day}
-              onValueChange={(value) => {
-                const { month, year } = parseDob(formData.dateOfBirth)
-                onFieldChange("dateOfBirth", composeDob(value, month, year))
-              }}
+              value={dobLocal.day}
+              onValueChange={(value) => handleDobChange("day", value)}
             >
               <SelectTrigger className="h-10 text-xs sm:text-sm">
                 <SelectValue placeholder="Day" />
               </SelectTrigger>
               <SelectContent>
-                {getDaysInMonth(
-                  parseDob(formData.dateOfBirth).month,
-                  parseDob(formData.dateOfBirth).year,
-                ).map((d) => (
+                {getDaysInMonth(dobLocal.month, dobLocal.year).map((d) => (
                   <SelectItem key={d} value={d}>
                     {d}
                   </SelectItem>
@@ -171,11 +182,8 @@ export default function PatientFormFields({
               </SelectContent>
             </Select>
             <Select
-              value={parseDob(formData.dateOfBirth).month}
-              onValueChange={(value) => {
-                const { day, year } = parseDob(formData.dateOfBirth)
-                onFieldChange("dateOfBirth", composeDob(day, value, year))
-              }}
+              value={dobLocal.month}
+              onValueChange={(value) => handleDobChange("month", value)}
             >
               <SelectTrigger className="h-10 text-xs sm:text-sm">
                 <SelectValue placeholder="Month" />
@@ -189,11 +197,8 @@ export default function PatientFormFields({
               </SelectContent>
             </Select>
             <Select
-              value={parseDob(formData.dateOfBirth).year}
-              onValueChange={(value) => {
-                const { day, month } = parseDob(formData.dateOfBirth)
-                onFieldChange("dateOfBirth", composeDob(day, month, value))
-              }}
+              value={dobLocal.year}
+              onValueChange={(value) => handleDobChange("year", value)}
             >
               <SelectTrigger className="h-10 text-xs sm:text-sm">
                 <SelectValue placeholder="Year" />
@@ -277,19 +282,63 @@ export default function PatientFormFields({
               className={solidFieldClass}
             />
           </div>
+
+          {/* Country inline with phone */}
           <div>
             <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-              Email or Phone
+              Country
             </label>
-            <Input
-              type="text"
-              value={fieldValue(formData.contactInfo?.email)}
-              onChange={(e) =>
-                onFieldChange("contactInfo.email", e.target.value)
-              }
-              placeholder="Email (user@domain.com) or Phone (+256701234567 or 0712345678)"
-              className={solidFieldClass}
-            />
+            <Popover
+              open={countryPopoverOpen}
+              onOpenChange={setCountryPopoverOpen}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={countryPopoverOpen}
+                  className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
+                >
+                  {formData.contactInfo?.address?.country ||
+                    "Select country..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-full p-0 bg-background dark:bg-gray-900 border-border/70"
+                align="start"
+              >
+                <Command>
+                  <CommandInput placeholder="Search country..." />
+                  <CommandList>
+                    <CommandEmpty>No country found.</CommandEmpty>
+                    <CommandGroup>
+                      {COUNTRIES.map((country) => (
+                        <CommandItem
+                          key={country}
+                          value={country}
+                          onSelect={() => {
+                            onCountryChange(country)
+                            setCountryPopoverOpen(false)
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              formData.contactInfo?.address?.country ===
+                                country
+                                ? "opacity-100"
+                                : "opacity-0",
+                            )}
+                          />
+                          {country}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
@@ -299,63 +348,6 @@ export default function PatientFormFields({
             Address
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
-            {/* Country - searchable dropdown, full width */}
-            <div className="md:col-span-2">
-              <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                Country
-              </label>
-              <Popover
-                open={countryPopoverOpen}
-                onOpenChange={setCountryPopoverOpen}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={countryPopoverOpen}
-                    className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
-                  >
-                    {formData.contactInfo?.address?.country ||
-                      "Select country..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="w-full p-0 bg-background dark:bg-gray-900 border-border/70"
-                  align="start"
-                >
-                  <Command>
-                    <CommandInput placeholder="Search country..." />
-                    <CommandList>
-                      <CommandEmpty>No country found.</CommandEmpty>
-                      <CommandGroup>
-                        {COUNTRIES.map((country) => (
-                          <CommandItem
-                            key={country}
-                            value={country}
-                            onSelect={() => {
-                              onCountryChange(country)
-                              setCountryPopoverOpen(false)
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                formData.contactInfo?.address?.country ===
-                                  country
-                                  ? "opacity-100"
-                                  : "opacity-0",
-                              )}
-                            />
-                            {country}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
 
             {/* Rwanda cascading dropdowns */}
             {isRwandaSelected(formData.contactInfo?.address?.country) ? (
@@ -364,70 +356,178 @@ export default function PatientFormFields({
                   <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                     Province
                   </label>
-                  <Select
-                    value={formData.contactInfo?.address?.province || ""}
-                    onValueChange={onProvinceChange}
+                  <Popover
+                    open={provincePopoverOpen}
+                    onOpenChange={setProvincePopoverOpen}
                   >
-                    <SelectTrigger className="h-10 text-sm w-full">
-                      <SelectValue placeholder="Select province" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {RWANDA_PROVINCES.map((province) => (
-                        <SelectItem key={province} value={province}>
-                          {province}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={provincePopoverOpen}
+                        className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
+                      >
+                        {formData.contactInfo?.address?.province ||
+                          "Select province..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-full p-0 bg-background dark:bg-gray-900 border-border/70"
+                      align="start"
+                    >
+                      <Command>
+                        <CommandInput placeholder="Search province..." />
+                        <CommandList>
+                          <CommandEmpty>No province found.</CommandEmpty>
+                          <CommandGroup>
+                            {RWANDA_PROVINCES.map((province) => (
+                              <CommandItem
+                                key={province}
+                                value={province}
+                                onSelect={() => {
+                                  onProvinceChange(province)
+                                  setProvincePopoverOpen(false)
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    formData.contactInfo?.address?.province ===
+                                      province
+                                      ? "opacity-100"
+                                      : "opacity-0",
+                                  )}
+                                />
+                                {province}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                     District
                   </label>
-                  <Select
-                    value={formData.contactInfo?.address?.district || ""}
-                    onValueChange={onDistrictChange}
-                    disabled={!formData.contactInfo?.address?.province}
+                  <Popover
+                    open={districtPopoverOpen}
+                    onOpenChange={setDistrictPopoverOpen}
                   >
-                    <SelectTrigger className="h-10 text-sm w-full">
-                      <SelectValue placeholder="Select district" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getRwandaDistricts(
-                        formData.contactInfo?.address?.province || "",
-                      ).map((district) => (
-                        <SelectItem key={district} value={district}>
-                          {district}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={districtPopoverOpen}
+                        className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
+                        disabled={!formData.contactInfo?.address?.province}
+                      >
+                        {formData.contactInfo?.address?.district ||
+                          "Select district..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-full p-0 bg-background dark:bg-gray-900 border-border/70"
+                      align="start"
+                    >
+                      <Command>
+                        <CommandInput placeholder="Search district..." />
+                        <CommandList>
+                          <CommandEmpty>No district found.</CommandEmpty>
+                          <CommandGroup>
+                            {getRwandaDistricts(
+                              formData.contactInfo?.address?.province || "",
+                            ).map((district) => (
+                              <CommandItem
+                                key={district}
+                                value={district}
+                                onSelect={() => {
+                                  onDistrictChange(district)
+                                  setDistrictPopoverOpen(false)
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    formData.contactInfo?.address?.district ===
+                                      district
+                                      ? "opacity-100"
+                                      : "opacity-0",
+                                  )}
+                                />
+                                {district}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                     Sector
                   </label>
-                  <Select
-                    value={formData.contactInfo?.address?.sector || ""}
-                    onValueChange={onSectorChange}
-                    disabled={!formData.contactInfo?.address?.district}
+                  <Popover
+                    open={sectorPopoverOpen}
+                    onOpenChange={setSectorPopoverOpen}
                   >
-                    <SelectTrigger className="h-10 text-sm w-full">
-                      <SelectValue placeholder="Select sector" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getRwandaSectors(
-                        formData.contactInfo?.address?.province || "",
-                        formData.contactInfo?.address?.district || "",
-                      ).map((sector) => (
-                        <SelectItem key={sector} value={sector}>
-                          {sector}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={sectorPopoverOpen}
+                        className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
+                        disabled={!formData.contactInfo?.address?.district}
+                      >
+                        {formData.contactInfo?.address?.sector ||
+                          "Select sector..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-full p-0 bg-background dark:bg-gray-900 border-border/70"
+                      align="start"
+                    >
+                      <Command>
+                        <CommandInput placeholder="Search sector..." />
+                        <CommandList>
+                          <CommandEmpty>No sector found.</CommandEmpty>
+                          <CommandGroup>
+                            {getRwandaSectors(
+                              formData.contactInfo?.address?.province || "",
+                              formData.contactInfo?.address?.district || "",
+                            ).map((sector) => (
+                              <CommandItem
+                                key={sector}
+                                value={sector}
+                                onSelect={() => {
+                                  onSectorChange(sector)
+                                  setSectorPopoverOpen(false)
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    formData.contactInfo?.address?.sector ===
+                                      sector
+                                      ? "opacity-100"
+                                      : "opacity-0",
+                                  )}
+                                />
+                                {sector}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <div>
@@ -495,9 +595,12 @@ export default function PatientFormFields({
               </>
             ) : null}
 
-            {/* Address - manual input, optional, full width */}
+            {/* Street - manual input, optional, full width */}
             {formData.contactInfo?.address?.country && (
               <div className="md:col-span-2">
+                <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
+                  Street
+                </label>
                 <Input
                   type="text"
                   value={fieldValue(formData.contactInfo?.address?.address)}
@@ -507,7 +610,7 @@ export default function PatientFormFields({
                       e.target.value,
                     )
                   }
-                  placeholder="Address (optional)"
+                  placeholder="Street (optional)"
                   className={solidFieldClass}
                 />
               </div>
@@ -581,225 +684,238 @@ export default function PatientFormFields({
           </button>
         </div>
 
-        {formData.insurances?.map((insurance, index) => (
-          <div
-            key={index}
-            className="border border-border/60 rounded-xl sm:rounded-2xl p-2 sm:p-4 mb-2 sm:mb-4 bg-background dark:bg-gray-900 shadow-sm"
-          >
-            <div className="flex justify-between items-start mb-2 sm:mb-4">
-              <h4 className="font-medium text-xs sm:text-base">
-                Insurance #{index + 1}
-              </h4>
-              <button
-                type="button"
-                onClick={() => onRemoveInsurance(index)}
-                className="rounded-full px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs"
-              >
-                Remove
-              </button>
-            </div>
+        {formData.insurances?.map((insurance, index) => {
+          const hasProvider =
+            insurance.insuranceId &&
+            String(insurance.insuranceId) !== "0"
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                  Insurance Provider
-                </label>
-                <Popover
-                  open={insurancePopoverOpen[index] || false}
-                  onOpenChange={(open) =>
-                    setInsurancePopoverOpen((prev) => ({
-                      ...prev,
-                      [index]: open,
-                    }))
-                  }
+          return (
+            <div
+              key={index}
+              className="border border-border/60 rounded-xl sm:rounded-2xl p-2 sm:p-4 mb-2 sm:mb-4 bg-background dark:bg-gray-900 shadow-sm"
+            >
+              <div className="flex justify-between items-start mb-2 sm:mb-4">
+                <h4 className="font-medium text-xs sm:text-base">
+                  Insurance #{index + 1}
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => onRemoveInsurance(index)}
+                  className="rounded-full px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs"
                 >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={insurancePopoverOpen[index]}
-                      className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
-                    >
-                      {getInsuranceName(insurance.insuranceId ?? "")}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    className="w-full p-0 bg-background dark:bg-gray-900 border-border/70"
-                    align="start"
+                  Remove
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
+                    Insurance Provider
+                  </label>
+                  <Popover
+                    open={insurancePopoverOpen[index] || false}
+                    onOpenChange={(open) =>
+                      setInsurancePopoverOpen((prev) => ({
+                        ...prev,
+                        [index]: open,
+                      }))
+                    }
                   >
-                    <Command>
-                      <CommandInput placeholder="Search insurance..." />
-                      <CommandList>
-                        <CommandEmpty>No insurance found.</CommandEmpty>
-                        <CommandGroup>
-                          {availableInsurances.map((ins) => (
-                            <CommandItem
-                              key={ins.id}
-                              value={`${ins.name} ${ins.acronym}`}
-                              onSelect={() => {
-                                onUpdateInsurance(index, "insuranceId", ins.id)
-                                setInsurancePopoverOpen((prev) => ({
-                                  ...prev,
-                                  [index]: false,
-                                }))
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  String(insurance.insuranceId) ===
-                                    String(ins.id)
-                                    ? "opacity-100"
-                                    : "opacity-0",
-                                )}
-                              />
-                              {ins.name} ({ins.acronym})
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                  Card Number *
-                </label>
-                <Input
-                  type="text"
-                  value={insurance.insuranceCardNumber}
-                  onChange={(e) =>
-                    onUpdateInsurance(
-                      index,
-                      "insuranceCardNumber",
-                      e.target.value,
-                    )
-                  }
-                  placeholder="Enter card number"
-                  className={solidFieldClass}
-                  required
-                />
-              </div>
-            </div>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={insurancePopoverOpen[index]}
+                        className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
+                      >
+                        {getInsuranceName(insurance.insuranceId ?? "")}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-full p-0 bg-background dark:bg-gray-900 border-border/70"
+                      align="start"
+                    >
+                      <Command>
+                        <CommandInput placeholder="Search insurance..." />
+                        <CommandList>
+                          <CommandEmpty>No insurance found.</CommandEmpty>
+                          <CommandGroup>
+                            {availableInsurances.map((ins) => (
+                              <CommandItem
+                                key={ins.id}
+                                value={`${ins.name} ${ins.acronym}`}
+                                onSelect={() => {
+                                  onUpdateInsurance(index, "insuranceId", ins.id)
+                                  setInsurancePopoverOpen((prev) => ({
+                                    ...prev,
+                                    [index]: false,
+                                  }))
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    String(insurance.insuranceId) ===
+                                      String(ins.id)
+                                      ? "opacity-100"
+                                      : "opacity-0",
+                                  )}
+                                />
+                                {ins.name} ({ins.acronym})
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                  Providing Company / Employer *
-                </label>
-                <Input
-                  type="text"
-                  value={insurance.providingCompanyOrEmployer}
-                  onChange={(e) =>
-                    onUpdateInsurance(
-                      index,
-                      "providingCompanyOrEmployer",
-                      e.target.value,
-                    )
-                  }
-                  placeholder="Enter company or employer"
-                  className={solidFieldClass}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="mt-2 sm:mt-4">
-              <h5 className="text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-2">
-                Dominant Member Information
-                {isDominantMemberRequired(formData.dateOfBirth, true) && (
-                  <span className="text-red-500 ml-1">*</span>
+                {hasProvider && (
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
+                      Card Number *
+                    </label>
+                    <Input
+                      type="text"
+                      value={insurance.insuranceCardNumber}
+                      onChange={(e) =>
+                        onUpdateInsurance(
+                          index,
+                          "insuranceCardNumber",
+                          e.target.value,
+                        )
+                      }
+                      placeholder="Enter card number"
+                      className={solidFieldClass}
+                      required
+                    />
+                  </div>
                 )}
-                <span className="text-xs text-muted-foreground ml-2">
-                  (
-                  {isDominantMemberRequired(formData.dateOfBirth, true)
-                    ? "Required"
-                    : "Optional"}{" "}
-                  for patients ≤18 years)
-                </span>
-              </h5>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                    First Name
-                    {isDominantMemberRequired(formData.dateOfBirth, true) && (
-                      <span className="text-red-500 ml-1">*</span>
-                    )}
-                  </label>
-                  <Input
-                    type="text"
-                    value={insurance.dominantMember?.firstName || ""}
-                    onChange={(e) =>
-                      onUpdateInsurance(
-                        index,
-                        "dominantMember.firstName",
-                        e.target.value,
-                      )
-                    }
-                    placeholder="First name"
-                    className={solidFieldClass}
-                    required={isDominantMemberRequired(
-                      formData.dateOfBirth,
-                      true,
-                    )}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                    Last Name
-                    {isDominantMemberRequired(formData.dateOfBirth, true) && (
-                      <span className="text-red-500 ml-1">*</span>
-                    )}
-                  </label>
-                  <Input
-                    type="text"
-                    value={insurance.dominantMember?.lastName || ""}
-                    onChange={(e) =>
-                      onUpdateInsurance(
-                        index,
-                        "dominantMember.lastName",
-                        e.target.value,
-                      )
-                    }
-                    placeholder="Last name"
-                    className={solidFieldClass}
-                    required={isDominantMemberRequired(
-                      formData.dateOfBirth,
-                      true,
-                    )}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                    Phone
-                    {isDominantMemberRequired(formData.dateOfBirth, true) && (
-                      <span className="text-red-500 ml-1">*</span>
-                    )}
-                  </label>
-                  <Input
-                    type="tel"
-                    value={insurance.dominantMember?.phone || ""}
-                    onChange={(e) =>
-                      onUpdateInsurance(
-                        index,
-                        "dominantMember.phone",
-                        sanitizePhoneInput(e.target.value),
-                      )
-                    }
-                    placeholder="Phone number"
-                    className={solidFieldClass}
-                    required={isDominantMemberRequired(
-                      formData.dateOfBirth,
-                      true,
-                    )}
-                  />
-                </div>
               </div>
+
+              {hasProvider && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4 mt-2 sm:mt-4">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
+                      Providing Company / Employer *
+                    </label>
+                    <Input
+                      type="text"
+                      value={insurance.providingCompanyOrEmployer}
+                      onChange={(e) =>
+                        onUpdateInsurance(
+                          index,
+                          "providingCompanyOrEmployer",
+                          e.target.value,
+                        )
+                      }
+                      placeholder="Enter company or employer"
+                      className={solidFieldClass}
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              {hasProvider && (
+                <div className="mt-2 sm:mt-4">
+                  <h5 className="text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-2">
+                    Dominant Member Information
+                    {isDominantMemberRequired(formData.dateOfBirth, true) && (
+                      <span className="text-red-500 ml-1">*</span>
+                    )}
+                    <span className="text-xs text-muted-foreground ml-2">
+                      (
+                      {isDominantMemberRequired(formData.dateOfBirth, true)
+                        ? "Required"
+                        : "Optional"}{" "}
+                      for patients ≤18 years)
+                    </span>
+                  </h5>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
+                        First Name
+                        {isDominantMemberRequired(formData.dateOfBirth, true) && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </label>
+                      <Input
+                        type="text"
+                        value={insurance.dominantMember?.firstName || ""}
+                        onChange={(e) =>
+                          onUpdateInsurance(
+                            index,
+                            "dominantMember.firstName",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="First name"
+                        className={solidFieldClass}
+                        required={isDominantMemberRequired(
+                          formData.dateOfBirth,
+                          true,
+                        )}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
+                        Last Name
+                        {isDominantMemberRequired(formData.dateOfBirth, true) && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </label>
+                      <Input
+                        type="text"
+                        value={insurance.dominantMember?.lastName || ""}
+                        onChange={(e) =>
+                          onUpdateInsurance(
+                            index,
+                            "dominantMember.lastName",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="Last name"
+                        className={solidFieldClass}
+                        required={isDominantMemberRequired(
+                          formData.dateOfBirth,
+                          true,
+                        )}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
+                        Phone
+                        {isDominantMemberRequired(formData.dateOfBirth, true) && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </label>
+                      <Input
+                        type="tel"
+                        value={insurance.dominantMember?.phone || ""}
+                        onChange={(e) =>
+                          onUpdateInsurance(
+                            index,
+                            "dominantMember.phone",
+                            sanitizePhoneInput(e.target.value),
+                          )
+                        }
+                        placeholder="Phone number"
+                        className={solidFieldClass}
+                        required={isDominantMemberRequired(
+                          formData.dateOfBirth,
+                          true,
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </>
   )
