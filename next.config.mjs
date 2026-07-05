@@ -13,6 +13,10 @@ const nextConfig = {
         source: '/graphql',
         destination: `${API_BASE_URL}/graphql`,
       },
+      {
+        source: '/api/:path*',
+        destination: `${API_BASE_URL}/api/:path*`,
+      },
     ]
   },
 }
