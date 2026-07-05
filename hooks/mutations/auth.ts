@@ -189,6 +189,7 @@ export const UPDATE_CLINIC_PROFILE_MUTATION = gql`
       data {
         id
         name
+        username
         address
         contacts {
           contactType

@@ -89,6 +89,7 @@ export default function ClinicProfilePage() {
     return JSON.stringify({
       id: sourceProfile.id,
       name: sourceProfile.name || "",
+      username: sourceProfile.username || "",
       address: sourceProfile.address || "",
       tinNumber: sourceProfile.tinNumber || "",
       logoUrl: sourceProfile.logoUrl || "",
@@ -98,6 +99,7 @@ export default function ClinicProfilePage() {
   }, [sourceProfile]);
 
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [address, setAddress] = useState("");
   const [tinNumber, setTinNumber] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
@@ -108,6 +110,7 @@ export default function ClinicProfilePage() {
 
   useEffect(() => {
     setName(sourceProfile?.name || "");
+    setUsername(sourceProfile?.username || "");
     setAddress(sourceProfile?.address || "");
     setTinNumber(sourceProfile?.tinNumber || "");
     setLogoUrl(sourceProfile?.logoUrl || "");
@@ -197,6 +200,7 @@ export default function ClinicProfilePage() {
 
       const response = await upsertClinicProfile({
         name: trimmedName,
+        username: username.trim() || undefined,
         address: address.trim() || undefined,
         tinNumber: trimmedTinNumber,
         logoUrl: logoUrl.trim() || undefined,
@@ -370,6 +374,17 @@ export default function ClinicProfilePage() {
                   value={tinNumber}
                   onChange={(e) => setTinNumber(e.target.value)}
                   placeholder="TIN number"
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-1">
+                <label className="text-xs font-semibold text-muted-foreground">
+                  Username
+                </label>
+                <Input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Clinic username"
                   className="rounded-xl"
                 />
               </div>

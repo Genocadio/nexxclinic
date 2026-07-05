@@ -9,6 +9,7 @@ export function normalizeClinicProfile(profile: ClinicProfile | null | undefined
   if (!profile) return null
 
   const normalizedName = typeof profile.name === "string" ? profile.name.trim() : ""
+  const normalizedUsername = typeof profile.username === "string" ? profile.username.trim() : ""
   const normalizedAddress = typeof profile.address === "string" ? profile.address.trim() : ""
   const normalizedTinNumber = typeof profile.tinNumber === "string" ? profile.tinNumber.trim() : ""
   const normalizedLogoUrl = typeof profile.logoUrl === "string" ? profile.logoUrl.trim() : ""
@@ -16,6 +17,7 @@ export function normalizeClinicProfile(profile: ClinicProfile | null | undefined
   return {
     id: String(profile.id || ""),
     name: normalizedName || undefined,
+    username: normalizedUsername || undefined,
     address: normalizedAddress || undefined,
     contacts: profile.contacts ?? [],
     tinNumber: normalizedTinNumber || undefined,
@@ -58,7 +60,7 @@ export function setStoredClinicProfile(profile: ClinicProfile | null) {
 }
 
 export function getClinicDisplayName(profile: ClinicProfile | null | undefined) {
-  return profile?.name?.trim() || DEFAULT_CLINIC_NAME
+  return profile?.username?.trim() || profile?.name?.trim() || DEFAULT_CLINIC_NAME
 }
 
 export function getClinicLogoUrl(profile: ClinicProfile | null | undefined) {

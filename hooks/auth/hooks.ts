@@ -232,6 +232,7 @@ export function useUpsertClinicProfile() {
 
   const upsertClinicProfile = async (input: {
     name?: string
+    username?: string
     address?: string
     contacts?: ClinicContact[] | null
     tinNumber?: string
@@ -242,6 +243,7 @@ export function useUpsertClinicProfile() {
       variables: {
         input: {
           name: input.name,
+          username: input.username,
           address: input.address,
           contacts: input.contacts,
           tinNumber: input.tinNumber,
