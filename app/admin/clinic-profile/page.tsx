@@ -330,14 +330,6 @@ export default function ClinicProfilePage() {
                     {sourceProfile.tinNumber || "-"}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-border/50 p-4 bg-background/60">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Logo URL
-                  </p>
-                  <p className="font-medium text-foreground mt-1 break-all">
-                    {sourceProfile.logoUrl || "-"}
-                  </p>
-                </div>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
