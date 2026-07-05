@@ -1,4 +1,5 @@
 import type { ClinicProfile, ClinicContactType } from "@/lib/api-types"
+import { getMediaUrl } from "@/lib/media-url"
 
 export const DEFAULT_CLINIC_NAME = "med"
 export const DEFAULT_CLINIC_LOGO_URL = "/FullLogo.png"
@@ -61,5 +62,5 @@ export function getClinicDisplayName(profile: ClinicProfile | null | undefined) 
 }
 
 export function getClinicLogoUrl(profile: ClinicProfile | null | undefined) {
-  return profile?.logoUrl?.trim() || DEFAULT_CLINIC_LOGO_URL
+  return getMediaUrl(profile?.logoUrl?.trim()) || DEFAULT_CLINIC_LOGO_URL
 }

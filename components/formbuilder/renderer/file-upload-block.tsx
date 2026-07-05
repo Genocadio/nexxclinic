@@ -3,6 +3,7 @@
 import React from "react";
 import { MediaUploader } from "@/components/ui/media-uploader";
 import type { FormBlock } from "@/lib/formbuilder-storage";
+import { getMediaUrl } from "@/lib/media-url";
 
 export type UploadedAnswerFile = {
   name: string;
@@ -90,7 +91,7 @@ export function FileUploadAnswerBlock({
             <li key={index} className="flex items-center gap-2 text-sm">
               {isImage(file) ? (
                 <img
-                  src={file.url}
+                  src={getMediaUrl(file.url)}
                   alt={file.name}
                   className="h-10 w-10 rounded object-cover border border-border flex-shrink-0"
                 />

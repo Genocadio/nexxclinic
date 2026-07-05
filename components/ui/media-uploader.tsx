@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { uploadFile, type UploadResult } from '@/lib/storage-service'
 import { Upload, X, ImageIcon, FileText, Film, FolderOpen } from 'lucide-react'
+import { getMediaUrl } from '@/lib/media-url'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -154,7 +155,7 @@ export function MediaUploader({
     return (
       <div className={cn('flex items-center gap-3', className)}>
         <img
-          src={currentUrl}
+          src={getMediaUrl(currentUrl)}
           alt='Current media'
           className='size-16 rounded-md object-cover border border-border shrink-0'
         />

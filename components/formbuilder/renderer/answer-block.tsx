@@ -12,6 +12,7 @@ import {
 import { DiagnosticAnswerBlock, LabAnswerBlock, MedFullAnswerBlock, MedMiniAnswerBlock, ProductListenerAnswerBlock } from "./medical-answer-blocks";
 import { isBlockViolating, shouldRenderBlock, replacePlaceholders } from "./utils";
 import { FileUploadAnswerBlock, type UploadedAnswerFile } from "./file-upload-block";
+import { getMediaUrl } from "@/lib/media-url";
 import {
   LayoutAnswerBlock,
   ParagraphAnswerBlock,
@@ -342,7 +343,7 @@ export function AnswerBlock({
           className={`my-4 ${block.align === "center" ? "text-center" : block.align === "right" ? "text-right" : "text-left"}`}
         >
           <img
-            src={block.mediaUrl}
+            src={getMediaUrl(block.mediaUrl)}
             alt={block.mediaCaption || ""}
             className={`${widthClass} ${mediaAlignClass} rounded-md`}
           />

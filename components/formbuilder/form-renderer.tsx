@@ -34,6 +34,7 @@ import {
 } from "./renderer/utils";
 import { createExtensionBlockHandlersResolver } from "./extensions";
 import { useAuth } from "@/lib/auth-context";
+import { getMediaUrl } from "@/lib/media-url";
 import {
   ChevronLeft,
   ChevronRight,
@@ -258,7 +259,7 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
             >
               {clinicProfile?.logoUrl && (
                 <img
-                  src={clinicProfile.logoUrl}
+                  src={getMediaUrl(clinicProfile.logoUrl)}
                   alt="Clinic Logo"
                   className="h-12 w-auto mb-4"
                 />

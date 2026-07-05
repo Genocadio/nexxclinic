@@ -1,3 +1,5 @@
+import { getMediaUrl } from "@/lib/media-url";
+
 export interface UploadResult {
   path: string;
   url: string;
@@ -44,7 +46,7 @@ export async function uploadFile(
 
   return {
     path: result.data?.id || file.name,
-    url: result.data?.url || '',
+    url: getMediaUrl(result.data?.url) || '',
     name: file.name,
   };
 }

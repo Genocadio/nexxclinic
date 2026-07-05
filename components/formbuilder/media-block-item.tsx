@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { FormBlock } from "@/lib/formbuilder-storage";
 import { MediaUploader } from "@/components/ui/media-uploader";
 import { Input } from "@/components/ui/input";
+import { getMediaUrl } from "@/lib/media-url";
 import {
   ImagePlus,
   AlignLeft,
@@ -94,7 +95,7 @@ export function MediaEmbedBlockItem({
         {block.mediaUrl ? (
           <div className={cn(WIDTH_CLASSES[width])}>
             <img
-              src={block.mediaUrl}
+              src={getMediaUrl(block.mediaUrl)}
               alt={block.mediaCaption ?? "Embedded image"}
               className="w-full rounded-md object-contain"
             />
