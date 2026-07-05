@@ -423,7 +423,10 @@ export function useUpdateMyProfile() {
     name?: string
     email?: string
     phoneNumber?: string
-    title?: string
+    gender?: string
+    dateOfBirth?: string
+    profilePhotoUrl?: string
+    username?: string
   }) => {
     try {
       const [firstName, ...lastNameParts] = (input.name || '').trim().split(/\s+/).filter(Boolean)
@@ -435,6 +438,10 @@ export function useUpdateMyProfile() {
             lastName,
             email: input.email || undefined,
             phoneNumber: input.phoneNumber || undefined,
+            gender: input.gender || undefined,
+            dateOfBirth: input.dateOfBirth || undefined,
+            profilePhotoUrl: input.profilePhotoUrl || undefined,
+            username: input.username || undefined,
           },
         },
       })

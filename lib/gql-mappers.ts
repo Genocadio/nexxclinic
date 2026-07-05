@@ -87,6 +87,9 @@ export type GqlWorker = GqlWorkerRef & {
   accountStatus?: string | null;
   roles?: string[] | null;
   departments?: Array<{ id: string; name: string }> | null;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  profilePhotoUrl?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -305,6 +308,9 @@ export function mapGqlWorker(worker?: GqlWorker | null): Worker {
         supportRequests: false,
       }),
     ),
+    dateOfBirth: worker?.dateOfBirth || undefined,
+    gender: worker?.gender || undefined,
+    profilePhotoUrl: worker?.profilePhotoUrl || undefined,
     createdAt: worker?.createdAt || EMPTY_TIMESTAMP,
     updatedAt: worker?.updatedAt || EMPTY_TIMESTAMP,
   };

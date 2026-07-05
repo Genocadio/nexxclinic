@@ -254,6 +254,9 @@ export interface Worker {
   email?: string | null;
   phoneNumber?: string | null;
   username?: string | null;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  profilePhotoUrl?: string | null;
   accountStatus: AccountStatus;
   roles: RoleName[];
   departments: Department[];

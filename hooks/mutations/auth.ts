@@ -141,6 +141,23 @@ export const UPDATE_MY_PROFILE_MUTATION = gql`
     updateMyProfile(input: $input) {
       status
       message
+      data {
+        id
+        firstName
+        lastName
+        email
+        phoneNumber
+        username
+        dateOfBirth
+        gender
+        profilePhotoUrl
+        accountStatus
+        roles
+        departments {
+          id
+          name
+        }
+      }
     }
   }
 `;

@@ -33,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type FieldErrors = Partial<
-  Record<"email" | "password" | "name" | "phoneNumber" | "phone" | "title", string>
+  Record<"email" | "password" | "name" | "phone", string>
 >;
 
 export function AuthPageContent() {
@@ -83,7 +83,6 @@ useEffect(() => {
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [title, setTitle] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isLoadingForm, setIsLoadingForm] = useState(false);
 
@@ -175,6 +174,33 @@ useEffect(() => {
     }));
   };
 
+  const validatePassword = (pw: string, fullName: string, emailAddr: string): string | null => {
+    if (!pw) return "Password is required.";
+    if (pw.length < 8) return "Password must be at least 12 characters.";
+    if (!/[A-Z]/.test(pw)) return "Password must include at least one uppercase letter.";
+    if (!/[a-z]/.test(pw)) return "Password must include at least one lowercase letter.";
+    if (!/[0-9]/.test(pw)) return "Password must include at least one digit.";
+    if (!/[^a-zA-Z0-9]/.test(pw)) return "Password must include at least one special character.";
+    if (/\s/.test(pw)) return "Password cannot contain whitespace.";
+
+    const lowered = pw.toLowerCase();
+    if (fullName) {
+      for (const part of fullName.split(/\s+/)) {
+        if (part && lowered.includes(part.toLowerCase())) {
+          return "Password cannot contain your name.";
+        }
+      }
+    }
+    if (emailAddr) {
+      const prefix = emailAddr.split("@")[0].toLowerCase();
+      if (prefix && lowered.includes(prefix)) {
+        return "Password cannot contain your email prefix.";
+      }
+    }
+
+    return null;
+  };
+
   const validateForm = (currentMode: "login" | "register"): FieldErrors => {
     const nextErrors: FieldErrors = {};
 
@@ -184,32 +210,34 @@ useEffect(() => {
         nextErrors.email = emailOrPhoneValidation.error;
       }
     } else {
-      if (!email.trim()) {
-        nextErrors.email = "Email is required";
-      } else if (!email.includes("@") || !email.includes(".")) {
-        nextErrors.email = "Please enter a valid email address";
-      }
+      const hasEmail = email.trim().length > 0;
+      const hasPhone = phoneNumber.trim().length > 0;
 
-      if (!phoneNumber.trim()) {
-        nextErrors.phone = "Phone number is required";
+      if (!hasEmail && !hasPhone) {
+        nextErrors.email = "Email or phone number is required";
+        nextErrors.phone = "Email or phone number is required";
       } else {
-        const phoneValidation = validateEmailOrPhone(phoneNumber);
-        if (!phoneValidation.valid) {
-          if (phoneNumber.includes("@")) {
-            nextErrors.phone = "Please enter a valid phone number, not email";
-          } else {
-            nextErrors.phone = "Please enter a valid phone number";
+        if (hasEmail) {
+          if (!email.includes("@") || !email.includes(".")) {
+            nextErrors.email = "Please enter a valid email address";
+          }
+        }
+        if (hasPhone) {
+          const phoneValidation = validateEmailOrPhone(phoneNumber);
+          if (!phoneValidation.valid) {
+            nextErrors.phone = phoneNumber.includes("@")
+              ? "Please enter a valid phone number, not email"
+              : "Please enter a valid phone number";
           }
         }
       }
     }
 
-    if (currentMode === "register" && !password.trim()) {
-      nextErrors.password = "Password is required";
-    }
-
     if (currentMode === "register") {
       if (!name.trim()) nextErrors.name = "Full name is required";
+
+      const pwError = validatePassword(password, name, email);
+      if (pwError) nextErrors.password = pwError;
     }
 
     return nextErrors;
@@ -313,7 +341,7 @@ useEffect(() => {
     setIsLoadingForm(true);
 
     try {
-      const result = await register(name, email, password, phoneNumber, title);
+      const result = await register(name, email, password, phoneNumber);
       if (result.success) {
         toast.success(result.message || "Registration successful");
         switchMode("login");
@@ -445,7 +473,7 @@ useEffect(() => {
                   {errors.name && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.name}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Email Address *</label>
+                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Email Address</label>
                   <Input
                     type="email"
                     disabled={isLoadingForm}
@@ -461,7 +489,7 @@ useEffect(() => {
                   {errors.email && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.email}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Phone Number *</label>
+                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Phone Number</label>
                   <Input
                     type="tel"
                     disabled={isLoadingForm}
@@ -475,21 +503,7 @@ useEffect(() => {
                     className={`${baseInputClass} ${errors.phone ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
                   />
                   {errors.phone && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.phone}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Title</label>
-                  <Input
-                    type="text"
-                    disabled={isLoadingForm}
-                    value={title}
-                    onChange={(e) => {
-                      setTitle(e.target.value);
-                      clearError("title");
-                    }}
-                    placeholder="Enter your title"
-                    className={`${baseInputClass} ${errors.title ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
-                  />
-                  {errors.title && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.title}</p>}
+                  <p className="mt-1 text-xs text-muted-foreground">At least one contact method required</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Password</label>
@@ -510,6 +524,7 @@ useEffect(() => {
                     </button>
                   </div>
                   {errors.password && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.password}</p>}
+                  <p className="mt-1 text-xs text-muted-foreground">Min 12 chars, upper &amp; lowercase, digit, special character</p>
                 </div>
                 <Button type="submit" disabled={isLoadingForm} className="w-full mt-2 rounded-xl">
                   {isLoadingForm ? "Registering..." : "Register"}

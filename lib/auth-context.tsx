@@ -36,7 +36,7 @@ interface AuthContextType {
     email: string,
     password: string,
     phoneNumber: string,
-    title: string
+    title?: string
   ) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   setClinicProfile: (clinicProfile: ClinicProfile | null) => void;
@@ -169,7 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email: string,
     password: string,
     phoneNumber: string,
-    title: string
+    title?: string
   ): Promise<{ success: boolean; message?: string }> => {
     try {
       const response: RegisterResponse = await registerMutation(
