@@ -176,7 +176,7 @@ useEffect(() => {
 
   const validatePassword = (pw: string, fullName: string, emailAddr: string): string | null => {
     if (!pw) return "Password is required.";
-    if (pw.length < 8) return "Password must be at least 12 characters.";
+    if (pw.length < 8) return "Password must be at least 8 characters.";
     if (!/[A-Z]/.test(pw)) return "Password must include at least one uppercase letter.";
     if (!/[a-z]/.test(pw)) return "Password must include at least one lowercase letter.";
     if (!/[0-9]/.test(pw)) return "Password must include at least one digit.";
@@ -200,6 +200,34 @@ useEffect(() => {
 
     return null;
   };
+
+  const passwordStrength = useMemo(() => {
+    const pw = password
+    if (!pw) return null
+    const checks = {
+      length: pw.length >= 8,
+      upper: /[A-Z]/.test(pw),
+      lower: /[a-z]/.test(pw),
+      digit: /[0-9]/.test(pw),
+      special: /[^a-zA-Z0-9]/.test(pw),
+      noWhitespace: !/\s/.test(pw),
+      noName: (() => {
+        if (!name) return true
+        const lowered = pw.toLowerCase()
+        return !name.split(/\s+/).some((part) => part && lowered.includes(part.toLowerCase()))
+      })(),
+      noEmailPrefix: (() => {
+        if (!email) return true
+        const prefix = email.split("@")[0].toLowerCase()
+        return !prefix || !pw.toLowerCase().includes(prefix)
+      })(),
+    }
+    const score = [checks.length, checks.upper, checks.lower, checks.digit, checks.special].filter(Boolean).length
+    const label = score >= 4 ? "Strong" : score >= 2 ? "Medium" : "Easy"
+    const color = score >= 4 ? "bg-green-500" : score >= 2 ? "bg-amber-500" : "bg-red-500"
+    const textColor = score >= 4 ? "text-green-600" : score >= 2 ? "text-amber-600" : "text-red-600"
+    return { score, label, color, textColor, checks }
+  }, [password, name, email])
 
   const validateForm = (currentMode: "login" | "register"): FieldErrors => {
     const nextErrors: FieldErrors = {};
@@ -524,7 +552,35 @@ useEffect(() => {
                     </button>
                   </div>
                   {errors.password && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.password}</p>}
-                  <p className="mt-1 text-xs text-muted-foreground">Min 12 chars, upper &amp; lowercase, digit, special character</p>
+                  {passwordStrength && (
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${passwordStrength.color}`} style={{ width: `${(passwordStrength.score / 5) * 100}%` }} />
+                        </div>
+                        <span className={`text-xs font-medium ${passwordStrength.textColor}`}>{passwordStrength.label}</span>
+                      </div>
+                      <ul className="space-y-0.5">
+                        {[
+                          { key: "length", label: "At least 8 characters" },
+                          { key: "upper", label: "Uppercase letter" },
+                          { key: "lower", label: "Lowercase letter" },
+                          { key: "digit", label: "Digit" },
+                          { key: "special", label: "Special character" },
+                          { key: "noWhitespace", label: "No whitespace" },
+                          { key: "noName", label: "Doesn't contain your name" },
+                          { key: "noEmailPrefix", label: "Doesn't contain your email prefix" },
+                        ].map(({ key, label }) => {
+                          const ok = passwordStrength.checks[key as keyof typeof passwordStrength.checks]
+                          return (
+                            <li key={key} className={`text-xs flex items-center gap-1.5 ${ok ? "text-green-600" : "text-muted-foreground"}`}>
+                              {ok ? "✓" : "○"} {label}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  )}
                 </div>
                 <Button type="submit" disabled={isLoadingForm} className="w-full mt-2 rounded-xl">
                   {isLoadingForm ? "Registering..." : "Register"}

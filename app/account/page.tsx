@@ -1,25 +1,26 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Camera } from "lucide-react"
+import { ArrowLeft, Camera, Pencil } from "lucide-react"
 import { toast } from "react-toastify"
 
 import Header from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { MediaUploader } from "@/components/ui/media-uploader"
 import { useChangePassword, useUpdateMyProfile } from "@/hooks/auth-hooks"
 import { useAuth } from "@/lib/auth-context"
 import { sanitizeEmailInput, sanitizePhoneInput } from "@/lib/validation-utils"
 import { getMediaUrl } from "@/lib/media-url"
 import { Gender } from "@/lib/api-types"
+import { uploadFile } from "@/lib/storage-service"
 
 export default function AccountPage() {
   const router = useRouter()
   const { doctor } = useAuth()
   const { updateMyProfile, loading: updatingProfile } = useUpdateMyProfile()
   const { changePassword, loading: changingPassword } = useChangePassword()
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -33,16 +34,57 @@ export default function AccountPage() {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
 
+  const initial = useRef({} as Record<string, string>)
+
   useEffect(() => {
     if (!doctor) return
-    setName(doctor.name || "")
-    setEmail(doctor.email || "")
-    setPhoneNumber(doctor.phoneNumber || "")
-    setUsername(doctor.username || "")
-    setDateOfBirth(doctor.dateOfBirth || "")
-    setGender(doctor.gender || "")
-    setProfilePhotoUrl(doctor.profilePhotoUrl || "")
+    const vals = {
+      name: doctor.name || "",
+      email: doctor.email || "",
+      phoneNumber: doctor.phoneNumber || "",
+      username: doctor.username || "",
+      dateOfBirth: doctor.dateOfBirth || "",
+      gender: doctor.gender || "",
+      profilePhotoUrl: doctor.profilePhotoUrl || "",
+    }
+    initial.current = vals
+    setName(vals.name)
+    setEmail(vals.email)
+    setPhoneNumber(vals.phoneNumber)
+    setUsername(vals.username)
+    setDateOfBirth(vals.dateOfBirth)
+    setGender(vals.gender)
+    setProfilePhotoUrl(vals.profilePhotoUrl)
   }, [doctor])
+
+  const hasChanges = useMemo(() => {
+    const cur = { name, email, phoneNumber, username, dateOfBirth, gender, profilePhotoUrl }
+    return Object.keys(cur).some((k) => cur[k as keyof typeof cur] !== initial.current[k])
+  }, [name, email, phoneNumber, username, dateOfBirth, gender, profilePhotoUrl])
+
+  const discard = () => {
+    setName(initial.current.name || "")
+    setEmail(initial.current.email || "")
+    setPhoneNumber(initial.current.phoneNumber || "")
+    setUsername(initial.current.username || "")
+    setDateOfBirth(initial.current.dateOfBirth || "")
+    setGender(initial.current.gender || "")
+    setProfilePhotoUrl(initial.current.profilePhotoUrl || "")
+  }
+
+  const handlePhotoPick = () => fileInputRef.current?.click()
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const result = await uploadFile(file)
+      setProfilePhotoUrl(result.url)
+    } catch {
+      toast.error("Failed to upload photo")
+    }
+    e.target.value = ""
+  }
 
   const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -65,6 +107,15 @@ export default function AccountPage() {
       if (response?.status === "SUCCESS" && response.data) {
         localStorage.setItem("doctor", JSON.stringify(response.data))
         window.dispatchEvent(new Event("auth-user-updated"))
+        initial.current = {
+          name,
+          email,
+          phoneNumber,
+          username: username || "",
+          dateOfBirth: dateOfBirth || "",
+          gender: gender || "",
+          profilePhotoUrl: profilePhotoUrl || "",
+        }
         toast.success("Profile updated")
         return
       }
@@ -132,7 +183,7 @@ export default function AccountPage() {
           <h2 className="text-lg font-semibold text-foreground">Profile Information</h2>
           <form onSubmit={handleUpdateProfile} className="space-y-4">
             <div className="flex items-center gap-6">
-              <div className="relative shrink-0">
+              <button type="button" onClick={handlePhotoPick} className="relative shrink-0 group">
                 {profilePhotoUrl ? (
                   <img
                     src={getMediaUrl(profilePhotoUrl)}
@@ -144,16 +195,17 @@ export default function AccountPage() {
                     <Camera className="h-6 w-6 text-muted-foreground/60" />
                   </div>
                 )}
-                <MediaUploader
+                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <Pencil className="h-5 w-5 text-white" />
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
                   accept="image/*"
-                  multiple={false}
-                  currentUrl={profilePhotoUrl || undefined}
-                  onUploaded={(files) => {
-                    if (files[0]) setProfilePhotoUrl(files[0].url)
-                  }}
-                  onError={(err) => toast.error(err)}
+                  className="hidden"
+                  onChange={handlePhotoChange}
                 />
-              </div>
+              </button>
               <div className="text-sm text-muted-foreground">
                 <p className="font-medium text-foreground">{doctor?.name || "User"}</p>
                 <p>{doctor?.email}</p>
@@ -178,7 +230,7 @@ export default function AccountPage() {
               <select
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
-                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
               >
                 <option value="">Select gender</option>
                 <option value={Gender.MALE}>Male</option>
@@ -186,9 +238,17 @@ export default function AccountPage() {
                 <option value={Gender.OTHER}>Other</option>
               </select>
             </div>
-            <Button type="submit" className="rounded-full" disabled={updatingProfile}>
-              {updatingProfile ? "Updating..." : "Update Profile"}
-            </Button>
+
+            {hasChanges && (
+              <div className="flex items-center gap-3">
+                <Button type="submit" className="rounded-full" disabled={updatingProfile}>
+                  {updatingProfile ? "Updating..." : "Update Profile"}
+                </Button>
+                <Button type="button" variant="outline" className="rounded-full" onClick={discard} disabled={updatingProfile}>
+                  Discard
+                </Button>
+              </div>
+            )}
           </form>
         </section>
 
