@@ -42,6 +42,12 @@ export default function ConsultationPage() {
         }
     }, [loading, visit, error, router]);
 
+    useEffect(() => {
+        if (autoPrint && visit) {
+            // Your print logic here
+        }
+    }, [autoPrint, visit]);
+
     const consultationSkeleton = (
         <div className="min-h-screen bg-background">
             <Header doctor={doctor} />
@@ -99,14 +105,6 @@ export default function ConsultationPage() {
             backendId: String(line.id),
         }),
     );
-
-    // Handle auto-print if needed
-    useEffect(() => {
-        if (autoPrint && visit) {
-            // Your print logic here
-            // window.print() or whatever print functionality you need
-        }
-    }, [autoPrint, visit]);
 
     return (
         <div className="min-h-screen bg-background">
