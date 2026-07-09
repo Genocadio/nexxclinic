@@ -207,9 +207,17 @@ export default function ManageUsersPage() {
       return;
     }
 
-    if (!editingUserId && !email) {
-      toast.error("Email is required for new users");
-      return;
+    if (!editingUserId) {
+      const missing: string[] = [];
+      if (!email && !phoneNumber) missing.push("email or phone number");
+      if (!gender) missing.push("gender");
+      if (!dateOfBirth) missing.push("date of birth");
+      if (missing.length > 0) {
+        toast.error(
+          `Please fill in: ${missing.join(", ")}`,
+        );
+        return;
+      }
     }
 
     try {
