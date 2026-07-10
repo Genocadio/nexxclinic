@@ -280,6 +280,7 @@ export interface Patient {
   gender: Gender;
   primaryPhoneNumber?: string | null;
   alternativePhone?: string | null;
+  cell?: string | null;
   village?: string | null;
   city?: string | null;
   district?: string | null;

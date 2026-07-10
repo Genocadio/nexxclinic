@@ -78,6 +78,7 @@ export interface RegisterPatientInput {
       province?: string | null;
       district?: string | null;
       sector?: string | null;
+      cell?: string | null;
       village?: string | null;
       address?: string | null;
     } | null;
@@ -399,6 +400,7 @@ export function useRegisterPatient() {
               : input.gender || null,
         primaryPhoneNumber: input.contactInfo?.phone || null,
         alternativePhone: null,
+        cell: input.contactInfo?.address?.cell || null,
         village: input.contactInfo?.address?.village || null,
         city: input.contactInfo?.address?.sector || null,
         district: input.contactInfo?.address?.district || null,
@@ -496,6 +498,7 @@ export function useUpdatePatient() {
         gender: input.gender ?? null,
         primaryPhoneNumber: input.primaryPhoneNumber ?? null,
         alternativePhone: input.alternativePhone ?? null,
+        cell: input.cell ?? null,
         village: input.village ?? null,
         city: input.city ?? null,
         district: input.district ?? null,

@@ -532,6 +532,21 @@ export default function PatientFormFields({
 
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
+                    Cell
+                  </label>
+                  <Input
+                    type="text"
+                    value={fieldValue(formData.contactInfo?.address?.cell)}
+                    onChange={(e) =>
+                      onFieldChange("contactInfo.address.cell", e.target.value)
+                    }
+                    placeholder="Cell"
+                    className={solidFieldClass}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                     Village
                   </label>
                   <Input
@@ -578,6 +593,15 @@ export default function PatientFormFields({
                     onFieldChange("contactInfo.address.sector", e.target.value)
                   }
                   placeholder="Sector / City"
+                  className={solidFieldClass}
+                />
+                <Input
+                  type="text"
+                  value={fieldValue(formData.contactInfo?.address?.cell)}
+                  onChange={(e) =>
+                    onFieldChange("contactInfo.address.cell", e.target.value)
+                  }
+                  placeholder="Cell"
                   className={solidFieldClass}
                 />
                 <Input

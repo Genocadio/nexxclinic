@@ -1,3 +1,5 @@
+import { getRuntimeConfig } from "@/lib/runtime-config"
+
 type InvoiceMutationResult =
   | {
       status?: string;
@@ -19,6 +21,14 @@ export function getInvoiceErrorMessage(
   return fromMessages || fallback;
 }
 
+function buildFullUrl(path: string): string {
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const base = getRuntimeConfig().API_BASE_URL || "";
+  const separator = base.endsWith("/") ? "" : "/";
+  const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+  return `${base}${separator}${cleanPath}`;
+}
+
 /** Always generate (or retrieve) invoice via backend generateInvoice — never getInvoice first. */
 export async function resolveInvoiceUrl(
   billId: string,
@@ -27,18 +37,16 @@ export async function resolveInvoiceUrl(
   const response = await generateInvoice(billId);
   const signedUrl = response?.data?.signedUrl;
   if (response?.status === "SUCCESS" && signedUrl) {
-    return signedUrl;
+    return buildFullUrl(signedUrl);
   }
   throw new Error(getInvoiceErrorMessage(response));
 }
 
 export function openInvoicePreview(urlOrBase64: string) {
-  if (
-    urlOrBase64.startsWith("http://") ||
-    urlOrBase64.startsWith("https://") ||
-    urlOrBase64.startsWith("/")
-  ) {
-    const previewWindow = window.open(urlOrBase64, "_blank");
+  const fullUrl = buildFullUrl(urlOrBase64);
+
+  if (fullUrl.startsWith("http://") || fullUrl.startsWith("https://")) {
+    const previewWindow = window.open(fullUrl, "_blank");
     if (!previewWindow) {
       throw new Error(
         "Unable to open invoice preview window. Please allow pop-ups.",

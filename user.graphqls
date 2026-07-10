@@ -303,6 +303,7 @@ type Patient {
   primaryPhoneNumber: String
   alternativePhone: String
   village: String
+  cell: String
   city: String
   district: String
   postalAddress: String
@@ -870,7 +871,7 @@ input WorkerDocumentInput {
 input SelfRegisterInput {
   firstName: String!
   lastName: String
-  gender: Gender
+  gender: Gender!
   dateOfBirth: String
   profilePhotoUrl: String
   email: String
@@ -884,8 +885,8 @@ input SelfRegisterInput {
 input AdminCreateUserInput {
   firstName: String!
   lastName: String
-  gender: Gender
-  dateOfBirth: String
+  gender: Gender!
+  dateOfBirth: String!
   profilePhotoUrl: String
   email: String
   phoneNumber: String
@@ -995,6 +996,7 @@ input CreatePatientInput {
   primaryPhoneNumber: String
   alternativePhone: String
   village: String
+  cell: String
   city: String
   district: String
   postalAddress: String
@@ -1015,6 +1017,7 @@ input UpdatePatientInput {
   primaryPhoneNumber: String
   alternativePhone: String
   village: String
+  cell: String
   city: String
   district: String
   postalAddress: String

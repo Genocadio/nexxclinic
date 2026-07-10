@@ -260,6 +260,13 @@ export function BillingConfirmSheet({
                 }
                 className="mt-1 h-9 tabular-nums"
               />
+              {amountPaid > totals.totalAmount ? (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                  Amount paid exceeds the total amount due by{" "}
+                  {(amountPaid - totals.totalAmount).toLocaleString()} RWF. The
+                  excess will be recorded as overpayment.
+                </p>
+              ) : null}
             </div>
 
             <div className="flex justify-between text-xs">

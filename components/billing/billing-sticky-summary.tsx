@@ -194,7 +194,7 @@ export function BillingStickySummary({
                         generatingInvoice ? "Loading PDF…" : "Print invoice"
                       }
                       onClick={onPrint}
-                      disabled={generatingInvoice || !canAct}
+                      disabled={generatingInvoice}
                     />
                   </>
                 )}

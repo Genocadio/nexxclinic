@@ -60,6 +60,7 @@ export type GqlPatient = {
   gender?: string | null;
   primaryPhoneNumber?: string | null;
   alternativePhone?: string | null;
+  cell?: string | null;
   village?: string | null;
   city?: string | null;
   district?: string | null;
@@ -327,6 +328,7 @@ export function mapGqlPatient(patient: GqlPatient): Patient {
     gender: parseGender(patient.gender),
     primaryPhoneNumber: patient.primaryPhoneNumber,
     alternativePhone: patient.alternativePhone,
+    cell: patient.cell,
     village: patient.village,
     city: patient.city,
     district: patient.district,

@@ -925,7 +925,23 @@ export function BillingPageContent() {
     if (!billingData) return;
 
     if (existingVisitBilling) {
-      await handlePreviewBilling();
+      const firstDeptBilling = existingVisitBilling.departments?.[0];
+      const firstInsuranceBilling = firstDeptBilling?.insuranceBillings?.[0];
+      if (firstInsuranceBilling?.id) {
+        try {
+          const invoiceUrl = await resolveInvoiceUrl(
+            firstInsuranceBilling.id,
+            generateInvoice,
+          );
+          openInvoicePreview(invoiceUrl);
+        } catch (err: unknown) {
+          const message =
+            err instanceof Error ? err.message : "Failed to generate invoice";
+          toast.error(message);
+        }
+      } else {
+        toast.warning("No invoice available for this billing yet.");
+      }
       return;
     }
 

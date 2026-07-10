@@ -207,6 +207,7 @@ export interface UpdatePatientInput {
   gender?: Gender
   primaryPhoneNumber?: string
   alternativePhone?: string
+  cell?: string
   village?: string
   city?: string
   district?: string
