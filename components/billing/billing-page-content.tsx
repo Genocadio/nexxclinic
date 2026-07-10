@@ -351,7 +351,7 @@ export function BillingPageContent() {
     );
   };
 
-  const handleNotesChange = (notes: string) => {
+  const handleNotesChange = useCallback((notes: string) => {
     setBillingData((prev) =>
       prev
         ? {
@@ -361,7 +361,7 @@ export function BillingPageContent() {
           }
         : prev,
     );
-  };
+  }, []);
 
   const itemsByService = (serviceName: string) => {
     if (!billingData) return [] as BillingItem[];
