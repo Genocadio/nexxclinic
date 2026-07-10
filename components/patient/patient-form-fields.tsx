@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import type { InsuranceProvider } from "@/lib/api-types"
 import type { RegisterPatientInput } from "@/hooks/patients/hooks"
 import { Input } from "@/components/ui/input"
@@ -30,15 +30,11 @@ import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { sanitizePhoneInput } from "@/lib/validation-utils"
 import {
-  MONTHS,
-  YEARS,
-  parseDob,
-  composeDob,
-  getDaysInMonth,
   calculateAge,
   isDominantMemberRequired,
   validateDateOfBirth,
 } from "@/lib/validation-utils"
+import { DatePickerGrid } from "@/components/ui/date-picker-grid"
 import {
   COUNTRIES,
   RWANDA_PROVINCES,
@@ -83,20 +79,6 @@ export default function PatientFormFields({
   const [provincePopoverOpen, setProvincePopoverOpen] = useState(false)
   const [districtPopoverOpen, setDistrictPopoverOpen] = useState(false)
   const [sectorPopoverOpen, setSectorPopoverOpen] = useState(false)
-
-  const [dobLocal, setDobLocal] = useState(() => parseDob(formData.dateOfBirth))
-
-  useEffect(() => {
-    setDobLocal(parseDob(formData.dateOfBirth))
-  }, [formData.dateOfBirth])
-
-  const handleDobChange = (part: "day" | "month" | "year", value: string) => {
-    const next = { ...dobLocal, [part]: value }
-    setDobLocal(next)
-    if (next.day && next.month && next.year) {
-      onFieldChange("dateOfBirth", composeDob(next.day, next.month, next.year))
-    }
-  }
 
   const solidFieldClass = "w-full bg-white dark:bg-gray-900 border-border/70"
   const solidPanelClass =
@@ -165,53 +147,11 @@ export default function PatientFormFields({
           <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
             Date of Birth *
           </label>
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-            <Select
-              value={dobLocal.day}
-              onValueChange={(value) => handleDobChange("day", value)}
-            >
-              <SelectTrigger className="h-10 text-xs sm:text-sm">
-                <SelectValue placeholder="Day" />
-              </SelectTrigger>
-              <SelectContent>
-                {getDaysInMonth(dobLocal.month, dobLocal.year).map((d) => (
-                  <SelectItem key={d} value={d}>
-                    {d}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={dobLocal.month}
-              onValueChange={(value) => handleDobChange("month", value)}
-            >
-              <SelectTrigger className="h-10 text-xs sm:text-sm">
-                <SelectValue placeholder="Month" />
-              </SelectTrigger>
-              <SelectContent>
-                {MONTHS.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={dobLocal.year}
-              onValueChange={(value) => handleDobChange("year", value)}
-            >
-              <SelectTrigger className="h-10 text-xs sm:text-sm">
-                <SelectValue placeholder="Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {YEARS.map((y) => (
-                  <SelectItem key={y} value={y}>
-                    {y}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <DatePickerGrid
+            key={formData.dateOfBirth || "empty"}
+            value={formData.dateOfBirth}
+            onChange={(date) => onFieldChange("dateOfBirth", date)}
+          />
           {formData.dateOfBirth && dobValidation?.valid && (
             <p className="text-xs text-muted-foreground mt-1">
               Age: {calculateAge(formData.dateOfBirth)} years
