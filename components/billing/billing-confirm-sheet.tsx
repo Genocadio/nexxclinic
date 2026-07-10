@@ -117,19 +117,28 @@ export function BillingConfirmSheet({
   useEffect(() => {
     if (shouldRecommendNote) {
       setShowNotes(true);
+      if (!noteReason && suggestedReasons.length > 0) {
+        setNoteReason(suggestedReasons[0]);
+      }
     }
-  }, [shouldRecommendNote]);
+  }, [shouldRecommendNote, suggestedReasons, noteReason]);
 
-  const composedNotes = useMemo(() => {
-    const parts = [billingNotes.trim()];
+  // Sync reason/customReason to parent billingNotes when tampered
+  useEffect(() => {
+    if (!shouldRecommendNote) return;
+    let note = "";
     if (noteReason && noteReason !== "Other") {
-      parts.unshift(noteReason);
+      note = noteReason;
+    } else if (noteReason === "Other" && customReason.trim()) {
+      note = customReason.trim();
     }
-    if (noteReason === "Other" && customReason.trim()) {
-      parts.unshift(customReason.trim());
-    }
-    return parts.filter(Boolean).join("\n\n");
-  }, [billingNotes, noteReason, customReason]);
+    onBillingNotesChange?.(note);
+  }, [noteReason, customReason, shouldRecommendNote, onBillingNotesChange]);
+
+  const reasonMissing =
+    shouldRecommendNote &&
+    showNotes &&
+    (!noteReason || (noteReason === "Other" && !customReason.trim()));
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -346,16 +355,16 @@ export function BillingConfirmSheet({
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-xs font-medium text-foreground">
-                    Billing note (optional)
+                    Billing note{shouldRecommendNote ? "" : " (optional)"}
                   </span>
                   {shouldRecommendNote ? (
                     <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
-                      Recommended because discount, exemption, or paid amount
-                      was adjusted.
+                      Required because discount, exemption, or paid amount was
+                      adjusted.
                     </p>
                   ) : null}
                 </div>
-                {!showNotes ? (
+                {!showNotes && !shouldRecommendNote ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -371,52 +380,59 @@ export function BillingConfirmSheet({
               {showNotes ? (
                 <div className="space-y-2">
                   {shouldRecommendNote ? (
-                    <div>
-                      <label className="text-xs text-muted-foreground">
-                        Reason
-                      </label>
-                      <Select value={noteReason} onValueChange={setNoteReason}>
-                        <SelectTrigger className="mt-1 h-9">
-                          <SelectValue placeholder="Select a reason" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {suggestedReasons.map((reason) => (
-                            <SelectItem key={reason} value={reason}>
-                              {reason}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ) : null}
+                    <>
+                      <div>
+                        <label className="text-xs text-muted-foreground">
+                          Reason
+                        </label>
+                        <Select
+                          value={noteReason}
+                          onValueChange={setNoteReason}
+                        >
+                          <SelectTrigger className="mt-1 h-9">
+                            <SelectValue placeholder="Select a reason" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {suggestedReasons.map((reason) => (
+                              <SelectItem key={reason} value={reason}>
+                                {reason}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                  {noteReason === "Other" ? (
+                      {noteReason === "Other" ? (
+                        <div>
+                          <label className="text-xs text-muted-foreground">
+                            Other reason
+                          </label>
+                          <Input
+                            value={customReason}
+                            onChange={(e) => setCustomReason(e.target.value)}
+                            placeholder="Type the reason"
+                            className="mt-1 h-9"
+                          />
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
                     <div>
                       <label className="text-xs text-muted-foreground">
-                        Other reason
+                        Notes
                       </label>
-                      <Input
-                        value={customReason}
-                        onChange={(e) => setCustomReason(e.target.value)}
-                        placeholder="Type the reason"
-                        className="mt-1 h-9"
+                      <Textarea
+                        value={billingNotes}
+                        onChange={(e) =>
+                          onBillingNotesChange?.(e.target.value)
+                        }
+                        placeholder="Add context for this billing decision..."
+                        className="mt-1 min-h-[90px]"
                       />
                     </div>
-                  ) : null}
+                  )}
 
-                  <div>
-                    <label className="text-xs text-muted-foreground">
-                      Notes
-                    </label>
-                    <Textarea
-                      value={billingNotes}
-                      onChange={(e) => onBillingNotesChange?.(e.target.value)}
-                      placeholder="Add context for this billing decision..."
-                      className="mt-1 min-h-[90px]"
-                    />
-                  </div>
-
-                  {composedNotes ? (
+                  {billingNotes ? (
                     <p className="text-[11px] text-muted-foreground">
                       This note will be sent with the bill.
                     </p>
@@ -439,7 +455,7 @@ export function BillingConfirmSheet({
           <Button
             type="button"
             className="flex-1 bg-[#FF6900] hover:bg-[#e05f00] text-white"
-            disabled={creatingBill}
+            disabled={creatingBill || reasonMissing}
             onClick={onConfirm}
           >
             {creatingBill

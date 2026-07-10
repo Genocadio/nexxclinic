@@ -478,7 +478,28 @@ function TriagePageInner() {
                               onChange={(ev) =>
                                 updateRow(row.id, "value", ev.target.value)
                               }
-                              placeholder="120/80"
+                              placeholder={
+                                row.isPreset
+                                  ? (() => {
+                                      switch (row.measurementName) {
+                                        case "Blood Pressure":
+                                          return "120/80";
+                                        case "Heart Rate":
+                                          return "72";
+                                        case "Temperature":
+                                          return "37.0";
+                                        case "Oxygen Saturation":
+                                          return "98";
+                                        case "Weight":
+                                          return "70";
+                                        case "Height":
+                                          return "165";
+                                        default:
+                                          return "Value";
+                                      }
+                                    })()
+                                  : "Value"
+                              }
                             />
                           </div>
                           <div className="space-y-2">
