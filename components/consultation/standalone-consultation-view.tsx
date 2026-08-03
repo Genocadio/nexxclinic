@@ -559,6 +559,9 @@ export function StandaloneConsultationView({
 
       saveInFlightRef.current = true;
       try {
+        // Draft saves must never impose form validation. Clear any errors left
+        // over from a previous (failed) "Finalise and Complete" attempt.
+        formRendererRef.current?.clearErrors();
         await persistAnswersRef.current(answers, "DRAFT", { silent: true });
       } catch (_err: unknown) {
         setSaveStatus("dirty");
@@ -576,6 +579,7 @@ export function StandaloneConsultationView({
 
   const handleManualSave = async () => {
     try {
+      formRendererRef.current?.clearErrors();
       await persistAnswers(answers, "DRAFT", { skipDuplicateCheck: true });
       toast.success("Draft saved");
     } catch (err: unknown) {

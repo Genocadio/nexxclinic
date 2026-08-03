@@ -53,6 +53,7 @@ export { ConsultationFormRenderer } from "./consultation-form-renderer";
 
 export interface FormRendererHandle {
   validateAndShowErrors: () => boolean;
+  clearErrors: () => void;
 }
 
 export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
@@ -200,12 +201,17 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
       return true;
     }, [validate, hasViolations, violations]);
 
+    const clearErrors = useCallback(() => {
+      setShowErrors(false);
+    }, []);
+
     useImperativeHandle(
       ref,
       () => ({
         validateAndShowErrors,
+        clearErrors,
       }),
-      [validateAndShowErrors],
+      [validateAndShowErrors, clearErrors],
     );
 
     const handleSubmit = (e: React.SyntheticEvent) => {
