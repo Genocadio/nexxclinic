@@ -12,7 +12,8 @@ import { useProductSearch } from '@/hooks/auth-hooks'
 interface ProductAutocompleteProps {
   products: ApiProduct[]
   selectedProductId: string
-  onProductSelect: (productId: string) => void
+  /** Called with the id and the full picked product (may come from backend search results). */
+  onProductSelect: (productId: string, product?: ApiProduct) => void
   placeholder?: string
   disabled?: boolean
   className?: string
@@ -28,33 +29,41 @@ export function ProductAutocomplete({
 }: ProductAutocompleteProps) {
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState('')
-  
+  // Keep the full picked product locally so the selection stays visible even
+  // when it came from backend search results (not present in the `products` prop).
+  const [selectedProduct, setSelectedProduct] = React.useState<ApiProduct | null>(null)
+
   // Use backend search when user types, otherwise use provided products
   const { products: searchResults, loading: searchLoading } = useProductSearch(inputValue)
-  
+
+  const isSearching = inputValue.trim().length >= 2
+
   const displayProducts = React.useMemo(() => {
     // If we have a search query (2+ chars), use backend results
     // Otherwise, use the provided products list
-    if (inputValue.length >= 2) {
+    if (isSearching) {
       return searchResults
     }
     return products
-  }, [inputValue, searchResults, products])
+  }, [isSearching, searchResults, products])
 
-  const selectedProduct = React.useMemo(() => {
-    // First try to find in the original products list
-    let product = products.find((p: ApiProduct) => String(p.id) === selectedProductId)
-    
-    // If not found and we have search results, try to find there
-    if (!product && searchResults.length > 0) {
-      product = searchResults.find((p: ApiProduct) => String(p.id) === selectedProductId)
+  // Keep the local selection in sync with the prop (including when it is cleared).
+  React.useEffect(() => {
+    if (!selectedProductId) {
+      setSelectedProduct(null)
+      return
     }
-    
-    return product
+    const found =
+      products.find((p: ApiProduct) => String(p.id) === selectedProductId) ||
+      searchResults.find((p: ApiProduct) => String(p.id) === selectedProductId)
+    if (found) {
+      setSelectedProduct(found)
+    }
   }, [products, searchResults, selectedProductId])
 
-  const handleSelect = (productId: string) => {
-    onProductSelect(productId)
+  const handleSelect = (product: ApiProduct) => {
+    setSelectedProduct(product)
+    onProductSelect(String(product.id), product)
     setOpen(false)
     setInputValue('')
   }
@@ -67,6 +76,7 @@ export function ProductAutocomplete({
   }
 
   const handleClearSelection = () => {
+    setSelectedProduct(null)
     onProductSelect('')
     setInputValue('')
   }
@@ -76,12 +86,16 @@ export function ProductAutocomplete({
     return (
       <div className={cn('flex items-center gap-2 w-full', className)}>
         <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border">
-          <span className="text-sm font-medium">{selectedProduct.name}</span>
+          <span className="text-sm font-medium truncate">{selectedProduct.name}</span>
+          {selectedProduct.code && (
+            <span className="text-xs text-muted-foreground truncate shrink-0">{selectedProduct.code}</span>
+          )}
           <Button
             variant="ghost"
             size="sm"
             onClick={handleClearSelection}
-            className="h-6 w-6 p-0 rounded-full hover:bg-muted-foreground/20"
+            className="h-6 w-6 p-0 rounded-full hover:bg-muted-foreground/20 ml-auto shrink-0"
+            type="button"
           >
             <X className="h-3 w-3" />
           </Button>
@@ -91,7 +105,13 @@ export function ProductAutocomplete({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setInputValue('')
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -100,12 +120,12 @@ export function ProductAutocomplete({
           className={cn('w-full justify-between rounded-lg', className)}
           disabled={disabled}
         >
-          {placeholder}
+          <span className="truncate">{inputValue || placeholder}</span>
           <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0 rounded-lg" align="start">
-        <Command>
+        <Command shouldFilter={!isSearching}>
           <CommandInput
             placeholder={placeholder}
             value={inputValue}
@@ -120,7 +140,7 @@ export function ProductAutocomplete({
                 <CommandItem
                   key={product.id}
                   value={product.name}
-                  onSelect={() => handleSelect(String(product.id))}
+                  onSelect={() => handleSelect(product)}
                 >
                   <Check
                     className={cn(
@@ -128,7 +148,12 @@ export function ProductAutocomplete({
                       String(product.id) === selectedProductId ? 'opacity-100' : 'opacity-0'
                     )}
                   />
-                  {product.name}
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate">{product.name}</span>
+                    {product.code && (
+                      <span className="text-xs text-muted-foreground truncate">{product.code}</span>
+                    )}
+                  </div>
                 </CommandItem>
               ))}
             </CommandGroup>

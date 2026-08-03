@@ -437,7 +437,18 @@ export function AddDepartmentModal({
                     (d) => String(d.id) === String(selectedDepartmentId),
                   );
                   const profiles = (selectedDept as any)?.profiles || [];
+                  const supportsRequests = Boolean(
+                    (selectedDept as any)?.supportRequests,
+                  );
                   if (!selectedDept || profiles.length === 0) return null;
+                  if (supportsRequests) {
+                    return (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        This department supports requests, so a profile cannot
+                        be applied. Add its products manually.
+                      </p>
+                    );
+                  }
                   return (
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
@@ -449,10 +460,7 @@ export function AddDepartmentModal({
                         className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm"
                       >
                         <option value="">
-                          Default profile{" "}
-                          {profiles.find((p: any) => p.isDefault)
-                            ? `(${profiles.find((p: any) => p.isDefault).name})`
-                            : ""}
+                          No profile — add products manually
                         </option>
                         {profiles.map((profile: any) => (
                           <option key={profile.id} value={String(profile.id)}>
@@ -463,8 +471,9 @@ export function AddDepartmentModal({
                         ))}
                       </select>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                        Products from the selected profile will be added to this
-                        department automatically.
+                        No profile is applied automatically. Only the profile
+                        you select here will add its products to this
+                        department.
                       </p>
                     </div>
                   );

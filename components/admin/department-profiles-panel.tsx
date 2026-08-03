@@ -55,13 +55,16 @@ export function DepartmentProfilesPanel({
   const [addingProfile, setAddingProfile] = useState(false);
   const [newProfileName, setNewProfileName] = useState("Default");
   const [newProfileProductIds, setNewProfileProductIds] = useState<string[]>([]);
+  const [newProfileProducts, setNewProfileProducts] = useState<Record<string, Product>>({});
   const [pendingProductId, setPendingProductId] = useState("");
+  const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
 
   // Per-profile editing state
   const [renamingProfileId, setRenamingProfileId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [addingToProfileId, setAddingToProfileId] = useState<string | null>(null);
   const [pendingProfileProductId, setPendingProfileProductId] = useState("");
+  const [pendingProfileProduct, setPendingProfileProduct] = useState<Product | null>(null);
   const [busyProfileId, setBusyProfileId] = useState<string | null>(null);
 
   const profiles = department.profiles || [];
@@ -124,9 +127,9 @@ export function DepartmentProfilesPanel({
           id: "",
           name,
           isDefault: profiles.length === 0,
-          products: products.filter((product) =>
-            newProfileProductIds.includes(String(product.id)),
-          ),
+          products: newProfileProductIds
+            .map((id) => newProfileProducts[id] || products.find((p) => String(p.id) === id))
+            .filter((p): p is Product => Boolean(p)),
           createdAt: "",
           updatedAt: "",
         },
@@ -137,7 +140,9 @@ export function DepartmentProfilesPanel({
       setAddingProfile(false);
       setNewProfileName("Default");
       setNewProfileProductIds([]);
+      setNewProfileProducts({});
       setPendingProductId("");
+      setPendingProduct(null);
     }
   };
 
@@ -167,16 +172,17 @@ export function DepartmentProfilesPanel({
     if (ok) {
       toast({
         title: "Default profile set",
-        description: "New departments will apply this profile by default.",
+        description: "This profile is now marked as the department's default.",
       });
     }
   };
 
   const handleAddProductToProfile = async (profileId: string) => {
     if (!pendingProfileProductId) return;
-    const product = products.find(
-      (p) => String(p.id) === pendingProfileProductId,
-    );
+    const product =
+      pendingProfileProduct ||
+      products.find((p) => String(p.id) === pendingProfileProductId);
+    if (!product) return;
     const ok = await handleSaveProfiles(
       profiles.map((profile) =>
         profile.id === profileId
@@ -193,6 +199,7 @@ export function DepartmentProfilesPanel({
     if (ok) {
       setAddingToProfileId(null);
       setPendingProfileProductId("");
+      setPendingProfileProduct(null);
     }
   };
 
@@ -274,9 +281,9 @@ export function DepartmentProfilesPanel({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Profiles are named product sets. Applying a profile to a visit
-        department pre-fills its products. One profile is the default used when
-        no profile is chosen.
+        Profiles are named product sets you can apply to a visit department to
+        pre-fill its products. No profile is applied automatically — you choose
+        one when adding the department to a visit.
       </p>
 
       {profiles.length === 0 && !addingProfile ? (
@@ -305,7 +312,10 @@ export function DepartmentProfilesPanel({
               <ProductAutocomplete
                 products={availableForProfile}
                 selectedProductId={pendingProductId}
-                onProductSelect={setPendingProductId}
+                onProductSelect={(id, product) => {
+                  setPendingProductId(id);
+                  setPendingProduct(product || null);
+                }}
                 placeholder="Search products..."
                 className="flex-1"
               />
@@ -319,7 +329,14 @@ export function DepartmentProfilesPanel({
                       ? current
                       : [...current, pendingProductId],
                   );
+                  if (pendingProduct) {
+                    setNewProfileProducts((current) => ({
+                      ...current,
+                      [pendingProductId]: pendingProduct,
+                    }));
+                  }
                   setPendingProductId("");
+                  setPendingProduct(null);
                 }}
                 disabled={!pendingProductId}
               >
@@ -328,9 +345,9 @@ export function DepartmentProfilesPanel({
             </div>
             <div className="space-y-1.5 mt-2 max-h-36 overflow-y-auto pr-1">
               {newProfileProductIds.map((productId) => {
-                const product = products.find(
-                  (item) => String(item.id) === productId,
-                );
+                const product =
+                  newProfileProducts[productId] ||
+                  products.find((item) => String(item.id) === productId);
                 return (
                   <div
                     key={productId}
@@ -344,11 +361,16 @@ export function DepartmentProfilesPanel({
                       variant="ghost"
                       size="icon"
                       className="h-6 w-6"
-                      onClick={() =>
+                      onClick={() => {
                         setNewProfileProductIds((current) =>
                           current.filter((id) => id !== productId),
-                        )
-                      }
+                        );
+                        setNewProfileProducts((current) => {
+                          const next = { ...current };
+                          delete next[productId];
+                          return next;
+                        });
+                      }}
                     >
                       <X className="h-3.5 w-3.5" />
                     </Button>
@@ -372,7 +394,9 @@ export function DepartmentProfilesPanel({
                 setAddingProfile(false);
                 setNewProfileName("Default");
                 setNewProfileProductIds([]);
+                setNewProfileProducts({});
                 setPendingProductId("");
+                setPendingProduct(null);
               }}
             >
               Cancel
@@ -530,7 +554,10 @@ export function DepartmentProfilesPanel({
                   <ProductAutocomplete
                     products={addableProducts}
                     selectedProductId={pendingProfileProductId}
-                    onProductSelect={setPendingProfileProductId}
+                    onProductSelect={(id, product) => {
+                      setPendingProfileProductId(id);
+                      setPendingProfileProduct(product || null);
+                    }}
                     placeholder="Search products..."
                     className="flex-1"
                   />
@@ -547,6 +574,7 @@ export function DepartmentProfilesPanel({
                     onClick={() => {
                       setAddingToProfileId(null);
                       setPendingProfileProductId("");
+                      setPendingProfileProduct(null);
                     }}
                   >
                     Cancel

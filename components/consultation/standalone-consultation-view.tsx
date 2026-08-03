@@ -131,15 +131,24 @@ export function StandaloneConsultationView({
   );
   const firstVisitDepartmentId = String(visitDepartment.id || "");
 
+  // Freeze the loader's answer input for the life of this mount. Once hydrated,
+  // the loader must NOT flip sources (department → answer) when the parent's
+  // visit cache echoes back the answerId we just created — that flip unmounted
+  // the form to a spinner and could dead-end on "Could not load the saved
+  // consultation answer.". The created id is tracked in localAnswerIdRef for
+  // subsequent saves, so the loader only needs the id present at mount time.
+  const [loaderAnswerId, setLoaderAnswerId] = useState<string | null>(answerId);
+  const loaderDepartmentRef = useRef(catalogDepartmentId);
+
   const { answer, defaultForm, loading, error, refetch, source } =
     useConsultationFormLoader({
       departmentId: catalogDepartmentId,
-      answerId,
+      answerId: loaderAnswerId,
     });
 
   const isFinalisedAnswer =
     String(answer?.status || "").toUpperCase() === "FINAL";
-  const { saveVisitAnswer, loading: saving } = useSaveVisitStandaloneAnswer();
+  const { saveVisitAnswer } = useSaveVisitStandaloneAnswer();
   const { addChildVisitDepartment } = useAddChildVisitDepartment();
   const { addProduct } = useAddProductToVisitDepartment();
   const { addVisitDepartmentNote } = useAddVisitDepartmentNote();
@@ -359,7 +368,8 @@ export function StandaloneConsultationView({
         answerId: localAnswerIdRef.current,
       });
 
-      const savedAnswerId = result?.answer?.id;
+      const savedAnswerId =
+        result?.answer?.id || result?.visitDepartment?.answerId;
       if (savedAnswerId) {
         localAnswerIdRef.current = String(savedAnswerId);
       }
@@ -388,18 +398,27 @@ export function StandaloneConsultationView({
     const nextAnswerId = answerId ? String(answerId) : null;
     const currentLocalAnswerId = localAnswerIdRef.current;
 
-    if (!nextAnswerId && currentLocalAnswerId && hydratedRef.current) {
+    // A department change is the only legitimate reason to rebuild the form.
+    // An answerId prop flip that merely echoes the answer we just created must
+    // never tear down the mounted form or swap the loader source.
+    if (catalogDepartmentId === loaderDepartmentRef.current) {
+      if (!hydratedRef.current) {
+        // Initial mount: adopt the prop's answer id (if any) for the loader.
+        localAnswerIdRef.current = nextAnswerId;
+        return;
+      }
+      // Already hydrated: keep the form stable. If the prop reports an answer
+      // id before our local ref caught up, adopt it as the save target.
+      if (nextAnswerId && !currentLocalAnswerId) {
+        localAnswerIdRef.current = nextAnswerId;
+      }
       return;
     }
 
-    if (
-      catalogDepartmentId &&
-      nextAnswerId === currentLocalAnswerId &&
-      hydratedRef.current
-    ) {
-      return;
-    }
-
+    // Genuine department change → full reset and point the loader at the new
+    // department's answer (if any).
+    loaderDepartmentRef.current = catalogDepartmentId;
+    setLoaderAnswerId(nextAnswerId);
     localAnswerIdRef.current = nextAnswerId;
     loadedAnswerSignatureRef.current = "";
     hydratedRef.current = false;
@@ -414,6 +433,7 @@ export function StandaloneConsultationView({
   useEffect(() => {
     if (loading || hydratedRef.current) return;
 
+    // Prefer the saved answer when one is available and mappable.
     if (source === "answer" && answer) {
       const signature = JSON.stringify({
         id: answer.id,
@@ -428,25 +448,30 @@ export function StandaloneConsultationView({
       }
 
       const mapped = mapStandaloneAnswerToSavedForm(answer);
-      if (!mapped) return;
       const parsed = parseStandaloneAnswers(answer.answers) as FormAnswers;
-      setRendererForm(mapped);
-      setFormVersionId(answer.formVersion.id);
-      setInitialAnswers(parsed);
-      setAnswers(parsed);
-      localAnswerIdRef.current = String(answer.id);
-      loadedAnswerSignatureRef.current = signature;
-      lastSavedSnapshotRef.current = buildAnswersSnapshot(parsed);
-      hydratedRef.current = true;
-      setSaveStatus("saved");
-      return;
+      if (mapped && answer.formVersion?.id) {
+        setRendererForm(mapped);
+        setFormVersionId(answer.formVersion.id);
+        setInitialAnswers(parsed);
+        setAnswers(parsed);
+        localAnswerIdRef.current = String(answer.id);
+        loadedAnswerSignatureRef.current = signature;
+        lastSavedSnapshotRef.current = buildAnswersSnapshot(parsed);
+        hydratedRef.current = true;
+        setSaveStatus("saved");
+        return;
+      }
+      // The saved answer is unusable (missing form/version) — fall back to the
+      // department's default form below instead of dead-ending.
     }
 
-    if (source === "department" && defaultForm) {
+    // Fallback: the department's default form. Used for the first-ever answer
+    // (nothing saved yet) and when a saved answer cannot be loaded/mapped.
+    if (defaultForm && defaultForm.activeVersion?.id) {
       const signature = JSON.stringify({
         departmentId: catalogDepartmentId,
         formId: defaultForm.id,
-        formVersionId: defaultForm.activeVersion?.id,
+        formVersionId: defaultForm.activeVersion.id,
       });
       if (
         loadedAnswerSignatureRef.current === signature &&
@@ -456,7 +481,7 @@ export function StandaloneConsultationView({
       }
 
       const mapped = mapStandaloneFormToSavedForm(defaultForm);
-      if (!mapped || !defaultForm.activeVersion?.id) return;
+      if (!mapped) return;
       setRendererForm(mapped);
       setFormVersionId(defaultForm.activeVersion.id);
       setInitialAnswers({});
@@ -466,7 +491,7 @@ export function StandaloneConsultationView({
       hydratedRef.current = true;
       setSaveStatus("saved");
     }
-  }, [loading, source, answer, defaultForm]);
+  }, [loading, source, answer, defaultForm, catalogDepartmentId]);
 
   useEffect(() => {
     // Only auto-pin vitals when they exist.
@@ -491,6 +516,15 @@ export function StandaloneConsultationView({
 
     return () => window.clearTimeout(timer);
   }, [productSearchQuery]);
+
+  // Keep the latest persistAnswers in a ref so the autosave debounce effect can
+  // depend only on `answers`. persistAnswers' identity changes whenever its deps
+  // change (e.g. onVisitRefetch is an inline arrow from the parent), and letting
+  // that reset the 1.5s timer on unrelated renders would delay autosaves.
+  const persistAnswersRef = useRef(persistAnswers);
+  useEffect(() => {
+    persistAnswersRef.current = persistAnswers;
+  }, [persistAnswers]);
 
   useEffect(() => {
     if (!hydratedRef.current) return;
@@ -525,7 +559,7 @@ export function StandaloneConsultationView({
 
       saveInFlightRef.current = true;
       try {
-        await persistAnswers(answers, "DRAFT", { silent: true });
+        await persistAnswersRef.current(answers, "DRAFT", { silent: true });
       } catch (_err: unknown) {
         setSaveStatus("dirty");
       } finally {
@@ -538,7 +572,7 @@ export function StandaloneConsultationView({
         clearTimeout(autoSaveTimer.current);
       }
     };
-  }, [answers, persistAnswers]);
+  }, [answers, isFinalisedAnswer]);
 
   const handleManualSave = async () => {
     try {
@@ -680,7 +714,7 @@ export function StandaloneConsultationView({
     }
   };
 
-  if (loading) {
+  if (loading && !rendererForm) {
     return (
       <div className="flex items-center justify-center py-24 text-muted-foreground gap-2">
         <Loader2 className="h-5 w-5 animate-spin" />
@@ -689,19 +723,11 @@ export function StandaloneConsultationView({
     );
   }
 
-  if (error) {
+  if (error && !rendererForm) {
     return <InlineTryAgain onTryAgain={() => void refetch()} />;
   }
 
   if (!rendererForm || !formVersionId) {
-    if (loading) {
-      return (
-        <div className="flex items-center justify-center py-24 text-muted-foreground gap-2">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          Loading consultation form…
-        </div>
-      );
-    }
     return (
       <div className="rounded-xl border border-dashed p-8 text-center space-y-3">
         <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />

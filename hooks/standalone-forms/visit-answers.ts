@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useMutation, useQuery } from "@apollo/client";
 import {
   GET_DEPARTMENT_FORMS_QUERY,
@@ -49,7 +50,7 @@ export function useSaveVisitStandaloneAnswer() {
     { loading: updatingAnswer, error: updateAnswerError },
   ] = useMutation(UPDATE_STANDALONE_ANSWER_MUTATION);
 
-  const saveVisitAnswer = async (input: {
+  const saveVisitAnswer = useCallback(async (input: {
     visitId: string;
     visitDepartmentId: string;
     formVersionId: string;
@@ -100,7 +101,7 @@ export function useSaveVisitStandaloneAnswer() {
       answer: StandaloneFormAnswer;
       visitDepartment: { id: string; answerId?: string | null };
     };
-  };
+  }, [saveVisitMutate, updateAnswerMutate]);
 
   return {
     saveVisitAnswer,
@@ -121,20 +122,41 @@ export function useConsultationFormLoader(options: {
     refetch: refetchAnswer,
   } = useStandaloneAnswer(options.answerId ?? null, { skip: !hasAnswer });
 
+  // Always fetch the department's default form as well: it is the primary
+  // source on a first-ever consultation (no answer yet) and the fallback when a
+  // saved answer cannot be loaded or mapped — preventing the
+  // "Could not load the saved consultation answer." dead-end.
   const {
     defaultForm,
     loading: deptFormsLoading,
     error: deptFormsError,
     refetch: refetchDeptForms,
   } = useDepartmentFormsForConsultation(options.departmentId, {
-    skip: hasAnswer,
+    skip: !options.departmentId,
   });
+
+  const answerReady = hasAnswer && Boolean(answer);
+  // With an answerId, keep loading until the answer is ready (or, if it fails,
+  // until the default-form fallback is ready). Without an answerId, load the
+  // default form as usual.
+  const loading = hasAnswer
+    ? answerLoading || (!answerReady && deptFormsLoading)
+    : deptFormsLoading;
+
+  // Surface an error only when there is nothing left to fall back to AND the
+  // fallback query has settled (so we never flash an error while the default
+  // form is still loading).
+  const error = hasAnswer
+    ? answerError && !answerReady && !defaultForm && !deptFormsLoading
+      ? answerError
+      : null
+    : deptFormsError;
 
   return {
     answer,
     defaultForm,
-    loading: hasAnswer ? answerLoading : deptFormsLoading,
-    error: hasAnswer ? answerError : deptFormsError,
+    loading,
+    error,
     refetch: hasAnswer ? refetchAnswer : refetchDeptForms,
     source: hasAnswer ? ("answer" as const) : ("department" as const),
   };

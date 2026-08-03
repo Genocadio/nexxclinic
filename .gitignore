@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+.freebuff
 
 # next.js
 /.next/

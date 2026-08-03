@@ -50,11 +50,20 @@ export default function DepartmentsPage() {
   const [departmentSupportRequests, setDepartmentSupportRequests] = useState<boolean>(false)
   const [departmentRequestsProducts, setDepartmentRequestsProducts] = useState<boolean>(false)
   const [pendingProductId, setPendingProductId] = useState('')
+  const [pendingProduct, setPendingProduct] = useState<any | null>(null)
+  // Products picked from backend search may not exist in the 200-item list loaded
+  // for the autocomplete — keep them so chips can still show their names.
+  const [pickedProducts, setPickedProducts] = useState<Record<string, any>>({})
   const [pendingInsuranceId, setPendingInsuranceId] = useState('')
+  const [pendingInsurance, setPendingInsurance] = useState<any | null>(null)
+  // Insurances picked from backend search may not exist in the 200-item list
+  // loaded for the autocomplete — keep them so chips can still show their names.
+  const [pickedInsurances, setPickedInsurances] = useState<Record<string, any>>({})
   const [saving, setSaving] = useState(false)
 
   // Linking states
   const [selectedInsuranceId, setSelectedInsuranceId] = useState<string>('')
+  const [selectedInsurance, setSelectedInsurance] = useState<any | null>(null)
 
   const availableInsurances = useMemo(() => {
     if (!selectedDepartment) return insurances
@@ -79,7 +88,11 @@ export default function DepartmentsPage() {
     setDepartmentProductIds([])
     setDepartmentInsuranceIds([])
     setPendingProductId('')
+    setPendingProduct(null)
+    setPickedProducts({})
     setPendingInsuranceId('')
+    setPendingInsurance(null)
+    setPickedInsurances({})
     setDepartmentNursing(false)
     setDepartmentSupportRequests(false)
     setDepartmentRequestsProducts(false)
@@ -88,26 +101,46 @@ export default function DepartmentsPage() {
   const handleAddModalProduct = () => {
     if (!pendingProductId || departmentProductIds.includes(pendingProductId)) return
     setDepartmentProductIds((current) => [...current, pendingProductId])
+    if (pendingProduct) {
+      setPickedProducts((current) => ({ ...current, [pendingProductId]: pendingProduct }))
+    }
     setPendingProductId('')
+    setPendingProduct(null)
   }
 
   const handleRemoveModalProduct = (productId: string) => {
     setDepartmentProductIds((current) => current.filter((id) => id !== productId))
+    setPickedProducts((current) => {
+      const next = { ...current }
+      delete next[productId]
+      return next
+    })
   }
 
   const handleAddModalInsurance = () => {
     if (!pendingInsuranceId || departmentInsuranceIds.includes(pendingInsuranceId)) return
     setDepartmentInsuranceIds((current) => [...current, pendingInsuranceId])
+    if (pendingInsurance) {
+      setPickedInsurances((current) => ({ ...current, [pendingInsuranceId]: pendingInsurance }))
+    }
     setPendingInsuranceId('')
+    setPendingInsurance(null)
   }
 
   const handleRemoveModalInsurance = (insuranceId: string) => {
     setDepartmentInsuranceIds((current) => current.filter((id) => id !== insuranceId))
+    setPickedInsurances((current) => {
+      const next = { ...current }
+      delete next[insuranceId]
+      return next
+    })
   }
 
   const openAddModal = () => {
     setModalMode('add')
     resetDepartmentForm()
+    setSelectedInsuranceId('')
+    setSelectedInsurance(null)
     setIsModalOpen(true)
   }
 
@@ -119,7 +152,13 @@ export default function DepartmentsPage() {
     setDepartmentProductIds([])
     setDepartmentInsuranceIds([])
     setPendingProductId('')
+    setPendingProduct(null)
+    setPickedProducts({})
     setPendingInsuranceId('')
+    setPendingInsurance(null)
+    setPickedInsurances({})
+    setSelectedInsuranceId('')
+    setSelectedInsurance(null)
     setDepartmentNursing(Boolean(selectedDepartment.nursing))
     setDepartmentSupportRequests(Boolean(selectedDepartment.supportRequests))
     setDepartmentRequestsProducts(Boolean(selectedDepartment.requestsProducts))
@@ -129,15 +168,46 @@ export default function DepartmentsPage() {
   const openDepartmentMenu = (department: any) => {
     setMenuDepartment(department)
     setMenuOpen(true)
+    setSelectedInsuranceId('')
+    setSelectedInsurance(null)
   }
 
   const closeDepartmentMenu = () => {
     setMenuOpen(false)
     setMenuDepartment(null)
+    setSelectedInsuranceId('')
+    setSelectedInsurance(null)
+  }
+
+  const renderInsuranceChip = (insurance: any, onClear: () => void) => {
+    if (!insurance) return null
+    return (
+      <div className="flex items-center justify-between rounded-lg border px-3 py-2 bg-muted/20">
+        <span className="text-sm font-medium truncate">
+          {insurance.insuranceName || insurance.name}
+          {insurance.acronym && (
+            <span className="text-xs text-muted-foreground ml-1">({insurance.acronym})</span>
+          )}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 rounded-full shrink-0"
+          onClick={onClear}
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    )
   }
 
   const handlePolicyModeChange = async (department: any, newMode: string) => {
     if (!department || department.insurancePolicyMode === newMode) return
+
+    // The pending pick may no longer apply after the mode changes; start fresh.
+    setSelectedInsuranceId('')
+    setSelectedInsurance(null)
     
     try {
       // If switching from ALL to another mode, clear existing insurance policies first
@@ -273,6 +343,12 @@ export default function DepartmentsPage() {
     if (!department || !selectedInsuranceId) return
     try {
       const currentInsuranceIds = (department.insurancePolicies || []).map((i: any) => String(i.id))
+      if (currentInsuranceIds.includes(selectedInsuranceId)) {
+        toast({ title: 'Already linked', description: 'This insurance policy is already linked to the department.' })
+        setSelectedInsuranceId('')
+        setSelectedInsurance(null)
+        return
+      }
       const resp = await updateDepartment(department.id, {
         insuranceProviderIds: [...currentInsuranceIds, selectedInsuranceId]
       })
@@ -287,6 +363,7 @@ export default function DepartmentsPage() {
         }
         await refetchDepartments()
         setSelectedInsuranceId('')
+        setSelectedInsurance(null)
         toast({ title: 'Insurance policy added successfully', description: resp.message || 'The insurance policy has been linked to the department.' })
       } else {
         toast({ title: 'Failed to add insurance policy', description: resp?.message || 'Failed to add insurance policy to department', variant: 'destructive' })
@@ -399,7 +476,11 @@ export default function DepartmentsPage() {
                 >
                   <div className="flex items-center justify-between">
                     <button
-                      onClick={() => setSelectedDepartment(dept)}
+                      onClick={() => {
+                        setSelectedDepartment(dept)
+                        setSelectedInsuranceId('')
+                        setSelectedInsurance(null)
+                      }}
                       className="flex-1 text-left"
                     >
                       <span className="font-medium">{dept.name}</span>
@@ -522,11 +603,19 @@ export default function DepartmentsPage() {
                               )
                             )}
                             selectedInsuranceId={selectedInsuranceId}
-                            onInsuranceSelect={setSelectedInsuranceId}
+                            onInsuranceSelect={(id, insurance) => {
+                              setSelectedInsuranceId(id)
+                              setSelectedInsurance(insurance || null)
+                            }}
                             placeholder={insurancesLoading ? 'Loading...' : 'Search insurances...'}
                             disabled={insurancesLoading}
                             className="w-full"
+                            showSelectionChip={false}
                           />
+                          {renderInsuranceChip(selectedInsurance, () => {
+                            setSelectedInsuranceId('')
+                            setSelectedInsurance(null)
+                          })}
                           <Button 
                             size="sm" 
                             onClick={handleAddInsurancePolicy} 
@@ -673,7 +762,8 @@ export default function DepartmentsPage() {
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-muted-foreground">Initial Profile (Optional)</label>
                       <p className="text-[11px] text-muted-foreground">
-                        Name a default profile that pre-fills products when this department is added to a visit.
+                        Name a default profile for this department. Profiles are applied to a visit
+                        only when explicitly selected while adding the department — never automatically.
                       </p>
                     </div>
                     <div className="space-y-1">
@@ -684,7 +774,10 @@ export default function DepartmentsPage() {
                       <ProductAutocomplete
                         products={modalAvailableProducts}
                         selectedProductId={pendingProductId}
-                        onProductSelect={setPendingProductId}
+                        onProductSelect={(id, product) => {
+                          setPendingProductId(id)
+                          setPendingProduct(product || null)
+                        }}
                         placeholder={productsLoading ? 'Loading products...' : 'Search products...'}
                         disabled={productsLoading}
                         className="flex-1"
@@ -693,7 +786,9 @@ export default function DepartmentsPage() {
                     </div>
                     <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 scrollbar-thin">
                       {departmentProductIds.map((productId) => {
-                        const product = products.find((item: any) => String(item.id) === productId)
+                        const product =
+                          pickedProducts[productId] ||
+                          products.find((item: any) => String(item.id) === productId)
                         return (
                           <div key={productId} className="flex items-center justify-between rounded-lg border px-3 py-2 bg-muted/20">
                             <span className="text-sm font-medium">{product?.name || productId}</span>
@@ -720,27 +815,39 @@ export default function DepartmentsPage() {
                     </div>
                     {departmentInsurancePolicyMode !== 'ALL' && (
                       <>
-                        <div className="flex items-center gap-2">
-                          <InsuranceAutocomplete
-                            insurances={modalAvailableInsurances.filter((insurance: any) => 
-                              !departmentInsuranceIds.includes(String(insurance.id))
-                            )}
-                            selectedInsuranceId={pendingInsuranceId}
-                            onInsuranceSelect={setPendingInsuranceId}
-                            placeholder={insurancesLoading ? 'Loading insurances...' : 'Search insurances...'}
-                            disabled={insurancesLoading}
-                            className="flex-1"
-                          />
-                          <Button type="button" size="sm" onClick={handleAddModalInsurance} disabled={!pendingInsuranceId}>Add</Button>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <InsuranceAutocomplete
+                              insurances={modalAvailableInsurances.filter((insurance: any) => 
+                                !departmentInsuranceIds.includes(String(insurance.id))
+                              )}
+                              selectedInsuranceId={pendingInsuranceId}
+                              onInsuranceSelect={(id, insurance) => {
+                                setPendingInsuranceId(id)
+                                setPendingInsurance(insurance || null)
+                              }}
+                              placeholder={insurancesLoading ? 'Loading insurances...' : 'Search insurances...'}
+                              disabled={insurancesLoading}
+                              className="flex-1"
+                              showSelectionChip={false}
+                            />
+                            <Button type="button" size="sm" onClick={handleAddModalInsurance} disabled={!pendingInsuranceId}>Add</Button>
+                          </div>
+                          {renderInsuranceChip(pendingInsurance, () => {
+                            setPendingInsuranceId('')
+                            setPendingInsurance(null)
+                          })}
                         </div>
                       </>
                     )}
                     <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 scrollbar-thin">
                       {departmentInsuranceIds.map((insuranceId) => {
-                        const insurance = insurances.find((item: any) => String(item.id) === insuranceId)
+                        const insurance =
+                          pickedInsurances[insuranceId] ||
+                          insurances.find((item: any) => String(item.id) === insuranceId)
                         return (
                           <div key={insuranceId} className="flex items-center justify-between rounded-lg border px-3 py-2 bg-muted/20">
-                            <span className="text-sm font-medium">{insurance?.name || insuranceId}</span>
+                            <span className="text-sm font-medium">{insurance?.insuranceName || insurance?.name || insuranceId}</span>
                             {departmentInsurancePolicyMode !== 'ALL' && (
                               <Button type="button" variant="outline" size="icon" className="rounded-full h-7 w-7" onClick={() => handleRemoveModalInsurance(insuranceId)}>
                                 <X className="h-4 w-4" />
@@ -859,11 +966,19 @@ export default function DepartmentsPage() {
                               )
                             )}
                             selectedInsuranceId={selectedInsuranceId}
-                            onInsuranceSelect={setSelectedInsuranceId}
+                            onInsuranceSelect={(id, insurance) => {
+                              setSelectedInsuranceId(id)
+                              setSelectedInsurance(insurance || null)
+                            }}
                             placeholder={insurancesLoading ? 'Loading...' : 'Search insurances...'}
                             disabled={insurancesLoading}
                             className="w-full"
+                            showSelectionChip={false}
                           />
+                          {renderInsuranceChip(selectedInsurance, () => {
+                            setSelectedInsuranceId('')
+                            setSelectedInsurance(null)
+                          })}
                           <Button 
                             size="sm" 
                             onClick={handleAddInsurancePolicy} 

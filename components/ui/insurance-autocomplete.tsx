@@ -12,10 +12,17 @@ import type { InsuranceProvider } from '@/lib/api-types'
 interface InsuranceAutocompleteProps {
   insurances: InsuranceProvider[]
   selectedInsuranceId: string
-  onInsuranceSelect: (insuranceId: string) => void
+  /** Called with the id and the full picked insurance (may come from backend search results). */
+  onInsuranceSelect: (insuranceId: string, insurance?: InsuranceProvider) => void
   placeholder?: string
   disabled?: boolean
   className?: string
+  /**
+   * When true (default), a picked insurance replaces the trigger with a
+   * selected chip. Set false to keep showing the search trigger and let the
+   * parent render its own selection chip from the picked object.
+   */
+  showSelectionChip?: boolean
 }
 
 export function InsuranceAutocomplete({
@@ -25,36 +32,45 @@ export function InsuranceAutocomplete({
   placeholder = 'Search insurances...',
   disabled = false,
   className,
+  showSelectionChip = true,
 }: InsuranceAutocompleteProps) {
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState('')
-  
+  // Keep the full picked insurance locally so the selection stays visible even
+  // when it came from backend search results (not present in the `insurances` prop).
+  const [selectedInsurance, setSelectedInsurance] = React.useState<InsuranceProvider | null>(null)
+
   // Use backend search when user types, otherwise use provided insurances
   const { insurances: searchResults, loading: searchLoading } = useInsuranceSearch(inputValue)
-  
+
+  const isSearching = inputValue.trim().length >= 2
+
   const displayInsurances = React.useMemo(() => {
     // If we have a search query (2+ chars), use backend results
     // Otherwise, use the provided insurances list
-    if (inputValue.length >= 2) {
+    if (isSearching) {
       return searchResults
     }
     return insurances
-  }, [inputValue, searchResults, insurances])
+  }, [isSearching, searchResults, insurances])
 
-  const selectedInsurance = React.useMemo(() => {
-    // First try to find in the original insurances list
-    let insurance = insurances.find(i => String(i.id) === selectedInsuranceId)
-    
-    // If not found and we have search results, try to find there
-    if (!insurance && searchResults.length > 0) {
-      insurance = searchResults.find(i => String(i.id) === selectedInsuranceId)
+  // Keep the local selection in sync with the prop (including when it is cleared).
+  React.useEffect(() => {
+    if (!selectedInsuranceId) {
+      setSelectedInsurance(null)
+      return
     }
-    
-    return insurance
+    const found =
+      insurances.find((i) => String(i.id) === selectedInsuranceId) ||
+      searchResults.find((i) => String(i.id) === selectedInsuranceId)
+    if (found) {
+      setSelectedInsurance(found)
+    }
   }, [insurances, searchResults, selectedInsuranceId])
 
-  const handleSelect = (insuranceId: string) => {
-    onInsuranceSelect(insuranceId)
+  const handleSelect = (insurance: InsuranceProvider) => {
+    setSelectedInsurance(insurance)
+    onInsuranceSelect(String(insurance.id), insurance)
     setOpen(false)
     setInputValue('')
   }
@@ -67,31 +83,28 @@ export function InsuranceAutocomplete({
   }
 
   const handleClearSelection = () => {
+    setSelectedInsurance(null)
     onInsuranceSelect('')
     setInputValue('')
   }
 
-  const getDisplayText = (insurance: InsuranceProvider) => {
-    const label = insurance.insuranceName || insurance.name || ''
-    return insurance.acronym ? `${label} (${insurance.acronym})` : label
-  }
-
   // If an insurance is selected, show a cleaner UI with just the name and clear button
-  if (selectedInsurance) {
+  if (selectedInsurance && showSelectionChip) {
     return (
       <div className={cn('flex items-center gap-2 w-full', className)}>
         <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border">
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">{selectedInsurance.insuranceName || selectedInsurance.name}</span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-medium truncate">{selectedInsurance.insuranceName || selectedInsurance.name}</span>
             {selectedInsurance.acronym && (
-              <span className="text-xs text-muted-foreground">{selectedInsurance.acronym}</span>
+              <span className="text-xs text-muted-foreground truncate">{selectedInsurance.acronym}</span>
             )}
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={handleClearSelection}
-            className="h-6 w-6 p-0 rounded-full hover:bg-muted-foreground/20 ml-auto"
+            className="h-6 w-6 p-0 rounded-full hover:bg-muted-foreground/20 ml-auto shrink-0"
+            type="button"
           >
             <X className="h-3 w-3" />
           </Button>
@@ -101,7 +114,13 @@ export function InsuranceAutocomplete({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setInputValue('')
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -110,12 +129,12 @@ export function InsuranceAutocomplete({
           className={cn('w-full justify-between rounded-lg', className)}
           disabled={disabled}
         >
-          {placeholder}
+          <span className="truncate">{inputValue || placeholder}</span>
           <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0 rounded-lg" align="start">
-        <Command>
+        <Command shouldFilter={!isSearching}>
           <CommandInput
             placeholder={placeholder}
             value={inputValue}
@@ -130,7 +149,7 @@ export function InsuranceAutocomplete({
                 <CommandItem
                   key={insurance.id}
                   value={insurance.insuranceName || insurance.name || ''}
-                  onSelect={() => handleSelect(String(insurance.id))}
+                  onSelect={() => handleSelect(insurance)}
                 >
                   <Check
                     className={cn(
@@ -138,10 +157,10 @@ export function InsuranceAutocomplete({
                       String(insurance.id) === selectedInsuranceId ? 'opacity-100' : 'opacity-0'
                     )}
                   />
-                  <div className="flex flex-col">
-                    <span>{insurance.insuranceName || insurance.name}</span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate">{insurance.insuranceName || insurance.name}</span>
                     {insurance.acronym && (
-                      <span className="text-xs text-muted-foreground">{insurance.acronym}</span>
+                      <span className="text-xs text-muted-foreground truncate">{insurance.acronym}</span>
                     )}
                   </div>
                 </CommandItem>
