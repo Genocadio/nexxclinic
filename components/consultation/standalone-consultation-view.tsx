@@ -139,6 +139,8 @@ export function StandaloneConsultationView({
   // subsequent saves, so the loader only needs the id present at mount time.
   const [loaderAnswerId, setLoaderAnswerId] = useState<string | null>(answerId);
   const loaderDepartmentRef = useRef(catalogDepartmentId);
+  const [locallyFinalised, setLocallyFinalised] = useState(false);
+  const [isFinalising, setIsFinalising] = useState(false);
 
   const { answer, defaultForm, loading, error, refetch, source } =
     useConsultationFormLoader({
@@ -147,6 +149,7 @@ export function StandaloneConsultationView({
     });
 
   const isFinalisedAnswer =
+    locallyFinalised ||
     String(answer?.status || "").toUpperCase() === "FINAL";
   const { saveVisitAnswer } = useSaveVisitStandaloneAnswer();
   const { addChildVisitDepartment } = useAddChildVisitDepartment();
@@ -247,6 +250,8 @@ export function StandaloneConsultationView({
   const hydratedRef = useRef(false);
   const lastSavedSnapshotRef = useRef("");
   const saveInFlightRef = useRef(false);
+  const finalisingRef = useRef(false);
+  const manualSaveRef = useRef(false);
   const autoPinnedVitalsRef = useRef(false);
   const investigationProductSearchRef = useRef<HTMLInputElement>(null);
   const formRendererRef = useRef<FormRendererHandle | null>(null);
@@ -345,6 +350,12 @@ export function StandaloneConsultationView({
         throw new Error("Form context is missing");
       }
 
+      // Never save a finalised form back down to a draft. Once the answer is
+      // FINAL the form must stay frozen — autosave/`edit later` cannot downgrade it.
+      if (status === "DRAFT" && isFinalisedAnswer) {
+        return null;
+      }
+
       const snapshot = buildAnswersSnapshot(nextAnswers);
       if (
         status === "DRAFT" &&
@@ -379,6 +390,7 @@ export function StandaloneConsultationView({
       hydratedRef.current = true;
 
       if (status === "FINAL") {
+        setLocallyFinalised(true);
         onVisitRefetch?.();
       }
 
@@ -387,6 +399,7 @@ export function StandaloneConsultationView({
     [
       catalogDepartmentId,
       formVersionId,
+      isFinalisedAnswer,
       onVisitRefetch,
       saveVisitAnswer,
       visit.id,
@@ -578,12 +591,16 @@ export function StandaloneConsultationView({
   }, [answers, isFinalisedAnswer]);
 
   const handleManualSave = async () => {
+    if (manualSaveRef.current) return;
+    manualSaveRef.current = true;
     try {
       formRendererRef.current?.clearErrors();
       await persistAnswers(answers, "DRAFT", { skipDuplicateCheck: true });
       toast.success("Draft saved");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      manualSaveRef.current = false;
     }
   };
 
@@ -594,10 +611,19 @@ export function StandaloneConsultationView({
       return;
     }
 
-    // NOTE: validation is triggered by the "Finalise and Complete" button.
-    // This handler assumes validation has already passed.
+    if (finalisingRef.current) return;
+    finalisingRef.current = true;
+    setIsFinalising(true);
 
     try {
+      // Belt-and-braces: a FINAL save must always pass validation, regardless of
+      // which entry point triggered it.
+      const valid = formRendererRef.current?.validateAndShowErrors() ?? true;
+      if (!valid) {
+        toast.error("Please complete required fields before finalising");
+        return;
+      }
+
       await persistAnswers(answers, "FINAL", { skipDuplicateCheck: true });
       toast.success("Consultation completed");
       router.push("/");
@@ -605,6 +631,9 @@ export function StandaloneConsultationView({
       toast.error(
         err instanceof Error ? err.message : "Failed to complete consultation",
       );
+    } finally {
+      finalisingRef.current = false;
+      setIsFinalising(false);
     }
   };
 
@@ -870,6 +899,7 @@ export function StandaloneConsultationView({
             <Button
               type="button"
               variant="outline"
+              disabled={isFinalising}
               onClick={() => {
                 setShowFinalizeConfirm(false);
                 void handleManualSave();
@@ -879,8 +909,9 @@ export function StandaloneConsultationView({
             </Button>
             <Button
               type="button"
-              disabled={unreadNotesCount > 0}
+              disabled={unreadNotesCount > 0 || isFinalising}
               onClick={async () => {
+                if (finalisingRef.current) return;
                 const valid =
                   formRendererRef.current?.validateAndShowErrors() ?? true;
                 if (!valid) {
@@ -894,7 +925,7 @@ export function StandaloneConsultationView({
                 void handleComplete();
               }}
             >
-              Finalise and Complete
+              {isFinalising ? "Finalising…" : "Finalise and Complete"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -22,7 +22,7 @@ package.lock
 # env files
 .env*
 
-# vercel
+# vercelpu
 .vercel
 
 # typescript

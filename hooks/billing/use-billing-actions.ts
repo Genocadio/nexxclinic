@@ -333,6 +333,10 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           billingData.items.filter((item) => item.paymentStatus !== "paid")
             .length;
 
+        // Complete the visit (and any remaining departments) once everything is
+        // billed, and surface failures instead of silently swallowing them —
+        // a visit stuck as non-COMPLETED after billing is a silent breaking bug.
+        const completionErrors: string[] = [];
         if (allRemainingBilled) {
           try {
             // First, complete all incomplete departments
@@ -345,29 +349,28 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
             );
             for (const dept of notCompleted) {
               const visitDeptId = String(dept.id || "");
-              if (visitDeptId) {
-                const deptResult = await updateDepartmentStatus(
-                  visitDeptId,
-                  "COMPLETED",
+              if (!visitDeptId) continue;
+              const deptResult = await updateDepartmentStatus(
+                visitDeptId,
+                "COMPLETED",
+              );
+              if (deptResult?.status !== "SUCCESS") {
+                completionErrors.push(
+                  deptResult?.message ||
+                    `Failed to complete ${dept.department?.name || "department"}`,
                 );
-                if (deptResult?.status !== "SUCCESS") {
-                  console.warn(
-                    "Failed to complete department:",
-                    deptResult?.message,
-                  );
-                }
               }
             }
 
             // Now, complete the visit
             const completeResult = await completeVisit(billingData.visitId);
             if (completeResult?.status !== "SUCCESS") {
-              console.warn(
-                "Failed to complete visit:",
-                completeResult?.message,
+              completionErrors.push(
+                completeResult?.message || "Failed to complete visit",
               );
             }
           } catch (compErr) {
+            completionErrors.push("Failed to complete the visit");
             console.error("Error completing departments/visit:", compErr);
           }
         }
@@ -383,11 +386,17 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           setConfirmSheetMode("complete");
         }
         await handlePreviewBilling();
-        toast.success(
-          existingVisitBilling
-            ? "Bill updated successfully!"
-            : "Bill created successfully!",
-        );
+        if (completionErrors.length > 0) {
+          toast.warning(
+            `Bill saved, but the visit could not be completed: ${completionErrors.join(" · ")}`,
+          );
+        } else {
+          toast.success(
+            existingVisitBilling
+              ? "Bill updated successfully!"
+              : "Bill created successfully!",
+          );
+        }
       } else {
         const errorMsg =
           response.messages?.map((m) => m.text).join(", ") ||
