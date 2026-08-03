@@ -1,20 +1,12 @@
 import { useMutation, useQuery } from '@apollo/client'
 import { GET_DEPARTMENTS_QUERY } from '../queries'
-import { 
-  CREATE_DEPARTMENT_MUTATION, 
-  UPDATE_DEPARTMENT_MUTATION, 
-  DELETE_DEPARTMENT_MUTATION, 
-  ADD_DEPARTMENT_INSURANCE_MUTATION, 
-  REMOVE_DEPARTMENT_INSURANCE_MUTATION, 
-  ADD_DEPARTMENT_PRODUCT_MUTATION, 
-  REMOVE_DEPARTMENT_PRODUCT_MUTATION 
-} from '../mutations'
-import type { Department, Product } from '../types'
 import {
-  mapGqlInsuranceProvider,
-  mapGqlProduct,
-  type GqlCoverage,
-} from '@/lib/gql-mappers'
+  CREATE_DEPARTMENT_MUTATION,
+  UPDATE_DEPARTMENT_MUTATION,
+  REMOVE_DEPARTMENT_PROFILE_MUTATION,
+} from '../mutations'
+import type { Department, DepartmentProfile, Product } from '../types'
+import { mapGqlInsuranceProvider, mapGqlProduct } from '@/lib/gql-mappers'
 import { DepartmentInsurancePolicyMode } from '@/lib/api-types'
 
 export interface GqlInsurance {
@@ -58,6 +50,15 @@ export interface GqlProduct {
   insuranceCoverages?: GqlProductCoverage[] | null
 }
 
+export interface GqlDepartmentProfile {
+  id: string
+  name: string
+  isDefault?: boolean | null
+  products?: GqlProduct[] | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
 export interface GqlDepartment {
   id: string
   name: string
@@ -66,7 +67,9 @@ export interface GqlDepartment {
   supportRequests?: boolean | null
   requestsProducts?: boolean | null
   insurancePolicies?: GqlInsurance[] | null
-  defaultProducts?: GqlProduct[] | null
+  profiles?: GqlDepartmentProfile[] | null
+  createdAt?: string | null
+  updatedAt?: string | null
 }
 
 export interface DepartmentsQueryData {
@@ -93,44 +96,52 @@ export interface UpdateDepartmentPayload {
   }
 }
 
-export interface DeleteDepartmentPayload {
-  deleteDepartment: {
-    status: string
-    message?: string
-  }
-}
-
-export interface AddDepartmentInsurancePayload {
-  addDepartmentInsurance: {
+export interface RemoveDepartmentProfilePayload {
+  removeDepartmentProfile: {
     status: string
     message?: string
     data?: GqlDepartment | null
   }
 }
 
-export interface RemoveDepartmentInsurancePayload {
-  removeDepartmentInsurance: {
-    status: string
-    message?: string
-    data?: GqlDepartment | null
-  }
-}
+const mapGqlProductForProfile = (product: GqlProduct): Product =>
+  mapGqlProduct({
+    ...product,
+    insuranceCoverages: (product.insuranceCoverages || []).map((coverage) => ({
+      id: coverage.id,
+      insuranceProvider: coverage.insuranceProvider
+        ? {
+            id: coverage.insuranceProvider.id,
+            insuranceName: coverage.insuranceProvider.insuranceName || '',
+            acronym: coverage.insuranceProvider.acronym,
+            defaultCoveragePercentage:
+              coverage.insuranceProvider.defaultCoveragePercentage,
+          }
+        : coverage.insurance
+          ? {
+              id: coverage.insurance.id,
+              insuranceName: coverage.insurance.name || '',
+              acronym: coverage.insurance.acronym,
+              defaultCoveragePercentage:
+                coverage.insurance.coveragePercentage,
+            }
+          : { id: '', insuranceName: '' },
+      cost: coverage.cost,
+      covered: coverage.covered,
+      requireMedicalAdvisor: coverage.requireMedicalAdvisor,
+    })),
+  })
 
-export interface AddDepartmentProductPayload {
-  addDepartmentProduct: {
-    status: string
-    message?: string
-    data?: GqlDepartment | null
-  }
-}
-
-export interface RemoveDepartmentProductPayload {
-  removeDepartmentProduct: {
-    status: string
-    message?: string
-    data?: GqlDepartment | null
-  }
-}
+export const mapDepartmentProfileFromApi = (
+  profile: GqlDepartmentProfile,
+): DepartmentProfile => ({
+  id: profile.id,
+  name: profile.name,
+  isDefault: Boolean(profile.isDefault),
+  products: (profile.products || []).map(mapGqlProductForProfile),
+  createdAt: profile.createdAt || '',
+  updatedAt: profile.updatedAt || '',
+})
 
 const mapDepartmentFromApi = (department: GqlDepartment): Department => ({
   id: department.id,
@@ -151,45 +162,9 @@ const mapDepartmentFromApi = (department: GqlDepartment): Department => ({
       iconUrl: insurance.iconUrl,
     }),
   ),
-  defaultProducts: (department.defaultProducts || []).map((product: GqlProduct) =>
-    mapGqlProduct({
-      id: product.id,
-      name: product.name,
-      genericName: product.genericName,
-      code: product.code || '',
-      description: product.description || '',
-      type: product.type,
-      unit: product.unit,
-      privateRhicPrice: product.privateRhicPrice,
-      clinicPrice: product.clinicPrice,
-      insuranceCoverages: (product.insuranceCoverages || []).map(
-        (coverage: GqlProductCoverage): GqlCoverage => ({
-          id: coverage.id,
-          insuranceProvider: coverage.insuranceProvider
-            ? {
-                id: coverage.insuranceProvider.id,
-                insuranceName: coverage.insuranceProvider.insuranceName || '',
-                acronym: coverage.insuranceProvider.acronym,
-                defaultCoveragePercentage:
-                  coverage.insuranceProvider.defaultCoveragePercentage,
-              }
-            : coverage.insurance
-              ? {
-                  id: coverage.insurance.id,
-                  insuranceName: coverage.insurance.name || '',
-                  acronym: coverage.insurance.acronym,
-                  defaultCoveragePercentage: coverage.insurance.coveragePercentage,
-                }
-              : { id: '', insuranceName: '' },
-          cost: coverage.cost,
-          covered: coverage.covered,
-          requireMedicalAdvisor: coverage.requireMedicalAdvisor,
-        }),
-      ),
-    }),
-  ),
-  createdAt: '',
-  updatedAt: '',
+  profiles: (department.profiles || []).map(mapDepartmentProfileFromApi),
+  createdAt: department.createdAt || '',
+  updatedAt: department.updatedAt || '',
 })
 
 export function useDepartments(options?: { skip?: boolean; input?: { name?: string; supportRequests?: boolean; requestsProducts?: boolean; page?: number; size?: number } }) {
@@ -215,15 +190,22 @@ export function useDepartments(options?: { skip?: boolean; input?: { name?: stri
   return { departments, loading: loading || false, error: error?.message || null, refetch }
 }
 
+export interface DepartmentProfileMutationInput {
+  id?: string
+  name: string
+  isDefault?: boolean
+  productIds?: string[]
+}
+
 export function useCreateDepartment() {
   const [mutate, { loading, error }] = useMutation<CreateDepartmentPayload>(CREATE_DEPARTMENT_MUTATION)
-  const createDepartment = async (name: string, input?: { insuranceProviderIds?: string[]; defaultProductIds?: string[]; insurancePolicyMode?: string; nursing?: boolean; supportRequests?: boolean; requestsProducts?: boolean }) => {
+  const createDepartment = async (name: string, input?: { insuranceProviderIds?: string[]; profiles?: DepartmentProfileMutationInput[]; insurancePolicyMode?: string; nursing?: boolean; supportRequests?: boolean; requestsProducts?: boolean }) => {
     const { data } = await mutate({
       variables: {
         input: {
           name,
           insuranceProviderIds: input?.insuranceProviderIds,
-          defaultProductIds: input?.defaultProductIds,
+          profiles: input?.profiles,
           insurancePolicyMode: input?.insurancePolicyMode,
           nursing: input?.nursing,
           supportRequests: input?.supportRequests,
@@ -243,7 +225,7 @@ export function useCreateDepartment() {
 
 export function useUpdateDepartment() {
   const [mutate, { loading, error }] = useMutation<UpdateDepartmentPayload>(UPDATE_DEPARTMENT_MUTATION)
-  const updateDepartment = async (id: number | string, input: { name?: string; insuranceProviderIds?: string[]; defaultProductIds?: string[]; insurancePolicyMode?: string; nursing?: boolean; supportRequests?: boolean; requestsProducts?: boolean }) => {
+  const updateDepartment = async (id: number | string, input: { name?: string; insuranceProviderIds?: string[]; profiles?: DepartmentProfileMutationInput[]; insurancePolicyMode?: string; nursing?: boolean; supportRequests?: boolean; requestsProducts?: boolean }) => {
     const { data } = await mutate({ variables: { departmentId: id, input } })
     const payload = data?.updateDepartment
     return {
@@ -255,71 +237,16 @@ export function useUpdateDepartment() {
   return { updateDepartment, loading, error: error?.message || null }
 }
 
-export function useDeleteDepartment() {
-  const [mutate, { loading, error }] = useMutation<DeleteDepartmentPayload>(DELETE_DEPARTMENT_MUTATION)
-  const deleteDepartment = async (id: number | string) => {
-    const { data } = await mutate({ variables: { id } })
-    const payload = data?.deleteDepartment
-    return {
-      status: payload?.status || 'ERROR',
-      message: payload?.message,
-    }
-  }
-  return { deleteDepartment, loading, error: error?.message || null }
-}
-
-export function useAddDepartmentInsurance() {
-  const [mutate, { loading, error }] = useMutation<AddDepartmentInsurancePayload>(ADD_DEPARTMENT_INSURANCE_MUTATION)
-  const addDepartmentInsurance = async (departmentId: number | string, insuranceId: number | string) => {
-    const { data } = await mutate({ variables: { departmentId, insuranceId } })
-    const payload = data?.addDepartmentInsurance
+export function useRemoveDepartmentProfile() {
+  const [mutate, { loading, error }] = useMutation<RemoveDepartmentProfilePayload>(REMOVE_DEPARTMENT_PROFILE_MUTATION)
+  const removeDepartmentProfile = async (profileId: number | string) => {
+    const { data } = await mutate({ variables: { profileId } })
+    const payload = data?.removeDepartmentProfile
     return {
       status: payload?.status || 'ERROR',
       message: payload?.message,
       data: payload?.data ? mapDepartmentFromApi(payload.data) : null,
     }
   }
-  return { addDepartmentInsurance, loading, error: error?.message || null }
-}
-
-export function useRemoveDepartmentInsurance() {
-  const [mutate, { loading, error }] = useMutation<RemoveDepartmentInsurancePayload>(REMOVE_DEPARTMENT_INSURANCE_MUTATION)
-  const removeDepartmentInsurance = async (departmentId: number | string, insuranceId: number | string) => {
-    const { data } = await mutate({ variables: { departmentId, insuranceId } })
-    const payload = data?.removeDepartmentInsurance
-    return {
-      status: payload?.status || 'ERROR',
-      message: payload?.message,
-      data: payload?.data ? mapDepartmentFromApi(payload.data) : null,
-    }
-  }
-  return { removeDepartmentInsurance, loading, error: error?.message || null }
-}
-
-export function useAddDepartmentProduct() {
-  const [mutate, { loading, error }] = useMutation<AddDepartmentProductPayload>(ADD_DEPARTMENT_PRODUCT_MUTATION)
-  const addDepartmentProduct = async (departmentId: number | string, productId: number | string) => {
-    const { data } = await mutate({ variables: { departmentId, productId } })
-    const payload = data?.addDepartmentProduct
-    return {
-      status: payload?.status || 'ERROR',
-      message: payload?.message,
-      data: payload?.data ? mapDepartmentFromApi(payload.data) : null,
-    }
-  }
-  return { addDepartmentProduct, loading, error: error?.message || null }
-}
-
-export function useRemoveDepartmentProduct() {
-  const [mutate, { loading, error }] = useMutation<RemoveDepartmentProductPayload>(REMOVE_DEPARTMENT_PRODUCT_MUTATION)
-  const removeDepartmentProduct = async (departmentId: number | string, productId: number | string) => {
-    const { data } = await mutate({ variables: { departmentId, productId } })
-    const payload = data?.removeDepartmentProduct
-    return {
-      status: payload?.status || 'ERROR',
-      message: payload?.message,
-      data: payload?.data ? mapDepartmentFromApi(payload.data) : null,
-    }
-  }
-  return { removeDepartmentProduct, loading, error: error?.message || null }
+  return { removeDepartmentProfile, loading, error: error?.message || null }
 }

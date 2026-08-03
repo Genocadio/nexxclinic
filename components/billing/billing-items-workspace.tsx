@@ -1,9 +1,16 @@
 "use client";
 
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Layers } from "lucide-react";
 import type { ComponentProps } from "react";
 import { BillingItemsList } from "@/components/BillingItemsList";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { BillingItem } from "@/lib/billing-utils";
 
@@ -19,6 +26,10 @@ type BillingItemsWorkspaceProps = {
   canEdit?: boolean;
   editMode?: boolean;
   visitInsuranceOptions: BillingInsuranceOption[];
+  activeProfile?: { id: string; name: string } | null;
+  availableProfiles?: { id: string; name: string }[];
+  canChangeProfile?: boolean;
+  onChangeProfile?: (profileId: string | null) => void;
   onServiceChange: (serviceName: string) => void;
   onAddItem: () => void;
   onItemChange: (item: BillingItem) => void;
@@ -34,6 +45,10 @@ export function BillingItemsWorkspace({
   canEdit = true,
   editMode = false,
   visitInsuranceOptions,
+  activeProfile = null,
+  availableProfiles = [],
+  canChangeProfile = false,
+  onChangeProfile,
   onServiceChange,
   onAddItem,
   onItemChange,
@@ -42,8 +57,7 @@ export function BillingItemsWorkspace({
 }: BillingItemsWorkspaceProps) {
   return (
     <div className="flex-1 flex flex-col min-h-0 p-6">
-      <div className="flex-1 flex flex-col min-h-0 w-full min-w-0 mx-auto px-2 sm:px-4 md:px-[1cm] lg:px-[2cm]">
-        <div className="flex items-center justify-between gap-3 mb-2 flex-shrink-0">
+      <div className="flex-1 flex flex-col min-h-0 w-full min-w-0 mx-auto px-2 sm:px-4 md:px-[1cm] lg:px-[2cm]">          <div className="flex items-center justify-between gap-3 mb-2 flex-shrink-0">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold text-foreground">
               Items to Bill
@@ -54,6 +68,42 @@ export function BillingItemsWorkspace({
                 Edit Mode
               </span>
             )}
+            {activeProfile || availableProfiles.length > 0 ? (() => {
+              const activeIdInList =
+                !activeProfile ||
+                availableProfiles.some((profile) => profile.id === activeProfile.id);
+              return canChangeProfile && availableProfiles.length > 0 && activeIdInList ? (
+                <div className="flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Select
+                    value={activeProfile?.id || "none"}
+                    onValueChange={(value) =>
+                      onChangeProfile?.(value === "none" ? null : value)
+                    }
+                  >
+                    <SelectTrigger className="h-7 rounded-full border-border text-[11px] gap-1 px-2.5">
+                      <SelectValue placeholder="Profile" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Default</SelectItem>
+                      {availableProfiles.map((profile) => (
+                        <SelectItem key={profile.id} value={profile.id}>
+                          {profile.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted border border-border px-2.5 h-7 text-[11px] text-muted-foreground">
+                  <Layers className="h-3.5 w-3.5" />
+                  Profile:{" "}
+                  <span className="font-medium text-foreground">
+                    {activeProfile?.name || "Default"}
+                  </span>
+                </span>
+              );
+            })() : null}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {canAddItems && (

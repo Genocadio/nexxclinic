@@ -1,8 +1,12 @@
 import { useMutation, useQuery, useLazyQuery } from "@apollo/client";
-import { GET_BILL_BY_VISIT_QUERY, GET_INVOICE_QUERY } from "../queries";
+import {
+  GET_BILL_BY_VISIT_QUERY,
+  GET_INVOICE_QUERY,
+} from "../queries";
 import {
   CREATE_BILL_MUTATION,
   EDIT_BILL_MUTATION,
+  RECORD_VISIT_BILLING_PAYMENT_MUTATION,
   GENERATE_INVOICE_MUTATION,
 } from "../mutations";
 import type { VisitBilling, ApiResponse } from "../types";
@@ -38,6 +42,14 @@ export interface EditBillPayload {
   };
 }
 
+export interface RecordVisitBillingPaymentPayload {
+  recordVisitBillingPayment: {
+    status: string;
+    message?: string;
+    data?: GqlVisitBilling | null;
+  };
+}
+
 export interface GenerateInvoicePayload {
   generateInvoice: InvoiceResponse & {
     pdfBase64?: string;
@@ -47,6 +59,41 @@ export interface GenerateInvoicePayload {
 
 export interface GetInvoicePayload {
   getInvoice: InvoiceResponse;
+}
+
+export type BillingPaymentMethod =
+  | "CASH"
+  | "MOBILE_MONEY"
+  | "CARD"
+  | "BANK_TRANSFER"
+  | "CHEQUE"
+  | "MIXED";
+
+export interface CreateBillDepartmentInput {
+  visitDepartmentId: string;
+  products: {
+    visitDepartmentProductId: string;
+    parentVisitDepartmentId: string;
+    patientInsuranceId?: string;
+    quantity?: number;
+    unitPrice?: number;
+    isExempted?: boolean;
+  }[];
+  payments?: {
+    amount: number;
+    paymentMethod: BillingPaymentMethod;
+    reference?: string;
+  }[];
+  /**
+   * Required when any product is exempted or the payment does not cover the
+   * full patient payable amount. Optional otherwise.
+   */
+  note?: string;
+}
+
+export interface CreateBillInput {
+  visitId: string;
+  departments: CreateBillDepartmentInput[];
 }
 
 export function useGetVisitBilling(visitId: string | null) {
@@ -85,32 +132,9 @@ export function useCreateBill() {
   const [createBillMutation, { loading, error }] =
     useMutation<CreateBillPayload>(CREATE_BILL_MUTATION);
 
-  const createBill = async (input: {
-    visitId: string;
-    notes?: string;
-    departments: {
-      visitDepartmentId: string;
-      products: {
-        visitDepartmentProductId: string;
-        parentVisitDepartmentId: string;
-        patientInsuranceId?: string;
-        quantity?: number;
-        unitPrice?: number;
-        isExempted?: boolean;
-      }[];
-      payments?: {
-        amount: number;
-        paymentMethod:
-          | "CASH"
-          | "MOBILE_MONEY"
-          | "CARD"
-          | "BANK_TRANSFER"
-          | "CHEQUE"
-          | "MIXED";
-        reference?: string;
-      }[];
-    }[];
-  }): Promise<ApiResponse<VisitBilling>> => {
+  const createBill = async (
+    input: CreateBillInput,
+  ): Promise<ApiResponse<VisitBilling>> => {
     try {
       const result = await createBillMutation({
         variables: { input },
@@ -147,8 +171,7 @@ export interface EditBillInput {
     }[];
     payments?: {
       amount: number;
-      paymentMethod:
-        "CASH" | "MOBILE_MONEY" | "CARD" | "BANK_TRANSFER" | "CHEQUE" | "MIXED";
+      paymentMethod: BillingPaymentMethod;
       reference?: string;
     }[];
   }[];
@@ -190,6 +213,36 @@ export function useEditBill() {
   };
 
   return { editBill, loading, error };
+}
+
+export function useRecordVisitBillingPayment() {
+  const [mutation, { loading, error }] =
+    useMutation<RecordVisitBillingPaymentPayload>(
+      RECORD_VISIT_BILLING_PAYMENT_MUTATION,
+    );
+
+  const recordPayment = async (input: {
+    departmentInsuranceBillingId: string;
+    amount: number;
+    paymentMethod: BillingPaymentMethod;
+    reference?: string;
+    note?: string;
+  }): Promise<ApiResponse<VisitBilling>> => {
+    try {
+      const result = await mutation({ variables: { input } });
+      const payload = result?.data?.recordVisitBillingPayment;
+      return {
+        status: payload?.status || "ERROR",
+        message: payload?.message,
+        data: payload?.data ? mapGqlVisitBilling(payload.data) : undefined,
+      };
+    } catch (err) {
+      console.error("Record billing payment error:", err);
+      throw err;
+    }
+  };
+
+  return { recordPayment, loading, error };
 }
 
 export function useGenerateInvoice() {

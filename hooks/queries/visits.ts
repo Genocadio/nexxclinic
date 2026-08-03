@@ -27,6 +27,7 @@ const visitDepartmentProductFields = `
   quantity
   price
   status
+  source
   addedBy {
     id
     firstName
@@ -173,6 +174,15 @@ export const GET_VISIT_QUERY = gql`
             requestsProducts
           }
           status
+          profile {
+            id
+            name
+            isDefault
+            products {
+              id
+              name
+            }
+          }
           completedAt
           processors {
             id

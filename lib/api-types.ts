@@ -117,8 +117,15 @@ export enum VisitStatus {
 export enum VisitProductStatus {
   BILLED = "BILLED",
   EXEMPTED = "EXEMPTED",
+  /** Was BILLED/EXEMPTED and reset by the edit-billing correction flow. Not settable by clients. */
+  CORRECTION_PENDING = "CORRECTION_PENDING",
   UNPAID = "UNPAID",
   PENDING = "PENDING",
+}
+
+export enum VisitDepartmentProductSource {
+  USER = "USER",
+  PROFILE = "PROFILE",
 }
 
 export enum VisitDepartmentStatus {
@@ -134,6 +141,12 @@ export enum EncounterType {
   OUTPATIENT = "OUTPATIENT",
   INPATIENT_OBSERVATION = "INPATIENT_OBSERVATION",
   INPATIENT_ADMISSION = "INPATIENT_ADMISSION",
+}
+
+export enum SearchIndexType {
+  PRODUCTS = "PRODUCTS",
+  PATIENTS = "PATIENTS",
+  WORKERS = "WORKERS",
 }
 
 export enum VisitBillingStatus {
@@ -194,6 +207,15 @@ export enum ConditionalCondition {
 export enum AnswerStatus {
   DRAFT = "DRAFT",
   FINAL = "FINAL",
+  SUBMITTED = "SUBMITTED",
+}
+
+export enum NoteType {
+  BILLING = "BILLING",
+  FORMS = "FORMS",
+  CONSULTATION = "CONSULTATION",
+  ADMIN = "ADMIN",
+  PUBLIC = "PUBLIC",
 }
 
 export enum VisitPreInstructionProductStatus {
@@ -275,8 +297,10 @@ export interface Patient {
   firstName: string;
   middleName?: string | null;
   lastName?: string | null;
+  fullName?: string | null;
   patientIdentifier?: string | null;
   dateOfBirth: string;
+  age?: number | null;
   gender: Gender;
   primaryPhoneNumber?: string | null;
   alternativePhone?: string | null;
@@ -297,6 +321,19 @@ export interface Patient {
 }
 
 /**
+ * DepartmentProfile - A named set of products a department can be configured with.
+ * One profile per department is marked as the default (isDefault).
+ */
+export interface DepartmentProfile {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  products: Product[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
  * Department - Represents a clinic department (e.g., Pediatrics, Maternity)
  */
 export interface Department {
@@ -304,7 +341,7 @@ export interface Department {
   name: string;
   insurancePolicyMode: DepartmentInsurancePolicyMode;
   insurancePolicies: InsuranceProvider[];
-  defaultProducts: Product[];
+  profiles: DepartmentProfile[];
   nursing: boolean;
   supportRequests: boolean;
   requestsProducts: boolean;
@@ -424,6 +461,7 @@ export interface VisitDepartment {
   department: Department;
   status: VisitDepartmentStatus;
   encounterType: EncounterType;
+  profile?: DepartmentProfile | null;
   completedAt?: string | null;
   processors: Worker[];
   childVisitDepartments: VisitDepartment[];
@@ -446,6 +484,7 @@ export interface VisitDepartmentProduct {
   quantity: number;
   price: number;
   status: VisitProductStatus;
+  source?: VisitDepartmentProductSource | null;
   addedBy?: Worker | null;
   billedBy?: Worker | null;
   processor?: Worker | null;

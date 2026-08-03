@@ -320,11 +320,18 @@ export interface SearchProductsInput {
 // DEPARTMENT INPUT TYPES
 // ============================================
 
+export interface DepartmentProfileInput {
+  id?: string
+  name: string
+  isDefault?: boolean
+  productIds?: string[]
+}
+
 export interface CreateDepartmentInput {
   name: string
   insurancePolicyMode?: DepartmentInsurancePolicyMode
   insuranceProviderIds?: string[]
-  defaultProductIds?: string[]
+  profiles?: DepartmentProfileInput[]
   nursing?: boolean
   supportRequests?: boolean
   requestsProducts?: boolean
@@ -334,7 +341,7 @@ export interface UpdateDepartmentInput {
   name?: string
   insurancePolicyMode?: DepartmentInsurancePolicyMode
   insuranceProviderIds?: string[]
-  defaultProductIds?: string[]
+  profiles?: DepartmentProfileInput[]
   nursing?: boolean
   supportRequests?: boolean
   requestsProducts?: boolean
@@ -367,6 +374,8 @@ export interface ChangeVisitDateInput {
 export interface CreateVisitDepartmentInput {
   departmentId: string
   encounterType?: EncounterType
+  profileId?: string
+  processorId?: string
   products?: CreateVisitDepartmentProductItemInput[]
 }
 
@@ -396,7 +405,8 @@ export interface AddChildVisitDepartmentProductInput {
 export interface AddChildVisitDepartmentInput {
   parentVisitDepartmentId: string
   departmentId: string
-  products: AddChildVisitDepartmentProductInput[]
+  products?: AddChildVisitDepartmentProductInput[]
+  profileId?: string
   processorId?: string
   encounterType?: EncounterType
 }
@@ -462,6 +472,11 @@ export interface BillVisitDepartmentInput {
   visitDepartmentId: string
   products: BillVisitDepartmentProductInput[]
   payments?: BillingPaymentInput[]
+  /**
+   * Required when any product is exempted or the patient payment does not
+   * cover the full payable amount. Optional otherwise.
+   */
+  note?: string
 }
 
 export interface BillVisitInput {
@@ -469,11 +484,49 @@ export interface BillVisitInput {
   departments: BillVisitDepartmentInput[]
 }
 
+export interface EditBillVisitAddProductInput {
+  productId: string
+  quantity: number
+}
+
+export interface EditBillVisitUpdateProductInput {
+  productId: string
+  quantity?: number
+}
+
+export interface EditBillVisitBillProductInput {
+  productId: string
+  patientInsuranceId?: string
+  quantity?: number
+  unitPrice?: number
+  isExempted?: boolean
+}
+
+export interface EditBillVisitDepartmentInput {
+  visitDepartmentId: string
+  addedProducts?: EditBillVisitAddProductInput[]
+  removedProductIds?: string[]
+  updatedProducts?: EditBillVisitUpdateProductInput[]
+  billProducts: EditBillVisitBillProductInput[]
+  payments?: BillingPaymentInput[]
+  note?: string
+}
+
+export interface EditBillVisitInput {
+  visitId: string
+  departments: EditBillVisitDepartmentInput[]
+}
+
 export interface RecordVisitBillingPaymentInput {
   departmentInsuranceBillingId: string
   amount: number
   paymentMethod: PaymentMethod
   reference?: string
+  /**
+   * Required when the payment does not fully cover the outstanding patient
+   * payable amount. Optional otherwise.
+   */
+  note?: string
 }
 
 // ============================================

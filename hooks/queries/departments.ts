@@ -1,5 +1,46 @@
 import { gql } from '@apollo/client'
 
+export const DEPARTMENT_PROFILE_PRODUCT_FRAGMENT = gql`
+  fragment DepartmentProfileProduct on Product {
+    id
+    name
+    genericName
+    code
+    description
+    type
+    unit
+    privateRhicPrice
+    clinicPrice
+    insuranceCoverages {
+      id
+      insuranceProvider {
+        id
+        insuranceName
+        acronym
+        defaultCoveragePercentage
+        supportedByClinic
+        iconUrl
+      }
+      cost
+      covered
+      requireMedicalAdvisor
+    }
+  }
+`
+
+export const DEPARTMENT_PROFILE_FRAGMENT = gql`
+  fragment DepartmentProfileFields on DepartmentProfile {
+    id
+    name
+    isDefault
+    products {
+      ...DepartmentProfileProduct
+    }
+    createdAt
+    updatedAt
+  }
+`
+
 export const GET_DEPARTMENTS_QUERY = gql`
   query GetDepartments($input: SearchDepartmentsInput) {
     departments(input: $input) {
@@ -21,30 +62,8 @@ export const GET_DEPARTMENTS_QUERY = gql`
           supportedByClinic
           iconUrl
         }
-        defaultProducts {
-          id
-          name
-          genericName
-          code
-          description
-          type
-          unit
-          privateRhicPrice
-          clinicPrice
-          insuranceCoverages {
-            id
-            insuranceProvider {
-              id
-              insuranceName
-              acronym
-              defaultCoveragePercentage
-              supportedByClinic
-              iconUrl
-            }
-            cost
-            covered
-            requireMedicalAdvisor
-          }
+        profiles {
+          ...DepartmentProfileFields
         }
         createdAt
         updatedAt
@@ -57,6 +76,8 @@ export const GET_DEPARTMENTS_QUERY = gql`
       }
     }
   }
+  ${DEPARTMENT_PROFILE_PRODUCT_FRAGMENT}
+  ${DEPARTMENT_PROFILE_FRAGMENT}
 `
 
 export const GET_DEPARTMENT_QUERY = gql`
@@ -80,34 +101,14 @@ export const GET_DEPARTMENT_QUERY = gql`
           supportedByClinic
           iconUrl
         }
-        defaultProducts {
-          id
-          name
-          genericName
-          code
-          description
-          type
-          unit
-          privateRhicPrice
-          clinicPrice
-          insuranceCoverages {
-            id
-            insuranceProvider {
-              id
-              insuranceName
-              acronym
-              defaultCoveragePercentage
-              supportedByClinic
-              iconUrl
-            }
-            cost
-            covered
-            requireMedicalAdvisor
-          }
+        profiles {
+          ...DepartmentProfileFields
         }
         createdAt
         updatedAt
       }
     }
   }
+  ${DEPARTMENT_PROFILE_PRODUCT_FRAGMENT}
+  ${DEPARTMENT_PROFILE_FRAGMENT}
 `

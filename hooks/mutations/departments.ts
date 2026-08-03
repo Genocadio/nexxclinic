@@ -1,5 +1,46 @@
 import { gql } from '@apollo/client'
 
+const DEPARTMENT_PROFILE_PRODUCT_FRAGMENT = gql`
+  fragment DepartmentProfileProduct on Product {
+    id
+    name
+    genericName
+    code
+    description
+    type
+    unit
+    privateRhicPrice
+    clinicPrice
+    insuranceCoverages {
+      id
+      insuranceProvider {
+        id
+        insuranceName
+        acronym
+        defaultCoveragePercentage
+        supportedByClinic
+        iconUrl
+      }
+      cost
+      covered
+      requireMedicalAdvisor
+    }
+  }
+`
+
+const DEPARTMENT_PROFILE_FRAGMENT = gql`
+  fragment DepartmentProfileFields on DepartmentProfile {
+    id
+    name
+    isDefault
+    products {
+      ...DepartmentProfileProduct
+    }
+    createdAt
+    updatedAt
+  }
+`
+
 export const CREATE_DEPARTMENT_MUTATION = gql`
   mutation CreateDepartment($input: CreateDepartmentInput!) {
     createDepartment(input: $input) {
@@ -20,36 +61,16 @@ export const CREATE_DEPARTMENT_MUTATION = gql`
           supportedByClinic
           iconUrl
         }
-        defaultProducts {
-          id
-          name
-          genericName
-          code
-          description
-          type
-          unit
-          privateRhicPrice
-          clinicPrice
-          insuranceCoverages {
-            id
-            insuranceProvider {
-              id
-              insuranceName
-              acronym
-              defaultCoveragePercentage
-              supportedByClinic
-              iconUrl
-            }
-            cost
-            covered
-            requireMedicalAdvisor
-          }
+        profiles {
+          ...DepartmentProfileFields
         }
         createdAt
         updatedAt
       }
     }
   }
+  ${DEPARTMENT_PROFILE_PRODUCT_FRAGMENT}
+  ${DEPARTMENT_PROFILE_FRAGMENT}
 `
 
 export const UPDATE_DEPARTMENT_MUTATION = gql`
@@ -72,84 +93,46 @@ export const UPDATE_DEPARTMENT_MUTATION = gql`
           supportedByClinic
           iconUrl
         }
-        defaultProducts {
-          id
-          name
-          genericName
-          code
-          description
-          type
-          unit
-          privateRhicPrice
-          clinicPrice
-          insuranceCoverages {
-            id
-            insuranceProvider {
-              id
-              insuranceName
-              acronym
-              defaultCoveragePercentage
-              supportedByClinic
-              iconUrl
-            }
-            cost
-            covered
-            requireMedicalAdvisor
-          }
+        profiles {
+          ...DepartmentProfileFields
         }
         createdAt
         updatedAt
       }
     }
   }
+  ${DEPARTMENT_PROFILE_PRODUCT_FRAGMENT}
+  ${DEPARTMENT_PROFILE_FRAGMENT}
 `
 
-export const DELETE_DEPARTMENT_MUTATION = gql`
-  mutation DeleteDepartment($id: ID!) {
-    deleteDepartment(id: $id) {
+export const REMOVE_DEPARTMENT_PROFILE_MUTATION = gql`
+  mutation RemoveDepartmentProfile($profileId: ID!) {
+    removeDepartmentProfile(profileId: $profileId) {
       status
       message
-      
+      data {
+        id
+        name
+        nursing
+        supportRequests
+        requestsProducts
+        insurancePolicyMode
+        insurancePolicies {
+          id
+          insuranceName
+          acronym
+          defaultCoveragePercentage
+          supportedByClinic
+          iconUrl
+        }
+        profiles {
+          ...DepartmentProfileFields
+        }
+        createdAt
+        updatedAt
+      }
     }
   }
-`
-
-export const ADD_DEPARTMENT_INSURANCE_MUTATION = gql`
-  mutation AddDepartmentInsurance($departmentId: ID!, $insuranceId: ID!) {
-    addDepartmentInsurance(departmentId: $departmentId, insuranceId: $insuranceId) {
-      status
-      message
-      
-    }
-  }
-`
-
-export const REMOVE_DEPARTMENT_INSURANCE_MUTATION = gql`
-  mutation RemoveDepartmentInsurance($departmentId: ID!, $insuranceId: ID!) {
-    removeDepartmentInsurance(departmentId: $departmentId, insuranceId: $insuranceId) {
-      status
-      message
-      
-    }
-  }
-`
-
-export const ADD_DEPARTMENT_PRODUCT_MUTATION = gql`
-  mutation AddDepartmentProduct($departmentId: ID!, $productId: ID!) {
-    addDepartmentProduct(departmentId: $departmentId, productId: $productId) {
-      status
-      message
-      
-    }
-  }
-`
-
-export const REMOVE_DEPARTMENT_PRODUCT_MUTATION = gql`
-  mutation RemoveDepartmentProduct($departmentId: ID!, $productId: ID!) {
-    removeDepartmentProduct(departmentId: $departmentId, productId: $productId) {
-      status
-      message
-      
-    }
-  }
+  ${DEPARTMENT_PROFILE_PRODUCT_FRAGMENT}
+  ${DEPARTMENT_PROFILE_FRAGMENT}
 `

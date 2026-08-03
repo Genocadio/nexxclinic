@@ -10,14 +10,40 @@ export const GET_BILL_BY_VISIT_QUERY = gql`
         visitId
         departments {
           id
+          visitDepartment {
+            id
+            status
+            department {
+              id
+              name
+            }
+          }
           status
           totalAmount
           insuranceCoveredAmount
           patientPayableAmount
           paidAmount
           outstandingAmount
+          payments {
+            id
+            amount
+            paymentMethod
+            reference
+            createdAt
+            updatedAt
+          }
           insuranceBillings {
             id
+            patientInsurance {
+              id
+              insuranceCardNumber
+              principalMemberName
+              insuranceProvider {
+                id
+                insuranceName
+                acronym
+              }
+            }
             status
             totalAmount
             insuranceCoveredAmount
@@ -34,6 +60,8 @@ export const GET_BILL_BY_VISIT_QUERY = gql`
               insuranceCoveredAmount
               patientPayableAmount
             }
+            createdAt
+            updatedAt
           }
           createdAt
           updatedAt

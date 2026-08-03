@@ -8,6 +8,7 @@ import { toast } from "react-toastify";
 import type { Visit, VisitBilling, VisitDepartment } from "@/lib/api-types";
 import type { BillingData } from "@/lib/billing-utils";
 import { getVisitBillingTotals } from "@/lib/visit-billing-utils";
+import { formatRWF } from "@/lib/utils";
 import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils";
 
 type InvoicePreviewGroup = {
@@ -496,13 +497,10 @@ export function BillingPreviewSheet({
                                         {item.quantity}
                                       </td>
                                       <td className="border-b border-border px-3 py-2 text-right text-sm text-foreground">
-                                        {item.price.toLocaleString()} RWF
+                                        {formatRWF(item.price)}
                                       </td>
                                       <td className="border-b border-border px-3 py-2 text-right text-sm font-semibold text-foreground">
-                                        {(
-                                          item.price * item.quantity
-                                        ).toLocaleString()}{" "}
-                                        RWF
+                                        {formatRWF(item.price * item.quantity)}
                                       </td>
                                     </tr>
                                   ))}
@@ -511,15 +509,15 @@ export function BillingPreviewSheet({
                               <div className="grid gap-2 sm:grid-cols-2 p-3">
                                 <div className="py-1">
                                   <strong>Total billed:</strong>{" "}
-                                  {group.totalAmount.toLocaleString()} RWF
+                                  {formatRWF(group.totalAmount)}
                                 </div>
                                 <div className="py-1">
                                   <strong>Paid:</strong>{" "}
-                                  {group.paidAmount.toLocaleString()} RWF
+                                  {formatRWF(group.paidAmount)}
                                 </div>
                                 <div className="py-1">
                                   <strong>Outstanding:</strong>{" "}
-                                  {group.outstandingAmount.toLocaleString()} RWF
+                                  {formatRWF(group.outstandingAmount)}
                                 </div>
                               </div>
                             </div>
@@ -537,19 +535,19 @@ export function BillingPreviewSheet({
                           <div className="py-1 border-b border-border">
                             <strong>Total billed:</strong>{" "}
                             <span className="float-right">
-                              {departmentTotal.toLocaleString()} RWF
+                              {formatRWF(departmentTotal)}
                             </span>
                           </div>
                           <div className="py-1 border-b border-border">
                             <strong>Paid:</strong>{" "}
                             <span className="float-right">
-                              {departmentPaid.toLocaleString()} RWF
+                              {formatRWF(departmentPaid)}
                             </span>
                           </div>
                           <div className="py-1 border-b border-border">
                             <strong>Outstanding:</strong>{" "}
                             <span className="float-right">
-                              {departmentOutstanding.toLocaleString()} RWF
+                              {formatRWF(departmentOutstanding)}
                             </span>
                           </div>
                         </div>
@@ -561,21 +559,19 @@ export function BillingPreviewSheet({
                         <div className="py-1 border-b border-border">
                           <strong>Total billed:</strong>{" "}
                           <span className="float-right">
-                            {visitBillingTotals.totalAmount.toLocaleString()}{" "}
-                            RWF
+                            {formatRWF(visitBillingTotals.totalAmount)}
                           </span>
                         </div>
                         <div className="py-1 border-b border-border">
                           <strong>Paid:</strong>{" "}
                           <span className="float-right">
-                            {visitBillingTotals.paidAmount.toLocaleString()} RWF
+                            {formatRWF(visitBillingTotals.paidAmount)}
                           </span>
                         </div>
                         <div className="py-1 border-b border-border">
                           <strong>Outstanding:</strong>{" "}
                           <span className="float-right">
-                            {visitBillingTotals.outstandingAmount.toLocaleString()}{" "}
-                            RWF
+                            {formatRWF(visitBillingTotals.outstandingAmount)}
                           </span>
                         </div>
                       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Receipt, Printer, Pencil } from "lucide-react";
+import { Receipt, Printer, Pencil, HandCoins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { VisitBilling } from "@/lib/api-types";
 import { getVisitBillingTotals } from "@/lib/visit-billing-utils";
+import { formatRWF } from "@/lib/utils";
 
 type BillingTotals = {
   subtotal: number;
@@ -33,17 +34,16 @@ type BillingStickySummaryProps = {
   isEditingBill: boolean;
   exemptionCount: number;
   hasUnreadNotes?: boolean;
+  canCollectPayment?: boolean;
+  recordingPayment?: boolean;
   onCompleteBill: () => void;
   onPreview: () => void;
   onPrint: () => void;
   onEditBilling: () => void;
   onDoneEditing: () => void;
   onManageExemptions: () => void;
+  onCollectPayment: () => void;
 };
-
-function formatRwf(amount: number) {
-  return `${amount.toLocaleString()} RWF`;
-}
 
 export function BillingStickySummary({
   totals,
@@ -59,12 +59,15 @@ export function BillingStickySummary({
   isEditingBill,
   exemptionCount,
   hasUnreadNotes = false,
+  canCollectPayment = false,
+  recordingPayment = false,
   onCompleteBill,
   onPreview,
   onPrint,
   onEditBilling,
   onDoneEditing,
   onManageExemptions,
+  onCollectPayment,
 }: BillingStickySummaryProps) {
   const remaining = Math.max(0, totals.totalAmount - amountPaid);
   const showActions = canEditBilling || hasRemainingToBill;
@@ -85,23 +88,23 @@ export function BillingStickySummary({
               <div className="flex items-center gap-4 lg:gap-5 text-xs shrink-0">
                 <SummaryLine
                   label="Service Total"
-                  value={formatRwf(totals.subtotal)}
+                  value={formatRWF(totals.subtotal)}
                 />
                 {totals.insuranceCoverage > 0 && (
                   <SummaryLine
                     label="Insurance"
-                    value={`−${totals.insuranceCoverage.toLocaleString()} ${currency}`}
+                    value={`−${formatRWF(totals.insuranceCoverage)}`}
                     className="text-emerald-600 dark:text-emerald-400"
                   />
                 )}
                 <SummaryLine
                   label="Patient"
-                  value={formatRwf(totals.patientResponsibility)}
+                  value={formatRWF(totals.patientResponsibility)}
                 />
                 {totals.discount > 0 && (
                   <SummaryLine
                     label="Discount"
-                    value={`−${totals.discount.toLocaleString()} ${currency}`}
+                    value={`−${formatRWF(totals.discount)}`}
                     className="text-red-500 dark:text-red-400"
                   />
                 )}
@@ -119,12 +122,12 @@ export function BillingStickySummary({
                   </p>
                 )}
                 <p className="text-xl font-bold text-[#FF6900] tabular-nums leading-tight">
-                  {formatRwf(totals.totalAmount)}
+                  {formatRWF(totals.totalAmount)}
                 </p>
                 {!existingVisitBilling && amountPaid > 0 && (
                   <p className="text-[10px] text-muted-foreground tabular-nums">
-                    Paid {amountPaid.toLocaleString()} · Remaining{" "}
-                    {remaining.toLocaleString()}
+                    Paid {formatRWF(amountPaid)} · Remaining{" "}
+                    {formatRWF(remaining)}
                   </p>
                 )}
               </div>
@@ -138,8 +141,7 @@ export function BillingStickySummary({
                     </span>
                   </span>
                   <span>
-                    Balance {billingTotals.outstandingAmount.toLocaleString()}{" "}
-                    {currency}
+                    Balance {formatRWF(billingTotals.outstandingAmount)}
                   </span>
                 </div>
               )}
@@ -185,6 +187,24 @@ export function BillingStickySummary({
                       </Button>
                     </>
                   )}
+
+                {existingVisitBilling && !isEditingBill && canCollectPayment && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 rounded-full text-xs gap-1.5"
+                    disabled={recordingPayment || hasUnreadNotes}
+                    onClick={onCollectPayment}
+                    title={
+                      hasUnreadNotes
+                        ? "View unread notes to record a payment"
+                        : "Record a payment against the outstanding balance"
+                    }
+                  >
+                    <HandCoins className="h-3.5 w-3.5" />
+                    {recordingPayment ? "Recording…" : "Collect payment"}
+                  </Button>
+                )}
 
                 {existingVisitBilling && !isEditingBill && (
                   <>

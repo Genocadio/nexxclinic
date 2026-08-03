@@ -4,6 +4,8 @@ export interface BillingItem {
   id: string;
   productId?: string;
   isNewInEditMode?: boolean;
+  /** How the product line was added to the visit department. */
+  source?: "USER" | "PROFILE" | null;
   name: string;
   quantity: number;
   price: number;
@@ -51,7 +53,12 @@ export interface BillingData {
   discountAmount?: number; // Store discount as amount
   discountReason?: string;
   paymentMethod?:
-    "CASH" | "MOBILE_MONEY" | "CARD" | "BANK_TRANSFER" | "CHEQUE" | "MIXED";
+    | "CASH"
+    | "MOBILE_MONEY"
+    | "CARD"
+    | "BANK_TRANSFER"
+    | "CHEQUE"
+    | "MIXED";
   amountPaid?: number; // Track amount patient paid
   paymentStatus?: "unpaid" | "partial" | "full"; // Track payment status
   notes?: string;
@@ -169,6 +176,81 @@ export function getItemInsuranceSplit(
   return { itemTotal, insuranceAmount, patientAmount, skip: false };
 }
 
+export interface DepartmentBillAllocation {
+  visitDepartmentId: string;
+  patientPayable: number;
+  allocatedPayment: number;
+  hasExemptions: boolean;
+  noteRequired: boolean;
+}
+
+/**
+ * Group billable items by root (top-level) department, compute each
+ * department's patient payable, then distribute `totalPayment` across them
+ * (settling each department in order until the payment is exhausted).
+ *
+ * A department needs a billing note when it has an exempted product OR its
+ * allocated payment does not cover its full patient payable (a balance is
+ * left — including billing with no payment at all).
+ */
+export function computeDepartmentBillAllocations(
+  items: BillingItem[],
+  totalPayment: number,
+  getCoveragePercentage: (item: BillingItem) => number,
+): DepartmentBillAllocation[] {
+  const map = new Map<string, DepartmentBillAllocation>();
+
+  for (const item of items) {
+    const rootId = String(
+      item.rootVisitDepartmentId || item.visitDepartmentId || "",
+    );
+    if (!rootId) continue;
+
+    let entry = map.get(rootId);
+    if (!entry) {
+      entry = {
+        visitDepartmentId: rootId,
+        patientPayable: 0,
+        allocatedPayment: 0,
+        hasExemptions: false,
+        noteRequired: false,
+      };
+      map.set(rootId, entry);
+    }
+
+    const exemptionType =
+      item.exemptionType || (item.exempted ? "full" : "none");
+    if (exemptionType !== "none") {
+      entry.hasExemptions = true;
+    }
+    if (exemptionType === "full" || exemptionType === "patient-share") {
+      continue; // zero patient payable
+    }
+
+    const { patientAmount } = getItemInsuranceSplit(
+      item,
+      getCoveragePercentage(item),
+    );
+    entry.patientPayable += patientAmount;
+  }
+
+  let remaining = Math.max(0, totalPayment || 0);
+  const allocations = Array.from(map.values());
+  for (const entry of allocations) {
+    const amount = Math.min(entry.patientPayable, remaining);
+    entry.allocatedPayment = amount;
+    remaining -= amount;
+  }
+
+  for (const entry of allocations) {
+    entry.noteRequired =
+      entry.hasExemptions ||
+      entry.allocatedPayment < entry.patientPayable - 0.001;
+  }
+
+  return allocations;
+}
+
 export const EXEMPTION_PRESETS = [
   "Waived by Doctor",
   "Financial Hardship",
@@ -272,31 +354,6 @@ export const calculateExemptedTotal = (items: BillingItem[]): number => {
   }, 0);
 };
 
-// Save billing to localStorage
-export const saveBillingToLocalStorage = (billing: BillingData): void => {
-  const existing = JSON.parse(
-    localStorage.getItem("billings") || "[]",
-  ) as BillingData[];
-  const filtered = existing.filter((b) => b.visitId !== billing.visitId);
-  filtered.push(billing);
-  localStorage.setItem("billings", JSON.stringify(filtered));
-};
-
-// Get billing from localStorage
-export const getBillingFromLocalStorage = (
-  visitId: string,
-): BillingData | null => {
-  const billings = JSON.parse(
-    localStorage.getItem("billings") || "[]",
-  ) as BillingData[];
-  return billings.find((b) => b.visitId === visitId) || null;
-};
-
-// Get all billings from localStorage
-export const getAllBillingsFromLocalStorage = (): BillingData[] => {
-  return JSON.parse(localStorage.getItem("billings") || "[]");
-};
-
 // Calculate payment status
 export const calculatePaymentStatus = (
   totalAmount: number,
@@ -332,3 +389,52 @@ export const isHalfPaid = (
   const halfAmount = totalAmount / 2;
   return amountPaid >= halfAmount && amountPaid < totalAmount;
 };
+
+// ============================================
+// SHARED TOTALS COMPUTATION
+// ============================================
+
+export interface BillingTotals {
+  subtotal: number;
+  insuranceCoverage: number;
+  patientResponsibility: number;
+  discount: number;
+  totalAmount: number;
+}
+
+/**
+ * Compute billing totals for a set of items. This is the single source of
+ * truth used by the billing page and summary components so every screen
+ * shows identical numbers (no more Math.round drift between components).
+ */
+export function computeBillingTotals(
+  items: BillingItem[],
+  getCoveragePercentage: (item: BillingItem) => number,
+  discountPercentage: number,
+): BillingTotals {
+  let subtotal = 0;
+  let insuranceCoverage = 0;
+  let patientResponsibility = 0;
+
+  items.forEach((item) => {
+    const coveragePct = getCoveragePercentage(item);
+    const { itemTotal, insuranceAmount, patientAmount, skip } =
+      getItemInsuranceSplit(item, coveragePct);
+
+    if (skip) return;
+    subtotal += itemTotal;
+    insuranceCoverage += insuranceAmount;
+    patientResponsibility += patientAmount;
+  });
+
+  const discount = (patientResponsibility * (discountPercentage || 0)) / 100;
+  const totalAmount = patientResponsibility - discount;
+
+  return {
+    subtotal,
+    insuranceCoverage,
+    patientResponsibility,
+    discount,
+    totalAmount,
+  };
+}

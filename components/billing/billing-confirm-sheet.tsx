@@ -17,17 +17,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BillingItem, calculateItemTotal } from "@/lib/billing-utils";
+import { BillingItem, BillingTotals, calculateItemTotal } from "@/lib/billing-utils";
+type PaymentMethod =
+  | "CASH"
+  | "MOBILE_MONEY"
+  | "CARD"
+  | "BANK_TRANSFER"
+  | "CHEQUE"
+  | "MIXED";
 import { Textarea } from "@/components/ui/textarea";
+import { formatRWF } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
-
-type BillingTotals = {
-  subtotal: number;
-  insuranceCoverage: number;
-  patientResponsibility: number;
-  discount: number;
-  totalAmount: number;
-};
 
 type BillingConfirmSheetProps = {
   open: boolean;
@@ -35,17 +35,13 @@ type BillingConfirmSheetProps = {
   items: BillingItem[];
   totals: BillingTotals;
   amountPaid: number;
-  paymentMethod:
-    "CASH" | "MOBILE_MONEY" | "CARD" | "BANK_TRANSFER" | "CHEQUE" | "MIXED";
+  paymentMethod: PaymentMethod;
   creatingBill: boolean;
   showItemsReview?: boolean;
   showDiscountControls: boolean;
   discountInputType: "PERCENTAGE" | "FIXED";
   discountInputValue: number;
-  onPaymentMethodChange: (
-    method:
-      "CASH" | "MOBILE_MONEY" | "CARD" | "BANK_TRANSFER" | "CHEQUE" | "MIXED",
-  ) => void;
+  onPaymentMethodChange: (method: PaymentMethod) => void;
   onAmountPaidChange: (amount: number) => void;
   onShowDiscountControls: (show: boolean) => void;
   onDiscountInputTypeChange: (type: "PERCENTAGE" | "FIXED") => void;
@@ -53,6 +49,11 @@ type BillingConfirmSheetProps = {
   onDiscountChange: (percent: number) => void;
   billingNotes?: string;
   onBillingNotesChange?: (notes: string) => void;
+  /**
+   * True when the backend requires a billing note (any exempted product or a
+   * department whose payment does not cover its full patient payable).
+   */
+  noteRequired?: boolean;
   onConfirm: () => void;
 };
 
@@ -76,6 +77,7 @@ export function BillingConfirmSheet({
   onDiscountChange,
   billingNotes = "",
   onBillingNotesChange,
+  noteRequired = false,
   onConfirm,
 }: BillingConfirmSheetProps) {
   const itemsToBill = items.filter((item) => item.paymentStatus !== "paid");
@@ -92,8 +94,6 @@ export function BillingConfirmSheet({
   const hasDiscount = totals.discount > 0;
   const hasManualPaidAdjustment =
     Math.abs(amountPaid - totals.totalAmount) > 0.001;
-  const shouldRecommendNote =
-    hasExemptions || hasDiscount || hasManualPaidAdjustment;
 
   const suggestedReasons = useMemo(() => {
     const reasons: string[] = [];
@@ -104,8 +104,12 @@ export function BillingConfirmSheet({
     if (hasManualPaidAdjustment && amountPaid > totals.totalAmount)
       reasons.push("Adjusted paid amount");
     reasons.push("Deducted by doctor");
+    reasons.push("Insurance adjustment");
+    reasons.push("Promotional discount");
+    reasons.push("Staff welfare");
+    reasons.push("Charity case");
     reasons.push("Other");
-    return Array.from(new Set(reasons));
+    return reasons;
   }, [
     hasDiscount,
     hasExemptions,
@@ -114,18 +118,25 @@ export function BillingConfirmSheet({
     totals.totalAmount,
   ]);
 
+  // Reset reason selection each time the sheet opens so stale state from a
+  // previous session doesn't leak into the next bill.
   useEffect(() => {
-    if (shouldRecommendNote) {
-      setShowNotes(true);
-      if (!noteReason && suggestedReasons.length > 0) {
-        setNoteReason(suggestedReasons[0]);
-      }
+    if (open) {
+      setNoteReason("");
+      setCustomReason("");
     }
-  }, [shouldRecommendNote, suggestedReasons, noteReason]);
+  }, [open]);
 
-  // Sync reason/customReason to parent billingNotes when tampered
+  // Force the note section open whenever a note is required.
   useEffect(() => {
-    if (!shouldRecommendNote) return;
+    if (noteRequired && !showNotes) {
+      setShowNotes(true);
+    }
+  }, [noteRequired, showNotes]);
+
+  // Sync reason/customReason to parent billingNotes whenever one is chosen.
+  useEffect(() => {
+    if (!noteReason) return;
     let note = "";
     if (noteReason && noteReason !== "Other") {
       note = noteReason;
@@ -133,10 +144,10 @@ export function BillingConfirmSheet({
       note = customReason.trim();
     }
     onBillingNotesChange?.(note);
-  }, [noteReason, customReason, shouldRecommendNote, onBillingNotesChange]);
+  }, [noteReason, customReason, onBillingNotesChange]);
 
   const reasonMissing =
-    shouldRecommendNote &&
+    noteRequired &&
     showNotes &&
     (!noteReason || (noteReason === "Other" && !customReason.trim()));
 
@@ -174,11 +185,11 @@ export function BillingConfirmSheet({
                         {item.name}
                       </p>
                       <p className="text-[10px] text-muted-foreground">
-                        {item.quantity} × {item.price.toLocaleString()} RWF
+                        {item.quantity} × {formatRWF(item.price)}
                       </p>
                     </div>
                     <span className="font-semibold tabular-nums shrink-0">
-                      {lineTotal.toLocaleString()} RWF
+                      {formatRWF(lineTotal)}
                     </span>
                   </li>
                 );
@@ -206,7 +217,7 @@ export function BillingConfirmSheet({
             <div className="border-t border-border pt-2 flex justify-between items-baseline">
               <span className="font-semibold">Final amount due</span>
               <span className="text-lg font-bold text-[#FF6900] tabular-nums">
-                {totals.totalAmount.toLocaleString()} RWF
+                {formatRWF(totals.totalAmount)}
               </span>
             </div>
           </div>
@@ -222,15 +233,7 @@ export function BillingConfirmSheet({
               <Select
                 value={paymentMethod || "MOBILE_MONEY"}
                 onValueChange={(v) =>
-                  onPaymentMethodChange(
-                    v as
-                      | "CASH"
-                      | "MOBILE_MONEY"
-                      | "CARD"
-                      | "BANK_TRANSFER"
-                      | "CHEQUE"
-                      | "MIXED",
-                  )
+                  onPaymentMethodChange(v as PaymentMethod)
                 }
               >
                 <SelectTrigger className="mt-1 h-9">
@@ -254,17 +257,22 @@ export function BillingConfirmSheet({
               <Input
                 type="number"
                 min={0}
+                max={totals.totalAmount}
                 value={amountPaid}
                 onChange={(e) =>
-                  onAmountPaidChange(Math.max(0, Number(e.target.value || 0)))
+                  onAmountPaidChange(
+                    Math.min(
+                      totals.totalAmount,
+                      Math.max(0, Number(e.target.value || 0)),
+                    ),
+                  )
                 }
                 className="mt-1 h-9 tabular-nums"
               />
               {amountPaid > totals.totalAmount ? (
                 <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
-                  Amount paid exceeds the total amount due by{" "}
-                  {(amountPaid - totals.totalAmount).toLocaleString()} RWF. The
-                  excess will be recorded as overpayment.
+                  Amount paid cannot exceed the total amount due — it has been
+                  capped at {formatRWF(totals.totalAmount)}.
                 </p>
               ) : null}
             </div>
@@ -272,7 +280,7 @@ export function BillingConfirmSheet({
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">Remaining balance</span>
               <span className="font-semibold text-orange-600 dark:text-orange-400 tabular-nums">
-                {remaining.toLocaleString()} RWF
+                {formatRWF(remaining)}
               </span>
             </div>
 
@@ -362,16 +370,19 @@ export function BillingConfirmSheet({
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-xs font-medium text-foreground">
-                    Billing note{shouldRecommendNote ? "" : " (optional)"}
+                    Billing note
                   </span>
-                  {shouldRecommendNote ? (
+                  {noteRequired && (
                     <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
-                      Required because discount, exemption, or paid amount was
-                      adjusted.
+                      Required because{" "}
+                      {hasExemptions
+                        ? "an item is exempted"
+                        : "the payment does not cover the full amount due"}
+                      .
                     </p>
-                  ) : null}
+                  )}
                 </div>
-                {!showNotes && !shouldRecommendNote ? (
+                {!showNotes ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -381,12 +392,27 @@ export function BillingConfirmSheet({
                   >
                     + Add note
                   </Button>
+                ) : !noteRequired ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 rounded-full text-xs"
+                    onClick={() => {
+                      setShowNotes(false);
+                      setNoteReason("");
+                      setCustomReason("");
+                      onBillingNotesChange?.("");
+                    }}
+                  >
+                    Remove
+                  </Button>
                 ) : null}
               </div>
 
               {showNotes ? (
                 <div className="space-y-2">
-                  {shouldRecommendNote ? (
+                  {noteRequired ? (
                     <>
                       <div>
                         <label className="text-xs text-muted-foreground">
@@ -414,11 +440,11 @@ export function BillingConfirmSheet({
                           <label className="text-xs text-muted-foreground">
                             Other reason
                           </label>
-                          <Input
+                          <Textarea
                             value={customReason}
                             onChange={(e) => setCustomReason(e.target.value)}
                             placeholder="Type the reason"
-                            className="mt-1 h-9"
+                            className="mt-1 min-h-[90px]"
                           />
                         </div>
                       ) : null}
@@ -492,8 +518,8 @@ function Row({
 }) {
   const formatted =
     variant === "credit"
-      ? `−${Math.abs(value).toLocaleString()} RWF`
-      : `${value.toLocaleString()} RWF`;
+      ? `−${formatRWF(Math.abs(value))}`
+      : formatRWF(value);
 
   return (
     <div className="flex justify-between text-xs">

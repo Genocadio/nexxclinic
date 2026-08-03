@@ -12,7 +12,8 @@ export interface FormAction {
   name: string
   type: 'action' | 'consumable'
   quantity: number
-  privatePrice: number
+  price?: number
+  privatePrice?: number
   isQuantifiable?: boolean
   backendId?: string
   rawData?: Record<string, any> // Store complete backend response for accurate ID

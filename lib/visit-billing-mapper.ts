@@ -122,6 +122,7 @@ export function mapVisitToBillingData(
       items.push({
         id: line.id,
         productId: String(product.id || ""),
+        source: line.source ?? null,
         name: product.name || "Product",
         quantity: line.quantity || 1,
         price,
@@ -214,10 +215,10 @@ export function mapVisitToBillingData(
     items,
     discountPercentage,
     paymentMethod: "MOBILE_MONEY",
-    // In edit mode reset amount paid so the user re-enters payment fresh.
-    amountPaid: options?.editMode
-      ? 0
-      : Number(billingTotals?.paidAmount ?? patientContributionAfterDiscount),
+    // Default the amount to the existing paid amount (kept for the new billing
+    // version when payments are carried forward). In edit mode the user can
+    // adjust it — 0 means carry forward the previous version's payments.
+    amountPaid: Number(billingTotals?.paidAmount ?? (options?.editMode ? 0 : patientContributionAfterDiscount)),
     notes: "",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

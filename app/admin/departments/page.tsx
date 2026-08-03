@@ -4,15 +4,10 @@ import React, { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/header'
 import { useAuth } from '@/lib/auth-context'
-import { 
+import {
   useDepartments,
   useCreateDepartment,
   useUpdateDepartment,
-  useDeleteDepartment,
-  useAddDepartmentInsurance,
-  useRemoveDepartmentInsurance,
-  useAddDepartmentProduct,
-  useRemoveDepartmentProduct,
   useProducts,
   useInsurances,
 } from '@/hooks/auth-hooks'
@@ -25,8 +20,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ProductAutocomplete } from '@/components/ui/product-autocomplete'
 import { InsuranceAutocomplete } from '@/components/ui/insurance-autocomplete'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ArrowLeft, Plus, Pencil, Trash, X, FileText } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, X, FileText } from 'lucide-react'
 import { DepartmentFormsPanel } from '@/components/admin/department-forms-panel'
+import { DepartmentProfilesPanel } from '@/components/admin/department-profiles-panel'
 import { useToast } from '@/hooks/use-toast'
 
 export default function DepartmentsPage() {
@@ -40,17 +36,13 @@ export default function DepartmentsPage() {
 
   const { createDepartment } = useCreateDepartment()
   const { updateDepartment } = useUpdateDepartment()
-  const { deleteDepartment } = useDeleteDepartment()
-  const { addDepartmentInsurance } = useAddDepartmentInsurance()
-  const { removeDepartmentInsurance } = useRemoveDepartmentInsurance()
-  const { addDepartmentProduct } = useAddDepartmentProduct()
-  const { removeDepartmentProduct } = useRemoveDepartmentProduct()
   const [selectedDepartment, setSelectedDepartment] = useState<any | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuDepartment, setMenuDepartment] = useState<any>(null)
   const [departmentName, setDepartmentName] = useState('')
+  const [departmentProfileName, setDepartmentProfileName] = useState('Default')
   const [departmentInsurancePolicyMode, setDepartmentInsurancePolicyMode] = useState('')
   const [departmentProductIds, setDepartmentProductIds] = useState<string[]>([])
   const [departmentInsuranceIds, setDepartmentInsuranceIds] = useState<string[]>([])
@@ -62,14 +54,7 @@ export default function DepartmentsPage() {
   const [saving, setSaving] = useState(false)
 
   // Linking states
-  const [selectedProductId, setSelectedProductId] = useState<string>('')
   const [selectedInsuranceId, setSelectedInsuranceId] = useState<string>('')
-
-  const availableProducts = useMemo(() => {
-    if (!selectedDepartment) return products
-    const linkedIds = new Set((selectedDepartment.defaultProducts || []).map((product: any) => String(product.id)))
-    return products.filter((product: any) => !linkedIds.has(String(product.id)))
-  }, [products, selectedDepartment])
 
   const availableInsurances = useMemo(() => {
     if (!selectedDepartment) return insurances
@@ -89,6 +74,7 @@ export default function DepartmentsPage() {
 
   const resetDepartmentForm = () => {
     setDepartmentName('')
+    setDepartmentProfileName('Default')
     setDepartmentInsurancePolicyMode('')
     setDepartmentProductIds([])
     setDepartmentInsuranceIds([])
@@ -207,7 +193,16 @@ export default function DepartmentsPage() {
         const createdResp = await createDepartment(departmentName.trim(), {
           insurancePolicyMode: departmentInsurancePolicyMode || undefined,
           insuranceProviderIds: departmentInsuranceIds,
-          defaultProductIds: departmentProductIds,
+          profiles:
+            departmentProductIds.length > 0
+              ? [
+                  {
+                    name: departmentProfileName.trim() || 'Default',
+                    isDefault: true,
+                    productIds: departmentProductIds,
+                  },
+                ]
+              : undefined,
           nursing: departmentNursing,
           supportRequests: departmentSupportRequests,
           requestsProducts: departmentRequestsProducts,
@@ -270,116 +265,6 @@ export default function DepartmentsPage() {
       // Don't close modal on error
     } finally {
       setSaving(false)
-    }
-  }
-
-  const handleDelete = async () => {
-    if (!selectedDepartment) return
-    if (!confirm('Delete this department?')) return
-    try {
-      setSaving(true)
-      const resp = await deleteDepartment(selectedDepartment.id)
-      if (resp?.status === 'SUCCESS') {
-        toast({ title: 'Department deleted' })
-        setSelectedDepartment(null)
-        await refetchDepartments()
-      } else {
-        toast({ title: 'Delete failed', description: resp?.message || 'Please try again.' })
-      }
-    } catch (err: any) {
-      toast({ title: 'Delete failed', description: err?.message || 'Unexpected error' })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleAddProduct = async () => {
-    const department = menuDepartment || selectedDepartment
-    if (!department || !selectedProductId) return
-    try {
-      const currentProductIds = (department.defaultProducts || []).map((p: any) => String(p.id))
-      const resp = await updateDepartment(department.id, {
-        defaultProductIds: [...currentProductIds, selectedProductId]
-      })
-      if (resp?.status === 'SUCCESS') {
-        const updated = resp.data
-        // Update both selectedDepartment and menuDepartment if they exist
-        if (selectedDepartment?.id === department.id) {
-          setSelectedDepartment(updated)
-        }
-        if (menuDepartment?.id === department.id) {
-          setMenuDepartment(updated)
-        }
-        await refetchDepartments()
-        setSelectedProductId('')
-        toast({ title: 'Product added successfully', description: resp.message || 'The product has been linked to the department.' })
-      } else {
-        toast({ title: 'Failed to add product', description: resp?.message || 'Failed to add product to department', variant: 'destructive' })
-      }
-    } catch (err: any) {
-      console.error('Add product error:', err)
-      
-      // Extract the actual error message from various possible error structures
-      let errorMessage = 'Failed to add product to department'
-      
-      if (err?.message) {
-        errorMessage = err.message
-      } else if (err?.graphQLErrors?.length > 0) {
-        const gqlError = err.graphQLErrors[0]
-        if (gqlError?.message) {
-          errorMessage = gqlError.message
-        } else if (gqlError?.extensions?.exception?.message) {
-          errorMessage = gqlError.extensions.exception.message
-        }
-      } else if (err?.networkError?.result?.errors?.length > 0) {
-        const networkError = err.networkError.result.errors[0]
-        errorMessage = networkError.message || errorMessage
-      }
-      
-      // Check for specific database constraint violations
-      if (errorMessage.includes('duplicate key value violates unique constraint') || 
-          errorMessage.includes('uk_department_product')) {
-        errorMessage = 'This product is already linked to the department'
-      }
-      
-      toast({ 
-        title: 'Failed to add product', 
-        description: errorMessage,
-        variant: 'destructive'
-      })
-    }
-  }
-
-  const handleRemoveProduct = async (productId: string | number) => {
-    const department = menuDepartment || selectedDepartment
-    if (!department) return
-    try {
-      const currentProductIds = (department.defaultProducts || []).map((p: any) => String(p.id))
-      const resp = await updateDepartment(department.id, {
-        defaultProductIds: currentProductIds.filter((id: string) => id !== String(productId))
-      })
-      if (resp?.status === 'SUCCESS') {
-        const updated = resp.data
-        // Update both selectedDepartment and menuDepartment if they exist
-        if (selectedDepartment?.id === department.id) {
-          setSelectedDepartment(updated)
-        }
-        if (menuDepartment?.id === department.id) {
-          setMenuDepartment(updated)
-        }
-        await refetchDepartments()
-        toast({ title: 'Product removed successfully', description: resp.message || 'The product has been unlinked from the department.' })
-      } else {
-        toast({ title: 'Failed to remove product', description: resp?.message || 'Failed to remove product from department', variant: 'destructive' })
-      }
-    } catch (err: any) {
-      console.error('Remove product error:', err)
-      const errorMessage = err?.message || 'Failed to remove product from department'
-      toast({ 
-        title: 'Failed to remove product', 
-        description: errorMessage,
-        variant: 'destructive'
-      })
     }
   }
 
@@ -484,7 +369,7 @@ export default function DepartmentsPage() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold text-foreground">Manage Departments</h1>
-          <p className="text-muted-foreground">Create, edit, and manage default links & exemptions.</p>
+          <p className="text-muted-foreground">Create departments and manage their profiles, insurance policies & forms.</p>
         </div>
       </div>
 
@@ -519,7 +404,7 @@ export default function DepartmentsPage() {
                     >
                       <span className="font-medium">{dept.name}</span>
                       <div className="text-xs text-muted-foreground mt-1">
-                        {dept.defaultProducts?.length || 0} products • {(dept.insurancePolicies || []).length} insurances
+                        {dept.profiles?.length || 0} profiles • {(dept.insurancePolicies || []).length} insurances
                       </div>
                     </button>
                     <DropdownMenu>
@@ -533,15 +418,11 @@ export default function DepartmentsPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => openDepartmentMenu(dept)}>
                           <FileText className="h-4 w-4 mr-2" />
-                          Manage Products & Insurances
+                          Manage Profiles & Insurances
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setSelectedDepartment(dept); openEditModal(); }}>
                           <Pencil className="h-4 w-4 mr-2" />
                           Edit Name
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => { setSelectedDepartment(dept); handleDelete(); }} className="text-destructive">
-                          <Trash className="h-4 w-4 mr-2" />
-                          Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -565,51 +446,31 @@ export default function DepartmentsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-foreground">{selectedDepartment.name}</h2>
-                  <p className="text-xs text-muted-foreground">Manage default products and insurance policies</p>
+                  <p className="text-xs text-muted-foreground">Manage profiles and insurance policies</p>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={openEditModal} className="rounded-full">
                     <Pencil className="h-4 w-4 mr-2" /> Edit
                   </Button>
-                  <Button variant="destructive" size="sm" onClick={handleDelete} className="rounded-full">
-                    <Trash className="h-4 w-4 mr-2" /> Delete
-                  </Button>
                 </div>
               </div>
 
-              {/* Products section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">Default Products</h3>
-                  <div className="flex items-center gap-2">
-                    <ProductAutocomplete
-                      products={availableProducts}
-                      selectedProductId={selectedProductId}
-                      onProductSelect={setSelectedProductId}
-                      placeholder={productsLoading ? 'Loading...' : 'Search products...'}
-                      disabled={productsLoading}
-                      className="w-56"
-                    />
-                    <Button size="sm" onClick={handleAddProduct} disabled={!selectedProductId}>Add</Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {(selectedDepartment.defaultProducts || []).map((product: any) => (
-                    <div key={product.id} className="flex items-center justify-between p-2 rounded-lg border">
-                      <span className="text-sm">{product.name}</span>
-                      <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleRemoveProduct(product.id)}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  {(selectedDepartment.defaultProducts || []).length === 0 && (
-                    <p className="text-xs text-muted-foreground">No products linked.</p>
-                  )}
-                </div>
+              {/* Profiles section */}
+              <div className="rounded-xl border border-border/50 bg-background/50 p-4">
+                <DepartmentProfilesPanel
+                  department={selectedDepartment}
+                  products={products}
+                  onDepartmentUpdate={(updated) => {
+                    setSelectedDepartment(updated)
+                    if (menuDepartment?.id === updated.id) {
+                      setMenuDepartment(updated)
+                    }
+                  }}
+                  refetchDepartments={refetchDepartments}
+                />
               </div>
 
-              {/* Insurance policies section - moved under products */}
+              {/* Insurance policies section */}
               <div className="space-y-4">
                 <div className="flex flex-col space-y-3">
                   <div className="flex items-center gap-2">
@@ -809,8 +670,15 @@ export default function DepartmentsPage() {
                   </div>
 
                   <div className="space-y-3 rounded-xl border border-border/60 bg-white dark:bg-slate-950 p-4 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-muted-foreground">Initial Products (Optional)</label>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-muted-foreground">Initial Profile (Optional)</label>
+                      <p className="text-[11px] text-muted-foreground">
+                        Name a default profile that pre-fills products when this department is added to a visit.
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-muted-foreground">Profile name</label>
+                      <Input value={departmentProfileName} onChange={(e) => setDepartmentProfileName(e.target.value)} placeholder="Default" className="rounded-xl bg-white dark:bg-slate-950" />
                     </div>
                     <div className="flex items-center gap-2">
                       <ProductAutocomplete
@@ -924,36 +792,19 @@ export default function DepartmentsPage() {
                 </span>
               </div>
 
-              {/* Products section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">Default Products</h3>
-                  <div className="flex items-center gap-2">
-                    <ProductAutocomplete
-                      products={availableProducts}
-                      selectedProductId={selectedProductId}
-                      onProductSelect={setSelectedProductId}
-                      placeholder={productsLoading ? 'Loading...' : 'Search products...'}
-                      disabled={productsLoading}
-                      className="w-56"
-                    />
-                    <Button size="sm" onClick={handleAddProduct} disabled={!selectedProductId}>Add</Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {(menuDepartment.defaultProducts || []).map((product: any) => (
-                    <div key={product.id} className="flex items-center justify-between p-2 rounded-lg border">
-                      <span className="text-sm">{product.name}</span>
-                      <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleRemoveProduct(product.id)}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  {(menuDepartment.defaultProducts || []).length === 0 && (
-                    <p className="text-xs text-muted-foreground">No products linked.</p>
-                  )}
-                </div>
+              {/* Profiles section */}
+              <div className="rounded-xl border border-border/50 bg-background/50 p-4">
+                <DepartmentProfilesPanel
+                  department={menuDepartment}
+                  products={products}
+                  onDepartmentUpdate={(updated) => {
+                    setMenuDepartment(updated)
+                    if (selectedDepartment?.id === updated.id) {
+                      setSelectedDepartment(updated)
+                    }
+                  }}
+                  refetchDepartments={refetchDepartments}
+                />
               </div>
 
               {/* Insurance policies section */}

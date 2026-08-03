@@ -45,6 +45,7 @@ export type {
   Worker,
   Patient,
   Department,
+  DepartmentProfile,
   InsuranceProvider,
   PatientInsurance,
   Product,

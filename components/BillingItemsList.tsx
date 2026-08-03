@@ -16,6 +16,7 @@ import {
   calculateItemTotal,
   getItemInsuranceSplit,
 } from "@/lib/billing-utils";
+import { formatRWF } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -374,6 +375,16 @@ export function BillingItemsList({
                                 <p className="font-medium text-foreground text-sm leading-tight">
                                   {item.name}
                                 </p>
+                                {item.source === "PROFILE" && (
+                                  <p className="mt-0.5">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[9px] px-1.5 py-0 h-4 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800"
+                                    >
+                                      From profile
+                                    </Badge>
+                                  </p>
+                                )}
                                 {item.childDepartmentName && (
                                   <p className="text-[10px] text-muted-foreground mt-0.5">
                                     Service: {item.childDepartmentName}
@@ -386,8 +397,7 @@ export function BillingItemsList({
                                   item.price !== item.basePrice &&
                                   !item.insuranceNotCovered && (
                                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                                      Private: {item.basePrice.toLocaleString()}{" "}
-                                      RWF
+                                      Private: {formatRWF(item.basePrice)}
                                     </p>
                                   )}
                               </td>
@@ -408,7 +418,7 @@ export function BillingItemsList({
                                 {editingItemId === item.id &&
                                 !canEditUnitPrice(item) ? (
                                   <span className="tabular-nums text-sm">
-                                    {item.price.toLocaleString()}
+                                    {formatRWF(item.price)}
                                   </span>
                                 ) : editingItemId === item.id ? (
                                   <div className="flex items-center justify-end gap-1">
@@ -441,7 +451,7 @@ export function BillingItemsList({
                                 ) : (
                                   <div className="flex flex-col items-end gap-0.5">
                                     <span className="tabular-nums text-sm">
-                                      {item.price.toLocaleString()}
+                                      {formatRWF(item.price)}
                                     </span>
                                     {!item.selectedInsuranceId ? (
                                       <span className="text-[10px] text-muted-foreground">
@@ -538,7 +548,7 @@ export function BillingItemsList({
                                 ) : item.selectedInsuranceId &&
                                   insuranceAmount > 0 ? (
                                   <span className="text-emerald-700 dark:text-emerald-400 font-medium">
-                                    {insuranceAmount.toLocaleString()}
+                                    {formatRWF(insuranceAmount)}
                                   </span>
                                 ) : (
                                   <span className="text-muted-foreground">
@@ -547,10 +557,10 @@ export function BillingItemsList({
                                 )}
                               </td>
                               <td className="py-2 px-3 text-right tabular-nums font-medium text-sm">
-                                {patientAmount.toLocaleString()}
+                                {formatRWF(patientAmount)}
                               </td>
                               <td className="py-2 px-3 text-right tabular-nums font-semibold text-sm">
-                                {itemTotal.toLocaleString()}
+                                {formatRWF(itemTotal)}
                               </td>
                               <td className="py-2 px-3 text-center">
                                 <Badge
@@ -606,7 +616,15 @@ export function BillingItemsList({
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => onItemRemove(item.id)}
-                                      disabled={isPaidLocked(item)}
+                                      disabled={
+                                        isPaidLocked(item) ||
+                                        item.source === "PROFILE"
+                                      }
+                                      title={
+                                        item.source === "PROFILE"
+                                          ? "Profile products cannot be removed individually — change the visit department's profile instead"
+                                          : "Remove item"
+                                      }
                                       className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10 disabled:opacity-30"
                                     >
                                       <Trash2 className="h-3.5 w-3.5" />
@@ -630,14 +648,14 @@ export function BillingItemsList({
                       </td>
                       <td className="py-1.5 px-3 text-right text-[11px] tabular-nums text-emerald-700 dark:text-emerald-400 font-medium">
                         {groupTotals.insuranceCoverage > 0
-                          ? groupTotals.insuranceCoverage.toLocaleString()
+                          ? formatRWF(groupTotals.insuranceCoverage)
                           : "—"}
                       </td>
                       <td className="py-1.5 px-3 text-right text-[11px] tabular-nums font-semibold">
-                        {groupTotals.patientResponsibility.toLocaleString()}
+                        {formatRWF(groupTotals.patientResponsibility)}
                       </td>
                       <td className="py-1.5 px-3 text-right text-[11px] tabular-nums font-bold">
-                        {groupTotals.subtotal.toLocaleString()}
+                        {formatRWF(groupTotals.subtotal)}
                       </td>
                       <td colSpan={2} />
                     </tr>

@@ -32,6 +32,7 @@ export function AddDepartmentModal({
     loading: departmentsLoading,
   } = useDepartments();
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
+  const [selectedProfileId, setSelectedProfileId] = useState<string>("");
   const [mode, setMode] = useState<"department" | "processor">("department");
   const [processorQuery, setProcessorQuery] = useState("");
   const [selectedProcessorId, setSelectedProcessorId] = useState<string>("");
@@ -89,6 +90,7 @@ export function AddDepartmentModal({
         visit.id,
         departmentIdToUse,
         mode === "processor" ? selectedProcessorId : null,
+        selectedProfileId || null,
       );
 
       const ok = await handleResponse(result, {
@@ -379,10 +381,11 @@ export function AddDepartmentModal({
                     : null}
                 </div>
               ) : (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Select Department
-                  </label>
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Select Department
+                    </label>
 
                   <div className="space-y-2">
                     {departments
@@ -391,7 +394,10 @@ export function AddDepartmentModal({
                         <button
                           key={d.id}
                           type="button"
-                          onClick={() => setSelectedDepartmentId(String(d.id))}
+                          onClick={() => {
+                            setSelectedDepartmentId(String(d.id));
+                            setSelectedProfileId("");
+                          }}
                           className={`w-full flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm hover:bg-muted ${
                             String(d.id) === String(selectedDepartmentId)
                               ? "bg-muted"
@@ -399,6 +405,12 @@ export function AddDepartmentModal({
                           }`}
                         >
                           <span>{d.name}</span>
+                          {(d as any).profiles?.length > 0 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                              {(d as any).profiles.length}{" "}
+                              profile{(d as any).profiles.length > 1 ? "s" : ""}
+                            </span>
+                          )}
                         </button>
                       ))}
 
@@ -419,6 +431,45 @@ export function AddDepartmentModal({
                       ))}
                   </div>
                 </div>
+
+                {(() => {
+                  const selectedDept = departments.find(
+                    (d) => String(d.id) === String(selectedDepartmentId),
+                  );
+                  const profiles = (selectedDept as any)?.profiles || [];
+                  if (!selectedDept || profiles.length === 0) return null;
+                  return (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                        Profile (optional)
+                      </label>
+                      <select
+                        value={selectedProfileId}
+                        onChange={(e) => setSelectedProfileId(e.target.value)}
+                        className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm"
+                      >
+                        <option value="">
+                          Default profile{" "}
+                          {profiles.find((p: any) => p.isDefault)
+                            ? `(${profiles.find((p: any) => p.isDefault).name})`
+                            : ""}
+                        </option>
+                        {profiles.map((profile: any) => (
+                          <option key={profile.id} value={String(profile.id)}>
+                            {profile.name}
+                            {profile.isDefault ? " (default)" : ""} ·{" "}
+                            {profile.products?.length || 0} products
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        Products from the selected profile will be added to this
+                        department automatically.
+                      </p>
+                    </div>
+                  );
+                })()}
+                </>
               )}
 
               <div className="flex gap-3 mt-6">

@@ -337,11 +337,13 @@ export const ADD_DEPARTMENT_TO_VISIT_MUTATION = gql`
   mutation AddDepartmentToVisit(
     $visitId: ID!
     $departmentId: ID!
+    $profileId: ID
     $processorId: ID
   ) {
     addVisitDepartment(
       visitId: $visitId
       departmentId: $departmentId
+      profileId: $profileId
       processorId: $processorId
     ) {
       status
@@ -360,6 +362,55 @@ export const ADD_DEPARTMENT_TO_VISIT_MUTATION = gql`
             name
           }
           status
+          profile {
+            id
+            name
+            isDefault
+            products {
+              id
+              name
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const CHANGE_VISIT_DEPARTMENT_PROFILE_MUTATION = gql`
+  mutation ChangeVisitDepartmentProfile($visitDepartmentId: ID!, $profileId: ID) {
+    changeVisitDepartmentProfile(
+      visitDepartmentId: $visitDepartmentId
+      profileId: $profileId
+    ) {
+      status
+      message
+      data {
+        id
+        status
+        profile {
+          id
+          name
+          isDefault
+          products {
+            id
+            name
+          }
+        }
+        department {
+          id
+          name
+        }
+        products {
+          id
+          product {
+            id
+            name
+          }
+          quantity
+          price
+          status
+          source
         }
       }
     }

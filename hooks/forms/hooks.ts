@@ -12,106 +12,11 @@ import {
 } from "../mutations";
 import React from "react";
 import type { FormField, FormSection, FormAction, BackendForm } from "../types";
-
-const normalizeTableMode = (mode: unknown) => {
-  const normalized = String(mode || "").toUpperCase();
-  return normalized === "DYNAMIC" ||
-    mode === "variableRows" ||
-    mode === "variableColumns"
-    ? "DYNAMIC"
-    : "STATIC";
-};
-
-const normalizeFormField = (field: any, index: number): FormField => ({
-  id: field?.id || `field_${Date.now()}_${index}`,
-  label: field?.label || "Untitled",
-  type: field?.type || "text",
-  placeholder: field?.placeholder || undefined,
-  required: Boolean(field?.required),
-  hideLabel: Boolean(field?.hideLabel),
-  boldLabel: Boolean(field?.boldLabel),
-  centerLabel: Boolean(field?.centerLabel),
-  italicLabel: Boolean(field?.italicLabel),
-  underlineLabel: Boolean(field?.underlineLabel),
-  options: Array.isArray(field?.options)
-    ? field.options.filter(Boolean)
-    : undefined,
-  tableConfig: field?.tableConfig
-    ? {
-        mode: normalizeTableMode(field.tableConfig.mode),
-        rows: Number(field.tableConfig.rows) || 3,
-        columns: Number(field.tableConfig.columns) || 3,
-        headerPlacement: field.tableConfig.headerPlacement || "none",
-        columnHeaders: Array.isArray(field.tableConfig.columnHeaders)
-          ? field.tableConfig.columnHeaders
-          : [],
-        rowHeaders: Array.isArray(field.tableConfig.rowHeaders)
-          ? field.tableConfig.rowHeaders
-          : [],
-      }
-    : undefined,
-  labRecordConfig: field?.labRecordConfig
-    ? {
-        layout:
-          field.labRecordConfig.layout === "result" ? "result" : "valueUnit",
-        rows: Array.isArray(field.labRecordConfig.rows)
-          ? field.labRecordConfig.rows.map((row: any, rowIndex: number) => ({
-              id: row?.id || `lab_row_${Date.now()}_${rowIndex}`,
-              name: row?.name || `Row ${rowIndex + 1}`,
-              unitMode: row?.unitMode === "none" ? "none" : "dropdown",
-              unitOptions: Array.isArray(row?.unitOptions)
-                ? row.unitOptions.filter(Boolean)
-                : [],
-              defaultUnit: row?.defaultUnit || undefined,
-              resultOptions: Array.isArray(row?.resultOptions)
-                ? row.resultOptions.filter(Boolean)
-                : [],
-            }))
-          : [],
-      }
-    : undefined,
-  conditionalRendering: field?.conditionalRendering
-    ? {
-        dependsOn: field.conditionalRendering.dependsOn,
-        condition: field.conditionalRendering.condition,
-        value: field.conditionalRendering.value || undefined,
-        itemType: field.conditionalRendering.itemType || undefined,
-      }
-    : undefined,
-  order: typeof field?.order === "number" ? field.order : index,
-});
-
-const normalizeFormSection = (section: any, index: number): FormSection => ({
-  id: section?.id || `section_${Date.now()}_${index}`,
-  title: section?.title || "Untitled Section",
-  boldTitle: Boolean(section?.boldTitle),
-  italicTitle: Boolean(section?.italicTitle),
-  underlineTitle: Boolean(section?.underlineTitle),
-  centerTitle: Boolean(section?.centerTitle),
-  columns:
-    section?.columns === 1 ||
-    section?.columns === 2 ||
-    section?.columns === 3 ||
-    section?.columns === 4
-      ? section.columns
-      : 2,
-  order: typeof section?.order === "number" ? section.order : index,
-  fields: Array.isArray(section?.fields)
-    ? section.fields.map((field: any, fieldIndex: number) =>
-        normalizeFormField(field, fieldIndex),
-      )
-    : [],
-});
-
-const normalizeFormAction = (action: any, index: number): FormAction => ({
-  id: action?.id || `action_${Date.now()}_${index}`,
-  name: action?.name || "Unnamed item",
-  type: action?.type === "consumable" ? "consumable" : "action",
-  quantity: Number(action?.quantity) || 1,
-  price: Number(action?.price) || 0,
-  isQuantifiable: action?.isQuantifiable !== false,
-  backendId: action?.backendId ? String(action.backendId) : undefined,
-});
+import {
+  normalizeFormField,
+  normalizeFormSection,
+  normalizeFormAction,
+} from "./normalize";
 
 const mapBackendForm = (form: any): BackendForm => ({
   id: String(form?.id || ""),

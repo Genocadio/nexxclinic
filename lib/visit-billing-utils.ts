@@ -5,12 +5,14 @@
 import {
   DepartmentInsurancePolicyMode,
   EncounterType,
+  Gender,
   VisitBillingStatus,
   VisitDepartmentStatus,
   VisitProductStatus,
   type DepartmentInsuranceBilling,
   type VisitBilling,
   type VisitBillingItem,
+  type VisitBillingPayment,
   type VisitDepartment,
   type VisitDepartmentBilling,
 } from "@/lib/api-types";
@@ -26,15 +28,15 @@ export type VisitBillingTotals = {
 const EMPTY_TS = "";
 
 /** Minimal visit department when billing query omits nested visitDepartment fields. */
-function emptyVisitDepartmentStub(id = ""): VisitDepartment {
+function emptyVisitDepartmentStub(id = "", name?: string | null): VisitDepartment {
   return {
     id,
     department: {
       id: "",
-      name: "",
+      name: name || "",
       insurancePolicyMode: DepartmentInsurancePolicyMode.ALL,
       insurancePolicies: [],
-      defaultProducts: [],
+      profiles: [],
       nursing: false,
       supportRequests: false,
       requestsProducts: false,
@@ -65,6 +67,26 @@ export type GqlVisitBillingItem = {
   updatedAt?: string | null;
 };
 
+export type GqlPatientInsuranceRef = {
+  id: string;
+  insuranceCardNumber?: string | null;
+  principalMemberName?: string | null;
+  insuranceProvider?: {
+    id: string;
+    insuranceName?: string | null;
+    acronym?: string | null;
+  } | null;
+};
+
+export type GqlBillingPayment = {
+  id: string;
+  amount: number;
+  paymentMethod: string;
+  reference?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export type GqlDepartmentInsuranceBilling = {
   id: string;
   status: string;
@@ -74,7 +96,7 @@ export type GqlDepartmentInsuranceBilling = {
   paidAmount: number;
   outstandingAmount: number;
   items?: GqlVisitBillingItem[] | null;
-  patientInsurance?: unknown | null;
+  patientInsurance?: GqlPatientInsuranceRef | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -88,8 +110,12 @@ export type GqlVisitDepartmentBilling = {
   paidAmount: number;
   outstandingAmount: number;
   insuranceBillings?: GqlDepartmentInsuranceBilling[] | null;
-  visitDepartment?: { id: string } | null;
-  payments?: unknown[] | null;
+  visitDepartment?: {
+    id: string;
+    status?: string | null;
+    department?: { id: string; name?: string | null } | null;
+  } | null;
+  payments?: GqlBillingPayment[] | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -117,12 +143,50 @@ function mapGqlVisitBillingItem(item: GqlVisitBillingItem): VisitBillingItem {
   };
 }
 
+function mapGqlPatientInsuranceRef(
+  insurance?: GqlPatientInsuranceRef | null,
+): DepartmentInsuranceBilling["patientInsurance"] {
+  if (!insurance?.id) return null;
+  const provider = insurance.insuranceProvider;
+  return {
+    id: insurance.id,
+    insuranceCardNumber: insurance.insuranceCardNumber || "",
+    providingCompanyOrEmployer: null,
+    principalMember: false,
+    principalMemberName: insurance.principalMemberName,
+    principalMemberPhoneNumber: null,
+    validFrom: "",
+    validUntil: "",
+    insuranceProvider: {
+      id: provider?.id || "",
+      insuranceName: provider?.insuranceName || "",
+      acronym: provider?.acronym,
+      defaultCoveragePercentage: 0,
+      supportedByClinic: true,
+      createdAt: EMPTY_TS,
+      updatedAt: EMPTY_TS,
+      name: provider?.insuranceName || "",
+    },
+    patient: {
+      id: "",
+      firstName: "",
+      dateOfBirth: "",
+      gender: Gender.OTHER,
+      patientInsurances: [],
+      createdAt: EMPTY_TS,
+      updatedAt: EMPTY_TS,
+    },
+    createdAt: EMPTY_TS,
+    updatedAt: EMPTY_TS,
+  };
+}
+
 function mapGqlDepartmentInsuranceBilling(
   billing: GqlDepartmentInsuranceBilling,
 ): DepartmentInsuranceBilling {
   return {
     id: billing.id,
-    patientInsurance: null,
+    patientInsurance: mapGqlPatientInsuranceRef(billing.patientInsurance),
     status: billing.status as VisitBillingStatus,
     totalAmount: Number(billing.totalAmount ?? 0),
     insuranceCoveredAmount: Number(billing.insuranceCoveredAmount ?? 0),
@@ -142,6 +206,7 @@ function mapGqlVisitDepartmentBilling(
     id: department.id,
     visitDepartment: emptyVisitDepartmentStub(
       department.visitDepartment?.id || department.id,
+      department.visitDepartment?.department?.name,
     ),
     status: department.status as VisitBillingStatus,
     totalAmount: Number(department.totalAmount ?? 0),
@@ -149,7 +214,14 @@ function mapGqlVisitDepartmentBilling(
     patientPayableAmount: Number(department.patientPayableAmount ?? 0),
     paidAmount: Number(department.paidAmount ?? 0),
     outstandingAmount: Number(department.outstandingAmount ?? 0),
-    payments: [],
+    payments: (department.payments || []).map((payment) => ({
+      id: payment.id,
+      amount: Number(payment.amount ?? 0),
+      paymentMethod: payment.paymentMethod as VisitBillingPayment["paymentMethod"],
+      reference: payment.reference,
+      createdAt: payment.createdAt || EMPTY_TS,
+      updatedAt: payment.updatedAt || EMPTY_TS,
+    })),
     insuranceBillings: (department.insuranceBillings || []).map(
       mapGqlDepartmentInsuranceBilling,
     ),

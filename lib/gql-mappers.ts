@@ -125,6 +125,7 @@ export type GqlVisitDepartmentProduct = {
   quantity: number;
   price?: number | null;
   status: string;
+  source?: string | null;
   addedBy?: GqlWorkerRef | null;
   billedBy?: GqlWorkerRef | null;
   processor?: GqlWorkerRef | null;
@@ -137,6 +138,14 @@ export type GqlVisitDepartment = {
   status: string;
   encounterType?: string | null;
   completedAt?: string | null;
+  profile?: {
+    id: string;
+    name: string;
+    isDefault?: boolean | null;
+    products?: GqlProduct[] | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+  } | null;
   childVisitDepartments?: GqlVisitDepartment[] | null;
   diagnostics?: Array<{
     id: string;
@@ -414,6 +423,7 @@ export function mapGqlVisitDepartmentProduct(
       item.price ?? product.clinicPrice ?? product.privateRhicPrice ?? 0,
     ),
     status: item.status as VisitProductStatus,
+    source: (item.source as VisitDepartmentProduct["source"]) || null,
     addedBy: mapGqlWorkerRef(item.addedBy),
     billedBy: mapGqlWorkerRef(item.billedBy),
     processor: mapGqlWorkerRef(item.processor),
@@ -432,7 +442,7 @@ export function mapGqlDepartmentSummary(
       (department.insurancePolicyMode as DepartmentInsurancePolicyMode) ||
       DepartmentInsurancePolicyMode.ALL,
     insurancePolicies: [],
-    defaultProducts: [],
+    profiles: [],
     nursing: department.nursing ?? false,
     supportRequests: department.supportRequests ?? false,
     requestsProducts: department.requestsProducts ?? false,
@@ -451,7 +461,7 @@ export function mapGqlVisitDepartment(
         name: "",
         insurancePolicyMode: DepartmentInsurancePolicyMode.ALL,
         insurancePolicies: [],
-        defaultProducts: [],
+        profiles: [],
         nursing: false,
         supportRequests: false,
         requestsProducts: false,
@@ -464,6 +474,16 @@ export function mapGqlVisitDepartment(
     department: mappedDepartment,
     status: dept.status as VisitDepartment["status"],
     encounterType: parseEncounterType(dept.encounterType),
+    profile: dept.profile
+      ? {
+          id: dept.profile.id,
+          name: dept.profile.name,
+          isDefault: Boolean(dept.profile.isDefault),
+          products: (dept.profile.products || []).map(mapGqlProduct),
+          createdAt: dept.profile.createdAt || EMPTY_TIMESTAMP,
+          updatedAt: dept.profile.updatedAt || EMPTY_TIMESTAMP,
+        }
+      : null,
     completedAt: dept.completedAt,
     processors: (dept.processors || [])
       .map(mapGqlWorkerRef)

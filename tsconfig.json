@@ -37,7 +37,6 @@
   ],
   "exclude": [
     "node_modules",
-    "consultation-form",
     "lib/RESPONSE_HANDLER_GUIDE.ts",
     "lib/mock-data.ts",
     "app/admin/forms",

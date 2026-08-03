@@ -87,7 +87,7 @@ export function formActionToAddedProduct(action: FormAction): AddedProduct {
     name: action.name,
     type: productType,
     qty: action.quantity,
-    price: action.privatePrice,
+    price: action.privatePrice ?? 0,
     backendId: action.backendId,
     catalogProductId: String(action.rawData?.id || action.rawData?.product?.id || ""),
     removedFromVisit: action.removedFromVisit,
