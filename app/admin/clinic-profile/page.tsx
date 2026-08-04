@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-toastify";
 import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
@@ -14,6 +16,11 @@ import { MediaUploader } from "@/components/ui/media-uploader";
 import { useRouter } from "next/navigation";
 import { canManageAdminUsers } from "@/lib/role-utils";
 import type { ClinicContactType } from "@/lib/api-types";
+import { FieldError } from "@/components/ui/field-error";
+import {
+  clinicProfileFormSchema,
+  type ClinicProfileFormValues,
+} from "@/lib/form-schemas";
 
 type ClinicContact = {
   contactType: "PHONE" | "EMAIL" | "POBOX";
@@ -98,21 +105,48 @@ export default function ClinicProfilePage() {
     });
   }, [sourceProfile]);
 
-  const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
-  const [address, setAddress] = useState("");
-  const [tinNumber, setTinNumber] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [contacts, setContacts] = useState<ClinicContact[]>([]);
+  const [contactsError, setContactsError] = useState("");
   const [metadataPairs, setMetadataPairs] = useState<
     { key: string; value: string }[]
   >([]);
 
+  // Contacts + metadata are managed as component state; the RHF form covers
+  // the plain text fields and validates them inline.
+  type ClinicTextFields = Pick<
+    ClinicProfileFormValues,
+    "name" | "tinNumber" | "username" | "address"
+  >;
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors: formErrors },
+  } = useForm<ClinicTextFields>({
+    resolver: zodResolver(
+      clinicProfileFormSchema.pick({
+        name: true,
+        tinNumber: true,
+        username: true,
+        address: true,
+      }),
+    ),
+    mode: "onChange",
+    defaultValues: { name: "", tinNumber: "", username: "", address: "" },
+  });
+  const watchedName = watch("name");
+  const watchedAddress = watch("address");
+
   useEffect(() => {
-    setName(sourceProfile?.name || "");
-    setUsername(sourceProfile?.username || "");
-    setAddress(sourceProfile?.address || "");
-    setTinNumber(sourceProfile?.tinNumber || "");
+    reset({
+      name: sourceProfile?.name || "",
+      username: sourceProfile?.username || "",
+      address: sourceProfile?.address || "",
+      tinNumber: sourceProfile?.tinNumber || "",
+    });
     setLogoUrl(sourceProfile?.logoUrl || "");
     setContacts(normalizeContacts(sourceProfile?.contacts));
     const meta = sourceProfile?.metadata || null;
@@ -129,8 +163,8 @@ export default function ClinicProfilePage() {
   }, [sourceProfileSignature]);
 
   const previewName = useMemo(
-    () => getClinicDisplayName({ ...sourceProfile, name } as any),
-    [name, sourceProfile],
+    () => getClinicDisplayName({ ...sourceProfile, name: watchedName } as any),
+    [sourceProfile, watchedName],
   );
   const previewLogo = useMemo(
     () => getClinicLogoUrl({ ...sourceProfile, logoUrl } as any),
@@ -162,10 +196,10 @@ export default function ClinicProfilePage() {
     );
   };
 
-  const handleSave = async () => {
+  const handleSave = async (values: ClinicTextFields) => {
     try {
-      const trimmedName = name.trim();
-      const trimmedTinNumber = tinNumber.trim();
+      const trimmedName = values.name.trim();
+      const trimmedTinNumber = values.tinNumber.trim();
       const normalizedContacts = contacts
         .map((contact) => ({
           contactType: contact.contactType as ClinicContactType,
@@ -183,25 +217,16 @@ export default function ClinicProfilePage() {
         {} as { [key: string]: string },
       );
 
-      if (!trimmedName) {
-        toast.error("Clinic name is required");
-        return;
-      }
-
-      if (!trimmedTinNumber) {
-        toast.error("TIN number is required");
-        return;
-      }
-
       if (normalizedContacts.length === 0) {
-        toast.error("At least one clinic contact is required");
+        setContactsError("Add at least one clinic contact");
         return;
       }
+      setContactsError("");
 
       const response = await upsertClinicProfile({
         name: trimmedName,
-        username: username.trim() || undefined,
-        address: address.trim() || undefined,
+        username: values.username.trim() || undefined,
+        address: values.address.trim() || undefined,
         tinNumber: trimmedTinNumber,
         logoUrl: logoUrl.trim() || undefined,
         contacts: normalizedContacts,
@@ -271,7 +296,7 @@ export default function ClinicProfilePage() {
             </div>
           </div>
           <Button
-            onClick={handleSave}
+            onClick={handleSubmit(handleSave)}
             disabled={saving}
             className="rounded-full"
           >
@@ -303,7 +328,7 @@ export default function ClinicProfilePage() {
                   {previewName}
                 </p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {address || "No address set"}
+                  {watchedAddress || "No address set"}
                 </p>
               </div>
             </div>
@@ -360,30 +385,29 @@ export default function ClinicProfilePage() {
                   Clinic name
                 </label>
                 <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  {...register("name")}
                   placeholder="Clinic name"
-                  className="rounded-xl"
+                  className={`rounded-xl ${formErrors.name ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                 />
+                <FieldError message={formErrors.name?.message} />
               </div>
               <div className="space-y-2 md:col-span-1">
                 <label className="text-xs font-semibold text-muted-foreground">
                   TIN number
                 </label>
                 <Input
-                  value={tinNumber}
-                  onChange={(e) => setTinNumber(e.target.value)}
+                  {...register("tinNumber")}
                   placeholder="TIN number"
-                  className="rounded-xl"
+                  className={`rounded-xl ${formErrors.tinNumber ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                 />
+                <FieldError message={formErrors.tinNumber?.message} />
               </div>
               <div className="space-y-2 md:col-span-1">
                 <label className="text-xs font-semibold text-muted-foreground">
                   Username
                 </label>
                 <Input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  {...register("username")}
                   placeholder="Clinic username"
                   className="rounded-xl"
                 />
@@ -393,8 +417,7 @@ export default function ClinicProfilePage() {
                   Address
                 </label>
                 <Input
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
+                  {...register("address")}
                   placeholder="Clinic address"
                   className="rounded-xl"
                 />
@@ -431,11 +454,15 @@ export default function ClinicProfilePage() {
                     variant="outline"
                     size="sm"
                     className="rounded-full"
-                    onClick={addContact}
+                    onClick={() => {
+                      setContactsError("");
+                      addContact();
+                    }}
                   >
                     Add contact
                   </Button>
                 </div>
+                <FieldError message={contactsError} />
                 <div className="space-y-3">
                   {contacts.length === 0 ? (
                     <p className="text-sm text-muted-foreground rounded-xl border border-dashed border-border/60 bg-background/60 p-4">
@@ -471,9 +498,10 @@ export default function ClinicProfilePage() {
                         </label>
                         <Input
                           value={contact.value}
-                          onChange={(e) =>
-                            updateContact(index, "value", e.target.value)
-                          }
+                          onChange={(e) => {
+                            setContactsError("");
+                            updateContact(index, "value", e.target.value);
+                          }}
                           placeholder="Contact value"
                           className="rounded-xl"
                         />
@@ -589,7 +617,7 @@ export default function ClinicProfilePage() {
                 future logins.
               </p>
               <Button
-                onClick={handleSave}
+                onClick={handleSubmit(handleSave)}
                 disabled={saving}
                 className="rounded-full"
               >

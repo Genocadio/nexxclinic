@@ -224,7 +224,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         visit.departments || [],
       );
       const notCompleted = allDepartments.filter(
-        (dept) => dept.status !== "COMPLETED" && dept.status !== "CANCELLED",
+        (dept) => dept.status !== "COMPLETED",
       );
 
       if (notCompleted.length > 0) {
@@ -345,7 +345,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
             );
             const notCompleted = allDepartments.filter(
               (dept) =>
-                dept.status !== "COMPLETED" && dept.status !== "CANCELLED",
+                dept.status !== "COMPLETED",
             );
             for (const dept of notCompleted) {
               const visitDeptId = String(dept.id || "");
@@ -563,46 +563,70 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         // Add the new product to billing data state directly instead of refetching
         if (billingData && response.data) {
           const newProduct = response.data;
+          // The backend no longer returns a price on the visit product line —
+          // derive the display price from the product catalog in the response.
+          const addedLine = (
+            (newProduct?.products || []) as Array<{
+              id?: string;
+              quantity?: number;
+              product?: {
+                id?: string;
+                name?: string;
+                clinicPrice?: number | null;
+                privateRhicPrice?: number | null;
+              };
+            }>
+          ).find((p) => String(p.product?.id) === String(item.id));
+          const catalogProduct = addedLine?.product;
+          const basePrice = Number(
+            catalogProduct?.clinicPrice ??
+              catalogProduct?.privateRhicPrice ??
+              0,
+          );
           const departmentInfo = visit.departments?.find(
-            (d) =>
-              d.id === catalogDepartmentId ||
-              d.id === newProduct.rootVisitDepartmentId,
+            (d) => d.id === newProduct?.id || d.id === catalogDepartmentId,
           );
 
-          const newBillingItem: BillingItem = {
-            id: newProduct.id || "",
-            productId: item.id,
-            source: "USER",
-            isNewInEditMode: isEditingBill,
-            name: newProduct.productName || item.name,
-            quantity: newProduct.quantity || quantity,
-            price: newProduct.unitPrice || 0,
-            type: "product",
-            visitDepartmentId:
-              newProduct.visitDepartmentId || catalogDepartmentId,
-            rootVisitDepartmentId:
-              newProduct.rootVisitDepartmentId || catalogDepartmentId,
-            departmentId: departmentInfo?.department?.id,
-            departmentName: departmentInfo?.department?.name || "General",
-            departmentStatus: departmentInfo?.status,
-            paymentStatus: "pending",
-            exempted: false,
-            exemptionType: "none",
-            selectedInsuranceId: undefined,
-            doneBy: {
-              name: doctor?.firstName || "Doctor",
-              title: "",
-            },
-          };
-
-          setBillingData((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              items: [...prev.items, newBillingItem],
-              updatedAt: new Date().toISOString(),
+          if (!addedLine?.id) {
+            // Couldn't locate the newly added line in the response — refetch and
+            // remap billing data from the server (with catalog prices) instead.
+            await refetchVisit();
+            setBillingRemapNonce((nonce) => nonce + 1);
+          } else {
+            const newBillingItem: BillingItem = {
+              id: addedLine.id,
+              productId: item.id,
+              source: "USER",
+              isNewInEditMode: isEditingBill,
+              name: catalogProduct?.name || item.name,
+              quantity: addedLine.quantity || quantity,
+              price: basePrice,
+              basePrice,
+              type: "product",
+              visitDepartmentId: newProduct?.id || catalogDepartmentId,
+              rootVisitDepartmentId: newProduct?.id || catalogDepartmentId,
+              departmentId: departmentInfo?.department?.id,
+              departmentName: departmentInfo?.department?.name || "General",
+              departmentStatus: departmentInfo?.status,
+              paymentStatus: "pending",
+              exempted: false,
+              exemptionType: "none",
+              selectedInsuranceId: undefined,
+              doneBy: {
+                name: doctor?.firstName || "Doctor",
+                title: "",
+              },
             };
-          });
+
+            setBillingData((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                items: [...prev.items, newBillingItem],
+                updatedAt: new Date().toISOString(),
+              };
+            });
+          }
         } else {
           // Fallback to refetch if response data is incomplete
           await refetchVisit();

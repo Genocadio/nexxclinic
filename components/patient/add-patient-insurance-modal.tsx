@@ -1,15 +1,20 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import type { PatientInsurance } from '@/lib/api-types'
 import { useInsurances } from '@/hooks/auth-hooks'
-import {
-  useSavePatientInsurance,
-  type SavePatientInsuranceFieldErrors,
-} from '@/hooks/patients/use-save-patient-insurance'
+import { useSavePatientInsurance } from '@/hooks/patients/use-save-patient-insurance'
 import { isDominantMemberRequired } from '@/lib/validation-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { FieldError } from '@/components/ui/field-error'
+import {
+  createPatientInsuranceFormSchema,
+  type PatientInsuranceFormValues,
+} from '@/lib/form-schemas'
+import { useDebouncedValidation } from '@/hooks/use-debounced-validation'
 import {
   Dialog,
   DialogContent,
@@ -80,12 +85,32 @@ export function AddPatientInsuranceModal({
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [selectedInsuranceId, setSelectedInsuranceId] = useState('')
   const [selectedInsuranceName, setSelectedInsuranceName] = useState('')
-  const [insuranceCardNumber, setInsuranceCardNumber] = useState('')
-  const [providingCompanyOrEmployer, setProvidingCompanyOrEmployer] = useState('')
-  const [dominantFirstName, setDominantFirstName] = useState('')
-  const [dominantLastName, setDominantLastName] = useState('')
-  const [dominantPhone, setDominantPhone] = useState('')
-  const [formErrors, setFormErrors] = useState<SavePatientInsuranceFieldErrors>({})
+
+  const dominantRequired = isDominantMemberRequired(patientDateOfBirth, true)
+
+  const {
+    register,
+    handleSubmit,
+    setError,
+    reset: resetFormErrors,
+    control,
+    trigger,
+    formState: { errors: formErrors },
+  } = useForm<PatientInsuranceFormValues>({
+    resolver: zodResolver(createPatientInsuranceFormSchema({ dominantRequired })),
+    // Dominant-member rules are conditional (superRefine), so live validation
+    // is debounced rather than re-run on every keystroke.
+    mode: 'onSubmit',
+    defaultValues: {
+      insuranceCardNumber: '',
+      providingCompanyOrEmployer: '',
+      dominantFirstName: '',
+      dominantLastName: '',
+      dominantPhone: '',
+    },
+  })
+
+  useDebouncedValidation({ control, trigger })
 
   const selectableInsurances = useMemo(
     () => availableInsurances || [],
@@ -101,12 +126,7 @@ export function AddPatientInsuranceModal({
     setStep('select')
     setSelectedInsuranceId('')
     setSelectedInsuranceName('')
-    setInsuranceCardNumber('')
-    setProvidingCompanyOrEmployer('')
-    setDominantFirstName('')
-    setDominantLastName('')
-    setDominantPhone('')
-    setFormErrors({})
+    resetFormErrors()
   }
 
   useEffect(() => {
@@ -120,48 +140,28 @@ export function AddPatientInsuranceModal({
     setStep('details')
   }
 
-  const handleSave = async () => {
-    const errors: SavePatientInsuranceFieldErrors = {}
-
-    if (!selectedInsuranceId) {
-      toast.error("Please select an insurance provider")
-      return
-    }
-
-    if (!insuranceCardNumber.trim()) {
-      errors.card = "Insurance card number is required"
-    }
-
-    if (!providingCompanyOrEmployer.trim()) {
-      errors.employer = "Providing company or employer is required"
-    }
-
-    if (dominantRequired) {
-      if (!dominantFirstName.trim() || !dominantLastName.trim() || !dominantPhone.trim()) {
-        errors.dominant =
-          "Dominant member first name, last name, and phone are required for patients 18 years or younger"
-      }
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors)
-      return
-    }
-
+  const handleSave = async (values: PatientInsuranceFormValues) => {
     const result = await savePatientInsurance({
       patientId,
       patientDateOfBirth,
       insuranceProviderId: selectedInsuranceId,
-      insuranceCardNumber,
-      providingCompanyOrEmployer,
-      dominantFirstName,
-      dominantLastName,
-      dominantPhone,
+      insuranceCardNumber: values.insuranceCardNumber,
+      providingCompanyOrEmployer: values.providingCompanyOrEmployer,
+      dominantFirstName: values.dominantFirstName,
+      dominantLastName: values.dominantLastName,
+      dominantPhone: values.dominantPhone,
       existingPatientInsurances: patientInsurances,
     })
 
     if (result.status === 'VALIDATION_ERROR') {
-      setFormErrors(result.fieldErrors)
+      const fe = result.fieldErrors
+      if (fe.card) setError('insuranceCardNumber', { type: 'server', message: fe.card })
+      if (fe.employer) setError('providingCompanyOrEmployer', { type: 'server', message: fe.employer })
+      if (fe.dominant) {
+        setError('dominantFirstName', { type: 'server', message: fe.dominant })
+        setError('dominantLastName', { type: 'server', message: fe.dominant })
+        setError('dominantPhone', { type: 'server', message: fe.dominant })
+      }
       return
     }
 
@@ -180,8 +180,6 @@ export function AddPatientInsuranceModal({
     const errorMsg = result.response?.messages?.[0]?.text || 'Failed to add insurance'
     toast.error(errorMsg)
   }
-
-  const dominantRequired = isDominantMemberRequired(patientDateOfBirth, true)
 
   const selectedProvider = useMemo(
     () => selectableInsurances.find((ins) => String(ins.id) === selectedInsuranceId),
@@ -298,27 +296,21 @@ export function AddPatientInsuranceModal({
               <div className="space-y-1">
                 <p className="text-[11px] text-muted-foreground">Insurance Card Number (required)</p>
                 <Input
-                  value={insuranceCardNumber}
-                  onChange={(e) => {
-                    setInsuranceCardNumber(e.target.value)
-                    if (formErrors.card) setFormErrors((prev) => ({ ...prev, card: undefined }))
-                  }}
+                  {...register('insuranceCardNumber')}
                   placeholder="Card number"
+                  className={formErrors.insuranceCardNumber ? 'border-red-500 focus-visible:ring-red-300' : ''}
                 />
-                {formErrors.card && <p className="text-xs text-destructive mt-1">{formErrors.card}</p>}
+                <FieldError message={formErrors.insuranceCardNumber?.message} />
               </div>
 
               <div className="space-y-1">
                 <p className="text-[11px] text-muted-foreground">Providing Company / Employer (required)</p>
                 <Input
-                  value={providingCompanyOrEmployer}
-                  onChange={(e) => {
-                    setProvidingCompanyOrEmployer(e.target.value)
-                    if (formErrors.employer) setFormErrors((prev) => ({ ...prev, employer: undefined }))
-                  }}
+                  {...register('providingCompanyOrEmployer')}
                   placeholder="Employer or company name"
+                  className={formErrors.providingCompanyOrEmployer ? 'border-red-500 focus-visible:ring-red-300' : ''}
                 />
-                {formErrors.employer && <p className="text-xs text-destructive mt-1">{formErrors.employer}</p>}
+                <FieldError message={formErrors.providingCompanyOrEmployer?.message} />
               </div>
 
               <div className="space-y-1">
@@ -327,31 +319,22 @@ export function AddPatientInsuranceModal({
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Input
-                    value={dominantFirstName}
-                    onChange={(e) => {
-                      setDominantFirstName(e.target.value)
-                      if (formErrors.dominant) setFormErrors((prev) => ({ ...prev, dominant: undefined }))
-                    }}
+                    {...register('dominantFirstName')}
                     placeholder="First name"
+                    className={formErrors.dominantFirstName ? 'border-red-500 focus-visible:ring-red-300' : ''}
                   />
                   <Input
-                    value={dominantLastName}
-                    onChange={(e) => {
-                      setDominantLastName(e.target.value)
-                      if (formErrors.dominant) setFormErrors((prev) => ({ ...prev, dominant: undefined }))
-                    }}
+                    {...register('dominantLastName')}
                     placeholder="Last name"
+                    className={formErrors.dominantLastName ? 'border-red-500 focus-visible:ring-red-300' : ''}
                   />
                 </div>
                 <Input
-                  value={dominantPhone}
-                  onChange={(e) => {
-                    setDominantPhone(e.target.value)
-                    if (formErrors.dominant) setFormErrors((prev) => ({ ...prev, dominant: undefined }))
-                  }}
+                  {...register('dominantPhone')}
                   placeholder="Phone"
+                  className={formErrors.dominantPhone ? 'border-red-500 focus-visible:ring-red-300' : ''}
                 />
-                {formErrors.dominant && <p className="text-xs text-destructive mt-1">{formErrors.dominant}</p>}
+                <FieldError message={formErrors.dominantFirstName?.message ?? formErrors.dominantLastName?.message ?? formErrors.dominantPhone?.message} />
               </div>
             </>
           )}
@@ -368,7 +351,13 @@ export function AddPatientInsuranceModal({
                 Cancel
               </Button>
               <Button
-                onClick={() => void handleSave()}
+                onClick={() => {
+                  if (!selectedInsuranceId) {
+                    toast.error("Please select an insurance provider")
+                    return
+                  }
+                  void handleSubmit(handleSave)()
+                }}
                 disabled={!selectedInsuranceId || loading || disabled}
               >
                 Save to patient record

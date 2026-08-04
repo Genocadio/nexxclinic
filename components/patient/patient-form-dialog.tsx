@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   useRegisterPatient,
   useUpdatePatient,
@@ -126,7 +126,7 @@ export default function PatientFormDialog({
   const { insurances } = useInsurances()
 
   const [error, setError] = useState("")
-  const [dateError, setDateError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [formData, setFormData] = useState<RegisterPatientInput>(EMPTY_FORM)
   const [savingInsurances, setSavingInsurances] = useState<Set<number>>(new Set())
 
@@ -161,7 +161,7 @@ export default function PatientFormDialog({
       setFormData(EMPTY_FORM)
     }
     setError("")
-    setDateError("")
+    setFieldErrors({})
     setSavingInsurances(new Set())
   }, [isOpen, isEdit, patient])
 
@@ -185,7 +185,23 @@ export default function PatientFormDialog({
       return updated
     })
 
-    if (field === "dateOfBirth") setDateError("")
+    // Clear the inline error for the field being edited (or its group).
+    setFieldErrors((prev) => {
+      if (Object.keys(prev).length === 0) return prev
+      const next = { ...prev }
+      if (field === "dateOfBirth") {
+        delete next["dateOfBirth"]
+      } else if (field.startsWith("insurance.")) {
+        const idx = field.split(".")[1]
+        delete next[`insurance.${idx}.provider`]
+        delete next[`insurance.${idx}.card`]
+        delete next[`insurance.${idx}.employer`]
+        delete next[`insurance.${idx}.dominant`]
+      } else {
+        delete next[field]
+      }
+      return next
+    })
   }
 
   const addInsurance = () => {
@@ -359,70 +375,33 @@ export default function PatientFormDialog({
     }))
   }
 
-  const canSubmit = useMemo(() => {
-    if (
-      !formData.firstName?.trim() ||
-      !formData.dateOfBirth ||
-      !formData.gender
-    )
-      return false
-
-    if (formData.dateOfBirth) {
-      const dv = validateDateOfBirth(formData.dateOfBirth)
-      if (!dv.valid) return false
-    }
-
-    if (!isEdit) {
-      const hasInsurance = (formData.insurances?.length ?? 0) > 0
-      if (hasInsurance) {
-        for (const ins of formData.insurances!) {
-          if (
-            !ins.insuranceId ||
-            String(ins.insuranceId) === "0" ||
-            !ins.insuranceCardNumber?.trim() ||
-            !ins.providingCompanyOrEmployer?.trim()
-          )
-            return false
-        }
-
-        const dominantRequired = isDominantMemberRequired(
-          formData.dateOfBirth,
-          true,
-        )
-        if (dominantRequired) {
-          for (const ins of formData.insurances!) {
-            if (
-              !ins.dominantMember?.firstName?.trim() ||
-              !ins.dominantMember?.lastName?.trim() ||
-              !ins.dominantMember?.phone?.trim()
-            )
-              return false
-          }
-        }
-      }
-    }
-
-    return true
-  }, [formData, isEdit])
-
   const loading = isEdit ? updateLoading : registerLoading
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
 
-    if (!formData.firstName || !formData.dateOfBirth || !formData.gender) {
-      toast.error("Please fill in required fields (First Name, Date of Birth, and Gender)")
-      return
+    // Inline field validation (shown below the fields, never as toasts).
+    const nextErrors: Record<string, string> = {}
+    if (!formData.firstName?.trim()) {
+      nextErrors["firstName"] = "First name is required"
+    }
+    if (!formData.dateOfBirth) {
+      nextErrors["dateOfBirth"] = "Date of birth is required"
+    } else {
+      const dobValidation = validateDateOfBirth(formData.dateOfBirth)
+      if (!dobValidation.valid) {
+        nextErrors["dateOfBirth"] = dobValidation.error || "Invalid date of birth"
+      }
+    }
+    if (!formData.gender) {
+      nextErrors["gender"] = "Gender is required"
     }
 
-    const dobValidation = validateDateOfBirth(formData.dateOfBirth)
-    if (!dobValidation.valid) {
-      setDateError(dobValidation.error || "Invalid date of birth")
-      toast.error(dobValidation.error || "Invalid date of birth")
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors)
       return
     }
-    setDateError("")
 
     if (isEdit) {
       if (!patient?.id) {
@@ -453,37 +432,36 @@ export default function PatientFormDialog({
         hasInsurance,
       )
 
-      if (dominantMemberRequired) {
-        for (let i = 0; i < (formData.insurances?.length || 0); i++) {
-          const insurance = formData.insurances![i]
+      const insuranceErrors: Record<string, string> = {}
+      for (let i = 0; i < (formData.insurances?.length || 0); i++) {
+        const insurance = formData.insurances![i]
+        const missing = (v?: string | null) => !v?.trim()
+        const prefix = `insurance.${i}`
+
+        if (missing(String(insurance.insuranceId)) || String(insurance.insuranceId) === "0") {
+          insuranceErrors[`${prefix}.provider`] = "Select an insurance provider"
+        }
+        if (missing(insurance.insuranceCardNumber)) {
+          insuranceErrors[`${prefix}.card`] = "Insurance card number is required"
+        }
+        if (missing(insurance.providingCompanyOrEmployer)) {
+          insuranceErrors[`${prefix}.employer`] = "Providing company or employer is required"
+        }
+        if (dominantMemberRequired) {
           if (
-            !insurance.dominantMember?.firstName ||
-            !insurance.dominantMember?.lastName ||
-            !insurance.dominantMember?.phone
+            missing(insurance.dominantMember?.firstName) ||
+            missing(insurance.dominantMember?.lastName) ||
+            missing(insurance.dominantMember?.phone)
           ) {
-            toast.error(
-              `Insurance #${i + 1}: Dominant member information (First Name, Last Name, Phone) is required for patients 18 years or younger`,
-            )
-            return
+            insuranceErrors[`${prefix}.dominant`] =
+              "Dominant member first name, last name, and phone are required for patients 18 years or younger"
           }
         }
       }
 
-      if (formData.insurances && formData.insurances.length > 0) {
-        for (let i = 0; i < formData.insurances.length; i++) {
-          const insurance = formData.insurances[i]
-          if (
-            !insurance.insuranceId ||
-            String(insurance.insuranceId) === "0" ||
-            !insurance.insuranceCardNumber ||
-            !insurance.providingCompanyOrEmployer
-          ) {
-            toast.error(
-              `Insurance #${i + 1}: Insurance provider, card number, and providing company/employer are required`,
-            )
-            return
-          }
-        }
+      if (Object.keys(insuranceErrors).length > 0) {
+        setFieldErrors(insuranceErrors)
+        return
       }
 
       try {
@@ -525,7 +503,7 @@ export default function PatientFormDialog({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-6" noValidate>
         <PatientFormFields
           formData={formData}
           onFieldChange={handleInputChange}
@@ -538,7 +516,8 @@ export default function PatientFormDialog({
           onRemoveInsurance={removeInsurance}
           availableInsurances={insurances}
           loading={loading}
-          dateError={dateError}
+          fieldErrors={fieldErrors}
+          dateError={fieldErrors["dateOfBirth"]}
         />
 
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-8 pt-3 sm:pt-6 border-t border-border/30 -mx-2 sm:-mx-4 px-2 sm:px-4 pb-2 sm:pb-4">
@@ -551,7 +530,7 @@ export default function PatientFormDialog({
           </button>
           <button
             type="submit"
-            disabled={!canSubmit || loading}
+            disabled={loading}
             className="rounded-full px-4 py-2 sm:py-2.5 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-lg hover:opacity-90 transition-all duration-200 text-xs sm:text-base flex-1 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {submitLabel}

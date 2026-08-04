@@ -341,15 +341,14 @@ export function BillingPageContent() {
   // Get all service names from visit departments (not just those with items)
   const allServiceNames = useMemo(
     () =>
-      visit?.departments
-        ?.filter((dept) => dept.status !== "CANCELLED")
-        .map((dept) => dept.department?.name || "General") || [],
+      visit?.departments?.map((dept) => dept.department?.name || "General") ||
+        [],
     [visit?.departments],
   );
 
   const topLevelBillingDepartments = useMemo(
     () =>
-      visit?.departments?.filter((dept) => dept.status !== "CANCELLED") || [],
+      visit?.departments || [],
     [visit?.departments],
   );
 
@@ -425,7 +424,7 @@ export function BillingPageContent() {
   const hasIncompleteDepartments = (visitData: Visit | undefined) => {
     if (!visitData) return false;
     return flattenVisitDepartmentsForBilling(visitData.departments || []).some(
-      (dept) => dept.status !== "COMPLETED" && dept.status !== "CANCELLED",
+      (dept) => dept.status !== "COMPLETED",
     );
   };
 

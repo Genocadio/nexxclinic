@@ -4,10 +4,17 @@ import { Suspense, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Eye, EyeOff } from "lucide-react"
 import { toast } from "react-toastify"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { FieldError } from "@/components/ui/field-error"
 import { useCreatePassword } from "@/hooks/auth-hooks"
+import {
+  createPasswordFormSchema,
+  type CreatePasswordFormValues,
+} from "@/lib/form-schemas"
 
 function CreatePasswordPageContent() {
   const router = useRouter()
@@ -25,32 +32,22 @@ function CreatePasswordPageContent() {
     return ""
   }, [searchParams])
 
-  const [identifier, setIdentifier] = useState(initialIdentifier)
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  const handleCreatePassword = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<CreatePasswordFormValues>({
+    resolver: zodResolver(createPasswordFormSchema),
+    mode: "onChange",
+    defaultValues: { identifier: initialIdentifier, password: "", confirmPassword: "" },
+  })
 
-    if (!identifier || !password || !confirmPassword) {
-      toast.error("Please fill in all fields")
-      return
-    }
-
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters")
-      return
-    }
-
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match")
-      return
-    }
-
+  const handleCreatePassword = async (values: CreatePasswordFormValues) => {
     try {
-      const response = await createPassword(identifier, password)
+      const response = await createPassword(values.identifier, values.password)
       if (response?.status === "SUCCESS") {
         localStorage.removeItem("pendingResetIdentifier")
         toast.success("Password created successfully. Please login.")
@@ -72,15 +69,16 @@ function CreatePasswordPageContent() {
           <p className="text-sm text-muted-foreground">Set your password to activate your account access.</p>
         </div>
 
-        <form onSubmit={handleCreatePassword} className="space-y-4">
+        <form onSubmit={handleSubmit(handleCreatePassword)} className="space-y-4" noValidate>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Email or Identifier</label>
             <Input
               type="text"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
+              {...register("identifier")}
               placeholder="Enter your email"
+              className={errors.identifier ? "border-red-500 focus-visible:ring-red-300" : ""}
             />
+            <FieldError message={errors.identifier?.message} />
           </div>
 
           <div>
@@ -88,10 +86,9 @@ function CreatePasswordPageContent() {
             <div className="relative">
               <Input
                 type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                {...register("password")}
                 placeholder="Enter new password"
-                className="pr-10"
+                className={`pr-10 ${errors.password ? "border-red-500 focus-visible:ring-red-300" : ""}`}
               />
               <button
                 type="button"
@@ -101,6 +98,7 @@ function CreatePasswordPageContent() {
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            <FieldError message={errors.password?.message} />
           </div>
 
           <div>
@@ -108,10 +106,9 @@ function CreatePasswordPageContent() {
             <div className="relative">
               <Input
                 type={showConfirmPassword ? "text" : "password"}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                {...register("confirmPassword")}
                 placeholder="Confirm new password"
-                className="pr-10"
+                className={`pr-10 ${errors.confirmPassword ? "border-red-500 focus-visible:ring-red-300" : ""}`}
               />
               <button
                 type="button"
@@ -121,6 +118,7 @@ function CreatePasswordPageContent() {
                 {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            <FieldError message={errors.confirmPassword?.message} />
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>

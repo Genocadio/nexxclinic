@@ -26,6 +26,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Button } from "@/components/ui/button"
+import { FieldError } from "@/components/ui/field-error"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { sanitizePhoneInput } from "@/lib/validation-utils"
@@ -56,6 +57,8 @@ export interface PatientFormFieldsProps {
   availableInsurances: InsuranceProvider[]
   loading?: boolean
   dateError?: string
+  /** Inline field errors keyed by dotted path, e.g. `firstName`, `insurance.0.card`. */
+  fieldErrors?: Record<string, string>
 }
 
 export default function PatientFormFields({
@@ -71,6 +74,7 @@ export default function PatientFormFields({
   availableInsurances,
   loading,
   dateError,
+  fieldErrors = {},
 }: PatientFormFieldsProps) {
   const [insurancePopoverOpen, setInsurancePopoverOpen] = useState<{
     [key: number]: boolean
@@ -115,9 +119,10 @@ export default function PatientFormFields({
             value={fieldValue(formData.firstName)}
             onChange={(e) => onFieldChange("firstName", e.target.value)}
             placeholder="Enter first name"
-            className={`${solidFieldClass} rounded-xl focus:ring-primary/50`}
+            className={`${solidFieldClass} rounded-xl focus:ring-primary/50 ${fieldErrors["firstName"] ? "border-red-500" : ""}`}
             required
           />
+          <FieldError message={fieldErrors["firstName"]} />
         </div>
         <div>
           <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
@@ -185,6 +190,7 @@ export default function PatientFormFields({
               Female
             </label>
           </div>
+          <FieldError message={fieldErrors["gender"]} />
         </div>
         <div>
           <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
@@ -676,6 +682,7 @@ export default function PatientFormFields({
                   <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                     Insurance Provider
                   </label>
+                  <FieldError message={fieldErrors[`insurance.${index}.provider`]} />
                   <Popover
                     open={insurancePopoverOpen[index] || false}
                     onOpenChange={(open) =>
@@ -752,9 +759,10 @@ export default function PatientFormFields({
                         )
                       }
                       placeholder="Enter card number"
-                      className={solidFieldClass}
+                      className={`${solidFieldClass} ${fieldErrors[`insurance.${index}.card`] ? "border-red-500" : ""}`}
                       required
                     />
+                    <FieldError message={fieldErrors[`insurance.${index}.card`]} />
                   </div>
                 )}
               </div>
@@ -776,9 +784,10 @@ export default function PatientFormFields({
                         )
                       }
                       placeholder="Enter company or employer"
-                      className={solidFieldClass}
+                      className={`${solidFieldClass} ${fieldErrors[`insurance.${index}.employer`] ? "border-red-500" : ""}`}
                       required
                     />
+                    <FieldError message={fieldErrors[`insurance.${index}.employer`]} />
                   </div>
                 </div>
               )}
@@ -875,6 +884,7 @@ export default function PatientFormFields({
                       />
                     </div>
                   </div>
+                  <FieldError message={fieldErrors[`insurance.${index}.dominant`]} />
                 </div>
               )}
             </div>

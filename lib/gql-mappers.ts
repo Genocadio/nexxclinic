@@ -123,7 +123,6 @@ export type GqlVisitDepartmentProduct = {
   id: string;
   product?: GqlProduct | null;
   quantity: number;
-  price?: number | null;
   status: string;
   source?: string | null;
   addedBy?: GqlWorkerRef | null;
@@ -419,9 +418,6 @@ export function mapGqlVisitDepartmentProduct(
     id: item.id,
     product,
     quantity: Number(item.quantity ?? 0),
-    price: Number(
-      item.price ?? product.clinicPrice ?? product.privateRhicPrice ?? 0,
-    ),
     status: item.status as VisitProductStatus,
     source: (item.source as VisitDepartmentProduct["source"]) || null,
     addedBy: mapGqlWorkerRef(item.addedBy),

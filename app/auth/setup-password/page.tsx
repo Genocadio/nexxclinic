@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,14 +11,17 @@ import { useSetInitialPassword } from "@/hooks/auth-hooks"
 import { Eye, EyeOff, Lock, CheckCircle } from "lucide-react"
 import { toast } from "react-toastify"
 import { handleResponse } from "@/lib/response-handler"
+import { FieldError } from "@/components/ui/field-error"
+import {
+  setupPasswordFormSchema,
+  type SetupPasswordFormValues,
+} from "@/lib/form-schemas"
 
 export default function SetupPasswordPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { setInitialPassword, loading } = useSetInitialPassword()
-  
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
+
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
@@ -24,33 +29,35 @@ export default function SetupPasswordPage() {
   // Get user identifier from URL params (passed from login)
   const identifier = searchParams.get("identifier") || ""
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<SetupPasswordFormValues>({
+    resolver: zodResolver(setupPasswordFormSchema),
+    mode: "onChange",
+    defaultValues: { password: "", confirmPassword: "" },
+  })
 
+  const password = watch("password")
+  const confirmPassword = watch("confirmPassword")
+
+  const handleSubmitForm = async (values: SetupPasswordFormValues) => {
     if (!identifier) {
       toast.error("User identifier not found. Please try logging in again.")
       router.push("/login")
       return
     }
 
-    if (!password) {
-      toast.error("Password is required")
-      return
-    }
-
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match")
-      return
-    }
-
     // Ensure both identifier and password are non-empty strings to avoid GraphQL null value error
-    if (!identifier.trim() || !password.trim()) {
+    if (!identifier.trim() || !values.password.trim()) {
       await handleResponse({ status: "ERROR", message: "Invalid input: identifier and password cannot be empty" }, { successMessage: false })
       return
     }
 
     try {
-      const result = await setInitialPassword(identifier.trim(), password.trim())
+      const result = await setInitialPassword(identifier.trim(), values.password.trim())
 
       const succeeded = await handleResponse(result, {
         successMessage: "Password set successfully! Redirecting to login...",
@@ -59,7 +66,7 @@ export default function SetupPasswordPage() {
 
       if (succeeded) {
         setIsSuccess(true)
-        
+
         // Redirect to login after 2 seconds
         setTimeout(() => {
           router.push("/login")
@@ -105,7 +112,7 @@ export default function SetupPasswordPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(handleSubmitForm)} className="space-y-4" noValidate>
             <div className="space-y-2">
               <label htmlFor="password" className="text-sm font-medium text-gray-700">
                 Password
@@ -115,10 +122,8 @@ export default function SetupPasswordPage() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pr-10"
-                  required
+                  {...register("password")}
+                  className={`pr-10 ${errors.password ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                 />
                 <button
                   type="button"
@@ -132,6 +137,7 @@ export default function SetupPasswordPage() {
                   )}
                 </button>
               </div>
+              <FieldError message={errors.password?.message} />
             </div>
 
             <div className="space-y-2">
@@ -143,10 +149,8 @@ export default function SetupPasswordPage() {
                   id="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Confirm your password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="pr-10"
-                  required
+                  {...register("confirmPassword")}
+                  className={`pr-10 ${errors.confirmPassword ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                 />
                 <button
                   type="button"
@@ -160,6 +164,7 @@ export default function SetupPasswordPage() {
                   )}
                 </button>
               </div>
+              <FieldError message={errors.confirmPassword?.message} />
             </div>
 
             {password && (

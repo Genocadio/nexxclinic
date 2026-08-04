@@ -292,10 +292,9 @@ export default function VisitCreationModal({
   const handleCreateVisit = async () => {
     if (!selectedPatientId) return;
 
-    if (!canCreateVisit) {
-      toast.error("Select Triage or a department before creating the visit.");
-      return;
-    }
+    // The Create Visit button is disabled until a service is selected, so
+    // this is a safety net (no toast — the UI already guides the user).
+    if (!canCreateVisit) return;
 
     try {
       const visitInput: any = {

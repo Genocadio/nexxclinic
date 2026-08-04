@@ -123,6 +123,7 @@ export type GqlVisitDepartmentBilling = {
 export type GqlVisitBilling = {
   id: string;
   visitId: string;
+  version?: { id: string; version: number } | null;
   departments?: GqlVisitDepartmentBilling[] | null;
   createdAt: string;
   updatedAt: string;
@@ -234,6 +235,9 @@ export function mapGqlVisitBilling(data: GqlVisitBilling): VisitBilling {
   return {
     id: data.id,
     visitId: data.visitId,
+    version: data.version
+      ? { id: data.version.id, version: Number(data.version.version ?? 0) }
+      : undefined,
     departments: (data.departments || []).map(mapGqlVisitDepartmentBilling),
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,

@@ -89,14 +89,14 @@ export default function ConsultationPage() {
             name: line.product.name,
             type: line.product.type === "CONSUMABLE_DEVICE" ? "consumable" : "action",
             quantity: line.quantity || 0,
+            // The backend no longer returns a price on the visit product line —
+            // fall back to the product catalog price.
             price: Number(
-                line.price ??
                 line.product.clinicPrice ??
                 line.product.privateRhicPrice ??
                 0,
             ),
             privatePrice: Number(
-                line.price ??
                 line.product.clinicPrice ??
                 line.product.privateRhicPrice ??
                 0,

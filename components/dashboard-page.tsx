@@ -361,7 +361,7 @@ export default function DashboardPage() {
 
   const hasIncompleteDepartments = (visit: Visit) => {
     return flattenVisitDepartments(visit.departments || []).some(
-      (dept) => dept.status !== "COMPLETED" && dept.status !== "CANCELLED",
+      (dept) => dept.status !== "COMPLETED",
     );
   };
 
@@ -646,7 +646,7 @@ export default function DashboardPage() {
     try {
       const allDepartments = visit.departments || [];
       const notCompleted = allDepartments.filter(
-        (dept) => dept.status !== "COMPLETED" && dept.status !== "CANCELLED",
+        (dept) => dept.status !== "COMPLETED",
       );
 
       if (notCompleted.length > 0) {

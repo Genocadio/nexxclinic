@@ -1,15 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useRef, useState } from "react";
-import {
-  AlertCircle,
-  Check,
-  Edit2,
-  Minus,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
+import { AlertCircle, Minus, Plus, Trash2 } from "lucide-react";
 import {
   BillingItem,
   applyInsuranceSelectionToItem,
@@ -110,8 +102,6 @@ export function BillingItemsList({
   // We use this helper instead of checking paymentStatus directly.
   const isPaidLocked = (item: BillingItem) =>
     !editMode && item.paymentStatus === "paid";
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [editPrice, setEditPrice] = useState<string>("");
   const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState("");
   const qtyInputRef = useRef<HTMLInputElement>(null);
@@ -134,24 +124,6 @@ export function BillingItemsList({
   }, [items, allDepartments]);
 
   const colCount = 1 + (hideTypeColumn ? 0 : 1) + 1 + 1 + 1 + 1 + 1 + 1 + 1;
-
-  const handleEditPrice = (item: BillingItem) => {
-    setEditingItemId(item.id);
-    setEditPrice(String(item.price));
-  };
-
-  const handleSavePrice = (item: BillingItem) => {
-    const parsedPrice = parseInt(editPrice, 10);
-    if (Number.isNaN(parsedPrice)) {
-      setEditingItemId(null);
-      return;
-    }
-    onItemChange({ ...item, price: parsedPrice, basePrice: parsedPrice });
-    setEditingItemId(null);
-  };
-
-  const canEditUnitPrice = (item: BillingItem) =>
-    !isPaidLocked(item) && !item.selectedInsuranceId;
 
   const applyQuantity = async (item: BillingItem, nextQty: number) => {
     const quantity = Math.max(1, Math.floor(nextQty));
@@ -415,74 +387,25 @@ export function BillingItemsList({
                                 {renderQuantityCell(item)}
                               </td>
                               <td className="py-2 px-3 text-right">
-                                {editingItemId === item.id &&
-                                !canEditUnitPrice(item) ? (
+                                <div className="flex flex-col items-end gap-0.5">
                                   <span className="tabular-nums text-sm">
                                     {formatRWF(item.price)}
                                   </span>
-                                ) : editingItemId === item.id ? (
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Input
-                                      type="number"
-                                      value={editPrice}
-                                      onChange={(e) =>
-                                        setEditPrice(e.target.value)
-                                      }
-                                      className="w-20 h-7 text-right text-xs"
-                                      autoFocus
-                                    />
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleSavePrice(item)}
-                                      className="h-7 w-7 p-0"
-                                    >
-                                      <Check className="h-3.5 w-3.5 text-emerald-600" />
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => setEditingItemId(null)}
-                                      className="h-7 w-7 p-0"
-                                    >
-                                      <X className="h-3.5 w-3.5 text-red-500" />
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <div className="flex flex-col items-end gap-0.5">
-                                    <span className="tabular-nums text-sm">
-                                      {formatRWF(item.price)}
+                                  {!item.selectedInsuranceId ? (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      Private
                                     </span>
-                                    {!item.selectedInsuranceId ? (
-                                      <span className="text-[10px] text-muted-foreground">
-                                        Private
-                                      </span>
-                                    ) : (
-                                      <span className="text-[10px] text-muted-foreground">
-                                        Coverage price
-                                      </span>
-                                    )}
-                                    {canEditUnitPrice(item) && (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => handleEditPrice(item)}
-                                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100"
-                                        aria-label="Edit private unit price"
-                                      >
-                                        <Edit2 className="h-3 w-3 text-muted-foreground" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                )}
+                                  ) : (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      Coverage price
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="py-2 px-3">
                                 <Select
                                   value={item.selectedInsuranceId || "none"}
                                   onValueChange={(value) => {
-                                    if (editingItemId === item.id) {
-                                      setEditingItemId(null);
-                                    }
                                     const visitInsuranceId =
                                       value === "none" ? undefined : value;
                                     const providerId = visitInsuranceId

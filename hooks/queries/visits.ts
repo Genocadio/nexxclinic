@@ -25,7 +25,6 @@ const visitDepartmentProductFields = `
     }
   }
   quantity
-  price
   status
   source
   addedBy {
@@ -276,7 +275,6 @@ export const VISITS_QUERY = gql`
               clinicPrice
             }
             quantity
-            price
             status
             addedBy {
               id
@@ -312,7 +310,6 @@ export const VISITS_QUERY = gql`
                 clinicPrice
               }
               quantity
-              price
               status
               addedBy {
                 id
@@ -393,7 +390,6 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
               type
             }
             quantity
-            price
             status
             createdAt
           }
@@ -459,7 +455,6 @@ export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
                 type
               }
               quantity
-              price
               status
               createdAt
             }
@@ -499,7 +494,6 @@ export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
                 type
               }
               quantity
-              price
               status
               createdAt
             }

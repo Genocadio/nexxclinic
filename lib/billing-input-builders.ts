@@ -48,12 +48,21 @@ export function buildCreateBillInput(
         products: [],
       });
     }
+    // Only bill as INSURANCE when an insurance is actually selected AND the
+    // product is covered by it — a non-covering insurance would be rejected by
+    // the backend ("Selected patientInsuranceId is invalid…").
+    const coveredInsuranceId =
+      item.selectedInsuranceId && !item.insuranceNotCovered
+        ? item.selectedInsuranceId
+        : undefined;
     billableByDepartment.get(rootVisitDepartmentId)!.products.push({
       visitDepartmentProductId: item.id,
       parentVisitDepartmentId: productOwnerVisitDepartmentId,
-      patientInsuranceId: item.selectedInsuranceId,
+      // The backend derives every line's price from the catalog/coverage — the
+      // frontend only declares HOW the line is covered.
+      coverageType: coveredInsuranceId ? "INSURANCE" : "PRIVATE",
+      patientInsuranceId: coveredInsuranceId,
       quantity: item.quantity,
-      unitPrice: item.price,
       isExempted: isExemptedItem(item),
     });
   });
@@ -144,11 +153,20 @@ export function buildEditBillInput(
 
     const dept = getOrCreateDept(deptId);
 
+    // Only bill as INSURANCE when an insurance is actually selected AND the
+    // product is covered by it — a non-covering insurance would be rejected by
+    // the backend ("Selected patientInsuranceId is invalid…").
+    const coveredInsuranceId =
+      item.selectedInsuranceId && !item.insuranceNotCovered
+        ? item.selectedInsuranceId
+        : undefined;
     dept.billProducts.push({
       productId: item.productId,
       quantity: item.quantity,
-      unitPrice: item.price,
-      patientInsuranceId: item.selectedInsuranceId || undefined,
+      // The backend derives every line's price from the catalog/coverage — the
+      // frontend only declares HOW the line is covered.
+      coverageType: coveredInsuranceId ? "INSURANCE" : "PRIVATE",
+      patientInsuranceId: coveredInsuranceId,
       isExempted: isExemptedItem(item),
     });
 

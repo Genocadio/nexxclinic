@@ -1,9 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FieldError } from "@/components/ui/field-error";
 import { useAuth } from "@/lib/auth-context";
 import {
   useProductsPaginated,
@@ -42,6 +45,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "react-toastify";
+import {
+  productFormSchema,
+  type ProductFormValues,
+} from "@/lib/form-schemas";
 
 const PRODUCT_TYPE_OPTIONS = [
   "DRUG",
@@ -90,23 +97,40 @@ export default function ManageProductsPage() {
   // Add/Edit modal state
   const [addEditModalOpen, setAddEditModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
-  const [itemName, setItemName] = useState("");
-  const [itemDescription, setItemDescription] = useState("");
-  const [itemType, setItemType] = useState<ProductTypeOption>("MEDICAL_ACT");
-  const [itemPrice, setItemPrice] = useState("");
-  const [itemClinicPrice, setItemClinicPrice] = useState("");
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   // Insurance coverage state for detail panel
   const [newCoverageInsuranceId, setNewCoverageInsuranceId] = useState("");
   const [newCoveragePrice, setNewCoveragePrice] = useState("");
 
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors: itemFormErrors },
+  } = useForm<ProductFormValues>({
+    resolver: zodResolver(productFormSchema),
+    mode: "onChange",
+    defaultValues: {
+      name: "",
+      description: "",
+      type: "MEDICAL_ACT",
+      privatePrice: "",
+      clinicPrice: "",
+    },
+  });
+  const watchedType = watch("type");
+
   const resetItemForm = () => {
-    setItemName("");
-    setItemDescription("");
-    setItemType("MEDICAL_ACT");
-    setItemPrice("");
-    setItemClinicPrice("");
+    reset({
+      name: "",
+      description: "",
+      type: "MEDICAL_ACT",
+      privatePrice: "",
+      clinicPrice: "",
+    });
     setEditingItemId(null);
   };
 
@@ -122,38 +146,34 @@ export default function ManageProductsPage() {
     ).toUpperCase() as ProductTypeOption;
 
     setEditingItemId(item.id);
-    setItemName(item.name);
-    setItemDescription(item.description || "");
-    setItemType(
-      PRODUCT_TYPE_OPTIONS.includes(incomingType)
+    reset({
+      name: item.name || "",
+      description: item.description || "",
+      type: PRODUCT_TYPE_OPTIONS.includes(incomingType)
         ? incomingType
         : "MEDICAL_ACT",
-    );
-    setItemPrice(String(item.privateRhicPrice ?? ""));
-    setItemClinicPrice(item.clinicPrice ? String(item.clinicPrice) : "");
+      privatePrice: String(item.privateRhicPrice ?? ""),
+      clinicPrice: item.clinicPrice ? String(item.clinicPrice) : "",
+    });
     setModalMode("edit");
     setAddEditModalOpen(true);
   };
 
-  const handleCreateItem = async () => {
-    if (!itemName || !itemType || !itemPrice) {
-      toast.warn("Please fill in all required fields.");
-      return;
-    }
+  const handleCreateItem = async (values: ProductFormValues) => {
     setSaving(true);
     try {
       const createdResp = await createProduct({
-        name: itemName,
+        name: values.name,
         code:
-          itemName
+          values.name
             .trim()
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, "-") || `product-${Date.now()}`,
-        description: itemDescription || itemName,
-        type: itemType,
+        description: values.description || values.name,
+        type: values.type as ProductTypeOption,
         unit: "PCS",
-        privateRhicPrice: Number(itemPrice),
-        clinicPrice: itemClinicPrice ? Number(itemClinicPrice) : undefined,
+        privateRhicPrice: Number(values.privatePrice),
+        clinicPrice: values.clinicPrice ? Number(values.clinicPrice) : undefined,
         insuranceCoverages: [],
       });
       await refresh();
@@ -173,25 +193,22 @@ export default function ManageProductsPage() {
     }
   };
 
-  const handleUpdateItem = async () => {
-    if (!editingItemId || !itemName || !itemType || !itemPrice) {
-      toast.warn("Please fill in all required fields.");
-      return;
-    }
+  const handleUpdateItem = async (values: ProductFormValues) => {
+    if (!editingItemId) return;
     setSaving(true);
     try {
       const updatedResp = await updateProduct(editingItemId, {
-        name: itemName,
+        name: values.name,
         code:
-          itemName
+          values.name
             .trim()
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, "-") || `product-${editingItemId}`,
-        description: itemDescription || itemName,
-        type: itemType,
+        description: values.description || values.name,
+        type: values.type as ProductTypeOption,
         unit: "PCS",
-        privateRhicPrice: Number(itemPrice),
-        clinicPrice: itemClinicPrice ? Number(itemClinicPrice) : undefined,
+        privateRhicPrice: Number(values.privatePrice),
+        clinicPrice: values.clinicPrice ? Number(values.clinicPrice) : undefined,
       });
       await refresh();
       if (updatedResp?.status === "SUCCESS") {
@@ -206,11 +223,11 @@ export default function ManageProductsPage() {
         setSelectedItem({
           ...selectedItem,
           ...(updatedData || {}),
-          name: itemName,
-          description: itemDescription,
-          type: itemType,
-          privateRhicPrice: Number(itemPrice),
-          clinicPrice: itemClinicPrice ? Number(itemClinicPrice) : undefined,
+          name: values.name,
+          description: values.description,
+          type: values.type,
+          privateRhicPrice: Number(values.privatePrice),
+          clinicPrice: values.clinicPrice ? Number(values.clinicPrice) : undefined,
         });
       }
 
@@ -270,10 +287,9 @@ export default function ManageProductsPage() {
   };
 
   const handleAddCoverage = async () => {
-    if (!selectedItem || !newCoverageInsuranceId || !newCoveragePrice) {
-      toast.warn("Please select insurance and enter price");
-      return;
-    }
+    // The Add Coverage button is disabled until an insurance and price are
+    // chosen, so this is a silent safety net (no validation toast).
+    if (!selectedItem || !newCoverageInsuranceId || !newCoveragePrice) return;
     setSaving(true);
     try {
       const resultResp = await addCoverage(
@@ -724,10 +740,10 @@ export default function ManageProductsPage() {
                   </Label>
                   <Input
                     placeholder="Product Name"
-                    value={itemName}
-                    onChange={(e) => setItemName(e.target.value)}
-                    className="rounded-xl bg-white dark:bg-slate-950"
+                    {...register("name")}
+                    className={`rounded-xl bg-white dark:bg-slate-950 ${itemFormErrors.name ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                   />
+                  <FieldError message={itemFormErrors.name?.message} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs font-semibold text-muted-foreground">
@@ -735,8 +751,7 @@ export default function ManageProductsPage() {
                   </Label>
                   <Input
                     placeholder="Description"
-                    value={itemDescription}
-                    onChange={(e) => setItemDescription(e.target.value)}
+                    {...register("description")}
                     className="rounded-xl bg-white dark:bg-slate-950"
                   />
                 </div>
@@ -745,9 +760,9 @@ export default function ManageProductsPage() {
                     Product Type *
                   </Label>
                   <Select
-                    value={itemType}
+                    value={watchedType}
                     onValueChange={(value) =>
-                      setItemType(value as ProductTypeOption)
+                      setValue("type", value, { shouldValidate: true })
                     }
                   >
                     <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950">
@@ -761,6 +776,7 @@ export default function ManageProductsPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <FieldError message={itemFormErrors.type?.message} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs font-semibold text-muted-foreground">
@@ -769,10 +785,10 @@ export default function ManageProductsPage() {
                   <Input
                     placeholder="Private Price"
                     type="number"
-                    value={itemPrice}
-                    onChange={(e) => setItemPrice(e.target.value)}
-                    className="rounded-xl bg-white dark:bg-slate-950"
+                    {...register("privatePrice")}
+                    className={`rounded-xl bg-white dark:bg-slate-950 ${itemFormErrors.privatePrice ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                   />
+                  <FieldError message={itemFormErrors.privatePrice?.message} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs font-semibold text-muted-foreground">
@@ -781,8 +797,7 @@ export default function ManageProductsPage() {
                   <Input
                     placeholder="Clinic Price"
                     type="number"
-                    value={itemClinicPrice}
-                    onChange={(e) => setItemClinicPrice(e.target.value)}
+                    {...register("clinicPrice")}
                     className="rounded-xl bg-white dark:bg-slate-950"
                   />
                 </div>
@@ -799,7 +814,9 @@ export default function ManageProductsPage() {
                 </Button>
                 <Button
                   onClick={
-                    modalMode === "add" ? handleCreateItem : handleUpdateItem
+                    modalMode === "add"
+                      ? handleSubmit(handleCreateItem)
+                      : handleSubmit(handleUpdateItem)
                   }
                   disabled={saving}
                   className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md"

@@ -9,32 +9,37 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "react-toastify";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 /* ---- custom hooks ----------------------------------------------------- */
 import { useClinicProfile } from "@/hooks/auth-hooks";          // ← new
 import { useAuth } from "@/lib/auth-context";                 // ← now includes setClinicProfile
+import { useDebouncedValidation } from "@/hooks/use-debounced-validation";
 
 /* ---- helpers ---------------------------------------------------------- */
 import { getClinicDisplayName, getClinicLogoUrl } from "@/lib/clinic-profile";
 import { getPostLoginPath } from "@/lib/role-utils";
-
-/* ---- form utils -------------------------------------------------------- */
 import {
   sanitizeEmailInput,
   sanitizeEmailOrPhoneInput,
   sanitizePhoneInput,
-  validateEmailOrPhone,
 } from "@/lib/validation-utils";
+
+/* ---- validation schemas ------------------------------------------------ */
+import {
+  loginFormSchema,
+  registerFormSchema,
+  type LoginFormValues,
+  type RegisterFormValues,
+} from "@/lib/form-schemas";
 
 /* ---- ui --------------------------------------------------------------- */
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-
-type FieldErrors = Partial<
-  Record<"email" | "password" | "name" | "phone", string>
->;
+import { FieldError } from "@/components/ui/field-error";
 
 export function AuthPageContent() {
   const router = useRouter();
@@ -77,14 +82,28 @@ useEffect(() => {
     [searchParams]
   );
   const [mode, setMode] = useState<"login" | "register">(initialMode);
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [name, setName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [errors, setErrors] = useState<FieldErrors>({});
   const [isLoadingForm, setIsLoadingForm] = useState(false);
+
+  const loginForm = useForm<LoginFormValues>({
+    resolver: zodResolver(loginFormSchema),
+    mode: "onChange",
+    defaultValues: { identifier: "", password: "" },
+  });
+
+  const registerForm = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerFormSchema),
+    // The register schema re-runs cross-field superRefine checks (email/phone
+    // presence + format, password-vs-name/email rules) as you type, so its
+    // live validation is debounced instead of re-parsing on every keystroke.
+    mode: "onSubmit",
+    defaultValues: { name: "", email: "", phone: "", password: "" },
+  });
+
+  useDebouncedValidation({
+    control: registerForm.control,
+    trigger: registerForm.trigger,
+  });
 
   /* --------------------------------------------------------------------- */
   /* 4️⃣  UI helpers                                                      */
@@ -110,6 +129,8 @@ useEffect(() => {
 
   useEffect(() => {
     setMode(initialMode);
+    loginForm.clearErrors();
+    registerForm.clearErrors();
   }, [initialMode]);
 
   // Redirect after login
@@ -122,88 +143,19 @@ useEffect(() => {
 
   const switchMode = (next: "login" | "register") => {
     setMode(next);
-    setErrors({});
+    loginForm.clearErrors();
+    registerForm.clearErrors();
     router.replace(next === "register" ? "/auth?mode=register" : "/auth");
   };
 
-  const clearError = (field: keyof FieldErrors) => {
-    setErrors((prev) => {
-      if (!prev[field]) return prev;
-      const next = { ...prev };
-      delete next[field];
-      return next;
-    });
-  };
-
-  /* ---- Validation helpers ------------------------------------------------- */
-  const validateEmailField = (value: string) => {
-    let error = "";
-    if (value.trim()) {
-      if (!value.includes("@") || !value.includes(".")) {
-        error = "Please enter a valid email address";
-      }
-    }
-    setErrors((prev) => ({ ...prev, email: error || undefined }));
-  };
-
-  const validatePhoneField = (value: string) => {
-    let error = "";
-    if (value.trim()) {
-      if (value.includes("@")) {
-        error = "Please enter a valid phone number, not email";
-      } else {
-        const phoneValidation = validateEmailOrPhone(value);
-        if (!phoneValidation.valid) {
-          error = "Please enter a valid phone number";
-        }
-      }
-    }
-    setErrors((prev) => ({ ...prev, phone: error || undefined }));
-  };
-
-  const validateLoginIdentifierField = (value: string) => {
-    const trimmedValue = value.trim();
-    if (!trimmedValue) {
-      setErrors((prev) => ({ ...prev, email: undefined }));
-      return;
-    }
-    const validation = validateEmailOrPhone(trimmedValue);
-    setErrors((prev) => ({
-      ...prev,
-      email: validation.valid ? undefined : validation.error,
-    }));
-  };
-
-  const validatePassword = (pw: string, fullName: string, emailAddr: string): string | null => {
-    if (!pw) return "Password is required.";
-    if (pw.length < 8) return "Password must be at least 8 characters.";
-    if (!/[A-Z]/.test(pw)) return "Password must include at least one uppercase letter.";
-    if (!/[a-z]/.test(pw)) return "Password must include at least one lowercase letter.";
-    if (!/[0-9]/.test(pw)) return "Password must include at least one digit.";
-    if (!/[^a-zA-Z0-9]/.test(pw)) return "Password must include at least one special character.";
-    if (/\s/.test(pw)) return "Password cannot contain whitespace.";
-
-    const lowered = pw.toLowerCase();
-    if (fullName) {
-      for (const part of fullName.split(/\s+/)) {
-        if (part && lowered.includes(part.toLowerCase())) {
-          return "Password cannot contain your name.";
-        }
-      }
-    }
-    if (emailAddr) {
-      const prefix = emailAddr.split("@")[0].toLowerCase();
-      if (prefix && lowered.includes(prefix)) {
-        return "Password cannot contain your email prefix.";
-      }
-    }
-
-    return null;
-  };
+  // Password strength meter for the register tab.
+  const registerPassword = registerForm.watch("password");
+  const registerName = registerForm.watch("name");
+  const registerEmail = registerForm.watch("email");
 
   const passwordStrength = useMemo(() => {
-    const pw = password
-    if (!pw) return null
+    const pw = registerPassword;
+    if (!pw) return null;
     const checks = {
       length: pw.length >= 8,
       upper: /[A-Z]/.test(pw),
@@ -212,66 +164,24 @@ useEffect(() => {
       special: /[^a-zA-Z0-9]/.test(pw),
       noWhitespace: !/\s/.test(pw),
       noName: (() => {
-        if (!name) return true
-        const lowered = pw.toLowerCase()
-        return !name.split(/\s+/).some((part) => part && lowered.includes(part.toLowerCase()))
+        if (!registerName) return true;
+        const lowered = pw.toLowerCase();
+        return !registerName.split(/\s+/).some((part) => part && lowered.includes(part.toLowerCase()));
       })(),
       noEmailPrefix: (() => {
-        if (!email) return true
-        const prefix = email.split("@")[0].toLowerCase()
-        return !prefix || !pw.toLowerCase().includes(prefix)
+        if (!registerEmail) return true;
+        const prefix = registerEmail.split("@")[0].toLowerCase();
+        return !prefix || !pw.toLowerCase().includes(prefix);
       })(),
-    }
-    const score = [checks.length, checks.upper, checks.lower, checks.digit, checks.special].filter(Boolean).length
-    const label = score >= 4 ? "Strong" : score >= 2 ? "Medium" : "Easy"
-    const color = score >= 4 ? "bg-green-500" : score >= 2 ? "bg-amber-500" : "bg-red-500"
-    const textColor = score >= 4 ? "text-green-600" : score >= 2 ? "text-amber-600" : "text-red-600"
-    return { score, label, color, textColor, checks }
-  }, [password, name, email])
+    };
+    const score = [checks.length, checks.upper, checks.lower, checks.digit, checks.special].filter(Boolean).length;
+    const label = score >= 4 ? "Strong" : score >= 2 ? "Medium" : "Easy";
+    const color = score >= 4 ? "bg-green-500" : score >= 2 ? "bg-amber-500" : "bg-red-500";
+    const textColor = score >= 4 ? "text-green-600" : score >= 2 ? "text-amber-600" : "text-red-600";
+    return { score, label, color, textColor, checks };
+  }, [registerPassword, registerName, registerEmail]);
 
-  const validateForm = (currentMode: "login" | "register"): FieldErrors => {
-    const nextErrors: FieldErrors = {};
-
-    if (currentMode === "login") {
-      const emailOrPhoneValidation = validateEmailOrPhone(email);
-      if (!emailOrPhoneValidation.valid) {
-        nextErrors.email = emailOrPhoneValidation.error;
-      }
-    } else {
-      const hasEmail = email.trim().length > 0;
-      const hasPhone = phoneNumber.trim().length > 0;
-
-      if (!hasEmail && !hasPhone) {
-        nextErrors.email = "Email or phone number is required";
-        nextErrors.phone = "Email or phone number is required";
-      } else {
-        if (hasEmail) {
-          if (!email.includes("@") || !email.includes(".")) {
-            nextErrors.email = "Please enter a valid email address";
-          }
-        }
-        if (hasPhone) {
-          const phoneValidation = validateEmailOrPhone(phoneNumber);
-          if (!phoneValidation.valid) {
-            nextErrors.phone = phoneNumber.includes("@")
-              ? "Please enter a valid phone number, not email"
-              : "Please enter a valid phone number";
-          }
-        }
-      }
-    }
-
-    if (currentMode === "register") {
-      if (!name.trim()) nextErrors.name = "Full name is required";
-
-      const pwError = validatePassword(password, name, email);
-      if (pwError) nextErrors.password = pwError;
-    }
-
-    return nextErrors;
-  };
-
-  const getWelcomeName = () => {
+  const getWelcomeName = (identifier: string) => {
     if (typeof window !== "undefined") {
       try {
         const storedDoctor = localStorage.getItem("doctor");
@@ -286,8 +196,8 @@ useEffect(() => {
       }
     }
 
-    if (email.includes("@")) {
-      const emailPrefix = email.split("@")[0]?.trim();
+    if (identifier.includes("@")) {
+      const emailPrefix = identifier.split("@")[0]?.trim();
       if (emailPrefix) {
         return emailPrefix
           .replace(/[._-]+/g, " ")
@@ -312,22 +222,13 @@ useEffect(() => {
   };
 
   /* ---- Submit handlers ------------------------------------------------- */
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const validationErrors = validateForm("login");
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
-
-    setErrors({});
+  const handleLogin = async (values: LoginFormValues) => {
     setIsLoadingForm(true);
 
     try {
-      const result = await login(email, password);
+      const result = await login(values.identifier, values.password);
       if (result.success) {
-        const welcomeName = getWelcomeName();
+        const welcomeName = getWelcomeName(values.identifier);
         toast.success(`Welcome back, ${welcomeName}`, {
           position: "top-center",
           autoClose: 2200,
@@ -343,7 +244,7 @@ useEffect(() => {
       }
 
       if (result.requiresPasswordSetup) {
-        const params = new URLSearchParams({ identifier: email });
+        const params = new URLSearchParams({ identifier: values.identifier });
         router.replace(`/create-password?${params.toString()}`);
         return;
       }
@@ -356,20 +257,11 @@ useEffect(() => {
     }
   };
 
-  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const validationErrors = validateForm("register");
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
-
-    setErrors({});
+  const handleRegister = async (values: RegisterFormValues) => {
     setIsLoadingForm(true);
 
     try {
-      const result = await register(name, email, password, phoneNumber);
+      const result = await register(values.name, values.email, values.password, values.phone);
       if (result.success) {
         toast.success(result.message || "Registration successful");
         switchMode("login");
@@ -383,6 +275,10 @@ useEffect(() => {
       setIsLoadingForm(false);
     }
   };
+
+  const loginErrors = loginForm.formState.errors;
+  const registerErrors = registerForm.formState.errors;
+  const errorInputClass = "border-amber-500 focus-visible:ring-amber-300";
 
   /* --------------------------------------------------------------------- */
   /* 6️⃣  Render                                                          */
@@ -442,116 +338,92 @@ useEffect(() => {
           {/* Form panel */}
           <div key={mode} className="mode-switch-panel">
             {mode === "login" ? (
-              <form onSubmit={handleLogin} className="space-y-4 fly-in fly-in-7">
+              <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4 fly-in fly-in-7" noValidate>
                 <div>
                   <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Email or Phone</label>
                   <Input
+                    {...loginForm.register("identifier")}
+                    onChange={(e) => loginForm.setValue("identifier", sanitizeEmailOrPhoneInput(e.target.value))}
                     type="text"
                     disabled={isLoadingForm}
-                    value={email}
-                    onChange={(e) => {
-                      const cleanedValue = sanitizeEmailOrPhoneInput(e.target.value);
-                      setEmail(cleanedValue);
-                      validateLoginIdentifierField(cleanedValue);
-                    }}
                     placeholder="dr.name@eyecare.com or +256701234567 or 0712345678"
-                    className={`w-full ${baseInputClass} ${errors.email ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
+                    className={`w-full ${baseInputClass} ${loginErrors.identifier ? errorInputClass : ""}`}
                   />
-                  {errors.email && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.email}</p>}
+                  <FieldError message={loginErrors.identifier?.message} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Password</label>
                   <div className="relative">
                     <Input
+                      {...loginForm.register("password")}
                       type={showPassword ? "text" : "password"}
                       disabled={isLoadingForm}
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        clearError("password");
-                      }}
                       placeholder="Enter your password"
-                      className={`w-full pr-10 ${baseInputClass} ${errors.password ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
+                      className={`w-full pr-10 ${baseInputClass} ${loginErrors.password ? errorInputClass : ""}`}
                     />
                     <button type="button" disabled={isLoadingForm} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors">
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  {errors.password && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.password}</p>}
+                  <FieldError message={loginErrors.password?.message} />
                 </div>
                 <Button type="submit" disabled={isLoadingForm} className="w-full mt-2 rounded-xl">
                   {isLoadingForm ? "Signing In..." : "Sign In"}
                 </Button>
               </form>
             ) : (
-              <form onSubmit={handleRegister} className="space-y-4 fly-in fly-in-7">
+              <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-4 fly-in fly-in-7" noValidate>
                 <div>
                   <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Full Name</label>
                   <Input
+                    {...registerForm.register("name")}
                     type="text"
                     disabled={isLoadingForm}
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      clearError("name");
-                    }}
                     placeholder="Enter your full name"
-                    className={`${baseInputClass} ${errors.name ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
+                    className={`${baseInputClass} ${registerErrors.name ? errorInputClass : ""}`}
                   />
-                  {errors.name && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.name}</p>}
+                  <FieldError message={registerErrors.name?.message} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Email Address</label>
                   <Input
+                    {...registerForm.register("email")}
+                    onChange={(e) => registerForm.setValue("email", sanitizeEmailInput(e.target.value))}
                     type="email"
                     disabled={isLoadingForm}
-                    value={email}
-                    onChange={(e) => {
-                      const cleanedValue = sanitizeEmailInput(e.target.value);
-                      setEmail(cleanedValue);
-                      validateEmailField(cleanedValue);
-                    }}
                     placeholder="dr.name@eyecare.com"
-                    className={`${baseInputClass} ${errors.email ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
+                    className={`${baseInputClass} ${registerErrors.email ? errorInputClass : ""}`}
                   />
-                  {errors.email && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.email}</p>}
+                  <FieldError message={registerErrors.email?.message} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Phone Number</label>
                   <Input
+                    {...registerForm.register("phone")}
+                    onChange={(e) => registerForm.setValue("phone", sanitizePhoneInput(e.target.value))}
                     type="tel"
                     disabled={isLoadingForm}
-                    value={phoneNumber}
-                    onChange={(e) => {
-                      const cleanedValue = sanitizePhoneInput(e.target.value);
-                      setPhoneNumber(cleanedValue);
-                      validatePhoneField(cleanedValue);
-                    }}
                     placeholder="+256701234567 or 0712345678"
-                    className={`${baseInputClass} ${errors.phone ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
+                    className={`${baseInputClass} ${registerErrors.phone ? errorInputClass : ""}`}
                   />
-                  {errors.phone && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.phone}</p>}
+                  <FieldError message={registerErrors.phone?.message} />
                   <p className="mt-1 text-xs text-muted-foreground">At least one contact method required</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Password</label>
                   <div className="relative">
                     <Input
+                      {...registerForm.register("password")}
                       type={showPassword ? "text" : "password"}
                       disabled={isLoadingForm}
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        clearError("password");
-                      }}
                       placeholder="Enter your password"
-                      className={`w-full pr-10 ${baseInputClass} ${errors.password ? "border-amber-500 focus-visible:ring-amber-300" : ""}`}
+                      className={`w-full pr-10 ${baseInputClass} ${registerErrors.password ? errorInputClass : ""}`}
                     />
                     <button type="button" disabled={isLoadingForm} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors">
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  {errors.password && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">{errors.password}</p>}
+                  <FieldError message={registerErrors.password?.message} />
                   {passwordStrength && (
                     <div className="mt-2 space-y-2">
                       <div className="flex items-center gap-2">

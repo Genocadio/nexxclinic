@@ -102,9 +102,7 @@ export default function VisitsListView({
       setPreviewVisit(visit);
 
       // choose initial department if available
-      const topLevelDepartments = (visit?.departments || []).filter(
-        (d) => d.status !== "CANCELLED",
-      );
+      const topLevelDepartments = visit?.departments || [];
       if (topLevelDepartments.length === 1)
         setPreviewDepartmentId(topLevelDepartments[0].id);
 
@@ -290,8 +288,7 @@ export default function VisitsListView({
                     // and only allow consultation when that visit department is not completed/cancelled.
                     const matchingDept = visit.departments?.find((d) => {
                       const deptId = String(d?.department?.id || d?.id || "");
-                      const isDepartmentOpen =
-                        d?.status !== "COMPLETED" && d?.status !== "CANCELLED";
+                      const isDepartmentOpen = d?.status !== "COMPLETED";
                       return (
                         deptId &&
                         userDepartmentIds.includes(deptId) &&

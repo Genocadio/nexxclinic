@@ -65,7 +65,6 @@ function mapDepartmentProducts(dept: VisitDepartment | null): FormAction[] {
     visitProductToFormAction({
       id: String(line.id),
       quantity: line.quantity,
-      price: line.price,
       product: {
         id: String(line.product.id),
         name: line.product.name,

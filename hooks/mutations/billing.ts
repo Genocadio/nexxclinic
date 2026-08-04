@@ -69,6 +69,10 @@ export const CREATE_BILL_MUTATION = gql`
       data {
         id
         visitId
+        version {
+          id
+          version
+        }
         departments {
           ...VisitDepartmentBillingFields
         }
@@ -88,6 +92,10 @@ export const EDIT_BILL_MUTATION = gql`
       data {
         id
         visitId
+        version {
+          id
+          version
+        }
         departments {
           ...VisitDepartmentBillingFields
         }
@@ -107,6 +115,10 @@ export const RECORD_VISIT_BILLING_PAYMENT_MUTATION = gql`
       data {
         id
         visitId
+        version {
+          id
+          version
+        }
         departments {
           ...VisitDepartmentBillingFields
         }

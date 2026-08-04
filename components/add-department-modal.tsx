@@ -38,6 +38,18 @@ export function AddDepartmentModal({
   const [selectedProcessorId, setSelectedProcessorId] = useState<string>("");
   const [selectedProcessorDepartmentId, setSelectedProcessorDepartmentId] =
     useState<string>("");
+  const [formError, setFormError] = useState<string>("");
+
+  const clearFormError = () => {
+    if (formError) setFormError("");
+  };
+
+  const clearProcessorSelections = () => {
+    setProcessorQuery("");
+    setSelectedProcessorId("");
+    setSelectedProcessorDepartmentId("");
+    clearFormError();
+  };
   const { addDepartmentToVisit, loading } = useAddDepartmentToVisit();
   const { workers: processorWorkers, loading: processorsLoading } =
     useSearchWorkers({
@@ -76,14 +88,16 @@ export function AddDepartmentModal({
         : selectedDepartmentId;
 
     if (mode === "processor" && !selectedProcessorId) {
-      toast.error("Select a clinician/processor first");
+      setFormError("Select a clinician/processor first");
       return;
     }
 
     if (!departmentIdToUse) {
-      toast.error("Choose a department before adding it to the visit");
+      setFormError("Choose a department before adding it to the visit");
       return;
     }
+
+    setFormError("");
 
     try {
       const result = await addDepartmentToVisit(
@@ -154,9 +168,7 @@ export function AddDepartmentModal({
                   variant={mode === "department" ? "default" : "outline"}
                   onClick={() => {
                     setMode("department");
-                    setProcessorQuery("");
-                    setSelectedProcessorId("");
-                    setSelectedProcessorDepartmentId("");
+                    clearProcessorSelections();
                   }}
                 >
                   Department
@@ -168,6 +180,7 @@ export function AddDepartmentModal({
                   onClick={() => {
                     setMode("processor");
                     setSelectedDepartmentId("");
+                    clearFormError();
                   }}
                 >
                   Clinician
@@ -186,6 +199,7 @@ export function AddDepartmentModal({
                         setProcessorQuery(e.target.value);
                         setSelectedProcessorId("");
                         setSelectedProcessorDepartmentId("");
+                        clearFormError();
                       }}
                       placeholder="Search by name..."
                       className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm"
@@ -224,10 +238,11 @@ export function AddDepartmentModal({
                             key={w.id}
                             type="button"
                             disabled={isFullyAlreadyAdded}
-                            onClick={() => {
-                              if (isFullyAlreadyAdded) return;
+                          onClick={() => {
+                            if (isFullyAlreadyAdded) return;
+                            clearFormError();
 
-                              setSelectedProcessorId(String(w.id));
+                            setSelectedProcessorId(String(w.id));
                               if (linkedAvailable.length === 1) {
                                 setSelectedProcessorDepartmentId(
                                   String(linkedAvailable[0].id),
@@ -397,6 +412,7 @@ export function AddDepartmentModal({
                           onClick={() => {
                             setSelectedDepartmentId(String(d.id));
                             setSelectedProfileId("");
+                            clearFormError();
                           }}
                           className={`w-full flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm hover:bg-muted ${
                             String(d.id) === String(selectedDepartmentId)
@@ -479,6 +495,12 @@ export function AddDepartmentModal({
                   );
                 })()}
                 </>
+              )}
+
+              {formError && (
+                <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-400" role="alert">
+                  {formError}
+                </p>
               )}
 
               <div className="flex gap-3 mt-6">

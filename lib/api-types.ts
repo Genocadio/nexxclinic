@@ -134,7 +134,6 @@ export enum VisitDepartmentStatus {
   ON_HOLD = "ON_HOLD",
   BILLING = "BILLING",
   COMPLETED = "COMPLETED",
-  CANCELLED = "CANCELLED",
 }
 
 export enum EncounterType {
@@ -153,6 +152,19 @@ export enum VisitBillingStatus {
   UNPAID = "UNPAID",
   PARTIALLY_PAID = "PARTIALLY_PAID",
   PAID = "PAID",
+}
+
+/**
+ * How a billed product line is covered. There is NO automatic insurance
+ * assignment per product — each line must be explicit:
+ * - PRIVATE: billed without insurance; patientInsuranceId must NOT be provided.
+ * - INSURANCE: billed against an explicit insurance; patientInsuranceId is
+ *   required and must be linked to the visit, belong to the visit's patient,
+ *   be active (policy period covers today) and cover the product.
+ */
+export enum CoverageType {
+  PRIVATE = "PRIVATE",
+  INSURANCE = "INSURANCE",
 }
 
 export enum ClinicContactType {
@@ -482,7 +494,6 @@ export interface VisitDepartmentProduct {
   id: string;
   product: Product;
   quantity: number;
-  price: number;
   status: VisitProductStatus;
   source?: VisitDepartmentProductSource | null;
   addedBy?: Worker | null;
@@ -580,14 +591,24 @@ export interface VisitPreInstructionProduct {
 // ============================================
 
 /**
- * VisitBilling - Main billing record for a visit
+ * VisitBilling - Main billing record for a visit (one per billing version)
  */
 export interface VisitBilling {
   id: string;
   visitId: string;
   departments: VisitDepartmentBilling[];
+  version?: VisitBillingVersion | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * VisitBillingVersion - Immutable billing version marker. The "current bill"
+ * is always the latest version; older versions exist for audit only.
+ */
+export interface VisitBillingVersion {
+  id: string;
+  version: number;
 }
 
 /**

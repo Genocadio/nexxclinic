@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { MediaUploader } from "@/components/ui/media-uploader";
 import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FieldError } from "@/components/ui/field-error";
 import { useAuth } from "@/lib/auth-context";
 import {
   useCreateInsuranceProvider,
@@ -24,6 +27,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  insuranceProviderFormSchema,
+  type InsuranceProviderFormValues,
+} from "@/lib/form-schemas";
 
 export default function ManageInsurancesPage() {
   const router = useRouter();
@@ -36,21 +43,37 @@ export default function ManageInsurancesPage() {
   const { createInsuranceProvider } = useCreateInsuranceProvider();
   const { updateInsuranceProvider } = useUpdateInsuranceProvider();
   const { deleteInsuranceProvider } = useDeleteInsuranceProvider();
-  const [name, setName] = useState("");
-  const [acronym, setAcronym] = useState("");
-  const [coverage, setCoverage] = useState("");
   const [iconUrl, setIconUrl] = useState("");
-  const [supportedByClinic, setSupportedByClinic] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    getValues,
+    formState: { errors: formErrors },
+  } = useForm<InsuranceProviderFormValues>({
+    resolver: zodResolver(insuranceProviderFormSchema),
+    mode: "onChange",
+    defaultValues: {
+      name: "",
+      acronym: "",
+      coverage: "",
+      supportedByClinic: true,
+    },
+  });
+
   const resetForm = () => {
-    setName("");
-    setAcronym("");
-    setCoverage("");
+    reset({
+      name: "",
+      acronym: "",
+      coverage: "",
+      supportedByClinic: true,
+    });
     setIconUrl("");
-    setSupportedByClinic(true);
     setEditingId(null);
   };
 
@@ -59,24 +82,15 @@ export default function ManageInsurancesPage() {
     setModalOpen(true);
   };
 
-  const handleCreate = async () => {
-    if (!name || !acronym || !coverage) return;
-    const coverageValue = Number(coverage);
-    if (
-      Number.isNaN(coverageValue) ||
-      coverageValue < 0 ||
-      coverageValue > 100
-    ) {
-      toast.warn("Invalid coverage: Coverage must be between 0 and 100.");
-      return;
-    }
+  const handleCreate = async (values: InsuranceProviderFormValues) => {
+    const coverageValue = Number(values.coverage);
     setSaving(true);
     try {
       const response = await createInsuranceProvider({
-        insuranceName: name,
-        acronym,
+        insuranceName: values.name,
+        acronym: values.acronym,
         defaultCoveragePercentage: coverageValue,
-        supportedByClinic,
+        supportedByClinic: values.supportedByClinic,
         iconUrl: iconUrl || undefined,
       });
       if (response?.status === "SUCCESS") {
@@ -96,24 +110,16 @@ export default function ManageInsurancesPage() {
     }
   };
 
-  const handleUpdate = async () => {
-    if (editingId == null || !name || !acronym || !coverage) return;
-    const coverageValue = Number(coverage);
-    if (
-      Number.isNaN(coverageValue) ||
-      coverageValue < 0 ||
-      coverageValue > 100
-    ) {
-      toast.warn("Invalid coverage: Coverage must be between 0 and 100.");
-      return;
-    }
+  const handleUpdate = async (values: InsuranceProviderFormValues) => {
+    if (editingId == null) return;
+    const coverageValue = Number(values.coverage);
     setSaving(true);
     try {
       const response = await updateInsuranceProvider(editingId, {
-        insuranceName: name,
-        acronym,
+        insuranceName: values.name,
+        acronym: values.acronym,
         defaultCoveragePercentage: coverageValue,
-        supportedByClinic,
+        supportedByClinic: values.supportedByClinic,
         iconUrl: iconUrl || undefined,
       });
       if (response?.status === "SUCCESS") {
@@ -227,10 +233,10 @@ export default function ManageInsurancesPage() {
                   </label>
                   <Input
                     placeholder="e.g. RSSB"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="rounded-xl bg-white dark:bg-slate-950"
+                    {...register("name")}
+                    className={`rounded-xl bg-white dark:bg-slate-950 ${formErrors.name ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                   />
+                  <FieldError message={formErrors.name?.message} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-muted-foreground">
@@ -238,10 +244,10 @@ export default function ManageInsurancesPage() {
                   </label>
                   <Input
                     placeholder="e.g. RSSB"
-                    value={acronym}
-                    onChange={(e) => setAcronym(e.target.value)}
-                    className="rounded-xl bg-white dark:bg-slate-950"
+                    {...register("acronym")}
+                    className={`rounded-xl bg-white dark:bg-slate-950 ${formErrors.acronym ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                   />
+                  <FieldError message={formErrors.acronym?.message} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-muted-foreground">
@@ -250,10 +256,10 @@ export default function ManageInsurancesPage() {
                   <Input
                     placeholder="e.g. 85"
                     type="number"
-                    value={coverage}
-                    onChange={(e) => setCoverage(e.target.value)}
-                    className="rounded-xl bg-white dark:bg-slate-950"
+                    {...register("coverage")}
+                    className={`rounded-xl bg-white dark:bg-slate-950 ${formErrors.coverage ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                   />
+                  <FieldError message={formErrors.coverage?.message} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground">
@@ -281,9 +287,11 @@ export default function ManageInsurancesPage() {
                 <div className="flex items-center gap-2 pt-2">
                   <Checkbox
                     id="supported-checkbox"
-                    checked={supportedByClinic}
+                    checked={getValues("supportedByClinic")}
                     onCheckedChange={(checked) =>
-                      setSupportedByClinic(Boolean(checked))
+                      setValue("supportedByClinic", Boolean(checked), {
+                        shouldValidate: true,
+                      })
                     }
                   />
                   <label
@@ -306,7 +314,7 @@ export default function ManageInsurancesPage() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={editingId ? handleUpdate : handleCreate}
+                  onClick={editingId ? handleSubmit(handleUpdate) : handleSubmit(handleCreate)}
                   className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md"
                   disabled={saving}
                 >
@@ -367,11 +375,13 @@ export default function ManageInsurancesPage() {
                         className="rounded-full"
                         onClick={() => {
                           setEditingId(ins.id);
-                          setName(ins.insuranceName || "");
-                          setAcronym(ins.acronym || "");
-                          setCoverage(String(ins.defaultCoveragePercentage));
+                          reset({
+                            name: ins.insuranceName || "",
+                            acronym: ins.acronym || "",
+                            coverage: String(ins.defaultCoveragePercentage),
+                            supportedByClinic: Boolean(ins.supportedByClinic),
+                          });
                           setIconUrl(ins.iconUrl || "");
-                          setSupportedByClinic(Boolean(ins.supportedByClinic));
                           setModalOpen(true);
                         }}
                       >

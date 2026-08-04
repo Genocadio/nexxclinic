@@ -11,7 +11,6 @@ export function buildVisitDepartmentProductOptions(
   visitDepartments: VisitDepartment[] = [],
 ): VisitDepartmentProductOption[] {
   return visitDepartments
-    .filter((dept) => dept.status !== 'CANCELLED')
     .map((dept) => ({
       id: String(dept.department?.id || dept.id),
       name: dept.department?.name || 'General',

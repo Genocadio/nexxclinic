@@ -74,9 +74,11 @@ export interface CreateBillDepartmentInput {
   products: {
     visitDepartmentProductId: string;
     parentVisitDepartmentId: string;
+    /** REQUIRED — how the line is covered. PRIVATE or INSURANCE (see schema CoverageType). */
+    coverageType: "PRIVATE" | "INSURANCE";
+    /** ONLY with coverageType INSURANCE. Must be linked to the visit, active and cover the product. */
     patientInsuranceId?: string;
     quantity?: number;
-    unitPrice?: number;
     isExempted?: boolean;
   }[];
   payments?: {
@@ -164,9 +166,11 @@ export interface EditBillInput {
     updatedProducts?: { productId: string; quantity?: number }[];
     billProducts: {
       productId: string;
+      /** REQUIRED — how the line is covered. PRIVATE or INSURANCE (see schema CoverageType). */
+      coverageType: "PRIVATE" | "INSURANCE";
+      /** ONLY with coverageType INSURANCE. Must be linked to the visit, active and cover the product. */
       patientInsuranceId?: string;
       quantity?: number;
-      unitPrice?: number;
       isExempted?: boolean;
     }[];
     payments?: {

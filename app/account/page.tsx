@@ -4,16 +4,25 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Camera, Pencil } from "lucide-react"
 import { toast } from "react-toastify"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 
 import Header from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { FieldError } from "@/components/ui/field-error"
 import { useChangePassword, useUpdateMyProfile } from "@/hooks/auth-hooks"
 import { useAuth } from "@/lib/auth-context"
 import { sanitizeEmailInput, sanitizePhoneInput } from "@/lib/validation-utils"
 import { getMediaUrl } from "@/lib/media-url"
 import { Gender } from "@/lib/api-types"
 import { uploadFile } from "@/lib/storage-service"
+import {
+  accountProfileFormSchema,
+  changePasswordFormSchema,
+  type AccountProfileFormValues,
+  type ChangePasswordFormValues,
+} from "@/lib/form-schemas"
 
 export default function AccountPage() {
   const router = useRouter()
@@ -22,19 +31,30 @@ export default function AccountPage() {
   const { changePassword, loading: changingPassword } = useChangePassword()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [phoneNumber, setPhoneNumber] = useState("")
-  const [username, setUsername] = useState("")
-  const [dateOfBirth, setDateOfBirth] = useState("")
-  const [gender, setGender] = useState("")
   const [profilePhotoUrl, setProfilePhotoUrl] = useState("")
 
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-
   const initial = useRef({} as Record<string, string>)
+
+  const profileForm = useForm<AccountProfileFormValues>({
+    resolver: zodResolver(accountProfileFormSchema),
+    mode: "onChange",
+    defaultValues: {
+      name: "",
+      email: "",
+      phoneNumber: "",
+      username: "",
+      dateOfBirth: "",
+      gender: "",
+    },
+  })
+
+  const passwordForm = useForm<ChangePasswordFormValues>({
+    resolver: zodResolver(changePasswordFormSchema),
+    mode: "onChange",
+    defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
+  })
+
+  const profileValues = profileForm.watch()
 
   useEffect(() => {
     if (!doctor) return
@@ -48,27 +68,39 @@ export default function AccountPage() {
       profilePhotoUrl: doctor.profilePhotoUrl || "",
     }
     initial.current = vals
-    setName(vals.name)
-    setEmail(vals.email)
-    setPhoneNumber(vals.phoneNumber)
-    setUsername(vals.username)
-    setDateOfBirth(vals.dateOfBirth)
-    setGender(vals.gender)
     setProfilePhotoUrl(vals.profilePhotoUrl)
+    profileForm.reset({
+      name: vals.name,
+      email: vals.email,
+      phoneNumber: vals.phoneNumber,
+      username: vals.username,
+      dateOfBirth: vals.dateOfBirth,
+      gender: vals.gender,
+    })
   }, [doctor])
 
   const hasChanges = useMemo(() => {
-    const cur = { name, email, phoneNumber, username, dateOfBirth, gender, profilePhotoUrl }
+    const cur = {
+      name: profileValues.name,
+      email: profileValues.email,
+      phoneNumber: profileValues.phoneNumber,
+      username: profileValues.username,
+      dateOfBirth: profileValues.dateOfBirth,
+      gender: profileValues.gender,
+      profilePhotoUrl,
+    }
     return Object.keys(cur).some((k) => cur[k as keyof typeof cur] !== initial.current[k])
-  }, [name, email, phoneNumber, username, dateOfBirth, gender, profilePhotoUrl])
+  }, [profileValues, profilePhotoUrl])
 
   const discard = () => {
-    setName(initial.current.name || "")
-    setEmail(initial.current.email || "")
-    setPhoneNumber(initial.current.phoneNumber || "")
-    setUsername(initial.current.username || "")
-    setDateOfBirth(initial.current.dateOfBirth || "")
-    setGender(initial.current.gender || "")
+    profileForm.reset({
+      name: initial.current.name || "",
+      email: initial.current.email || "",
+      phoneNumber: initial.current.phoneNumber || "",
+      username: initial.current.username || "",
+      dateOfBirth: initial.current.dateOfBirth || "",
+      gender: initial.current.gender || "",
+    })
     setProfilePhotoUrl(initial.current.profilePhotoUrl || "")
   }
 
@@ -86,34 +118,27 @@ export default function AccountPage() {
     e.target.value = ""
   }
 
-  const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-
-    if (!name || !email || !phoneNumber) {
-      toast.error("Name, email, and phone are required")
-      return
-    }
-
+  const handleUpdateProfile = async (values: AccountProfileFormValues) => {
     try {
       const response = await updateMyProfile({
-        name,
-        email,
-        phoneNumber,
-        username: username || undefined,
-        dateOfBirth: dateOfBirth || undefined,
-        gender: gender || undefined,
+        name: values.name,
+        email: values.email,
+        phoneNumber: values.phoneNumber,
+        username: values.username || undefined,
+        dateOfBirth: values.dateOfBirth || undefined,
+        gender: values.gender || undefined,
         profilePhotoUrl: profilePhotoUrl || undefined,
       })
       if (response?.status === "SUCCESS" && response.data) {
         localStorage.setItem("doctor", JSON.stringify(response.data))
         window.dispatchEvent(new Event("auth-user-updated"))
         initial.current = {
-          name,
-          email,
-          phoneNumber,
-          username: username || "",
-          dateOfBirth: dateOfBirth || "",
-          gender: gender || "",
+          name: values.name,
+          email: values.email,
+          phoneNumber: values.phoneNumber,
+          username: values.username || "",
+          dateOfBirth: values.dateOfBirth || "",
+          gender: values.gender || "",
           profilePhotoUrl: profilePhotoUrl || "",
         }
         toast.success("Profile updated")
@@ -126,30 +151,11 @@ export default function AccountPage() {
     }
   }
 
-  const handleChangePassword = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      toast.error("Please fill in all password fields")
-      return
-    }
-
-    if (newPassword.length < 8) {
-      toast.error("New password must be at least 8 characters")
-      return
-    }
-
-    if (newPassword !== confirmPassword) {
-      toast.error("New password and confirm password must match")
-      return
-    }
-
+  const handleChangePassword = async (values: ChangePasswordFormValues) => {
     try {
-      const response = await changePassword(currentPassword, newPassword)
+      const response = await changePassword(values.currentPassword, values.newPassword)
       if (response?.status === "SUCCESS") {
-        setCurrentPassword("")
-        setNewPassword("")
-        setConfirmPassword("")
+        passwordForm.reset()
         toast.success("Password changed successfully")
         return
       }
@@ -159,6 +165,10 @@ export default function AccountPage() {
       toast.error("Could not change password")
     }
   }
+
+  const profileErrors = profileForm.formState.errors
+  const passwordErrors = passwordForm.formState.errors
+  const errorInputClass = "border-red-500 focus-visible:ring-red-300"
 
   return (
     <div className="min-h-screen bg-background">
@@ -181,7 +191,7 @@ export default function AccountPage() {
 
         <section className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
           <h2 className="text-lg font-semibold text-foreground">Profile Information</h2>
-          <form onSubmit={handleUpdateProfile} className="space-y-4">
+          <form onSubmit={profileForm.handleSubmit(handleUpdateProfile)} className="space-y-4" noValidate>
             <div className="flex items-center gap-6">
               <button type="button" onClick={handlePhotoPick} className="relative shrink-0 group">
                 {profilePhotoUrl ? (
@@ -216,27 +226,55 @@ export default function AccountPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Input placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
-              <Input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(sanitizeEmailInput(e.target.value))} />
-              <Input placeholder="Phone number" value={phoneNumber} onChange={(e) => setPhoneNumber(sanitizePhoneInput(e.target.value))} />
-              <Input placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
-              <Input
-                type="date"
-                placeholder="Date of birth"
-                value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
-                className="[color-scheme:light] dark:[color-scheme:dark]"
-              />
-              <select
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-              >
-                <option value="">Select gender</option>
-                <option value={Gender.MALE}>Male</option>
-                <option value={Gender.FEMALE}>Female</option>
-                <option value={Gender.OTHER}>Other</option>
-              </select>
+              <div>
+                <Input
+                  placeholder="Full name"
+                  {...profileForm.register("name")}
+                  className={profileErrors.name ? errorInputClass : ""}
+                />
+                <FieldError message={profileErrors.name?.message} />
+              </div>
+              <div>
+                <Input
+                  placeholder="Email"
+                  type="email"
+                  {...profileForm.register("email")}
+                  onChange={(e) => profileForm.setValue("email", sanitizeEmailInput(e.target.value))}
+                  className={profileErrors.email ? errorInputClass : ""}
+                />
+                <FieldError message={profileErrors.email?.message} />
+              </div>
+              <div>
+                <Input
+                  placeholder="Phone number"
+                  {...profileForm.register("phoneNumber")}
+                  onChange={(e) => profileForm.setValue("phoneNumber", sanitizePhoneInput(e.target.value))}
+                  className={profileErrors.phoneNumber ? errorInputClass : ""}
+                />
+                <FieldError message={profileErrors.phoneNumber?.message} />
+              </div>
+              <div>
+                <Input placeholder="Username" {...profileForm.register("username")} />
+              </div>
+              <div>
+                <Input
+                  type="date"
+                  placeholder="Date of birth"
+                  {...profileForm.register("dateOfBirth")}
+                  className="[color-scheme:light] dark:[color-scheme:dark]"
+                />
+              </div>
+              <div>
+                <select
+                  {...profileForm.register("gender")}
+                  className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                >
+                  <option value="">Select gender</option>
+                  <option value={Gender.MALE}>Male</option>
+                  <option value={Gender.FEMALE}>Female</option>
+                  <option value={Gender.OTHER}>Other</option>
+                </select>
+              </div>
             </div>
 
             {hasChanges && (
@@ -254,26 +292,35 @@ export default function AccountPage() {
 
         <section className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
           <h2 className="text-lg font-semibold text-foreground">Change Password</h2>
-          <form onSubmit={handleChangePassword} className="space-y-4">
+          <form onSubmit={passwordForm.handleSubmit(handleChangePassword)} className="space-y-4" noValidate>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <Input
-                type="password"
-                placeholder="Current password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-              />
-              <Input
-                type="password"
-                placeholder="New password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
-              <Input
-                type="password"
-                placeholder="Confirm new password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
+              <div>
+                <Input
+                  type="password"
+                  placeholder="Current password"
+                  {...passwordForm.register("currentPassword")}
+                  className={passwordErrors.currentPassword ? errorInputClass : ""}
+                />
+                <FieldError message={passwordErrors.currentPassword?.message} />
+              </div>
+              <div>
+                <Input
+                  type="password"
+                  placeholder="New password"
+                  {...passwordForm.register("newPassword")}
+                  className={passwordErrors.newPassword ? errorInputClass : ""}
+                />
+                <FieldError message={passwordErrors.newPassword?.message} />
+              </div>
+              <div>
+                <Input
+                  type="password"
+                  placeholder="Confirm new password"
+                  {...passwordForm.register("confirmPassword")}
+                  className={passwordErrors.confirmPassword ? errorInputClass : ""}
+                />
+                <FieldError message={passwordErrors.confirmPassword?.message} />
+              </div>
             </div>
             <Button type="submit" className="rounded-full" disabled={changingPassword}>
               {changingPassword ? "Changing..." : "Change Password"}

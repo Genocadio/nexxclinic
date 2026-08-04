@@ -16,6 +16,7 @@ import type {
   EncounterType,
   VisitProductStatus,
   VisitDepartmentStatus,
+  CoverageType,
   TableMode,
   ConditionalCondition,
   FieldType,
@@ -383,7 +384,6 @@ export interface CreateVisitDepartmentProductItemInput {
   productId: string
   processorId?: string
   quantity?: number
-  price?: number
   status?: VisitProductStatus
 }
 
@@ -393,7 +393,6 @@ export interface CreateVisitDepartmentProductInput {
   productId: string
   processorId?: string
   quantity?: number
-  price?: number
   status?: VisitProductStatus
 }
 
@@ -462,9 +461,9 @@ export interface BillingPaymentInput {
 export interface BillVisitDepartmentProductInput {
   visitDepartmentProductId: string
   parentVisitDepartmentId?: string
-  patientInsuranceId?: string
   quantity?: number
-  unitPrice?: number
+  coverageType: CoverageType
+  patientInsuranceId?: string
   isExempted?: boolean
 }
 
@@ -496,9 +495,9 @@ export interface EditBillVisitUpdateProductInput {
 
 export interface EditBillVisitBillProductInput {
   productId: string
-  patientInsuranceId?: string
   quantity?: number
-  unitPrice?: number
+  coverageType: CoverageType
+  patientInsuranceId?: string
   isExempted?: boolean
 }
 

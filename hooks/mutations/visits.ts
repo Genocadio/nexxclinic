@@ -144,7 +144,6 @@ export const ADD_CHILD_VISIT_DEPARTMENT_MUTATION = gql`
             type
           }
           quantity
-          price
           status
         }
         createdAt
@@ -280,9 +279,10 @@ export const ADD_PRODUCT_TO_VISIT_DEPARTMENT_MUTATION = gql`
             id
             name
             type
+            privateRhicPrice
+            clinicPrice
           }
           quantity
-          price
           status
           addedBy {
             id
@@ -408,7 +408,6 @@ export const CHANGE_VISIT_DEPARTMENT_PROFILE_MUTATION = gql`
             name
           }
           quantity
-          price
           status
           source
         }
@@ -493,7 +492,6 @@ export const UPDATE_VISIT_DEPARTMENT_PRODUCT_QUANTITY_MUTATION = gql`
             type
           }
           quantity
-          price
           status
         }
       }
@@ -523,7 +521,6 @@ export const UPDATE_VISIT_DEPARTMENT_PRODUCT_STATUS_MUTATION = gql`
             type
           }
           quantity
-          price
           status
         }
       }
@@ -553,7 +550,6 @@ export const REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION = gql`
             type
           }
           quantity
-          price
           status
         }
       }

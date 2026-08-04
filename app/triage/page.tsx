@@ -121,6 +121,11 @@ function TriagePageInner() {
   const [modalOpen, setModalOpen] = useState(false);
   const [addDeptOpen, setAddDeptOpen] = useState(false);
   const [vitalIndex, setVitalIndex] = useState(0);
+  // Inline validation for the vitals dialog (shown under the rows, no toasts).
+  const [vitalFormError, setVitalFormError] = useState("");
+  const [vitalRowErrors, setVitalRowErrors] = useState<Record<string, string>>(
+    {},
+  );
 
   useEffect(() => {
     if (!loading && !visit && !error) router.push("/");
@@ -148,9 +153,7 @@ function TriagePageInner() {
 
   const currentDepartmentName = useMemo(() => {
     const deps = visit?.departments || [];
-    const active = deps.find(
-      (d) => d.status !== "COMPLETED" && d.status !== "CANCELLED",
-    );
+    const active = deps.find((d) => d.status !== "COMPLETED");
     if (active) return active.department?.name || "Unknown department";
     return deps.length === 0 ? "Triage" : deps[0].department?.name || "Triage";
   }, [visit?.departments]);
@@ -164,14 +167,39 @@ function TriagePageInner() {
     setVitalIndex((i) => Math.min(i, Math.max(0, groupedEntries.length - 1)));
   }, [groupedEntries.length]);
 
-  const updateRow = (rowId: string, field: keyof VitalRow, value: string) =>
+  const updateRow = (rowId: string, field: keyof VitalRow, value: string) => {
     setRows((rs) =>
       rs.map((r) => (r.id === rowId ? { ...r, [field]: value } : r)),
     );
-  const addCustomRow = () => setRows((rs) => [...rs, createRow()]);
-  const removeRow = (rowId: string) =>
+    if (vitalRowErrors[rowId] || vitalFormError) {
+      setVitalRowErrors((prev) => {
+        const next = { ...prev };
+        // Custom rows can have three error keys (name/value/unit).
+        delete next[rowId];
+        delete next[`${rowId}:name`];
+        delete next[`${rowId}:unit`];
+        return next;
+      });
+      setVitalFormError("");
+    }
+  };
+  const addCustomRow = () => {
+    setVitalFormError("");
+    setRows((rs) => [...rs, createRow()]);
+  };
+  const removeRow = (rowId: string) => {
     setRows((rs) => rs.filter((r) => r.id !== rowId));
-  const resetRows = () => setRows(defaultRows());
+    setVitalRowErrors((prev) => {
+      const next = { ...prev };
+      delete next[rowId];
+      return next;
+    });
+  };
+  const resetRows = () => {
+    setRows(defaultRows());
+    setVitalFormError("");
+    setVitalRowErrors({});
+  };
 
   const handleSubmit = async (e?: SyntheticEvent): Promise<boolean> => {
     if (e) e.preventDefault();
@@ -181,20 +209,24 @@ function TriagePageInner() {
         : !!(row.measurementName.trim() || row.value.trim() || row.unit.trim()),
     );
     if (!rowsToSend.length) {
-      toast.error("Add at least one vital sign before saving.");
+      setVitalFormError("Add at least one vital sign before saving.");
       return false;
     }
-    const invalid = rowsToSend.find((row) =>
-      row.isPreset
-        ? !row.value.trim()
-        : !row.measurementName.trim() || !row.value.trim() || !row.unit.trim(),
-    );
-    if (invalid) {
-      toast.error(
-        invalid.isPreset
-          ? `${invalid.measurementName} value cannot be empty.`
-          : "Custom vital name, value, and unit cannot be empty.",
-      );
+    // Per-row inline errors — shown directly under each field.
+    const rowErrors: Record<string, string> = {};
+    rowsToSend.forEach((row) => {
+      if (row.isPreset && !row.value.trim()) {
+        rowErrors[row.id] = "Value cannot be empty";
+      } else if (!row.isPreset) {
+        if (!row.measurementName.trim())
+          rowErrors[`${row.id}:name`] = "Name is required";
+        if (!row.value.trim()) rowErrors[row.id] = "Value cannot be empty";
+        if (!row.unit.trim()) rowErrors[`${row.id}:unit`] = "Unit is required";
+      }
+    });
+    if (Object.keys(rowErrors).length > 0) {
+      setVitalRowErrors(rowErrors);
+      setVitalFormError("");
       return false;
     }
     const payload = rowsToSend.map((r) => ({
@@ -435,7 +467,15 @@ function TriagePageInner() {
                 <h3 className="text-lg font-semibold mb-2">
                   Record vital signs
                 </h3>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+                  {vitalFormError && (
+                    <p
+                      role="alert"
+                      className="text-xs font-medium text-red-600 dark:text-red-400"
+                    >
+                      {vitalFormError}
+                    </p>
+                  )}
                   <div className="space-y-3">
                     {rows.map((row, index) => {
                       return (
@@ -466,7 +506,20 @@ function TriagePageInner() {
                                     ? "Blood Pressure"
                                     : "Measurement name"
                                 }
+                                className={
+                                  vitalRowErrors[`${row.id}:name`]
+                                    ? "border-red-500 focus-visible:ring-red-300"
+                                    : ""
+                                }
                               />
+                            )}
+                            {vitalRowErrors[`${row.id}:name`] && (
+                              <p
+                                className="mt-1 text-xs font-medium text-red-600 dark:text-red-400"
+                                role="alert"
+                              >
+                                {vitalRowErrors[`${row.id}:name`]}
+                              </p>
                             )}
                           </div>
                           <div className="space-y-2">
@@ -477,6 +530,11 @@ function TriagePageInner() {
                               value={row.value}
                               onChange={(ev) =>
                                 updateRow(row.id, "value", ev.target.value)
+                              }
+                              className={
+                                vitalRowErrors[row.id]
+                                  ? "border-red-500 focus-visible:ring-red-300"
+                                  : ""
                               }
                               placeholder={
                                 row.isPreset
@@ -497,10 +555,17 @@ function TriagePageInner() {
                                         default:
                                           return "Value";
                                       }
-                                    })()
-                                  : "Value"
+                                    })()                                      : "Value"
                               }
                             />
+                            {vitalRowErrors[row.id] && (
+                              <p
+                                className="mt-1 text-xs font-medium text-red-600 dark:text-red-400"
+                                role="alert"
+                              >
+                                {vitalRowErrors[row.id]}
+                              </p>
+                            )}
                           </div>
                           <div className="space-y-2">
                             <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -517,7 +582,20 @@ function TriagePageInner() {
                                   updateRow(row.id, "unit", ev.target.value)
                                 }
                                 placeholder="mmHg"
+                                className={
+                                  vitalRowErrors[`${row.id}:unit`]
+                                    ? "border-red-500 focus-visible:ring-red-300"
+                                    : ""
+                                }
                               />
+                            )}
+                            {vitalRowErrors[`${row.id}:unit`] && (
+                              <p
+                                className="mt-1 text-xs font-medium text-red-600 dark:text-red-400"
+                                role="alert"
+                              >
+                                {vitalRowErrors[`${row.id}:unit`]}
+                              </p>
                             )}
                           </div>
                           <div className="flex items-end justify-end">

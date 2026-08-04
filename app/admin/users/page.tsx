@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-toastify";
 import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FieldError } from "@/components/ui/field-error";
 import { useAuth } from "@/lib/auth-context";
 import {
   Dialog,
@@ -34,6 +37,11 @@ import {
   isManagerWithoutAdmin,
 } from "@/lib/role-utils";
 import { sanitizeEmailInput, sanitizePhoneInput } from "@/lib/validation-utils";
+import {
+  createUserFormSchema,
+  type UserFormValues,
+} from "@/lib/form-schemas";
+import { useDebouncedValidation } from "@/hooks/use-debounced-validation";
 
 const ALL_ROLES = [
   "ADMIN",
@@ -60,19 +68,45 @@ export default function ManageUsersPage() {
 
   const [query, setQuery] = useState("");
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [gender, setGender] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
   const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
-  const [email, setEmail] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [username, setUsername] = useState("");
-  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<string[]>(
     [],
   );
   const [modalOpen, setModalOpen] = useState(false);
+
+  const [activationRoleError, setActivationRoleError] = useState("");
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    getValues,
+    watch,
+    control,
+    trigger,
+    formState: { errors: formErrors },
+  } = useForm<UserFormValues>({
+    resolver: zodResolver(
+      createUserFormSchema({ requireProfileFields: !editingUserId }),
+    ),
+    // The user schema re-runs cross-field superRefine checks (contacts,
+    // gender/DOB rules) as you type, so its live validation is debounced.
+    mode: "onSubmit",
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phoneNumber: "",
+      gender: "",
+      dateOfBirth: "",
+      username: "",
+      roles: [],
+    },
+  });
+
+  useDebouncedValidation({ control, trigger });
+  const selectedRoles = watch("roles") || [];
   const [activationUser, setActivationUser] = useState<UserAccount | null>(
     null,
   );
@@ -124,15 +158,17 @@ export default function ManageUsersPage() {
 
   const resetForm = () => {
     setEditingUserId(null);
-    setFirstName("");
-    setLastName("");
-    setEmail("");
-    setPhoneNumber("");
-    setGender("");
-    setDateOfBirth("");
+    reset({
+      firstName: "",
+      lastName: "",
+      email: "",
+      phoneNumber: "",
+      gender: "",
+      dateOfBirth: "",
+      username: "",
+      roles: [],
+    });
     setProfilePhotoUrl("");
-    setUsername("");
-    setSelectedRoles([]);
     setSelectedDepartmentIds([]);
     setModalOpen(false);
   };
@@ -153,16 +189,17 @@ export default function ManageUsersPage() {
     }
 
     setEditingUserId(user.id);
-    setFirstName(user.firstName || "");
-    setLastName(user.lastName || "");
-    setEmail(user.email || "");
-    setPhoneNumber(user.phoneNumber || "");
-    setGender(user.gender || "");
-    setDateOfBirth(user.dateOfBirth || "");
+    reset({
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      email: user.email || "",
+      phoneNumber: user.phoneNumber || "",
+      gender: user.gender || "",
+      dateOfBirth: user.dateOfBirth || "",
+      username: user.username || "",
+      roles: user.roles?.length ? user.roles : [],
+    });
     setProfilePhotoUrl(user.profilePhotoUrl || "");
-    setUsername(user.username || "");
-    const nextRoles = user.roles?.length ? user.roles : [];
-    setSelectedRoles(nextRoles);
     const nextDepartments = user.departments?.length
       ? user.departments.map((department) => department.id)
       : [];
@@ -171,13 +208,11 @@ export default function ManageUsersPage() {
   };
 
   const toggleRole = (role: string) => {
-    setSelectedRoles((prev) => {
-      const exists = prev.includes(role);
-      if (exists) {
-        return prev.filter((r) => r !== role);
-      }
-      return [...prev, role];
-    });
+    const exists = selectedRoles.includes(role);
+    const next = exists
+      ? selectedRoles.filter((r) => r !== role)
+      : [...selectedRoles, role];
+    setValue("roles", next, { shouldValidate: true });
   };
 
   const toggleActivationRole = (role: string) => {
@@ -199,29 +234,24 @@ export default function ManageUsersPage() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!firstName || selectedRoles.length === 0) {
-      toast.error("First name and at least one role are required");
-      return;
-    }
-
-    if (!editingUserId) {
-      const missing: string[] = [];
-      if (!email && !phoneNumber) missing.push("email or phone number");
-      if (!gender) missing.push("gender");
-      if (!dateOfBirth) missing.push("date of birth");
-      if (missing.length > 0) {
-        toast.error(
-          `Please fill in: ${missing.join(", ")}`,
-        );
-        return;
-      }
-    }
+  const handleSubmitForm = async (values: UserFormValues) => {
+    // Profile fields are `disabled` while editing, and react-hook-form omits
+    // disabled fields from submit values — so read them from getValues() to
+    // keep the payload identical to the loaded user data.
+    const submitted = getValues();
+    const {
+      firstName,
+      lastName,
+      email,
+      phoneNumber,
+      gender,
+      dateOfBirth,
+      username,
+      roles,
+    } = { ...values, ...submitted };
 
     try {
-      if (!canManageAdminUserAccounts && selectedRoles.includes(ADMIN_ROLE)) {
+      if (!canManageAdminUserAccounts && roles.includes(ADMIN_ROLE)) {
         toast.error("Manager cannot assign admin role");
         return;
       }
@@ -257,7 +287,7 @@ export default function ManageUsersPage() {
           dateOfBirth,
           profilePhotoUrl,
           departmentIds: selectedDepartmentIds,
-          roles: selectedRoles,
+          roles,
         });
         if (updateResp?.status !== "SUCCESS") {
           toast.error(
@@ -274,7 +304,7 @@ export default function ManageUsersPage() {
           email,
           phoneNumber,
           username,
-          roles: selectedRoles,
+          roles,
           departmentIds: selectedDepartmentIds,
           gender,
           dateOfBirth,
@@ -342,9 +372,10 @@ export default function ManageUsersPage() {
     if (!activationUser) return;
 
     if (activationRoles.length === 0) {
-      toast.error("Select at least one role before activating");
+      setActivationRoleError("Select at least one role before activating");
       return;
     }
+    setActivationRoleError("");
 
     if (!canManageAdminUserAccounts && activationRoles.includes(ADMIN_ROLE)) {
       toast.error("Manager cannot assign admin role");
@@ -361,6 +392,7 @@ export default function ManageUsersPage() {
       toast.success("User activated");
       setActivationUser(null);
       setActivationRoles([]);
+      setActivationRoleError("");
       await refetch();
     } catch {
       toast.error("Could not activate user");
@@ -486,8 +518,9 @@ export default function ManageUsersPage() {
               </DialogHeader>
 
               <form
-                onSubmit={handleSubmit}
+                onSubmit={handleSubmit(handleSubmitForm)}
                 className="flex-1 overflow-y-auto pr-2 space-y-6 my-4 scrollbar-thin"
+                noValidate
               >
                 {/* Form Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -497,11 +530,11 @@ export default function ManageUsersPage() {
                     </label>
                     <Input
                       placeholder="Enter first name"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
+                      {...register("firstName")}
                       disabled={Boolean(editingUserId)}
-                      className="rounded-xl bg-white dark:bg-slate-950"
+                      className={`rounded-xl bg-white dark:bg-slate-950 ${formErrors.firstName ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                     />
+                    <FieldError message={formErrors.firstName?.message} />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -509,8 +542,7 @@ export default function ManageUsersPage() {
                     </label>
                     <Input
                       placeholder="Enter last name"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
+                      {...register("lastName")}
                       disabled={Boolean(editingUserId)}
                       className="rounded-xl bg-white dark:bg-slate-950"
                     />
@@ -522,13 +554,14 @@ export default function ManageUsersPage() {
                     <Input
                       placeholder="Enter email address"
                       type="email"
-                      value={email}
+                      {...register("email")}
                       onChange={(e) =>
-                        setEmail(sanitizeEmailInput(e.target.value))
+                        setValue("email", sanitizeEmailInput(e.target.value))
                       }
                       disabled={Boolean(editingUserId)}
-                      className="rounded-xl bg-white dark:bg-slate-950"
+                      className={`rounded-xl bg-white dark:bg-slate-950 ${formErrors.email ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                     />
+                    <FieldError message={formErrors.email?.message} />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -536,9 +569,9 @@ export default function ManageUsersPage() {
                     </label>
                     <Input
                       placeholder="Enter phone number"
-                      value={phoneNumber}
+                      {...register("phoneNumber")}
                       onChange={(e) =>
-                        setPhoneNumber(sanitizePhoneInput(e.target.value))
+                        setValue("phoneNumber", sanitizePhoneInput(e.target.value))
                       }
                       disabled={Boolean(editingUserId)}
                       className="rounded-xl bg-white dark:bg-slate-950"
@@ -549,16 +582,16 @@ export default function ManageUsersPage() {
                       Gender
                     </label>
                     <select
-                      value={gender}
-                      onChange={(e) => setGender(e.target.value)}
+                      {...register("gender")}
                       disabled={Boolean(editingUserId)}
-                      className="w-full px-3 py-2 border border-border rounded-xl bg-white dark:bg-slate-950 text-foreground h-10 focus:ring-2 focus:ring-primary focus:outline-none"
+                      className={`w-full px-3 py-2 border border-border rounded-xl bg-white dark:bg-slate-950 text-foreground h-10 focus:ring-2 focus:ring-primary focus:outline-none ${formErrors.gender ? "border-red-500" : ""}`}
                     >
                       <option value="">Select Gender</option>
                       <option value="MALE">Male</option>
                       <option value="FEMALE">Female</option>
                       <option value="OTHER">Other</option>
                     </select>
+                    <FieldError message={formErrors.gender?.message} />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -567,11 +600,11 @@ export default function ManageUsersPage() {
                     <Input
                       placeholder="Date of Birth"
                       type="date"
-                      value={dateOfBirth}
-                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      {...register("dateOfBirth")}
                       disabled={Boolean(editingUserId)}
-                      className="rounded-xl bg-white dark:bg-slate-950"
+                      className={`rounded-xl bg-white dark:bg-slate-950 ${formErrors.dateOfBirth ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                     />
+                    <FieldError message={formErrors.dateOfBirth?.message} />
                   </div>
                   <div className="space-y-1 md:col-span-2">
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -602,8 +635,7 @@ export default function ManageUsersPage() {
                     </label>
                     <Input
                       placeholder="Enter unique username"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      {...register("username")}
                       disabled={Boolean(editingUserId)}
                       className="rounded-xl bg-white dark:bg-slate-950"
                     />
@@ -615,6 +647,7 @@ export default function ManageUsersPage() {
                   <p className="text-sm font-semibold text-foreground">
                     Roles *
                   </p>
+                  <FieldError message={formErrors.roles?.message} />
                   <div className="flex flex-wrap gap-2">
                     {ALL_ROLES.map((role) => {
                       if (role === ADMIN_ROLE && !canManageAdminUserAccounts) {
@@ -699,6 +732,7 @@ export default function ManageUsersPage() {
             if (!open) {
               setActivationUser(null);
               setActivationRoles([]);
+              setActivationRoleError("");
             }
           }}
         >
@@ -722,6 +756,11 @@ export default function ManageUsersPage() {
                   <p className="text-sm font-semibold text-foreground">
                     Roles *
                   </p>
+                  {activationRoleError && (
+                    <p className="text-xs font-medium text-red-600 dark:text-red-400" role="alert">
+                      {activationRoleError}
+                    </p>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {ALL_ROLES.map((role) => {
                       if (role === ADMIN_ROLE && !canManageAdminUserAccounts) {
@@ -732,7 +771,10 @@ export default function ManageUsersPage() {
                         <button
                           key={`activate-${role}`}
                           type="button"
-                          onClick={() => toggleActivationRole(role)}
+                          onClick={() => {
+                            setActivationRoleError("");
+                            toggleActivationRole(role);
+                          }}
                           className={`px-4 h-9 rounded-xl border text-xs font-bold transition-all duration-200 ${
                             selected
                               ? "bg-primary text-primary-foreground border-primary shadow-md"

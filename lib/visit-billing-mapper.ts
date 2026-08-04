@@ -109,8 +109,9 @@ export function mapVisitToBillingData(
 
     for (const line of department.products || []) {
       const product = line.product;
-      const basePrice =
-        line.price > 0 ? line.price : resolveProductBasePrice(product);
+      // The backend no longer returns a price on the visit product line — the
+      // frontend resolves the display price from the product catalog.
+      const basePrice = resolveProductBasePrice(product);
       const { costs, meta } = mapProductCoverages(product.insuranceCoverages);
       const { price, notCovered } = resolveBillingUnitPrice(
         basePrice,
