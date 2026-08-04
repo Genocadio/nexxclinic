@@ -4,9 +4,10 @@ Everything the frontend needs to know to bill a visit, collect payments, correct
 
 > ## 🚨 What changed in this update (read before integrating)
 >
-> 1. **`price` was REMOVED from the billing inputs.** `BillVisitInput` and `EditBillVisitInput` no longer accept any price/unit-price field. The backend derives every line's price from the product catalog / insurance coverage. Your code must **stop sending prices** — it only displays them (see §3.2).
+> 1. **`price` was REMOVED from the billing inputs.** `BillVisitInput` and `EditBillVisitInput` no longer accept any price/unit-price field. The backend derives every line's price from the product catalog / insurance coverage. Your code must **stop sending prices** — it only displays them (see §3.2). This specifically means a **private** line carries no price at all — it is priced from the product's `clinicPrice`.
 > 2. **`coverageType` is now REQUIRED on every billed product line** — `PRIVATE` or `INSURANCE`. There is **no auto-detection**: the backend no longer picks an insurance for you. `PRIVATE` forbids `patientInsuranceId`; `INSURANCE` requires it (see §3.3).
-> 3. **Billed visits can no longer be cancelled.** `cancelVisit` is rejected once the visit has any billing container (see §6).
+> 3. **Products not covered by ANY visit insurance default to `PRIVATE`.** When the visit is loaded for billing, a product is auto-selected against the first **linked visit insurance that actually covers it**. If **none** of the visit's current insurances work for that product, the line defaults to `PRIVATE` (`selectedInsuranceId` left empty) — so a non-coverable product is never sent as `INSURANCE` (see §3.3).
+> 4. **Billed visits can no longer be cancelled.** `cancelVisit` is rejected once the visit has any billing container (see §6).
 
 ---
 
@@ -183,7 +184,9 @@ mutation Bill($input: BillVisitInput!) {
 
 ### 3.3 Insurance
 
-Coverage is now **explicit per line** via `coverageType` — there is **no auto-assignment** anymore. The backend never "picks" an insurance for you; the frontend declares each line's coverage.
+Coverage is now **explicit per line** via `coverageType` — the backend never "picks" an insurance for you; the frontend declares each line's coverage. The backend still **validates** that an `INSURANCE` line's `patientInsuranceId` is linked, active and covers the product.
+
+**Frontend default on load:** when you map the visit to billing, each product is pre-selected against the first **linked visit insurance that actually covers it**. If **none** of the visit's current insurances work for that product (not covered, no coverage row, or inactive policy), the line is left with no insurance selected — i.e. it defaults to **`PRIVATE`**. This prevents a non-coverable product from ever being submitted as `INSURANCE`. The user can still override any line manually.
 
 - `coverageType: PRIVATE` — the line bills without insurance. `patientInsuranceId` must be **omitted** (sending it → error).
 - `coverageType: INSURANCE` — `patientInsuranceId` is **required** and must satisfy **all** of: it is linked to the visit, it belongs to the visit's patient, its policy is active (covers today), and the product has a `ProductInsuranceCoverage` for that insurer with `covered = true`. Otherwise → *"Selected patientInsuranceId is invalid: it is not linked to this visit, does not cover the product, or the insurance policy is not active."*

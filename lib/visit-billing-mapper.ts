@@ -75,13 +75,6 @@ export function mapVisitToBillingData(
 ): BillingData {
   const patient = visitData.patient;
   const linkedInsurances = visitData.linkedInsurances || [];
-  const defaultVisitInsurance = linkedInsurances[0];
-  const defaultVisitInsuranceId = defaultVisitInsurance?.id
-    ? String(defaultVisitInsurance.id)
-    : undefined;
-  const defaultProviderId = defaultVisitInsurance?.insuranceProvider?.id
-    ? String(defaultVisitInsurance.insuranceProvider.id)
-    : undefined;
 
   const items: BillingItem[] = [];
 
@@ -113,6 +106,22 @@ export function mapVisitToBillingData(
       // frontend resolves the display price from the product catalog.
       const basePrice = resolveProductBasePrice(product);
       const { costs, meta } = mapProductCoverages(product.insuranceCoverages);
+      // Default to the FIRST linked visit insurance that actually covers the
+      // product. If NONE of the visit's current insurances work for it, leave
+      // the line unselected (PRIVATE) as the default.
+      const coveringLinkedInsurance = linkedInsurances.find((ins) => {
+        const providerId = String(ins?.insuranceProvider?.id ?? "");
+        if (!providerId) return false;
+        const coverage = meta[providerId];
+        const cost = costs[providerId];
+        return coverage?.covered && Number.isFinite(cost) && cost > 0;
+      });
+      const defaultProviderId = coveringLinkedInsurance
+        ? String(coveringLinkedInsurance.insuranceProvider.id)
+        : undefined;
+      const defaultVisitInsuranceId = coveringLinkedInsurance
+        ? String(coveringLinkedInsurance.id)
+        : undefined;
       const { price, notCovered } = resolveBillingUnitPrice(
         basePrice,
         costs,
