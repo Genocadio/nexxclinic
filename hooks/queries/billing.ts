@@ -77,14 +77,3 @@ export const GET_BILL_BY_VISIT_QUERY = gql`
   }
 `;
 
-export const GET_INVOICE_QUERY = gql`
-  query GetInvoice($departmentInsuranceBillingId: ID!) {
-    getInvoice(departmentInsuranceBillingId: $departmentInsuranceBillingId) {
-      status
-      message
-      data {
-        signedUrl
-      }
-    }
-  }
-`;

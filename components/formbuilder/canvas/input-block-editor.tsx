@@ -61,13 +61,6 @@ export function InputBlockEditor({
     return () => clearTimeout(timer);
   }, [optionsInput]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isChoice = [
-    "checkbox_single",
-    "checkbox_group",
-    "radio_group",
-    "select_input",
-  ].includes(block.type);
-
   return (
     <BlockWrapper
       block={block}

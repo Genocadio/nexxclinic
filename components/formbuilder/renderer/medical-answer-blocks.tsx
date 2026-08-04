@@ -10,7 +10,6 @@ import {
   Pill,
   Plus,
   Stethoscope,
-  Trash2,
 } from "lucide-react";
 import type { FormBlock } from "@/lib/formbuilder-storage";
 import type { MedicalBlockHandlers } from "../extensions/types";
@@ -19,7 +18,6 @@ import { EntryList, PTYPE_COLOR, PTYPE_LABEL } from "./medical-shared";
 import type {
   AddedProduct,
   DiagEntry,
-  FormAnswers,
   LabRowValues,
   MedFullEntry,
   MedMiniEntry,

@@ -5,7 +5,6 @@
  * never drift between the data layer and the editor.
  */
 import type {
-  ConditionalRendering,
   FormAction,
   FormField,
   FormSection,

@@ -3,12 +3,13 @@
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { Plus, Trash2, Eye, X } from 'lucide-react'
-import { FormField, DepartmentForm, saveDepartmentForm, getDepartmentForm } from '@/lib/form-storage'
+import { Plus, Eye, X } from 'lucide-react'
+import { FormField, saveDepartmentForm, getDepartmentForm } from '@/lib/form-storage'
 import { useToast } from '@/hooks/use-toast'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface FormBuilderModalProps {
   isOpen: boolean
@@ -24,6 +25,7 @@ export function FormBuilderModal({ isOpen, departmentId, departmentName, onClose
   const [fields, setFields] = useState<FormField[]>([])
   const [showPreview, setShowPreview] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
 
   // Field editor (two-step flow)
   const [fieldEditorVisible, setFieldEditorVisible] = useState(false)
@@ -104,7 +106,7 @@ export function FormBuilderModal({ isOpen, departmentId, departmentName, onClose
 
     try {
       setSaving(true)
-      const form = saveDepartmentForm(departmentId, {
+      saveDepartmentForm(departmentId, {
         title: formTitle,
         description: formDescription,
         fields,
@@ -120,7 +122,6 @@ export function FormBuilderModal({ isOpen, departmentId, departmentName, onClose
   }
 
   const handleClearForm = () => {
-    if (!confirm('Clear all fields?')) return
     setFields([])
     toast({ title: 'Form cleared' })
   }
@@ -306,7 +307,7 @@ export function FormBuilderModal({ isOpen, departmentId, departmentName, onClose
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-sm">Fields ({fields.length})</h3>
                 {fields.length > 0 && (
-                  <Button variant="outline" size="sm" onClick={handleClearForm}>Clear All</Button>
+                  <Button variant="outline" size="sm" onClick={() => setClearConfirmOpen(true)}>Clear All</Button>
                 )}
               </div>
               <div className="space-y-2 bg-slate-50 dark:bg-slate-900/30 rounded-lg p-3 max-h-[200px] overflow-y-auto">
@@ -358,6 +359,18 @@ export function FormBuilderModal({ isOpen, departmentId, departmentName, onClose
           />
         )}
       </DialogContent>
+      <ConfirmDialog
+        open={clearConfirmOpen}
+        onOpenChange={setClearConfirmOpen}
+        title="Clear all fields?"
+        description="This removes every field from the form. This action cannot be undone."
+        confirmLabel="Clear"
+        destructive
+        onConfirm={() => {
+          setClearConfirmOpen(false)
+          handleClearForm()
+        }}
+      />
     </Dialog>
   )
 }

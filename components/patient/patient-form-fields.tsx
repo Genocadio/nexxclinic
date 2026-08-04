@@ -72,7 +72,6 @@ export default function PatientFormFields({
   onUpdateInsurance,
   onRemoveInsurance,
   availableInsurances,
-  loading,
   dateError,
   fieldErrors = {},
 }: PatientFormFieldsProps) {

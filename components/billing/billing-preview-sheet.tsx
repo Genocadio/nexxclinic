@@ -9,7 +9,6 @@ import type { Visit, VisitBilling, VisitDepartment } from "@/lib/api-types";
 import type { BillingData } from "@/lib/billing-utils";
 import { getVisitBillingTotals } from "@/lib/visit-billing-utils";
 import { formatRWF } from "@/lib/utils";
-import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils";
 
 type InvoicePreviewGroup = {
   id?: string;
@@ -54,7 +53,6 @@ export function BillingPreviewSheet({
   visitBilling,
   selectedDepartmentId,
   onDepartmentSelect,
-  previewStartedAt,
   onPrintInvoice,
   onDownloadInvoice,
   onViewMore,

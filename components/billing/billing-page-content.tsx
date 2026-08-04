@@ -44,6 +44,7 @@ import {
 } from "@/hooks/visits/hooks";
 import { useBillingPageState } from "@/hooks/billing/use-billing-page-state";
 import { useBillingPageActions } from "@/hooks/billing/use-billing-actions";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EMPTY_TOTALS } from "@/hooks/billing/use-billing-totals";
 import { Spinner } from "@/components/ui/spinner";
 import VisitNotesFloating from "@/components/visit-notes-floating";
@@ -80,7 +81,6 @@ export function BillingPageContent() {
     setPreviewDepartmentId,
     previewStartedAt,
     setPreviewStartedAt,
-    billJustCreated,
     setBillJustCreated,
     showCompleteBillConfirm,
     setShowCompleteBillConfirm,
@@ -253,14 +253,6 @@ export function BillingPageContent() {
     [activeVisitInsuranceIds],
   );
 
-
-  const itemsByService = (serviceName: string) => {
-    if (!billingData) return [] as BillingItem[];
-    return billingData.items.filter(
-      (item) => (item.departmentName || "General") === serviceName,
-    );
-  };
-
   const itemsToDisplay = useMemo((): BillingItem[] => {
     if (!billingData || !activeService) return [];
     return billingData.items.filter(
@@ -395,7 +387,6 @@ export function BillingPageContent() {
   const firstBillingDepartmentId = firstBillingDepartment?.id;
   const {
     notes: billingDepartmentNotes,
-    loading: notesLoading,
     refetch: refetchNotes,
   } = useVisitDepartmentNotes(visitId, firstBillingDepartmentId || null);
 
@@ -446,6 +437,9 @@ export function BillingPageContent() {
     handleAddInsuranceToVisit,
     handleRemoveInsuranceFromVisit,
     handleAddProduct,
+    handleDischargeVisit,
+    dischargeConfirmOpen,
+    setDischargeConfirmOpen,
   } = useBillingPageActions({
     visitId,
     visit,
@@ -706,7 +700,7 @@ export function BillingPageContent() {
           await refetchNotes();
           await refetchVisit();
         }}
-        onMarkAsViewed={async (noteId) => {
+        onMarkAsViewed={async (_noteId) => {
           await markNotesViewed(String(firstBillingDepartmentId || ""));
           await refetchNotes();
           await refetchVisit();
@@ -808,6 +802,18 @@ export function BillingPageContent() {
           router.push(`/billing?visitId=${visit?.id}`);
         }}
         printingInvoice={generatingInvoice}
+      />
+
+      <ConfirmDialog
+        open={dischargeConfirmOpen}
+        onOpenChange={setDischargeConfirmOpen}
+        title="Discharge this patient?"
+        description="All billable items are settled. Completing the visit will finalize it."
+        confirmLabel="Discharge"
+        onConfirm={() => {
+          setDischargeConfirmOpen(false);
+          void handleDischargeVisit();
+        }}
       />
     </div>
   );

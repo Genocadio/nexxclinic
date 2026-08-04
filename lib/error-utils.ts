@@ -49,7 +49,6 @@ export function getErrorMessage(error: unknown): string {
  */
 export function isNetworkError(error: unknown): boolean {
   if (error instanceof ApolloError && error.networkError) {
-    const networkErr = error.networkError as any;
     return true;
   }
   return false;

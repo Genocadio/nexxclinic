@@ -43,6 +43,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -297,8 +298,9 @@ export default function FormBuilderListPage() {
     }
   };
 
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this form? This cannot be undone.")) return;
     try {
       await deleteForm(id, true);
       refetch();
@@ -650,7 +652,7 @@ export default function FormBuilderListPage() {
                               title="Delete"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDelete(form.id);
+                                setDeleteTargetId(form.id);
                               }}
                               className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                             >
@@ -765,7 +767,7 @@ export default function FormBuilderListPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDelete(form.id);
+                            setDeleteTargetId(form.id);
                           }}
                           title="Delete"
                           className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
@@ -794,6 +796,22 @@ export default function FormBuilderListPage() {
         onSaved={() => {
           setSaveTemplatesOpen(false);
           refetch();
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTargetId)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetId(null);
+        }}
+        title="Delete this form?"
+        description="This will permanently delete the form. This action cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => {
+          if (!deleteTargetId) return;
+          setDeleteTargetId(null);
+          void handleDelete(deleteTargetId);
         }}
       />
     </div>

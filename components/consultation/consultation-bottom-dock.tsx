@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, ArrowRightLeft, History } from "lucide-react";
+import { CheckCircle, ArrowRightLeft } from "lucide-react";
 
 interface SaveIndicatorState {
   visible: boolean;

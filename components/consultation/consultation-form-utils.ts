@@ -263,28 +263,14 @@ export const shouldShowField = (field: FormField, formAnswers: Record<string, an
 
       if (!value) {
         const result = filteredByType.length > 0
-        console.log('[Consultation] hasItem no value', {
-          dependsOn,
-          itemType,
-          itemsCount: filteredByType.length,
-          result,
-        })
+        
         return result
       }
 
       const expectedValues = splitConditionalValues(value)
       const matched = filteredByType.some((item: any) => expectedValues.some((expected) => matchesConditionalProductValue(item, expected)))
 
-      console.log('[Consultation] hasItem', {
-        dependsOn,
-        itemType,
-        value,
-        expected: expectedValues,
-        itemsCount: filteredByType.length,
-        matched,
-        itemNames: filteredByType.map((item: any) => item?.name || ''),
-        itemIds: filteredByType.map((item: any) => [item?.id, item?.backendId, item?.rawData?.id].filter(Boolean)),
-      })
+      
 
       return matched
     }

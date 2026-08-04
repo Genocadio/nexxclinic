@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductAutocomplete } from "@/components/ui/product-autocomplete";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Department, DepartmentProfile, Product } from "@/lib/api-types";
 import {
   useUpdateDepartment,
@@ -225,12 +226,11 @@ export function DepartmentProfilesPanel({
     }
   };
 
+  const [removeProfileTarget, setRemoveProfileTarget] = useState<string | null>(null);
+
   const handleRemoveProfile = async (profileId: string) => {
     const profile = profiles.find((p) => p.id === profileId);
     if (!profile) return;
-    if (!window.confirm(`Remove profile "${profile.name}" from this department?`)) {
-      return;
-    }
     setBusyProfileId(profileId);
     try {
       const resp = await removeDepartmentProfile(profileId);
@@ -508,7 +508,7 @@ export function DepartmentProfilesPanel({
                     className="h-7 w-7 text-destructive hover:text-destructive"
                     title="Remove profile"
                     disabled={busy}
-                    onClick={() => void handleRemoveProfile(profile.id)}
+                    onClick={() => setRemoveProfileTarget(profile.id)}
                   >
                     {busyProfileId === profile.id ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -600,6 +600,22 @@ export function DepartmentProfilesPanel({
           Default profile: <span className="font-medium">{defaultProfile.name}</span>.
         </p>
       )}
+
+      <ConfirmDialog
+        open={Boolean(removeProfileTarget)}
+        onOpenChange={(open) => {
+          if (!open) setRemoveProfileTarget(null);
+        }}
+        title="Remove this profile?"
+        description="The profile will be removed from this department."
+        confirmLabel="Remove"
+        destructive
+        onConfirm={() => {
+          if (!removeProfileTarget) return;
+          setRemoveProfileTarget(null);
+          void handleRemoveProfile(removeProfileTarget);
+        }}
+      />
     </div>
   );
 }

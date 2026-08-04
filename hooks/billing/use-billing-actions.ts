@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { toast } from "react-toastify";
 import {
@@ -206,18 +207,20 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     }
   };
 
-  const handleDischargeVisit = async () => {
-    if (!visit) return;
+  const [dischargeConfirmOpen, setDischargeConfirmOpen] = useState(false);
 
+  const requestDischarge = () => {
+    if (!ENABLE_DISCHARGE) return;
+    if (!visit) return;
     if (unreadBillingNotesCount > 0) {
       toast.warn("Please view the notes first before completing this visit.");
       return;
     }
+    setDischargeConfirmOpen(true);
+  };
 
-    const confirmed = window.confirm(
-      "All billable items are settled. Discharge this patient and complete visit?",
-    );
-    if (!confirmed) return;
+  const handleDischargeVisit = async () => {
+    if (!visit) return;
 
     try {
       const allDepartments = flattenVisitDepartmentsForBilling(
@@ -301,7 +304,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
 
     if (unbilledItems.length === 0) {
       if (canDischargeVisit && ENABLE_DISCHARGE) {
-        await handleDischargeVisit();
+        requestDischarge();
         return;
       }
       toast.warning("All items are already billed.");
@@ -647,10 +650,13 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
   };
 
   return {
+    dischargeConfirmOpen,
+    setDischargeConfirmOpen,
+    requestDischarge,
+    handleDischargeVisit,
     handleDownloadInvoice,
     handleRecordPayment,
     handleChangeProfile,
-    handleDischargeVisit,
     handlePreviewBilling,
     handleGenerateBill,
     handlePrintBillingInvoice,

@@ -8,10 +8,7 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  ChevronDown,
-  Plus,
   Trash2,
-  PenLine,
 } from "lucide-react";
 import type { FormBlock, BlockType, TableCell, InlineAnswerField, InlineFieldType } from "@/lib/formbuilder-storage";
 import { BlockWrapper, FormatButton } from "./block-wrapper";
@@ -136,15 +133,6 @@ export function TableBlockEditor({
       (activeCellData?.inlineFields ?? []).find((f) => f.id === id),
     )
     .filter(Boolean) as InlineAnswerField[];
-
-  const tableHasAnswerFields =
-    block.tableCells?.some((row) =>
-      row.some(
-        (cell) =>
-          (cell.content ?? "").includes("[[") &&
-          (cell.inlineFields ?? []).length > 0,
-      ),
-    ) ?? false;
 
   return (
     <BlockWrapper

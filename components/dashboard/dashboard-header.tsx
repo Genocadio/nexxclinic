@@ -12,7 +12,6 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({
-  showMetrics,
   onToggleMetrics,
   canSeeRegisterAndCreate,
   onRegisterNewPatient,

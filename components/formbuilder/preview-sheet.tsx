@@ -1,5 +1,4 @@
-"use client";
-
+"use client"
 /**
  * PreviewSheet — slide-in sheet for the form-builder editor preview.
  *
@@ -7,19 +6,18 @@
  * to the browser console (dev preview tool, not a production submission path).
  */
 
-import { createPortal } from "react-dom";
-import { useEffect, useState } from "react";
-import { X, Printer, Terminal } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import type { SavedForm } from "@/lib/formbuilder-storage";
-import { FormRenderer, type FormAnswers } from "./form-renderer";
-
+import { createPortal } from "react-dom"
+import { useEffect, useState } from "react"
+import { X, Printer, Terminal } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import type { SavedForm } from "@/lib/formbuilder-storage"
+import { FormRenderer, type FormAnswers } from "./form-renderer"
 interface PreviewSheetProps {
-  open: boolean;
-  onClose: () => void;
-  form: SavedForm | null;
-  answers?: FormAnswers;
-  edit?: boolean;
+  open: boolean
+  onClose: () => void
+  form: SavedForm | null
+  answers?: FormAnswers
+  edit?: boolean
 }
 
 export function PreviewSheet({
@@ -29,37 +27,31 @@ export function PreviewSheet({
   answers,
   edit = true,
 }: PreviewSheetProps) {
-  const [mounted, setMounted] = useState(false);
+  const [mounted, setMounted] = useState(false)
   // Key is bumped whenever the sheet opens so FormRenderer resets cleanly
-  const [renderKey, setRenderKey] = useState(0);
-
+  const [renderKey, setRenderKey] = useState(0)
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
+    setMounted(true)
+  }, [])
   useEffect(() => {
     if (open) {
-      document.body.style.overflow = "hidden";
+      document.body.style.overflow = "hidden"
       // Fresh form instance every time the preview is opened
-      setRenderKey((k) => k + 1);
+      setRenderKey((k) => k + 1)
     }
     return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
-
-  if (!mounted || typeof document === "undefined") return null;
-
-  const handlePrint = () => window.print();
-
-  const handleSubmit = (answers: FormAnswers) => {
+      document.body.style.overflow = ""
+    }
+  }, [open])
+  if (!mounted || typeof document === "undefined") return null
+  const handlePrint = () => window.print()
+  const handleSubmit = (_answers: FormAnswers) => {
     console.group(
       `[FormBuilder Preview] Submitted answers — "${form?.name ?? "form"}"`,
-    );
-    console.log("Answers:", answers);
-    console.groupEnd();
-  };
+    )
 
+    console.groupEnd()
+  }
   return createPortal(
     <div
       className={`fixed inset-0 z-[90] transition-all duration-200 ${open ? "pointer-events-auto" : "pointer-events-none"}`}
@@ -124,5 +116,5 @@ export function PreviewSheet({
       </div>
     </div>,
     document.body,
-  );
+  )
 }

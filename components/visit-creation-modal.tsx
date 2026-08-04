@@ -10,23 +10,15 @@ import {
 } from "@/hooks/auth-hooks";
 import type { Patient } from "@/lib/api-types";
 import type { PatientFilterInput } from "@/hooks/patients/hooks";
-import {
-  getPatientDisplayName,
-  getPatientPhone,
-} from "@/lib/patient-display-utils";
+
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
+
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -103,7 +95,6 @@ export default function VisitCreationModal({
     patients,
     loading: patientsLoading,
     refetch: refetchPatients,
-    totalElements,
   } = usePatients(shouldSearch ? patientFilter : undefined, 0, 20);
 
   const {
@@ -118,36 +109,9 @@ export default function VisitCreationModal({
     if (preSelectedPatientId) await refetchPreSelectedPatient();
   };
 
-  const canContinueFromSelection = Boolean(
-    selectedPatientId && (!preSelectedPatientId || selectedPatient),
-  );
   const triageSelected = selectedServiceId === TRIAGE_SERVICE_ID;
   const hasSelectedDepartment = Boolean(selectedServiceId && !triageSelected);
   const canCreateVisit = triageSelected || hasSelectedDepartment;
-
-  // Search handler with debouncing
-  const handleSearch = useCallback(() => {
-    if (!searchQuery.trim()) {
-      setShouldSearch(false);
-      setPatientFilter({});
-      return;
-    }
-
-    const filter: PatientFilterInput = {};
-    switch (searchFilterType) {
-      case "name":
-        filter.name = searchQuery.trim();
-        break;
-      case "phoneNumber":
-        filter.phoneNumber = searchQuery.trim();
-        break;
-      case "insuranceName":
-        filter.insuranceName = searchQuery.trim();
-        break;
-    }
-    setPatientFilter(filter);
-    setShouldSearch(true);
-  }, [searchQuery, searchFilterType]);
 
   // Debounced search effect
   useEffect(() => {
@@ -277,18 +241,6 @@ export default function VisitCreationModal({
     [canCreateNewVisit],
   );
 
-  const handleProceedToDetails = () => {
-    if (!selectedPatientId || (preSelectedPatientId && !selectedPatient))
-      return;
-    const patientFromList = displayedPatients.find(
-      (p: Patient) => p.id === selectedPatientId,
-    );
-    const patient = patientFromList || selectedPatient;
-
-    setSelectedPatient(patient);
-    setCurrentStep("visit-details");
-  };
-
   const handleCreateVisit = async () => {
     if (!selectedPatientId) return;
 
@@ -325,7 +277,7 @@ export default function VisitCreationModal({
           "Visit creation failed";
         toast.error(message);
       }
-    } catch (error) {
+    } catch {
       toast.error("Network error occurred while creating visit");
     }
   };

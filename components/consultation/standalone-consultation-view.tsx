@@ -576,7 +576,7 @@ export function StandaloneConsultationView({
         // over from a previous (failed) "Finalise and Complete" attempt.
         formRendererRef.current?.clearErrors();
         await persistAnswersRef.current(answers, "DRAFT", { silent: true });
-      } catch (_err: unknown) {
+      } catch {
         setSaveStatus("dirty");
       } finally {
         saveInFlightRef.current = false;

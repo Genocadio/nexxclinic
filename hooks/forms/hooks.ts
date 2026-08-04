@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-nocheck Legacy form hooks — opted out of type-checking; to be re-typed.
 import { useMutation, useLazyQuery } from "@apollo/client";
 import {
   GET_FORMS_QUERY,

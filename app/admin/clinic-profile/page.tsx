@@ -34,15 +34,6 @@ const CONTACT_TYPES: ClinicContact["contactType"][] = [
   "POBOX",
 ];
 
-const prettyJson = (value: unknown) => {
-  if (value == null) return "";
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-};
-
 const normalizeContacts = (value: unknown): ClinicContact[] => {
   if (!Array.isArray(value)) return [];
 

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FieldError } from "@/components/ui/field-error";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/lib/auth-context";
 import {
   useCreateInsuranceProvider,
@@ -139,8 +140,9 @@ export default function ManageInsurancesPage() {
     }
   };
 
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this insurance provider?")) return;
     setSaving(true);
     try {
       const response = await deleteInsuranceProvider(id);
@@ -391,7 +393,7 @@ export default function ManageInsurancesPage() {
                         size="icon"
                         variant="destructive"
                         className="rounded-full"
-                        onClick={() => handleDelete(ins.id)}
+                        onClick={() => setDeleteTargetId(ins.id)}
                         disabled={saving}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -404,6 +406,22 @@ export default function ManageInsurancesPage() {
           </div>
         </section>
       </main>
+
+      <ConfirmDialog
+        open={Boolean(deleteTargetId)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetId(null);
+        }}
+        title="Delete insurance provider?"
+        description="This provider and its coverages will be removed. This action cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => {
+          if (!deleteTargetId) return;
+          setDeleteTargetId(null);
+          void handleDelete(deleteTargetId);
+        }}
+      />
     </div>
   );
 }

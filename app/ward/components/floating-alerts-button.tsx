@@ -15,7 +15,7 @@ interface FloatingAlertsButtonProps {
   onCreateAlert: () => void
 }
 
-export function FloatingAlertsButton({ alerts, currentUserRole, onCreateAlert }: FloatingAlertsButtonProps) {
+export function FloatingAlertsButton({ alerts, onCreateAlert }: FloatingAlertsButtonProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const highSeverityCount = alerts.filter((a) => a.severity === "high").length
 

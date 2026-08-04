@@ -1,13 +1,11 @@
-// @ts-nocheck
+// @ts-nocheck Legacy form-builder page — opted out of type-checking; to be re-typed.
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getRuntimeConfig } from "@/lib/runtime-config";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
 import { useDepartments } from "@/hooks/auth-hooks";
-import FormBuilderActionList from "@/components/form-builder-action-list";
 import FormActionsDisplay from "@/components/form-actions-display";
 import AddActionConsumableModal from "@/components/add-action-consumable-modal";
 import { Button } from "@/components/ui/button";
@@ -22,13 +20,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -56,8 +52,6 @@ import {
   Plus,
   Trash2,
   Upload,
-  Download,
-  Copy,
   Eye,
   ArrowUp,
   ArrowDown,
@@ -110,31 +104,6 @@ import type {
   BackendFormListItem,
   BackendFormStatus,
 } from "@/lib/form-builder-types";
-
-const fieldSchema = z.object({
-  label: z.string().min(1, "Label required"),
-  type: z.enum([
-    "text",
-    "email",
-    "number",
-    "textarea",
-    "select",
-    "radio",
-    "checkbox",
-    "date",
-    "table",
-    "labRecord",
-    "diagnosticRecord",
-    "medicationLongForm",
-    "medicationMiniForm",
-    "actionListener",
-  ]),
-  placeholder: z.string().optional(),
-  required: z.boolean().default(true),
-  options: z.string().optional(),
-});
-
-type FieldSchema = z.infer<typeof fieldSchema>;
 
 interface DiagnosticRecordEntry {
   id: string;
@@ -224,7 +193,7 @@ export default function FormsPage() {
   const [sections, setSections] = useState<FormSection[]>([]);
   const [actions, setActions] = useState<FormAction[]>([]);
   const [saving, setSaving] = useState(false);
-  const [jsonPreview, setJsonPreview] = useState<string>("");
+  const [, setJsonPreview] = useState<string>("");
   const [fieldEditorOpen, setFieldEditorOpen] = useState(false);
   const [editingField, setEditingField] = useState<FormField | null>(null);
   const [editingLabel, setEditingLabel] = useState("");
@@ -321,9 +290,9 @@ export default function FormsPage() {
   const [versionHistoryCount, setVersionHistoryCount] = useState(0);
   const [formsLoading, setFormsLoading] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
-  const [formsCatalog, setFormsCatalog] = useState<BackendFormListItem[]>([]);
+  const [, setFormsCatalog] = useState<BackendFormListItem[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewForm, setPreviewForm] = useState<BackendForm | null>(null);
+  const [previewForm] = useState<BackendForm | null>(null);
   const [savedSnapshot, setSavedSnapshot] = useState("");
 
   const defaultDeptId = searchParams.get("departmentId") || "";
@@ -334,39 +303,12 @@ export default function FormsPage() {
     requestedFormId ? "edit" : "meta",
   );
 
-  const {
-    forms,
-    loading: formsQueryLoading,
-    error: formsError,
-    loadForms,
-  } = useForms(defaultDeptId);
-  const {
-    form,
-    loading: formQueryLoading,
-    error: formError,
-    loadForm,
-  } = useFormsHook(defaultDeptId, requestedFormId);
-  const {
-    versions,
-    loading: versionsQueryLoading,
-    error: versionsError,
-    loadVersionHistory,
-  } = useFormVersionHistory(defaultDeptId, requestedFormId);
-  const {
-    createForm,
-    loading: createLoading,
-    error: createError,
-  } = useCreateForm();
-  const {
-    updateForm,
-    loading: updateLoading,
-    error: updateError,
-  } = useUpdateForm();
-  const {
-    finalizeForm,
-    loading: finalizeLoading,
-    error: finalizeError,
-  } = useFinalizeForm();
+  const { loadForms } = useForms(defaultDeptId);
+  const { form, loadForm } = useFormsHook(defaultDeptId, requestedFormId);
+  const { loadVersionHistory } = useFormVersionHistory(defaultDeptId, requestedFormId);
+  const { createForm } = useCreateForm();
+  const { updateForm } = useUpdateForm();
+  const { finalizeForm } = useFinalizeForm();
 
   const {
     register,
@@ -380,24 +322,6 @@ export default function FormsPage() {
       title: "",
       description: "",
       departmentId: defaultDeptId,
-    },
-  });
-
-  const {
-    register: registerField,
-    handleSubmit: handleFieldSubmit,
-    reset: resetFieldForm,
-    setValue: setFieldValue,
-    formState: { errors: fieldErrors },
-    watch: watchField,
-  } = useForm<FieldSchema>({
-    resolver: zodResolver(fieldSchema),
-    defaultValues: {
-      label: "",
-      type: "text",
-      placeholder: "",
-      required: true,
-      options: "",
     },
   });
 
@@ -533,81 +457,6 @@ export default function FormsPage() {
     setVersionHistoryCount(Array.isArray(versions) ? versions.length : 0);
 
     applyBackendFormToEditor(mapBackendForm(backendFormData));
-  };
-
-  const onCreateNewForm = () => {
-    if (!selectedDeptId) return;
-    setActiveFormId(null);
-    setActiveFormStatus("DRAFT");
-    setActiveVersionNumber(null);
-    setVersionHistoryCount(0);
-    setFields([]);
-    setSections([]);
-    setActions([]);
-    setJsonPreview("");
-    setPreviewFormValues({});
-    setValue("title", "");
-    setValue("description", "");
-    setSavedSnapshot(getBuilderSnapshot("", "", [], [], []));
-    setMode("edit");
-  };
-
-  const onOpenFormFromCatalog = async (formId: string) => {
-    if (!selectedDeptId) return;
-    try {
-      setFormsLoading(true);
-      await openFormInEditor(String(selectedDeptId), formId);
-    } catch (err: any) {
-      toast({
-        title: "Failed to open form",
-        description: err?.message || "Unexpected error",
-      });
-    } finally {
-      setFormsLoading(false);
-    }
-  };
-
-  const onFinalizeFromCatalog = async (formId: string) => {
-    if (!selectedDeptId || !formId) return;
-    try {
-      setFinalizing(true);
-      const result = await finalizeForm(selectedDeptId, formId);
-      if (result && result.status === "FINAL") {
-        toast({ title: "Form finalized" });
-        await loadForms();
-      } else {
-        throw new Error("Unable to finalize form");
-      }
-    } catch (err: any) {
-      toast({
-        title: "Finalize failed",
-        description: err?.message || "Unexpected error",
-      });
-    } finally {
-      setFinalizing(false);
-    }
-  };
-
-  const onPreviewFormFromCatalog = async (formId: string) => {
-    if (!selectedDeptId) return;
-    try {
-      setFormsLoading(true);
-      const formResult = await loadForm({
-        variables: { departmentId: selectedDeptId, formId },
-        fetchPolicy: "network-only",
-      });
-      const backendFormData = formResult?.data?.getForm?.data;
-      if (!backendFormData) throw new Error("Unable to load preview");
-      setPreviewForm(mapBackendForm(backendFormData));
-      setPreviewOpen(true);
-    } catch (err: any) {
-      toast({
-        title: "Preview failed",
-        description: err?.message || "Unexpected error",
-      });
-    } finally {
-      setFormsLoading(false);
-    }
   };
 
   const loadFormForDepartment = async (departmentId: string) => {
@@ -762,15 +611,6 @@ export default function FormsPage() {
     })),
   });
 
-  const defaultTableConfig = (): TableConfig => ({
-    mode: "STATIC",
-    rows: 3,
-    columns: 3,
-    headerPlacement: "none",
-    columnHeaders: [],
-    rowHeaders: [],
-  });
-
   const openNewFieldEditor = (targetSectionId?: string) => {
     setEditingField(null);
     setNewFieldTargetSectionId(targetSectionId || null);
@@ -813,7 +653,7 @@ export default function FormsPage() {
     type: "action" | "consumable",
     item: any,
     quantity: number,
-    departmentId: string,
+    _departmentId: string,
   ) => {
     const newAction: FormAction = {
       id: `${type}_${Date.now()}`,
@@ -884,54 +724,10 @@ export default function FormsPage() {
     });
   }, [fields, sections]);
 
-  const onAddField = (data: FieldSchema) => {
-    const newField: FormField = {
-      id: `field_${Date.now()}`,
-      label: data.label,
-      type: data.type,
-      placeholder: data.placeholder || undefined,
-      required: data.required,
-      hideLabel: false,
-      boldLabel: false,
-      centerLabel: false,
-      italicLabel: false,
-      underlineLabel: false,
-      options: data.options
-        ? data.options.split("\n").filter(Boolean)
-        : undefined,
-      tableConfig:
-        data.type === "table" ? buildTableConfigFromEditing() : undefined,
-      labRecordConfig:
-        data.type === "labRecord"
-          ? buildLabRecordConfigFromEditing()
-          : undefined,
-      order: fields.length + sections.length,
-    };
-    setFields([...fields, newField]);
-    resetFieldForm();
-    toast({ title: "Field added", description: newField.label });
-  };
-
-  const moveField = (index: number, dir: "up" | "down") => {
-    const target = dir === "up" ? index - 1 : index + 1;
-    if (target < 0 || target >= fields.length) return;
-    const updated = [...fields];
-    [updated[index], updated[target]] = [updated[target], updated[index]];
-    setFields(updated.map((f, idx) => ({ ...f, order: idx })));
-  };
-
   const removeField = (id: string) => {
     setFields(
       fields.filter((f) => f.id !== id).map((f, idx) => ({ ...f, order: idx })),
     );
-  };
-
-  const moveSection = (index: number, dir: "up" | "down") => {
-    const target = dir === "up" ? index - 1 : index + 1;
-    if (target < 0 || target >= sections.length) return;
-    const updated = [...sections];
-    [updated[index], updated[target]] = [updated[target], updated[index]];
-    setSections(updated.map((s, idx) => ({ ...s, order: idx })));
   };
 
   const removeSection = (id: string) => {
@@ -976,12 +772,12 @@ export default function FormsPage() {
     setFields(
       allItems
         .filter((item) => item.itemType === "field")
-        .map(({ itemType, ...f }) => f as FormField),
+        .map(({ _itemType, ...f }) => f as FormField),
     );
     setSections(
       allItems
         .filter((item) => item.itemType === "section")
-        .map(({ itemType, ...s }) => s as FormSection),
+        .map(({ _itemType, ...s }) => s as FormSection),
     );
   };
 
@@ -1128,13 +924,7 @@ export default function FormsPage() {
             : sourceItems;
         if (!value) {
           const result = pool.length > 0;
-          console.log("[Preview] hasItem no value", {
-            fieldId: field.id,
-            dependsOn,
-            itemType,
-            poolCount: pool.length,
-            result,
-          });
+          ;
           return result;
         }
 
@@ -1145,21 +935,7 @@ export default function FormsPage() {
           ),
         );
 
-        console.log("[Preview] hasItem", {
-          fieldId: field.id,
-          dependsOn,
-          itemType,
-          value,
-          expected: expectedValues,
-          poolCount: pool.length,
-          matched,
-          poolPreview: pool.map((a) => ({
-            id: a.id,
-            name: a.name,
-            backendId: a.backendId,
-            type: a.type,
-          })),
-        });
+        ;
 
         return matched;
       }
@@ -1295,10 +1071,10 @@ export default function FormsPage() {
   };
 
   const logPreviewMutation = (
-    kind: "diagnosis" | "medication",
-    payload: Record<string, any>,
+    _kind: "diagnosis" | "medication",
+    _payload: Record<string, any>,
   ) => {
-    console.log(`[Form Preview] ${kind} payload`, payload);
+    ;
   };
 
   const renderFieldPreviewControl = (f: FormField) => {
@@ -2094,16 +1870,7 @@ export default function FormsPage() {
         : s,
     );
 
-    console.log("[FormBuilder] saving section field conditionalRendering", {
-      fieldId: editingSectionField.field.id,
-      dependsOn: editingConditionalDependsOn,
-      condition: editingConditionalCondition,
-      value: editingConditionalValue,
-      itemType:
-        editingConditionalCondition === "hasItem"
-          ? editingConditionalItemType
-          : undefined,
-    });
+    ;
 
     setSections(updated);
     setEditingSectionField(null);
@@ -2111,11 +1878,7 @@ export default function FormsPage() {
   };
 
   const onSave = async (meta: MetaSchema) => {
-    console.log("🔍 onSave called with:", {
-      meta,
-      fieldsCount: fields.length,
-      sectionsCount: sections.length,
-    });
+    ;
 
     if (fields.length === 0 && sections.length === 0) {
       toast({ title: "Add at least one field or section" });
@@ -2132,11 +1895,7 @@ export default function FormsPage() {
 
     try {
       setSaving(true);
-      console.log("💾 Saving form:", {
-        isUpdate: !!activeFormId,
-        departmentId: meta.departmentId,
-        formId: activeFormId,
-      });
+      ;
 
       const result = activeFormId
         ? await updateForm(meta.departmentId, activeFormId, input)
@@ -2146,7 +1905,7 @@ export default function FormsPage() {
         throw new Error("Unable to save form");
       }
 
-      console.log("✅ Form saved successfully:", result);
+      ;
 
       // result is already mapped from the hooks, no need to map again
       applyBackendFormToEditor(result);
@@ -2229,15 +1988,6 @@ export default function FormsPage() {
     } finally {
       setFinalizing(false);
     }
-  };
-
-  const exportJson = () => {
-    if (!jsonPreview) {
-      toast({ title: "No form to export" });
-      return;
-    }
-    navigator.clipboard?.writeText(jsonPreview);
-    toast({ title: "Copied JSON to clipboard" });
   };
 
   const selectedDeptName = useMemo(() => {
@@ -2968,7 +2718,7 @@ export default function FormsPage() {
                                             </p>
 
                                             {/* Fields in this column */}
-                                            {fieldsInColumn.map((f, fIdx) => {
+                                            {fieldsInColumn.map((f, _fIdx) => {
                                               const actualIdx =
                                                 s.fields.findIndex(
                                                   (field) => field.id === f.id,
@@ -3651,16 +3401,7 @@ export default function FormsPage() {
                       : undefined,
                   };
 
-                  console.log(
-                    "[FormBuilder] adding new field conditionalRendering",
-                    {
-                      fieldId: newField.id,
-                      dependsOn: newField.conditionalRendering?.dependsOn,
-                      condition: newField.conditionalRendering?.condition,
-                      value: newField.conditionalRendering?.value,
-                      itemType: newField.conditionalRendering?.itemType,
-                    },
-                  );
+                  ;
                   if (newFieldTargetSectionId) {
                     addFieldToSection(newFieldTargetSectionId, newField);
                     setNewFieldTargetSectionId(null);

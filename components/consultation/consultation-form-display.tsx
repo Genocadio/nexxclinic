@@ -2,7 +2,6 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { AlertCircle } from "lucide-react"
 import InlineTryAgain from "@/components/inline-try-again"
 import { FormFieldRenderer } from "./form-field-renderer"
 import type { BackendDepartmentForm } from "./consultation-form-utils"

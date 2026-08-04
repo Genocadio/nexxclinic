@@ -1,17 +1,15 @@
-"use client";
-
-import { useState, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+"use client"
+import { useState, useMemo, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 import {
   useVisits,
-  useDepartments,
   useUpdateVisitDepartmentStatus,
   useDashboardStats,
   useGenerateInvoice,
-} from "@/hooks/auth-hooks";
-import type { Visit, VisitBilling } from "@/lib/api-types";
-import { mapGqlVisitBilling } from "@/lib/visit-billing-utils";
+} from "@/hooks/auth-hooks"
+import type { Visit, VisitBilling } from "@/lib/api-types"
+import { mapGqlVisitBilling } from "@/lib/visit-billing-utils"
 import {
   countBilledVisitProducts,
   countUnbilledVisitProducts,
@@ -24,274 +22,207 @@ import {
   visitHasDepartmentReadyForBilling,
   visitHasUnbilledProducts,
   visitProductsFullySettled,
-} from "@/lib/visit-product-utils";
-import { useLazyQuery } from "@apollo/client";
-import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries";
-import Header from "@/components/header";
-import { DashboardHeader } from "@/components/dashboard/dashboard-header";
-import { DashboardStats } from "@/components/dashboard/dashboard-stats";
-import { DashboardMobileUi } from "@/components/dashboard/dashboard-mobile-ui";
-import { ConsultationPreviewSheet } from "@/components/dashboard/consultation-preview-sheet";
-import PatientHistorySidePane from "@/components/patient-history-side-pane";
-import PatientRegistrationModal from "@/components/patient-registration-modal";
-import VisitCreationModal from "@/components/visit-creation-modal";
-import { AddDepartmentModal } from "@/components/add-department-modal";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import InlineTryAgain from "@/components/inline-try-again";
+} from "@/lib/visit-product-utils"
+import { useLazyQuery } from "@apollo/client"
+import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
+import Header from "@/components/header"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { DashboardHeader } from "@/components/dashboard/dashboard-header"
+import { DashboardStats } from "@/components/dashboard/dashboard-stats"
+import { DashboardMobileUi } from "@/components/dashboard/dashboard-mobile-ui"
+import { ConsultationPreviewSheet } from "@/components/dashboard/consultation-preview-sheet"
+import PatientHistorySidePane from "@/components/patient-history-side-pane"
+import PatientRegistrationModal from "@/components/patient-registration-modal"
+import VisitCreationModal from "@/components/visit-creation-modal"
+import { AddDepartmentModal } from "@/components/add-department-modal"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import InlineTryAgain from "@/components/inline-try-again"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/components/ui/tooltip"
 import {
   Search,
-  Calendar,
   Clock,
   CheckCircle,
   AlertCircle,
-  UserPlus,
   Stethoscope,
   User,
   ReceiptText,
   Plus,
   List,
   LayoutGrid,
-  Printer,
   FilePenLine,
   Activity,
   Eye,
   History,
-} from "lucide-react";
-import { toast } from "react-toastify";
-import { hasRole } from "@/lib/role-utils";
-import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils";
-import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet";
-
+} from "lucide-react"
+import { toast } from "react-toastify"
+import { hasRole } from "@/lib/role-utils"
+import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
+import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet"
 export default function DashboardPage() {
-  const router = useRouter();
-  const { doctor } = useAuth();
-  const { visits, loading, error, refetch: refetchVisits } = useVisits();
-  const [isMounted, setIsMounted] = useState(false);
-  const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
-  const [showMetrics, setShowMetrics] = useState(true);
-
+  const router = useRouter()
+  const { doctor } = useAuth()
+  const { visits, loading, error, refetch: refetchVisits } = useVisits()
+  const [isMounted, setIsMounted] = useState(false)
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid")
+  const [showMetrics, setShowMetrics] = useState(true)
   const { stats: dashboardStats, loading: dashboardStatsLoading } =
     useDashboardStats(1, {
       skip: !isMounted || !showMetrics,
-    });
-
-  const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus();
-  const { generateInvoice } = useGenerateInvoice();
-  const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY);
-  const [previewOpen, setPreviewOpen] = useState(false);
+    })
+  const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
+  const { generateInvoice } = useGenerateInvoice()
+  const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [previewVisitBilling, setPreviewVisitBilling] =
-    useState<VisitBilling | null>(null);
+    useState<VisitBilling | null>(null)
   const [previewDepartmentId, setPreviewDepartmentId] = useState<string | null>(
     null,
-  );
-  const [previewVisit, setPreviewVisit] = useState<Visit | null>(null);
-  const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [mobileSearchActive, setMobileSearchActive] = useState(false);
-  const [showMobileActionSheet, setShowMobileActionSheet] = useState(false);
-
+  )
+  const [previewVisit, setPreviewVisit] = useState<Visit | null>(null)
+  const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [mobileSearchActive, setMobileSearchActive] = useState(false)
+  const [showMobileActionSheet, setShowMobileActionSheet] = useState(false)
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const storedViewMode = localStorage.getItem("dashboard_viewMode");
+      const storedViewMode = localStorage.getItem("dashboard_viewMode")
       if (storedViewMode === "list" || storedViewMode === "grid") {
-        setViewMode(storedViewMode);
+        setViewMode(storedViewMode)
       }
-      const storedShowMetrics = localStorage.getItem("dashboard_showMetrics");
+      const storedShowMetrics = localStorage.getItem("dashboard_showMetrics")
       if (storedShowMetrics !== null) {
-        setShowMetrics(storedShowMetrics === "true");
+        setShowMetrics(storedShowMetrics === "true")
       }
-      setIsMounted(true);
+      setIsMounted(true)
     }
-  }, []);
-
+  }, [])
   useEffect(() => {
     if (isMounted && typeof window !== "undefined") {
-      localStorage.setItem("dashboard_viewMode", viewMode);
+      localStorage.setItem("dashboard_viewMode", viewMode)
     }
-  }, [viewMode, isMounted]);
-
+  }, [viewMode, isMounted])
   useEffect(() => {
     if (isMounted && typeof window !== "undefined") {
-      localStorage.setItem("dashboard_showMetrics", String(showMetrics));
+      localStorage.setItem("dashboard_showMetrics", String(showMetrics))
     }
-  }, [showMetrics, isMounted]);
-  const [printingVisitId, setPrintingVisitId] = useState<string | null>(null);
-
+  }, [showMetrics, isMounted])
+  const [printingVisitId, setPrintingVisitId] = useState<string | null>(null)
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles ||
-    []) as string[];
+    []) as string[]
   const userDepartments = ((
     doctor as unknown as {
-      departments?: Array<{ id: string; name?: string }>;
+      departments?: Array<{ id: string; name?: string }>
     } | null
-  )?.departments || []) as Array<{ id: string; name?: string }>;
+  )?.departments || []) as Array<{ id: string; name?: string }>
   const legacyUserDepartment = (
     doctor as unknown as { department?: { id: string; name: string } } | null
-  )?.department;
+  )?.department
   const userDepartmentIds =
     userDepartments.length > 0
       ? userDepartments.map((dept) => String(dept.id || "")).filter(Boolean)
       : legacyUserDepartment?.id
         ? [String(legacyUserDepartment.id)]
-        : [];
+        : []
   const hasReceptionistRole =
-    roles.includes("RECEPTIONIST") || roles.includes("RECEPTION");
-  const hasFinanceRole = roles.includes("FINANCE");
-  const hasCashierRole = roles.includes("CASHIER");
-  const isReceptionistOnly = hasReceptionistRole && roles.length === 1;
-  const hasNurseRole = roles.includes("NURSE");
+    roles.includes("RECEPTIONIST") || roles.includes("RECEPTION")
+  const hasFinanceRole = roles.includes("FINANCE")
+  const isReceptionistOnly = hasReceptionistRole && roles.length === 1
+  const hasNurseRole = roles.includes("NURSE")
   const hasConsultationRole = roles.some((role) =>
     ["DOCTOR", "OPHTHALMOLOGIST", "SPECIALIST", "ADMIN"].includes(role),
-  );
+  )
   const hasClinicianOrDoctorRole = roles.some((role) =>
     ["CLINICIAN", "DOCTOR"].includes(role),
-  );
-  const canViewPatientHistory = hasRole(roles, "CLINICIAN");
-  const canSeeBillingInfo = hasFinanceRole;
-  const canSeeConsultButton = !isReceptionistOnly;
+  )
+  const canViewPatientHistory = hasRole(roles, "CLINICIAN")
+  const canSeeBillingInfo = hasFinanceRole
+  const canSeeConsultButton = !isReceptionistOnly
   // Bill button: Finance role always sees billing, regardless of other roles
-  const canSeeBillButton = hasFinanceRole;
+  const canSeeBillButton = hasFinanceRole
   // Add Department: only Receptionists can route a patient to a new department
-  const canSeeAddDepartment = hasReceptionistRole;
-  const canSeeRegisterAndCreate = hasReceptionistRole;
-  const canSeeVisitActionButtons = !isReceptionistOnly;
-
+  const canSeeAddDepartment = hasReceptionistRole
+  const canSeeRegisterAndCreate = hasReceptionistRole
+  const canSeeVisitActionButtons = !isReceptionistOnly
   // Feature toggle to hide/show Discharge actions globally
-  const ENABLE_DISCHARGE = false;
-
+  const ENABLE_DISCHARGE = false
   // Modal states
   const [showPatientRegistrationModal, setShowPatientRegistrationModal] =
-    useState(false);
-  const [showVisitCreationModal, setShowVisitCreationModal] = useState(false);
+    useState(false)
+  const [showVisitCreationModal, setShowVisitCreationModal] = useState(false)
   const [registeredPatientId, setRegisteredPatientId] = useState<string | null>(
     null,
-  );
-  const [locallyCreatedVisits, setLocallyCreatedVisits] = useState<Visit[]>([]);
-  const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false);
+  )
+  const [locallyCreatedVisits, setLocallyCreatedVisits] = useState<Visit[]>([])
+  const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false)
   const [selectedVisitForDepartment, setSelectedVisitForDepartment] =
-    useState<Visit | null>(null);
-  const [previewConsultationOpen, setPreviewConsultationOpen] = useState(false);
+    useState<Visit | null>(null)
+  const [previewConsultationOpen, setPreviewConsultationOpen] = useState(false)
   const [previewConsultationContext, setPreviewConsultationContext] = useState<{
-    answerId: string | null;
-    departmentName: string;
-    patientName: string;
-    visitDepartment: Visit["departments"][number] | null;
-    previewStartedAt: number;
-  } | null>(null);
-  const [patientHistoryOpen, setPatientHistoryOpen] = useState(false);
+    answerId: string | null
+    departmentName: string
+    patientName: string
+    visitDepartment: Visit["departments"][number] | null
+    previewStartedAt: number
+  } | null>(null)
+  const [patientHistoryOpen, setPatientHistoryOpen] = useState(false)
   const [patientHistoryVisit, setPatientHistoryVisit] = useState<Visit | null>(
     null,
-  );
-
-  const getSavedConsultationPreviewContext = (consultationId: string) => {
-    if (typeof window === "undefined") return null;
-
-    const prefix = `consultation_form_context:${consultationId}:`;
-    for (let index = 0; index < window.localStorage.length; index += 1) {
-      const key = window.localStorage.key(index);
-      if (!key || !key.startsWith(prefix)) continue;
-
-      try {
-        const raw = window.localStorage.getItem(key);
-        if (!raw) continue;
-
-        const parsed = JSON.parse(raw);
-        const resolvedVisitDepartmentId = String(
-          parsed?.visitDepartmentId || parsed?.departmentId || "",
-        );
-        if (
-          parsed?.consultationId === consultationId &&
-          resolvedVisitDepartmentId
-        ) {
-          return {
-            ...parsed,
-            departmentId: resolvedVisitDepartmentId,
-            visitDepartmentId: resolvedVisitDepartmentId,
-          } as {
-            consultationId?: string;
-            departmentId?: string;
-            visitDepartmentId?: string;
-            departmentName?: string;
-            patientName?: string;
-            formId?: string;
-            formVersion?: string;
-            form?: unknown;
-          };
-        }
-      } catch {
-        // Ignore malformed saved preview context and fall back to visit-based resolution.
-      }
-    }
-
-    return null;
-  };
-
+  )
   const openVisitCreationModal = () => {
-    setRegisteredPatientId(null);
-    setShowVisitCreationModal(true);
-  };
-
+    setRegisteredPatientId(null)
+    setShowVisitCreationModal(true)
+  }
   const closeVisitCreationModal = () => {
-    setShowVisitCreationModal(false);
-    setRegisteredPatientId(null);
-  };
-
+    setShowVisitCreationModal(false)
+    setRegisteredPatientId(null)
+  }
   const hasUnbilledItems = (visit: Visit) => {
-    if (visitProductsFullySettled(visit)) return false;
-    return visitHasUnbilledProducts(visit);
-  };
-
-  const hasNoBillables = (visit: Visit) => !visitHasBillableProducts(visit);
-  const countUnbilledProducts = countUnbilledVisitProducts;
-  const countBilledProducts = countBilledVisitProducts;
-  const getUnbilledProductNames = getUnbilledVisitProductNames;
-  const getBilledProductNames = getBilledVisitProductNames;
-  const hasDepartmentReadyForBilling = visitHasDepartmentReadyForBilling;
-
+    if (visitProductsFullySettled(visit)) return false
+    return visitHasUnbilledProducts(visit)
+  }
+  const hasNoBillables = (visit: Visit) => !visitHasBillableProducts(visit)
+  const countUnbilledProducts = countUnbilledVisitProducts
+  const countBilledProducts = countBilledVisitProducts
+  const getUnbilledProductNames = getUnbilledVisitProductNames
+  const getBilledProductNames = getBilledVisitProductNames
+  const hasDepartmentReadyForBilling = visitHasDepartmentReadyForBilling
   const formatProductsToBillLabel = (count: number) => {
-    if (count === 0) return "No products to bill";
-    return count === 1 ? "1 product to bill" : `${count} products to bill`;
-  };
-
+    if (count === 0) return "No products to bill"
+    return count === 1 ? "1 product to bill" : `${count} products to bill`
+  }
   const formatProductsBilledLabel = (count: number) => {
-    if (count === 0) return "No products billed";
-    return count === 1 ? "1 product billed" : `${count} products billed`;
-  };
-
+    if (count === 0) return "No products billed"
+    return count === 1 ? "1 product billed" : `${count} products billed`
+  }
   const canPreviewVisitInvoice = (visit: Visit) => {
-    if (hasNoBillables(visit)) return false;
-    return countUnbilledProducts(visit) === 0 && countBilledProducts(visit) > 0;
-  };
-
+    if (hasNoBillables(visit)) return false
+    return countUnbilledProducts(visit) === 0 && countBilledProducts(visit) > 0
+  }
   const getBillingDisplayStatus = (visit: Visit) => {
-    if (hasDepartmentReadyForBilling(visit)) return "Ready for billing";
-
-    const unbilledCount = countUnbilledProducts(visit);
-    const billedCount = countBilledProducts(visit);
-
+    if (hasDepartmentReadyForBilling(visit)) return "Ready for billing"
+    const unbilledCount = countUnbilledProducts(visit)
+    const billedCount = countBilledProducts(visit)
     if (
       visitProductsFullySettled(visit) ||
       (unbilledCount === 0 && billedCount > 0)
     ) {
-      return "All products billed";
+      return "All products billed"
     }
 
-    if (hasNoBillables(visit)) return formatProductsToBillLabel(0);
-
+    if (hasNoBillables(visit)) return formatProductsToBillLabel(0)
     if (unbilledCount > 0 && billedCount > 0) {
-      return `${formatProductsToBillLabel(unbilledCount)} · ${billedCount} billed`;
+      return `${formatProductsToBillLabel(unbilledCount)} · ${billedCount} billed`
     }
 
-    return formatProductsToBillLabel(unbilledCount);
-  };
-
+    return formatProductsToBillLabel(unbilledCount)
+  }
   const renderBillingTooltipContent = (
     visit: Visit,
     unbilledCount: number,
@@ -301,8 +232,7 @@ export default function DashboardPage() {
     departmentsReady: string[],
   ) => {
     const showAllBilledSummary =
-      unbilledCount === 0 && billedCount > 0 && departmentsReady.length === 0;
-
+      unbilledCount === 0 && billedCount > 0 && departmentsReady.length === 0
     return (
       <div className="space-y-2 text-xs">
         {departmentsReady.length > 0 && (
@@ -356,144 +286,109 @@ export default function DashboardPage() {
           </p>
         )}
       </div>
-    );
-  };
-
+    )
+  }
   const hasIncompleteDepartments = (visit: Visit) => {
     return flattenVisitDepartments(visit.departments || []).some(
       (dept) => dept.status !== "COMPLETED",
-    );
-  };
-
+    )
+  }
   const canDischargeVisit = (visit: Visit) => {
     if (visit.status === "COMPLETED" || visit.status === "CANCELLED")
-      return false;
-    if (hasIncompleteDepartments(visit)) return false;
-    return !hasUnbilledItems(visit) || hasNoBillables(visit);
-  };
-
+      return false
+    if (hasIncompleteDepartments(visit)) return false
+    return !hasUnbilledItems(visit) || hasNoBillables(visit)
+  }
   const isDischarged = (visit: Visit) =>
-    visit.status === "COMPLETED" && !hasUnbilledItems(visit);
-
+    visit.status === "COMPLETED" && !hasUnbilledItems(visit)
   const isVisitDepartmentBillingOrCompleted = (
     visit: Visit,
     departmentStatus: string,
   ) => {
     const normalizedDepartmentStatus = String(
       departmentStatus || "",
-    ).toUpperCase();
-    const normalizedVisitBillingStatus = getDerivedVisitBillingStatus(visit);
+    ).toUpperCase()
+    const normalizedVisitBillingStatus = getDerivedVisitBillingStatus(visit)
     return (
       normalizedDepartmentStatus === "COMPLETED" ||
       normalizedDepartmentStatus === "BILLING" ||
       normalizedVisitBillingStatus === "BILLED" ||
       normalizedVisitBillingStatus === "BILLING"
-    );
-  };
-
+    )
+  }
   const getMatchingUserDepartment = (
     visit: Visit,
     options?: { mustBeClosed?: boolean },
   ) => {
-    const mustBeClosed = Boolean(options?.mustBeClosed);
+    const mustBeClosed = Boolean(options?.mustBeClosed)
     const matchingDepartments = (visit.departments || []).filter((dept) =>
       userDepartmentIds.includes(String(dept.department?.id || dept.id || "")),
-    );
-
-    if (matchingDepartments.length === 0) return null;
-
+    )
+    if (matchingDepartments.length === 0) return null
     if (mustBeClosed) {
       return (
         matchingDepartments.find((dept) =>
           isVisitDepartmentBillingOrCompleted(visit, dept.status),
         ) || null
-      );
+      )
     }
 
     return (
       matchingDepartments.find((dept) => {
         const normalizedDepartmentStatus = String(
           dept.status || "",
-        ).toUpperCase();
+        ).toUpperCase()
         const normalizedVisitBillingStatus =
-          getDerivedVisitBillingStatus(visit);
-
+          getDerivedVisitBillingStatus(visit)
         if (
           normalizedDepartmentStatus === "COMPLETED" ||
           normalizedDepartmentStatus === "CANCELLED" ||
           normalizedDepartmentStatus === "BILLING"
         ) {
-          return false;
+          return false
         }
 
         if (
           normalizedVisitBillingStatus === "BILLED" ||
           normalizedVisitBillingStatus === "BILLING"
         ) {
-          return false;
+          return false
         }
 
-        return true;
+        return true
       }) || null
-    );
-  };
-
+    )
+  }
   const canConsultVisit = (visit: Visit) => {
     // Check if user has CLINICIAN or DOCTOR role
-    if (!hasClinicianOrDoctorRole) return false;
-
+    if (!hasClinicianOrDoctorRole) return false
     // Check if user has at least one department assigned
-    if (userDepartmentIds.length === 0) return false;
-
+    if (userDepartmentIds.length === 0) return false
     // Check if visit has departments
-    if (!visit.departments || visit.departments.length === 0) return false;
-
+    if (!visit.departments || visit.departments.length === 0) return false
     // Eligible when any visit department matches a user's department and is not completed/cancelled.
     const matchingDepartment = getMatchingUserDepartment(visit, {
       mustBeClosed: false,
-    });
-    const match = Boolean(matchingDepartment);
-    if (process.env.NODE_ENV !== "production") {
-      try {
-        // eslint-disable-next-line no-console
-        console.debug("DashboardPage canConsultVisit:", {
-          hasClinicianOrDoctorRole,
-          userDepartmentIds,
-          matchingDepartment: matchingDepartment
-            ? {
-                id: matchingDepartment.department?.id,
-                name: matchingDepartment.department?.name,
-                status: matchingDepartment.status,
-              }
-            : null,
-          match,
-        });
-      } catch (e) {
-        // ignore
-      }
-    }
+    })
+    const match = Boolean(matchingDepartment)
 
-    return match;
-  };
-
+    return match
+  }
   const handlePreviewConsultation = (visit: Visit) => {
-    const previewStartedAt = Date.now();
+    const previewStartedAt = Date.now()
     const matchedClosedDepartment =
       (visit.departments || []).find((dept) => {
-        const normalizedStatus = String(dept.status || "").toUpperCase();
+        const normalizedStatus = String(dept.status || "").toUpperCase()
         return (
           Boolean(dept.answerId) &&
           (normalizedStatus === "COMPLETED" || normalizedStatus === "BILLING")
-        );
-      }) || getMatchingUserDepartment(visit, { mustBeClosed: true });
-
+        )
+      }) || getMatchingUserDepartment(visit, { mustBeClosed: true })
     const answerId = matchedClosedDepartment?.answerId
       ? String(matchedClosedDepartment.answerId)
-      : null;
-
+      : null
     const departmentName =
-      matchedClosedDepartment?.department?.name || "Department";
-
+      matchedClosedDepartment?.department?.name || "Department"
     setPreviewConsultationContext({
       answerId,
       departmentName,
@@ -501,215 +396,187 @@ export default function DashboardPage() {
         `${visit.patient.firstName} ${visit.patient.lastName}`.trim(),
       visitDepartment: matchedClosedDepartment || null,
       previewStartedAt,
-    });
-    setPreviewConsultationOpen(true);
-  };
-
+    })
+    setPreviewConsultationOpen(true)
+  }
   const formatDepartmentTime = (time?: string | null) => {
-    if (!time) return "-";
-    return new Date(time).toLocaleString();
-  };
-
+    if (!time) return "-"
+    return new Date(time).toLocaleString()
+  }
   const getTriageDuration = (visit: Visit) => {
-    const startedAt = new Date(visit.visitDate).getTime();
-    if (Number.isNaN(startedAt)) return "Triage";
-
-    const elapsedMs = Math.max(Date.now() - startedAt, 0);
-    const totalMinutes = Math.floor(elapsedMs / 60000);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-
+    const startedAt = new Date(visit.visitDate).getTime()
+    if (Number.isNaN(startedAt)) return "Triage"
+    const elapsedMs = Math.max(Date.now() - startedAt, 0)
+    const totalMinutes = Math.floor(elapsedMs / 60000)
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
     if (hours <= 0) {
-      return `Triage • ${minutes}m`;
+      return `Triage • ${minutes}m`
     }
 
-    return `Triage • ${hours}h ${minutes}m`;
-  };
-
+    return `Triage • ${hours}h ${minutes}m`
+  }
   const allVisits = useMemo(() => {
-    const serverVisitIds = new Set(visits.map((visit) => visit.id));
+    const serverVisitIds = new Set(visits.map((visit) => visit.id))
     let filtered = [
       ...locallyCreatedVisits.filter((visit) => !serverVisitIds.has(visit.id)),
       ...visits,
-    ];
-
+    ]
     if (searchQuery) {
       filtered = filtered.filter((visit) =>
         `${visit.patient.firstName} ${visit.patient.lastName}`
           .toLowerCase()
           .includes(searchQuery.toLowerCase()),
-      );
+      )
     }
 
     if (statusFilter === "BILLING") {
-      filtered = filtered.filter((visit) => hasUnbilledItems(visit));
+      filtered = filtered.filter((visit) => hasUnbilledItems(visit))
     } else if (statusFilter !== "all") {
-      filtered = filtered.filter((visit) => visit.status === statusFilter);
+      filtered = filtered.filter((visit) => visit.status === statusFilter)
     }
 
-    return filtered;
-  }, [visits, locallyCreatedVisits, searchQuery, statusFilter]);
-
+    return filtered
+  }, [visits, locallyCreatedVisits, searchQuery, statusFilter])
   const handleConsultVisit = async (visit: Visit) => {
     // Mark first department as ACTIVE before navigating to consultation
     try {
-      const firstVisitDeptId = visit.departments?.[0]?.id;
+      const firstVisitDeptId = visit.departments?.[0]?.id
       if (firstVisitDeptId) {
-        await updateDepartmentStatus(firstVisitDeptId, "ACTIVE");
+        await updateDepartmentStatus(firstVisitDeptId, "ACTIVE")
         // Optionally refetch visits to update department status
-        refetchVisits();
+        refetchVisits()
       }
     } catch (err) {
       // Continue to consultation even if updating status fails
-      console.error("Failed to update department status:", err);
+      console.error("Failed to update department status:", err)
     }
 
     // Navigate to consultation page
-    router.push(`/consultation?visitId=${visit.id}`);
-  };
-
+    router.push(`/consultation?visitId=${visit.id}`)
+  }
   const handleTriageVisit = (visit: Visit) => {
-    router.push(`/triage?visitId=${visit.id}`);
-  };
-
+    router.push(`/triage?visitId=${visit.id}`)
+  }
   const canAddDepartment = (visit: Visit) => {
-    return visit.status !== "COMPLETED";
-  };
-
+    return visit.status !== "COMPLETED"
+  }
   const handleAddDepartment = (visit: Visit) => {
-    setSelectedVisitForDepartment(visit);
-    setAddDepartmentModalOpen(true);
-  };
-
+    setSelectedVisitForDepartment(visit)
+    setAddDepartmentModalOpen(true)
+  }
   const handleAddDepartmentSuccess = () => {
     // Refresh visits data after successful department addition
-    refetchVisits();
-  };
-
+    refetchVisits()
+  }
   const handleGoToBilling = (visit: Visit) => {
-    router.push(`/billing?visitId=${visit.id}&patientId=${visit.patient.id}`);
-  };
-
+    router.push(`/billing?visitId=${visit.id}&patientId=${visit.patient.id}`)
+  }
   const handleDownloadInvoice = async (
     departmentInsuranceBillingId: string,
   ) => {
     const invoiceUrl = await resolveInvoiceUrl(
       departmentInsuranceBillingId,
       generateInvoice,
-    );
-    openInvoicePreview(invoiceUrl);
-  };
-
+    )
+    openInvoicePreview(invoiceUrl)
+  }
   const handlePreviewInvoice = async (visit: Visit) => {
     try {
-      setPrintingVisitId(visit.id);
-
+      setPrintingVisitId(visit.id)
       const billRes = await getVisitBillings({
         variables: { visitId: visit.id },
-      });
-      const gqlVisitBilling = billRes.data?.visitBilling?.data;
-
+      })
+      const gqlVisitBilling = billRes.data?.visitBilling?.data
       if (!gqlVisitBilling) {
-        toast.error("No bill found for this visit.");
-        return;
+        toast.error("No bill found for this visit.")
+        return
       }
 
-      setPreviewVisitBilling(mapGqlVisitBilling(gqlVisitBilling));
-      setPreviewVisit(visit);
-      setPreviewStartedAt(Date.now());
-      setPreviewOpen(true);
+      setPreviewVisitBilling(mapGqlVisitBilling(gqlVisitBilling))
+      setPreviewVisit(visit)
+      setPreviewStartedAt(Date.now())
+      setPreviewOpen(true)
     } catch (err: unknown) {
-      console.error("Preview invoice error:", err);
+      console.error("Preview invoice error:", err)
       const message =
-        err instanceof Error ? err.message : "Failed to load bill for preview";
-      toast.error(message);
+        err instanceof Error ? err.message : "Failed to load bill for preview"
+      toast.error(message)
     } finally {
-      setPrintingVisitId(null);
+      setPrintingVisitId(null)
     }
-  };
-
+  }
   const handleEditConsultation = (visit: Visit) => {
-    router.push(`/consultation?visitId=${visit.id}`);
-  };
-
+    router.push(`/consultation?visitId=${visit.id}`)
+  }
   const handleViewPatientHistory = (visit: Visit) => {
-    setPatientHistoryVisit(visit);
-    setPatientHistoryOpen(true);
-  };
+    setPatientHistoryVisit(visit)
+    setPatientHistoryOpen(true)
+  }
+  const [dischargeConfirmVisit, setDischargeConfirmVisit] = useState<Visit | null>(null)
 
   const handleDischargeVisit = async (visit: Visit) => {
-    const confirmed = window.confirm(
-      "Discharge this patient and complete the visit?",
-    );
-    if (!confirmed) return;
-
     try {
-      const allDepartments = visit.departments || [];
+      const allDepartments = visit.departments || []
       const notCompleted = allDepartments.filter(
         (dept) => dept.status !== "COMPLETED",
-      );
-
+      )
       if (notCompleted.length > 0) {
         for (const dept of notCompleted) {
-          const visitDeptId = String(dept.id || "");
-          if (!visitDeptId) continue;
-
-          const res = await updateDepartmentStatus(visitDeptId, "COMPLETED");
+          const visitDeptId = String(dept.id || "")
+          if (!visitDeptId) continue
+          const res = await updateDepartmentStatus(visitDeptId, "COMPLETED")
           if (res?.status !== "SUCCESS") {
             toast.error(
               res?.messages?.[0]?.text ||
                 "Failed to complete department during discharge",
-            );
-            return;
+            )
+            return
           }
         }
       } else {
         // Trigger backend completion aggregation if all departments are already marked completed.
-        const fallbackDepartment = allDepartments[allDepartments.length - 1];
-        const fallbackId = String(fallbackDepartment?.id || "");
+        const fallbackDepartment = allDepartments[allDepartments.length - 1]
+        const fallbackId = String(fallbackDepartment?.id || "")
         if (fallbackId) {
-          await updateDepartmentStatus(fallbackId, "COMPLETED");
+          await updateDepartmentStatus(fallbackId, "COMPLETED")
         }
       }
 
-      await refetchVisits();
-      toast.success("Patient discharged successfully");
+      await refetchVisits()
+      toast.success("Patient discharged successfully")
     } catch (err) {
-      console.error("Discharge visit error:", err);
-      toast.error("Failed to discharge patient");
+      console.error("Discharge visit error:", err)
+      toast.error("Failed to discharge patient")
     }
-  };
-
+  }
   const handlePatientRegistered = (
     patientId: string,
     _insurances: any[],
     proceedToVisit: boolean,
     createdVisit?: Visit,
   ) => {
-    setShowPatientRegistrationModal(false);
-
+    setShowPatientRegistrationModal(false)
     if (createdVisit) {
-      setRegisteredPatientId(null);
-      setShowVisitCreationModal(false);
+      setRegisteredPatientId(null)
+      setShowVisitCreationModal(false)
       setLocallyCreatedVisits((current) => [
         createdVisit,
         ...current.filter((visit) => visit.id !== createdVisit.id),
-      ]);
-      refetchVisits();
-      return;
+      ])
+      refetchVisits()
+      return
     }
 
     if (proceedToVisit) {
-      setRegisteredPatientId(patientId);
-      setShowVisitCreationModal(true);
+      setRegisteredPatientId(patientId)
+      setShowVisitCreationModal(true)
     }
-  };
-
+  }
   const handleVisitCreated = () => {
     // Refetch visits data without full page reload
-    refetchVisits();
-  };
-
+    refetchVisits()
+  }
   return (
     <div className="min-h-screen bg-background">
       <Header doctor={doctor} />
@@ -985,7 +852,7 @@ export default function DashboardPage() {
                         <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-2" />
                         <InlineTryAgain
                           onTryAgain={() => {
-                            void refetchVisits();
+                            void refetchVisits()
                           }}
                         />
                       </div>
@@ -998,34 +865,18 @@ export default function DashboardPage() {
                       </div>
                     ) : (
                       allVisits.map((visit: Visit) => {
-                        const consultButtonDebug = {
-                          canSeeVisitActionButtons,
-                          canSeeConsultButton,
-                          canConsultVisit: canConsultVisit(visit),
-                          visitStatus: visit.status,
-                          statusCheck:
-                            visit.status === "CREATED" ||
-                            visit.status === "IN_PROGRESS",
-                        };
                         const unbilledProductCount =
-                          countUnbilledProducts(visit);
+                          countUnbilledProducts(visit)
                         const unbilledProductNames =
-                          getUnbilledProductNames(visit);
-                        const billedProductCount = countBilledProducts(visit);
-                        const billedProductNames = getBilledProductNames(visit);
+                          getUnbilledProductNames(visit)
+                        const billedProductCount = countBilledProducts(visit)
+                        const billedProductNames = getBilledProductNames(visit)
                         const departmentsReadyForBilling =
-                          getDepartmentsReadyForBilling(visit);
+                          getDepartmentsReadyForBilling(visit)
                         const totalNewNotes = (visit.departments || []).reduce(
                           (sum, dept) => sum + (dept.notes?.newNotes || 0),
                           0,
-                        );
-                        if (process.env.NODE_ENV !== "production") {
-                          // eslint-disable-next-line no-console
-                          console.debug(
-                            `[ConsultButton check for ${visit.patient.firstName} ${visit.patient.lastName}]:`,
-                            consultButtonDebug,
-                          );
-                        }
+                        )
                         return (
                           <div
                             key={visit.id}
@@ -1174,14 +1025,13 @@ export default function DashboardPage() {
                                   const matchedClosedDepartment =
                                     getMatchingUserDepartment(visit, {
                                       mustBeClosed: true,
-                                    });
+                                    })
                                   const showClosedConsultationActions = Boolean(
                                     canSeeVisitActionButtons &&
                                     canSeeConsultButton &&
                                     hasClinicianOrDoctorRole &&
                                     matchedClosedDepartment,
-                                  );
-
+                                  )
                                   return (
                                     <>
                                       {canViewPatientHistory && (
@@ -1189,8 +1039,8 @@ export default function DashboardPage() {
                                           <TooltipTrigger asChild>
                                             <button
                                               onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleViewPatientHistory(visit);
+                                                e.stopPropagation()
+                                                handleViewPatientHistory(visit)
                                               }}
                                               title="View Patient History"
                                               aria-label="View Patient History"
@@ -1213,8 +1063,8 @@ export default function DashboardPage() {
                                             <TooltipTrigger asChild>
                                               <button
                                                 onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleConsultVisit(visit);
+                                                  e.stopPropagation()
+                                                  handleConsultVisit(visit)
                                                 }}
                                                 title="Start Consult"
                                                 aria-label="Start Consult"
@@ -1235,8 +1085,8 @@ export default function DashboardPage() {
                                             <TooltipTrigger asChild>
                                               <button
                                                 onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleEditConsultation(visit);
+                                                  e.stopPropagation()
+                                                  handleEditConsultation(visit)
                                                 }}
                                                 title="Edit Consultation"
                                                 aria-label="Edit Consultation"
@@ -1254,10 +1104,10 @@ export default function DashboardPage() {
                                             <TooltipTrigger asChild>
                                               <button
                                                 onClick={(e) => {
-                                                  e.stopPropagation();
+                                                  e.stopPropagation()
                                                   handlePreviewConsultation(
                                                     visit,
-                                                  );
+                                                  )
                                                 }}
                                                 title="Preview Consultation"
                                                 aria-label="Preview Consultation"
@@ -1273,7 +1123,7 @@ export default function DashboardPage() {
                                         </>
                                       )}
                                     </>
-                                  );
+                                  )
                                 })()}
 
                                 {canSeeVisitActionButtons &&
@@ -1284,8 +1134,8 @@ export default function DashboardPage() {
                                       <TooltipTrigger asChild>
                                         <button
                                           onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleTriageVisit(visit);
+                                            e.stopPropagation()
+                                            handleTriageVisit(visit)
                                           }}
                                           title="Open Triage"
                                           aria-label="Open Triage"
@@ -1313,8 +1163,8 @@ export default function DashboardPage() {
                                         <TooltipTrigger asChild>
                                           <button
                                             onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleEditConsultation(visit);
+                                              e.stopPropagation()
+                                              handleEditConsultation(visit)
                                             }}
                                             title="Edit Consultation"
                                             aria-label="Edit Consultation"
@@ -1336,8 +1186,8 @@ export default function DashboardPage() {
                                       <TooltipTrigger asChild>
                                         <button
                                           onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleAddDepartment(visit);
+                                            e.stopPropagation()
+                                            handleAddDepartment(visit)
                                           }}
                                           title="Add Department"
                                           aria-label="Add Department"
@@ -1356,8 +1206,8 @@ export default function DashboardPage() {
                                   ENABLE_DISCHARGE && (
                                     <button
                                       onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDischargeVisit(visit);
+                                        e.stopPropagation()
+                                        setDischargeConfirmVisit(visit)
                                       }}
                                       title="Discharge Patient"
                                       className="px-2 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
@@ -1377,8 +1227,8 @@ export default function DashboardPage() {
                                       <TooltipTrigger asChild>
                                         <button
                                           onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleGoToBilling(visit);
+                                            e.stopPropagation()
+                                            handleGoToBilling(visit)
                                           }}
                                           title="Bill Visit"
                                           className="h-9 w-9 sm:h-10 sm:w-10 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
@@ -1404,8 +1254,8 @@ export default function DashboardPage() {
                                       <TooltipTrigger asChild>
                                         <button
                                           onClick={(e) => {
-                                            e.stopPropagation();
-                                            void handlePreviewInvoice(visit);
+                                            e.stopPropagation()
+                                            void handlePreviewInvoice(visit)
                                           }}
                                           title="Preview Invoice"
                                           disabled={
@@ -1429,7 +1279,7 @@ export default function DashboardPage() {
                               </div>
                             </div>
                           </div>
-                        );
+                        )
                       })
                     )}
                   </div>
@@ -1468,8 +1318,8 @@ export default function DashboardPage() {
               patientName,
               visitDepartment: null,
               previewStartedAt: Date.now(),
-            });
-            setPreviewConsultationOpen(true);
+            })
+            setPreviewConsultationOpen(true)
           }}
           onClose={() => setPatientHistoryOpen(false)}
         />
@@ -1501,8 +1351,8 @@ export default function DashboardPage() {
           visit={selectedVisitForDepartment}
           isOpen={addDepartmentModalOpen}
           onClose={() => {
-            setAddDepartmentModalOpen(false);
-            setSelectedVisitForDepartment(null);
+            setAddDepartmentModalOpen(false)
+            setSelectedVisitForDepartment(null)
           }}
           onSuccess={handleAddDepartmentSuccess}
         />
@@ -1511,9 +1361,9 @@ export default function DashboardPage() {
       <ConsultationPreviewSheet
         open={previewConsultationOpen}
         onOpenChange={(open) => {
-          setPreviewConsultationOpen(open);
+          setPreviewConsultationOpen(open)
           if (!open) {
-            setPreviewConsultationContext(null);
+            setPreviewConsultationContext(null)
           }
         }}
         answerId={previewConsultationContext?.answerId || null}
@@ -1525,12 +1375,12 @@ export default function DashboardPage() {
       <BillingPreviewSheet
         open={previewOpen}
         onOpenChange={(open) => {
-          setPreviewOpen(open);
+          setPreviewOpen(open)
           if (!open) {
-            setPreviewVisitBilling(null);
-            setPreviewDepartmentId(null);
-            setPreviewVisit(null);
-            setPreviewStartedAt(null);
+            setPreviewVisitBilling(null)
+            setPreviewDepartmentId(null)
+            setPreviewVisit(null)
+            setPreviewStartedAt(null)
           }
         }}
         visit={previewVisit}
@@ -1544,10 +1394,25 @@ export default function DashboardPage() {
         canViewMore={hasFinanceRole}
         onViewMore={() => {
           if (previewVisit) {
-            router.push(`/billing?visitId=${previewVisit.id}`);
+            router.push(`/billing?visitId=${previewVisit.id}`)
           }
         }}
       />
+
+      <ConfirmDialog
+        open={Boolean(dischargeConfirmVisit)}
+        onOpenChange={(open) => {
+          if (!open) setDischargeConfirmVisit(null)
+        }}
+        title="Discharge this patient?"
+        description="Completing the visit will complete all open departments and finalize the visit."
+        confirmLabel="Discharge"
+        onConfirm={() => {
+          if (!dischargeConfirmVisit) return
+          setDischargeConfirmVisit(null)
+          void handleDischargeVisit(dischargeConfirmVisit)
+        }}
+      />
     </div>
-  );
+  )
 }

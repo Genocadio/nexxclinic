@@ -49,11 +49,7 @@ export function useLogin() {
       const payload = result?.data?.login as LoginResponse | undefined
 
       // Log mutation result
-      console.log('=== LOGIN MUTATION RESULT ===', {
-        status: payload?.status,
-        user: payload?.data?.user,
-        accessToken: payload?.data?.accessToken ? '***' : undefined,
-      })
+      
 
       const buildUser = (profile?: Parameters<typeof mapGqlWorker>[0]): Worker => {
         const user = mapGqlWorker(profile)
@@ -100,8 +96,8 @@ export function useLogin() {
         }
 
         // Log what will be stored
-        console.log('=== BUILT USER (before storage) ===', user)
-        console.log('=== STORING TO LOCALSTORAGE ===', JSON.stringify(user))
+        
+        
 
         return {
           status: 'SUCCESS',
@@ -118,7 +114,7 @@ export function useLogin() {
 
       if (payload?.status === 'PARTIAL_SUCCESS' && payload.data) {
         const loginUser = payload.data.user
-        let user = loginUser ? buildUser(loginUser as Parameters<typeof mapGqlWorker>[0]) : buildUser()
+        const user = loginUser ? buildUser(loginUser as Parameters<typeof mapGqlWorker>[0]) : buildUser()
 
         return {
           status: 'PARTIAL_SUCCESS',
@@ -181,7 +177,7 @@ export function useSetInitialPassword() {
 export function useRegister() {
   const [registerMutation, { loading, error }] = useMutation(REGISTER_MUTATION)
 
-  const register = async (name: string, email: string, password: string, phoneNumber: string, title?: string) => {
+  const register = async (name: string, email: string, password: string, phoneNumber: string, _title?: string) => {
     try {
       const [firstName, ...lastNameParts] = name.trim().split(/\s+/).filter(Boolean)
       const lastName = lastNameParts.length > 0 ? lastNameParts.join(' ') : null

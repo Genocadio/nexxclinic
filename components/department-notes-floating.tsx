@@ -181,7 +181,7 @@ function DeptNotesPanel({
     }
   };
 
-  const handleMarkAsViewed = async (noteId: string) => {
+  const handleMarkAsViewed = async (_noteId: string) => {
     try {
       await markNotesViewed(visitDepartmentId);
       await refetch?.();
@@ -374,22 +374,6 @@ export default function DepartmentNotesFloating({
 
   const depts = visitDepartments.filter((d) => !!d.id);
   const activeDept = depts.find((d) => d.id === activeTabId) ?? depts[0];
-  const { notes: activeDeptNotes = [] } = useVisitDepartmentNotes(
-    visitId,
-    activeDept?.id || null,
-  );
-  const unreadActiveCount = useMemo(() => {
-    const allowed = allowedDisplayTypes?.length
-      ? new Set(allowedDisplayTypes)
-      : null;
-    return (activeDeptNotes || []).filter((note: any) => {
-      if (allowed && note?.noteType && !allowed.has(String(note.noteType))) {
-        return false;
-      }
-      return !note?.viewed;
-    }).length;
-  }, [activeDeptNotes, allowedDisplayTypes]);
-
   // Initialise / update the active tab when departments change
   useEffect(() => {
     if (depts.length === 0) return;

@@ -48,7 +48,6 @@ type BillingStickySummaryProps = {
 export function BillingStickySummary({
   totals,
   amountPaid,
-  currency = "RWF",
   activeService,
   selectedCount = 0,
   existingVisitBilling,
@@ -62,7 +61,6 @@ export function BillingStickySummary({
   canCollectPayment = false,
   recordingPayment = false,
   onCompleteBill,
-  onPreview,
   onPrint,
   onEditBilling,
   onDoneEditing,

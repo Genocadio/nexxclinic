@@ -1,8 +1,5 @@
-import { useMutation, useQuery, useLazyQuery } from "@apollo/client";
-import {
-  GET_BILL_BY_VISIT_QUERY,
-  GET_INVOICE_QUERY,
-} from "../queries";
+import { useMutation, useQuery } from "@apollo/client";
+import { GET_BILL_BY_VISIT_QUERY } from "../queries";
 import {
   CREATE_BILL_MUTATION,
   EDIT_BILL_MUTATION,
@@ -55,10 +52,6 @@ export interface GenerateInvoicePayload {
     pdfBase64?: string;
     messages?: { text: string; type: string }[];
   };
-}
-
-export interface GetInvoicePayload {
-  getInvoice: InvoiceResponse;
 }
 
 export type BillingPaymentMethod =
@@ -266,27 +259,4 @@ export function useGenerateInvoice() {
   };
 
   return { generateInvoice, loading, error };
-}
-
-export function useGetInvoiceLazy() {
-  const [getInvoiceQuery, { loading, error }] = useLazyQuery<GetInvoicePayload>(
-    GET_INVOICE_QUERY,
-    {
-      fetchPolicy: "network-only",
-    },
-  );
-
-  const getInvoice = async (departmentInsuranceBillingId: string) => {
-    try {
-      const result = await getInvoiceQuery({
-        variables: { departmentInsuranceBillingId },
-      });
-      return result.data?.getInvoice;
-    } catch (err) {
-      console.error("Get invoice error:", err);
-      throw err;
-    }
-  };
-
-  return { getInvoice, loading, error };
 }

@@ -1,8 +1,7 @@
 import { useMutation, useQuery } from '@apollo/client'
-import { GET_INSURANCES_QUERY } from '../queries'
 import { CREATE_INSURANCE_PROVIDER_MUTATION, UPDATE_INSURANCE_PROVIDER_MUTATION, DELETE_INSURANCE_PROVIDER_MUTATION } from '../mutations'
 import { gql } from '@apollo/client'
-import type { InsuranceProvider, ApiResponse, SearchInsuranceProvidersInput } from '../types'
+import type { InsuranceProvider, SearchInsuranceProvidersInput } from '../types'
 import { mapGqlInsuranceProvider, type GqlInsuranceProvider } from '@/lib/gql-mappers'
 
 interface LocalGqlInsuranceProvider extends GqlInsuranceProvider {

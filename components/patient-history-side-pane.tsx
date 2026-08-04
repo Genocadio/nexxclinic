@@ -219,16 +219,6 @@ export default function PatientHistorySidePane({
     });
   }, []);
 
-  const clearDateFilter = useCallback(() => {
-    setFilters((prev) => ({
-      ...prev,
-      fromType: undefined,
-      fromValue: undefined,
-      toType: undefined,
-      toValue: undefined,
-    }));
-  }, []);
-
   const currentYear = new Date().getFullYear();
   const yearOptions = useMemo(() => {
     const startYear = Math.max(1900, currentYear - 80);

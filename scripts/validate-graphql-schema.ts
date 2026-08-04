@@ -97,8 +97,8 @@ function walk(node: ts.Node) {
 walk(sourceFile);
 
 // ── Checks ──────────────────────────────────────────────────────────────────────
-let errors: string[] = [];
-let warnings: string[] = [];
+const errors: string[] = [];
+const warnings: string[] = [];
 
 // 1 + 2. Enum bidirectional check
 for (const [name, schemaValues] of schemaEnums) {

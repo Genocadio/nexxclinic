@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Visit, Department } from "@/lib/api-types";
+import type { Visit } from "@/lib/api-types";
 import {
   useAddDepartmentToVisit,
   useDepartments,
@@ -11,7 +11,6 @@ import {
 } from "@/hooks/auth-hooks";
 import { toast } from "react-toastify";
 import { handleResponse } from "@/lib/response-handler";
-import { DepartmentAutocomplete } from "@/components/ui/department-autocomplete";
 
 interface AddDepartmentModalProps {
   visit: Visit;

@@ -53,7 +53,7 @@ export function FloatingCarePlansButton({
 
             {todayTasks.length > 0 ? (
               <div className="space-y-2 mb-4">
-                <p className="text-xs font-medium text-muted-foreground">Today's Tasks</p>
+                <p className="text-xs font-medium text-muted-foreground">Today&apos;s Tasks</p>
                 {todayTasks.map((task) => {
                   const statusConfig = {
                     completed: {

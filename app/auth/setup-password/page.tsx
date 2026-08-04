@@ -72,7 +72,7 @@ export default function SetupPasswordPage() {
           router.push("/login")
         }, 2000)
       }
-    } catch (error) {
+    } catch {
       await handleResponse({ status: "ERROR", message: "An error occurred while setting password" }, { successMessage: false })
     }
   }

@@ -96,14 +96,6 @@ const defaultRows = (): VitalRow[] => [
   },
 ];
 
-const createRow = (): VitalRow => ({
-  id: `vital-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-  measurementName: "",
-  value: "",
-  unit: "",
-  isPreset: false,
-});
-
 function TriagePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -111,12 +103,6 @@ function TriagePageInner() {
   const { doctor } = useAuth();
   const { visit, loading, error, refetch } = useVisit(visitId);
   const { addVisitVitalSigns, loading: savingVitals } = useAddVisitVitalSigns();
-  const { departments } = useDepartments();
-  const { addDepartmentToVisit } = useAddDepartmentToVisit();
-
-  const roles = useAuth()?.doctor?.roles || [];
-  const isNurse = (roles as string[]).includes("NURSE");
-
   const [rows, setRows] = useState<VitalRow[]>(defaultRows);
   const [modalOpen, setModalOpen] = useState(false);
   const [addDeptOpen, setAddDeptOpen] = useState(false);
@@ -151,13 +137,6 @@ function TriagePageInner() {
     }
   };
 
-  const currentDepartmentName = useMemo(() => {
-    const deps = visit?.departments || [];
-    const active = deps.find((d) => d.status !== "COMPLETED");
-    if (active) return active.department?.name || "Unknown department";
-    return deps.length === 0 ? "Triage" : deps[0].department?.name || "Triage";
-  }, [visit?.departments]);
-
   const groupedEntries = useMemo(
     () => normalizeVisitVitalSigns(visit?.vitalSigns || []),
     [visit?.vitalSigns],
@@ -182,10 +161,6 @@ function TriagePageInner() {
       });
       setVitalFormError("");
     }
-  };
-  const addCustomRow = () => {
-    setVitalFormError("");
-    setRows((rs) => [...rs, createRow()]);
   };
   const removeRow = (rowId: string) => {
     setRows((rs) => rs.filter((r) => r.id !== rowId));

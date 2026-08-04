@@ -59,13 +59,6 @@ export default function PatientRegistrationModal({
     }
   }, [isOpen])
 
-  const handleFormFieldChange = (field: string, value: string) => {
-    // The form dialog handles its own form state via refs;
-    // we need a way to get form data for search.
-    // For now we skip the search feature since PatientFormDialog
-    // manages its own state internally.
-  }
-
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>

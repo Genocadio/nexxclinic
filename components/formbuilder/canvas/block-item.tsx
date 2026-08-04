@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import type { FormBlock, BlockType, InlineAnswerField } from "@/lib/formbuilder-storage";
+import type { FormBlock, BlockType } from "@/lib/formbuilder-storage";
 import { MedicalBlockItem } from "@/components/formbuilder/medical-block-item";
 import { MediaEmbedBlockItem, FileUploadBlockItem } from "@/components/formbuilder/media-block-item";
 import { BlockWrapper } from "./block-wrapper";

@@ -126,7 +126,7 @@ const getDominantMemberPayload = (
 
 const attachLastVisit = (
   patient: Patient,
-  lastVisit?: LocalGqlPatient["lastVisit"],
+  _lastVisit?: LocalGqlPatient["lastVisit"],
 ): Patient => {
   // API no longer returns lastVisit; do nothing.
   return patient;
@@ -478,13 +478,6 @@ export function useUpdatePatient() {
   const [updatePatientMutation, { loading, error }] = useMutation(
     UPDATE_PATIENT_MUTATION,
   );
-  const [createPatientInsuranceMutation] = useMutation(
-    CREATE_PATIENT_INSURANCE_MUTATION,
-  );
-  const [updatePatientInsuranceMutation] = useMutation(
-    UPDATE_PATIENT_INSURANCE_MUTATION,
-  );
-
   const updatePatient = async (
     patientId: string,
     input: UpdatePatientInput,

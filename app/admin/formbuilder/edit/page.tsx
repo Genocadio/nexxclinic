@@ -2,7 +2,6 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,7 +65,7 @@ const TYPE_COLORS: Record<string, string> = {
 function FormEditor() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { doctor, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const formId = searchParams.get("id");
 
@@ -464,7 +463,7 @@ function FormEditor() {
                   form={previewForm}
                   showTitle={true}
                   edit={true}
-                  onSubmit={(ans) => console.log("Preview submit", ans)}
+                  onSubmit={() => {}}
                 />
               </div>
             </div>

@@ -8,7 +8,6 @@ import {
   Gender,
   VisitBillingStatus,
   VisitDepartmentStatus,
-  VisitProductStatus,
   type DepartmentInsuranceBilling,
   type VisitBilling,
   type VisitBillingItem,

@@ -2,8 +2,7 @@
 
 import { useState } from "react"
 import type { Patient } from "@/lib/api-types"
-import { ArrowLeft, Save, AlertCircle, CheckCircle } from "lucide-react"
-import { Input } from "@/components/ui/input"
+import { ArrowLeft, Save, CheckCircle } from "lucide-react"
 
 // Legacy type definitions - should be replaced with api-types when schema is available
 interface VitalSigns {
@@ -67,21 +66,17 @@ export default function ConsultationView({
   patient,
   onSave,
   onBack,
-  patientsList,
-  setPatientsList,
 }: ConsultationViewProps) {
-  const [consultation, setConsultation] = useState(initialConsultation)
+  const [consultation] = useState(initialConsultation)
   const [activeTab, setActiveTab] = useState<"history" | "examination" | "diagnosis" | "prescriptions" | "summary">(
     "history",
   )
-  const [completionStatus, setCompletionStatus] = useState({
+  const [completionStatus] = useState({
     history: !!initialConsultation.chiefComplaint,
     examination: !!initialConsultation.examinationFindings.visualAcuityOD,
     diagnosis: !!initialConsultation.diagnosis,
     prescriptions: initialConsultation.prescriptions.length > 0,
   })
-  const [showHistory, setShowHistory] = useState(false)
-  const [selectedHistoryVisit, setSelectedHistoryVisit] = useState<Consultation | null>(null)
 
   return (
     <div className="min-h-screen bg-background">

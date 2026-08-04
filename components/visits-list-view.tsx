@@ -1,27 +1,24 @@
-"use client";
-
-import { useState } from "react";
+"use client"
+import { useState } from "react"
 import {
-  useVisits,
   useDepartments,
   useGenerateInvoice,
-} from "@/hooks/auth-hooks";
-import type { Visit, VisitBilling } from "@/lib/api-types";
-import { mapGqlVisitBilling } from "@/lib/visit-billing-utils";
+} from "@/hooks/auth-hooks"
+import type { Visit, VisitBilling } from "@/lib/api-types"
+import { mapGqlVisitBilling } from "@/lib/visit-billing-utils"
 import {
   getDerivedVisitBillingStatus,
   visitHasUnbilledProducts,
   visitProductsFullySettled,
-} from "@/lib/visit-product-utils";
-import { useLazyQuery } from "@apollo/client";
-import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries";
-import { toast } from "react-toastify";
-import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils";
-import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet";
-import { useRouter } from "next/navigation";
+} from "@/lib/visit-product-utils"
+import { useLazyQuery } from "@apollo/client"
+import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
+import { toast } from "react-toastify"
+import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
+import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet"
+import { useRouter } from "next/navigation"
 import {
   Search,
-  Calendar,
   Clock,
   CheckCircle,
   AlertCircle,
@@ -30,18 +27,17 @@ import {
   Plus,
   Stethoscope,
   Activity,
-} from "lucide-react";
-import { useTheme } from "@/lib/theme-context";
-import { useAuth } from "@/lib/auth-context";
-import { AddDepartmentModal } from "./add-department-modal";
-
+} from "lucide-react"
+import { useTheme } from "@/lib/theme-context"
+import { useAuth } from "@/lib/auth-context"
+import { AddDepartmentModal } from "./add-department-modal"
 interface VisitsListViewProps {
-  visits: Visit[];
-  onVisitSelect: (visit: Visit) => void;
-  onConsultVisit: (visit: Visit) => void;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
-  refetchVisits?: () => void;
+  visits: Visit[]
+  onVisitSelect: (visit: Visit) => void
+  onConsultVisit: (visit: Visit) => void
+  searchQuery: string
+  onSearchChange: (query: string) => void
+  refetchVisits?: () => void
 }
 
 export default function VisitsListView({
@@ -52,180 +48,158 @@ export default function VisitsListView({
   onSearchChange,
   refetchVisits,
 }: VisitsListViewProps) {
-  const router = useRouter();
-  const { departments, refetch: refetchDepartments } = useDepartments();
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
-  const { doctor } = useAuth();
-  const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false);
+  const router = useRouter()
+  const { refetch: refetchDepartments } = useDepartments()
+  const { theme } = useTheme()
+  const isDark = theme === "dark"
+  const { doctor } = useAuth()
+  const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false)
   const [selectedVisitForDepartment, setSelectedVisitForDepartment] =
-    useState<Visit | null>(null);
-  const { generateInvoice } = useGenerateInvoice();
-  const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY);
+    useState<Visit | null>(null)
+  const { generateInvoice } = useGenerateInvoice()
+  const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
   const [previewingVisitId, setPreviewingVisitId] = useState<string | null>(
     null,
-  );
-  const [previewOpen, setPreviewOpen] = useState(false);
+  )
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [previewVisitBilling, setPreviewVisitBilling] =
-    useState<VisitBilling | null>(null);
+    useState<VisitBilling | null>(null)
   const [previewDepartmentId, setPreviewDepartmentId] = useState<string | null>(
     null,
-  );
-  const [previewVisit, setPreviewVisit] = useState<Visit | null>(null);
-  const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null);
-
+  )
+  const [previewVisit, setPreviewVisit] = useState<Visit | null>(null)
+  const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null)
   const handleDownloadInvoice = async (
     departmentInsuranceBillingId: string,
   ) => {
     const invoiceUrl = await resolveInvoiceUrl(
       departmentInsuranceBillingId,
       generateInvoice,
-    );
-    openInvoicePreview(invoiceUrl);
-  };
-
+    )
+    openInvoicePreview(invoiceUrl)
+  }
   const handlePreviewInvoice = async (visit: Visit) => {
     try {
-      setPreviewingVisitId(visit.id);
-
+      setPreviewingVisitId(visit.id)
       const billRes = await getVisitBillings({
         variables: { visitId: visit.id },
-      });
-      const gqlVisitBilling = billRes.data?.visitBilling?.data;
-
+      })
+      const gqlVisitBilling = billRes.data?.visitBilling?.data
       if (!gqlVisitBilling) {
-        toast.error("No bill found for this visit.");
-        return;
+        toast.error("No bill found for this visit.")
+        return
       }
 
-      setPreviewVisitBilling(mapGqlVisitBilling(gqlVisitBilling));
-      setPreviewVisit(visit);
-
+      setPreviewVisitBilling(mapGqlVisitBilling(gqlVisitBilling))
+      setPreviewVisit(visit)
       // choose initial department if available
-      const topLevelDepartments = visit?.departments || [];
+      const topLevelDepartments = visit?.departments || []
       if (topLevelDepartments.length === 1)
-        setPreviewDepartmentId(topLevelDepartments[0].id);
-
-      setPreviewStartedAt(Date.now());
-      setPreviewOpen(true);
+        setPreviewDepartmentId(topLevelDepartments[0].id)
+      setPreviewStartedAt(Date.now())
+      setPreviewOpen(true)
     } catch (err: unknown) {
-      console.error("Preview invoice error:", err);
+      console.error("Preview invoice error:", err)
       const message =
-        err instanceof Error ? err.message : "Failed to load bill for preview";
-      toast.error(message);
+        err instanceof Error ? err.message : "Failed to load bill for preview"
+      toast.error(message)
     } finally {
-      setPreviewingVisitId(null);
+      setPreviewingVisitId(null)
     }
-  };
-
+  }
   const hasUnbilledItems = (visit: Visit) => {
-    if (visitProductsFullySettled(visit)) return false;
-    return visitHasUnbilledProducts(visit);
-  };
-
+    if (visitProductsFullySettled(visit)) return false
+    return visitHasUnbilledProducts(visit)
+  }
   const canAddDepartment = (visit: Visit) => {
     return (
       getDerivedVisitBillingStatus(visit) !== "BILLED" &&
       visit.status !== "IN_PROGRESS"
-    );
-  };
-
+    )
+  }
   const handleAddDepartment = (visit: Visit) => {
-    setSelectedVisitForDepartment(visit);
-    setAddDepartmentModalOpen(true);
-  };
-
+    setSelectedVisitForDepartment(visit)
+    setAddDepartmentModalOpen(true)
+  }
   const handleAddDepartmentSuccess = () => {
     // Refetch visits and departments data after successful addition
-    refetchVisits?.();
-    refetchDepartments();
-  };
-
+    refetchVisits?.()
+    refetchDepartments()
+  }
   const getTriageDuration = (visit: Visit) => {
-    const startedAt = new Date(visit.visitDate).getTime();
-    if (Number.isNaN(startedAt)) return "Triage";
-
-    const elapsedMs = Math.max(Date.now() - startedAt, 0);
-    const totalMinutes = Math.floor(elapsedMs / 60000);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-
+    const startedAt = new Date(visit.visitDate).getTime()
+    if (Number.isNaN(startedAt)) return "Triage"
+    const elapsedMs = Math.max(Date.now() - startedAt, 0)
+    const totalMinutes = Math.floor(elapsedMs / 60000)
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
     if (hours <= 0) {
-      return `Triage • ${minutes}m`;
+      return `Triage • ${minutes}m`
     }
 
-    return `Triage • ${hours}h ${minutes}m`;
-  };
-
+    return `Triage • ${hours}h ${minutes}m`
+  }
   const handleGoToBilling = (visit: Visit) => {
-    router.push(`/billing?visitId=${visit.id}&patientId=${visit.patient.id}`);
-  };
-
+    router.push(`/billing?visitId=${visit.id}&patientId=${visit.patient.id}`)
+  }
   const handleTriageVisit = (visit: Visit) => {
-    router.push(`/triage?visitId=${visit.id}`);
-  };
-
+    router.push(`/triage?visitId=${visit.id}`)
+  }
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles ||
-    []) as string[];
+    []) as string[]
   const isClinicianLike =
-    roles.includes("CLINICIAN") || roles.includes("DOCTOR");
-  const hasNurseRole = roles.includes("NURSE");
+    roles.includes("CLINICIAN") || roles.includes("DOCTOR")
+  const hasNurseRole = roles.includes("NURSE")
   const hasReceptionistRole =
-    roles.includes("RECEPTIONIST") || roles.includes("RECEPTION");
-  const hasFinanceRole = roles.includes("FINANCE");
-  const hasCashierRole = roles.includes("CASHIER");
-
+    roles.includes("RECEPTIONIST") || roles.includes("RECEPTION")
+  const hasFinanceRole = roles.includes("FINANCE")
   const getUserDepartmentIds = () => {
-    if (!doctor) return [];
-    const anyDoc = doctor as any;
+    if (!doctor) return []
+    const anyDoc = doctor as any
     // Extract departments from stored user object
-    const depts = Array.isArray(anyDoc.departments) ? anyDoc.departments : [];
+    const depts = Array.isArray(anyDoc.departments) ? anyDoc.departments : []
     if (depts.length > 0) {
       return depts
         .map((dept: { id?: string }) => String(dept.id || ""))
-        .filter(Boolean);
+        .filter(Boolean)
     }
 
     // Backward compatibility for older stored sessions
-    const dept = anyDoc.department;
+    const dept = anyDoc.department
     if (dept && dept.id) {
-      return [String(dept.id)];
+      return [String(dept.id)]
     }
-    return [];
-  };
-
-  const userDepartmentIds = getUserDepartmentIds();
-
+    return []
+  }
+  const userDepartmentIds = getUserDepartmentIds()
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "CREATED":
-        return <AlertCircle className="w-4 h-4 text-secondary" />;
+        return <AlertCircle className="w-4 h-4 text-secondary" />
       case "IN_PROGRESS":
-        return <Clock className="w-4 h-4 text-accent" />;
+        return <Clock className="w-4 h-4 text-accent" />
       case "COMPLETED":
-        return <CheckCircle className="w-4 h-4 text-primary" />;
+        return <CheckCircle className="w-4 h-4 text-primary" />
       case "CANCELLED":
-        return <AlertCircle className="w-4 h-4 text-muted-foreground" />;
+        return <AlertCircle className="w-4 h-4 text-muted-foreground" />
       default:
-        return <AlertCircle className="w-4 h-4 text-muted-foreground" />;
+        return <AlertCircle className="w-4 h-4 text-muted-foreground" />
     }
-  };
-
+  }
   const getStatusColor = (status: string) => {
     switch (status) {
       case "CREATED":
-        return "text-secondary";
+        return "text-secondary"
       case "IN_PROGRESS":
-        return "text-accent";
+        return "text-accent"
       case "COMPLETED":
-        return "text-primary";
+        return "text-primary"
       case "CANCELLED":
-        return "text-muted-foreground";
+        return "text-muted-foreground"
       default:
-        return "text-muted-foreground";
+        return "text-muted-foreground"
     }
-  };
-
+  }
   return (
     <div
       className="bg-card/70 dark:bg-transparent border border-border dark:border-slate-800 rounded-2xl shadow-sm dark:shadow-slate-900/40"
@@ -287,39 +261,26 @@ export default function VisitsListView({
                     // Match any visit department on the visit against user's departments
                     // and only allow consultation when that visit department is not completed/cancelled.
                     const matchingDept = visit.departments?.find((d) => {
-                      const deptId = String(d?.department?.id || d?.id || "");
-                      const isDepartmentOpen = d?.status !== "COMPLETED";
+                      const deptId = String(d?.department?.id || d?.id || "")
+                      const isDepartmentOpen = d?.status !== "COMPLETED"
                       return (
                         deptId &&
                         userDepartmentIds.includes(deptId) &&
                         isDepartmentOpen
-                      );
-                    });
-
+                      )
+                    })
                     const canUserConsultThisVisit =
-                      isClinicianLike && Boolean(matchingDept);
-                    const showConsultButton = canUserConsultThisVisit;
+                      isClinicianLike && Boolean(matchingDept)
+                    const showConsultButton = canUserConsultThisVisit
                     const showTriageButton =
                       (visit.status === "CREATED" ||
                         visit.status === "IN_PROGRESS") &&
-                      hasNurseRole;
-
+                      hasNurseRole
                     if (process.env.NODE_ENV !== "production") {
                       try {
-                        // eslint-disable-next-line no-console
-                        console.debug("VisitsListView debug:", {
-                          doctor,
-                          roles,
-                          userDepartmentIds,
-                          visitId: visit.id,
-                          matchingDeptId:
-                            matchingDept?.department?.id || matchingDept?.id,
-                          matchingDeptStatus: matchingDept?.status,
-                          canUserConsultThisVisit,
-                          showConsultButton,
-                          showTriageButton,
-                        });
-                      } catch (e) {
+                         
+
+                      } catch {
                         // ignore
                       }
                     }
@@ -329,8 +290,8 @@ export default function VisitsListView({
                         {showConsultButton && (
                           <button
                             onClick={(e) => {
-                              e.stopPropagation();
-                              onConsultVisit(visit);
+                              e.stopPropagation()
+                              onConsultVisit(visit)
                             }}
                             title="Start Consult"
                             className="px-2 sm:px-4 py-1.5 sm:py-2 bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
@@ -348,8 +309,8 @@ export default function VisitsListView({
                         {showTriageButton && (
                           <button
                             onClick={(e) => {
-                              e.stopPropagation();
-                              handleTriageVisit(visit);
+                              e.stopPropagation()
+                              handleTriageVisit(visit)
                             }}
                             title="Open Triage"
                             className="px-2 sm:px-4 py-1.5 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
@@ -368,8 +329,8 @@ export default function VisitsListView({
                         {hasReceptionistRole && canAddDepartment(visit) && (
                           <button
                             onClick={(e) => {
-                              e.stopPropagation();
-                              handleAddDepartment(visit);
+                              e.stopPropagation()
+                              handleAddDepartment(visit)
                             }}
                             title="Add Department"
                             className="px-2 sm:px-4 py-1.5 sm:py-2 bg-purple-500 hover:bg-purple-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
@@ -387,8 +348,8 @@ export default function VisitsListView({
                         {hasFinanceRole && hasUnbilledItems(visit) && (
                           <button
                             onClick={(e) => {
-                              e.stopPropagation();
-                              handleGoToBilling(visit);
+                              e.stopPropagation()
+                              handleGoToBilling(visit)
                             }}
                             title="Bill Visit"
                             className="px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
@@ -405,8 +366,8 @@ export default function VisitsListView({
                           getDerivedVisitBillingStatus(visit) === "BILLED" && (
                             <button
                               onClick={(e) => {
-                                e.stopPropagation();
-                                void handlePreviewInvoice(visit);
+                                e.stopPropagation()
+                                void handlePreviewInvoice(visit)
                               }}
                               title="Preview Invoice"
                               disabled={previewingVisitId === visit.id}
@@ -424,7 +385,7 @@ export default function VisitsListView({
                             </button>
                           )}
                       </>
-                    );
+                    )
                   })()}
 
                   <div className="text-right text-xs sm:text-sm ml-auto lg:ml-0 dark:text-slate-100">
@@ -461,8 +422,8 @@ export default function VisitsListView({
           visit={selectedVisitForDepartment}
           isOpen={addDepartmentModalOpen}
           onClose={() => {
-            setAddDepartmentModalOpen(false);
-            setSelectedVisitForDepartment(null);
+            setAddDepartmentModalOpen(false)
+            setSelectedVisitForDepartment(null)
           }}
           onSuccess={handleAddDepartmentSuccess}
         />
@@ -471,12 +432,12 @@ export default function VisitsListView({
       <BillingPreviewSheet
         open={previewOpen}
         onOpenChange={(open) => {
-          setPreviewOpen(open);
+          setPreviewOpen(open)
           if (!open) {
-            setPreviewVisitBilling(null);
-            setPreviewDepartmentId(null);
-            setPreviewVisit(null);
-            setPreviewStartedAt(null);
+            setPreviewVisitBilling(null)
+            setPreviewDepartmentId(null)
+            setPreviewVisit(null)
+            setPreviewStartedAt(null)
           }
         }}
         visit={previewVisit}
@@ -490,10 +451,10 @@ export default function VisitsListView({
         canViewMore={hasFinanceRole}
         onViewMore={() => {
           if (previewVisit) {
-            router.push(`/billing?visitId=${previewVisit.id}`);
+            router.push(`/billing?visitId=${previewVisit.id}`)
           }
         }}
       />
     </div>
-  );
+  )
 }

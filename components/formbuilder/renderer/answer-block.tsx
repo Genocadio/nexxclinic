@@ -1,10 +1,8 @@
 "use client";
 
 import React from "react";
-import type { FormBlock } from "@/lib/formbuilder-storage";
 import type { AnswerBlockProps } from "./types";
 import {
-  AnswerInlineField,
   ChoiceGroup,
   FieldShell,
   SignatureCanvas,

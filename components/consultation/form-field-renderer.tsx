@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-nocheck Legacy consultation form renderer — opted out of type-checking; to be re-typed.
 "use client"
 
 import { cn } from "@/lib/utils"

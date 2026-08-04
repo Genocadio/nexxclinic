@@ -1,24 +1,22 @@
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { FormRenderer } from "@/components/formbuilder/form-renderer";
-import { useStandaloneAnswer } from "@/hooks/standalone-forms/visit-answers";
+"use client"
+import { useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { FormRenderer } from "@/components/formbuilder/form-renderer"
+import { useStandaloneAnswer } from "@/hooks/standalone-forms/visit-answers"
 import {
   mapStandaloneAnswerToSavedForm,
   parseStandaloneAnswers,
-} from "@/lib/standalone-form-mapper";
-import type { VisitDepartment } from "@/lib/api-types";
-
+} from "@/lib/standalone-form-mapper"
+import type { VisitDepartment } from "@/lib/api-types"
 interface ConsultationPreviewSheetProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  answerId: string | null;
-  departmentName?: string;
-  patientName?: string;
-  visitDepartment?: VisitDepartment | null;
-  previewStartedAt?: number | null;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  answerId: string | null
+  departmentName?: string
+  patientName?: string
+  visitDepartment?: VisitDepartment | null
+  previewStartedAt?: number | null
 }
 
 export function ConsultationPreviewSheet({
@@ -28,57 +26,40 @@ export function ConsultationPreviewSheet({
   departmentName,
   patientName,
   visitDepartment,
-  previewStartedAt,
 }: ConsultationPreviewSheetProps) {
-  const [previewReadyLogged, setPreviewReadyLogged] = useState(false);
-  const [isRendered, setIsRendered] = useState(open);
-
+  const [previewReadyLogged, setPreviewReadyLogged] = useState(false)
+  const [isRendered, setIsRendered] = useState(open)
   const { answer, loading, error } = useStandaloneAnswer(answerId, {
     skip: !open || !answerId,
-  });
-
+  })
   const previewForm = useMemo(
     () => (answer ? mapStandaloneAnswerToSavedForm(answer) : null),
     [answer],
-  );
+  )
   const previewAnswers = useMemo(
     () => parseStandaloneAnswers(answer?.answers) as Record<string, unknown>,
     [answer?.answers],
-  );
-  const answerStatus = answer?.status || null;
-
+  )
+  const answerStatus = answer?.status || null
   useEffect(() => {
     if (open) {
-      setIsRendered(true);
-      return;
+      setIsRendered(true)
+      return
     }
 
     const timeout = window.setTimeout(() => {
-      setIsRendered(false);
-    }, 220);
-
-    return () => window.clearTimeout(timeout);
-  }, [open]);
-
+      setIsRendered(false)
+    }, 220)
+    return () => window.clearTimeout(timeout)
+  }, [open])
   useEffect(() => {
     if (!open) {
-      setPreviewReadyLogged(false);
-      return;
+      setPreviewReadyLogged(false)
+      return
     }
 
-    if (!previewForm || loading || previewReadyLogged) return;
-
-    const elapsedMs =
-      typeof previewStartedAt === "number"
-        ? Date.now() - previewStartedAt
-        : null;
-    console.log("[ConsultationPreview] ready", {
-      answerId,
-      hasAnswers: Boolean(answer?.answers),
-      hasForm: Boolean(previewForm),
-      elapsedMs,
-    });
-    setPreviewReadyLogged(true);
+    if (!previewForm || loading || previewReadyLogged) return
+    setPreviewReadyLogged(true)
   }, [
     answer?.answers,
     answerId,
@@ -86,11 +67,9 @@ export function ConsultationPreviewSheet({
     open,
     previewForm,
     previewReadyLogged,
-    previewStartedAt,
-  ]);
-
+  ])
   if (!isRendered || typeof document === "undefined") {
-    return null;
+    return null
   }
 
   return createPortal(
@@ -254,5 +233,5 @@ export function ConsultationPreviewSheet({
       </aside>
     </div>,
     document.body,
-  );
+  )
 }

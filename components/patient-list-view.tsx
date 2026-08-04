@@ -28,7 +28,7 @@ function mapVisitStatusToSummary(status: Visit["status"]): VisitSummaryStatus {
   return "pending";
 }
 
-function visitToSummary(visit: Visit): PatientVisitSummary {
+function _visitToSummary(visit: Visit): PatientVisitSummary {
   return {
     id: visit.id,
     date: visit.visitDate,

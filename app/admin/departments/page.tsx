@@ -24,6 +24,7 @@ import { ArrowLeft, Plus, Pencil, X, FileText } from 'lucide-react'
 import { DepartmentFormsPanel } from '@/components/admin/department-forms-panel'
 import { DepartmentProfilesPanel } from '@/components/admin/department-profiles-panel'
 import { useToast } from '@/hooks/use-toast'
+import type { Department, InsuranceProvider, Product } from '@/lib/api-types'
 
 export default function DepartmentsPage() {
   const router = useRouter()
@@ -36,11 +37,11 @@ export default function DepartmentsPage() {
 
   const { createDepartment } = useCreateDepartment()
   const { updateDepartment } = useUpdateDepartment()
-  const [selectedDepartment, setSelectedDepartment] = useState<any | null>(null)
+  const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
   const [menuOpen, setMenuOpen] = useState(false)
-  const [menuDepartment, setMenuDepartment] = useState<any>(null)
+  const [menuDepartment, setMenuDepartment] = useState<Department | null>(null)
   const [departmentName, setDepartmentName] = useState('')
   const [departmentProfileName, setDepartmentProfileName] = useState('Default')
   const [departmentInsurancePolicyMode, setDepartmentInsurancePolicyMode] = useState('')
@@ -50,35 +51,35 @@ export default function DepartmentsPage() {
   const [departmentSupportRequests, setDepartmentSupportRequests] = useState<boolean>(false)
   const [departmentRequestsProducts, setDepartmentRequestsProducts] = useState<boolean>(false)
   const [pendingProductId, setPendingProductId] = useState('')
-  const [pendingProduct, setPendingProduct] = useState<any | null>(null)
+  const [pendingProduct, setPendingProduct] = useState<Product | null>(null)
   // Products picked from backend search may not exist in the 200-item list loaded
   // for the autocomplete — keep them so chips can still show their names.
-  const [pickedProducts, setPickedProducts] = useState<Record<string, any>>({})
+  const [pickedProducts, setPickedProducts] = useState<Record<string, Product>>({})
   const [pendingInsuranceId, setPendingInsuranceId] = useState('')
-  const [pendingInsurance, setPendingInsurance] = useState<any | null>(null)
+  const [pendingInsurance, setPendingInsurance] = useState<InsuranceProvider | null>(null)
   // Insurances picked from backend search may not exist in the 200-item list
   // loaded for the autocomplete — keep them so chips can still show their names.
-  const [pickedInsurances, setPickedInsurances] = useState<Record<string, any>>({})
+  const [pickedInsurances, setPickedInsurances] = useState<Record<string, InsuranceProvider>>({})
   const [saving, setSaving] = useState(false)
 
   // Linking states
   const [selectedInsuranceId, setSelectedInsuranceId] = useState<string>('')
-  const [selectedInsurance, setSelectedInsurance] = useState<any | null>(null)
+  const [selectedInsurance, setSelectedInsurance] = useState<InsuranceProvider | null>(null)
 
   const availableInsurances = useMemo(() => {
     if (!selectedDepartment) return insurances
-    const linkedIds = new Set((selectedDepartment.insurancePolicies || []).map((i: any) => String(i.id)))
-    return insurances.filter((i: any) => !linkedIds.has(String(i.id)))
+    const linkedIds = new Set((selectedDepartment.insurancePolicies || []).map((i) => String(i.id)))
+    return insurances.filter((i: InsuranceProvider) => !linkedIds.has(String(i.id)))
   }, [insurances, selectedDepartment])
 
   const modalAvailableProducts = useMemo(() => {
     const linkedIds = new Set(departmentProductIds)
-    return products.filter((product: any) => !linkedIds.has(String(product.id)))
+    return products.filter((product: Product) => !linkedIds.has(String(product.id)))
   }, [departmentProductIds, products])
 
   const modalAvailableInsurances = useMemo(() => {
     const linkedIds = new Set(departmentInsuranceIds)
-    return insurances.filter((insurance: any) => !linkedIds.has(String(insurance.id)))
+    return insurances.filter((insurance: InsuranceProvider) => !linkedIds.has(String(insurance.id)))
   }, [departmentInsuranceIds, insurances])
 
   const resetDepartmentForm = () => {
@@ -165,7 +166,7 @@ export default function DepartmentsPage() {
     setIsModalOpen(true)
   }
 
-  const openDepartmentMenu = (department: any) => {
+  const openDepartmentMenu = (department: Department) => {
     setMenuDepartment(department)
     setMenuOpen(true)
     setSelectedInsuranceId('')
@@ -179,7 +180,7 @@ export default function DepartmentsPage() {
     setSelectedInsurance(null)
   }
 
-  const renderInsuranceChip = (insurance: any, onClear: () => void) => {
+  const renderInsuranceChip = (insurance: InsuranceProvider | null, onClear: () => void) => {
     if (!insurance) return null
     return (
       <div className="flex items-center justify-between rounded-lg border px-3 py-2 bg-muted/20">
@@ -202,7 +203,7 @@ export default function DepartmentsPage() {
     )
   }
 
-  const handlePolicyModeChange = async (department: any, newMode: string) => {
+  const handlePolicyModeChange = async (department: Department, newMode: string) => {
     if (!department || department.insurancePolicyMode === newMode) return
 
     // The pending pick may no longer apply after the mode changes; start fresh.
@@ -211,7 +212,7 @@ export default function DepartmentsPage() {
     
     try {
       // If switching from ALL to another mode, clear existing insurance policies first
-      const updateData: any = {
+      const updateData: { insurancePolicyMode: string; insuranceProviderIds?: string[] } = {
         insurancePolicyMode: newMode,
       }
       
@@ -342,7 +343,7 @@ export default function DepartmentsPage() {
     const department = menuDepartment || selectedDepartment
     if (!department || !selectedInsuranceId) return
     try {
-      const currentInsuranceIds = (department.insurancePolicies || []).map((i: any) => String(i.id))
+      const currentInsuranceIds = (department.insurancePolicies || []).map((i) => String(i.id))
       if (currentInsuranceIds.includes(selectedInsuranceId)) {
         toast({ title: 'Already linked', description: 'This insurance policy is already linked to the department.' })
         setSelectedInsuranceId('')
@@ -406,7 +407,7 @@ export default function DepartmentsPage() {
     const department = menuDepartment || selectedDepartment
     if (!department) return
     try {
-      const currentInsuranceIds = (department.insurancePolicies || []).map((i: any) => String(i.id))
+      const currentInsuranceIds = (department.insurancePolicies || []).map((i) => String(i.id))
       const resp = await updateDepartment(department.id, {
         insuranceProviderIds: currentInsuranceIds.filter((id: string) => id !== String(insuranceId))
       })
@@ -468,8 +469,7 @@ export default function DepartmentsPage() {
               ))}
             </div>
           ) : (
-            <div className="space-y-2 max-h-[60vh] overflow-auto pr-1">
-              {departments.map((dept) => (
+            <div className="space-y-2 max-h-[60vh] overflow-auto pr-1">                    {departments.map((dept: Department) => (
                 <div
                   key={dept.id}
                   className={`w-full p-3 rounded-xl border ${selectedDepartment?.id === dept.id ? 'bg-muted' : 'bg-background/60'} hover:bg-muted`}
@@ -598,7 +598,7 @@ export default function DepartmentsPage() {
                         <div className="flex flex-col space-y-2">
                           <InsuranceAutocomplete
                             insurances={availableInsurances.filter(insurance => 
-                              !(selectedDepartment.insurancePolicies || []).some((existing: any) => 
+                              !(selectedDepartment.insurancePolicies || []).some((existing) => 
                                 String(existing.id) === String(insurance.id)
                               )
                             )}
@@ -630,8 +630,7 @@ export default function DepartmentsPage() {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  {(selectedDepartment.insurancePolicies || []).map((insurance: any) => (
+                <div className="space-y-2">                          {(selectedDepartment.insurancePolicies || []).map((insurance) => (
                     <div key={insurance.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
                       <div className="flex-1">
                         <span className="text-sm font-medium">{insurance.name}</span>
@@ -788,7 +787,7 @@ export default function DepartmentsPage() {
                       {departmentProductIds.map((productId) => {
                         const product =
                           pickedProducts[productId] ||
-                          products.find((item: any) => String(item.id) === productId)
+                          products.find((item: Product) => String(item.id) === productId)
                         return (
                           <div key={productId} className="flex items-center justify-between rounded-lg border px-3 py-2 bg-muted/20">
                             <span className="text-sm font-medium">{product?.name || productId}</span>
@@ -818,7 +817,7 @@ export default function DepartmentsPage() {
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <InsuranceAutocomplete
-                              insurances={modalAvailableInsurances.filter((insurance: any) => 
+                              insurances={modalAvailableInsurances.filter((insurance) => 
                                 !departmentInsuranceIds.includes(String(insurance.id))
                               )}
                               selectedInsuranceId={pendingInsuranceId}
@@ -844,7 +843,7 @@ export default function DepartmentsPage() {
                       {departmentInsuranceIds.map((insuranceId) => {
                         const insurance =
                           pickedInsurances[insuranceId] ||
-                          insurances.find((item: any) => String(item.id) === insuranceId)
+                          insurances.find((item: InsuranceProvider) => String(item.id) === insuranceId)
                         return (
                           <div key={insuranceId} className="flex items-center justify-between rounded-lg border px-3 py-2 bg-muted/20">
                             <span className="text-sm font-medium">{insurance?.insuranceName || insurance?.name || insuranceId}</span>
@@ -961,7 +960,7 @@ export default function DepartmentsPage() {
                         <div className="flex flex-col space-y-2">
                           <InsuranceAutocomplete
                             insurances={availableInsurances.filter(insurance => 
-                              !(menuDepartment.insurancePolicies || []).some((existing: any) => 
+                              !(menuDepartment.insurancePolicies || []).some((existing) => 
                                 String(existing.id) === String(insurance.id)
                               )
                             )}
@@ -994,7 +993,7 @@ export default function DepartmentsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  {(menuDepartment.insurancePolicies || []).map((insurance: any) => (
+                  {(menuDepartment.insurancePolicies || []).map((insurance) => (
                     <div key={insurance.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
                       <div className="flex-1">
                         <span className="text-sm font-medium">{insurance.name}</span>

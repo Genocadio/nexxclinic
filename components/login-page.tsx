@@ -103,7 +103,7 @@ export default function LoginPage() {
           </form>
 
           <p className="text-xs text-muted-foreground text-center mt-4">
-            Don't have an account? <Link href="/auth?mode=register" className="text-primary hover:underline">Register here</Link>
+            Don&apos;t have an account? <Link href="/auth?mode=register" className="text-primary hover:underline">Register here</Link>
           </p>
         </div>
       </div>

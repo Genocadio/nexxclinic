@@ -119,11 +119,7 @@ export function saveDepartmentForm(departmentId: string | number, form: Omit<Dep
       : [...allForms, newForm]
     
     localStorage.setItem(FORMS_STORAGE_KEY, JSON.stringify(updated))
-    
-    // Log to console
-    console.log('✅ Department Form Saved:', newForm)
-    console.log('📋 Form Schema:', JSON.stringify(newForm, null, 2))
-    
+
     return newForm
   } catch (err) {
     console.error('Error saving department form:', err)
@@ -156,7 +152,7 @@ export function deleteDepartmentForm(departmentId: string | number) {
     const allForms = getAllDepartmentForms()
     const updated = allForms.filter(f => f.departmentId !== departmentId)
     localStorage.setItem(FORMS_STORAGE_KEY, JSON.stringify(updated))
-    console.log('🗑️ Department Form Deleted for:', departmentId)
+    
   } catch (err) {
     console.error('Error deleting department form:', err)
     throw err

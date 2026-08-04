@@ -2,9 +2,7 @@
 
 import { useState, useRef } from "react"
 
-import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Pill, Trash2, Minus, Plus, AlertTriangle } from "lucide-react"
 import type { FormAction } from "@/lib/form-storage"
@@ -57,11 +55,11 @@ export default function FormActionsDisplay({
     }
 
     try {
-      console.log('=== Update Product Quantity ===')
-      console.log('Product:', item.name)
-      console.log('Using visitDepartmentProductId:', item.backendId)
-      console.log('Next Quantity:', nextQty)
-      console.log('==============================')
+      
+      
+      
+      
+      
 
       if (!item.backendId) {
         throw new Error(`No backendId found for item: ${item.name}. This item may not have been properly added to the visit.`)
@@ -85,18 +83,11 @@ export default function FormActionsDisplay({
         throw new Error(`No backendId found for item: ${item.name}`)
       }
       
-      console.log('[FormActionsDisplay] Removing visit department product:', {
-        itemId: item.id,
-        itemName: item.name,
-        itemType: item.type,
-        backendId: item.backendId,
-        source: item.source,
-        removedFromVisit: item.removedFromVisit,
-      })
+      
       
       const response = await removeProduct(item.backendId)
       
-      console.log('[FormActionsDisplay] Remove response:', response)
+      
       
       if (response?.status !== 'SUCCESS') {
         throw new Error(response?.message || 'Failed to remove visit department product')

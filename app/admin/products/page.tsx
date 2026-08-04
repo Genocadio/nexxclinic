@@ -7,6 +7,7 @@ import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FieldError } from "@/components/ui/field-error";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/lib/auth-context";
 import {
   useProductsPaginated,
@@ -24,7 +25,6 @@ import {
   Plus,
   X,
   Shield,
-  RefreshCw,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
@@ -40,7 +40,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -49,6 +48,12 @@ import {
   productFormSchema,
   type ProductFormValues,
 } from "@/lib/form-schemas";
+import type {
+  InsuranceProvider,
+  Product,
+  ProductInsuranceCoverage,
+  ProductType,
+} from "@/lib/api-types";
 
 const PRODUCT_TYPE_OPTIONS = [
   "DRUG",
@@ -77,7 +82,7 @@ export default function ManageProductsPage() {
     refresh,
   } = useProductsPaginated({
     name: searchName || undefined,
-    type: filterType !== "ALL" ? (filterType as any) : undefined,
+    type: filterType !== "ALL" ? (filterType as ProductType) : undefined,
     size: 30,
   });
 
@@ -92,7 +97,7 @@ export default function ManageProductsPage() {
   const [saving, setSaving] = useState(false);
 
   // Selected item for detail view
-  const [selectedItem, setSelectedItem] = useState<any | null>(null);
+  const [selectedItem, setSelectedItem] = useState<Product | null>(null);
 
   // Add/Edit modal state
   const [addEditModalOpen, setAddEditModalOpen] = useState(false);
@@ -140,7 +145,7 @@ export default function ManageProductsPage() {
     setAddEditModalOpen(true);
   };
 
-  const openEditModal = (item: any) => {
+  const openEditModal = (item: Product) => {
     const incomingType = String(
       item.type || "",
     ).toUpperCase() as ProductTypeOption;
@@ -225,7 +230,7 @@ export default function ManageProductsPage() {
           ...(updatedData || {}),
           name: values.name,
           description: values.description,
-          type: values.type,
+          type: values.type as ProductType,
           privateRhicPrice: Number(values.privatePrice),
           clinicPrice: values.clinicPrice ? Number(values.clinicPrice) : undefined,
         });
@@ -233,15 +238,16 @@ export default function ManageProductsPage() {
 
       resetItemForm();
       setAddEditModalOpen(false);
-    } catch (err) {
+    } catch {
       toast.error("Failed to update product");
     } finally {
       setSaving(false);
     }
   };
 
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
   const handleDeleteItem = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this product?")) return;
     setSaving(true);
     try {
       const resp = await deleteProduct(id);
@@ -254,7 +260,7 @@ export default function ManageProductsPage() {
       } else {
         toast.error(resp?.message || "Failed to delete product");
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to delete product");
     } finally {
       setSaving(false);
@@ -308,7 +314,7 @@ export default function ManageProductsPage() {
       } else {
         toast.error(resultResp?.message || "Failed to add coverage");
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to add coverage");
     } finally {
       setSaving(false);
@@ -320,9 +326,8 @@ export default function ManageProductsPage() {
     setSaving(true);
     try {
       const targetCov = selectedItem.insuranceCoverages?.find(
-        (cov: any) =>
-          String(cov.insuranceProvider?.id || cov.insurance?.id) ===
-          String(insuranceId),
+        (cov: ProductInsuranceCoverage) =>
+          String(cov.insuranceProvider?.id) === String(insuranceId),
       );
       if (!targetCov) {
         toast.error("Coverage not found");
@@ -339,15 +344,14 @@ export default function ManageProductsPage() {
         setSelectedItem({
           ...selectedItem,
           insuranceCoverages: (selectedItem.insuranceCoverages || []).filter(
-            (cov: any) =>
-              String(cov.insuranceProvider?.id || cov.insurance?.id) !==
-              String(insuranceId),
+            (cov: ProductInsuranceCoverage) =>
+              String(cov.insuranceProvider?.id) !== String(insuranceId),
           ),
         });
       } else {
         toast.error(resp?.message || "Failed to remove coverage");
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to remove coverage");
     } finally {
       setSaving(false);
@@ -449,7 +453,7 @@ export default function ManageProductsPage() {
               onScroll={handleScroll}
               className="flex-1 space-y-2 max-h-[calc(100vh-320px)] overflow-y-auto pr-2 scrollbar-thin"
             >
-              {products.map((item: any) => (
+              {products.map((item: Product) => (
                 <div
                   key={item.id}
                   className={`flex items-center justify-between bg-card/60 dark:bg-slate-900/60 border rounded-xl px-4 py-3 cursor-pointer transition-all hover:border-primary ${
@@ -480,7 +484,7 @@ export default function ManageProductsPage() {
                     className="h-8 w-8 rounded-full hover:bg-destructive/10"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDeleteItem(item.id);
+                      setDeleteTargetId(item.id);
                     }}
                     disabled={saving}
                   >
@@ -547,7 +551,7 @@ export default function ManageProductsPage() {
                           size="icon"
                           variant="destructive"
                           className="h-8 w-8 rounded-full"
-                          onClick={() => handleDeleteItem(selectedItem.id)}
+                          onClick={() => setDeleteTargetId(selectedItem.id)}
                           disabled={saving}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -593,9 +597,9 @@ export default function ManageProductsPage() {
                   {selectedItem.insuranceCoverages &&
                   selectedItem.insuranceCoverages.length > 0 ? (
                     <div className="space-y-2 mb-4">
-                      {selectedItem.insuranceCoverages.map((coverage: any) => {
-                        const provider =
-                          coverage.insuranceProvider || coverage.insurance;
+                      {selectedItem.insuranceCoverages.map(
+                        (coverage: ProductInsuranceCoverage) => {
+                        const provider = coverage.insuranceProvider;
                         return (
                           <div
                             key={coverage.id}
@@ -607,10 +611,9 @@ export default function ManageProductsPage() {
                                 {provider?.acronym})
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                Cost: {coverage.cost || coverage.price || 0} RWF
+                                Cost: {coverage.cost} RWF
                                 • Coverage:{" "}
-                                {provider?.defaultCoveragePercentage ||
-                                  provider?.coveragePercentage}
+                                {provider?.defaultCoveragePercentage}
                                 %
                               </p>
                             </div>
@@ -656,19 +659,14 @@ export default function ManageProductsPage() {
                             ) : (
                               insurances
                                 .filter(
-                                  (ins: any) =>
+                                  (ins: InsuranceProvider) =>
                                     !selectedItem.insuranceCoverages?.some(
-                                      (cov: any) => {
-                                        const providerId =
-                                          cov.insuranceProvider?.id ||
-                                          cov.insurance?.id;
-                                        return (
-                                          String(providerId) === String(ins.id)
-                                        );
-                                      },
+                                      (cov: ProductInsuranceCoverage) =>
+                                        String(cov.insuranceProvider?.id) ===
+                                        String(ins.id),
                                     ),
                                 )
-                                .map((insurance: any) => (
+                                .map((insurance: InsuranceProvider) => (
                                   <SelectItem
                                     key={insurance.id}
                                     value={insurance.id.toString()}
@@ -832,6 +830,22 @@ export default function ManageProductsPage() {
           </DialogContent>
         </Dialog>
       </main>
+
+      <ConfirmDialog
+        open={Boolean(deleteTargetId)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetId(null);
+        }}
+        title="Delete product?"
+        description="This product will be permanently removed. This action cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => {
+          if (!deleteTargetId) return;
+          setDeleteTargetId(null);
+          void handleDeleteItem(deleteTargetId);
+        }}
+      />
     </div>
   );
 }

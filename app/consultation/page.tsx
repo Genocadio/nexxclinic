@@ -32,9 +32,6 @@ export default function ConsultationPage() {
     const firstVisitDepartmentId = firstDepartment?.id;
     const { notes: departmentNotes, refetch: refetchNotes } =
         useVisitDepartmentNotes(visitId || "", firstVisitDepartmentId || null);
-    const unreadNotesCount = (departmentNotes || []).filter(
-        (note: any) => !note?.viewed,
-    ).length;
 
     useEffect(() => {
         if (!loading && !visit && !error) {

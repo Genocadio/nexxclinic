@@ -84,8 +84,6 @@ export function FieldEditor({
   setConditionalCondition,
   conditionalValue,
   setConditionalValue,
-  conditionalItemType,
-  setConditionalItemType,
   availableFields,
   onSave,
   onClose,

@@ -16,7 +16,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import { TEMPLATE_PRESETS } from "@/lib/formbuilder-presets";
-import type { FormBlock, SavedForm } from "@/lib/formbuilder-storage";
+import type { SavedForm } from "@/lib/formbuilder-storage";
 import { FormRenderer } from "@/components/formbuilder/form-renderer";
 import {
   useGetStandaloneForm,

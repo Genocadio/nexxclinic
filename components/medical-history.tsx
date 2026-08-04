@@ -11,7 +11,7 @@ interface MedicalHistoryProps {
   onVisitSelect?: (visit: Visit) => void
 }
 
-export default function MedicalHistory({ patient, visits = [], onVisitSelect }: MedicalHistoryProps) {
+export default function MedicalHistory({ visits = [], onVisitSelect }: MedicalHistoryProps) {
   const [expandedVisit, setExpandedVisit] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"timeline" | "list">(() => {
     if (typeof window !== 'undefined') {

@@ -15,8 +15,6 @@ function createHttpLink() {
   return new HttpLink({ uri: getUri(), fetch })
 }
 
-const UNAUTHORIZED_TOAST_ID = 'global-unauthorized-toast'
-
 const notifyUnauthorized = () => {
   if (typeof window === 'undefined') {
     return
@@ -107,7 +105,7 @@ const authMiddleware = new ApolloLink((operation, forward) => {
   return forward(operation)
 })
 
-const errorLink = onError(({ graphQLErrors, networkError, operation }) => {
+const errorLink = onError(({ graphQLErrors, networkError }) => {
   // Handle network errors (CORS, server down, offline, etc.)
   if (networkError) {
     const ne: any = networkError

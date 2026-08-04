@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-toastify";
@@ -63,7 +63,7 @@ export default function ManageUsersPage() {
   const { adminUpdateUser, loading: updating } = useAdminUpdateUser();
   const { activateUser, loading: activating } = useActivateUser();
   const { deactivateUser, loading: deactivating } = useDeactivateUser();
-  const { updateUserRoles, loading: updatingRoles } = useUpdateUserRoles();
+  const { loading: updatingRoles } = useUpdateUserRoles();
   const { deleteUserPassword, loading: forcingReset } = useDeleteUserPassword();
 
   const [query, setQuery] = useState("");

@@ -41,7 +41,6 @@ export function BlockWrapper({
   isLast,
   hovered,
   setHovered,
-  onActivate,
   onDelete,
   onMoveUp,
   onMoveDown,

@@ -1,4 +1,4 @@
-import type { ClinicProfile, ClinicContactType } from "@/lib/api-types"
+import type { ClinicProfile } from "@/lib/api-types"
 import { getMediaUrl } from "@/lib/media-url"
 
 export const DEFAULT_CLINIC_NAME = "med"

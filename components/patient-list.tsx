@@ -26,7 +26,7 @@ interface PatientListProps {
   onBack: () => void;
 }
 
-function mapVisitStatus(status: VisitStatus): VisitSummaryStatus {
+function _mapVisitStatus(status: VisitStatus): VisitSummaryStatus {
   if (status === VisitStatus.COMPLETED) return "completed";
   if (status === VisitStatus.IN_PROGRESS) return "ongoing";
   return "pending";

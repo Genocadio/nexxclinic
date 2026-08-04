@@ -106,10 +106,6 @@ export function CollectPaymentSheet({
     setError(null);
   }, [open, buckets]);
 
-  const totalOutstanding = buckets.reduce(
-    (sum, entry) => sum + entry.outstandingAmount,
-    0,
-  );
   const totalToCollect = Object.values(amounts).reduce(
     (sum, amount) => sum + (Number(amount) || 0),
     0,

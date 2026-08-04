@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import type {
   LastPatientDepartmentVisitOutput,
-  Visit,
   VisitDepartment,
 } from "@/lib/api-types";
 

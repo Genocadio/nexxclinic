@@ -8,9 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
-import { CheckCircle2, X, Clock } from "lucide-react"
+import { X, Clock } from "lucide-react"
 
 interface AddRecordDialogProps {
   open: boolean
@@ -26,7 +25,6 @@ export function AddRecordDialog({
   onOpenChange,
   onAddRecord,
   editingRecord,
-  pendingTasks = [],
   admissionTime,
 }: AddRecordDialogProps) {
   const [recordSummary, setRecordSummary] = useState("")
