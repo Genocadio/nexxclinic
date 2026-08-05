@@ -30,6 +30,7 @@ type PaymentMethod =
   | "MIXED";
 import { flattenDepartmentInsuranceBillings } from "@/lib/visit-billing-utils";
 import { formatRWF } from "@/lib/utils";
+import { roundMoney, sumMoney } from "@/lib/money";
 
 export interface CollectPaymentEntry {
   departmentInsuranceBillingId: string;
@@ -106,9 +107,8 @@ export function CollectPaymentSheet({
     setError(null);
   }, [open, buckets]);
 
-  const totalToCollect = Object.values(amounts).reduce(
-    (sum, amount) => sum + (Number(amount) || 0),
-    0,
+  const totalToCollect = sumMoney(
+    Object.values(amounts).map((amount) => Number(amount) || 0),
   );
 
   if (buckets.length === 0) {
@@ -137,7 +137,7 @@ export function CollectPaymentSheet({
     }
     try {
       for (const entry of entries) {
-        const amount = Number(amounts[entry.departmentInsuranceBillingId] || 0);
+        const amount = roundMoney(Number(amounts[entry.departmentInsuranceBillingId] || 0));
         if (amount > entry.outstandingAmount + 0.001) {
           throw new Error(
             `Payment for ${entry.departmentName} exceeds its outstanding balance of ${formatRWF(entry.outstandingAmount)}.`,
@@ -154,7 +154,7 @@ export function CollectPaymentSheet({
         }
         await onRecordPayment({
           departmentInsuranceBillingId: entry.departmentInsuranceBillingId,
-          amount: Number(amount.toFixed(2)),
+          amount,
           paymentMethod: methods[entry.departmentInsuranceBillingId] || "MOBILE_MONEY",
           note: note || undefined,
         });

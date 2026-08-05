@@ -1,5 +1,12 @@
 // Billing Data Structure and Utilities
 
+import {
+  fromCents,
+  insuranceShareCents,
+  lineTotalToCents,
+  toCents,
+} from "@/lib/money";
+
 export interface BillingItem {
   id: string;
   productId?: string;
@@ -144,12 +151,16 @@ export function getItemInsuranceSplit(
   item: BillingItem,
   coveragePercentage: number,
 ) {
-  const itemTotal = calculateItemTotal(item);
   const exemptionType = item.exemptionType || (item.exempted ? "full" : "none");
 
   if (exemptionType === "full") {
     return { itemTotal: 0, insuranceAmount: 0, patientAmount: 0, skip: true };
   }
+
+  // Exact line total in integer cents — mirrors backend toMoney(unitPrice × quantity).
+  const unitPrice = item.price ?? item.basePrice ?? 0;
+  const lineTotalCents = lineTotalToCents(unitPrice, item.quantity ?? 1);
+  const itemTotal = fromCents(lineTotalCents);
 
   if (!item.selectedInsuranceId || item.insuranceNotCovered) {
     return {
@@ -160,9 +171,15 @@ export function getItemInsuranceSplit(
     };
   }
 
-  // defaultCoveragePercentage is the patient's share (co-pay), not the insurer's share.
-  const patientAmount = Math.round((itemTotal * coveragePercentage) / 100);
-  const insuranceAmount = itemTotal - patientAmount;
+  // Mirrors the backend: the insurer covers (100 − pct)% of the coverage cost
+  // (for an insured line the unit price IS the coverage cost), capped at the
+  // line total; the patient pays the remainder. Rounding happens once, HALF_UP
+  // to 2 dp — never to whole RWF.
+  const coveredCents = Math.min(
+    insuranceShareCents(lineTotalCents, coveragePercentage),
+    lineTotalCents,
+  );
+  const patientCents = lineTotalCents - coveredCents;
 
   if (exemptionType === "patient-share") {
     return {
@@ -173,7 +190,12 @@ export function getItemInsuranceSplit(
     };
   }
 
-  return { itemTotal, insuranceAmount, patientAmount, skip: false };
+  return {
+    itemTotal,
+    insuranceAmount: fromCents(coveredCents),
+    patientAmount: fromCents(patientCents),
+    skip: false,
+  };
 }
 
 export interface DepartmentBillAllocation {
@@ -198,7 +220,10 @@ export function computeDepartmentBillAllocations(
   totalPayment: number,
   getCoveragePercentage: (item: BillingItem) => number,
 ): DepartmentBillAllocation[] {
-  const map = new Map<string, DepartmentBillAllocation>();
+  const map = new Map<
+    string,
+    DepartmentBillAllocation & { patientPayableCents: number }
+  >();
 
   for (const item of items) {
     const rootId = String(
@@ -211,6 +236,7 @@ export function computeDepartmentBillAllocations(
       entry = {
         visitDepartmentId: rootId,
         patientPayable: 0,
+        patientPayableCents: 0,
         allocatedPayment: 0,
         hasExemptions: false,
         noteRequired: false,
@@ -231,24 +257,25 @@ export function computeDepartmentBillAllocations(
       item,
       getCoveragePercentage(item),
     );
-    entry.patientPayable += patientAmount;
+    entry.patientPayableCents += toCents(patientAmount);
   }
 
-  let remaining = Math.max(0, totalPayment || 0);
+  let remainingCents = Math.max(0, toCents(totalPayment));
   const allocations = Array.from(map.values());
   for (const entry of allocations) {
-    const amount = Math.min(entry.patientPayable, remaining);
-    entry.allocatedPayment = amount;
-    remaining -= amount;
+    entry.patientPayable = fromCents(entry.patientPayableCents);
+    const amountCents = Math.min(entry.patientPayableCents, remainingCents);
+    entry.allocatedPayment = fromCents(amountCents);
+    remainingCents -= amountCents;
   }
 
   for (const entry of allocations) {
     entry.noteRequired =
       entry.hasExemptions ||
-      entry.allocatedPayment < entry.patientPayable - 0.001;
+      toCents(entry.allocatedPayment) < entry.patientPayableCents;
   }
 
-  return allocations;
+  return allocations.map(({ patientPayableCents: _cents, ...entry }) => entry);
 }
 
 export const EXEMPTION_PRESETS = [
@@ -265,7 +292,8 @@ export const EXEMPTION_PRESETS = [
 
 // Calculate itemized charges
 export const calculateItemTotal = (item: BillingItem): number => {
-  return item.quantity * item.price;
+  const unitPrice = item.price ?? item.basePrice ?? 0;
+  return fromCents(lineTotalToCents(unitPrice, item.quantity ?? 1));
 };
 
 // Calculate subtotal
@@ -412,9 +440,9 @@ export function computeBillingTotals(
   getCoveragePercentage: (item: BillingItem) => number,
   discountPercentage: number,
 ): BillingTotals {
-  let subtotal = 0;
-  let insuranceCoverage = 0;
-  let patientResponsibility = 0;
+  let subtotalCents = 0;
+  let insuranceCoverageCents = 0;
+  let patientResponsibilityCents = 0;
 
   items.forEach((item) => {
     const coveragePct = getCoveragePercentage(item);
@@ -422,19 +450,21 @@ export function computeBillingTotals(
       getItemInsuranceSplit(item, coveragePct);
 
     if (skip) return;
-    subtotal += itemTotal;
-    insuranceCoverage += insuranceAmount;
-    patientResponsibility += patientAmount;
+    subtotalCents += toCents(itemTotal);
+    insuranceCoverageCents += toCents(insuranceAmount);
+    patientResponsibilityCents += toCents(patientAmount);
   });
 
-  const discount = (patientResponsibility * (discountPercentage || 0)) / 100;
-  const totalAmount = patientResponsibility - discount;
+  const discountCents = Math.round(
+    (patientResponsibilityCents * (discountPercentage || 0)) / 100,
+  );
+  const totalCents = patientResponsibilityCents - discountCents;
 
   return {
-    subtotal,
-    insuranceCoverage,
-    patientResponsibility,
-    discount,
-    totalAmount,
+    subtotal: fromCents(subtotalCents),
+    insuranceCoverage: fromCents(insuranceCoverageCents),
+    patientResponsibility: fromCents(patientResponsibilityCents),
+    discount: fromCents(discountCents),
+    totalAmount: fromCents(totalCents),
   };
 }

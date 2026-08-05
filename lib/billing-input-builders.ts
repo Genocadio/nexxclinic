@@ -3,6 +3,7 @@ import {
   type BillingData,
   type BillingItem,
 } from "@/lib/billing-utils";
+import { roundMoney } from "@/lib/money";
 import type {
   CreateBillInput,
   EditBillInput,
@@ -95,7 +96,7 @@ export function buildCreateBillInput(
             allocated > 0
               ? [
                   {
-                    amount: Number(allocated.toFixed(2)),
+                    amount: roundMoney(allocated),
                     paymentMethod,
                   },
                 ]
@@ -236,7 +237,7 @@ export function buildEditBillInput(
           allocated > 0
             ? [
                 {
-                  amount: Number(allocated.toFixed(2)),
+                  amount: roundMoney(allocated),
                   paymentMethod: editPaymentMethod,
                 },
               ]

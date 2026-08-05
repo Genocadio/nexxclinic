@@ -16,6 +16,7 @@ import {
   type BillingData,
   type BillingItem,
 } from "@/lib/billing-utils";
+import { fromCents, toCents } from "@/lib/money";
 import { flattenVisitDepartments } from "@/lib/visit-product-utils";
 
 export function mapVisitProductStatusToPaymentStatus(
@@ -186,16 +187,18 @@ export function mapVisitToBillingData(
 
   const discountPercentage = 0;
 
-  const patientContribution = items.reduce((total, item) => {
+  let patientContributionCents = 0;
+  items.forEach((item) => {
     const selectedInsurance = linkedInsurances.find(
       (ins) => String(ins.id) === item.selectedInsuranceId,
     );
     const coveragePct =
       selectedInsurance?.insuranceProvider?.defaultCoveragePercentage ?? 0;
     const { patientAmount, skip } = getItemInsuranceSplit(item, coveragePct);
-    if (skip) return total;
-    return total + patientAmount;
-  }, 0);
+    if (skip) return;
+    patientContributionCents += toCents(patientAmount);
+  });
+  const patientContribution = fromCents(patientContributionCents);
 
   const patientContributionAfterDiscount = Math.max(
     0,

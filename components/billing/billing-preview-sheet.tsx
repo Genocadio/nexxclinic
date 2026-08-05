@@ -9,6 +9,7 @@ import type { Visit, VisitBilling, VisitDepartment } from "@/lib/api-types";
 import type { BillingData } from "@/lib/billing-utils";
 import { getVisitBillingTotals } from "@/lib/visit-billing-utils";
 import { formatRWF } from "@/lib/utils";
+import { roundMoney, sumMoney } from "@/lib/money";
 
 type InvoicePreviewGroup = {
   id?: string;
@@ -150,10 +151,10 @@ export function BillingPreviewSheet({
           departmentName: activeDepartment.department?.name || ("" as string),
           groupLabel: "Invoice",
         }));
-      const computedTotal = items.reduce(
-        (sum: number, it: { price: number; quantity: number }) =>
-          sum + it.price * it.quantity,
-        0,
+      const computedTotal = sumMoney(
+        items.map((it: { price: number; quantity: number }) =>
+          roundMoney(it.price * it.quantity),
+        ),
       );
       const draftGroups: InvoicePreviewGroup[] =
         items.length > 0
@@ -219,17 +220,10 @@ export function BillingPreviewSheet({
     return groups;
   }, [billingData, activeDepartment, visitBilling]);
 
-  const departmentTotal = invoiceGroups.reduce(
-    (sum, group) => sum + group.totalAmount,
-    0,
-  );
-  const departmentPaid = invoiceGroups.reduce(
-    (sum, group) => sum + group.paidAmount,
-    0,
-  );
-  const departmentOutstanding = invoiceGroups.reduce(
-    (sum, group) => sum + group.outstandingAmount,
-    0,
+  const departmentTotal = sumMoney(invoiceGroups.map((g) => g.totalAmount));
+  const departmentPaid = sumMoney(invoiceGroups.map((g) => g.paidAmount));
+  const departmentOutstanding = sumMoney(
+    invoiceGroups.map((g) => g.outstandingAmount),
   );
   const showOverallDepartmentTotals = invoiceGroups.length > 1;
   const visitBillingTotals = visitBilling
@@ -498,7 +492,11 @@ export function BillingPreviewSheet({
                                         {formatRWF(item.price)}
                                       </td>
                                       <td className="border-b border-border px-3 py-2 text-right text-sm font-semibold text-foreground">
-                                        {formatRWF(item.price * item.quantity)}
+                                        {formatRWF(
+                                          roundMoney(
+                                            item.price * item.quantity,
+                                          ),
+                                        )}
                                       </td>
                                     </tr>
                                   ))}
