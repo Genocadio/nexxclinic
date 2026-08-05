@@ -599,6 +599,8 @@ export function StandaloneConsultationView({
       formRendererRef.current?.clearErrors();
       await persistAnswers(answers, "DRAFT", { skipDuplicateCheck: true });
       toast.success("Draft saved");
+      // "Complete Visit Edit Later" = done with this visit for now — head home.
+      router.push("/");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {

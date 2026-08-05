@@ -103,7 +103,12 @@ export function InvoiceViewerDialog() {
         if (!open) closeInvoiceViewer();
       }}
     >
-      <DialogContent className="sm:max-w-4xl">
+      {/* Must sit above the billing preview sheet (portal z-[88]) so the PDF
+          popup always renders on top of the side preview pane. */}
+      <DialogContent
+        className="sm:max-w-4xl z-[100]"
+        overlayClassName="z-[100]"
+      >
         <DialogHeader>
           <DialogTitle>Invoice</DialogTitle>
           <DialogDescription>

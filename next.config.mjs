@@ -6,6 +6,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Separate build dir per dev instance so a second `next dev` on a different
+  // port doesn't collide on the shared .next/dev lock.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   async rewrites() {
     const API_BASE_URL = process.env.API_BASE_URL || 'http://backend:8080'
     const SUPABASE_INTERNAL_URL = process.env.SUPABASE_INTERNAL_URL || 'http://host.docker.internal:55321'

@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, ChevronRight, Printer } from "lucide-react";
+import { X, ChevronRight, ChevronDown, Printer } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "react-toastify";
 import type { Visit, VisitBilling, VisitDepartment } from "@/lib/api-types";
 import type { BillingData } from "@/lib/billing-utils";
@@ -249,11 +255,19 @@ export function BillingPreviewSheet({
     billingData?.updatedAt ||
     visit?.visitDate ||
     new Date().toISOString();
-  const printableInvoiceGroup =
-    invoiceGroups.find((group) => Boolean(group.id)) || null;
+  // All invoice groups that have a real backend id — a department can carry
+  // several insurance billings (e.g. private + insurer), each its own invoice.
+  const printableInvoiceGroups = useMemo(
+    () => invoiceGroups.filter((group) => Boolean(group.id)),
+    [invoiceGroups],
+  );
 
-  const handlePrintInvoice = async () => {
-    if (!printableInvoiceGroup?.id) {
+  const handlePrintInvoice = async (groupId?: string) => {
+    const target = groupId
+      ? printableInvoiceGroups.find((group) => group.id === groupId)
+      : printableInvoiceGroups[0];
+
+    if (!target?.id) {
       toast.warning(
         "No generated invoice is available for this department yet.",
       );
@@ -262,7 +276,7 @@ export function BillingPreviewSheet({
 
     try {
       if (onPrintInvoice) {
-        await onPrintInvoice(printableInvoiceGroup.id);
+        await onPrintInvoice(target.id);
         return;
       }
 
@@ -375,21 +389,63 @@ export function BillingPreviewSheet({
                           View more
                         </button>
                       )}
-                      {visitBilling && (
-                        <button
-                          type="button"
-                          onClick={() => void handlePrintInvoice()}
-                          disabled={
-                            printingInvoice || !printableInvoiceGroup?.id
-                          }
-                          className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#FF6900] text-white disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                          <Printer className="h-4 w-4" />
-                          {printingInvoice
-                            ? "Preparing invoice…"
-                            : "Print invoice"}
-                        </button>
-                      )}
+                      {visitBilling && printableInvoiceGroups.length > 0 &&
+                        (printableInvoiceGroups.length === 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => void handlePrintInvoice()}
+                            disabled={printingInvoice}
+                            className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#FF6900] text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            <Printer className="h-4 w-4" />
+                            {printingInvoice
+                              ? "Preparing invoice…"
+                              : "Print invoice"}
+                          </button>
+                        ) : (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                disabled={printingInvoice}
+                                className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#FF6900] text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                              >
+                                <Printer className="h-4 w-4" />
+                                {printingInvoice
+                                  ? "Preparing invoice…"
+                                  : "Print invoice"}
+                                <ChevronDown className="h-3.5 w-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            {/* The menu portals to document.body, so it needs a
+                                z above the sheet's z-[88] container or it would
+                                render behind the panel and be unclickable. */}
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-72 z-[100]"
+                            >
+                              {printableInvoiceGroups.map((group) => (
+                                <DropdownMenuItem
+                                  key={group.id}
+                                  disabled={printingInvoice}
+                                  onSelect={() =>
+                                    void handlePrintInvoice(group.id)
+                                  }
+                                >
+                                  <span className="truncate">
+                                    {group.insuranceLabel || "Invoice"}
+                                    {group.status
+                                      ? ` • ${group.status}`
+                                      : ""}
+                                  </span>
+                                  <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">
+                                    {formatRWF(group.totalAmount)}
+                                  </span>
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ))}
                     </div>
 
                     <div className="grid gap-2 sm:grid-cols-2">
