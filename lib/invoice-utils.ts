@@ -211,7 +211,14 @@ export function buildInvoiceHtml(options: {
 export function openInvoicePreview(urlOrBase64: string) {
   const fullUrl = buildFullUrl(urlOrBase64);
 
-  if (fullUrl.startsWith("http://") || fullUrl.startsWith("https://")) {
+  // Signed/public storage URLs are proxied through the frontend (e.g.
+  // /storage/sign/... or /supa/...). Open them directly — they are same-origin
+  // relative paths, never base64.
+  if (
+    fullUrl.startsWith("http://") ||
+    fullUrl.startsWith("https://") ||
+    fullUrl.startsWith("/")
+  ) {
     const previewWindow = window.open(fullUrl, "_blank");
     if (!previewWindow) {
       throw new Error(
@@ -219,6 +226,14 @@ export function openInvoicePreview(urlOrBase64: string) {
       );
     }
     return;
+  }
+
+  // Only a data: PDF is decoded from base64. Anything else (raw base64 or an
+  // unknown scheme) would blow up atob with "invalid characters".
+  if (!fullUrl.startsWith("data:")) {
+    throw new Error(
+      "Unable to open invoice preview: unrecognized invoice URL.",
+    );
   }
 
   const base64Data = urlOrBase64.replace(/^data:application\/pdf;base64,/, "");
