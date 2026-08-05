@@ -23,7 +23,32 @@ export function getInvoiceErrorMessage(
 }
 
 function buildFullUrl(path: string): string {
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) {
+    return path;
+  }
+
+  // Signed storage URLs returned by the backend must be served through the
+  // frontend proxy route so the browser never talks to the backend or storage
+  // directly. The rewrite maps /storage/sign/:path* onto
+  // ${SUPABASE_INTERNAL_URL}/storage/v1/object/sign/:path*.
+  if (path.startsWith("/storage/v1/object/sign/")) {
+    return path.replace(/^\/storage\/v1\/object\/sign\//, "/storage/sign/");
+  }
+  if (path.startsWith("/storage/sign/")) {
+    return path; // already proxied
+  }
+  if (path.startsWith("/storage/v1/object/public/")) {
+    return `/supa/${path.slice("/storage/v1/object/public/".length)}`;
+  }
+  if (path.startsWith("/supa/")) {
+    return path; // already proxied public file
+  }
+
+  // Any other root-relative path is already frontend-relative.
+  if (path.startsWith("/")) {
+    return path;
+  }
+
   const base = getRuntimeConfig().API_BASE_URL || "";
   const separator = base.endsWith("/") ? "" : "/";
   const cleanPath = path.startsWith("/") ? path.slice(1) : path;

@@ -55,6 +55,32 @@ describe("resolveInvoiceUrl", () => {
       "Failed to generate invoice",
     );
   });
+
+  it("swaps the /storage/v1/object/sign/ prefix for the /storage/sign proxy route", async () => {
+    const generateInvoice = async () => ({
+      status: "SUCCESS",
+      data: {
+        signedUrl:
+          "/storage/v1/object/sign/data/invoices/Igisubizo_Mc/invoice-x.pdf?token=abc",
+      },
+    });
+    await expect(resolveInvoiceUrl("bill-1", generateInvoice)).resolves.toBe(
+      "/storage/sign/data/invoices/Igisubizo_Mc/invoice-x.pdf?token=abc",
+    );
+  });
+
+  it("keeps an already-proxied /storage/sign URL unchanged", async () => {
+    const generateInvoice = async () => ({
+      status: "SUCCESS",
+      data: {
+        signedUrl:
+          "/storage/sign/data/invoices/Igisubizo_Mc/invoice-x.pdf?token=abc",
+      },
+    });
+    await expect(resolveInvoiceUrl("bill-1", generateInvoice)).resolves.toBe(
+      "/storage/sign/data/invoices/Igisubizo_Mc/invoice-x.pdf?token=abc",
+    );
+  });
 });
 
 describe("buildInvoiceHtml", () => {
