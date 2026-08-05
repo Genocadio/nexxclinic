@@ -270,6 +270,9 @@ export default function FormBuilderListPage() {
   const { updateForm, loading: updatingForm } = useUpdateStandaloneForm();
   const { deleteForm } = useDeleteStandaloneForm();
   const { duplicateForm } = useDuplicateStandaloneForm();
+  // In-flight duplicate/delete request — disables those buttons so duplicate
+  // mutations can't fire from double-clicks.
+  const [busyFormId, setBusyFormId] = useState<string | null>(null);
 
   // Show save-templates dialog once when backend is empty after loading
   const shouldPrompt =
@@ -301,21 +304,29 @@ export default function FormBuilderListPage() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
+    if (busyFormId) return;
+    setBusyFormId(id);
     try {
       await deleteForm(id, true);
       refetch();
     } catch (err: any) {
       alert(err?.message ?? "Failed to delete form");
+    } finally {
+      setBusyFormId(null);
     }
   };
 
   const handleDuplicate = async (id: string) => {
+    if (busyFormId) return;
+    setBusyFormId(id);
     try {
       const copy = await duplicateForm(id);
       refetch();
       router.push(`/admin/formbuilder/edit?id=${copy.id}`);
     } catch (err: any) {
       alert(err?.message ?? "Failed to duplicate form");
+    } finally {
+      setBusyFormId(null);
     }
   };
 
@@ -625,9 +636,11 @@ export default function FormBuilderListPage() {
                               title="Duplicate"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (busyFormId) return;
                                 handleDuplicate(form.id);
                               }}
-                              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                              disabled={busyFormId !== null}
+                              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-40"
                             >
                               <Copy className="h-3 w-3" />
                             </button>
@@ -652,9 +665,11 @@ export default function FormBuilderListPage() {
                               title="Delete"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (busyFormId) return;
                                 setDeleteTargetId(form.id);
                               }}
-                              className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                              disabled={busyFormId !== null}
+                              className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-40"
                             >
                               <Trash2 className="h-3 w-3" />
                             </button>
@@ -740,10 +755,12 @@ export default function FormBuilderListPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (busyFormId) return;
                             handleDuplicate(form.id);
                           }}
+                          disabled={busyFormId !== null}
                           title="Duplicate"
-                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-40"
                         >
                           <Copy className="h-3.5 w-3.5" />
                         </button>
@@ -767,10 +784,12 @@ export default function FormBuilderListPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (busyFormId) return;
                             setDeleteTargetId(form.id);
                           }}
+                          disabled={busyFormId !== null}
                           title="Delete"
-                          className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                          className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-40"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>

@@ -514,8 +514,13 @@ export default function DashboardPage() {
     setPatientHistoryOpen(true)
   }
   const [dischargeConfirmVisit, setDischargeConfirmVisit] = useState<Visit | null>(null)
+  // In-flight discharge — keeps the confirm dialog open with a spinner so the
+  // department-status completion loop can't be triggered twice.
+  const [discharging, setDischarging] = useState(false)
 
   const handleDischargeVisit = async (visit: Visit) => {
+    if (discharging) return
+    setDischarging(true)
     try {
       const allDepartments = visit.departments || []
       const notCompleted = allDepartments.filter(
@@ -548,6 +553,9 @@ export default function DashboardPage() {
     } catch (err) {
       console.error("Discharge visit error:", err)
       toast.error("Failed to discharge patient")
+    } finally {
+      setDischarging(false)
+      setDischargeConfirmVisit(null)
     }
   }
   const handlePatientRegistered = (
@@ -1407,9 +1415,9 @@ export default function DashboardPage() {
         title="Discharge this patient?"
         description="Completing the visit will complete all open departments and finalize the visit."
         confirmLabel="Discharge"
+        busy={discharging}
         onConfirm={() => {
-          if (!dischargeConfirmVisit) return
-          setDischargeConfirmVisit(null)
+          if (!dischargeConfirmVisit || discharging) return
           void handleDischargeVisit(dischargeConfirmVisit)
         }}
       />

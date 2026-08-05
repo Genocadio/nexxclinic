@@ -44,6 +44,8 @@ export default function FormActionsDisplay({
   // Track which item's qty is being directly edited, and the draft string value
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draftQty, setDraftQty] = useState<string>('')
+  // Track which item has an in-flight backend request so its controls disable
+  const [busyId, setBusyId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const canUseServer = Boolean(visitId && departmentId)
@@ -54,7 +56,9 @@ export default function FormActionsDisplay({
       return
     }
 
+    setBusyId(item.id)
     try {
+      
       
       
       
@@ -69,6 +73,8 @@ export default function FormActionsDisplay({
       onUpdateQuantity && onUpdateQuantity(item.id, nextQty)
     } catch (e) {
       console.error('update quantity error', e)
+    } finally {
+      setBusyId(null)
     }
   }
 
@@ -78,6 +84,7 @@ export default function FormActionsDisplay({
       return
     }
 
+    setBusyId(item.id)
     try {
       if (!item.backendId) {
         throw new Error(`No backendId found for item: ${item.name}`)
@@ -95,9 +102,10 @@ export default function FormActionsDisplay({
       onRemove && onRemove(item.id)
     } catch (e) {
       console.error('remove item error', e)
+    } finally {
+      setBusyId(null)
     }
   }
-
   const renderItem = (item: FormAction) => {
     const isRemoved = item.removedFromVisit === true
 
@@ -145,9 +153,9 @@ export default function FormActionsDisplay({
                     variant="outline"
                     size="sm"
                     className="h-6 w-6 p-0 rounded-full"
-                    disabled={isRemoved}
+                    disabled={isRemoved || busyId === item.id}
                     onClick={() => {
-                      if (isRemoved) return
+                      if (isRemoved || busyId === item.id) return
                       const next = Math.max(1, item.quantity - 1)
                       canUseServer && item.backendId
                         ? updateServerQuantity(item, next)
@@ -164,6 +172,7 @@ export default function FormActionsDisplay({
                       type="number"
                       min={1}
                       value={draftQty}
+                      disabled={busyId === item.id}
                       onChange={(e) => setDraftQty(e.target.value)}
                       onFocus={(e) => e.target.select()}
                       onBlur={() => {
@@ -191,7 +200,7 @@ export default function FormActionsDisplay({
                       className="text-xs tabular-nums font-medium w-8 text-center cursor-text hover:text-primary transition-colors select-none"
                       title="Click to edit quantity"
                       onClick={() => {
-                        if (isRemoved) return
+                        if (isRemoved || busyId === item.id) return
                         setDraftQty(String(item.quantity))
                         setEditingId(item.id)
                         // focus after render
@@ -206,9 +215,9 @@ export default function FormActionsDisplay({
                     variant="outline"
                     size="sm"
                     className="h-6 w-6 p-0 rounded-full"
-                    disabled={isRemoved}
+                    disabled={isRemoved || busyId === item.id}
                     onClick={() => {
-                      if (isRemoved) return
+                      if (isRemoved || busyId === item.id) return
                       const next = item.quantity + 1
                       canUseServer && item.backendId
                         ? updateServerQuantity(item, next)
@@ -238,6 +247,7 @@ export default function FormActionsDisplay({
                   variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  disabled={busyId === item.id}
                   onClick={() => {
                     if (isRemoved) {
                       onRemove?.(item.id)

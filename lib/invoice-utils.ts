@@ -1,5 +1,6 @@
 import { getRuntimeConfig } from "@/lib/runtime-config";
 import { formatRWF } from "@/lib/utils";
+import { openInvoiceViewer } from "@/lib/invoice-viewer";
 
 export type InvoiceMutationResult =
   | {
@@ -208,49 +209,19 @@ export function buildInvoiceHtml(options: {
 </html>`;
 }
 
+function deriveInvoiceFileName(url: string): string {
+  if (url.startsWith("data:") || url.startsWith("blob:")) return "invoice.pdf";
+  const segment = (url.split("?")[0].split("/").pop() || "").trim();
+  if (!segment) return "invoice.pdf";
+  return segment.endsWith(".pdf") ? segment : `${segment}.pdf`;
+}
+
+/**
+ * Opens the invoice in the reusable in-app viewer popup (no new tab). Accepts
+ * a signed storage URL, an http(s) URL or a data: PDF — the viewer fetches it
+ * and offers Print / Download actions.
+ */
 export function openInvoicePreview(urlOrBase64: string) {
   const fullUrl = buildFullUrl(urlOrBase64);
-
-  // Signed/public storage URLs are proxied through the frontend (e.g.
-  // /storage/sign/... or /supa/...). Open them directly — they are same-origin
-  // relative paths, never base64.
-  if (
-    fullUrl.startsWith("http://") ||
-    fullUrl.startsWith("https://") ||
-    fullUrl.startsWith("/")
-  ) {
-    const previewWindow = window.open(fullUrl, "_blank");
-    if (!previewWindow) {
-      throw new Error(
-        "Unable to open invoice preview window. Please allow pop-ups.",
-      );
-    }
-    return;
-  }
-
-  // Only a data: PDF is decoded from base64. Anything else (raw base64 or an
-  // unknown scheme) would blow up atob with "invalid characters".
-  if (!fullUrl.startsWith("data:")) {
-    throw new Error(
-      "Unable to open invoice preview: unrecognized invoice URL.",
-    );
-  }
-
-  const base64Data = urlOrBase64.replace(/^data:application\/pdf;base64,/, "");
-  const byteCharacters = atob(base64Data);
-  const byteNumbers = new Array(byteCharacters.length);
-  for (let i = 0; i < byteCharacters.length; i += 1) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
-  }
-  const byteArray = new Uint8Array(byteNumbers);
-  const blob = new Blob([byteArray], { type: "application/pdf" });
-  const blobUrl = URL.createObjectURL(blob);
-  const previewWindow = window.open(blobUrl, "_blank");
-  if (!previewWindow) {
-    URL.revokeObjectURL(blobUrl);
-    throw new Error(
-      "Unable to open invoice preview window. Please allow pop-ups.",
-    );
-  }
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+  openInvoiceViewer(fullUrl, deriveInvoiceFileName(fullUrl));
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +21,8 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   /** Styles the confirm button as destructive (red). */
   destructive?: boolean;
+  /** While true the dialog stays open and both buttons disable with a spinner. */
+  busy?: boolean;
   onConfirm: () => void;
 }
 
@@ -36,6 +39,7 @@ export function ConfirmDialog({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   destructive = false,
+  busy = false,
   onConfirm,
 }: ConfirmDialogProps) {
   return (
@@ -48,10 +52,14 @@ export function ConfirmDialog({
           ) : null}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => onOpenChange(false)}>
+          <AlertDialogCancel
+            disabled={busy}
+            onClick={() => onOpenChange(false)}
+          >
             {cancelLabel}
           </AlertDialogCancel>
           <AlertDialogAction
+            disabled={busy}
             onClick={(e) => {
               e.preventDefault();
               onConfirm();
@@ -62,7 +70,14 @@ export function ConfirmDialog({
                 : undefined
             }
           >
-            {confirmLabel}
+            {busy ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                {confirmLabel}…
+              </>
+            ) : (
+              confirmLabel
+            )}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

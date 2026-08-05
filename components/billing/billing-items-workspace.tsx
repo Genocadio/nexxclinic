@@ -25,6 +25,7 @@ type BillingItemsWorkspaceProps = {
   canAddItems: boolean;
   canEdit?: boolean;
   editMode?: boolean;
+  quantityUpdating?: boolean;
   visitInsuranceOptions: BillingInsuranceOption[];
   activeProfile?: { id: string; name: string } | null;
   availableProfiles?: { id: string; name: string }[];
@@ -44,6 +45,7 @@ export function BillingItemsWorkspace({
   canAddItems,
   canEdit = true,
   editMode = false,
+  quantityUpdating = false,
   visitInsuranceOptions,
   activeProfile = null,
   availableProfiles = [],
@@ -143,6 +145,7 @@ export function BillingItemsWorkspace({
               onItemChange={onItemChange}
               onItemRemove={onItemRemove}
               onQuantityChange={onQuantityChange}
+              quantityUpdating={quantityUpdating}
               availableInsurances={visitInsuranceOptions}
               hideDepartmentHeaders
               allDepartments={[]}

@@ -86,8 +86,7 @@ export function BillingPreviewSheet({
   }, [open, selectedDepartmentId]);
 
   const topLevelDepartments = useMemo(
-    () =>
-      visit?.departments?.filter((dept) => dept.status !== "COMPLETED") || [],
+    () => visit?.departments || [],
     [visit?.departments],
   );
 
@@ -135,89 +134,92 @@ export function BillingPreviewSheet({
 
     const deptIds = collectDeptIds(activeDepartment);
 
-    if (billingData) {
-      const items = billingData.items
-        .filter((item) => {
-          const itemRootId = String(
-            item.rootVisitDepartmentId || item.visitDepartmentId || "",
-          );
-          return deptIds.includes(itemRootId);
-        })
-        .map((it) => ({
-          id: it.id,
-          name: it.name,
-          quantity: it.quantity,
-          price: it.price,
-          departmentName: activeDepartment.department?.name || ("" as string),
-          groupLabel: "Invoice",
-        }));
-      const computedTotal = sumMoney(
-        items.map((it: { price: number; quantity: number }) =>
-          roundMoney(it.price * it.quantity),
-        ),
+    // A billed visit previews the actual invoice. The draft path is only used
+    // before any bill exists, or while editing (the page passes visitBilling
+    // as null in edit mode so the pending edits are previewed instead).
+    if (visitBilling) {
+      let depts = (visitBilling.departments || []).filter((d) =>
+        deptIds.includes(String(d.visitDepartment.id)),
       );
-      const draftGroups: InvoicePreviewGroup[] =
-        items.length > 0
-          ? [
-              {
-                id: "draft-invoice",
-                label: "Invoice",
-                insuranceLabel: "Private",
-                status: "",
-                totalAmount: computedTotal,
-                insuranceCoveredAmount: 0,
-                patientPayableAmount: computedTotal,
-                paidAmount: 0,
-                outstandingAmount: computedTotal,
-                items: items.map(
-                  ({ groupLabel: _groupLabel, ...item }) => item,
-                ),
-              },
-            ]
-          : [];
-      return draftGroups;
-    }
-
-    if (!visitBilling) return [];
-
-    let depts = (visitBilling.departments || []).filter((d) =>
-      deptIds.includes(String(d.visitDepartment.id)),
-    );
-    if (!depts.length) {
-      depts = visitBilling.departments || [];
-    }
-
-    const groups: InvoicePreviewGroup[] = [];
-    for (const d of depts) {
-      const insuranceBillings = d.insuranceBillings || [];
-      for (const ib of insuranceBillings) {
-        groups.push({
-          id: ib.id,
-          status: ib.status,
-          label: ib.status ? `${ib.status}` : "Invoice",
-          insuranceLabel:
-            ib.patientInsurance?.insuranceProvider?.insuranceName ||
-            ib.patientInsurance?.insuranceProvider?.name ||
-            "Private",
-          totalAmount: Number(ib.totalAmount || 0),
-          insuranceCoveredAmount: Number(ib.insuranceCoveredAmount || 0),
-          patientPayableAmount: Number(ib.patientPayableAmount || 0),
-          paidAmount: Number(ib.paidAmount || 0),
-          outstandingAmount: Number(ib.outstandingAmount || 0),
-          items: (ib.items || []).map((it, idx) => ({
-            id: it.id || `item-${d.id}-${idx}`,
-            name: it.productName || "Item",
-            quantity: it.quantitySnapshot || 1,
-            price: it.unitPriceSnapshot || 0,
-            departmentName:
-              d.visitDepartment.department?.name ||
-              activeDepartment?.department?.name ||
-              "Department",
-          })),
-        });
+      if (!depts.length) {
+        depts = visitBilling.departments || [];
       }
+
+      const groups: InvoicePreviewGroup[] = [];
+      for (const d of depts) {
+        const insuranceBillings = d.insuranceBillings || [];
+        for (const ib of insuranceBillings) {
+          groups.push({
+            id: ib.id,
+            status: ib.status,
+            label: ib.status ? `${ib.status}` : "Invoice",
+            insuranceLabel:
+              ib.patientInsurance?.insuranceProvider?.insuranceName ||
+              ib.patientInsurance?.insuranceProvider?.name ||
+              "Private",
+            totalAmount: Number(ib.totalAmount || 0),
+            insuranceCoveredAmount: Number(ib.insuranceCoveredAmount || 0),
+            patientPayableAmount: Number(ib.patientPayableAmount || 0),
+            paidAmount: Number(ib.paidAmount || 0),
+            outstandingAmount: Number(ib.outstandingAmount || 0),
+            items: (ib.items || []).map((it, idx) => ({
+              id: it.id || `item-${d.id}-${idx}`,
+              name: it.productName || "Item",
+              quantity: it.quantitySnapshot || 1,
+              price: it.unitPriceSnapshot || 0,
+              departmentName:
+                d.visitDepartment.department?.name ||
+                activeDepartment?.department?.name ||
+                "Department",
+            })),
+          });
+        }
+      }
+      return groups;
     }
-    return groups;
+
+    if (!billingData) return [];
+
+    const items = billingData.items
+      .filter((item) => {
+        const itemRootId = String(
+          item.rootVisitDepartmentId || item.visitDepartmentId || "",
+        );
+        return deptIds.includes(itemRootId);
+      })
+      .map((it) => ({
+        id: it.id,
+        name: it.name,
+        quantity: it.quantity,
+        price: it.price,
+        departmentName: activeDepartment.department?.name || ("" as string),
+        groupLabel: "Invoice",
+      }));
+    const computedTotal = sumMoney(
+      items.map((it: { price: number; quantity: number }) =>
+        roundMoney(it.price * it.quantity),
+      ),
+    );
+    const draftGroups: InvoicePreviewGroup[] =
+      items.length > 0
+        ? [
+            {
+              id: "draft-invoice",
+              label: "Invoice",
+              insuranceLabel: "Private",
+              status: "",
+              totalAmount: computedTotal,
+              insuranceCoveredAmount: 0,
+              patientPayableAmount: computedTotal,
+              paidAmount: 0,
+              outstandingAmount: computedTotal,
+              items: items.map(
+                ({ groupLabel: _groupLabel, ...item }) => item,
+              ),
+            },
+          ]
+        : [];
+    return draftGroups;
   }, [billingData, activeDepartment, visitBilling]);
 
   const departmentTotal = sumMoney(invoiceGroups.map((g) => g.totalAmount));
@@ -452,7 +454,8 @@ export function BillingPreviewSheet({
                                           onDownloadInvoice || onPrintInvoice
                                         )?.(group.id!)
                                       }
-                                      className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                                      disabled={printingInvoice}
+                                      className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
                                     >
                                       Download invoice
                                     </button>

@@ -67,6 +67,9 @@ export default function VisitNotesFloating({
   const [text, setText] = useState("");
   const [selectedType, setSelectedType] = useState(noteTypes[0] || "PUBLIC");
   const [submitting, setSubmitting] = useState(false);
+  // In-flight "mark as read" request — disables the mark-all button and note
+  // clicks so duplicate markNotesViewed mutations can't fire.
+  const [markingRead, setMarkingRead] = useState(false);
 
   useEffect(() => {
     if (!noteTypes.includes(selectedType)) {
@@ -115,25 +118,31 @@ export default function VisitNotesFloating({
   const hasDraft = text.trim().length > 0;
 
   const handleMarkAsViewed = async (noteId: string) => {
-    if (!onMarkAsViewed) return;
+    if (!onMarkAsViewed || markingRead) return;
+    setMarkingRead(true);
     try {
       await onMarkAsViewed(noteId);
     } catch (error: any) {
       console.error("Failed to mark note as viewed", error);
+    } finally {
+      setMarkingRead(false);
     }
   };
 
   const markAllAsRead = async () => {
-    if (!onMarkAsViewed) return;
+    if (!onMarkAsViewed || markingRead) return;
     const unread = (visibleNotes || []).filter(
       (note) => !note?.viewed && note?.id,
     );
     if (unread.length === 0) return;
 
+    setMarkingRead(true);
     try {
       await Promise.all(unread.map((note) => onMarkAsViewed(String(note.id))));
     } catch (error: any) {
       console.error("Failed to mark notes as viewed", error);
+    } finally {
+      setMarkingRead(false);
     }
   };
 
@@ -267,7 +276,7 @@ export default function VisitNotesFloating({
                   key={`${note.id || note.noteType || "note"}-${idx}`}
                   className="rounded-lg border border-border bg-card p-2"
                   onClick={() =>
-                    !note.viewed && note.id
+                    !note.viewed && note.id && !markingRead
                       ? handleMarkAsViewed(note.id)
                       : undefined
                   }
@@ -419,7 +428,7 @@ export default function VisitNotesFloating({
                     size="icon"
                     className="h-9 w-9 rounded-full"
                     onClick={markAllAsRead}
-                    disabled={unreadNotesCount === 0}
+                    disabled={unreadNotesCount === 0 || markingRead}
                     aria-label="Mark all as read"
                     title="Mark all as read"
                   >

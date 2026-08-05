@@ -48,7 +48,8 @@ export function useBillingPageState() {
   // (e.g. after changeVisitDepartmentProfile swaps PROFILE products).
   const [billingRemapNonce, setBillingRemapNonce] = useState(0);
 
-  const { updateQuantity: updateProductQuantity } = useUpdateProductQuantity();
+  const { updateQuantity: updateProductQuantity, loading: updatingQuantity } =
+    useUpdateProductQuantity();
 
   // ── Sync handlers ──────────────────────────────────────────────────────────
 
@@ -195,6 +196,8 @@ export function useBillingPageState() {
     setShowCollectPayment,
     billingRemapNonce,
     setBillingRemapNonce,
+    // Loading flags for backend calls
+    updatingQuantity,
     // Billing data state
     billingData,
     setBillingData,

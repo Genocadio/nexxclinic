@@ -69,14 +69,23 @@ export default function VisitsListView({
   )
   const [previewVisit, setPreviewVisit] = useState<Visit | null>(null)
   const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null)
+  // In-flight invoice generation (print/download) — disables those buttons
+  // so a double click can't fire generateInvoice twice.
+  const [printingInvoice, setPrintingInvoice] = useState(false)
   const handleDownloadInvoice = async (
     departmentInsuranceBillingId: string,
   ) => {
-    const invoiceUrl = await resolveInvoiceUrl(
-      departmentInsuranceBillingId,
-      generateInvoice,
-    )
-    openInvoicePreview(invoiceUrl)
+    if (printingInvoice) return
+    setPrintingInvoice(true)
+    try {
+      const invoiceUrl = await resolveInvoiceUrl(
+        departmentInsuranceBillingId,
+        generateInvoice,
+      )
+      openInvoicePreview(invoiceUrl)
+    } finally {
+      setPrintingInvoice(false)
+    }
   }
   const handlePreviewInvoice = async (visit: Visit) => {
     try {
@@ -454,6 +463,7 @@ export default function VisitsListView({
             router.push(`/billing?visitId=${previewVisit.id}`)
           }
         }}
+        printingInvoice={printingInvoice}
       />
     </div>
   )

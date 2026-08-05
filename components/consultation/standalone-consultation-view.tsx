@@ -141,6 +141,7 @@ export function StandaloneConsultationView({
   const loaderDepartmentRef = useRef(catalogDepartmentId);
   const [locallyFinalised, setLocallyFinalised] = useState(false);
   const [isFinalising, setIsFinalising] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
 
   const { answer, defaultForm, loading, error, refetch, source } =
     useConsultationFormLoader({
@@ -593,6 +594,7 @@ export function StandaloneConsultationView({
   const handleManualSave = async () => {
     if (manualSaveRef.current) return;
     manualSaveRef.current = true;
+    setSavingDraft(true);
     try {
       formRendererRef.current?.clearErrors();
       await persistAnswers(answers, "DRAFT", { skipDuplicateCheck: true });
@@ -601,6 +603,7 @@ export function StandaloneConsultationView({
       toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {
       manualSaveRef.current = false;
+      setSavingDraft(false);
     }
   };
 
@@ -899,13 +902,13 @@ export function StandaloneConsultationView({
             <Button
               type="button"
               variant="outline"
-              disabled={isFinalising}
+              disabled={isFinalising || savingDraft}
               onClick={() => {
                 setShowFinalizeConfirm(false);
                 void handleManualSave();
               }}
             >
-              Complete Visit Edit Later
+              {savingDraft ? "Saving…" : "Complete Visit Edit Later"}
             </Button>
             <Button
               type="button"

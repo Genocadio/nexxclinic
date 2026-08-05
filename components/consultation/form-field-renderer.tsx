@@ -113,8 +113,8 @@ export function FormFieldRenderer({
     return text
   }
 
-  const { addDiagnosis } = useAddDiagnosisToVisitDepartment()
-  const { addMedication } = useAddMedicationToVisitDepartment()
+  const { addDiagnosis, loading: addingDiagnosis } = useAddDiagnosisToVisitDepartment()
+  const { addMedication, loading: addingMedication } = useAddMedicationToVisitDepartment()
 
   const parseBooleanLikeValue = (value: any): boolean => {
     if (typeof value === 'boolean') return value
@@ -618,8 +618,8 @@ export function FormFieldRenderer({
           onChange={(e) => setDiagnosticDrafts((prev) => ({ ...prev, [field.id]: { ...draft, description: e.target.value } }))}
         />
         <div className="flex justify-end">
-          <Button size="sm" onClick={addRecord} disabled={!draft.diagnosis.trim() || !visitDepartmentId} className="rounded-full">
-            Add Diagnostic
+          <Button size="sm" onClick={addRecord} disabled={!draft.diagnosis.trim() || !visitDepartmentId || addingDiagnosis} className="rounded-full">
+            {addingDiagnosis ? "Adding…" : "Add Diagnostic"}
           </Button>
         </div>
         {records.length > 0 && (
@@ -708,8 +708,8 @@ export function FormFieldRenderer({
           onChange={(e) => setMedicationLongDrafts((prev) => ({ ...prev, [field.id]: { ...draft, notes: e.target.value } }))}
         />
         <div className="flex justify-end">
-          <Button size="sm" onClick={addMedicationRecord} disabled={!draft.name.trim() || !draft.frequency.trim() || !draft.amount.trim() || !draft.days.trim() || !visitDepartmentId} className="rounded-full">
-            Add Medication
+          <Button size="sm" onClick={addMedicationRecord} disabled={!draft.name.trim() || !draft.frequency.trim() || !draft.amount.trim() || !draft.days.trim() || !visitDepartmentId || addingMedication} className="rounded-full">
+            {addingMedication ? "Adding…" : "Add Medication"}
           </Button>
         </div>
         {records.length > 0 && (
@@ -795,8 +795,8 @@ export function FormFieldRenderer({
           onChange={(e) => setMedicationMiniDrafts((prev) => ({ ...prev, [field.id]: { ...draft, notes: e.target.value } }))}
         />
         <div className="flex justify-end">
-          <Button size="sm" onClick={addMedicationRecord} disabled={!draft.name.trim() || !visitDepartmentId} className="rounded-full">
-            Add Medication
+          <Button size="sm" onClick={addMedicationRecord} disabled={!draft.name.trim() || !visitDepartmentId || addingMedication} className="rounded-full">
+            {addingMedication ? "Adding…" : "Add Medication"}
           </Button>
         </div>
         {records.length > 0 && (

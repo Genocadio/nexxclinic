@@ -133,6 +133,8 @@ function DeptNotesPanel({
   const [text, setText] = useState("");
   const [selectedType, setSelectedType] = useState(noteTypes[0] || "PUBLIC");
   const [submitting, setSubmitting] = useState(false);
+  // In-flight "mark as read" request — prevents duplicate markNotesViewed calls.
+  const [markingRead, setMarkingRead] = useState(false);
 
   // Reset input when switching departments
   useEffect(() => {
@@ -182,11 +184,15 @@ function DeptNotesPanel({
   };
 
   const handleMarkAsViewed = async (_noteId: string) => {
+    if (markingRead) return;
+    setMarkingRead(true);
     try {
       await markNotesViewed(visitDepartmentId);
       await refetch?.();
     } catch {
       /* silent */
+    } finally {
+      setMarkingRead(false);
     }
   };
 
@@ -212,7 +218,7 @@ function DeptNotesPanel({
               key={`${note.id || note.noteType || "note"}-${idx}`}
               className="rounded-lg border border-border bg-card p-2 cursor-default"
               onClick={() =>
-                !note.viewed && note.id
+                !note.viewed && note.id && !markingRead
                   ? handleMarkAsViewed(note.id)
                   : undefined
               }

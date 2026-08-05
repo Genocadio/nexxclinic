@@ -6,6 +6,7 @@ import { AuthProvider } from "@/lib/auth-context"
 import { ApolloWrapper } from "@/components/apollo-wrapper"
 import { AuthGate } from "@/components/auth-gate"
 import { ThemeProvider } from "@/lib/theme-context"
+import { InvoiceViewerDialog } from "@/components/ui/invoice-viewer-dialog"
 import { ToastContainer } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import "./globals.css"
@@ -98,6 +99,7 @@ export default function RootLayout({
           closeButton={true}
           stacked={false}
         />
+        <InvoiceViewerDialog />
         <Analytics />
       </body>
     </html>

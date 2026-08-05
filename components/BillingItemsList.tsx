@@ -43,6 +43,8 @@ type BillingItemsListProps = {
   canEdit?: boolean;
   /** When true all "paid" guards are lifted so Finance can reconfigure everything. */
   editMode?: boolean;
+  /** In-flight quantity update — disables the qty stepper to prevent duplicates. */
+  quantityUpdating?: boolean;
 };
 
 const getPaymentStatusColor = (
@@ -97,6 +99,7 @@ export function BillingItemsList({
   hideTypeColumn = true,
   canEdit = true,
   editMode = false,
+  quantityUpdating = false,
 }: BillingItemsListProps) {
   // In edit mode items with paymentStatus "paid" are treated as editable.
   // We use this helper instead of checking paymentStatus directly.
@@ -149,6 +152,7 @@ export function BillingItemsList({
             size="sm"
             className="h-6 w-6 p-0 rounded-full opacity-70 group-hover:opacity-100"
             aria-label="Decrease quantity"
+            disabled={quantityUpdating}
             onClick={() => void applyQuantity(item, item.quantity - 1)}
           >
             <Minus className="h-3 w-3" />
@@ -161,6 +165,7 @@ export function BillingItemsList({
             type="number"
             min={1}
             value={editQty}
+            disabled={quantityUpdating}
             onChange={(e) => setEditQty(e.target.value)}
             onFocus={(e) => e.target.select()}
             onBlur={() => {
@@ -186,7 +191,9 @@ export function BillingItemsList({
             type="button"
             className="min-w-[1.5rem] text-xs tabular-nums font-medium text-center hover:text-primary transition-colors"
             title="Click to edit quantity"
+            disabled={quantityUpdating}
             onClick={() => {
+              if (quantityUpdating) return;
               setEditQty(String(item.quantity));
               setEditingQtyId(item.id);
               setTimeout(() => qtyInputRef.current?.focus(), 0);
@@ -202,6 +209,7 @@ export function BillingItemsList({
           size="sm"
           className="h-6 w-6 p-0 rounded-full opacity-70 group-hover:opacity-100"
           aria-label="Increase quantity"
+          disabled={quantityUpdating}
           onClick={() => void applyQuantity(item, item.quantity + 1)}
         >
           <Plus className="h-3 w-3" />

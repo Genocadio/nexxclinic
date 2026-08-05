@@ -61,6 +61,9 @@ export default function DepartmentsPage() {
   // loaded for the autocomplete — keep them so chips can still show their names.
   const [pickedInsurances, setPickedInsurances] = useState<Record<string, InsuranceProvider>>({})
   const [saving, setSaving] = useState(false)
+  // In-flight insurance policy mutation (add/remove/mode change) — disables the
+  // policy controls so duplicate updateDepartment calls can't fire.
+  const [policiesUpdating, setPoliciesUpdating] = useState(false)
 
   // Linking states
   const [selectedInsuranceId, setSelectedInsuranceId] = useState<string>('')
@@ -209,6 +212,7 @@ export default function DepartmentsPage() {
     // The pending pick may no longer apply after the mode changes; start fresh.
     setSelectedInsuranceId('')
     setSelectedInsurance(null)
+    setPoliciesUpdating(true)
     
     try {
       // If switching from ALL to another mode, clear existing insurance policies first
@@ -254,6 +258,8 @@ export default function DepartmentsPage() {
         description: err?.message || 'Please try again.',
         variant: 'destructive'
       })
+    } finally {
+      setPoliciesUpdating(false)
     }
   }
 
@@ -342,6 +348,7 @@ export default function DepartmentsPage() {
   const handleAddInsurancePolicy = async () => {
     const department = menuDepartment || selectedDepartment
     if (!department || !selectedInsuranceId) return
+    setPoliciesUpdating(true)
     try {
       const currentInsuranceIds = (department.insurancePolicies || []).map((i) => String(i.id))
       if (currentInsuranceIds.includes(selectedInsuranceId)) {
@@ -400,12 +407,15 @@ export default function DepartmentsPage() {
         description: errorMessage,
         variant: 'destructive'
       })
+    } finally {
+      setPoliciesUpdating(false)
     }
   }
 
   const handleRemoveInsurancePolicy = async (insuranceId: string | number) => {
     const department = menuDepartment || selectedDepartment
     if (!department) return
+    setPoliciesUpdating(true)
     try {
       const currentInsuranceIds = (department.insurancePolicies || []).map((i) => String(i.id))
       const resp = await updateDepartment(department.id, {
@@ -433,6 +443,8 @@ export default function DepartmentsPage() {
         description: errorMessage,
         variant: 'destructive'
       })
+    } finally {
+      setPoliciesUpdating(false)
     }
   }
 
@@ -570,13 +582,13 @@ export default function DepartmentsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
-                        <DropdownMenuItem onClick={() => handlePolicyModeChange(selectedDepartment, 'ALL')}>
+                        <DropdownMenuItem disabled={policiesUpdating} onClick={() => handlePolicyModeChange(selectedDepartment, 'ALL')}>
                           All insurances apply
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handlePolicyModeChange(selectedDepartment, 'ONLY')}>
+                        <DropdownMenuItem disabled={policiesUpdating} onClick={() => handlePolicyModeChange(selectedDepartment, 'ONLY')}>
                           Only selected insurances apply
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handlePolicyModeChange(selectedDepartment, 'EXCEPT')}>
+                        <DropdownMenuItem disabled={policiesUpdating} onClick={() => handlePolicyModeChange(selectedDepartment, 'EXCEPT')}>
                           Selected insurances exempted
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -619,10 +631,10 @@ export default function DepartmentsPage() {
                           <Button 
                             size="sm" 
                             onClick={handleAddInsurancePolicy} 
-                            disabled={!selectedInsuranceId}
+                            disabled={!selectedInsuranceId || policiesUpdating}
                             className="w-full"
                           >
-                            Add Insurance Policy
+                            {policiesUpdating ? 'Updating…' : 'Add Insurance Policy'}
                           </Button>
                         </div>
                       </div>
@@ -637,7 +649,7 @@ export default function DepartmentsPage() {
                         <span className="text-xs text-muted-foreground ml-2">({insurance.acronym})</span>
                       </div>
                       {selectedDepartment.insurancePolicyMode !== 'ALL' && (
-                        <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleRemoveInsurancePolicy(insurance.id)}>
+                        <Button variant="outline" size="icon" className="rounded-full" disabled={policiesUpdating} onClick={() => handleRemoveInsurancePolicy(insurance.id)}>
                           <X className="h-4 w-4" />
                         </Button>
                       )}
@@ -932,13 +944,13 @@ export default function DepartmentsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
-                        <DropdownMenuItem onClick={() => handlePolicyModeChange(menuDepartment, 'ALL')}>
+                        <DropdownMenuItem disabled={policiesUpdating} onClick={() => handlePolicyModeChange(menuDepartment, 'ALL')}>
                           All insurances apply
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handlePolicyModeChange(menuDepartment, 'ONLY')}>
+                        <DropdownMenuItem disabled={policiesUpdating} onClick={() => handlePolicyModeChange(menuDepartment, 'ONLY')}>
                           Only selected insurances apply
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handlePolicyModeChange(menuDepartment, 'EXCEPT')}>
+                        <DropdownMenuItem disabled={policiesUpdating} onClick={() => handlePolicyModeChange(menuDepartment, 'EXCEPT')}>
                           Selected insurances exempted
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -981,10 +993,10 @@ export default function DepartmentsPage() {
                           <Button 
                             size="sm" 
                             onClick={handleAddInsurancePolicy} 
-                            disabled={!selectedInsuranceId}
+                            disabled={!selectedInsuranceId || policiesUpdating}
                             className="w-full"
                           >
-                            Add Insurance Policy
+                            {policiesUpdating ? 'Updating…' : 'Add Insurance Policy'}
                           </Button>
                         </div>
                       </div>
@@ -1000,7 +1012,7 @@ export default function DepartmentsPage() {
                         <span className="text-xs text-muted-foreground ml-2">({insurance.acronym})</span>
                       </div>
                       {menuDepartment.insurancePolicyMode !== 'ALL' && (
-                        <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleRemoveInsurancePolicy(insurance.id)}>
+                        <Button variant="outline" size="icon" className="rounded-full" disabled={policiesUpdating} onClick={() => handleRemoveInsurancePolicy(insurance.id)}>
                           <X className="h-4 w-4" />
                         </Button>
                       )}

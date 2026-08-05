@@ -79,7 +79,13 @@ export function CollectPaymentSheet({
             ib.patientInsurance?.insuranceProvider?.insuranceName ||
             ib.patientInsurance?.insuranceProvider?.name ||
             "Private",
-          outstandingAmount: Number(ib.outstandingAmount || 0),
+          // Outstanding is computed (total - paid) so a stale backend
+          // outstandingAmount doesn't keep buckets (and the Collect payment
+          // button) visible after the bill is fully settled.
+          outstandingAmount: Math.max(
+            0,
+            Number(ib.totalAmount || 0) - Number(ib.paidAmount || 0),
+          ),
         };
       })
       .filter((entry) => entry.outstandingAmount > 0);

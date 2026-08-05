@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useCallback } from "react";
+import { useEffect, useMemo, useCallback, useState } from "react";
 import {
   BillingItem,
   computeBillingTotals,
@@ -116,6 +116,7 @@ export function BillingPageContent() {
     setBillingData,
     activeVisitInsuranceIds,
     setActiveVisitInsuranceIds,
+    updatingQuantity,
     handleItemChange,
     handleQuantityChange,
     handleItemRemove,
@@ -143,6 +144,9 @@ export function BillingPageContent() {
     skip: !visitId,
   });
   const { changeVisitDepartmentProfile } = useChangeVisitDepartmentProfile();
+  // In-flight discharge — keeps the confirm dialog open with a spinner so the
+  // completeVisit/department-status loop can't be triggered twice.
+  const [discharging, setDischarging] = useState(false);
 
   const existingBillingTotals = useMemo(
     () =>
@@ -573,6 +577,7 @@ export function BillingPageContent() {
               ? canEditBilling
               : !effectiveIsAlreadyBilled && canBill && hasRemainingToBill)
           }
+          quantityUpdating={updatingQuantity}
           canEdit={
             // Edit mode (Finance): full editing power regardless of paid status.
             // Normal mode: Finance only, not yet billed, no unread notes.
@@ -610,9 +615,14 @@ export function BillingPageContent() {
             isEditingBill={isEditingBill}
             exemptionCount={exemptionCount}
             hasUnreadNotes={unreadBillingNotesCount > 0}
+            // Outstanding is total - paid (authoritative) — the backend's
+            // reported outstandingAmount can lag a full payment and otherwise
+            // keep showing the Collect payment button after the bill is settled.
             canCollectPayment={Boolean(
               existingBillingTotals &&
-                existingBillingTotals.outstandingAmount > 0 &&
+                existingBillingTotals.totalAmount -
+                  existingBillingTotals.paidAmount >
+                  0.001 &&
                 canBill &&
                 !isEditMode,
             )}
@@ -803,7 +813,9 @@ export function BillingPageContent() {
         }}
         visit={visit}
         billingData={billingData}
-        visitBilling={existingVisitBilling}
+        // While editing, preview the pending edits (draft path); otherwise the
+        // billed visit previews its actual invoice.
+        visitBilling={isEditMode ? null : existingVisitBilling}
         selectedDepartmentId={previewDepartmentId}
         onDepartmentSelect={setPreviewDepartmentId}
         previewStartedAt={previewStartedAt}
@@ -822,9 +834,13 @@ export function BillingPageContent() {
         title="Discharge this patient?"
         description="All billable items are settled. Completing the visit will finalize it."
         confirmLabel="Discharge"
+        busy={discharging}
         onConfirm={() => {
-          setDischargeConfirmOpen(false);
-          void handleDischargeVisit();
+          setDischarging(true);
+          void handleDischargeVisit().finally(() => {
+            setDischarging(false);
+            setDischargeConfirmOpen(false);
+          });
         }}
       />
     </div>

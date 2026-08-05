@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Camera, Pencil } from "lucide-react"
+import { ArrowLeft, Camera, Pencil, Loader2 } from "lucide-react"
 import { toast } from "react-toastify"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -32,6 +32,8 @@ export default function AccountPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [profilePhotoUrl, setProfilePhotoUrl] = useState("")
+  // In-flight profile photo upload — disables the photo picker while uploading.
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
   const initial = useRef({} as Record<string, string>)
 
@@ -109,11 +111,14 @@ export default function AccountPage() {
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    setUploadingPhoto(true)
     try {
       const result = await uploadFile(file)
       setProfilePhotoUrl(result.url)
     } catch {
       toast.error("Failed to upload photo")
+    } finally {
+      setUploadingPhoto(false)
     }
     e.target.value = ""
   }
@@ -193,7 +198,7 @@ export default function AccountPage() {
           <h2 className="text-lg font-semibold text-foreground">Profile Information</h2>
           <form onSubmit={profileForm.handleSubmit(handleUpdateProfile)} className="space-y-4" noValidate>
             <div className="flex items-center gap-6">
-              <button type="button" onClick={handlePhotoPick} className="relative shrink-0 group">
+              <button type="button" onClick={handlePhotoPick} disabled={uploadingPhoto} className="relative shrink-0 group" title={uploadingPhoto ? "Uploading…" : "Change photo"}>
                 {profilePhotoUrl ? (
                   <img
                     src={getMediaUrl(profilePhotoUrl)}
@@ -206,7 +211,11 @@ export default function AccountPage() {
                   </div>
                 )}
                 <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                  <Pencil className="h-5 w-5 text-white" />
+                  {uploadingPhoto ? (
+                    <Loader2 className="h-5 w-5 text-white animate-spin" />
+                  ) : (
+                    <Pencil className="h-5 w-5 text-white" />
+                  )}
                 </div>
                 <input
                   ref={fileInputRef}
