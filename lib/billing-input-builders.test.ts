@@ -162,4 +162,70 @@ describe("buildEditBillInput", () => {
     expect(product.coverageType).toBe("INSURANCE");
     expect(product.patientInsuranceId).toBe("ins-1");
   });
+
+  it("sends the reduced post-refund payment when an edit exempts a paid product", () => {
+    // Mirrors guide §5.4 Example 1: a previously paid private product is
+    // exempted in edit mode, shrinking the corrected patient payable well below
+    // the amount already paid. The edit must submit the reduced payment rather
+    // than omit it (omitting carries forward the old larger amount, which the
+    // backend rejects).
+    const privateExempted = makeItem({
+      id: "private-exempted",
+      productId: "product-fluorescein",
+      name: "Fluorescein staining test",
+      price: 20912,
+      quantity: 1,
+      exempted: true,
+      exemptionType: "full",
+      selectedInsuranceId: undefined,
+    });
+    const insured = (id: string, productId: string) =>
+      makeItem({
+        id,
+        productId,
+        name: `Insured line ${id}`,
+        price: 4000,
+        quantity: 1,
+        selectedInsuranceId: "ins-policy-1",
+        insuranceNotCovered: false,
+      });
+    const current = [
+      privateExempted,
+      insured("ins-1", "product-ins-1"),
+      insured("ins-2", "product-ins-2"),
+      insured("ins-3", "product-ins-3"),
+    ];
+
+    // amountPaid mirrors the already-paid amount from the previous version.
+    const input = buildEditBillInput(
+      makeBillingData({ items: current, amountPaid: 28126.74 }),
+      current,
+      (item) => (item.id === "private-exempted" ? 0 : 65),
+    );
+
+    const dept = input.departments[0];
+    const exemptedProduct = dept.billProducts.find(
+      (p) => p.productId === "product-fluorescein",
+    );
+    expect(exemptedProduct?.isExempted).toBe(true);
+    expect(exemptedProduct?.coverageType).toBe("PRIVATE");
+    expect(exemptedProduct?.patientInsuranceId).toBeUndefined();
+
+    // Patient share of each 4000 line @ 65% = 2600 -> 3 * 2600 = 7800. The
+    // submitted payment is the corrected payable, not the old 28126.74.
+    const payment = dept.payments?.[0];
+    expect(payment).toBeDefined();
+    expect(payment!.amount).toBe(7800);
+    expect(payment!.paymentMethod).toBe("CASH");
+  });
+
+  it("omits payments when amountPaid is 0 (carry-forward intent)", () => {
+    const item = makeItem({});
+    const input = buildEditBillInput(
+      makeBillingData({ items: [item], amountPaid: 0 }),
+      [item],
+      (i) => i.price,
+    );
+    expect(input.departments[0].payments).toBeUndefined();
+  });
 });

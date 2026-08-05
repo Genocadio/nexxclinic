@@ -151,9 +151,12 @@ export function BillingPageContent() {
   );
 
   // In edit mode the UI behaves as if no bill exists yet — items become
-  // unbilled/selectable and totals recalculate from scratch. We still keep
-  // the real existingVisitBilling for deciding which mutation to call on submit.
-  const effectiveVisitBilling = isEditingBill ? null : existingVisitBilling;
+  // unbilled/selectable and totals recalculate from scratch. The real
+  // existingVisitBilling is still passed to the mapper so edit mode defaults
+  // amountPaid to the already-paid amount — without it a reduced-payment edit
+  // (exemption, removal) submits no payments, the old larger amount is carried
+  // forward, and the backend rejects the corrected bill as smaller than what
+  // was already paid.
 
   // Determine if user can edit billing items based on role
   // Only FINANCE role can edit items. CASHIER users cannot delete or adjust quantities
@@ -191,7 +194,7 @@ export function BillingPageContent() {
     // "pending" regardless of their backend BILLED status, giving a clean
     // slate identical to first-time billing.
     const mapped = mapVisitToBillingData(visit, {
-      existingVisitBilling: effectiveVisitBilling,
+      existingVisitBilling,
       editMode: isEditingBill,
     });
     const shouldUpdateBillingData =
@@ -634,8 +637,17 @@ export function BillingPageContent() {
               setConfirmSheetMode(isEditMode ? "edit" : "complete");
               setShowDiscountControls(isEditMode);
               // Prefill full payment for first-time billing. In edit mode keep
-              // the previously paid amount (0 carries forward prior payments).
-              if (!isEditMode) {
+              // the previously paid amount, capped at the corrected total so a
+              // reduced-payment edit (exemption, removal) submits the
+              // post-refund amount instead of the old, larger one.
+              if (isEditMode) {
+                handleAmountPaidChange(
+                  Math.min(
+                    confirmTotals.totalAmount,
+                    billingData.amountPaid || 0,
+                  ),
+                );
+              } else {
                 handleAmountPaidChange(confirmTotals.totalAmount);
               }
               setShowCompleteBillConfirm(true);
