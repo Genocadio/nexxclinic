@@ -20,15 +20,15 @@ const nextConfig = {
         source: '/api/:path*',
         destination: `${API_BASE_URL}/api/:path*`,
       },
-      // Supabase storage proxy for PUBLIC files (existing - keep as is)
+      // Supabase storage proxy for SIGNED files (NEW - different path)
+      {
+        source: '/storage/sign/:path*',
+        destination: `${SUPABASE_INTERNAL_URL}/storage/v1/object/sign/:path*`,
+      },
+      // Supabase storage proxy for PUBLIC files (existing)
       {
         source: '/supa/:path*',
         destination: `${SUPABASE_INTERNAL_URL}/storage/v1/object/public/:path*`,
-      },
-      // Supabase storage proxy for SIGNED files (NEW RULE)
-      {
-        source: '/supa-signed/:path*',
-        destination: `${SUPABASE_INTERNAL_URL}/storage/v1/object/sign/:path*`,
       },
     ]
   },
