@@ -624,7 +624,8 @@ export function BillingPageContent() {
                   existingBillingTotals.paidAmount >
                   0.001 &&
                 canBill &&
-                !isEditMode,
+                !isEditMode &&
+                !previewOpen,
             )}
             recordingPayment={recordingPayment}
             onCollectPayment={() => {
