@@ -548,12 +548,108 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
 
   const handleAddProduct = async (
     _type: "action" | "consumable",
-    item: { id: string; name: string },
+    item: {
+      id: string;
+      name: string;
+      clinicPrice?: number | null;
+      privateRhicPrice?: number | null;
+    },
     quantity: number,
     catalogDepartmentId: string,
   ) => {
     if (!visit?.id) return;
 
+    // In edit mode, skip the backend addVisitDepartmentProduct mutation — the
+    // normal mutation is blocked on billed departments. Instead, construct a
+    // local BillingItem and add it to the state. The actual backend add happens
+    // atomically when the user submits via editBillVisit (addedProducts + billProducts).
+    if (isEditingBill) {
+      try {
+        setAddingBillingItem(true);
+
+        // Resolve the visit department that owns products for this catalog department
+        const allDepts = (visit.departments || []) as Array<{
+          id: string;
+          department?: { id?: string; name?: string };
+          products?: Array<{
+            id: string;
+            product?: {
+              id?: string;
+              name?: string;
+              clinicPrice?: number | null;
+              privateRhicPrice?: number | null;
+            };
+          }>;
+        }>;
+        const visitDept = allDepts.find(
+          (d) => String(d.department?.id) === String(catalogDepartmentId),
+        );
+
+        // Try to get price from existing visit products (in case this product
+        // was previously on the visit and is being re-added)
+        let basePrice = Number(item.clinicPrice ?? item.privateRhicPrice ?? 0);
+        if (basePrice === 0 && visitDept?.products) {
+          const existingLine = visitDept.products.find(
+            (p) => String(p.product?.id) === String(item.id),
+          );
+          if (existingLine?.product) {
+            basePrice = Number(
+              existingLine.product.clinicPrice ??
+                existingLine.product.privateRhicPrice ??
+                0,
+            );
+          }
+        }
+
+        const deptName = visitDept?.department?.name || "General";
+        const tempId = `temp-${item.id}-${Date.now()}`;
+
+        const newBillingItem: BillingItem = {
+          id: tempId,
+          productId: item.id,
+          source: "USER",
+          isNewInEditMode: true,
+          name: item.name,
+          quantity,
+          price: basePrice,
+          basePrice,
+          type: "product",
+          visitDepartmentId: visitDept?.id || catalogDepartmentId,
+          rootVisitDepartmentId: visitDept?.id || catalogDepartmentId,
+          departmentId: catalogDepartmentId,
+          departmentName: deptName,
+          departmentStatus: undefined,
+          paymentStatus: "pending",
+          exempted: false,
+          exemptionType: "none",
+          selectedInsuranceId: undefined,
+          doneBy: {
+            name: doctor?.firstName || "Doctor",
+            title: "",
+          },
+        };
+
+        setBillingData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            items: [...prev.items, newBillingItem],
+            updatedAt: new Date().toISOString(),
+          };
+        });
+
+        setShowAddProductModal(false);
+        toast.success("Product added (will be saved when edit is submitted)");
+      } catch (err) {
+        console.error("Failed to add product in edit mode:", err);
+        toast.error("Failed to add product. Please try again.");
+      } finally {
+        setAddingBillingItem(false);
+      }
+      return;
+    }
+
+    // Normal (non-edit) mode: call the backend mutation directly
     try {
       setAddingBillingItem(true);
       const response = await addProduct(

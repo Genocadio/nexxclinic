@@ -66,8 +66,21 @@ export function useBillingPageState() {
     });
   };
 
-  const handleQuantityChange = async (item: BillingItem, nextQty: number) => {
+  const handleQuantityChange = async (
+    item: BillingItem,
+    nextQty: number,
+    isEditingBill?: boolean,
+  ) => {
     if (nextQty < 1) return;
+
+    // In edit mode, skip the backend mutation — the quantity change will be
+    // submitted as part of editBillVisit (via updatedProducts + billProducts).
+    // The normal updateVisitDepartmentProductQuantity mutation is blocked on
+    // billed departments.
+    if (isEditingBill) {
+      handleItemChange({ ...item, quantity: nextQty });
+      return;
+    }
 
     try {
       const response = await updateProductQuantity(item.id, nextQty);

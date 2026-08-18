@@ -12,6 +12,8 @@ import {
 type ProductPickerItem = {
   id: string
   name: string
+  clinicPrice?: number | null
+  privateRhicPrice?: number | null
 }
 
 type PatientInsurance = {

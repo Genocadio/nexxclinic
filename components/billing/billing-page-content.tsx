@@ -595,7 +595,9 @@ export function BillingPageContent() {
           onAddItem={() => setShowAddProductModal(true)}
           onItemChange={handleItemChange}
           onItemRemove={handleItemRemove}
-          onQuantityChange={handleQuantityChange}
+          onQuantityChange={(item, qty) =>
+            handleQuantityChange(item, qty, isEditingBill)
+          }
         />
 
         {showBillingDock && (
