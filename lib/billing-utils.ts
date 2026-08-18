@@ -214,11 +214,17 @@ export interface DepartmentBillAllocation {
  * A department needs a billing note when it has an exempted product OR its
  * allocated payment does not cover its full patient payable (a balance is
  * left — including billing with no payment at all).
+ *
+ * When `originalTotalCents` is provided (edit mode), the note-required check
+ * compares the allocated payment against the ORIGINAL patient payable derived
+ * from `originalTotalCents`, so that automatic capping due to item removal /
+ * exemption changes does not falsely trigger a note requirement.
  */
 export function computeDepartmentBillAllocations(
   items: BillingItem[],
   totalPayment: number,
   getCoveragePercentage: (item: BillingItem) => number,
+  originalTotalCents?: number,
 ): DepartmentBillAllocation[] {
   const map = new Map<
     string,
@@ -269,10 +275,23 @@ export function computeDepartmentBillAllocations(
     remainingCents -= amountCents;
   }
 
+  // Determine note-required per department. In edit mode (originalTotalCents
+  // provided), use the PREVIOUS paid amount as the distribution cap so that
+  // automatic capping of amountPaid to the new total does not falsely trigger
+  // a note requirement when the user has not intentionally reduced payment.
+  const noteRefCents = originalTotalCents ?? toCents(totalPayment);
+  let refRemainingCents = Math.max(0, noteRefCents);
+  const refAllocs: number[] = [];
   for (const entry of allocations) {
+    const refAmt = Math.min(entry.patientPayableCents, refRemainingCents);
+    refAllocs.push(refAmt);
+    refRemainingCents -= refAmt;
+  }
+  for (let i = 0; i < allocations.length; i++) {
+    const entry = allocations[i];
     entry.noteRequired =
       entry.hasExemptions ||
-      toCents(entry.allocatedPayment) < entry.patientPayableCents;
+      refAllocs[i] < entry.patientPayableCents;
   }
 
   return allocations.map(({ patientPayableCents: _cents, ...entry }) => entry);

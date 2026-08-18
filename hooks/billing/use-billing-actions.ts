@@ -99,6 +99,7 @@ export interface BillingActionsContext {
   setBillingRemapNonce: Dispatch<SetStateAction<number>>;
   setIsEditingBill: Dispatch<SetStateAction<boolean>>;
   setEditModeSnapshot: Dispatch<SetStateAction<BillingItem[] | null>>;
+  setPreviousPaidCents: Dispatch<SetStateAction<number | null>>;
   setShowDiscountControls: Dispatch<SetStateAction<boolean>>;
   setConfirmSheetMode: Dispatch<SetStateAction<"complete" | "edit">>;
   setBillJustCreated: Dispatch<SetStateAction<boolean>>;
@@ -154,6 +155,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     setBillingRemapNonce,
     setIsEditingBill,
     setEditModeSnapshot,
+    setPreviousPaidCents,
     setShowDiscountControls,
     setConfirmSheetMode,
     setBillJustCreated,
@@ -385,6 +387,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         if (isEditingBill) {
           setIsEditingBill(false);
           setEditModeSnapshot(null);
+          setPreviousPaidCents(null);
           setShowDiscountControls(false);
           setConfirmSheetMode("complete");
         }

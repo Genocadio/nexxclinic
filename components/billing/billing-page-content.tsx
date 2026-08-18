@@ -6,6 +6,7 @@ import {
   computeBillingTotals,
   computeDepartmentBillAllocations,
 } from "@/lib/billing-utils";
+import { toCents } from "@/lib/money";
 import {
   flattenVisitDepartmentsForBilling,
   getCoveragePercentageForBillingItem,
@@ -147,6 +148,10 @@ export function BillingPageContent() {
   // In-flight discharge — keeps the confirm dialog open with a spinner so the
   // completeVisit/department-status loop can't be triggered twice.
   const [discharging, setDischarging] = useState(false);
+  // Tracks the amount paid before entering edit mode, used to determine whether
+  // the note-required flag should be set (avoids false triggers from automatic
+  // amountPaid capping when items are removed/exempted).
+  const [previousPaidCents, setPreviousPaidCents] = useState<number | null>(null);
 
   const existingBillingTotals = useMemo(
     () =>
@@ -323,7 +328,8 @@ export function BillingPageContent() {
 
   // Per-department payment allocation + note requirement (mirrors the backend
   // rule: note required when a department has exemptions or its payment does
-  // not cover the full patient payable).
+  // not cover the full patient payable). In edit mode, pass the previous paid
+  // amount so automatic capping does not falsely trigger a note requirement.
   const billingAllocations = useMemo(() => {
     if (!billingData) return [];
     return computeDepartmentBillAllocations(
@@ -331,8 +337,9 @@ export function BillingPageContent() {
       billingData.amountPaid || 0,
       (item) =>
         getCoveragePercentageForBillingItem(item, activeVisitInsurances),
+      previousPaidCents ?? undefined,
     );
-  }, [billingData, selectedItems, activeVisitInsurances]);
+  }, [billingData, selectedItems, activeVisitInsurances, previousPaidCents]);
   const confirmNoteRequired = billingAllocations.some(
     (allocation) => allocation.noteRequired,
   );
@@ -484,6 +491,7 @@ export function BillingPageContent() {
     setBillingRemapNonce,
     setIsEditingBill,
     setEditModeSnapshot,
+    setPreviousPaidCents,
     setShowDiscountControls,
     setConfirmSheetMode,
     setBillJustCreated,
@@ -650,16 +658,12 @@ export function BillingPageContent() {
               setConfirmSheetMode(isEditMode ? "edit" : "complete");
               setShowDiscountControls(isEditMode);
               // Prefill full payment for first-time billing. In edit mode keep
-              // the previously paid amount, capped at the corrected total so a
-              // reduced-payment edit (exemption, removal) submits the
-              // post-refund amount instead of the old, larger one.
+              // the previously paid amount — do NOT cap it when items are
+              // removed/exempted. The note-required check uses the previous
+              // paid amount as reference, so reducing it manually requires a
+              // note, but auto-capping does not.
               if (isEditMode) {
-                handleAmountPaidChange(
-                  Math.min(
-                    confirmTotals.totalAmount,
-                    billingData.amountPaid || 0,
-                  ),
-                );
+                handleAmountPaidChange(billingData.amountPaid || 0);
               } else {
                 handleAmountPaidChange(confirmTotals.totalAmount);
               }
@@ -674,12 +678,14 @@ export function BillingPageContent() {
               }
               // Just toggle edit mode — do NOT open the confirm sheet.
               // The page re-maps items as unbilled, user edits like 1st-time billing.
+              setPreviousPaidCents(toCents(billingData?.amountPaid || 0));
               setIsEditingBill(true);
               setEditModeSnapshot(billingData?.items ?? null);
             }}
             onDoneEditing={async () => {
               setShowDiscountControls(false);
               setIsEditingBill(false);
+              setPreviousPaidCents(null);
               setEditModeSnapshot(null);
               setConfirmSheetMode("complete");
               // Refetch so items revert back to their billed/paid state
