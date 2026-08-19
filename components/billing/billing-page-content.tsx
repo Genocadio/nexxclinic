@@ -27,7 +27,6 @@ import {
   useEditBill,
   useGetVisitBilling,
   useGenerateInvoice,
-  useRecordVisitBillingPayment,
   useCompleteVisit,
   useDepartments,
   useChangeVisitDepartmentProfile,
@@ -52,7 +51,6 @@ import VisitNotesFloating from "@/components/visit-notes-floating";
 import { BillingPatientBar } from "@/components/billing/billing-patient-bar";
 import { BillingStickySummary } from "@/components/billing/billing-sticky-summary";
 import { BillingConfirmSheet } from "@/components/billing/billing-confirm-sheet";
-import { CollectPaymentSheet } from "@/components/billing/billing-collect-payment-sheet";
 import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet";
 import { BillingItemsWorkspace } from "@/components/billing/billing-items-workspace";
 import { BillingExemptionsPanel } from "@/components/billing/billing-exemptions-panel";
@@ -69,8 +67,6 @@ export function BillingPageContent() {
   const { createBill, loading: creatingBill } = useCreateBill();
   const { editBill, loading: editingBill } = useEditBill();
   const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice();
-  const { recordPayment, loading: recordingPayment } =
-    useRecordVisitBillingPayment();
   const {
     visitBilling: existingVisitBilling,
     refetch: refetchBill,
@@ -109,8 +105,7 @@ export function BillingPageContent() {
     setAddingBillingItem,
     showExemptionsWindow,
     setShowExemptionsWindow,
-    showCollectPayment,
-    setShowCollectPayment,
+
     billingRemapNonce,
     setBillingRemapNonce,
     billingData,
@@ -126,8 +121,7 @@ export function BillingPageContent() {
     handlePaymentMethodChange,
     handleAmountPaidChange,
     handleNotesChange,
-  } = useBillingPageState();
-  const { linkVisitInsurances, loading: linkingVisitInsurances } =
+  } = useBillingPageState();  const { linkVisitInsurances, loading: linkingVisitInsurances } =
     useLinkVisitInsurances();
   const { unlinkVisitInsurances, loading: unlinkingVisitInsurances } =
     useUnlinkVisitInsurances();
@@ -443,7 +437,6 @@ export function BillingPageContent() {
 
   const {
     handleDownloadInvoice,
-    handleRecordPayment,
     handleChangeProfile,
     handlePreviewBilling,
     handleGenerateBill,
@@ -477,7 +470,6 @@ export function BillingPageContent() {
     createBill,
     editBill,
     generateInvoice,
-    recordPayment,
     changeVisitDepartmentProfile,
     updateDepartmentStatus,
     completeVisit,
@@ -628,25 +620,6 @@ export function BillingPageContent() {
             // Outstanding is total - paid (authoritative) — the backend's
             // reported outstandingAmount can lag a full payment and otherwise
             // keep showing the Collect payment button after the bill is settled.
-            canCollectPayment={Boolean(
-              existingBillingTotals &&
-                existingBillingTotals.totalAmount -
-                  existingBillingTotals.paidAmount >
-                  0.001 &&
-                canBill &&
-                !isEditMode &&
-                !previewOpen,
-            )}
-            recordingPayment={recordingPayment}
-            onCollectPayment={() => {
-              if (unreadBillingNotesCount > 0) {
-                toast.warn(
-                  "Please view the notes first before recording a payment.",
-                );
-                return;
-              }
-              setShowCollectPayment(true);
-            }}
             onCompleteBill={() => {
               if (unreadBillingNotesCount > 0) {
                 toast.warn(
@@ -797,18 +770,6 @@ export function BillingPageContent() {
         items={billingData?.items || []}
         onClose={() => setShowExemptionsWindow(false)}
         onExemptionChange={handleExemptionChange}
-      />
-
-      <CollectPaymentSheet
-        open={showCollectPayment}
-        onOpenChange={setShowCollectPayment}
-        visitBilling={existingVisitBilling}
-        recording={recordingPayment}
-        onRecordPayment={handleRecordPayment}
-        onRecorded={async () => {
-          await refetchBill();
-          await refetchVisit();
-        }}
       />
 
       <BillingPreviewSheet

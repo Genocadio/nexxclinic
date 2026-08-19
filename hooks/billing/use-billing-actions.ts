@@ -60,13 +60,6 @@ export interface BillingActionsContext {
   generateInvoice: (
     departmentInsuranceBillingId: string,
   ) => Promise<InvoiceMutationResult>;
-  recordPayment: (input: {
-    departmentInsuranceBillingId: string;
-    amount: number;
-    paymentMethod: BillingPaymentMethod;
-    reference?: string;
-    note?: string;
-  }) => Promise<ApiResponse<VisitBilling>>;
   changeVisitDepartmentProfile: (
     visitDepartmentId: string,
     profileId?: string | null,
@@ -110,8 +103,6 @@ export interface BillingActionsContext {
   setAddingBillingItem: Dispatch<SetStateAction<boolean>>;
 }
 
-type RecordPaymentInput = Parameters<BillingActionsContext["recordPayment"]>[0];
-
 /**
  * All async actions for BillingPageContent (bill creation/editing, discharge,
  * preview/print, insurance toggling, product adding). Extracted so the page
@@ -141,7 +132,6 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     createBill,
     editBill,
     generateInvoice,
-    recordPayment,
     changeVisitDepartmentProfile,
     updateDepartmentStatus,
     completeVisit,
@@ -174,13 +164,6 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       generateInvoice,
     );
     openInvoicePreview(invoiceUrl);
-  };
-
-  const handleRecordPayment = async (input: RecordPaymentInput) => {
-    const response = await recordPayment(input);
-    if (response.status !== "SUCCESS") {
-      throw new Error(response.message || "Failed to record payment");
-    }
   };
 
   const handleChangeProfile = async (profileId: string | null) => {
@@ -754,7 +737,6 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     requestDischarge,
     handleDischargeVisit,
     handleDownloadInvoice,
-    handleRecordPayment,
     handleChangeProfile,
     handlePreviewBilling,
     handleGenerateBill,

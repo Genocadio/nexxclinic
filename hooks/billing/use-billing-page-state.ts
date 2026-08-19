@@ -43,7 +43,6 @@ export function useBillingPageState() {
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [addingBillingItem, setAddingBillingItem] = useState(false);
   const [showExemptionsWindow, setShowExemptionsWindow] = useState(false);
-  const [showCollectPayment, setShowCollectPayment] = useState(false);
   // Bumped to force billingData to be remapped from a freshly refetched visit
   // (e.g. after changeVisitDepartmentProfile swaps PROFILE products).
   const [billingRemapNonce, setBillingRemapNonce] = useState(0);
@@ -205,8 +204,6 @@ export function useBillingPageState() {
     setAddingBillingItem,
     showExemptionsWindow,
     setShowExemptionsWindow,
-    showCollectPayment,
-    setShowCollectPayment,
     billingRemapNonce,
     setBillingRemapNonce,
     // Loading flags for backend calls

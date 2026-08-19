@@ -15,10 +15,24 @@ import type {
  * the diff logic is unit-testable.
  */
 
-const isExemptedItem = (item: BillingItem) =>
-  item.exempted ||
-  item.exemptionType === "full" ||
-  item.exemptionType === "patient-share";
+/**
+ * Resolve the backend ExemptionType enum value for a billing item.
+ * Maps the frontend 'none' | 'patient-share' | 'full' representation to
+ * the GraphQL enum NONE | PATIENT_SHARE | FULL.
+ */
+function resolveExemptionType(
+  item: BillingItem,
+): "NONE" | "PATIENT_SHARE" | "FULL" {
+  const effectiveType = item.exemptionType || (item.exempted ? "full" : "none");
+  switch (effectiveType) {
+    case "patient-share":
+      return "PATIENT_SHARE";
+    case "full":
+      return "FULL";
+    default:
+      return "NONE";
+  }
+}
 
 /**
  * Builds the BillVisitInput for first-time billing (no existing bill).
@@ -64,7 +78,7 @@ export function buildCreateBillInput(
       coverageType: coveredInsuranceId ? "INSURANCE" : "PRIVATE",
       patientInsuranceId: coveredInsuranceId,
       quantity: item.quantity,
-      isExempted: isExemptedItem(item),
+      exemptionType: resolveExemptionType(item),
     });
   });
 
@@ -168,7 +182,7 @@ export function buildEditBillInput(
       // frontend only declares HOW the line is covered.
       coverageType: coveredInsuranceId ? "INSURANCE" : "PRIVATE",
       patientInsuranceId: coveredInsuranceId,
-      isExempted: isExemptedItem(item),
+      exemptionType: resolveExemptionType(item),
     });
 
     if (!snapshotIds.has(item.id)) {

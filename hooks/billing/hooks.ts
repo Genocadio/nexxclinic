@@ -72,7 +72,8 @@ export interface CreateBillDepartmentInput {
     /** ONLY with coverageType INSURANCE. Must be linked to the visit, active and cover the product. */
     patientInsuranceId?: string;
     quantity?: number;
-    isExempted?: boolean;
+    /** NONE, PATIENT_SHARE (patient waive, insurance still pays), or FULL (entire line zeroed). */
+    exemptionType?: "NONE" | "PATIENT_SHARE" | "FULL";
   }[];
   payments?: {
     amount: number;
@@ -164,7 +165,8 @@ export interface EditBillInput {
       /** ONLY with coverageType INSURANCE. Must be linked to the visit, active and cover the product. */
       patientInsuranceId?: string;
       quantity?: number;
-      isExempted?: boolean;
+      /** NONE, PATIENT_SHARE (patient waive, insurance still pays), or FULL (entire line zeroed). */
+      exemptionType?: "NONE" | "PATIENT_SHARE" | "FULL";
     }[];
     payments?: {
       amount: number;

@@ -117,6 +117,11 @@ export enum VisitStatus {
 export enum VisitProductStatus {
   BILLED = "BILLED",
   EXEMPTED = "EXEMPTED",
+  /**
+   * The patient's share was waived but insurance still covers its normal amount.
+   * Distinct from EXEMPTED where the entire line is zeroed.
+   */
+  PATIENT_SHARE_EXEMPTED = "PATIENT_SHARE_EXEMPTED",
   /** Was BILLED/EXEMPTED and reset by the edit-billing correction flow. Not settable by clients. */
   CORRECTION_PENDING = "CORRECTION_PENDING",
   UNPAID = "UNPAID",

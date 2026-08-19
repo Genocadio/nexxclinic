@@ -96,6 +96,46 @@ describe("getItemInsuranceSplit", () => {
     expect(split.itemTotal).toBe(0);
     expect(split.patientAmount).toBe(0);
   });
+
+  it("patient-share exemption: insurance covers its normal amount, patient pays zero", () => {
+    // PATIENT_SHARE means the patient's share is waived but insurance still
+    // covers its normal amount (85% of the line total for pct=15). The
+    // patient amount is zero.
+    const item = makeItem({
+      exempted: true,
+      exemptionType: "patient-share",
+      selectedInsuranceId: "ins-1",
+      insuranceNotCovered: false,
+      price: 10000,
+      quantity: 2,
+    });
+    const split = getItemInsuranceSplit(item, 15);
+    expect(split.skip).toBe(false);
+    expect(split.itemTotal).toBe(20000);
+    // Insurance covers its normal amount: 85% of 20000 = 17000
+    expect(split.insuranceAmount).toBe(17000);
+    // Patient share is waived
+    expect(split.patientAmount).toBe(0);
+  });
+
+  it("patient-share exemption with coveragePercentage=0: insurance covers full line", () => {
+    // A patient-share exemption with coveragePercentage=0 means 0% patient
+    // co-pay, so insurance covers 100% of the line. The patient amount is
+    // zeroed by the exemption.
+    const item = makeItem({
+      exempted: true,
+      exemptionType: "patient-share",
+      price: 5000,
+      quantity: 1,
+    });
+    const split = getItemInsuranceSplit(item, 0);
+    expect(split.skip).toBe(false);
+    expect(split.itemTotal).toBe(5000);
+    // coveragePercentage=0 → insurance covers 100%
+    expect(split.insuranceAmount).toBe(5000);
+    // Patient share is waived
+    expect(split.patientAmount).toBe(0);
+  });
 });
 
 describe("computeBillingTotals", () => {

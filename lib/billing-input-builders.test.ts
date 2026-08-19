@@ -54,7 +54,7 @@ describe("buildCreateBillInput", () => {
     expect(product.parentVisitDepartmentId).toBe(item.visitDepartmentId);
     expect(product.coverageType).toBe("PRIVATE");
     expect(product.patientInsuranceId).toBeUndefined();
-    expect(product.isExempted).toBe(false);
+    expect(product.exemptionType).toBe("NONE");
   });
 
   it("bills as INSURANCE only when covered", () => {
@@ -83,14 +83,32 @@ describe("buildCreateBillInput", () => {
     expect(byId["item-not-covered"].patientInsuranceId).toBeUndefined();
   });
 
-  it("marks exempted lines with isExempted", () => {
+  it("marks full-exempted lines with exemptionType FULL", () => {
     const item = makeItem({ exempted: true, exemptionType: "full" });
     const input = buildCreateBillInput(
       makeBillingData({ items: [item] }),
       [item],
       (i) => i.price,
     );
-    expect(input.departments[0].products[0].isExempted).toBe(true);
+    expect(input.departments[0].products[0].exemptionType).toBe("FULL");
+  });
+
+  it("marks patient-share-exempted lines with exemptionType PATIENT_SHARE", () => {
+    const item = makeItem({
+      exempted: true,
+      exemptionType: "patient-share",
+      selectedInsuranceId: "ins-1",
+      insuranceNotCovered: false,
+    });
+    const input = buildCreateBillInput(
+      makeBillingData({ items: [item] }),
+      [item],
+      (i) => i.price,
+    );
+    const product = input.departments[0].products[0];
+    expect(product.exemptionType).toBe("PATIENT_SHARE");
+    expect(product.coverageType).toBe("INSURANCE");
+    expect(product.patientInsuranceId).toBe("ins-1");
   });
 
   it("groups products under their root department", () => {
@@ -207,7 +225,7 @@ describe("buildEditBillInput", () => {
     const exemptedProduct = dept.billProducts.find(
       (p) => p.productId === "product-fluorescein",
     );
-    expect(exemptedProduct?.isExempted).toBe(true);
+    expect(exemptedProduct?.exemptionType).toBe("FULL");
     expect(exemptedProduct?.coverageType).toBe("PRIVATE");
     expect(exemptedProduct?.patientInsuranceId).toBeUndefined();
 
@@ -227,5 +245,25 @@ describe("buildEditBillInput", () => {
       (i) => i.price,
     );
     expect(input.departments[0].payments).toBeUndefined();
+  });
+
+  it("sends PATIENT_SHARE exemption when patient share is waived (insurance still pays)", () => {
+    const item = makeItem({
+      id: "waived-item",
+      productId: "product-waived",
+      exempted: true,
+      exemptionType: "patient-share",
+      selectedInsuranceId: "ins-1",
+      insuranceNotCovered: false,
+    });
+    const input = buildEditBillInput(
+      makeBillingData({ items: [item] }),
+      [item],
+      (i) => i.price,
+    );
+    const billProduct = input.departments[0].billProducts[0];
+    expect(billProduct.exemptionType).toBe("PATIENT_SHARE");
+    expect(billProduct.coverageType).toBe("INSURANCE");
+    expect(billProduct.patientInsuranceId).toBe("ins-1");
   });
 });

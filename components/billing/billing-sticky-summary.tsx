@@ -1,6 +1,6 @@
 "use client";
 
-import { Receipt, Printer, Pencil, HandCoins } from "lucide-react";
+import { Receipt, Printer, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -34,15 +34,12 @@ type BillingStickySummaryProps = {
   isEditingBill: boolean;
   exemptionCount: number;
   hasUnreadNotes?: boolean;
-  canCollectPayment?: boolean;
-  recordingPayment?: boolean;
   onCompleteBill: () => void;
   onPreview: () => void;
   onPrint: () => void;
   onEditBilling: () => void;
   onDoneEditing: () => void;
   onManageExemptions: () => void;
-  onCollectPayment: () => void;
 };
 
 export function BillingStickySummary({
@@ -58,14 +55,11 @@ export function BillingStickySummary({
   isEditingBill,
   exemptionCount,
   hasUnreadNotes = false,
-  canCollectPayment = false,
-  recordingPayment = false,
   onCompleteBill,
   onPrint,
   onEditBilling,
   onDoneEditing,
   onManageExemptions,
-  onCollectPayment,
 }: BillingStickySummaryProps) {
   const remaining = Math.max(0, totals.totalAmount - amountPaid);
   const showActions = canEditBilling || hasRemainingToBill;
@@ -185,24 +179,6 @@ export function BillingStickySummary({
                       </Button>
                     </>
                   )}
-
-                {existingVisitBilling && !isEditingBill && canCollectPayment && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-9 rounded-full text-xs gap-1.5"
-                    disabled={recordingPayment || hasUnreadNotes}
-                    onClick={onCollectPayment}
-                    title={
-                      hasUnreadNotes
-                        ? "View unread notes to record a payment"
-                        : "Record a payment against the outstanding balance"
-                    }
-                  >
-                    <HandCoins className="h-3.5 w-3.5" />
-                    {recordingPayment ? "Recording…" : "Collect payment"}
-                  </Button>
-                )}
 
                 {existingVisitBilling && !isEditingBill && (
                   <>

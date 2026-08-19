@@ -27,7 +27,8 @@ export function mapVisitProductStatusToPaymentStatus(
 ): BillingItem["paymentStatus"] {
   // In edit mode every item is treated as pending regardless of backend status.
   if (editMode) {
-    if (status === "EXEMPTED") return "exempted";
+    if (status === "EXEMPTED" || status === "PATIENT_SHARE_EXEMPTED")
+      return "exempted";
     return "pending";
   }
   if (status === "BILLED") return "paid";
@@ -38,7 +39,8 @@ export function mapVisitProductStatusToPaymentStatus(
   ) {
     return "paid";
   }
-  if (status === "EXEMPTED") return "exempted";
+  if (status === "EXEMPTED" || status === "PATIENT_SHARE_EXEMPTED")
+    return "exempted";
   return "pending";
 }
 
@@ -157,8 +159,15 @@ export function mapVisitToBillingData(
           options?.existingVisitBilling,
           options?.editMode,
         ),
-        exempted: line.status === "EXEMPTED",
-        exemptionType: line.status === "EXEMPTED" ? "full" : "none",
+        exempted:
+          line.status === "EXEMPTED" ||
+          line.status === "PATIENT_SHARE_EXEMPTED",
+        exemptionType:
+          line.status === "PATIENT_SHARE_EXEMPTED"
+            ? "patient-share"
+            : line.status === "EXEMPTED"
+              ? "full"
+              : "none",
         selectedInsuranceId: defaultVisitInsuranceId,
         doneBy: {
           name: workerDisplayName(

@@ -162,6 +162,22 @@ export function getItemInsuranceSplit(
   const lineTotalCents = lineTotalToCents(unitPrice, item.quantity ?? 1);
   const itemTotal = fromCents(lineTotalCents);
 
+  // PATIENT_SHARE exemption: the patient's share is waived; insurance still
+  // covers its normal amount. This must be checked before the no-insurance
+  // early return because the exemption zero patientAmount regardless.
+  if (exemptionType === "patient-share") {
+    const coveredCents = Math.min(
+      insuranceShareCents(lineTotalCents, coveragePercentage),
+      lineTotalCents,
+    );
+    return {
+      itemTotal,
+      insuranceAmount: fromCents(coveredCents),
+      patientAmount: 0,
+      skip: false,
+    };
+  }
+
   if (!item.selectedInsuranceId || item.insuranceNotCovered) {
     return {
       itemTotal,
@@ -180,15 +196,6 @@ export function getItemInsuranceSplit(
     lineTotalCents,
   );
   const patientCents = lineTotalCents - coveredCents;
-
-  if (exemptionType === "patient-share") {
-    return {
-      itemTotal,
-      insuranceAmount: itemTotal,
-      patientAmount: 0,
-      skip: false,
-    };
-  }
 
   return {
     itemTotal,
