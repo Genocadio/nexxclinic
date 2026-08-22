@@ -114,6 +114,7 @@ export const GET_VISIT_QUERY = gql`
             id
             insuranceCardNumber
           patientSharePercentage
+          deactivated
             providingCompanyOrEmployer
             principalMember
             principalMemberName
@@ -159,6 +160,7 @@ export const GET_VISIT_QUERY = gql`
           }
           insuranceCardNumber
           patientSharePercentage
+          deactivated
           providingCompanyOrEmployer
           principalMember
           principalMemberName

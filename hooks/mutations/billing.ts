@@ -31,6 +31,7 @@ export const VISIT_DEPARTMENT_BILLING_FRAGMENT = gql`
         id
         insuranceCardNumber
           patientSharePercentage
+          deactivated
         principalMemberName
         insuranceProvider {
           id

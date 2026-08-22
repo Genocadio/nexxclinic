@@ -46,6 +46,7 @@ export type GqlPatientInsurance = {
   principalMemberPhoneNumber?: string | null;
   validFrom?: string | null;
   validUntil?: string | null;
+  deactivated?: boolean | null;
   patientSharePercentage?: number | null;
   insuranceProvider: GqlInsuranceProvider;
   patient?: { id: string } | null;
@@ -227,6 +228,7 @@ export function mapGqlProductInsuranceCoverage(
     ),
     cost: Number(coverage.cost ?? 0),
     covered: Boolean(coverage.covered),
+    notPaid: Boolean((coverage as Record<string, unknown>).notPaid),
     requireMedicalAdvisor: Boolean(coverage.requireMedicalAdvisor),
     mustPrescribedBy:
       coverage.mustPrescribedBy as ProductInsuranceCoverage["mustPrescribedBy"],
@@ -249,6 +251,7 @@ export function mapGqlProduct(product: GqlProduct): Product {
     unit: (product.unit as ProductUnit) || ("UNKNOWN" as ProductUnit),
     privateRhicPrice: product.privateRhicPrice,
     clinicPrice: product.clinicPrice,
+    notPaid: Boolean((product as Record<string, unknown>).notPaid),
     insuranceCoverages: (product.insuranceCoverages || []).map(
       mapGqlProductInsuranceCoverage,
     ),
@@ -393,6 +396,7 @@ export function mapGqlPatientInsurance(
     principalMemberPhoneNumber: insurance.principalMemberPhoneNumber,
     validFrom: insurance.validFrom || EMPTY_TIMESTAMP,
     validUntil: insurance.validUntil || EMPTY_TIMESTAMP,
+    deactivated: Boolean(insurance.deactivated),
     patientSharePercentage: insurance.patientSharePercentage ?? null,
     createdAt: EMPTY_TIMESTAMP,
     updatedAt: EMPTY_TIMESTAMP,
@@ -401,8 +405,7 @@ export function mapGqlPatientInsurance(
 
 export function mapGqlVisitDepartmentProduct(
   item: GqlVisitDepartmentProduct,
-): VisitDepartmentProduct {
-  const product = item.product
+): VisitDepartmentProduct {    const product = item.product
     ? mapGqlProduct(item.product)
     : {
         id: "",
@@ -411,6 +414,7 @@ export function mapGqlVisitDepartmentProduct(
         description: "",
         type: "MEDICAL_ACT" as ProductType,
         unit: "UNKNOWN" as ProductUnit,
+        notPaid: false,
         insuranceCoverages: [],
         createdAt: EMPTY_TIMESTAMP,
         updatedAt: EMPTY_TIMESTAMP,

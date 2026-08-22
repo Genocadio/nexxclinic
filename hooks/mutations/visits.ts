@@ -427,6 +427,7 @@ export const LINK_VISIT_INSURANCES_MUTATION = gql`
           id
           insuranceCardNumber
           patientSharePercentage
+          deactivated
           principalMember
           principalMemberName
           principalMemberPhoneNumber
@@ -455,6 +456,7 @@ export const UNLINK_VISIT_INSURANCES_MUTATION = gql`
           id
           insuranceCardNumber
           patientSharePercentage
+          deactivated
           principalMember
           principalMemberName
           principalMemberPhoneNumber

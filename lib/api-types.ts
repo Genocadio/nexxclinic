@@ -139,6 +139,8 @@ export enum VisitDepartmentStatus {
   ON_HOLD = "ON_HOLD",
   BILLING = "BILLING",
   COMPLETED = "COMPLETED",
+  FINALISED = "FINALISED",
+  CANCELLED = "CANCELLED",
 }
 
 export enum EncounterType {
@@ -254,6 +256,12 @@ export enum PaymentMethod {
 /**
  * Indicates the source of the patient share percentage applied to a billing line.
  */
+export enum ExemptionType {
+  NONE = "NONE",
+  PATIENT_SHARE = "PATIENT_SHARE",
+  FULL = "FULL",
+}
+
 export enum PatientShareSource {
   /** Per-line override provided during billing (highest priority). */
   OVERRIDE = "OVERRIDE",
@@ -412,6 +420,7 @@ export interface PatientInsurance {
   principalMemberPhoneNumber?: string | null;
   validFrom: string;
   validUntil: string;
+  deactivated: boolean;
   /** Optional patient-specific default patient share percentage (0-100). Null = use rules then provider default. */
   patientSharePercentage?: number | null;
   createdAt: string;
@@ -432,6 +441,7 @@ export interface Product {
   metadata?: Record<string, unknown> | null;
   privateRhicPrice?: number | null;
   clinicPrice?: number | null;
+  notPaid: boolean;
   insuranceCoverages: ProductInsuranceCoverage[];
   createdAt: string;
   updatedAt: string;
@@ -445,6 +455,7 @@ export interface ProductInsuranceCoverage {
   insuranceProvider: InsuranceProvider;
   cost: number;
   covered: boolean;
+  notPaid: boolean;
   requireMedicalAdvisor: boolean;
   mustPrescribedBy: MustPrescribedBy;
   drugAdministrationFrequency: DrugAdministrationFrequency;

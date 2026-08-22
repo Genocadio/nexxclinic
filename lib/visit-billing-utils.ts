@@ -72,6 +72,7 @@ export type GqlPatientInsuranceRef = {
   id: string;
   insuranceCardNumber?: string | null;
   principalMemberName?: string | null;
+  deactivated?: boolean | null;
   insuranceProvider?: {
     id: string;
     insuranceName?: string | null;
@@ -161,6 +162,7 @@ function mapGqlPatientInsuranceRef(
     principalMemberPhoneNumber: null,
     validFrom: "",
     validUntil: "",
+    deactivated: Boolean(insurance.deactivated),
     insuranceProvider: {
       id: provider?.id || "",
       insuranceName: provider?.insuranceName || "",

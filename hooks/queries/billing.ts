@@ -42,6 +42,7 @@ export const GET_BILL_BY_VISIT_QUERY = gql`
               id
               insuranceCardNumber
           patientSharePercentage
+          deactivated
               principalMemberName
               insuranceProvider {
                 id

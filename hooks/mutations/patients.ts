@@ -34,6 +34,7 @@ export const REGISTER_PATIENT_MUTATION = gql`
           id
           insuranceCardNumber
           patientSharePercentage
+          deactivated
           principalMember
           principalMemberName
           principalMemberPhoneNumber
@@ -60,6 +61,7 @@ export const CREATE_PATIENT_INSURANCE_MUTATION = gql`
         id
         insuranceCardNumber
           patientSharePercentage
+          deactivated
         principalMember
         principalMemberName
         principalMemberPhoneNumber
@@ -79,6 +81,7 @@ export const UPDATE_PATIENT_INSURANCE_MUTATION = gql`
         id
         insuranceCardNumber
           patientSharePercentage
+          deactivated
         principalMember
         principalMemberName
         principalMemberPhoneNumber
