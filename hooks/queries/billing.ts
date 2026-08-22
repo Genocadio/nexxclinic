@@ -41,6 +41,7 @@ export const GET_BILL_BY_VISIT_QUERY = gql`
             patientInsurance {
               id
               insuranceCardNumber
+          patientSharePercentage
               principalMemberName
               insuranceProvider {
                 id
@@ -63,6 +64,8 @@ export const GET_BILL_BY_VISIT_QUERY = gql`
               quantitySnapshot
               insuranceCoveredAmount
               patientPayableAmount
+              appliedPatientSharePct
+              patientShareSource
             }
             createdAt
             updatedAt

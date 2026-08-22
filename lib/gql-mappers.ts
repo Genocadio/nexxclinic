@@ -32,7 +32,7 @@ export type GqlInsuranceProvider = {
   id: string;
   insuranceName: string;
   acronym?: string | null;
-  defaultCoveragePercentage?: number | null;
+  defaultPatientSharePercentage?: number | null;
   supportedByClinic?: boolean | null;
   iconUrl?: string | null;
 };
@@ -46,6 +46,7 @@ export type GqlPatientInsurance = {
   principalMemberPhoneNumber?: string | null;
   validFrom?: string | null;
   validUntil?: string | null;
+  patientSharePercentage?: number | null;
   insuranceProvider: GqlInsuranceProvider;
   patient?: { id: string } | null;
 };
@@ -207,7 +208,7 @@ export function mapGqlInsuranceProvider(
     id: provider.id,
     insuranceName: provider.insuranceName,
     acronym: provider.acronym,
-    defaultCoveragePercentage: Number(provider.defaultCoveragePercentage ?? 0),
+    defaultPatientSharePercentage: Number(provider.defaultPatientSharePercentage ?? 0),
     supportedByClinic: provider.supportedByClinic ?? true,
     iconUrl: provider.iconUrl,
     createdAt: EMPTY_TIMESTAMP,
@@ -392,6 +393,7 @@ export function mapGqlPatientInsurance(
     principalMemberPhoneNumber: insurance.principalMemberPhoneNumber,
     validFrom: insurance.validFrom || EMPTY_TIMESTAMP,
     validUntil: insurance.validUntil || EMPTY_TIMESTAMP,
+    patientSharePercentage: insurance.patientSharePercentage ?? null,
     createdAt: EMPTY_TIMESTAMP,
     updatedAt: EMPTY_TIMESTAMP,
   };

@@ -324,6 +324,18 @@ export function createPatientInsuranceFormSchema(options: {
       dominantFirstName: z.string().trim(),
       dominantLastName: z.string().trim(),
       dominantPhone: z.string().trim(),
+      patientSharePercentage: z
+        .union([z.string(), z.number()])
+        .optional()
+        .nullable()
+        .refine(
+          (val) => {
+            if (val === null || val === undefined || val === '') return true;
+            const num = Number(val);
+            return !isNaN(num) && num >= 0 && num <= 100;
+          },
+          { message: 'Patient share must be between 0 and 100' },
+        ),
     })
     .superRefine((data, ctx) => {
       if (!options.dominantRequired) return;

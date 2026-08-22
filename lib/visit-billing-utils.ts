@@ -62,6 +62,8 @@ export type GqlVisitBillingItem = {
   quantitySnapshot: number;
   insuranceCoveredAmount: number;
   patientPayableAmount: number;
+  appliedPatientSharePct?: number | null;
+  patientShareSource?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -138,6 +140,8 @@ function mapGqlVisitBillingItem(item: GqlVisitBillingItem): VisitBillingItem {
     quantitySnapshot: Number(item.quantitySnapshot ?? 0),
     insuranceCoveredAmount: Number(item.insuranceCoveredAmount ?? 0),
     patientPayableAmount: Number(item.patientPayableAmount ?? 0),
+    appliedPatientSharePct: item.appliedPatientSharePct ?? null,
+    patientShareSource: (item.patientShareSource as VisitBillingItem['patientShareSource']) ?? null,
     createdAt: item.createdAt || EMPTY_TS,
     updatedAt: item.updatedAt || EMPTY_TS,
   };
@@ -161,7 +165,7 @@ function mapGqlPatientInsuranceRef(
       id: provider?.id || "",
       insuranceName: provider?.insuranceName || "",
       acronym: provider?.acronym,
-      defaultCoveragePercentage: 0,
+      defaultPatientSharePercentage: 0,
       supportedByClinic: true,
       createdAt: EMPTY_TS,
       updatedAt: EMPTY_TS,

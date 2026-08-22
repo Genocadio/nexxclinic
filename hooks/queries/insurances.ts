@@ -10,7 +10,7 @@ export const GET_INSURANCES_QUERY = gql`
         id
         insuranceName
         acronym
-        defaultCoveragePercentage
+        defaultPatientSharePercentage
         supportedByClinic
         iconUrl
         createdAt
@@ -36,7 +36,7 @@ export const GET_INSURANCE_QUERY = gql`
         id
         insuranceName
         acronym
-        defaultCoveragePercentage
+        defaultPatientSharePercentage
         supportedByClinic
         iconUrl
         createdAt

@@ -11,7 +11,7 @@
  *   - lineTotal  = round2(unitPrice × quantity)
  *   - covered    = min(lineTotal, round2(lineTotal × (100 − pct) / 100))
  *   - patientPay = lineTotal − covered
- * where `pct` is the insurer's `defaultCoveragePercentage` (the patient's
+ * where `pct` is the insurer's `defaultPatientSharePercentage` (the patient's
  * co-pay share). For an insured line the unit price IS the coverage cost, so
  * the coverage-cost total equals the line total.
  */

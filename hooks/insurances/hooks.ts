@@ -5,7 +5,7 @@ import type { InsuranceProvider, SearchInsuranceProvidersInput } from '../types'
 import { mapGqlInsuranceProvider, type GqlInsuranceProvider } from '@/lib/gql-mappers'
 
 interface LocalGqlInsuranceProvider extends GqlInsuranceProvider {
-  defaultCoveragePercentage: number
+  defaultPatientSharePercentage: number
   supportedByClinic: boolean
 }
 
@@ -26,7 +26,7 @@ const GET_INSURANCES_QUERY_LOCAL = gql`
         id
         insuranceName
         acronym
-        defaultCoveragePercentage
+        defaultPatientSharePercentage
         supportedByClinic
         iconUrl
       }
@@ -107,7 +107,7 @@ export function useCreateInsuranceProvider() {
   const createInsuranceProvider = async (input: {
     insuranceName: string
     acronym?: string
-    defaultCoveragePercentage: number
+    defaultPatientSharePercentage: number
     supportedByClinic?: boolean
     iconUrl?: string
   }): Promise<any> => {
@@ -123,7 +123,7 @@ export function useCreateInsuranceProvider() {
           id: created.id,
           insuranceName: created.insuranceName,
           acronym: created.acronym || undefined,
-          defaultCoveragePercentage: created.defaultCoveragePercentage,
+          defaultPatientSharePercentage: created.defaultPatientSharePercentage,
           supportedByClinic: created.supportedByClinic,
           iconUrl: created.iconUrl || undefined,
         } : undefined,
@@ -141,7 +141,7 @@ export function useUpdateInsuranceProvider() {
   const updateInsuranceProvider = async (insuranceProviderId: string | number, input: {
     insuranceName?: string
     acronym?: string
-    defaultCoveragePercentage?: number
+    defaultPatientSharePercentage?: number
     supportedByClinic?: boolean
     iconUrl?: string
   }): Promise<any> => {
@@ -157,7 +157,7 @@ export function useUpdateInsuranceProvider() {
           id: updated.id,
           insuranceName: updated.insuranceName,
           acronym: updated.acronym || undefined,
-          defaultCoveragePercentage: updated.defaultCoveragePercentage,
+          defaultPatientSharePercentage: updated.defaultPatientSharePercentage,
           supportedByClinic: updated.supportedByClinic,
           iconUrl: updated.iconUrl || undefined,
         } : undefined,

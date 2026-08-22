@@ -24,7 +24,7 @@ const GET_PRODUCTS_QUERY = gql`
             id
             insuranceName
             acronym
-            defaultCoveragePercentage
+            defaultPatientSharePercentage
           }
           cost
           covered

@@ -26,6 +26,7 @@ export const GET_PATIENTS_QUERY = gql`
         patientInsurances {
           id
           insuranceCardNumber
+          patientSharePercentage
           principalMember
           principalMemberName
           principalMemberPhoneNumber
@@ -33,7 +34,7 @@ export const GET_PATIENTS_QUERY = gql`
             id
             insuranceName
             acronym
-            defaultCoveragePercentage
+            defaultPatientSharePercentage
           }
         }
         createdAt
@@ -77,6 +78,7 @@ export const GET_PATIENT_QUERY = gql`
       data {
         id
         insuranceCardNumber
+          patientSharePercentage
         principalMember
         principalMemberName
         principalMemberPhoneNumber
@@ -84,7 +86,7 @@ export const GET_PATIENT_QUERY = gql`
           id
           insuranceName
           acronym
-          defaultCoveragePercentage
+          defaultPatientSharePercentage
         }
       }
     }

@@ -34,6 +34,10 @@ export interface BillingItem {
   exemptionReason?: string;
   amountPaid?: number;
   selectedInsuranceId?: string; // Can select specific insurance or 'none'
+  /** Applied patient share percentage (0-100) for this line. */
+  appliedPatientSharePct?: number | null;
+  /** Source of the applied percentage. */
+  patientShareSource?: 'OVERRIDE' | 'RULE' | 'PATIENT_DEFAULT' | 'PROVIDER_DEFAULT' | 'EXEMPTED' | null;
   doneBy: {
     name: string;
     title: string;

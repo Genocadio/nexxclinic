@@ -251,6 +251,22 @@ export enum PaymentMethod {
   MIXED = "MIXED",
 }
 
+/**
+ * Indicates the source of the patient share percentage applied to a billing line.
+ */
+export enum PatientShareSource {
+  /** Per-line override provided during billing (highest priority). */
+  OVERRIDE = "OVERRIDE",
+  /** Matched an InsuranceCoverageRule (dept + encounter type). */
+  RULE = "RULE",
+  /** Fell back to PatientInsurance.patientSharePercentage (patient-specific default). */
+  PATIENT_DEFAULT = "PATIENT_DEFAULT",
+  /** Fell back to InsuranceProvider.defaultPatientSharePercentage. */
+  PROVIDER_DEFAULT = "PROVIDER_DEFAULT",
+  /** Line was exempted (FULL or PATIENT_SHARE exemption). */
+  EXEMPTED = "EXEMPTED",
+}
+
 // ============================================
 // RESPONSE INTERFACES
 // ============================================
@@ -373,7 +389,7 @@ export interface InsuranceProvider {
   id: string;
   insuranceName: string;
   acronym?: string | null;
-  defaultCoveragePercentage: number;
+  defaultPatientSharePercentage: number;
   supportedByClinic: boolean;
   iconUrl?: string | null;
   createdAt: string;
@@ -396,6 +412,8 @@ export interface PatientInsurance {
   principalMemberPhoneNumber?: string | null;
   validFrom: string;
   validUntil: string;
+  /** Optional patient-specific default patient share percentage (0-100). Null = use rules then provider default. */
+  patientSharePercentage?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -663,6 +681,10 @@ export interface VisitBillingItem {
   quantitySnapshot: number;
   insuranceCoveredAmount: number;
   patientPayableAmount: number;
+  /** Applied patient share percentage (0-100) for this line. */
+  appliedPatientSharePct?: number | null;
+  /** Source of the applied percentage. */
+  patientShareSource?: PatientShareSource | null;
   createdAt: string;
   updatedAt: string;
 }

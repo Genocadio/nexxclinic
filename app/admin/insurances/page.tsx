@@ -90,7 +90,7 @@ export default function ManageInsurancesPage() {
       const response = await createInsuranceProvider({
         insuranceName: values.name,
         acronym: values.acronym,
-        defaultCoveragePercentage: coverageValue,
+        defaultPatientSharePercentage: coverageValue,
         supportedByClinic: values.supportedByClinic,
         iconUrl: iconUrl || undefined,
       });
@@ -119,7 +119,7 @@ export default function ManageInsurancesPage() {
       const response = await updateInsuranceProvider(editingId, {
         insuranceName: values.name,
         acronym: values.acronym,
-        defaultCoveragePercentage: coverageValue,
+        defaultPatientSharePercentage: coverageValue,
         supportedByClinic: values.supportedByClinic,
         iconUrl: iconUrl || undefined,
       });
@@ -363,7 +363,7 @@ export default function ManageInsurancesPage() {
                     <div>
                       <p className="font-medium text-foreground">{ins.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {ins.acronym} • {ins.defaultCoveragePercentage}%
+                        {ins.acronym} • {ins.defaultPatientSharePercentage}%
                         coverage •{" "}
                         {ins.supportedByClinic
                           ? "Clinic Supported"
@@ -380,7 +380,7 @@ export default function ManageInsurancesPage() {
                           reset({
                             name: ins.insuranceName || "",
                             acronym: ins.acronym || "",
-                            coverage: String(ins.defaultCoveragePercentage),
+                            coverage: String(ins.defaultPatientSharePercentage),
                             supportedByClinic: Boolean(ins.supportedByClinic),
                           });
                           setIconUrl(ins.iconUrl || "");

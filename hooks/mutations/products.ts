@@ -23,7 +23,7 @@ export const CREATE_PRODUCT_MUTATION = gql`
             id
             insuranceName
             acronym
-            defaultCoveragePercentage
+            defaultPatientSharePercentage
           }
           cost
           covered
@@ -62,7 +62,7 @@ export const UPDATE_PRODUCT_MUTATION = gql`
             id
             insuranceName
             acronym
-            defaultCoveragePercentage
+            defaultPatientSharePercentage
           }
           cost
           covered
@@ -102,7 +102,7 @@ export const ADD_PRODUCT_INSURANCE_COVERAGE_MUTATION = gql`
           id
           insuranceName
           acronym
-          defaultCoveragePercentage
+          defaultPatientSharePercentage
         }
         cost
         covered

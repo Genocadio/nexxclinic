@@ -33,6 +33,7 @@ export const REGISTER_PATIENT_MUTATION = gql`
         linkedInsurances {
           id
           insuranceCardNumber
+          patientSharePercentage
           principalMember
           principalMemberName
           principalMemberPhoneNumber
@@ -42,7 +43,7 @@ export const REGISTER_PATIENT_MUTATION = gql`
             id
             insuranceName
             acronym
-            defaultCoveragePercentage
+            defaultPatientSharePercentage
           }
         }
       }
@@ -58,6 +59,7 @@ export const CREATE_PATIENT_INSURANCE_MUTATION = gql`
       data {
         id
         insuranceCardNumber
+          patientSharePercentage
         principalMember
         principalMemberName
         principalMemberPhoneNumber
@@ -76,6 +78,7 @@ export const UPDATE_PATIENT_INSURANCE_MUTATION = gql`
       data {
         id
         insuranceCardNumber
+          patientSharePercentage
         principalMember
         principalMemberName
         principalMemberPhoneNumber

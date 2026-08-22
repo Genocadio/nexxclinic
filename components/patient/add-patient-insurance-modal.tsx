@@ -107,6 +107,7 @@ export function AddPatientInsuranceModal({
       dominantFirstName: '',
       dominantLastName: '',
       dominantPhone: '',
+      patientSharePercentage: '',
     },
   })
 
@@ -151,6 +152,7 @@ export function AddPatientInsuranceModal({
       dominantLastName: values.dominantLastName,
       dominantPhone: values.dominantPhone,
       existingPatientInsurances: patientInsurances,
+      patientSharePercentage: values.patientSharePercentage ? Number(values.patientSharePercentage) : null,
     })
 
     if (result.status === 'VALIDATION_ERROR') {
@@ -269,7 +271,7 @@ export function AddPatientInsuranceModal({
                               <span className={isAlreadyAdded ? 'opacity-50' : ''}>
                                 {insurance.insuranceName}
                                 {insurance.acronym && ` (${insurance.acronym})`}
-                                {' — '}{insurance.defaultCoveragePercentage}%
+                                {' — '}{insurance.defaultPatientSharePercentage}%
                                 {isAlreadyAdded && ' (Already Added)'}
                               </span>
                             </CommandItem>
@@ -288,7 +290,7 @@ export function AddPatientInsuranceModal({
                 <p className="font-medium">{selectedInsuranceName}</p>
                 {selectedProvider && (
                   <p className="text-xs text-muted-foreground">
-                    Default coverage: {selectedProvider.defaultCoveragePercentage}%
+                    Default coverage: {selectedProvider.defaultPatientSharePercentage}%
                   </p>
                 )}
               </div>
@@ -311,6 +313,24 @@ export function AddPatientInsuranceModal({
                   className={formErrors.providingCompanyOrEmployer ? 'border-red-500 focus-visible:ring-red-300' : ''}
                 />
                 <FieldError message={formErrors.providingCompanyOrEmployer?.message} />
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-[11px] text-muted-foreground">
+                  Patient Share % (optional)
+                </p>
+                <Input
+                  {...register('patientSharePercentage')}
+                  type="number"
+                  min="0"
+                  max="100"
+                  placeholder="Default patient share % (0-100)"
+                  className={formErrors.patientSharePercentage ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Override the provider default for this patient. Leave empty to use rules/provider default.
+                </p>
+                <FieldError message={formErrors.patientSharePercentage?.message} />
               </div>
 
               <div className="space-y-1">

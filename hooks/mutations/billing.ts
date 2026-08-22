@@ -30,6 +30,7 @@ export const VISIT_DEPARTMENT_BILLING_FRAGMENT = gql`
       patientInsurance {
         id
         insuranceCardNumber
+          patientSharePercentage
         principalMemberName
         insuranceProvider {
           id
@@ -52,6 +53,8 @@ export const VISIT_DEPARTMENT_BILLING_FRAGMENT = gql`
         quantitySnapshot
         insuranceCoveredAmount
         patientPayableAmount
+        appliedPatientSharePct
+        patientShareSource
       }
       createdAt
       updatedAt

@@ -180,6 +180,8 @@ export interface PatientInsuranceMutationInput {
   } | null;
   validFrom: string;
   validUntil: string;
+  /** Optional patient-specific default patient share percentage (0-100). */
+  patientSharePercentage?: number | null;
 }
 
 export function useCreatePatientInsurance() {
@@ -210,6 +212,7 @@ export function useCreatePatientInsurance() {
               input.dominantMember?.phone?.trim() || null,
             validFrom: input.validFrom,
             validUntil: input.validUntil,
+            patientSharePercentage: input.patientSharePercentage ?? null,
           },
         },
       });
@@ -271,6 +274,7 @@ export function useUpdatePatientInsurance() {
               input.dominantMember?.phone?.trim() || null,
             validFrom: input.validFrom,
             validUntil: input.validUntil,
+            patientSharePercentage: input.patientSharePercentage ?? null,
           },
         },
       });

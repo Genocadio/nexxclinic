@@ -17,7 +17,7 @@ const DEPARTMENT_PROFILE_PRODUCT_FRAGMENT = gql`
         id
         insuranceName
         acronym
-        defaultCoveragePercentage
+        defaultPatientSharePercentage
         supportedByClinic
         iconUrl
       }
@@ -57,7 +57,7 @@ export const CREATE_DEPARTMENT_MUTATION = gql`
           id
           insuranceName
           acronym
-          defaultCoveragePercentage
+          defaultPatientSharePercentage
           supportedByClinic
           iconUrl
         }
@@ -89,7 +89,7 @@ export const UPDATE_DEPARTMENT_MUTATION = gql`
           id
           insuranceName
           acronym
-          defaultCoveragePercentage
+          defaultPatientSharePercentage
           supportedByClinic
           iconUrl
         }
@@ -121,7 +121,7 @@ export const REMOVE_DEPARTMENT_PROFILE_MUTATION = gql`
           id
           insuranceName
           acronym
-          defaultCoveragePercentage
+          defaultPatientSharePercentage
           supportedByClinic
           iconUrl
         }

@@ -13,7 +13,7 @@ export interface GqlInsurance {
   id: string
   insuranceName?: string | null
   acronym?: string | null
-  defaultCoveragePercentage?: number | null
+  defaultPatientSharePercentage?: number | null
   supportedByClinic?: boolean | null
   iconUrl?: string | null
 }
@@ -24,7 +24,7 @@ export interface GqlProductCoverage {
     id: string
     insuranceName?: string | null
     acronym?: string | null
-    defaultCoveragePercentage?: number | null
+    defaultPatientSharePercentage?: number | null
   } | null
   insurance?: {
     id: string
@@ -114,15 +114,15 @@ const mapGqlProductForProfile = (product: GqlProduct): Product =>
             id: coverage.insuranceProvider.id,
             insuranceName: coverage.insuranceProvider.insuranceName || '',
             acronym: coverage.insuranceProvider.acronym,
-            defaultCoveragePercentage:
-              coverage.insuranceProvider.defaultCoveragePercentage,
+            defaultPatientSharePercentage:
+              coverage.insuranceProvider.defaultPatientSharePercentage,
           }
         : coverage.insurance
           ? {
               id: coverage.insurance.id,
               insuranceName: coverage.insurance.name || '',
               acronym: coverage.insurance.acronym,
-              defaultCoveragePercentage:
+              defaultPatientSharePercentage:
                 coverage.insurance.coveragePercentage,
             }
           : { id: '', insuranceName: '' },
@@ -157,7 +157,7 @@ const mapDepartmentFromApi = (department: GqlDepartment): Department => ({
       id: insurance.id,
       insuranceName: insurance.insuranceName || 'Unknown Insurance',
       acronym: insurance.acronym,
-      defaultCoveragePercentage: insurance.defaultCoveragePercentage,
+      defaultPatientSharePercentage: insurance.defaultPatientSharePercentage,
       supportedByClinic: insurance.supportedByClinic,
       iconUrl: insurance.iconUrl,
     }),

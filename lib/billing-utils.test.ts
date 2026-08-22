@@ -26,7 +26,7 @@ const makeItem = (overrides: Partial<BillingItem>): BillingItem => ({
 //   lineTotal  = round2(unitPrice × quantity)
 //   covered    = min(lineTotal, round2(lineTotal × (100 − pct) / 100))
 //   patientPay = round2(lineTotal − covered)
-// where pct = the insurer's defaultCoveragePercentage (patient co-pay share).
+// where pct = the insurer's defaultPatientSharePercentage (patient co-pay share).
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function backendPatientPayable(

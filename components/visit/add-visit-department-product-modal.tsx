@@ -22,7 +22,7 @@ type PatientInsurance = {
     id: string
     insuranceName: string
     acronym?: string | null
-    defaultCoveragePercentage: number
+    defaultPatientSharePercentage: number
   }
 }
 

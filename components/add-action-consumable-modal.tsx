@@ -17,7 +17,7 @@ interface InsuranceCoverage {
     id: string
     insuranceName: string
     acronym?: string | null
-    defaultCoveragePercentage: number
+    defaultPatientSharePercentage: number
   }
   cost: number
   covered: boolean
@@ -29,7 +29,7 @@ interface PatientInsurance {
     id: string
     insuranceName: string
     acronym?: string | null
-    defaultCoveragePercentage: number
+    defaultPatientSharePercentage: number
   }
 }
 

@@ -202,7 +202,7 @@ export function mapVisitToBillingData(
       (ins) => String(ins.id) === item.selectedInsuranceId,
     );
     const coveragePct =
-      selectedInsurance?.insuranceProvider?.defaultCoveragePercentage ?? 0;
+      selectedInsurance?.insuranceProvider?.defaultPatientSharePercentage ?? 0;
     const { patientAmount, skip } = getItemInsuranceSplit(item, coveragePct);
     if (skip) return;
     patientContributionCents += toCents(patientAmount);
@@ -232,7 +232,7 @@ export function mapVisitToBillingData(
       id: ins.id ? String(ins.id) : undefined,
       name: ins.insuranceProvider.insuranceName,
       acronym: ins.insuranceProvider.acronym || "",
-      coveragePercentage: ins.insuranceProvider.defaultCoveragePercentage,
+      coveragePercentage: ins.insuranceProvider.defaultPatientSharePercentage,
     })),
     items,
     discountPercentage,
@@ -253,7 +253,7 @@ export function mapPatientInsurancesForBilling(insurances: PatientInsurance[]) {
     providerId: String(ins.insuranceProvider.id),
     name: ins.insuranceProvider.insuranceName,
     acronym: ins.insuranceProvider.acronym || "",
-    coveragePercentage: ins.insuranceProvider.defaultCoveragePercentage,
+    coveragePercentage: ins.insuranceProvider.defaultPatientSharePercentage,
   }));
 }
 
@@ -264,7 +264,7 @@ export function getCoveragePercentageForBillingItem(
   const selected = activeVisitInsurances.find(
     (ins) => String(ins.id) === item.selectedInsuranceId,
   );
-  return selected?.insuranceProvider.defaultCoveragePercentage ?? 0;
+  return selected?.insuranceProvider.defaultPatientSharePercentage ?? 0;
 }
 
 export function flattenVisitDepartmentsForBilling(

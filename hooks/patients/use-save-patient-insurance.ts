@@ -13,6 +13,8 @@ export type SavePatientInsuranceInput = {
   dominantLastName?: string
   dominantPhone?: string
   existingPatientInsurances?: PatientInsurance[]
+  /** Optional patient-specific default patient share percentage (0-100). */
+  patientSharePercentage?: number | null
 }
 
 export type SavePatientInsuranceFieldErrors = {
@@ -79,6 +81,7 @@ export function useSavePatientInsurance() {
         new Date().getMonth(),
         new Date().getDate(),
       ).toISOString().slice(0, 10),
+      patientSharePercentage: input.patientSharePercentage ?? null,
     }
 
     const response = existingInsurance

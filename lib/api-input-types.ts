@@ -156,7 +156,7 @@ export interface AdminSetUserSessionLimitInput {
 export interface CreateInsuranceProviderInput {
   insuranceName: string
   acronym?: string
-  defaultCoveragePercentage: number
+  defaultPatientSharePercentage: number
   supportedByClinic?: boolean
   iconUrl?: string
 }
@@ -164,7 +164,7 @@ export interface CreateInsuranceProviderInput {
 export interface UpdateInsuranceProviderInput {
   insuranceName?: string
   acronym?: string
-  defaultCoveragePercentage?: number
+  defaultPatientSharePercentage?: number
   supportedByClinic?: boolean
   iconUrl?: string
 }

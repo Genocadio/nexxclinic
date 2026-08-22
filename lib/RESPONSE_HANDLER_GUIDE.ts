@@ -66,7 +66,7 @@ const handleCreateInsurance_OLD = async () => {
     await createInsuranceProvider({
       insuranceName: name,
       acronym,
-      defaultCoveragePercentage: coverage,
+      defaultPatientSharePercentage: coverage,
     })
     toast.success('Insurance created!')
     resetForm()
@@ -85,7 +85,7 @@ const handleCreateInsurance_NEW = async () => {
     const response = await createInsuranceProvider({
       insuranceName: name,
       acronym,
-      defaultCoveragePercentage: coverage,
+      defaultPatientSharePercentage: coverage,
     })
     
     if (response?.status === 'SUCCESS') {
@@ -112,7 +112,7 @@ const handleCreateInsurance_BEST = async () => {
     const response = await createInsuranceProvider({
       insuranceName: name,
       acronym,
-      defaultCoveragePercentage: coverage,
+      defaultPatientSharePercentage: coverage,
     })
     
     if (await handleResponse(response, {

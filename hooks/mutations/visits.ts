@@ -21,7 +21,7 @@ export const CREATE_VISIT_MUTATION = gql`
             id
             insuranceName
             acronym
-            defaultCoveragePercentage
+            defaultPatientSharePercentage
           }
         }
         departments {
@@ -426,6 +426,7 @@ export const LINK_VISIT_INSURANCES_MUTATION = gql`
         linkedInsurances {
           id
           insuranceCardNumber
+          patientSharePercentage
           principalMember
           principalMemberName
           principalMemberPhoneNumber
@@ -435,7 +436,7 @@ export const LINK_VISIT_INSURANCES_MUTATION = gql`
             id
             insuranceName
             acronym
-            defaultCoveragePercentage
+            defaultPatientSharePercentage
           }
         }
       }
@@ -453,6 +454,7 @@ export const UNLINK_VISIT_INSURANCES_MUTATION = gql`
         linkedInsurances {
           id
           insuranceCardNumber
+          patientSharePercentage
           principalMember
           principalMemberName
           principalMemberPhoneNumber
@@ -462,7 +464,7 @@ export const UNLINK_VISIT_INSURANCES_MUTATION = gql`
             id
             insuranceName
             acronym
-            defaultCoveragePercentage
+            defaultPatientSharePercentage
           }
         }
       }

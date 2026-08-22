@@ -613,7 +613,7 @@ export default function ManageProductsPage() {
                               <p className="text-xs text-muted-foreground">
                                 Cost: {coverage.cost} RWF
                                 • Coverage:{" "}
-                                {provider?.defaultCoveragePercentage}
+                                {provider?.defaultPatientSharePercentage}
                                 %
                               </p>
                             </div>
