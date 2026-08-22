@@ -10,6 +10,7 @@ import {
   Gender,
   RoleName,
   type Department,
+  type InsuranceCoverageRule,
   type InsuranceProvider,
   type Patient,
   type PatientInsurance,
@@ -27,6 +28,18 @@ import {
 } from "@/lib/api-types";
 
 const EMPTY_TIMESTAMP = "";
+
+export type GqlInsuranceCoverageRule = {
+  id: string;
+  insuranceProviderId: string;
+  insuranceProviderName: string;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  encounterType?: string | null;
+  patientSharePercentage: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
 
 export type GqlInsuranceProvider = {
   id: string;
@@ -200,6 +213,22 @@ function parseEncounterType(value?: string | null): EncounterType {
     return EncounterType[normalized as keyof typeof EncounterType];
   }
   return EncounterType.OUTPATIENT;
+}
+
+export function mapGqlInsuranceCoverageRule(
+  rule: GqlInsuranceCoverageRule,
+): InsuranceCoverageRule {
+  return {
+    id: rule.id,
+    insuranceProviderId: rule.insuranceProviderId,
+    insuranceProviderName: rule.insuranceProviderName,
+    departmentId: rule.departmentId ?? null,
+    departmentName: rule.departmentName ?? null,
+    encounterType: rule.encounterType ? parseEncounterType(rule.encounterType) : null,
+    patientSharePercentage: Number(rule.patientSharePercentage ?? 0),
+    createdAt: rule.createdAt || EMPTY_TIMESTAMP,
+    updatedAt: rule.updatedAt || EMPTY_TIMESTAMP,
+  };
 }
 
 export function mapGqlInsuranceProvider(

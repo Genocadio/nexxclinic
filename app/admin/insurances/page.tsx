@@ -16,8 +16,22 @@ import {
   useDeleteInsuranceProvider,
   useInsurances,
   useUpdateInsuranceProvider,
+  useInsuranceCoverageRules,
+  useCreateInsuranceCoverageRule,
+  useUpdateInsuranceCoverageRule,
+  useDeleteInsuranceCoverageRule,
 } from "@/hooks/auth-hooks";
-import { Pencil, Trash2, ArrowLeft, Plus } from "lucide-react";
+import { useDepartments } from "@/hooks/auth-hooks";
+import { Pencil, Trash2, ArrowLeft, Plus, Settings, X } from "lucide-react";
+import type { InsuranceCoverageRule } from "@/lib/api-types";
+import { EncounterType } from "@/lib/api-types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
@@ -140,6 +154,109 @@ export default function ManageInsurancesPage() {
     }
   };
 
+  // ── Coverage Rules sub-state ──────────────────────────────────────────────
+  const [rulesProviderId, setRulesProviderId] = useState<string | null>(null);
+  const [rulesProviderName, setRulesProviderName] = useState<string | null>(null);
+  const [rulesModalOpen, setRulesModalOpen] = useState(false);
+  const [ruleEditingId, setRuleEditingId] = useState<string | null>(null);
+  const [ruleDeptId, setRuleDeptId] = useState<string>("");
+  const [ruleEncounterType, setRuleEncounterType] = useState<string>("");
+  const [rulePercentage, setRulePercentage] = useState<string>("");
+  const [ruleSaving, setRuleSaving] = useState(false);
+
+  const { departments: allDepartments } = useDepartments();
+  const { rules: coverageRules, loading: rulesLoading, refetch: refetchRules } =
+    useInsuranceCoverageRules(
+      rulesProviderId ? { insuranceProviderId: rulesProviderId } : undefined,
+    );
+  const { createRule } = useCreateInsuranceCoverageRule();
+  const { updateRule } = useUpdateInsuranceCoverageRule();
+  const { deleteRule } = useDeleteInsuranceCoverageRule();
+  const [ruleDeleteTargetId, setRuleDeleteTargetId] = useState<string | null>(null);
+
+  const openRulesModal = (providerId: string, providerName: string) => {
+    setRulesProviderId(providerId);
+    setRulesProviderName(providerName);
+    setRuleEditingId(null);
+    setRuleDeptId("");
+    setRuleEncounterType("");
+    setRulePercentage("");
+    setRulesModalOpen(true);
+  };
+
+  const resetRuleForm = () => {
+    setRuleEditingId(null);
+    setRuleDeptId("");
+    setRuleEncounterType("");
+    setRulePercentage("");
+  };
+
+  const handleRuleSave = async () => {
+    if (!rulesProviderId || !rulePercentage) return;
+    const pct = Number(rulePercentage);
+    if (pct < 0 || pct > 100) {
+      toast.error("Percentage must be between 0 and 100");
+      return;
+    }
+    setRuleSaving(true);
+    try {
+      let result;
+      if (ruleEditingId) {
+        result = await updateRule(ruleEditingId, {
+          departmentId: ruleDeptId || null,
+          encounterType: ruleEncounterType || null,
+          patientSharePercentage: pct,
+        });
+      } else {
+        result = await createRule({
+          insuranceProviderId: rulesProviderId,
+          departmentId: ruleDeptId || null,
+          encounterType: ruleEncounterType || null,
+          patientSharePercentage: pct,
+        });
+      }
+      if (result.status === "SUCCESS") {
+        toast.success(result.message || (ruleEditingId ? "Rule updated" : "Rule created"));
+        resetRuleForm();
+        void refetchRules();
+      } else {
+        toast.error(result.message || "Failed to save rule");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to save rule");
+    } finally {
+      setRuleSaving(false);
+    }
+  };
+
+  const handleRuleDelete = async (id: string) => {
+    setRuleSaving(true);
+    try {
+      const result = await deleteRule(id);
+      if (result.status === "SUCCESS") {
+        toast.success(result.message || "Rule deleted");
+        void refetchRules();
+      } else {
+        toast.error(result.message || "Delete failed");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete rule");
+    } finally {
+      setRuleSaving(false);
+      setRuleDeleteTargetId(null);
+    }
+  };
+
+  const ruleEncounterTypeLabel = (et?: EncounterType | string | null) => {
+    if (!et) return "All";
+    const map: Record<string, string> = {
+      OUTPATIENT: "Outpatient",
+      INPATIENT_OBSERVATION: "Inpatient Observation",
+      INPATIENT_ADMISSION: "Inpatient Admission",
+    };
+    return map[String(et)] || String(et);
+  };
+
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
@@ -253,7 +370,7 @@ export default function ManageInsurancesPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-muted-foreground">
-                    Default Coverage Percentage *
+                    Default Patient Share % *
                   </label>
                   <Input
                     placeholder="e.g. 85"
@@ -363,14 +480,23 @@ export default function ManageInsurancesPage() {
                     <div>
                       <p className="font-medium text-foreground">{ins.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {ins.acronym} • {ins.defaultPatientSharePercentage}%
-                        coverage •{" "}
+                        {ins.acronym} • Default patient share: {ins.defaultPatientSharePercentage}%
+                        •{" "}
                         {ins.supportedByClinic
                           ? "Clinic Supported"
                           : "External"}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="rounded-full"
+                        title="Manage coverage rules"
+                        onClick={() => openRulesModal(ins.id, ins.insuranceName)}
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
                       <Button
                         size="icon"
                         variant="outline"
@@ -420,6 +546,192 @@ export default function ManageInsurancesPage() {
           if (!deleteTargetId) return;
           setDeleteTargetId(null);
           void handleDelete(deleteTargetId);
+        }}
+      />
+
+      {/* ── Coverage Rules Modal ──────────────────────────────────────────────── */}
+      <Dialog
+        open={rulesModalOpen}
+        onOpenChange={(open) => {
+          setRulesModalOpen(open);
+          if (!open) resetRuleForm();
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/25 border border-white/20 rounded-3xl shadow-2xl p-3 flex flex-col">
+          <div className="flex-1 overflow-hidden bg-[#FBF2ED] dark:bg-slate-900 border border-border/40 dark:border-slate-800 rounded-2xl p-6 flex flex-col shadow-lg">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-foreground">
+                Coverage Rules — {rulesProviderName}
+              </DialogTitle>
+              <DialogDescription>
+                Manage per-department and per-encounter-type patient share percentages.
+                Rules with specific department or encounter type take priority over the default.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Existing rules list */}
+            <div className="flex-1 overflow-y-auto pr-2 space-y-4 my-4 scrollbar-thin">
+              {rulesLoading ? (
+                <div className="space-y-2">
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-12 w-full rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              ) : coverageRules.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No coverage rules yet. Add rules to set different patient share percentages for specific departments or encounter types.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {coverageRules.map((rule) => (
+                    <div
+                      key={rule.id}
+                      className="flex items-center justify-between bg-card/60 dark:bg-slate-900/60 border border-border/40 dark:border-slate-800 rounded-xl px-4 py-3"
+                    >
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium text-foreground">
+                          {rule.patientSharePercentage}% patient share
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {rule.departmentName
+                            ? `Department: ${rule.departmentName}`
+                            : "All departments"}
+                          {" · "}
+                          {rule.encounterType
+                            ? `Encounter: ${ruleEncounterTypeLabel(rule.encounterType)}`
+                            : "All encounter types"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="rounded-full h-8 w-8"
+                          onClick={() => {
+                            setRuleEditingId(rule.id);
+                            setRuleDeptId(rule.departmentId || "");
+                            setRuleEncounterType(rule.encounterType || "");
+                            setRulePercentage(String(rule.patientSharePercentage));
+                          }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="destructive"
+                          className="rounded-full h-8 w-8"
+                          onClick={() => setRuleDeleteTargetId(rule.id)}
+                          disabled={ruleSaving}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add / Edit rule form */}
+              <div className="border border-dashed border-border/60 rounded-xl p-4 space-y-3 bg-muted/20">
+                <p className="text-xs font-semibold text-muted-foreground">
+                  {ruleEditingId ? "Edit Rule" : "Add Rule"}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-muted-foreground">Department (optional)</label>
+                    <Select value={ruleDeptId || "__all__"} onValueChange={(v) => setRuleDeptId(v === "__all__" ? "" : v)}>
+                      <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950">
+                        <SelectValue placeholder="All departments" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">All departments</SelectItem>
+                        {allDepartments.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-muted-foreground">Encounter Type (optional)</label>
+                    <Select value={ruleEncounterType || "__all__"} onValueChange={(v) => setRuleEncounterType(v === "__all__" ? "" : v)}>
+                      <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950">
+                        <SelectValue placeholder="All types" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">All types</SelectItem>
+                        {Object.values(EncounterType).map((et) => (
+                          <SelectItem key={et} value={et}>
+                            {ruleEncounterTypeLabel(et)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-muted-foreground">Patient Share % *</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="e.g. 10"
+                      value={rulePercentage}
+                      onChange={(e) => setRulePercentage(e.target.value)}
+                      className="rounded-xl bg-white dark:bg-slate-950"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    className="rounded-full bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white"
+                    disabled={ruleSaving || !rulePercentage}
+                    onClick={handleRuleSave}
+                  >
+                    {ruleEditingId ? "Update Rule" : "Add Rule"}
+                  </Button>
+                  {ruleEditingId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-full"
+                      onClick={resetRuleForm}
+                    >
+                      Cancel Edit
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-border/30 sticky bottom-0 bg-background/95 dark:bg-slate-900/95 -mx-2 px-2 pb-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full px-5"
+                onClick={() => setRulesModalOpen(false)}
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(ruleDeleteTargetId)}
+        onOpenChange={(open) => {
+          if (!open) setRuleDeleteTargetId(null);
+        }}
+        title="Delete coverage rule?"
+        description="This rule will be removed. This action cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => {
+          if (!ruleDeleteTargetId) return;
+          setRuleDeleteTargetId(null);
+          void handleRuleDelete(ruleDeleteTargetId);
         }}
       />
     </div>

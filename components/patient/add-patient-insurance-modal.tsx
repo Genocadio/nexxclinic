@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { PatientInsurance } from '@/lib/api-types'
 import { useInsurances } from '@/hooks/auth-hooks'
+import { useInsuranceCoverageRules } from '@/hooks/insurances/coverage-rules'
 import { useSavePatientInsurance } from '@/hooks/patients/use-save-patient-insurance'
 import { isDominantMemberRequired } from '@/lib/validation-utils'
 import { Button } from '@/components/ui/button'
@@ -86,6 +87,18 @@ export function AddPatientInsuranceModal({
   const [selectedInsuranceId, setSelectedInsuranceId] = useState('')
   const [selectedInsuranceName, setSelectedInsuranceName] = useState('')
 
+  const { rules: selectedProviderRules, loading: rulesLoading } = useInsuranceCoverageRules(
+    selectedInsuranceId ? { insuranceProviderId: selectedInsuranceId } : undefined,
+  )
+
+  /** Distinct patient share percentages available from this provider's coverage rules. */
+  const availablePercentages = useMemo(() => {
+    const pcts = selectedProviderRules
+      .map((r) => r.patientSharePercentage)
+      .filter((v): v is number => v != null)
+    return [...new Set(pcts)].sort((a, b) => a - b)
+  }, [selectedProviderRules])
+
   const dominantRequired = isDominantMemberRequired(patientDateOfBirth, true)
 
   const {
@@ -95,6 +108,8 @@ export function AddPatientInsuranceModal({
     reset: resetFormErrors,
     control,
     trigger,
+    setValue,
+    getValues,
     formState: { errors: formErrors },
   } = useForm<PatientInsuranceFormValues>({
     resolver: zodResolver(createPatientInsuranceFormSchema({ dominantRequired })),
@@ -290,7 +305,7 @@ export function AddPatientInsuranceModal({
                 <p className="font-medium">{selectedInsuranceName}</p>
                 {selectedProvider && (
                   <p className="text-xs text-muted-foreground">
-                    Default coverage: {selectedProvider.defaultPatientSharePercentage}%
+                    Default patient share: {selectedProvider.defaultPatientSharePercentage}%
                   </p>
                 )}
               </div>
@@ -315,23 +330,75 @@ export function AddPatientInsuranceModal({
                 <FieldError message={formErrors.providingCompanyOrEmployer?.message} />
               </div>
 
-              <div className="space-y-1">
-                <p className="text-[11px] text-muted-foreground">
-                  Patient Share % (optional)
-                </p>
-                <Input
-                  {...register('patientSharePercentage')}
-                  type="number"
-                  min="0"
-                  max="100"
-                  placeholder="Default patient share % (0-100)"
-                  className={formErrors.patientSharePercentage ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  Override the provider default for this patient. Leave empty to use rules/provider default.
-                </p>
-                <FieldError message={formErrors.patientSharePercentage?.message} />
-              </div>
+              {availablePercentages.length > 1 ? (
+                <div className="space-y-1">
+                  <p className="text-[11px] text-muted-foreground">
+                    Patient Share % (optional)
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    This provider has multiple coverage tiers. Pick the default for this patient, or leave empty to use rules/provider default.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {availablePercentages.map((pct) => {
+                      const currentVal = getValues('patientSharePercentage')
+                      const isSelected = String(currentVal) === String(pct)
+                      return (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => {
+                            setValue('patientSharePercentage', isSelected ? '' : String(pct), { shouldValidate: true })
+                          }}
+                          className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all ${
+                            isSelected
+                              ? 'bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white border-transparent'
+                              : 'bg-white dark:bg-slate-950 border-border/40 hover:border-[#5F77E8]/40'
+                          }`}
+                        >
+                          {pct}%
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <input type="hidden" {...register('patientSharePercentage')} />
+                </div>
+              ) : availablePercentages.length === 1 ? (
+                <div className="space-y-1">
+                  <p className="text-[11px] text-muted-foreground">
+                    Patient Share % (optional)
+                  </p>
+                  <Input
+                    {...register('patientSharePercentage')}
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder={`Default: ${availablePercentages[0]}%`}
+                    className={formErrors.patientSharePercentage ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    This provider has one coverage tier ({availablePercentages[0]}%). You can override it for this patient, or leave empty.
+                  </p>
+                  <FieldError message={formErrors.patientSharePercentage?.message} />
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <p className="text-[11px] text-muted-foreground">
+                    Patient Share % (optional)
+                  </p>
+                  <Input
+                    {...register('patientSharePercentage')}
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="Default patient share % (0-100)"
+                    className={formErrors.patientSharePercentage ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Override the provider default for this patient. Leave empty to use rules/provider default.
+                  </p>
+                  <FieldError message={formErrors.patientSharePercentage?.message} />
+                </div>
+              )}
 
               <div className="space-y-1">
                 <p className="text-[11px] text-muted-foreground">

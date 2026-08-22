@@ -276,6 +276,26 @@ export enum PatientShareSource {
 }
 
 // ============================================
+// COVERAGE RULES
+// ============================================
+
+/**
+ * InsuranceCoverageRule - Per-department/encounter-type patient share override
+ * for an insurance provider. Nullable dept/encounterType means "applies to all".
+ */
+export interface InsuranceCoverageRule {
+  id: string;
+  insuranceProviderId: string;
+  insuranceProviderName: string;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  encounterType?: EncounterType | null;
+  patientSharePercentage: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================
 // RESPONSE INTERFACES
 // ============================================
 
