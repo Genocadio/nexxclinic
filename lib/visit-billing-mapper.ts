@@ -17,6 +17,7 @@ import {
   type BillingItem,
 } from "@/lib/billing-utils";
 import { fromCents, toCents } from "@/lib/money";
+import { getBasePatientSharePercentage } from "@/lib/api-types";
 import { flattenVisitDepartments } from "@/lib/visit-product-utils";
 
 export function mapVisitProductStatusToPaymentStatus(
@@ -89,6 +90,7 @@ export function mapVisitToBillingData(
       name: string;
       completedAt?: string | null;
       status?: string;
+      encounterType?: string;
     },
     childHierarchy: string[] = [],
   ) => {
@@ -98,6 +100,7 @@ export function mapVisitToBillingData(
       name: department.department?.name || "Department",
       completedAt: department.completedAt,
       status: department.status,
+      encounterType: department.encounterType || undefined,
     };
 
     const childDepartmentName =
@@ -151,6 +154,7 @@ export function mapVisitToBillingData(
         departmentId: currentContext.departmentId,
         departmentName: currentContext.name,
         childDepartmentName,
+        encounterType: currentContext.encounterType,
         departmentCompletedTime: currentContext.completedAt || undefined,
         departmentStatus: currentContext.status,
         paymentStatus: mapVisitProductStatusToPaymentStatus(
@@ -202,7 +206,7 @@ export function mapVisitToBillingData(
       (ins) => String(ins.id) === item.selectedInsuranceId,
     );
     const coveragePct =
-      selectedInsurance?.insuranceProvider?.defaultPatientSharePercentage ?? 0;
+      (selectedInsurance?.insuranceProvider ? getBasePatientSharePercentage(selectedInsurance.insuranceProvider) : 0);
     const { patientAmount, skip } = getItemInsuranceSplit(item, coveragePct);
     if (skip) return;
     patientContributionCents += toCents(patientAmount);
@@ -232,7 +236,7 @@ export function mapVisitToBillingData(
       id: ins.id ? String(ins.id) : undefined,
       name: ins.insuranceProvider.insuranceName,
       acronym: ins.insuranceProvider.acronym || "",
-      coveragePercentage: ins.insuranceProvider.defaultPatientSharePercentage,
+      coveragePercentage: getBasePatientSharePercentage(ins.insuranceProvider),
     })),
     items,
     discountPercentage,
@@ -253,7 +257,14 @@ export function mapPatientInsurancesForBilling(insurances: PatientInsurance[]) {
     providerId: String(ins.insuranceProvider.id),
     name: ins.insuranceProvider.insuranceName,
     acronym: ins.insuranceProvider.acronym || "",
-    coveragePercentage: ins.insuranceProvider.defaultPatientSharePercentage,
+    coveragePercentage: getBasePatientSharePercentage(ins.insuranceProvider),
+    coverages: ins.insuranceProvider.coverages.map((c) => ({
+      coverageId: String(c.id),
+      departmentId: c.departmentId || null,
+      departmentName: c.departmentName || null,
+      encounterType: c.encounterType || null,
+      patientSharePercentage: Number(c.patientSharePercentage ?? 0),
+    })),
   }));
 }
 
@@ -264,7 +275,7 @@ export function getCoveragePercentageForBillingItem(
   const selected = activeVisitInsurances.find(
     (ins) => String(ins.id) === item.selectedInsuranceId,
   );
-  return selected?.insuranceProvider.defaultPatientSharePercentage ?? 0;
+  return selected?.insuranceProvider ? getBasePatientSharePercentage(selected.insuranceProvider) : 0;
 }
 
 export function flattenVisitDepartmentsForBilling(

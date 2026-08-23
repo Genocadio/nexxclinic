@@ -54,6 +54,7 @@ import type {
   ProductInsuranceCoverage,
   ProductType,
 } from "@/lib/api-types";
+import { getBasePatientSharePercentage } from "@/lib/api-types";
 
 const PRODUCT_TYPE_OPTIONS = [
   "DRUG",
@@ -613,7 +614,7 @@ export default function ManageProductsPage() {
                               <p className="text-xs text-muted-foreground">
                                 Cost: {coverage.cost} RWF
                                 • Coverage:{" "}
-                                {provider?.defaultPatientSharePercentage}
+                                {provider ? getBasePatientSharePercentage(provider) : 0}
                                 %
                               </p>
                             </div>

@@ -44,7 +44,17 @@ export const REGISTER_PATIENT_MUTATION = gql`
             id
             insuranceName
             acronym
-            defaultPatientSharePercentage
+            coverages {
+              id
+              insuranceProviderId
+              insuranceProviderName
+              departmentId
+              departmentName
+              encounterType
+              patientSharePercentage
+              createdAt
+              updatedAt
+            }
           }
         }
       }

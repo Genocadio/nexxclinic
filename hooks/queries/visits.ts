@@ -17,7 +17,27 @@ const visitDepartmentProductFields = `
         id
         insuranceName
         acronym
-        defaultPatientSharePercentage
+        coverages {
+
+                        id
+
+                        insuranceProviderId
+
+                        insuranceProviderName
+
+                        departmentId
+
+                        departmentName
+
+                        encounterType
+
+                        patientSharePercentage
+
+                        createdAt
+
+                        updatedAt
+
+                      }
       }
       cost
       covered
@@ -125,7 +145,17 @@ export const GET_VISIT_QUERY = gql`
               id
               insuranceName
               acronym
-              defaultPatientSharePercentage
+              coverages {
+              id
+              insuranceProviderId
+              insuranceProviderName
+              departmentId
+              departmentName
+              encounterType
+              patientSharePercentage
+              createdAt
+              updatedAt
+            }
             }
           }
         }
@@ -156,7 +186,17 @@ export const GET_VISIT_QUERY = gql`
             id
             insuranceName
             acronym
-            defaultPatientSharePercentage
+            coverages {
+              id
+              insuranceProviderId
+              insuranceProviderName
+              departmentId
+              departmentName
+              encounterType
+              patientSharePercentage
+              createdAt
+              updatedAt
+            }
           }
           insuranceCardNumber
           patientSharePercentage

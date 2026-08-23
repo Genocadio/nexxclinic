@@ -17,7 +17,27 @@ export const DEPARTMENT_PROFILE_PRODUCT_FRAGMENT = gql`
         id
         insuranceName
         acronym
-        defaultPatientSharePercentage
+        coverages {
+
+                        id
+
+                        insuranceProviderId
+
+                        insuranceProviderName
+
+                        departmentId
+
+                        departmentName
+
+                        encounterType
+
+                        patientSharePercentage
+
+                        createdAt
+
+                        updatedAt
+
+                      }
         supportedByClinic
         iconUrl
       }
@@ -58,7 +78,27 @@ export const GET_DEPARTMENTS_QUERY = gql`
           id
           insuranceName
           acronym
-          defaultPatientSharePercentage
+          coverages {
+
+                          id
+
+                          insuranceProviderId
+
+                          insuranceProviderName
+
+                          departmentId
+
+                          departmentName
+
+                          encounterType
+
+                          patientSharePercentage
+
+                          createdAt
+
+                          updatedAt
+
+                        }
           supportedByClinic
           iconUrl
         }
@@ -97,7 +137,27 @@ export const GET_DEPARTMENT_QUERY = gql`
           id
           insuranceName
           acronym
-          defaultPatientSharePercentage
+          coverages {
+
+                          id
+
+                          insuranceProviderId
+
+                          insuranceProviderName
+
+                          departmentId
+
+                          departmentName
+
+                          encounterType
+
+                          patientSharePercentage
+
+                          createdAt
+
+                          updatedAt
+
+                        }
           supportedByClinic
           iconUrl
         }

@@ -167,7 +167,7 @@ function mapGqlPatientInsuranceRef(
       id: provider?.id || "",
       insuranceName: provider?.insuranceName || "",
       acronym: provider?.acronym,
-      defaultPatientSharePercentage: 0,
+      coverages: [],
       supportedByClinic: true,
       createdAt: EMPTY_TS,
       updatedAt: EMPTY_TS,

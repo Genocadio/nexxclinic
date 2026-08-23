@@ -1,6 +1,6 @@
 import { gql, useQuery } from '@apollo/client'
-import type { InsuranceCoverageRule } from '../types'
-import { mapGqlInsuranceCoverageRule, type GqlInsuranceCoverageRule } from '@/lib/gql-mappers'
+import type { InsuranceCoverage } from '../types'
+import { mapGqlInsuranceCoverage, type GqlInsuranceCoverage } from '@/lib/gql-mappers'
 
 export const GET_INSURANCES_QUERY = gql`
   query GetInsurances($input: SearchInsuranceProvidersInput) {
@@ -12,7 +12,27 @@ export const GET_INSURANCES_QUERY = gql`
         id
         insuranceName
         acronym
-        defaultPatientSharePercentage
+        coverages {
+
+                        id
+
+                        insuranceProviderId
+
+                        insuranceProviderName
+
+                        departmentId
+
+                        departmentName
+
+                        encounterType
+
+                        patientSharePercentage
+
+                        createdAt
+
+                        updatedAt
+
+                      }
         supportedByClinic
         iconUrl
         createdAt
@@ -38,7 +58,27 @@ export const GET_INSURANCE_QUERY = gql`
         id
         insuranceName
         acronym
-        defaultPatientSharePercentage
+        coverages {
+
+                        id
+
+                        insuranceProviderId
+
+                        insuranceProviderName
+
+                        departmentId
+
+                        departmentName
+
+                        encounterType
+
+                        patientSharePercentage
+
+                        createdAt
+
+                        updatedAt
+
+                      }
         supportedByClinic
         iconUrl
         createdAt
@@ -51,8 +91,8 @@ export const GET_INSURANCE_QUERY = gql`
 // ── Insurance Coverage Rules ──────────────────────────────────────────────────
 
 const GET_INSURANCE_COVERAGE_RULES = gql`
-  query GetInsuranceCoverageRules($input: SearchInsuranceCoverageRulesInput) {
-    insuranceCoverageRules(input: $input) {
+  query GetInsuranceCoverages($input: SearchInsuranceCoveragesInput) {
+    insuranceCoverages(input: $input) {
       status
       message
       data {
@@ -70,22 +110,22 @@ const GET_INSURANCE_COVERAGE_RULES = gql`
   }
 `
 
-interface InsuranceCoverageRulesQueryData {
-  insuranceCoverageRules: {
+interface InsuranceCoveragesQueryData {
+  insuranceCoverages: {
     status: string
     message?: string
-    data: GqlInsuranceCoverageRule[]
+    data: GqlInsuranceCoverage[]
   }
 }
 
 /**
  * Fetch insurance coverage rules, optionally filtered by provider or department.
  */
-export function useInsuranceCoverageRules(input?: {
+export function useInsuranceCoverages(input?: {
   insuranceProviderId?: string
   departmentId?: string
 }) {
-  const { data, loading, error, refetch } = useQuery<InsuranceCoverageRulesQueryData>(
+  const { data, loading, error, refetch } = useQuery<InsuranceCoveragesQueryData>(
     GET_INSURANCE_COVERAGE_RULES,
     {
       variables: { input: input || {} },
@@ -94,8 +134,8 @@ export function useInsuranceCoverageRules(input?: {
     },
   )
 
-  const rules: InsuranceCoverageRule[] = (data?.insuranceCoverageRules?.data || []).map(
-    mapGqlInsuranceCoverageRule,
+  const rules: InsuranceCoverage[] = (data?.insuranceCoverages?.data || []).map(
+    mapGqlInsuranceCoverage,
   )
 
   return { rules, loading, error: error?.message || null, refetch }

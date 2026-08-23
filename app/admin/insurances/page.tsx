@@ -16,15 +16,15 @@ import {
   useDeleteInsuranceProvider,
   useInsurances,
   useUpdateInsuranceProvider,
-  useInsuranceCoverageRules,
-  useCreateInsuranceCoverageRule,
-  useUpdateInsuranceCoverageRule,
-  useDeleteInsuranceCoverageRule,
+  useInsuranceCoverages,
+  useCreateInsuranceCoverage,
+  useUpdateInsuranceCoverage,
+  useDeleteInsuranceCoverage,
 } from "@/hooks/auth-hooks";
 import { useDepartments } from "@/hooks/auth-hooks";
 import { Pencil, Trash2, ArrowLeft, Plus, Settings, X } from "lucide-react";
-import type { InsuranceCoverageRule } from "@/lib/api-types";
-import { EncounterType } from "@/lib/api-types";
+import type { InsuranceCoverage } from "@/lib/api-types";
+import { EncounterType, getBasePatientSharePercentage } from "@/lib/api-types";
 import {
   Select,
   SelectContent,
@@ -104,7 +104,7 @@ export default function ManageInsurancesPage() {
       const response = await createInsuranceProvider({
         insuranceName: values.name,
         acronym: values.acronym,
-        defaultPatientSharePercentage: coverageValue,
+        coverages: [{ patientSharePercentage: coverageValue }],
         supportedByClinic: values.supportedByClinic,
         iconUrl: iconUrl || undefined,
       });
@@ -133,7 +133,14 @@ export default function ManageInsurancesPage() {
       const response = await updateInsuranceProvider(editingId, {
         insuranceName: values.name,
         acronym: values.acronym,
-        defaultPatientSharePercentage: coverageValue,
+        coverages: [
+          { patientSharePercentage: coverageValue },
+          ...coverageRules.map((r) => ({
+            departmentId: r.departmentId || undefined,
+            encounterType: r.encounterType || undefined,
+            patientSharePercentage: r.patientSharePercentage,
+          })),
+        ],
         supportedByClinic: values.supportedByClinic,
         iconUrl: iconUrl || undefined,
       });
@@ -166,12 +173,12 @@ export default function ManageInsurancesPage() {
 
   const { departments: allDepartments } = useDepartments();
   const { rules: coverageRules, loading: rulesLoading, refetch: refetchRules } =
-    useInsuranceCoverageRules(
+    useInsuranceCoverages(
       rulesProviderId ? { insuranceProviderId: rulesProviderId } : undefined,
     );
-  const { createRule } = useCreateInsuranceCoverageRule();
-  const { updateRule } = useUpdateInsuranceCoverageRule();
-  const { deleteRule } = useDeleteInsuranceCoverageRule();
+  const { createRule } = useCreateInsuranceCoverage();
+  const { updateRule } = useUpdateInsuranceCoverage();
+  const { deleteRule } = useDeleteInsuranceCoverage();
   const [ruleDeleteTargetId, setRuleDeleteTargetId] = useState<string | null>(null);
 
   const openRulesModal = (providerId: string, providerName: string) => {
@@ -480,7 +487,7 @@ export default function ManageInsurancesPage() {
                     <div>
                       <p className="font-medium text-foreground">{ins.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {ins.acronym} • Default patient share: {ins.defaultPatientSharePercentage}%
+                        {ins.acronym} • Base patient share: {getBasePatientSharePercentage(ins)}%
                         •{" "}
                         {ins.supportedByClinic
                           ? "Clinic Supported"
@@ -506,7 +513,7 @@ export default function ManageInsurancesPage() {
                           reset({
                             name: ins.insuranceName || "",
                             acronym: ins.acronym || "",
-                            coverage: String(ins.defaultPatientSharePercentage),
+                            coverage: String(getBasePatientSharePercentage(ins)),
                             supportedByClinic: Boolean(ins.supportedByClinic),
                           });
                           setIconUrl(ins.iconUrl || "");

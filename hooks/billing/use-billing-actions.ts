@@ -8,7 +8,9 @@ import {
   type BillingData,
   type BillingItem,
   type BillingTotals,
+  type CoverageTier,
 } from "@/lib/billing-utils";
+import { getBasePatientSharePercentage } from "@/lib/api-types";
 import {
   flattenVisitDepartmentsForBilling,
   getCoveragePercentageForBillingItem,
@@ -300,16 +302,28 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       const coverageForItem = (item: BillingItem) =>
         getCoveragePercentageForBillingItem(item, activeVisitInsurances);
 
+      const insuranceOpts = activeVisitInsurances.map((ins) => ({
+        id: String(ins.id),
+        providerId: String(ins.insuranceProvider.id),
+        coverages: ins.insuranceProvider.coverages.map((c) => ({
+          coverageId: String(c.id),
+          departmentId: c.departmentId || null,
+          departmentName: c.departmentName || null,
+          encounterType: c.encounterType || null,
+          patientSharePercentage: Number(c.patientSharePercentage ?? 0),
+        })),
+      }));
       const response = existingVisitBilling
         ? await editBill(
             buildEditBillInput(
               billingData,
               editModeSnapshot ?? [],
               coverageForItem,
+              insuranceOpts,
             ),
           )
         : await createBill(
-            buildCreateBillInput(billingData, unbilledItems, coverageForItem),
+            buildCreateBillInput(billingData, unbilledItems, coverageForItem, insuranceOpts),
           );
 
       if (response.status === "SUCCESS") {

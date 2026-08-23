@@ -35,7 +35,17 @@ export const GET_PATIENTS_QUERY = gql`
             id
             insuranceName
             acronym
-            defaultPatientSharePercentage
+            coverages {
+              id
+              insuranceProviderId
+              insuranceProviderName
+              departmentId
+              departmentName
+              encounterType
+              patientSharePercentage
+              createdAt
+              updatedAt
+            }
           }
         }
         createdAt
@@ -88,7 +98,27 @@ export const GET_PATIENT_QUERY = gql`
           id
           insuranceName
           acronym
-          defaultPatientSharePercentage
+          coverages {
+
+                          id
+
+                          insuranceProviderId
+
+                          insuranceProviderName
+
+                          departmentId
+
+                          departmentName
+
+                          encounterType
+
+                          patientSharePercentage
+
+                          createdAt
+
+                          updatedAt
+
+                        }
         }
       }
     }

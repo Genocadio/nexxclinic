@@ -265,11 +265,11 @@ export enum ExemptionType {
 export enum PatientShareSource {
   /** Per-line override provided during billing (highest priority). */
   OVERRIDE = "OVERRIDE",
-  /** Matched an InsuranceCoverageRule (dept + encounter type). */
+  /** Matched an InsuranceCoverage (dept + encounter type). */
   RULE = "RULE",
   /** Fell back to PatientInsurance.patientSharePercentage (patient-specific default). */
   PATIENT_DEFAULT = "PATIENT_DEFAULT",
-  /** Fell back to InsuranceProvider.defaultPatientSharePercentage. */
+  /** Fell back to getBasePatientSharePercentage(InsuranceProvider). */
   PROVIDER_DEFAULT = "PROVIDER_DEFAULT",
   /** Line was exempted (FULL or PATIENT_SHARE exemption). */
   EXEMPTED = "EXEMPTED",
@@ -280,10 +280,10 @@ export enum PatientShareSource {
 // ============================================
 
 /**
- * InsuranceCoverageRule - Per-department/encounter-type patient share override
+ * InsuranceCoverage - Per-department/encounter-type patient share override
  * for an insurance provider. Nullable dept/encounterType means "applies to all".
  */
-export interface InsuranceCoverageRule {
+export interface InsuranceCoverage {
   id: string;
   insuranceProviderId: string;
   insuranceProviderName: string;
@@ -417,13 +417,20 @@ export interface InsuranceProvider {
   id: string;
   insuranceName: string;
   acronym?: string | null;
-  defaultPatientSharePercentage: number;
+  coverages: InsuranceCoverage[];
   supportedByClinic: boolean;
   iconUrl?: string | null;
   createdAt: string;
   updatedAt: string;
   // Legacy field compatibility
   name?: string;
+}
+
+/** Helper to get the base (no-conditions) coverage percentage from a provider. */
+export function getBasePatientSharePercentage(provider: InsuranceProvider): number {
+  return provider.coverages.find(
+    (c) => !c.departmentId && !c.encounterType,
+  )?.patientSharePercentage ?? 0;
 }
 
 /**

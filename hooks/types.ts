@@ -48,7 +48,7 @@ export type {
   Department,
   DepartmentProfile,
   InsuranceProvider,
-  InsuranceCoverageRule,
+  InsuranceCoverage,
   PatientInsurance,
   PatientShareSource,
   Product,

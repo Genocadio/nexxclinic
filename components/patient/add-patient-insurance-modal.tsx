@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { PatientInsurance } from '@/lib/api-types'
+import { getBasePatientSharePercentage } from '@/lib/api-types'
 import { useInsurances } from '@/hooks/auth-hooks'
-import { useInsuranceCoverageRules } from '@/hooks/insurances/coverage-rules'
+import { useInsuranceCoverages } from '@/hooks/insurances/coverage-rules'
 import { useSavePatientInsurance } from '@/hooks/patients/use-save-patient-insurance'
 import { isDominantMemberRequired } from '@/lib/validation-utils'
 import { Button } from '@/components/ui/button'
@@ -87,7 +88,7 @@ export function AddPatientInsuranceModal({
   const [selectedInsuranceId, setSelectedInsuranceId] = useState('')
   const [selectedInsuranceName, setSelectedInsuranceName] = useState('')
 
-  const { rules: selectedProviderRules, loading: rulesLoading } = useInsuranceCoverageRules(
+  const { rules: selectedProviderRules, loading: rulesLoading } = useInsuranceCoverages(
     selectedInsuranceId ? { insuranceProviderId: selectedInsuranceId } : undefined,
   )
 
@@ -286,7 +287,7 @@ export function AddPatientInsuranceModal({
                               <span className={isAlreadyAdded ? 'opacity-50' : ''}>
                                 {insurance.insuranceName}
                                 {insurance.acronym && ` (${insurance.acronym})`}
-                                {' — '}{insurance.defaultPatientSharePercentage}%
+                                {' — '}{getBasePatientSharePercentage(insurance)}%
                                 {isAlreadyAdded && ' (Already Added)'}
                               </span>
                             </CommandItem>
@@ -305,7 +306,7 @@ export function AddPatientInsuranceModal({
                 <p className="font-medium">{selectedInsuranceName}</p>
                 {selectedProvider && (
                   <p className="text-xs text-muted-foreground">
-                    Default patient share: {selectedProvider.defaultPatientSharePercentage}%
+                    Default patient share: {getBasePatientSharePercentage(selectedProvider)}%
                   </p>
                 )}
               </div>

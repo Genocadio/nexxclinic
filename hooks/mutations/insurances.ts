@@ -10,7 +10,27 @@ export const CREATE_INSURANCE_PROVIDER_MUTATION = gql`
         id
         insuranceName
         acronym
-        defaultPatientSharePercentage
+        coverages {
+
+                        id
+
+                        insuranceProviderId
+
+                        insuranceProviderName
+
+                        departmentId
+
+                        departmentName
+
+                        encounterType
+
+                        patientSharePercentage
+
+                        createdAt
+
+                        updatedAt
+
+                      }
         supportedByClinic
         iconUrl
         createdAt
@@ -30,7 +50,27 @@ export const UPDATE_INSURANCE_PROVIDER_MUTATION = gql`
         id
         insuranceName
         acronym
-        defaultPatientSharePercentage
+        coverages {
+
+                        id
+
+                        insuranceProviderId
+
+                        insuranceProviderName
+
+                        departmentId
+
+                        departmentName
+
+                        encounterType
+
+                        patientSharePercentage
+
+                        createdAt
+
+                        updatedAt
+
+                      }
         supportedByClinic
         iconUrl
         createdAt

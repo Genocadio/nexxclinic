@@ -6,6 +6,7 @@ import {
   BillingItem,
   applyInsuranceSelectionToItem,
   calculateItemTotal,
+  findBestMatchingCoverage,
   getItemInsuranceSplit,
 } from "@/lib/billing-utils";
 import { formatRWF } from "@/lib/utils";
@@ -20,12 +21,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+export type InsuranceCoverageTier = {
+  coverageId: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  encounterType: string | null;
+  patientSharePercentage: number;
+};
+
 type InsuranceOption = {
   id: string;
   providerId: string;
   name: string;
   acronym: string;
   coveragePercentage: number;
+  /** All coverage tiers for this provider (base + conditional). */
+  coverages: InsuranceCoverageTier[];
 };
 
 type BillingItemsListProps = {
@@ -416,18 +427,29 @@ export function BillingItemsList({
                                   onValueChange={(value) => {
                                     const visitInsuranceId =
                                       value === "none" ? undefined : value;
-                                    const providerId = visitInsuranceId
+                                    const selectedOpt = visitInsuranceId
                                       ? availableInsurances.find(
                                           (ins) => ins.id === visitInsuranceId,
-                                        )?.providerId
+                                        )
                                       : undefined;
-                                    onItemChange(
-                                      applyInsuranceSelectionToItem(
-                                        item,
-                                        visitInsuranceId,
-                                        providerId,
-                                      ),
+                                    const providerId = selectedOpt?.providerId;
+                                    let updated = applyInsuranceSelectionToItem(
+                                      item,
+                                      visitInsuranceId,
+                                      providerId,
                                     );
+                                    // Auto-select best matching coverage tier
+                                    if (selectedOpt && selectedOpt.coverages.length > 1) {
+                                      const best = findBestMatchingCoverage(
+                                        selectedOpt.coverages,
+                                        item.departmentId,
+                                        item.encounterType,
+                                      );
+                                      updated = { ...updated, selectedCoverageId: best?.coverageId };
+                                    } else {
+                                      updated = { ...updated, selectedCoverageId: undefined };
+                                    }
+                                    onItemChange(updated);
                                   }}
                                   disabled={
                                     availableInsurances.length === 0 ||
@@ -469,6 +491,53 @@ export function BillingItemsList({
                                       Not covered
                                     </p>
                                   )}
+                                {/* Coverage tier pills */}
+                                {item.selectedInsuranceId && (() => {
+                                  const selectedIns = availableInsurances.find(
+                                    (ins) => ins.id === item.selectedInsuranceId,
+                                  );
+                                  const tiers = selectedIns?.coverages;
+                                  if (!tiers || tiers.length <= 1) return null;
+                                  const bestMatch = findBestMatchingCoverage(
+                                    tiers,
+                                    item.departmentId,
+                                    item.encounterType,
+                                  );
+                                  const activeId = item.selectedCoverageId || bestMatch?.coverageId || '';
+                                  return (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {tiers.map((tier) => {
+                                        const isActive = tier.coverageId === activeId;
+                                        const label = !tier.departmentId && !tier.encounterType
+                                          ? `Base ${tier.patientSharePercentage}%`
+                                          : tier.patientSharePercentage + '%';
+                                        return (
+                                          <button
+                                            key={tier.coverageId}
+                                            type="button"
+                                            disabled={isPaidLocked(item)}
+                                            onClick={() => {
+                                              onItemChange({
+                                                ...item,
+                                                selectedCoverageId: tier.coverageId === bestMatch?.coverageId ? undefined : tier.coverageId,
+                                              });
+                                            }}
+                                            className={`text-[9px] px-1.5 py-0.5 rounded-full border transition-colors ${
+                                              isActive
+                                                ? 'bg-primary/15 text-primary border-primary/40 font-medium'
+                                                : 'bg-muted/50 text-muted-foreground border-border/50 hover:bg-muted'
+                                            }`}
+                                            title={!tier.departmentId && !tier.encounterType
+                                              ? `Base: ${tier.patientSharePercentage}% (all depts)`
+                                              : `${tier.patientSharePercentage}% — ${tier.departmentName || 'All depts'} / ${tier.encounterType || 'All types'}`}
+                                          >
+                                            {label}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                })()}
                               </td>
                               <td className="py-2 px-3 text-right tabular-nums text-sm">
                                 {item.selectedInsuranceId &&

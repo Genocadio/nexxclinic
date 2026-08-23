@@ -10,7 +10,7 @@ import {
   Gender,
   RoleName,
   type Department,
-  type InsuranceCoverageRule,
+  type InsuranceCoverage,
   type InsuranceProvider,
   type Patient,
   type PatientInsurance,
@@ -29,7 +29,7 @@ import {
 
 const EMPTY_TIMESTAMP = "";
 
-export type GqlInsuranceCoverageRule = {
+export type GqlInsuranceCoverage = {
   id: string;
   insuranceProviderId: string;
   insuranceProviderName: string;
@@ -45,7 +45,7 @@ export type GqlInsuranceProvider = {
   id: string;
   insuranceName: string;
   acronym?: string | null;
-  defaultPatientSharePercentage?: number | null;
+  coverages?: GqlInsuranceCoverage[] | null;
   supportedByClinic?: boolean | null;
   iconUrl?: string | null;
 };
@@ -215,9 +215,9 @@ function parseEncounterType(value?: string | null): EncounterType {
   return EncounterType.OUTPATIENT;
 }
 
-export function mapGqlInsuranceCoverageRule(
-  rule: GqlInsuranceCoverageRule,
-): InsuranceCoverageRule {
+export function mapGqlInsuranceCoverage(
+  rule: GqlInsuranceCoverage,
+): InsuranceCoverage {
   return {
     id: rule.id,
     insuranceProviderId: rule.insuranceProviderId,
@@ -238,7 +238,7 @@ export function mapGqlInsuranceProvider(
     id: provider.id,
     insuranceName: provider.insuranceName,
     acronym: provider.acronym,
-    defaultPatientSharePercentage: Number(provider.defaultPatientSharePercentage ?? 0),
+    coverages: (provider.coverages || []).map(mapGqlInsuranceCoverage),
     supportedByClinic: provider.supportedByClinic ?? true,
     iconUrl: provider.iconUrl,
     createdAt: EMPTY_TIMESTAMP,

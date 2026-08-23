@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client'
 
 export const GET_INSURANCE_COVERAGE_RULES = gql`
-  query GetInsuranceCoverageRules($input: SearchInsuranceCoverageRulesInput) {
-    insuranceCoverageRules(input: $input) {
+  query GetInsuranceCoverages($input: SearchInsuranceCoveragesInput) {
+    insuranceCoverages(input: $input) {
       status
       message
       data {
@@ -21,8 +21,8 @@ export const GET_INSURANCE_COVERAGE_RULES = gql`
 `
 
 export const CREATE_INSURANCE_COVERAGE_RULE_MUTATION = gql`
-  mutation CreateInsuranceCoverageRule($input: CreateInsuranceCoverageRuleInput!) {
-    createInsuranceCoverageRule(input: $input) {
+  mutation CreateInsuranceCoverage($input: CreateInsuranceCoverageInput!) {
+    createInsuranceCoverage(input: $input) {
       status
       message
       data {
@@ -41,8 +41,8 @@ export const CREATE_INSURANCE_COVERAGE_RULE_MUTATION = gql`
 `
 
 export const UPDATE_INSURANCE_COVERAGE_RULE_MUTATION = gql`
-  mutation UpdateInsuranceCoverageRule($ruleId: ID!, $input: UpdateInsuranceCoverageRuleInput!) {
-    updateInsuranceCoverageRule(ruleId: $ruleId, input: $input) {
+  mutation UpdateInsuranceCoverage($ruleId: ID!, $input: UpdateInsuranceCoverageInput!) {
+    updateInsuranceCoverage(ruleId: $ruleId, input: $input) {
       status
       message
       data {
@@ -61,8 +61,8 @@ export const UPDATE_INSURANCE_COVERAGE_RULE_MUTATION = gql`
 `
 
 export const DELETE_INSURANCE_COVERAGE_RULE_MUTATION = gql`
-  mutation DeleteInsuranceCoverageRule($ruleId: ID!) {
-    deleteInsuranceCoverageRule(ruleId: $ruleId) {
+  mutation DeleteInsuranceCoverage($ruleId: ID!) {
+    deleteInsuranceCoverage(ruleId: $ruleId) {
       status
       message
       data

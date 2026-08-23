@@ -7,13 +7,14 @@ import {
 } from '../mutations'
 import type { Department, DepartmentProfile, Product } from '../types'
 import { mapGqlInsuranceProvider, mapGqlProduct } from '@/lib/gql-mappers'
+import type { GqlInsuranceCoverage } from '@/lib/gql-mappers'
 import { DepartmentInsurancePolicyMode } from '@/lib/api-types'
 
 export interface GqlInsurance {
   id: string
   insuranceName?: string | null
   acronym?: string | null
-  defaultPatientSharePercentage?: number | null
+  coverages?: GqlInsuranceCoverage[] | null
   supportedByClinic?: boolean | null
   iconUrl?: string | null
 }
@@ -24,7 +25,10 @@ export interface GqlProductCoverage {
     id: string
     insuranceName?: string | null
     acronym?: string | null
-    defaultPatientSharePercentage?: number | null
+    coverages?: {
+      id: string
+      patientSharePercentage?: number | null
+    }[] | null
   } | null
   insurance?: {
     id: string
@@ -114,18 +118,36 @@ const mapGqlProductForProfile = (product: GqlProduct): Product =>
             id: coverage.insuranceProvider.id,
             insuranceName: coverage.insuranceProvider.insuranceName || '',
             acronym: coverage.insuranceProvider.acronym,
-            defaultPatientSharePercentage:
-              coverage.insuranceProvider.defaultPatientSharePercentage,
+            coverages: (coverage.insuranceProvider.coverages || []).map((c) => ({
+              id: String(c.id || ''),
+              insuranceProviderId: String(coverage.insuranceProvider?.id || ''),
+              insuranceProviderName: String(coverage.insuranceProvider?.insuranceName || ''),
+              departmentId: null,
+              departmentName: null,
+              encounterType: null,
+              patientSharePercentage: Number(c.patientSharePercentage ?? 0),
+              createdAt: '',
+              updatedAt: '',
+            })),
           }
         : coverage.insurance
           ? {
               id: coverage.insurance.id,
               insuranceName: coverage.insurance.name || '',
               acronym: coverage.insurance.acronym,
-              defaultPatientSharePercentage:
-                coverage.insurance.coveragePercentage,
+              coverages: [{
+                id: '',
+                insuranceProviderId: '',
+                insuranceProviderName: '',
+                departmentId: null,
+                departmentName: null,
+                encounterType: null,
+                patientSharePercentage: Number(coverage.insurance.coveragePercentage ?? 0),
+                createdAt: '',
+                updatedAt: '',
+              }],
             }
-          : { id: '', insuranceName: '' },
+          : { id: '', insuranceName: '', coverages: [] },
       cost: coverage.cost,
       covered: coverage.covered,
       requireMedicalAdvisor: coverage.requireMedicalAdvisor,
@@ -157,7 +179,7 @@ const mapDepartmentFromApi = (department: GqlDepartment): Department => ({
       id: insurance.id,
       insuranceName: insurance.insuranceName || 'Unknown Insurance',
       acronym: insurance.acronym,
-      defaultPatientSharePercentage: insurance.defaultPatientSharePercentage,
+      coverages: insurance.coverages || [],
       supportedByClinic: insurance.supportedByClinic,
       iconUrl: insurance.iconUrl,
     }),

@@ -74,6 +74,8 @@ export interface CreateBillDepartmentInput {
     quantity?: number;
     /** NONE, PATIENT_SHARE (patient waive, insurance still pays), or FULL (entire line zeroed). */
     exemptionType?: "NONE" | "PATIENT_SHARE" | "FULL";
+    /** Optional override for the patient share percentage (0-100). Sent when the user manually picks a coverage tier. */
+    patientSharePercentageOverride?: number;
   }[];
   payments?: {
     amount: number;
@@ -167,6 +169,8 @@ export interface EditBillInput {
       quantity?: number;
       /** NONE, PATIENT_SHARE (patient waive, insurance still pays), or FULL (entire line zeroed). */
       exemptionType?: "NONE" | "PATIENT_SHARE" | "FULL";
+      /** Optional override for the patient share percentage (0-100). */
+      patientSharePercentageOverride?: number;
     }[];
     payments?: {
       amount: number;

@@ -23,7 +23,17 @@ export const GET_CONSUMABLES_QUERY = gql`
             id
             insuranceName
             acronym
-            defaultPatientSharePercentage
+            coverages {
+              id
+              insuranceProviderId
+              insuranceProviderName
+              departmentId
+              departmentName
+              encounterType
+              patientSharePercentage
+              createdAt
+              updatedAt
+            }
           }
           cost
           covered

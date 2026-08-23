@@ -5,27 +5,27 @@ import {
   UPDATE_INSURANCE_COVERAGE_RULE_MUTATION,
   DELETE_INSURANCE_COVERAGE_RULE_MUTATION,
 } from '../mutations/coverage-rules'
-import { mapGqlInsuranceCoverageRule, type GqlInsuranceCoverageRule } from '@/lib/gql-mappers'
-import type { InsuranceCoverageRule } from '@/lib/api-types'
+import { mapGqlInsuranceCoverage, type GqlInsuranceCoverage } from '@/lib/gql-mappers'
+import type { InsuranceCoverage } from '@/lib/api-types'
 
 // ── Query ────────────────────────────────────────────────────────────────────
 
-interface InsuranceCoverageRulesQueryData {
-  insuranceCoverageRules: {
+interface InsuranceCoveragesQueryData {
+  insuranceCoverages: {
     status: string
     message?: string
-    data: GqlInsuranceCoverageRule[]
+    data: GqlInsuranceCoverage[]
   }
 }
 
 /**
  * Fetch insurance coverage rules filtered by provider (and optionally department).
  */
-export function useInsuranceCoverageRules(input?: {
+export function useInsuranceCoverages(input?: {
   insuranceProviderId?: string
   departmentId?: string
 }) {
-  const { data, loading, error, refetch } = useQuery<InsuranceCoverageRulesQueryData>(
+  const { data, loading, error, refetch } = useQuery<InsuranceCoveragesQueryData>(
     GET_INSURANCE_COVERAGE_RULES,
     {
       variables: { input: input || {} },
@@ -34,8 +34,8 @@ export function useInsuranceCoverageRules(input?: {
     },
   )
 
-  const rules: InsuranceCoverageRule[] = (data?.insuranceCoverageRules?.data || []).map(
-    mapGqlInsuranceCoverageRule,
+  const rules: InsuranceCoverage[] = (data?.insuranceCoverages?.data || []).map(
+    mapGqlInsuranceCoverage,
   )
 
   return { rules, loading, error: error?.message || null, refetch }
@@ -44,14 +44,14 @@ export function useInsuranceCoverageRules(input?: {
 // ── Mutations ────────────────────────────────────────────────────────────────
 
 interface CreateRulePayload {
-  createInsuranceCoverageRule: {
+  createInsuranceCoverage: {
     status: string
     message?: string
-    data?: GqlInsuranceCoverageRule | null
+    data?: GqlInsuranceCoverage | null
   }
 }
 
-export function useCreateInsuranceCoverageRule() {
+export function useCreateInsuranceCoverage() {
   const [mutation, { loading, error }] = useMutation<CreateRulePayload>(
     CREATE_INSURANCE_COVERAGE_RULE_MUTATION,
   )
@@ -63,11 +63,11 @@ export function useCreateInsuranceCoverageRule() {
     patientSharePercentage: number
   }) => {
     const { data } = await mutation({ variables: { input } })
-    const payload = data?.createInsuranceCoverageRule
+    const payload = data?.createInsuranceCoverage
     return {
       status: payload?.status || 'ERROR',
       message: payload?.message,
-      data: payload?.data ? mapGqlInsuranceCoverageRule(payload.data) : null,
+      data: payload?.data ? mapGqlInsuranceCoverage(payload.data) : null,
     }
   }
 
@@ -75,14 +75,14 @@ export function useCreateInsuranceCoverageRule() {
 }
 
 interface UpdateRulePayload {
-  updateInsuranceCoverageRule: {
+  updateInsuranceCoverage: {
     status: string
     message?: string
-    data?: GqlInsuranceCoverageRule | null
+    data?: GqlInsuranceCoverage | null
   }
 }
 
-export function useUpdateInsuranceCoverageRule() {
+export function useUpdateInsuranceCoverage() {
   const [mutation, { loading, error }] = useMutation<UpdateRulePayload>(
     UPDATE_INSURANCE_COVERAGE_RULE_MUTATION,
   )
@@ -96,11 +96,11 @@ export function useUpdateInsuranceCoverageRule() {
     },
   ) => {
     const { data } = await mutation({ variables: { ruleId, input } })
-    const payload = data?.updateInsuranceCoverageRule
+    const payload = data?.updateInsuranceCoverage
     return {
       status: payload?.status || 'ERROR',
       message: payload?.message,
-      data: payload?.data ? mapGqlInsuranceCoverageRule(payload.data) : null,
+      data: payload?.data ? mapGqlInsuranceCoverage(payload.data) : null,
     }
   }
 
@@ -108,20 +108,20 @@ export function useUpdateInsuranceCoverageRule() {
 }
 
 interface DeleteRulePayload {
-  deleteInsuranceCoverageRule: {
+  deleteInsuranceCoverage: {
     status: string
     message?: string
   }
 }
 
-export function useDeleteInsuranceCoverageRule() {
+export function useDeleteInsuranceCoverage() {
   const [mutation, { loading, error }] = useMutation<DeleteRulePayload>(
     DELETE_INSURANCE_COVERAGE_RULE_MUTATION,
   )
 
   const deleteRule = async (ruleId: string) => {
     const { data } = await mutation({ variables: { ruleId } })
-    const payload = data?.deleteInsuranceCoverageRule
+    const payload = data?.deleteInsuranceCoverage
     return {
       status: payload?.status || 'ERROR',
       message: payload?.message,

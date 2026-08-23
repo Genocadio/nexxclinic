@@ -4,16 +4,11 @@ import { gql } from '@apollo/client'
 import type { InsuranceProvider, SearchInsuranceProvidersInput } from '../types'
 import { mapGqlInsuranceProvider, type GqlInsuranceProvider } from '@/lib/gql-mappers'
 
-interface LocalGqlInsuranceProvider extends GqlInsuranceProvider {
-  defaultPatientSharePercentage: number
-  supportedByClinic: boolean
-}
-
-export interface InsuranceProvidersQueryData {
+interface InsuranceProvidersQueryData {
   insuranceProviders: {
     status: string
     message?: string
-    data: LocalGqlInsuranceProvider[]
+    data: GqlInsuranceProvider[]
   }
 }
 
@@ -26,7 +21,17 @@ const GET_INSURANCES_QUERY_LOCAL = gql`
         id
         insuranceName
         acronym
-        defaultPatientSharePercentage
+        coverages {
+          id
+          insuranceProviderId
+          insuranceProviderName
+          departmentId
+          departmentName
+          encounterType
+          patientSharePercentage
+          createdAt
+          updatedAt
+        }
         supportedByClinic
         iconUrl
       }
@@ -52,7 +57,7 @@ export function useInsurances(input?: { supportedByClinic?: boolean | null; page
   })
 
   const insurances: InsuranceProvider[] = (data?.insuranceProviders?.data || []).map(
-    (insurance: LocalGqlInsuranceProvider) => mapGqlInsuranceProvider(insurance),
+    (insurance) => mapGqlInsuranceProvider(insurance),
   )
 
   return { insurances, loading: loading || false, error: error?.message || null, refetch }
@@ -73,7 +78,7 @@ export function useInsuranceSearch(searchQuery: string) {
   })
 
   const insurances: InsuranceProvider[] = (data?.insuranceProviders?.data || []).map(
-    (insurance: LocalGqlInsuranceProvider) => mapGqlInsuranceProvider(insurance),
+    (insurance) => mapGqlInsuranceProvider(insurance),
   )
 
   return { insurances, loading, error: error?.message || null }
@@ -102,12 +107,18 @@ export interface DeleteInsuranceProviderPayload {
   }
 }
 
+export type InsuranceCoverageInput = {
+  departmentId?: string | null
+  encounterType?: string | null
+  patientSharePercentage: number
+}
+
 export function useCreateInsuranceProvider() {
   const [mutation, { loading, error }] = useMutation<CreateInsuranceProviderPayload>(CREATE_INSURANCE_PROVIDER_MUTATION)
   const createInsuranceProvider = async (input: {
     insuranceName: string
     acronym?: string
-    defaultPatientSharePercentage: number
+    coverages: InsuranceCoverageInput[]
     supportedByClinic?: boolean
     iconUrl?: string
   }): Promise<any> => {
@@ -119,14 +130,7 @@ export function useCreateInsuranceProvider() {
       return {
         status: payload?.status || 'ERROR',
         message: payload?.message,
-        data: created ? {
-          id: created.id,
-          insuranceName: created.insuranceName,
-          acronym: created.acronym || undefined,
-          defaultPatientSharePercentage: created.defaultPatientSharePercentage,
-          supportedByClinic: created.supportedByClinic,
-          iconUrl: created.iconUrl || undefined,
-        } : undefined,
+        data: created ? mapGqlInsuranceProvider(created) : undefined,
       }
     } catch (err) {
       console.error('Create insurance provider error:', err)
@@ -141,7 +145,7 @@ export function useUpdateInsuranceProvider() {
   const updateInsuranceProvider = async (insuranceProviderId: string | number, input: {
     insuranceName?: string
     acronym?: string
-    defaultPatientSharePercentage?: number
+    coverages?: InsuranceCoverageInput[]
     supportedByClinic?: boolean
     iconUrl?: string
   }): Promise<any> => {
@@ -153,14 +157,7 @@ export function useUpdateInsuranceProvider() {
       return {
         status: payload?.status || 'ERROR',
         message: payload?.message,
-        data: updated ? {
-          id: updated.id,
-          insuranceName: updated.insuranceName,
-          acronym: updated.acronym || undefined,
-          defaultPatientSharePercentage: updated.defaultPatientSharePercentage,
-          supportedByClinic: updated.supportedByClinic,
-          iconUrl: updated.iconUrl || undefined,
-        } : undefined,
+        data: updated ? mapGqlInsuranceProvider(updated) : undefined,
       }
     } catch (err) {
       console.error('Update insurance provider error:', err)

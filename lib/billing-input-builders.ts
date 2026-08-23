@@ -1,7 +1,9 @@
 import {
   computeDepartmentBillAllocations,
+  findBestMatchingCoverage,
   type BillingData,
   type BillingItem,
+  type CoverageTier,
 } from "@/lib/billing-utils";
 import { roundMoney } from "@/lib/money";
 import type {
@@ -42,6 +44,7 @@ export function buildCreateBillInput(
   billingData: BillingData,
   unbilledItems: BillingItem[],
   coverageForItem: (item: BillingItem) => number,
+  insuranceOptions?: { id: string; providerId: string; coverages: CoverageTier[] }[],
 ): CreateBillInput {
   const billableByDepartment = new Map<
     string,
@@ -70,6 +73,19 @@ export function buildCreateBillInput(
       item.selectedInsuranceId && !item.insuranceNotCovered
         ? item.selectedInsuranceId
         : undefined;
+    // Resolve coverage tier override if user manually selected a non-default tier
+    let patientSharePercentageOverride: number | undefined;
+    if (coveredInsuranceId && insuranceOptions && insuranceOptions.length > 0) {
+      const insOpt = insuranceOptions.find((o) => o.id === coveredInsuranceId);
+      if (insOpt && insOpt.coverages.length > 1) {
+        if (item.selectedCoverageId) {
+          // User explicitly chose a tier — find its percentage
+          const chosenTier = insOpt.coverages.find((c) => c.coverageId === item.selectedCoverageId);
+          if (chosenTier) patientSharePercentageOverride = chosenTier.patientSharePercentage;
+        }
+        // If no selectedCoverageId, let the backend auto-resolve (no override needed)
+      }
+    }
     billableByDepartment.get(rootVisitDepartmentId)!.products.push({
       visitDepartmentProductId: item.id,
       parentVisitDepartmentId: productOwnerVisitDepartmentId,
@@ -79,6 +95,7 @@ export function buildCreateBillInput(
       patientInsuranceId: coveredInsuranceId,
       quantity: item.quantity,
       exemptionType: resolveExemptionType(item),
+      ...(patientSharePercentageOverride !== undefined ? { patientSharePercentageOverride } : {}),
     });
   });
 
@@ -131,6 +148,7 @@ export function buildEditBillInput(
   billingData: BillingData,
   snapshotItems: BillingItem[],
   coverageForItem: (item: BillingItem) => number,
+  insuranceOptions?: { id: string; providerId: string; coverages: CoverageTier[] }[],
 ): EditBillInput {
   const currentItems = billingData.items;
   const snapshotIds = new Set(snapshotItems.map((i) => i.id));
@@ -175,6 +193,15 @@ export function buildEditBillInput(
       item.selectedInsuranceId && !item.insuranceNotCovered
         ? item.selectedInsuranceId
         : undefined;
+    // Resolve coverage tier override
+    let patientSharePercentageOverride: number | undefined;
+    if (coveredInsuranceId && insuranceOptions && insuranceOptions.length > 0) {
+      const insOpt = insuranceOptions.find((o) => o.id === coveredInsuranceId);
+      if (insOpt && insOpt.coverages.length > 1 && item.selectedCoverageId) {
+        const chosenTier = insOpt.coverages.find((c) => c.coverageId === item.selectedCoverageId);
+        if (chosenTier) patientSharePercentageOverride = chosenTier.patientSharePercentage;
+      }
+    }
     dept.billProducts.push({
       productId: item.productId,
       quantity: item.quantity,
@@ -183,6 +210,7 @@ export function buildEditBillInput(
       coverageType: coveredInsuranceId ? "INSURANCE" : "PRIVATE",
       patientInsuranceId: coveredInsuranceId,
       exemptionType: resolveExemptionType(item),
+      ...(patientSharePercentageOverride !== undefined ? { patientSharePercentageOverride } : {}),
     });
 
     if (!snapshotIds.has(item.id)) {

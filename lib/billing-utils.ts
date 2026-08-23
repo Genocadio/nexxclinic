@@ -26,6 +26,7 @@ export interface BillingItem {
   departmentId?: string;
   departmentName?: string;
   childDepartmentName?: string;
+  encounterType?: string;
   departmentCompletedTime?: string;
   departmentStatus?: string;
   paymentStatus: "pending" | "paid" | "exempted" | "partial";
@@ -34,6 +35,8 @@ export interface BillingItem {
   exemptionReason?: string;
   amountPaid?: number;
   selectedInsuranceId?: string; // Can select specific insurance or 'none'
+  /** The specific coverage tier selected for this line (optional override). */
+  selectedCoverageId?: string;
   /** Applied patient share percentage (0-100) for this line. */
   appliedPatientSharePct?: number | null;
   /** Source of the applied percentage. */
@@ -81,6 +84,60 @@ export type InsuranceCoverageMeta = {
   cost: number;
   covered: boolean;
 };
+
+/** A coverage tier from an insurance provider. */
+export type CoverageTier = {
+  coverageId: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  encounterType: string | null;
+  patientSharePercentage: number;
+};
+
+/**
+ * Find the best matching coverage tier for a billing line based on
+ * department + encounter type context.
+ *
+ * Resolution order (most specific wins):
+ * 1. Exact: dept + encounterType match
+ * 2. Department only match
+ * 3. Encounter type only match
+ * 4. Base (no conditions)
+ */
+export function findBestMatchingCoverage(
+  coverages: CoverageTier[],
+  departmentId?: string,
+  encounterType?: string,
+): CoverageTier | undefined {
+  if (!coverages || coverages.length === 0) return undefined;
+
+  // 1. Exact match: dept + encounterType
+  if (departmentId && encounterType) {
+    const exact = coverages.find(
+      (c) => c.departmentId === departmentId && c.encounterType === encounterType,
+    );
+    if (exact) return exact;
+  }
+
+  // 2. Department only
+  if (departmentId) {
+    const deptOnly = coverages.find(
+      (c) => c.departmentId === departmentId && !c.encounterType,
+    );
+    if (deptOnly) return deptOnly;
+  }
+
+  // 3. Encounter type only
+  if (encounterType) {
+    const etOnly = coverages.find(
+      (c) => !c.departmentId && c.encounterType === encounterType,
+    );
+    if (etOnly) return etOnly;
+  }
+
+  // 4. Base (no conditions)
+  return coverages.find((c) => !c.departmentId && !c.encounterType);
+}
 
 type ProductCoverageInput = {
   insurance?: { id?: string | number };
