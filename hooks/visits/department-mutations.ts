@@ -11,6 +11,7 @@ import {
   CHANGE_VISIT_DEPARTMENT_PROFILE_MUTATION,
   UPDATE_VISIT_DEPARTMENT_PRODUCT_QUANTITY_MUTATION,
   UPDATE_VISIT_DEPARTMENT_PRODUCT_STATUS_MUTATION,
+  UPDATE_VISIT_DEPARTMENT_ENCOUNTER_TYPE_MUTATION,
 } from "../mutations";
 import type { ApiResponse } from "../types";
 import { mapGqlVisitDepartment } from "@/lib/gql-mappers";
@@ -370,6 +371,7 @@ export function useAddDepartmentToVisit() {
     departmentId: string,
     processorId?: string | null,
     profileId?: string | null,
+    encounterType?: string | null,
   ): Promise<ApiResponse<any>> => {
     try {
       const result = await mutation({
@@ -378,6 +380,7 @@ export function useAddDepartmentToVisit() {
           departmentId,
           processorId: processorId || null,
           profileId: profileId || null,
+          encounterType: encounterType || null,
         },
         refetchQueries: ["GetVisits", "GetVisit"],
         awaitRefetchQueries: true,
@@ -425,6 +428,36 @@ export function useChangeVisitDepartmentProfile() {
   };
 
   return { changeVisitDepartmentProfile, loading, error };
+}
+
+export function useUpdateVisitDepartmentEncounterType() {
+  const [mutation, { loading, error }] = useMutation(
+    UPDATE_VISIT_DEPARTMENT_ENCOUNTER_TYPE_MUTATION,
+  );
+
+  const updateEncounterType = async (
+    visitDepartmentId: string,
+    encounterType: string,
+  ): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({
+        variables: { visitDepartmentId, encounterType },
+        refetchQueries: ["GetVisits", "GetVisit"],
+        awaitRefetchQueries: true,
+      });
+      const payload = result.data?.updateVisitDepartmentEncounterType;
+      return {
+        status: payload?.status || "ERROR",
+        message: payload?.message,
+        data: payload?.data,
+      };
+    } catch (err) {
+      console.error("Update encounter type error:", err);
+      throw err;
+    }
+  };
+
+  return { updateEncounterType, loading, error };
 }
 
 export function useUpdateProductQuantity() {

@@ -6,6 +6,7 @@ import {
   BillingItem,
   applyInsuranceSelectionToItem,
   calculateItemTotal,
+  filterMatchingCoverages,
   findBestMatchingCoverage,
   getItemInsuranceSplit,
 } from "@/lib/billing-utils";
@@ -496,8 +497,15 @@ export function BillingItemsList({
                                   const selectedIns = availableInsurances.find(
                                     (ins) => ins.id === item.selectedInsuranceId,
                                   );
-                                  const tiers = selectedIns?.coverages;
-                                  if (!tiers || tiers.length <= 1) return null;
+                                  const allTiers = selectedIns?.coverages;
+                                  if (!allTiers || allTiers.length <= 1) return null;
+                                  // Only show tiers whose conditions match this item's context
+                                  const tiers = filterMatchingCoverages(
+                                    allTiers,
+                                    item.departmentId,
+                                    item.encounterType,
+                                  );
+                                  if (tiers.length <= 1) return null;
                                   const bestMatch = findBestMatchingCoverage(
                                     tiers,
                                     item.departmentId,

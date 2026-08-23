@@ -139,6 +139,48 @@ export function findBestMatchingCoverage(
   return coverages.find((c) => !c.departmentId && !c.encounterType);
 }
 
+/**
+ * Filter coverage tiers to only those whose conditions are satisfied by
+ * the billing item's context.
+ *
+ * Rules:
+ * - Base tier (no dept, no encounterType) → always included
+ * - Dept-only tier → only if dept matches
+ * - EncounterType-only tier → only if encounterType matches  
+ * - Dept+EncounterType tier → only if BOTH match
+ * - If item has no dept/encounterType, conditional tiers for that axis are excluded
+ */
+export function filterMatchingCoverages(
+  coverages: CoverageTier[],
+  departmentId?: string,
+  encounterType?: string,
+): CoverageTier[] {
+  if (!coverages) return [];
+
+  return coverages.filter((c) => {
+    // Base tier: no conditions → always show
+    if (!c.departmentId && !c.encounterType) return true;
+
+    // Tier has department condition
+    if (c.departmentId && !c.encounterType) {
+      return departmentId ? c.departmentId === departmentId : false;
+    }
+
+    // Tier has encounterType condition only
+    if (!c.departmentId && c.encounterType) {
+      return encounterType ? c.encounterType === encounterType : false;
+    }
+
+    // Tier has both conditions — both must match
+    return (
+      departmentId !== undefined &&
+      encounterType !== undefined &&
+      c.departmentId === departmentId &&
+      c.encounterType === encounterType
+    );
+  });
+}
+
 type ProductCoverageInput = {
   insurance?: { id?: string | number };
   insuranceProvider?: { id?: string | number };

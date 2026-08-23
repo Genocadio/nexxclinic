@@ -349,12 +349,14 @@ export const ADD_DEPARTMENT_TO_VISIT_MUTATION = gql`
     $departmentId: ID!
     $profileId: ID
     $processorId: ID
+    $encounterType: EncounterType
   ) {
     addVisitDepartment(
       visitId: $visitId
       departmentId: $departmentId
       profileId: $profileId
       processorId: $processorId
+      encounterType: $encounterType
     ) {
       status
       message
@@ -876,6 +878,24 @@ export const MARK_VISIT_DEPARTMENT_NOTES_VIEWED_MUTATION = gql`
       data {
         totalNotes
         newNotes
+      }
+    }
+  }
+`;
+
+export const UPDATE_VISIT_DEPARTMENT_ENCOUNTER_TYPE_MUTATION = gql`
+  mutation UpdateVisitDepartmentEncounterType($visitDepartmentId: ID!, $encounterType: EncounterType!) {
+    updateVisitDepartmentEncounterType(visitDepartmentId: $visitDepartmentId, encounterType: $encounterType) {
+      status
+      message
+      data {
+        id
+        encounterType
+        status
+        department {
+          id
+          name
+        }
       }
     }
   }

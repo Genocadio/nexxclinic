@@ -35,6 +35,9 @@ import PatientHistorySidePane from "@/components/patient-history-side-pane"
 import PatientRegistrationModal from "@/components/patient-registration-modal"
 import VisitCreationModal from "@/components/visit-creation-modal"
 import { AddDepartmentModal } from "@/components/add-department-modal"
+import { EncounterTypeSelectDialog } from "@/components/encounter-type-select-dialog"
+import { useUpdateVisitDepartmentEncounterType } from "@/hooks/visits/department-mutations"
+import { EncounterType } from "@/lib/api-types"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import InlineTryAgain from "@/components/inline-try-again"
@@ -76,6 +79,7 @@ export default function DashboardPage() {
       skip: !isMounted || !showMetrics,
     })
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
+  const { updateEncounterType } = useUpdateVisitDepartmentEncounterType()
   const { generateInvoice } = useGenerateInvoice()
   const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -163,6 +167,9 @@ export default function DashboardPage() {
   const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false)
   const [selectedVisitForDepartment, setSelectedVisitForDepartment] =
     useState<Visit | null>(null)
+  const [encounterTypeDialogOpen, setEncounterTypeDialogOpen] = useState(false)
+  const [encounterTypeVisit, setEncounterTypeVisit] = useState<Visit | null>(null)
+  const [encounterTypeLoading, setEncounterTypeLoading] = useState(false)
   const [previewConsultationOpen, setPreviewConsultationOpen] = useState(false)
   const [previewConsultationContext, setPreviewConsultationContext] = useState<{
     answerId: string | null
@@ -438,21 +445,37 @@ export default function DashboardPage() {
 
     return filtered
   }, [visits, locallyCreatedVisits, searchQuery, statusFilter])
-  const handleConsultVisit = async (visit: Visit) => {
-    // Mark first department as ACTIVE before navigating to consultation
+  const handleConsultVisit = (visit: Visit) => {
+    // Open encounter type selection dialog first
+    setEncounterTypeVisit(visit)
+    setEncounterTypeDialogOpen(true)
+  }
+  const handleEncounterTypeSelected = async (encounterType: EncounterType) => {
+    const visit = encounterTypeVisit
+    if (!visit) return
+    setEncounterTypeLoading(true)
     try {
-      const firstVisitDeptId = visit.departments?.[0]?.id
-      if (firstVisitDeptId) {
-        await updateDepartmentStatus(firstVisitDeptId, "ACTIVE")
-        // Optionally refetch visits to update department status
-        refetchVisits()
+      const matchingDept = visit.departments?.find((d) => {
+        const deptId = String(d?.department?.id || d?.id || "")
+        const isDepartmentOpen = d?.status !== "COMPLETED"
+        return deptId && userDepartmentIds.includes(deptId) && isDepartmentOpen
+      })
+      if (matchingDept) {
+        // Update encounter type on the matching department
+        await updateEncounterType(matchingDept.id, encounterType)
+        // Mark department as ACTIVE
+        await updateDepartmentStatus(matchingDept.id, "ACTIVE")
       }
+      refetchVisits()
     } catch (err) {
-      // Continue to consultation even if updating status fails
-      console.error("Failed to update department status:", err)
+      console.error("Failed to set encounter type:", err)
+      toast.error("Failed to set encounter type")
+      setEncounterTypeLoading(false)
+      return
     }
-
-    // Navigate to consultation page
+    setEncounterTypeLoading(false)
+    setEncounterTypeDialogOpen(false)
+    setEncounterTypeVisit(null)
     router.push(`/consultation?visitId=${visit.id}`)
   }
   const handleTriageVisit = (visit: Visit) => {
@@ -1420,6 +1443,19 @@ export default function DashboardPage() {
           if (!dischargeConfirmVisit || discharging) return
           void handleDischargeVisit(dischargeConfirmVisit)
         }}
+      />
+
+      <EncounterTypeSelectDialog
+        open={encounterTypeDialogOpen}
+        onClose={() => {
+          if (!encounterTypeLoading) {
+            setEncounterTypeDialogOpen(false)
+            setEncounterTypeVisit(null)
+          }
+        }}
+        onSelect={handleEncounterTypeSelected}
+        patientName={encounterTypeVisit ? `${encounterTypeVisit.patient.firstName} ${encounterTypeVisit.patient.lastName}` : ""}
+        loading={encounterTypeLoading}
       />
     </div>
   )
