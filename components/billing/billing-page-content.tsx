@@ -718,7 +718,7 @@ export function BillingPageContent() {
         totals={confirmTotals}
         amountPaid={billingData.amountPaid || 0}
         paymentMethod={billingData.paymentMethod || "MOBILE_MONEY"}
-        creatingBill={creatingBill}
+        creatingBill={creatingBill || editingBill}
         showItemsReview={confirmSheetMode === "complete"}
         noteRequired={confirmNoteRequired}
         showDiscountControls={showDiscountControls}

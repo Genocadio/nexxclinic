@@ -546,6 +546,65 @@ export function BillingItemsList({
                                     </div>
                                   );
                                 })()}
+                                {/* Patient share source badge */}
+                                {item.selectedInsuranceId && (() => {
+                                  // Use backend source if available (from billed items)
+                                  const backendPct = item.appliedPatientSharePct;
+                                  const backendSource = item.patientShareSource;
+
+                                  // For unbilled items, compute the resolved percentage
+                                  const selectedIns = availableInsurances.find(
+                                    (ins) => ins.id === item.selectedInsuranceId,
+                                  );
+                                  let computedPct = backendPct;
+                                  let computedSource = backendSource;
+                                  if (computedPct == null && selectedIns) {
+                                    // Resolve from the selected coverage tier
+                                    if (item.selectedCoverageId && selectedIns.coverages) {
+                                      const tier = selectedIns.coverages.find(
+                                        (c) => c.coverageId === item.selectedCoverageId,
+                                      );
+                                      computedPct = tier?.patientSharePercentage ?? 0;
+                                    } else if (selectedIns.coverages && selectedIns.coverages.length > 0) {
+                                      // Auto-resolve: find best matching tier
+                                      const best = findBestMatchingCoverage(
+                                        selectedIns.coverages,
+                                        item.departmentId,
+                                        item.encounterType,
+                                      );
+                                      computedPct = best?.patientSharePercentage ?? selectedIns.coveragePercentage ?? 0;
+                                    } else {
+                                      computedPct = selectedIns.coveragePercentage ?? 0;
+                                    }
+                                    computedSource = null; // no backend source yet
+                                  }
+
+                                  if (computedPct == null) return null;
+
+                                  const sourceLabel = (() => {
+                                    switch (computedSource) {
+                                      case 'OVERRIDE': return 'Override';
+                                      case 'RULE': return 'Coverage';
+                                      case 'PATIENT_DEFAULT': return 'Patient';
+                                      case 'PROVIDER_DEFAULT': return 'Provider';
+                                      case 'EXEMPTED': return 'Exempt';
+                                      default: return null;
+                                    }
+                                  })();
+
+                                  return (
+                                    <div className="flex items-center gap-1 mt-1">
+                                      <span className="text-[9px] px-1 py-0.5 rounded bg-muted/80 text-muted-foreground border border-border/40 tabular-nums">
+                                        Patient {computedPct}%
+                                      </span>
+                                      {sourceLabel && (
+                                        <span className="text-[9px] px-1 py-0.5 rounded bg-primary/5 text-primary/70 border border-primary/20">
+                                          {sourceLabel}
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </td>
                               <td className="py-2 px-3 text-right tabular-nums text-sm">
                                 {item.selectedInsuranceId &&

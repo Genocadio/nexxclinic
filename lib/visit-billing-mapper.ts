@@ -272,10 +272,50 @@ export function getCoveragePercentageForBillingItem(
   item: BillingItem,
   activeVisitInsurances: PatientInsurance[],
 ): number {
+  if (!item.selectedInsuranceId) return 0;
   const selected = activeVisitInsurances.find(
     (ins) => String(ins.id) === item.selectedInsuranceId,
   );
-  return selected?.insuranceProvider ? getBasePatientSharePercentage(selected.insuranceProvider) : 0;
+  if (!selected?.insuranceProvider) return 0;
+
+  const coverages = selected.insuranceProvider.coverages;
+  if (!coverages || coverages.length === 0) {
+    return getBasePatientSharePercentage(selected.insuranceProvider);
+  }
+
+  // 1. If a specific coverage tier was selected, use it
+  if (item.selectedCoverageId) {
+    const tier = coverages.find((c) => String(c.id) === item.selectedCoverageId);
+    if (tier) return Number(tier.patientSharePercentage ?? 0);
+  }
+
+  // 2. Auto-select best matching coverage by department + encounter type
+  // Exact match (dept + encounterType)
+  if (item.departmentId && item.encounterType) {
+    const exact = coverages.find(
+      (c) => c.departmentId === item.departmentId && c.encounterType === item.encounterType,
+    );
+    if (exact) return Number(exact.patientSharePercentage ?? 0);
+  }
+
+  // Dept only
+  if (item.departmentId) {
+    const dept = coverages.find(
+      (c) => c.departmentId === item.departmentId && !c.encounterType,
+    );
+    if (dept) return Number(dept.patientSharePercentage ?? 0);
+  }
+
+  // Encounter type only
+  if (item.encounterType) {
+    const enc = coverages.find(
+      (c) => !c.departmentId && c.encounterType === item.encounterType,
+    );
+    if (enc) return Number(enc.patientSharePercentage ?? 0);
+  }
+
+  // 3. Fallback: base coverage (no conditions)
+  return getBasePatientSharePercentage(selected.insuranceProvider);
 }
 
 export function flattenVisitDepartmentsForBilling(
