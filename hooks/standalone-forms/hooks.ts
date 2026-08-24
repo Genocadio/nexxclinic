@@ -11,6 +11,7 @@ import {
   DELETE_STANDALONE_FORM_MUTATION,
   DUPLICATE_STANDALONE_FORM_MUTATION,
   SAVE_STANDALONE_ANSWER_MUTATION,
+  SET_STANDALONE_FORM_AS_TEMPLATE_MUTATION,
 } from "../mutations/standalone-forms"
 import type { FormBlock, FormTemplateType } from "@/lib/formbuilder-storage"
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -206,6 +207,26 @@ export function useDuplicateStandaloneForm() {
     return data.duplicateStandaloneForm.data
   }
   return { duplicateForm, loading, error: error?.message ?? null }
+}
+
+/** Toggle a form's template status */
+export function useSetStandaloneFormAsTemplate() {
+  const [mutate, { loading, error }] = useMutation(
+    SET_STANDALONE_FORM_AS_TEMPLATE_MUTATION,
+  )
+  const setAsTemplate = async (
+    formId: string,
+    isTemplate: boolean,
+  ): Promise<StandaloneForm> => {
+    const { data } = await mutate({ variables: { formId, isTemplate } })
+    if (data?.setStandaloneFormAsTemplate?.status === "ERROR") {
+      throw new Error(
+        data.setStandaloneFormAsTemplate.message ?? "Failed to update template status",
+      )
+    }
+    return data.setStandaloneFormAsTemplate.data
+  }
+  return { setAsTemplate, loading, error: error?.message ?? null }
 }
 
 /** Save an answer for a standalone form version */

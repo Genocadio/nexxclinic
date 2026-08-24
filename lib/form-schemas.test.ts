@@ -258,4 +258,78 @@ describe("createPatientInsuranceFormSchema", () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it("accepts international phone format", () => {
+    const result = createPatientInsuranceFormSchema({
+      dominantRequired: true,
+    }).safeParse({
+      ...base,
+      dominantFirstName: "Jane",
+      dominantLastName: "Doe",
+      dominantPhone: "+256701234567",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts short phone (7 digits)", () => {
+    const result = createPatientInsuranceFormSchema({
+      dominantRequired: true,
+    }).safeParse({
+      ...base,
+      dominantFirstName: "Jane",
+      dominantLastName: "Doe",
+      dominantPhone: "1234567",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects phone that is too short", () => {
+    const result = createPatientInsuranceFormSchema({
+      dominantRequired: true,
+    }).safeParse({
+      ...base,
+      dominantFirstName: "Jane",
+      dominantLastName: "Doe",
+      dominantPhone: "123456",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const phoneError = result.error.issues.find((i) => i.path.includes("dominantPhone"));
+      expect(phoneError?.message).toMatch(/valid phone number/);
+    }
+  });
+
+  it("rejects phone with letters", () => {
+    const result = createPatientInsuranceFormSchema({
+      dominantRequired: false,
+    }).safeParse({
+      ...base,
+      dominantPhone: "abcdefg",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const phoneError = result.error.issues.find((i) => i.path.includes("dominantPhone"));
+      expect(phoneError?.message).toMatch(/valid phone number/);
+    }
+  });
+
+  it("rejects phone that is too long", () => {
+    const result = createPatientInsuranceFormSchema({
+      dominantRequired: false,
+    }).safeParse({
+      ...base,
+      dominantPhone: "+1234567890123456",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("allows empty phone when dominant is not required", () => {
+    const result = createPatientInsuranceFormSchema({
+      dominantRequired: false,
+    }).safeParse({
+      ...base,
+      dominantPhone: "",
+    });
+    expect(result.success).toBe(true);
+  });
 });

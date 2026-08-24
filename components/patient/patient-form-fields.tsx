@@ -59,6 +59,8 @@ export interface PatientFormFieldsProps {
   dateError?: string
   /** Inline field errors keyed by dotted path, e.g. `firstName`, `insurance.0.card`. */
   fieldErrors?: Record<string, string>
+  /** Fired when a field loses focus, with the field path and its current value. */
+  onFieldBlur?: (field: string, value: string) => void
 }
 
 export default function PatientFormFields({
@@ -74,6 +76,7 @@ export default function PatientFormFields({
   availableInsurances,
   dateError,
   fieldErrors = {},
+  onFieldBlur,
 }: PatientFormFieldsProps) {
   const [insurancePopoverOpen, setInsurancePopoverOpen] = useState<{
     [key: number]: boolean
@@ -117,6 +120,7 @@ export default function PatientFormFields({
             type="text"
             value={fieldValue(formData.firstName)}
             onChange={(e) => onFieldChange("firstName", e.target.value)}
+            onBlur={() => onFieldBlur?.("firstName", formData.firstName || "")}
             placeholder="Enter first name"
             className={`${solidFieldClass} rounded-xl focus:ring-primary/50 ${fieldErrors["firstName"] ? "border-red-500" : ""}`}
             required
@@ -131,6 +135,7 @@ export default function PatientFormFields({
             type="text"
             value={fieldValue(formData.lastName)}
             onChange={(e) => onFieldChange("lastName", e.target.value)}
+            onBlur={() => onFieldBlur?.("lastName", formData.lastName || "")}
             placeholder="Enter last name"
             className={solidFieldClass}
           />
@@ -143,6 +148,7 @@ export default function PatientFormFields({
             type="text"
             value={fieldValue(formData.middleName)}
             onChange={(e) => onFieldChange("middleName", e.target.value)}
+            onBlur={() => onFieldBlur?.("middleName", formData.middleName || "")}
             placeholder="Enter middle name"
             className={solidFieldClass}
           />

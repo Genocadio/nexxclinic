@@ -1,13 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { usePatients } from "@/hooks/auth-hooks"
 import type { Patient, Visit } from "@/lib/api-types"
 import type { SearchPatientsInput } from "@/lib/api-input-types"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Edit } from "lucide-react"
+import { getMediaUrl } from "@/lib/media-url"
 import { toast } from "react-toastify"
+import { calculateAge } from "@/lib/validation-utils"
 import PatientFormDialog from "@/components/patient/patient-form-dialog"
 import PatientEditModal from "@/components/patient-edit-modal"
 
@@ -33,18 +35,44 @@ export default function PatientRegistrationModal({
   const [selectedPatientForEdit, setSelectedPatientForEdit] =
     useState<Patient | null>(null)
 
-  // Search filters for potential duplicate detection
+  // ── Duplicate-detection search ────────────────────────────────────────────
   const [searchFilters, setSearchFilters] = useState<SearchPatientsInput>({})
+  const searchActiveRef = useRef(false)
+  const formDataRef = useRef<any>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const { patients: potentialMatches } =
-    usePatients(
-      Object.keys(searchFilters).length > 0 &&
-      Object.values(searchFilters).some((v) => v !== undefined && v !== "")
-        ? searchFilters
-        : undefined,
-      0,
-      10,
-    )
+  /** Build SearchPatientsInput from the full registration form data. */
+  const buildFilters = useCallback((data: any): SearchPatientsInput => {
+    const parts = [data.firstName, data.middleName, data.lastName]
+      .map((s: string) => s?.trim())
+      .filter(Boolean)
+    const filters: SearchPatientsInput = {}
+    if (parts.length) filters.name = parts.join(' ')
+    const phone = data.contactInfo?.phone?.trim()
+    if (phone) filters.phoneNumber = phone
+    if (data.dateOfBirth) {
+      const age = calculateAge(data.dateOfBirth)
+      if (age > 0) filters.age = age
+    }
+    const insurances = data.insurances || []
+    for (const ins of insurances) {
+      if (ins.insuranceId && String(ins.insuranceId) !== '0') {
+        filters.insuranceProviderId = String(ins.insuranceId)
+        break
+      }
+    }
+    return filters
+  }, [])
+
+  const { patients: potentialMatches } = usePatients(
+    searchActiveRef.current &&
+    Object.keys(searchFilters).length > 0 &&
+    Object.values(searchFilters).some((v) => v !== undefined && v !== '' && v !== 0)
+      ? searchFilters
+      : undefined,
+    0,
+    10,
+  )
 
   const showPotentialMatches =
     !hideSearchPanel && potentialMatches.length > 0
@@ -52,10 +80,15 @@ export default function PatientRegistrationModal({
     ? "sm:max-w-[1180px]"
     : "sm:max-w-[780px]"
 
-  // Reset search filters when modal opens
+  // Reset search when modal opens
   useEffect(() => {
     if (isOpen) {
+      searchActiveRef.current = false
+      formDataRef.current = null
       setSearchFilters({})
+    }
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [isOpen])
 
@@ -82,6 +115,24 @@ export default function PatientRegistrationModal({
                 isOpen={isOpen}
                 onClose={onClose}
                 mode="create"
+                onFieldBlur={(field) => {
+                  if (field === 'firstName' || field === 'lastName' || field === 'middleName') {
+                    searchActiveRef.current = true
+                    // Fire immediately with current form data (no debounce on blur)
+                    if (formDataRef.current) {
+                      setSearchFilters(buildFilters(formDataRef.current))
+                    }
+                  }
+                }}
+                onFormChange={(data) => {
+                  formDataRef.current = data
+                  if (!searchActiveRef.current) return
+                  // Debounce: build filters from full form data after 400ms idle
+                  if (debounceRef.current) clearTimeout(debounceRef.current)
+                  debounceRef.current = setTimeout(() => {
+                    setSearchFilters(buildFilters(data))
+                  }, 400)
+                }}
                 onPatientSaved={(
                   patientId,
                   patientInsurances,
@@ -178,45 +229,41 @@ export default function PatientRegistrationModal({
                       {patient.patientInsurances &&
                         patient.patientInsurances.length > 0 && (
                           <div className="mt-3 pt-3 border-t">
-                            <div className="text-xs font-medium text-foreground mb-2">
-                              Insurances:
-                            </div>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-1">
                               {patient.patientInsurances.map(
-                                (insurance, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="relative group text-xs bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg px-3 py-2 border border-primary/30 cursor-help hover:border-primary/50 transition-colors"
-                                  >
-                                    <span className="font-medium text-foreground">
-                                      {insurance.insuranceProvider
-                                        .acronym ||
-                                        insurance.insuranceProvider
-                                          .insuranceName}
-                                    </span>
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
-                                      <div className="bg-slate-900 dark:bg-slate-700 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
-                                        <div className="font-semibold">
-                                          {
-                                            insurance.insuranceProvider
-                                              .insuranceName
-                                          }
+                                (insurance, idx) => {
+                                  const iconUrl = insurance.insuranceProvider?.iconUrl;
+                                  const acronym = insurance.insuranceProvider?.acronym || '';
+                                  const name = insurance.insuranceProvider?.insuranceName || '';
+                                  return (
+                                    <span
+                                      key={idx}
+                                      className="relative group/ins inline-flex items-center justify-center h-5 min-w-[20px] rounded-full border border-primary/30 bg-primary/10 text-[10px] font-semibold text-primary px-1.5 cursor-default"
+                                    >
+                                      {iconUrl ? (
+                                        <img
+                                          src={getMediaUrl(iconUrl)}
+                                          alt={name}
+                                          className="h-3.5 w-3.5 rounded-full object-cover"
+                                        />
+                                      ) : (
+                                        acronym
+                                      )}
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 opacity-0 invisible group-hover/ins:opacity-100 group-hover/ins:visible transition-all duration-150 z-50 pointer-events-none">
+                                        <div className="bg-slate-900 dark:bg-slate-700 text-white text-[11px] rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-lg">
+                                          <div className="font-semibold">{name}</div>
+                                          {insurance.insuranceCardNumber && (
+                                            <div className="text-slate-300">Card: {insurance.insuranceCardNumber}</div>
+                                          )}
+                                          {insurance.principalMemberName && (
+                                            <div className="text-slate-300">Member: {insurance.principalMemberName}</div>
+                                          )}
+                                          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-700"></div>
                                         </div>
-                                        <div className="text-xs text-slate-300">
-                                          Card:{" "}
-                                          {insurance.insuranceCardNumber}
-                                        </div>
-                                        {insurance.principalMemberName && (
-                                          <div className="text-xs text-slate-300">
-                                            Member:{" "}
-                                            {insurance.principalMemberName}
-                                          </div>
-                                        )}
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-700"></div>
                                       </div>
-                                    </div>
-                                  </div>
-                                ),
+                                    </span>
+                                  );
+                                },
                               )}
                             </div>
                           </div>

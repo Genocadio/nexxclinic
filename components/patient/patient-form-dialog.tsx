@@ -32,6 +32,10 @@ interface PatientFormDialogProps {
     createdVisit?: Visit,
     updatedPatient?: Patient,
   ) => void
+  /** Called when a field loses focus, e.g. for duplicate detection. */
+  onFieldBlur?: (field: string, value: string) => void
+  /** Called on every form field change with the current form data. */
+  onFormChange?: (formData: RegisterPatientInput) => void
 }
 
 const flatToNested = (flat: UpdatePatientInput): RegisterPatientInput => {
@@ -119,6 +123,8 @@ export default function PatientFormDialog({
   mode,
   patient,
   onPatientSaved,
+  onFieldBlur,
+  onFormChange,
 }: PatientFormDialogProps) {
   const { registerPatient, loading: registerLoading } = useRegisterPatient()
   const { updatePatient, loading: updateLoading } = useUpdatePatient()
@@ -173,6 +179,8 @@ export default function PatientFormDialog({
           ? sanitizePhoneInput(value)
           : value
 
+    let nextData: RegisterPatientInput | undefined
+
     setFormData((prev) => {
       const keys = field.split(".")
       const updated = { ...prev }
@@ -182,8 +190,12 @@ export default function PatientFormDialog({
         current = current[keys[i]]
       }
       current[keys[keys.length - 1]] = sanitizedValue
+      nextData = updated
       return updated
     })
+
+    // Notify parent of form changes (e.g. duplicate detection)
+    if (nextData) onFormChange?.(nextData)
 
     // Clear the inline error for the field being edited (or its group).
     setFieldErrors((prev) => {
@@ -447,6 +459,12 @@ export default function PatientFormDialog({
         if (missing(insurance.providingCompanyOrEmployer)) {
           insuranceErrors[`${prefix}.employer`] = "Providing company or employer is required"
         }
+        // Phone format validation (must match backend rule: 7-15 digits, optional leading +)
+        const phone = insurance.dominantMember?.phone?.trim()
+        if (phone && !/^\+?\d{7,15}$/.test(phone)) {
+          insuranceErrors[`${prefix}.dominant`] =
+            "Enter a valid phone number (7-15 digits, optional leading +)"
+        }
         if (dominantMemberRequired) {
           if (
             missing(insurance.dominantMember?.firstName) ||
@@ -507,6 +525,7 @@ export default function PatientFormDialog({
         <PatientFormFields
           formData={formData}
           onFieldChange={handleInputChange}
+          onFieldBlur={onFieldBlur}
           onCountryChange={handleCountryChange}
           onProvinceChange={handleProvinceChange}
           onDistrictChange={handleDistrictChange}

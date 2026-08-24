@@ -23,6 +23,12 @@ export type SavePatientInsuranceFieldErrors = {
   dominant?: string
 }
 
+/**
+ * Matches the backend rule for principalMemberPhoneNumber:
+ * optional leading +, then 7-15 digits.
+ */
+const PHONE_NUMBER_REGEX = /^\+?\d{7,15}$/
+
 export function validateSavePatientInsuranceInput(
   input: SavePatientInsuranceInput,
 ): SavePatientInsuranceFieldErrors {
@@ -35,6 +41,12 @@ export function validateSavePatientInsuranceInput(
   if (!input.providingCompanyOrEmployer.trim()) {
     errors.employer = 'Providing company or employer is required.'
   }
+
+  // Format validation — reject invalid phone even if dominant is not required
+  if (input.dominantPhone?.trim() && !PHONE_NUMBER_REGEX.test(input.dominantPhone.trim())) {
+    errors.dominant = 'Enter a valid phone number (7-15 digits, optional leading +)'
+  }
+
   if (
     dominantRequired
     && (!input.dominantFirstName?.trim() || !input.dominantLastName?.trim() || !input.dominantPhone?.trim())

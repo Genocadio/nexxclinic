@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Search, User, ArrowLeft, Edit, X, ShieldPlus } from "lucide-react";
+import { getMediaUrl } from "@/lib/media-url";
 import { toast } from "react-toastify";
 import PatientEditModal from "@/components/patient-edit-modal";
 import { AddPatientInsuranceModal } from "@/components/patient/add-patient-insurance-modal";
@@ -490,72 +491,45 @@ export default function VisitCreationModal({
                                   {new Date(
                                     patient.dateOfBirth,
                                   ).toLocaleDateString()}
-                                  {patient.patientInsurances &&
-                                    patient.patientInsurances.length > 0 && (
-                                      <span className="ml-2">
-                                        · {patient.patientInsurances.length}{" "}
-                                        insurance
-                                        {patient.patientInsurances.length > 1
-                                          ? "s"
-                                          : ""}
-                                      </span>
-                                    )}
                                 </div>
-                                {hoveredPatientId === patient.id && (
-                                  <div className="mt-2 space-y-2 text-[13px]">
-                                    {patient.patientInsurances &&
-                                      patient.patientInsurances.length > 0 && (
-                                        <div className="bg-gradient-to-r from-primary/10 to-transparent rounded-lg p-2 border border-primary/20">
-                                          <div className="text-xs font-medium text-foreground mb-1">
-                                            Insurance Providers:
-                                          </div>
-                                          <div className="space-y-1">
-                                            {patient.patientInsurances.map(
-                                              (ins: any, idx: number) => (
-                                                <div
-                                                  key={idx}
-                                                  className="text-xs text-foreground flex items-start gap-1"
-                                                >
-                                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mt-1 flex-shrink-0"></span>
-                                                  <div>
-                                                    <div className="font-medium">
-                                                      {
-                                                        ins.insuranceProvider
-                                                          .insuranceName
-                                                      }{" "}
-                                                      (
-                                                      {
-                                                        ins.insuranceProvider
-                                                          .acronym
-                                                      }
-                                                      )
-                                                    </div>
-                                                    {ins.insuranceCardNumber && (
-                                                      <div className="text-muted-foreground text-[11px]">
-                                                        Card:{" "}
-                                                        {
-                                                          ins.insuranceCardNumber
-                                                        }
-                                                      </div>
-                                                    )}
-                                                    {ins.principalMemberName && (
-                                                      <div className="text-muted-foreground text-[11px]">
-                                                        Member:{" "}
-                                                        {
-                                                          ins.principalMemberName
-                                                        }
-                                                      </div>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                              ),
+                                {patient.patientInsurances &&
+                                  patient.patientInsurances.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {patient.patientInsurances.map(
+                                      (ins: any, idx: number) => {
+                                        const iconUrl = ins.insuranceProvider?.iconUrl;
+                                        const acronym = ins.insuranceProvider?.acronym || '';
+                                        const name = ins.insuranceProvider?.insuranceName || '';
+                                        return (
+                                          <span
+                                            key={idx}
+                                            className="relative group/ins inline-flex items-center justify-center h-5 min-w-[20px] rounded-full border border-primary/30 bg-primary/10 text-[10px] font-semibold text-primary px-1.5 cursor-default"
+                                          >
+                                            {iconUrl ? (
+                                              <img
+                                                src={getMediaUrl(iconUrl)}
+                                                alt={name}
+                                                className="h-3.5 w-3.5 rounded-full object-cover"
+                                              />
+                                            ) : (
+                                              acronym
                                             )}
-                                          </div>
-                                        </div>
-                                      )}
-                                    <div className="text-xs text-muted-foreground">
-                                      Visit history unavailable
-                                    </div>
+                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 opacity-0 invisible group-hover/ins:opacity-100 group-hover/ins:visible transition-all duration-150 z-50 pointer-events-none">
+                                              <div className="bg-slate-900 dark:bg-slate-700 text-white text-[11px] rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-lg">
+                                                <div className="font-semibold">{name}</div>
+                                                {ins.insuranceCardNumber && (
+                                                  <div className="text-slate-300">Card: {ins.insuranceCardNumber}</div>
+                                                )}
+                                                {ins.principalMemberName && (
+                                                  <div className="text-slate-300">Member: {ins.principalMemberName}</div>
+                                                )}
+                                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-700"></div>
+                                              </div>
+                                            </div>
+                                          </span>
+                                        );
+                                      },
+                                    )}
                                   </div>
                                 )}
                               </div>

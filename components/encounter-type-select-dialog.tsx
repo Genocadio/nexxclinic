@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Stethoscope, Building2, BedDouble } from "lucide-react";
+import { X, Stethoscope, Building2, BedDouble, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EncounterType } from "@/lib/api-types";
 
@@ -36,6 +36,12 @@ const ENCOUNTER_TYPE_OPTIONS: {
     label: "Inpatient Admission",
     description: "Patient admitted for treatment",
     icon: BedDouble,
+  },
+  {
+    value: EncounterType.FOLLOWUP,
+    label: "Follow-up",
+    description: "Follow-up visit for ongoing care",
+    icon: RotateCcw,
   },
 ];
 

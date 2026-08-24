@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useApolloClient } from "@apollo/client";
 import { useRouter } from "next/navigation";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
@@ -17,6 +18,7 @@ import {
   useDeleteStandaloneForm,
   useDuplicateStandaloneForm,
   useUpdateStandaloneForm,
+  useSetStandaloneFormAsTemplate,
   type StandaloneForm,
 } from "@/hooks/standalone-forms";
 import {
@@ -34,6 +36,8 @@ import {
   CloudUpload,
   Loader2,
   AlertCircle,
+  BookMarked,
+  Bookmark,
 } from "lucide-react";
 import {
   Dialog,
@@ -267,7 +271,8 @@ export default function FormBuilderListPage() {
     skip: authLoading || !isAuthenticated,
   });
   const { createForm, loading: creating } = useCreateStandaloneForm();
-  const { updateForm, loading: updatingForm } = useUpdateStandaloneForm();
+  const { updateForm } = useUpdateStandaloneForm();
+  const { setAsTemplate, loading: togglingTemplate } = useSetStandaloneFormAsTemplate();
   const { deleteForm } = useDeleteStandaloneForm();
   const { duplicateForm } = useDuplicateStandaloneForm();
   // In-flight duplicate/delete request — disables those buttons so duplicate
@@ -330,23 +335,20 @@ export default function FormBuilderListPage() {
     }
   };
 
-  const handleToggleTemplate = async (form: StandaloneForm) => {
-    if (!form.activeVersion) {
-      alert("This form has no active version to update.");
-      return;
-    }
+  const client = useApolloClient();
 
+  const handleToggleTemplate = async (form: StandaloneForm) => {
+    const newValue = !form.isTemplate;
     try {
-      await updateForm(form.id, {
-        name: form.name,
-        description: form.description,
-        type: form.type,
-        category: form.category,
-        isTemplate: !form.isTemplate,
-        blocks: form.activeVersion.blocks,
-        theme: form.activeVersion.theme,
+      const result = await setAsTemplate(form.id, newValue);
+      // Update only this form's cache entry — no full refetch needed
+      client.cache.modify({
+        id: client.cache.identify({ __typename: "StandaloneForm", id: form.id }),
+        fields: {
+          isTemplate: () => result.isTemplate,
+          updatedAt: () => result.updatedAt,
+        },
       });
-      refetch();
     } catch (err: any) {
       alert(err?.message ?? "Failed to update template status");
     }
@@ -654,12 +656,18 @@ export default function FormBuilderListPage() {
                                 e.stopPropagation();
                                 handleToggleTemplate(form);
                               }}
-                              disabled={updatingForm}
-                              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-50"
+                              disabled={togglingTemplate}
+                              className={`p-1 rounded border transition-colors disabled:opacity-50 ${
+                                form.isTemplate
+                                  ? "bg-yellow-100 border-yellow-300 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900/40 dark:border-yellow-700 dark:text-yellow-400 dark:hover:bg-yellow-900/60"
+                                  : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted hover:border-border"
+                              }`}
                             >
-                              <Badge className="h-3 w-3 p-0 text-[8px] bg-transparent text-current border-0 shadow-none">
-                                T
-                              </Badge>
+                              {form.isTemplate ? (
+                                <BookMarked className="h-3 w-3" fill="currentColor" />
+                              ) : (
+                                <Bookmark className="h-3 w-3" />
+                              )}
                             </button>
                             <button
                               title="Delete"
@@ -774,12 +782,18 @@ export default function FormBuilderListPage() {
                               ? "Unset as template"
                               : "Set as template"
                           }
-                          disabled={updatingForm}
-                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-50"
+                          disabled={togglingTemplate}
+                          className={`p-1.5 rounded border transition-colors disabled:opacity-50 ${
+                            form.isTemplate
+                              ? "bg-yellow-100 border-yellow-300 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900/40 dark:border-yellow-700 dark:text-yellow-400 dark:hover:bg-yellow-900/60"
+                              : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted hover:border-border"
+                          }`}
                         >
-                          <Badge className="h-3.5 w-3.5 p-0 text-[8px] bg-transparent text-current border-0 shadow-none">
-                            T
-                          </Badge>
+                          {form.isTemplate ? (
+                            <BookMarked className="h-3.5 w-3.5" fill="currentColor" />
+                          ) : (
+                            <Bookmark className="h-3.5 w-3.5" />
+                          )}
                         </button>
                         <button
                           onClick={(e) => {

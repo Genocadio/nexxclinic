@@ -259,3 +259,24 @@ export const SET_DEFAULT_STANDALONE_FORM_FOR_DEPARTMENT_MUTATION = gql`
     }
   }
 `;
+
+export const SET_STANDALONE_FORM_AS_TEMPLATE_MUTATION = gql`
+  mutation SetStandaloneFormAsTemplate(
+    $formId: ID!
+    $isTemplate: Boolean!
+  ) {
+    setStandaloneFormAsTemplate(
+      formId: $formId
+      isTemplate: $isTemplate
+    ) {
+      status
+      message
+      data {
+        id
+        name
+        isTemplate
+        updatedAt
+      }
+    }
+  }
+`;

@@ -312,6 +312,13 @@ export type ClinicProfileFormValues = z.infer<typeof clinicProfileFormSchema>;
 // Patient insurance (dominant member rules depend on the patient's age)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Matches the backend rule for principalMemberPhoneNumber:
+ * optional leading +, then 7-15 digits.
+ */
+const PHONE_NUMBER_REGEX = /^\+?\d{7,15}$/
+const PHONE_FORMAT_MESSAGE = "Enter a valid phone number (7-15 digits, optional leading +)"
+
 export function createPatientInsuranceFormSchema(options: {
   dominantRequired: boolean;
 }) {
@@ -338,6 +345,16 @@ export function createPatientInsuranceFormSchema(options: {
         ),
     })
     .superRefine((data, ctx) => {
+      // ── Format validation (runs whether or not dominant is required) ──
+      if (data.dominantPhone && !PHONE_NUMBER_REGEX.test(data.dominantPhone)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["dominantPhone"],
+          message: PHONE_FORMAT_MESSAGE,
+        });
+      }
+
+      // ── Dominant-member required rules ──
       if (!options.dominantRequired) return;
       if (!data.dominantFirstName) {
         ctx.addIssue({

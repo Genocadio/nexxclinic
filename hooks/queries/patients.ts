@@ -35,6 +35,7 @@ export const GET_PATIENTS_QUERY = gql`
             id
             insuranceName
             acronym
+            iconUrl
             coverages {
               id
               insuranceProviderId
@@ -98,6 +99,7 @@ export const GET_PATIENT_QUERY = gql`
           id
           insuranceName
           acronym
+          iconUrl
           coverages {
 
                           id
