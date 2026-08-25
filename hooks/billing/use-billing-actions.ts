@@ -62,6 +62,9 @@ export interface BillingActionsContext {
   generateInvoice: (
     departmentInsuranceBillingId: string,
   ) => Promise<InvoiceMutationResult>;
+  startBillEditing: (visitId: string) => Promise<{ status: string; message?: string }>;
+  completeBillEditing: (visitId: string) => Promise<{ status: string; message?: string }>;
+  cancelBillEditing: (visitId: string) => Promise<{ status: string; message?: string }>;
   changeVisitDepartmentProfile: (
     visitDepartmentId: string,
     profileId?: string | null,
@@ -95,7 +98,6 @@ export interface BillingActionsContext {
   setIsEditingBill: Dispatch<SetStateAction<boolean>>;
   setEditModeSnapshot: Dispatch<SetStateAction<BillingItem[] | null>>;
   setPreviousPaidCents: Dispatch<SetStateAction<number | null>>;
-  setShowDiscountControls: Dispatch<SetStateAction<boolean>>;
   setConfirmSheetMode: Dispatch<SetStateAction<"complete" | "edit">>;
   setBillJustCreated: Dispatch<SetStateAction<boolean>>;
   setPreviewOpen: Dispatch<SetStateAction<boolean>>;
@@ -134,6 +136,9 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     createBill,
     editBill,
     generateInvoice,
+    startBillEditing,
+    completeBillEditing,
+    cancelBillEditing,
     changeVisitDepartmentProfile,
     updateDepartmentStatus,
     completeVisit,
@@ -148,7 +153,6 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     setIsEditingBill,
     setEditModeSnapshot,
     setPreviousPaidCents,
-    setShowDiscountControls,
     setConfirmSheetMode,
     setBillJustCreated,
     setPreviewOpen,
@@ -313,18 +317,29 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           patientSharePercentage: Number(c.patientSharePercentage ?? 0),
         })),
       }));
-      const response = existingVisitBilling
-        ? await editBill(
+      let response: ApiResponse<VisitBilling>;
+      if (existingVisitBilling) {
+        // BILL_EDITING: the visit should already be in BILL_EDITING mode
+        // (set when the user clicked Edit). We just submit the edit and
+        // lock back to COMPLETED.
+        try {
+          response = await editBill(
             buildEditBillInput(
               billingData,
               editModeSnapshot ?? [],
               coverageForItem,
               insuranceOpts,
             ),
-          )
-        : await createBill(
-            buildCreateBillInput(billingData, unbilledItems, coverageForItem, insuranceOpts),
           );
+        } finally {
+          // Always lock back to COMPLETED, even if editBill failed
+          await completeBillEditing(billingData.visitId);
+        }
+      } else {
+        response = await createBill(
+          buildCreateBillInput(billingData, unbilledItems, coverageForItem, insuranceOpts),
+        );
+      }
 
       if (response.status === "SUCCESS") {
         setBillJustCreated(true);
@@ -385,7 +400,6 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           setIsEditingBill(false);
           setEditModeSnapshot(null);
           setPreviousPaidCents(null);
-          setShowDiscountControls(false);
           setConfirmSheetMode("complete");
         }
         await handlePreviewBilling();
@@ -460,7 +474,6 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       })),
       totals: {
         subtotal: existingBillingTotals?.totalAmount ?? displayTotals.subtotal,
-        discount: displayTotals.discount,
         totalDue:
           existingBillingTotals?.totalAmount ?? displayTotals.totalAmount,
         paid:

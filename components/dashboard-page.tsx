@@ -209,10 +209,12 @@ export default function DashboardPage() {
     return count === 1 ? "1 product billed" : `${count} products billed`
   }
   const canPreviewVisitInvoice = (visit: Visit) => {
+    if (visit.status === "BILL_EDITING") return false
     if (hasNoBillables(visit)) return false
     return countUnbilledProducts(visit) === 0 && countBilledProducts(visit) > 0
   }
   const getBillingDisplayStatus = (visit: Visit) => {
+    if (visit.status === "BILL_EDITING") return "Editing billing"
     if (hasDepartmentReadyForBilling(visit)) return "Ready for billing"
     const unbilledCount = countUnbilledProducts(visit)
     const billedCount = countBilledProducts(visit)
@@ -1025,7 +1027,11 @@ export default function DashboardPage() {
                                   {canSeeBillingInfo && (
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <p className="text-xs text-muted-foreground truncate cursor-help">
+                                        <p className={`text-xs truncate cursor-help ${
+                                          visit.status === "BILL_EDITING"
+                                            ? "text-amber-600 dark:text-amber-400 font-medium"
+                                            : "text-muted-foreground"
+                                        }`}>
                                           Billing:{" "}
                                           {getBillingDisplayStatus(visit)}
                                         </p>
@@ -1276,6 +1282,29 @@ export default function DashboardPage() {
                                           billedProductNames,
                                           departmentsReadyForBilling,
                                         )}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                {canSeeBillButton &&
+                                  visit.status === "BILL_EDITING" && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleGoToBilling(visit)
+                                          }}
+                                          title="Continue billing"
+                                          className="h-9 w-9 sm:h-10 sm:w-10 bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center relative"
+                                        >
+                                          <ReceiptText className="w-4 h-4 flex-shrink-0" />
+                                          <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center border border-white">
+                                            ✎
+                                          </span>
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Continue billing</p>
                                       </TooltipContent>
                                     </Tooltip>
                                   )}

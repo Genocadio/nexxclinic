@@ -62,6 +62,11 @@ function resolveProductBasePrice(product: {
   return Number(product.clinicPrice ?? product.privateRhicPrice ?? 0);
 }
 
+// Re-export the shared utility so existing imports keep working.
+import { isInsuranceActive } from "@/lib/insurance-utils";
+export { isInsuranceActive };
+
+
 import type { Worker } from "@/lib/api-types";
 
 function workerDisplayName(worker?: Worker | null) {
@@ -79,6 +84,9 @@ export function mapVisitToBillingData(
 ): BillingData {
   const patient = visitData.patient;
   const linkedInsurances = visitData.linkedInsurances || [];
+  // Only consider ACTIVE insurances for auto-selection — expired or deactivated
+  // policies would be rejected by the backend's resolveAppliedInsurance check.
+  const activeLinkedInsurances = linkedInsurances.filter(isInsuranceActive);
 
   const items: BillingItem[] = [];
 
@@ -112,10 +120,10 @@ export function mapVisitToBillingData(
       // frontend resolves the display price from the product catalog.
       const basePrice = resolveProductBasePrice(product);
       const { costs, meta } = mapProductCoverages(product.insuranceCoverages);
-      // Default to the FIRST linked visit insurance that actually covers the
-      // product. If NONE of the visit's current insurances work for it, leave
-      // the line unselected (PRIVATE) as the default.
-      const coveringLinkedInsurance = linkedInsurances.find((ins) => {
+      // Default to the FIRST ACTIVE linked visit insurance that actually
+      // covers the product. Expired / deactivated insurances are excluded so
+      // the backend's resolveAppliedInsurance check never rejects them.
+      const coveringLinkedInsurance = activeLinkedInsurances.find((ins) => {
         const providerId = String(ins?.insuranceProvider?.id ?? "");
         if (!providerId) return false;
         const coverage = meta[providerId];
@@ -198,8 +206,6 @@ export function mapVisitToBillingData(
     ? new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()
     : 0;
 
-  const discountPercentage = 0;
-
   let patientContributionCents = 0;
   items.forEach((item) => {
     const selectedInsurance = linkedInsurances.find(
@@ -212,11 +218,6 @@ export function mapVisitToBillingData(
     patientContributionCents += toCents(patientAmount);
   });
   const patientContribution = fromCents(patientContributionCents);
-
-  const patientContributionAfterDiscount = Math.max(
-    0,
-    patientContribution - (patientContribution * discountPercentage) / 100,
-  );
 
   const billingTotals = options?.existingVisitBilling
     ? getVisitBillingTotals(options.existingVisitBilling)
@@ -239,12 +240,11 @@ export function mapVisitToBillingData(
       coveragePercentage: getBasePatientSharePercentage(ins.insuranceProvider),
     })),
     items,
-    discountPercentage,
     paymentMethod: "MOBILE_MONEY",
-    // Default the amount to the existing paid amount (kept for the new billing
-    // version when payments are carried forward). In edit mode the user can
-    // adjust it — 0 means carry forward the previous version's payments.
-    amountPaid: Number(billingTotals?.paidAmount ?? (options?.editMode ? 0 : patientContributionAfterDiscount)),
+    // Default amount paid to existing paid amount for carried-forward versions,
+    // or the patient contribution for first-time / edit-mode billing. The user
+    // can always adjust this in the confirm sheet.
+    amountPaid: Number(billingTotals?.paidAmount ?? fromCents(patientContributionCents)),
     notes: "",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

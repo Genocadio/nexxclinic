@@ -104,6 +104,7 @@ enum VisitStatus {
   IN_PROGRESS
   CANCELLED
   COMPLETED
+  BILL_EDITING
 }
 
 enum VisitProductStatus {
@@ -147,6 +148,7 @@ enum EncounterType {
   OUTPATIENT
   INPATIENT_OBSERVATION
   INPATIENT_ADMISSION
+  FOLLOWUP
 }
 
 """
@@ -724,6 +726,9 @@ type DepartmentInsuranceBilling {
   patientPayableAmount: Float!
   paidAmount: Float!
   outstandingAmount: Float!
+  "LOAN if patient owes, GIVEAWAY if clinic absorbs — null when fully paid."
+  outstandingType: String
+  outstandingReason: String
   items: [VisitBillingItem!]!
   createdAt: String!
   updatedAt: String!
@@ -771,6 +776,17 @@ type VisitBillingResponse implements ApiResponse {
   status: ResponseStatus!
   message: String
     data: VisitBilling
+}
+
+type BillEditingResponse implements ApiResponse {
+  status: ResponseStatus!
+  message: String
+    data: BillEditingData
+}
+
+type BillEditingData {
+  visitId: ID!
+  status: String!
 }
 
 type ClinicProfile {
@@ -1158,6 +1174,8 @@ input SearchPatientsInput {
   name: String
   phoneNumber: String
   insuranceProviderId: ID
+  insuranceCardNumber: String
+  gender: String
   age: Int
   minAge: Int
   maxAge: Int
@@ -1378,6 +1396,10 @@ input BillVisitDepartmentInput {
   does not cover the full payable amount. Optional otherwise.
   """
   note: String
+  """LOAN if patient owes, GIVEAWAY if clinic absorbs the outstanding balance."""
+  outstandingType: String
+  """Free-text reason for the loan or giveaway."""
+  outstandingReason: String
 }
 
 input BillVisitInput {
@@ -1406,6 +1428,8 @@ input EditBillVisitDepartmentInput {
   billProducts: [EditBillVisitBillProductInput!]!
   payments: [BillingPaymentInput!]
   note: String
+  outstandingType: String
+  outstandingReason: String
 }
 
 input EditBillVisitAddProductInput {
@@ -1739,6 +1763,14 @@ type Mutation {
   generateInvoice(departmentInsuranceBillingId: ID!): InvoiceResponse!
   flushSoftDeletedVisitProducts(visitId: ID!): BooleanResponse!
   cancelVisit(visitId: ID!): VisitResponse!
+
+  # ── Bill Editing Mode ────────────────────────────────────────────────────
+  """Enter BILL_EDITING mode on a COMPLETED visit to allow billing corrections."""
+  startBillEditing(visitId: ID!): BillEditingResponse!
+  """Exit BILL_EDITING mode and lock billing back to COMPLETED."""
+  completeBillEditing(visitId: ID!): BillEditingResponse!
+  """Exit BILL_EDITING mode without saving (user cancelled the edit)."""
+  cancelBillEditing(visitId: ID!): BillEditingResponse!
   updateClinicProfile(input: UpdateClinicProfileInput!): ClinicProfileResponse!
   deleteClinicProfile: BooleanResponse!
   reindexSearchIndexes(indexes: [SearchIndexType!]!): BooleanResponse!

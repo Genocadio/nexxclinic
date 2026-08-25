@@ -133,6 +133,8 @@ export function buildCreateBillInput(
                 ]
               : undefined,
           note,
+          outstandingType: billingData.outstandingType || undefined,
+          outstandingReason: billingData.outstandingReason || undefined,
         };
       },
     ),
@@ -284,6 +286,8 @@ export function buildEditBillInput(
                 },
               ]
             : undefined,
+        outstandingType: billingData.outstandingType || undefined,
+        outstandingReason: billingData.outstandingReason || undefined,
       };
     }),
   };

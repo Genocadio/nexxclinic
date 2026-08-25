@@ -29,6 +29,8 @@ export type PatientFilterInput = SearchPatientsInput & {
   name?: string;
   phoneNumber?: string;
   insuranceName?: string;
+  insuranceCardNumber?: string;
+  gender?: string;
 };
 
 interface LocalGqlPatient extends GqlPatient {
@@ -315,6 +317,8 @@ export function usePatients(
   const input = {
     ...(filter?.name ? { name: filter.name } : {}),
     ...(filter?.phoneNumber ? { phoneNumber: filter.phoneNumber } : {}),
+    ...(filter?.insuranceCardNumber ? { insuranceCardNumber: filter.insuranceCardNumber } : {}),
+    ...(filter?.gender ? { gender: filter.gender } : {}),
     ...(filter?.age != null ? { age: filter.age } : {}),
     page,
     size,

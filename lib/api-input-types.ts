@@ -224,6 +224,8 @@ export interface SearchPatientsInput {
   name?: string
   phoneNumber?: string
   insuranceProviderId?: string
+  insuranceCardNumber?: string
+  gender?: string
   age?: number
   minAge?: number
   maxAge?: number

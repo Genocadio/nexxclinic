@@ -10,6 +10,7 @@ import { toCents } from "@/lib/money";
 import {
   flattenVisitDepartmentsForBilling,
   getCoveragePercentageForBillingItem,
+  isInsuranceActive,
   mapPatientInsurancesForBilling,
   mapVisitToBillingData,
 } from "@/lib/visit-billing-mapper";
@@ -30,6 +31,9 @@ import {
   useCompleteVisit,
   useDepartments,
   useChangeVisitDepartmentProfile,
+  useStartBillEditing,
+  useCompleteBillEditing,
+  useCancelBillEditing,
 } from "@/hooks/auth-hooks";
 import type { Visit } from "@/lib/api-types";
 import { getVisitBillingTotals } from "@/lib/visit-billing-utils";
@@ -53,7 +57,6 @@ import { BillingStickySummary } from "@/components/billing/billing-sticky-summar
 import { BillingConfirmSheet } from "@/components/billing/billing-confirm-sheet";
 import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet";
 import { BillingItemsWorkspace } from "@/components/billing/billing-items-workspace";
-import { BillingExemptionsPanel } from "@/components/billing/billing-exemptions-panel";
 import { AddPatientInsuranceModal } from "@/components/patient/add-patient-insurance-modal";
 import { AddVisitDepartmentProductModal } from "@/components/visit/add-visit-department-product-modal";
 import { toast } from "react-toastify";
@@ -67,6 +70,9 @@ export function BillingPageContent() {
   const { createBill, loading: creatingBill } = useCreateBill();
   const { editBill, loading: editingBill } = useEditBill();
   const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice();
+  const { startBillEditing } = useStartBillEditing();
+  const { completeBillEditing } = useCompleteBillEditing();
+  const { cancelBillEditing } = useCancelBillEditing();
   const {
     visitBilling: existingVisitBilling,
     refetch: refetchBill,
@@ -89,23 +95,14 @@ export function BillingPageContent() {
     setActiveService,
     showAddInsuranceModal,
     setShowAddInsuranceModal,
-    showDiscountControls,
-    setShowDiscountControls,
     isEditingBill,
     setIsEditingBill,
     editModeSnapshot,
     setEditModeSnapshot,
-    discountInputType,
-    setDiscountInputType,
-    discountInputValue,
-    setDiscountInputValue,
     showAddProductModal,
     setShowAddProductModal,
     addingBillingItem,
     setAddingBillingItem,
-    showExemptionsWindow,
-    setShowExemptionsWindow,
-
     billingRemapNonce,
     setBillingRemapNonce,
     billingData,
@@ -186,8 +183,9 @@ export function BillingPageContent() {
 
   const activeVisitInsurances = useMemo(() => {
     const activeIds = new Set(activeVisitInsuranceIds);
-    return (visit?.linkedInsurances || []).filter((insurance) =>
-      activeIds.has(String(insurance.id)),
+    return (visit?.linkedInsurances || []).filter(
+      (insurance) =>
+        activeIds.has(String(insurance.id)) && isInsuranceActive(insurance),
     );
   }, [visit?.linkedInsurances, activeVisitInsuranceIds]);
 
@@ -198,7 +196,7 @@ export function BillingPageContent() {
     // slate identical to first-time billing.
     const mapped = mapVisitToBillingData(visit, {
       existingVisitBilling,
-      editMode: isEditingBill,
+      editMode: isEditMode,
     });
     const shouldUpdateBillingData =
       !billingData ||
@@ -216,6 +214,7 @@ export function BillingPageContent() {
     }
   }, [
     visit?.id,
+    visit?.status,
     isEditingBill,
     existingVisitBilling?.id,
     existingBillingTotals?.paidAmount,
@@ -240,9 +239,8 @@ export function BillingPageContent() {
         items,
         (item) =>
           getCoveragePercentageForBillingItem(item, activeVisitInsurances),
-        billingData?.discountPercentage || 0,
       ),
-    [activeVisitInsurances, billingData?.discountPercentage],
+    [activeVisitInsurances],
   );
 
   const visitInsuranceOptions = useMemo(
@@ -286,7 +284,9 @@ export function BillingPageContent() {
     return ((doctor.roles as string[]) || []).includes("CASHIER");
   }, [doctor?.roles]);
   const isAlreadyBilled = Boolean(existingVisitBilling);
-  const isEditMode = Boolean(isEditingBill);
+  // Derive edit mode from the backend visit status (BILL_EDITING) or local state.
+  // Reading from the persisted status means edit mode survives page refreshes.
+  const isEditMode = visit?.status === "BILL_EDITING" || Boolean(isEditingBill);
   // For UI purposes (item states, dock, etc.) treat billed visit as unbilled while in edit mode
   const effectiveIsAlreadyBilled = isAlreadyBilled && !isEditMode;
 
@@ -369,13 +369,7 @@ export function BillingPageContent() {
   );
 
 
-  // Calculate exemption count
-  const exemptionCount = billingData
-    ? billingData.items.filter(
-        (item) =>
-          (item.exemptionType || (item.exempted ? "full" : "none")) !== "none",
-      ).length
-    : 0;
+
 
   const unbilledServiceNames = useMemo(
     () =>
@@ -470,6 +464,9 @@ export function BillingPageContent() {
     createBill,
     editBill,
     generateInvoice,
+    startBillEditing,
+    completeBillEditing,
+    cancelBillEditing,
     changeVisitDepartmentProfile,
     updateDepartmentStatus,
     completeVisit,
@@ -484,7 +481,6 @@ export function BillingPageContent() {
     setIsEditingBill,
     setEditModeSnapshot,
     setPreviousPaidCents,
-    setShowDiscountControls,
     setConfirmSheetMode,
     setBillJustCreated,
     setPreviewOpen,
@@ -519,6 +515,10 @@ export function BillingPageContent() {
 
     return () => clearTimeout(timer);
   }, [autoPrint, didAutoPrint, existingVisitBilling, billingData]);
+
+  const hasExemptions = billingData?.items.some(
+    (item) => item.exempted || item.exemptionType === "full" || item.exemptionType === "patient-share",
+  ) ?? false;
 
   if (error) {
     return (
@@ -596,7 +596,7 @@ export function BillingPageContent() {
           onItemChange={handleItemChange}
           onItemRemove={handleItemRemove}
           onQuantityChange={(item, qty) =>
-            handleQuantityChange(item, qty, isEditingBill)
+            handleQuantityChange(item, qty, isEditMode)
           }
         />
 
@@ -614,8 +614,7 @@ export function BillingPageContent() {
             hasRemainingToBill={hasRemainingToBill}
             creatingBill={creatingBill || editingBill}
             generatingInvoice={generatingInvoice}
-            isEditingBill={isEditingBill}
-            exemptionCount={exemptionCount}
+            isEditingBill={isEditMode}
             hasUnreadNotes={unreadBillingNotesCount > 0}
             // Outstanding is total - paid (authoritative) — the backend's
             // reported outstandingAmount can lag a full payment and otherwise
@@ -629,34 +628,43 @@ export function BillingPageContent() {
               }
               // In edit mode open confirm with edit flow, else normal complete
               setConfirmSheetMode(isEditMode ? "edit" : "complete");
-              setShowDiscountControls(isEditMode);
-              // Prefill full payment for first-time billing. In edit mode keep
-              // the previously paid amount — do NOT cap it when items are
-              // removed/exempted. The note-required check uses the previous
-              // paid amount as reference, so reducing it manually requires a
-              // note, but auto-capping does not.
-              if (isEditMode) {
-                handleAmountPaidChange(billingData.amountPaid || 0);
-              } else {
-                handleAmountPaidChange(confirmTotals.totalAmount);
-              }
+              // Always prefill with patient responsibility so the user can
+              // see and adjust the amount. Never default to 0.
+              handleAmountPaidChange(confirmTotals.totalAmount);
               setShowCompleteBillConfirm(true);
             }}
             onPreview={() => void handlePreviewBilling()}
             onPrint={() => void handlePrintBillingInvoice()}
-            onEditBilling={() => {
+            onEditBilling={async () => {
               if (unreadBillingNotesCount > 0) {
                 toast.warn("Please view the notes first before continuing.");
                 return;
               }
-              // Just toggle edit mode — do NOT open the confirm sheet.
-              // The page re-maps items as unbilled, user edits like 1st-time billing.
+              if (!visitId) return;
+              // Persist BILL_EDITING status on the backend so the mode
+              // survives page refreshes. Only COMPLETED visits can enter
+              // BILL_EDITING — the backend enforces this.
+              const result = await startBillEditing(visitId);
+              if (result.status !== "SUCCESS") {
+                toast.error(result.message || "Failed to enter billing edit mode");
+                return;
+              }
               setPreviousPaidCents(toCents(billingData?.amountPaid || 0));
               setIsEditingBill(true);
               setEditModeSnapshot(billingData?.items ?? null);
+              // Refetch so visit.status becomes BILL_EDITING and the
+              // derived isEditMode picks it up even without local state.
+              await refetchVisit();
             }}
             onDoneEditing={async () => {
-              setShowDiscountControls(false);
+              // Exit BILL_EDITING mode on the backend
+              if (visitId) {
+                try {
+                  await cancelBillEditing(visitId);
+                } catch (err) {
+                  console.error("Failed to cancel bill editing mode:", err);
+                }
+              }
               setIsEditingBill(false);
               setPreviousPaidCents(null);
               setEditModeSnapshot(null);
@@ -666,7 +674,6 @@ export function BillingPageContent() {
               await refetchBill();
               toast.info("Edit mode cancelled");
             }}
-            onManageExemptions={() => setShowExemptionsWindow(true)}
           />
         )}
       </div>
@@ -720,27 +727,12 @@ export function BillingPageContent() {
         paymentMethod={billingData.paymentMethod || "MOBILE_MONEY"}
         creatingBill={creatingBill || editingBill}
         showItemsReview={confirmSheetMode === "complete"}
-        noteRequired={confirmNoteRequired}
-        showDiscountControls={showDiscountControls}
-        discountInputType={discountInputType}
-        discountInputValue={discountInputValue}
+        outstandingType={billingData.outstandingType || (hasExemptions ? "giveaway" : "loan")}
+        outstandingReason={billingData.outstandingReason || ""}
         onPaymentMethodChange={handlePaymentMethodChange}
         onAmountPaidChange={handleAmountPaidChange}
-        onShowDiscountControls={setShowDiscountControls}
-        onDiscountInputTypeChange={(type) => {
-          setDiscountInputType(type);
-          if (type === "FIXED") {
-            const fixed =
-              (displayTotals.patientResponsibility *
-                (billingData.discountPercentage || 0)) /
-              100;
-            setDiscountInputValue(Math.max(0, fixed));
-          } else {
-            setDiscountInputValue(Number(billingData.discountPercentage || 0));
-          }
-        }}
-        onDiscountInputValueChange={setDiscountInputValue}
-        onDiscountChange={handleDiscountChange}
+        onOutstandingTypeChange={(type) => setBillingData(prev => prev ? { ...prev, outstandingType: type } : prev)}
+        onOutstandingReasonChange={(reason) => setBillingData(prev => prev ? { ...prev, outstandingReason: reason } : prev)}
         billingNotes={billingData.notes || ""}
         onBillingNotesChange={handleNotesChange}
         onConfirm={async () => {
@@ -762,14 +754,6 @@ export function BillingPageContent() {
         onAdd={handleAddProduct}
         isSubmitting={addingBillingItem}
         linkedInsurances={visit?.linkedInsurances || []}
-      />
-
-      <BillingExemptionsPanel
-        open={showExemptionsWindow}
-        exemptionCount={exemptionCount}
-        items={billingData?.items || []}
-        onClose={() => setShowExemptionsWindow(false)}
-        onExemptionChange={handleExemptionChange}
       />
 
       <BillingPreviewSheet

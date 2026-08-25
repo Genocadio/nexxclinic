@@ -17,7 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { BillingItem, BillingTotals, calculateItemTotal } from "@/lib/billing-utils";
+import { useEffect, useState } from "react";
 type PaymentMethod =
   | "CASH"
   | "MOBILE_MONEY"
@@ -25,9 +27,7 @@ type PaymentMethod =
   | "BANK_TRANSFER"
   | "CHEQUE"
   | "MIXED";
-import { Textarea } from "@/components/ui/textarea";
 import { formatRWF } from "@/lib/utils";
-import { useEffect, useMemo, useState } from "react";
 
 type BillingConfirmSheetProps = {
   open: boolean;
@@ -38,24 +38,63 @@ type BillingConfirmSheetProps = {
   paymentMethod: PaymentMethod;
   creatingBill: boolean;
   showItemsReview?: boolean;
-  showDiscountControls: boolean;
-  discountInputType: "PERCENTAGE" | "FIXED";
-  discountInputValue: number;
+  outstandingType?: "loan" | "giveaway";
+  outstandingReason?: string;
   onPaymentMethodChange: (method: PaymentMethod) => void;
   onAmountPaidChange: (amount: number) => void;
-  onShowDiscountControls: (show: boolean) => void;
-  onDiscountInputTypeChange: (type: "PERCENTAGE" | "FIXED") => void;
-  onDiscountInputValueChange: (value: number) => void;
-  onDiscountChange: (percent: number) => void;
+  onOutstandingTypeChange: (type: "loan" | "giveaway") => void;
+  onOutstandingReasonChange: (reason: string) => void;
   billingNotes?: string;
   onBillingNotesChange?: (notes: string) => void;
-  /**
-   * True when the backend requires a billing note (any exempted product or a
-   * department whose payment does not cover its full patient payable).
-   */
-  noteRequired?: boolean;
   onConfirm: () => void;
 };
+
+function buildSuggestedReasons(opts: {
+  hasExemptions: boolean;
+  hasOutstanding: boolean;
+  outstandingType: "loan" | "giveaway";
+}): string[] {
+  const { hasExemptions, hasOutstanding, outstandingType } = opts;
+  const reasons: string[] = [];
+
+  // ── Combined scenarios (exemption + outstanding) ──
+  if (hasExemptions && hasOutstanding) {
+    if (outstandingType === "loan") {
+      reasons.push("Doctor exempted some items; patient cannot cover the remaining balance");
+      reasons.push("Partial exemption applied — balance given as loan");
+      reasons.push("Patient given loan due to exemption-reduced coverage");
+    } else {
+      reasons.push("Doctor exempted some items; remaining balance waived as giveaway");
+      reasons.push("Exemption applied — outstanding balance written off");
+      reasons.push("Free treatment with partial insurance coverage");
+    }
+  }
+  // ── Outstanding only (no exemptions) ──
+  else if (hasOutstanding) {
+    if (outstandingType === "loan") {
+      reasons.push("Patient given loan due to insufficient funds");
+      reasons.push("Partial payment agreed — balance to be collected later");
+      reasons.push("Patient unable to pay full amount today");
+    } else {
+      reasons.push("Doctor waived patient share");
+      reasons.push("Staff welfare — balance forgiven");
+      reasons.push("Charity case");
+      reasons.push("Insurance adjustment");
+    }
+  }
+  // ── Exemptions only (no outstanding) ──
+  else if (hasExemptions) {
+    reasons.push("Doctor waived patient share");
+    reasons.push("Exemption applied — full or partial");
+    reasons.push("Free treatment program");
+  }
+
+  // ── General (always available) ──
+  reasons.push("Deducted by doctor");
+  reasons.push("Other");
+
+  return reasons;
+}
 
 export function BillingConfirmSheet({
   open,
@@ -66,90 +105,62 @@ export function BillingConfirmSheet({
   paymentMethod,
   creatingBill,
   showItemsReview = true,
-  showDiscountControls,
-  discountInputType,
-  discountInputValue,
+  outstandingType = "loan",
+  outstandingReason = "",
   onPaymentMethodChange,
   onAmountPaidChange,
-  onShowDiscountControls,
-  onDiscountInputTypeChange,
-  onDiscountInputValueChange,
-  onDiscountChange,
+  onOutstandingTypeChange,
+  onOutstandingReasonChange,
   billingNotes = "",
   onBillingNotesChange,
-  noteRequired = false,
   onConfirm,
 }: BillingConfirmSheetProps) {
   const itemsToBill = items.filter((item) => item.paymentStatus !== "paid");
-  const remaining = Math.max(0, totals.totalAmount - amountPaid);
-  const [showNotes, setShowNotes] = useState(false);
-  const [noteReason, setNoteReason] = useState<string>("");
-  const [customReason, setCustomReason] = useState("");
+  const outstanding = Math.max(0, totals.totalAmount - amountPaid);
   const hasExemptions = itemsToBill.some(
     (item) =>
       item.exempted ||
       item.exemptionType === "full" ||
       item.exemptionType === "patient-share",
   );
-  const hasDiscount = totals.discount > 0;
-  const hasManualPaidAdjustment =
-    Math.abs(amountPaid - totals.totalAmount) > 0.001;
+  const hasOutstanding = outstanding > 0.001;
+  const noteRequired = hasExemptions || hasOutstanding;
 
-  const suggestedReasons = useMemo(() => {
-    const reasons: string[] = [];
-    if (hasDiscount) reasons.push("Clinic admin discount");
-    if (hasExemptions) reasons.push("Exemption applied");
-    if (hasManualPaidAdjustment && amountPaid < totals.totalAmount)
-      reasons.push("Patient given loan due to insufficient funds");
-    if (hasManualPaidAdjustment && amountPaid > totals.totalAmount)
-      reasons.push("Adjusted paid amount");
-    reasons.push("Deducted by doctor");
-    reasons.push("Insurance adjustment");
-    reasons.push("Promotional discount");
-    reasons.push("Staff welfare");
-    reasons.push("Charity case");
-    reasons.push("Other");
-    return reasons;
-  }, [
-    hasDiscount,
+  const suggestedReasons = buildSuggestedReasons({
     hasExemptions,
-    hasManualPaidAdjustment,
-    amountPaid,
-    totals.totalAmount,
-  ]);
+    hasOutstanding,
+    outstandingType,
+  });
 
-  // Reset reason selection each time the sheet opens so stale state from a
-  // previous session doesn't leak into the next bill.
+  // Track whether the user explicitly selected "Other" in this session.
+  const [customNoteMode, setCustomNoteMode] = useState(false);
+
+  // When the sheet opens, sync customNoteMode: if the existing billing note
+  // doesn't match any suggestion, it was custom text — show the textarea.
   useEffect(() => {
     if (open) {
-      setNoteReason("");
-      setCustomReason("");
+      setCustomNoteMode(
+        Boolean(billingNotes && !suggestedReasons.includes(billingNotes)),
+      );
     }
-  }, [open]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Force the note section open whenever a note is required.
-  useEffect(() => {
-    if (noteRequired && !showNotes) {
-      setShowNotes(true);
+  const handleReasonSelect = (value: string) => {
+    if (value === "Other") {
+      setCustomNoteMode(true);
+      onBillingNotesChange?.("");
+    } else {
+      setCustomNoteMode(false);
+      onBillingNotesChange?.(value);
     }
-  }, [noteRequired, showNotes]);
+  };
 
-  // Sync reason/customReason to parent billingNotes whenever one is chosen.
-  useEffect(() => {
-    if (!noteReason) return;
-    let note = "";
-    if (noteReason && noteReason !== "Other") {
-      note = noteReason;
-    } else if (noteReason === "Other" && customReason.trim()) {
-      note = customReason.trim();
-    }
-    onBillingNotesChange?.(note);
-  }, [noteReason, customReason, onBillingNotesChange]);
-
-  const reasonMissing =
-    noteRequired &&
-    showNotes &&
-    (!noteReason || (noteReason === "Other" && !customReason.trim()));
+  // Dropdown value: "Other" when in custom mode, otherwise the matching suggestion
+  const dropdownValue = customNoteMode
+    ? "Other"
+    : suggestedReasons.includes(billingNotes)
+      ? billingNotes
+      : undefined;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -159,14 +170,12 @@ export function BillingConfirmSheet({
       >
         <SheetHeader className="px-4 pt-4 pb-2 border-b border-border">
           <SheetTitle>
-            {showItemsReview
-              ? "Review & Complete Bill"
-              : "Edit Payment & Discount"}
+            {showItemsReview ? "Review & Complete Bill" : "Edit Payment"}
           </SheetTitle>
           <SheetDescription>
             {showItemsReview
               ? `${itemsToBill.length} item${itemsToBill.length !== 1 ? "s" : ""} to bill — set payment details below`
-              : "Update payment method, amount paid, or apply a discount"}
+              : "Update payment method or amount paid"}
           </SheetDescription>
         </SheetHeader>
 
@@ -211,9 +220,6 @@ export function BillingConfirmSheet({
               value={totals.patientResponsibility}
               bold
             />
-            {totals.discount > 0 && (
-              <Row label="Discount" value={-totals.discount} variant="credit" />
-            )}
             <div className="border-t border-border pt-2 flex justify-between items-baseline">
               <span className="font-semibold">Final amount due</span>
               <span className="text-lg font-bold text-[#FF6900] tabular-nums">
@@ -222,7 +228,6 @@ export function BillingConfirmSheet({
             </div>
           </div>
 
-          {/* Payment & discount — part of the complete-bill step */}
           <div className="rounded-xl border border-border p-3 space-y-3">
             <p className="text-xs font-semibold text-foreground">Payment</p>
 
@@ -232,9 +237,7 @@ export function BillingConfirmSheet({
               </label>
               <Select
                 value={paymentMethod || "MOBILE_MONEY"}
-                onValueChange={(v) =>
-                  onPaymentMethodChange(v as PaymentMethod)
-                }
+                onValueChange={(v) => onPaymentMethodChange(v as PaymentMethod)}
               >
                 <SelectTrigger className="mt-1 h-9">
                   <SelectValue />
@@ -277,95 +280,38 @@ export function BillingConfirmSheet({
               ) : null}
             </div>
 
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Remaining balance</span>
-              <span className="font-semibold text-orange-600 dark:text-orange-400 tabular-nums">
-                {formatRWF(remaining)}
-              </span>
-            </div>
-
-            <div className="border-t border-border pt-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-foreground">
-                  Discount (optional)
-                </span>
-                {!showDiscountControls ? (
+            {hasOutstanding && (
+              <div className="border-t border-border pt-3">
+                <p className="text-xs font-medium text-foreground mb-2">
+                  Outstanding balance
+                </p>
+                <p className="text-[11px] text-muted-foreground mb-2">
+                  {formatRWF(outstanding)} unpaid — classify as:
+                </p>
+                <div className="flex gap-2">
                   <Button
                     type="button"
-                    variant="outline"
+                    variant={outstandingType === "loan" ? "default" : "outline"}
                     size="sm"
-                    className="h-7 rounded-full text-xs"
-                    onClick={() => onShowDiscountControls(true)}
+                    className="flex-1 h-8 text-xs"
+                    onClick={() => onOutstandingTypeChange("loan")}
                   >
-                    Apply discount
+                    Loan
                   </Button>
-                ) : (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant={outstandingType === "giveaway" ? "default" : "outline"}
                     size="sm"
-                    className="h-7 rounded-full text-xs"
-                    onClick={() => {
-                      onShowDiscountControls(false);
-                      onDiscountChange(0);
-                    }}
+                    className="flex-1 h-8 text-xs"
+                    onClick={() => onOutstandingTypeChange("giveaway")}
                   >
-                    Remove
+                    Giveaway
                   </Button>
-                )}
-              </div>
-              {showDiscountControls && (
-                <div className="grid grid-cols-[120px_1fr] gap-2">
-                  <Select
-                    value={discountInputType}
-                    onValueChange={(v) => {
-                      const next = v as "PERCENTAGE" | "FIXED";
-                      onDiscountInputTypeChange(next);
-                      if (next === "FIXED") {
-                        onDiscountInputValueChange(totals.discount);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PERCENTAGE">%</SelectItem>
-                      <SelectItem value="FIXED">RWF</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={
-                      discountInputType === "PERCENTAGE"
-                        ? 100
-                        : Math.max(0, totals.patientResponsibility)
-                    }
-                    value={discountInputValue}
-                    onChange={(e) => {
-                      const raw = Math.max(0, Number(e.target.value || 0));
-                      onDiscountInputValueChange(raw);
-                      if (discountInputType === "PERCENTAGE") {
-                        onDiscountChange(Math.min(100, raw));
-                      } else {
-                        const capped = Math.min(
-                          raw,
-                          Math.max(0, totals.patientResponsibility),
-                        );
-                        const pct =
-                          totals.patientResponsibility > 0
-                            ? (capped / totals.patientResponsibility) * 100
-                            : 0;
-                        onDiscountChange(pct);
-                      }
-                    }}
-                    className="h-9 tabular-nums"
-                  />
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
+            {/* Billing note — dropdown with suggestions, textarea only for "Other" */}
             <div className="border-t border-border pt-3 space-y-2">
               <div className="flex items-center justify-between">
                 <div>
@@ -374,104 +320,35 @@ export function BillingConfirmSheet({
                   </span>
                   {noteRequired && (
                     <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
-                      Required because{" "}
                       {hasExemptions
-                        ? "an item is exempted"
-                        : "the payment does not cover the full amount due"}
-                      .
+                        ? "Required — an item is exempted"
+                        : "Required — payment does not cover the full amount"}
                     </p>
                   )}
                 </div>
-                {!showNotes ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 rounded-full text-xs"
-                    onClick={() => setShowNotes(true)}
-                  >
-                    + Add note
-                  </Button>
-                ) : !noteRequired ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 rounded-full text-xs"
-                    onClick={() => {
-                      setShowNotes(false);
-                      setNoteReason("");
-                      setCustomReason("");
-                      onBillingNotesChange?.("");
-                    }}
-                  >
-                    Remove
-                  </Button>
-                ) : null}
               </div>
 
-              {showNotes ? (
-                <div className="space-y-2">
-                  {noteRequired ? (
-                    <>
-                      <div>
-                        <label className="text-xs text-muted-foreground">
-                          Reason
-                        </label>
-                        <Select
-                          value={noteReason}
-                          onValueChange={setNoteReason}
-                        >
-                          <SelectTrigger className="mt-1 h-9">
-                            <SelectValue placeholder="Select a reason" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {suggestedReasons.map((reason) => (
-                              <SelectItem key={reason} value={reason}>
-                                {reason}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+              <Select value={dropdownValue} onValueChange={handleReasonSelect}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Select a reason…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suggestedReasons.map((reason) => (
+                    <SelectItem key={reason} value={reason}>
+                      {reason}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-                      {noteReason === "Other" ? (
-                        <div>
-                          <label className="text-xs text-muted-foreground">
-                            Other reason
-                          </label>
-                          <Textarea
-                            value={customReason}
-                            onChange={(e) => setCustomReason(e.target.value)}
-                            placeholder="Type the reason"
-                            className="mt-1 min-h-[90px]"
-                          />
-                        </div>
-                      ) : null}
-                    </>
-                  ) : (
-                    <div>
-                      <label className="text-xs text-muted-foreground">
-                        Notes
-                      </label>
-                      <Textarea
-                        value={billingNotes}
-                        onChange={(e) =>
-                          onBillingNotesChange?.(e.target.value)
-                        }
-                        placeholder="Add context for this billing decision..."
-                        className="mt-1 min-h-[90px]"
-                      />
-                    </div>
-                  )}
-
-                  {billingNotes ? (
-                    <p className="text-[11px] text-muted-foreground">
-                      This note will be sent with the bill.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
+              {customNoteMode && (
+                <Textarea
+                  value={billingNotes}
+                  onChange={(e) => onBillingNotesChange?.(e.target.value)}
+                  placeholder="Type your reason here…"
+                  className="min-h-[72px] text-xs"
+                />
+              )}
             </div>
           </div>
         </div>
@@ -488,7 +365,7 @@ export function BillingConfirmSheet({
           <Button
             type="button"
             className="flex-1 bg-[#FF6900] hover:bg-[#e05f00] text-white"
-            disabled={creatingBill || reasonMissing}
+            disabled={creatingBill || (noteRequired && !billingNotes?.trim())}
             onClick={onConfirm}
           >
             {creatingBill

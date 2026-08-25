@@ -169,7 +169,6 @@ describe("computeBillingTotals", () => {
     const totals = computeBillingTotals(
       items,
       (item) => (item.selectedInsuranceId ? 15 : 0),
-      0,
     );
 
     expect(totals.patientResponsibility).toBe(expectedTotal);
@@ -179,12 +178,11 @@ describe("computeBillingTotals", () => {
     expect(round2(totals.totalAmount)).toBe(totals.totalAmount);
   });
 
-  it("applies discount in cents without drift", () => {
+  it("computes totals without discount (removed)", () => {
     const item = makeItem({ price: 1000, quantity: 3 });
-    const totals = computeBillingTotals([item], () => 0, 15);
+    const totals = computeBillingTotals([item], () => 0);
     expect(totals.patientResponsibility).toBe(3000);
-    expect(totals.discount).toBe(450);
-    expect(totals.totalAmount).toBe(2550);
+    expect(totals.totalAmount).toBe(3000);
   });
 });
 

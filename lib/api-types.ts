@@ -112,6 +112,7 @@ export enum VisitStatus {
   IN_PROGRESS = "IN_PROGRESS",
   CANCELLED = "CANCELLED",
   COMPLETED = "COMPLETED",
+  BILL_EDITING = "BILL_EDITING",
 }
 
 export enum VisitProductStatus {
@@ -703,6 +704,8 @@ export interface DepartmentInsuranceBilling {
   patientPayableAmount: number;
   paidAmount: number;
   outstandingAmount: number;
+  outstandingType?: string | null;
+  outstandingReason?: string | null;
   items: VisitBillingItem[];
   createdAt: string;
   updatedAt: string;

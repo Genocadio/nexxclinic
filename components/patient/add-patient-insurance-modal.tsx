@@ -83,7 +83,7 @@ export function AddPatientInsuranceModal({
   const { insurances: availableInsurances, loading: insurancesLoading } = useInsurances()
   const { savePatientInsurance, loading } = useSavePatientInsurance()
 
-  const [step, setStep] = useState<'select' | 'details'>('select')
+  const [step, setStep] = useState<'select' | 'card' | 'details'>('select')
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [selectedInsuranceId, setSelectedInsuranceId] = useState('')
   const [selectedInsuranceName, setSelectedInsuranceName] = useState('')
@@ -154,6 +154,10 @@ export function AddPatientInsuranceModal({
     setSelectedInsuranceId(id)
     setSelectedInsuranceName(name)
     setPopoverOpen(false)
+    setStep('card')
+  }
+
+  const handleProceedToDetails = () => {
     setStep('details')
   }
 
@@ -215,18 +219,40 @@ export function AddPatientInsuranceModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            {step === 'details' && (
+            {(step === 'card' || step === 'details') && (
               <button
                 type="button"
-                onClick={() => setStep('select')}
+                onClick={() => setStep(step === 'details' ? 'card' : 'select')}
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ArrowLeft className="h-4 w-4" />
               </button>
             )}
             <DialogTitle className="text-base">
-              {step === 'select' ? 'Select insurance provider' : 'Insurance details'}
+              {step === 'select' ? 'Select insurance provider' : step === 'card' ? 'Enter card number' : 'Insurance details'}
             </DialogTitle>
+          </div>
+          {/* Step indicator */}
+          <div className="flex items-center gap-2 mt-2">
+            {['Provider', 'Card #', 'Details'].map((label, idx) => {
+              const stepKey = (['select', 'card', 'details'] as const)[idx]
+              const isActive = step === stepKey
+              const isDone = (step === 'card' && idx === 0) || (step === 'details' && idx <= 1)
+              return (
+                <div key={label} className="flex items-center gap-1.5">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold ${
+                    isActive ? 'bg-primary text-primary-foreground' :
+                    isDone ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {isDone && !isActive ? '✓' : idx + 1}
+                  </div>
+                  <span className={`text-[10px] ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                    {label}
+                  </span>
+                  {idx < 2 && <div className="w-4 h-px bg-border/60 mx-0.5" />}
+                </div>
+              )
+            })}
           </div>
           <DialogDescription className="text-sm text-muted-foreground">
             {DESCRIPTIONS[context]}
@@ -234,7 +260,8 @@ export function AddPatientInsuranceModal({
         </DialogHeader>
 
         <div className="space-y-3">
-          {step === 'select' ? (
+          {/* Step 1: Select provider */}
+          {step === 'select' && (
             <div className="space-y-1">
               <p className="text-[11px] text-muted-foreground">Insurance Provider</p>
               <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
@@ -299,7 +326,31 @@ export function AddPatientInsuranceModal({
                 </PopoverContent>
               </Popover>
             </div>
-          ) : (
+          )}
+
+          {/* Step 2: Enter card number */}
+          {step === 'card' && (
+            <>
+              <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+                <span className="text-muted-foreground text-xs">Provider</span>
+                <p className="font-medium">{selectedInsuranceName}</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-[11px] text-muted-foreground">Insurance Card Number</p>
+                <Input
+                  {...register('insuranceCardNumber')}
+                  placeholder="Card number"
+                  autoFocus
+                  className={formErrors.insuranceCardNumber ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                />
+                <FieldError message={formErrors.insuranceCardNumber?.message} />
+              </div>
+            </>
+          )}
+
+          {/* Step 3: Details (employer, dominant member, etc.) */}
+          {step === 'details' && (
             <>
               <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
                 <span className="text-muted-foreground text-xs">Provider</span>
@@ -312,13 +363,10 @@ export function AddPatientInsuranceModal({
               </div>
 
               <div className="space-y-1">
-                <p className="text-[11px] text-muted-foreground">Insurance Card Number (required)</p>
-                <Input
-                  {...register('insuranceCardNumber')}
-                  placeholder="Card number"
-                  className={formErrors.insuranceCardNumber ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                />
-                <FieldError message={formErrors.insuranceCardNumber?.message} />
+                <p className="text-[11px] text-muted-foreground">Insurance Card Number</p>
+                <div className="rounded-lg border bg-muted/20 px-3 py-2 text-sm font-mono">
+                  {getValues('insuranceCardNumber') || ''}
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -429,11 +477,22 @@ export function AddPatientInsuranceModal({
         </div>
 
         <DialogFooter className="gap-2">
-          {step === 'select' ? (
+          {step === 'select' && (
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-          ) : (
+          )}
+          {step === 'card' && (
+            <>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleProceedToDetails}>
+                Next
+              </Button>
+            </>
+          )}
+          {step === 'details' && (
             <>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel

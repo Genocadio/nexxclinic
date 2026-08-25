@@ -97,6 +97,8 @@ export type GqlDepartmentInsuranceBilling = {
   patientPayableAmount: number;
   paidAmount: number;
   outstandingAmount: number;
+  outstandingType?: string | null;
+  outstandingReason?: string | null;
   items?: GqlVisitBillingItem[] | null;
   patientInsurance?: GqlPatientInsuranceRef | null;
   createdAt?: string | null;
@@ -199,6 +201,8 @@ function mapGqlDepartmentInsuranceBilling(
     patientPayableAmount: Number(billing.patientPayableAmount ?? 0),
     paidAmount: Number(billing.paidAmount ?? 0),
     outstandingAmount: Number(billing.outstandingAmount ?? 0),
+    outstandingType: billing.outstandingType || null,
+    outstandingReason: billing.outstandingReason || null,
     items: (billing.items || []).map(mapGqlVisitBillingItem),
     createdAt: billing.createdAt || EMPTY_TS,
     updatedAt: billing.updatedAt || EMPTY_TS,

@@ -45,6 +45,8 @@ export const VISIT_DEPARTMENT_BILLING_FRAGMENT = gql`
       patientPayableAmount
       paidAmount
       outstandingAmount
+      outstandingType
+      outstandingReason
       items {
         id
         visitDepartmentProductId
@@ -143,6 +145,47 @@ export const GENERATE_INVOICE_MUTATION = gql`
       message
       data {
         signedUrl
+      }
+    }
+  }
+`;
+
+// ── Bill Editing Mode ────────────────────────────────────────────────────────
+
+export const START_BILL_EDITING_MUTATION = gql`
+  mutation StartBillEditing($visitId: ID!) {
+    startBillEditing(visitId: $visitId) {
+      status
+      message
+      data {
+        visitId
+        status
+      }
+    }
+  }
+`;
+
+export const COMPLETE_BILL_EDITING_MUTATION = gql`
+  mutation CompleteBillEditing($visitId: ID!) {
+    completeBillEditing(visitId: $visitId) {
+      status
+      message
+      data {
+        visitId
+        status
+      }
+    }
+  }
+`;
+
+export const CANCEL_BILL_EDITING_MUTATION = gql`
+  mutation CancelBillEditing($visitId: ID!) {
+    cancelBillEditing(visitId: $visitId) {
+      status
+      message
+      data {
+        visitId
+        status
       }
     }
   }

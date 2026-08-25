@@ -6,8 +6,9 @@ import type { Patient, Visit } from "@/lib/api-types"
 import type { SearchPatientsInput } from "@/lib/api-input-types"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
-import { Edit } from "lucide-react"
+import { Edit, ShieldAlert } from "lucide-react"
 import { getMediaUrl } from "@/lib/media-url"
+import { isInsuranceActive, insuranceStatusLabel } from "@/lib/insurance-utils"
 import { toast } from "react-toastify"
 import { calculateAge } from "@/lib/validation-utils"
 import PatientFormDialog from "@/components/patient/patient-form-dialog"
@@ -235,23 +236,35 @@ export default function PatientRegistrationModal({
                                   const iconUrl = insurance.insuranceProvider?.iconUrl;
                                   const acronym = insurance.insuranceProvider?.acronym || '';
                                   const name = insurance.insuranceProvider?.insuranceName || '';
+                                  const active = isInsuranceActive(insurance);
                                   return (
                                     <span
                                       key={idx}
-                                      className="relative group/ins inline-flex items-center justify-center h-5 min-w-[20px] rounded-full border border-primary/30 bg-primary/10 text-[10px] font-semibold text-primary px-1.5 cursor-default"
+                                      title={active ? name : insuranceStatusLabel(insurance)}
+                                      className={`relative group/ins inline-flex items-center justify-center h-5 min-w-[20px] rounded-full border text-[10px] font-semibold px-1.5 cursor-default ${
+                                        active
+                                          ? "border-primary/30 bg-primary/10 text-primary"
+                                          : "border-gray-300 bg-gray-100 text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500 opacity-50"
+                                      }`}
                                     >
                                       {iconUrl ? (
                                         <img
                                           src={getMediaUrl(iconUrl)}
                                           alt={name}
-                                          className="h-3.5 w-3.5 rounded-full object-cover"
+                                          className={`h-3.5 w-3.5 rounded-full object-cover ${!active ? "grayscale" : ""}`}
                                         />
                                       ) : (
-                                        acronym
+                                        <>
+                                          {!active && <ShieldAlert className="h-3 w-3 mr-0.5" />}
+                                          {acronym}
+                                        </>
                                       )}
                                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 opacity-0 invisible group-hover/ins:opacity-100 group-hover/ins:visible transition-all duration-150 z-50 pointer-events-none">
                                         <div className="bg-slate-900 dark:bg-slate-700 text-white text-[11px] rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-lg">
                                           <div className="font-semibold">{name}</div>
+                                          {!active && (
+                                            <div className="text-orange-300 font-medium">{insuranceStatusLabel(insurance)}</div>
+                                          )}
                                           {insurance.insuranceCardNumber && (
                                             <div className="text-slate-300">Card: {insurance.insuranceCardNumber}</div>
                                           )}

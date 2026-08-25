@@ -63,9 +63,13 @@ export interface BillingData {
     coveragePercentage: number;
   }[];
   items: BillingItem[];
-  discountPercentage: number;
-  discountAmount?: number; // Store discount as amount
-  discountReason?: string;
+  /**
+   * When patient doesn't pay full amount, classify the outstanding:
+   * 'loan' = patient still owes (preselected for partial payments)
+   * 'giveaway' = clinic absorbs (preselected for exemptions)
+   */
+  outstandingType?: 'loan' | 'giveaway';
+  outstandingReason?: string;
   paymentMethod?:
     | "CASH"
     | "MOBILE_MONEY"
@@ -399,9 +403,10 @@ export function computeDepartmentBillAllocations(
   }
   for (let i = 0; i < allocations.length; i++) {
     const entry = allocations[i];
-    entry.noteRequired =
-      entry.hasExemptions ||
-      refAllocs[i] < entry.patientPayableCents;
+    const hasOutstanding = refAllocs[i] < entry.patientPayableCents;
+    // Note is required only when there's an actual unpaid balance (patient owes
+    // money). Exemptions alone with zero patient payable don't require a note.
+    entry.noteRequired = hasOutstanding;
   }
 
   return allocations.map(({ patientPayableCents: _cents, ...entry }) => entry);
@@ -555,7 +560,6 @@ export interface BillingTotals {
   subtotal: number;
   insuranceCoverage: number;
   patientResponsibility: number;
-  discount: number;
   totalAmount: number;
 }
 
@@ -567,7 +571,6 @@ export interface BillingTotals {
 export function computeBillingTotals(
   items: BillingItem[],
   getCoveragePercentage: (item: BillingItem) => number,
-  discountPercentage: number,
 ): BillingTotals {
   let subtotalCents = 0;
   let insuranceCoverageCents = 0;
@@ -584,16 +587,10 @@ export function computeBillingTotals(
     patientResponsibilityCents += toCents(patientAmount);
   });
 
-  const discountCents = Math.round(
-    (patientResponsibilityCents * (discountPercentage || 0)) / 100,
-  );
-  const totalCents = patientResponsibilityCents - discountCents;
-
   return {
     subtotal: fromCents(subtotalCents),
     insuranceCoverage: fromCents(insuranceCoverageCents),
     patientResponsibility: fromCents(patientResponsibilityCents),
-    discount: fromCents(discountCents),
-    totalAmount: fromCents(totalCents),
+    totalAmount: fromCents(patientResponsibilityCents),
   };
 }

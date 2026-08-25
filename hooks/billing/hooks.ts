@@ -5,6 +5,9 @@ import {
   EDIT_BILL_MUTATION,
   RECORD_VISIT_BILLING_PAYMENT_MUTATION,
   GENERATE_INVOICE_MUTATION,
+  START_BILL_EDITING_MUTATION,
+  COMPLETE_BILL_EDITING_MUTATION,
+  CANCEL_BILL_EDITING_MUTATION,
 } from "../mutations";
 import type { VisitBilling, ApiResponse } from "../types";
 import type { InvoiceResponse } from "../types";
@@ -87,6 +90,8 @@ export interface CreateBillDepartmentInput {
    * full patient payable amount. Optional otherwise.
    */
   note?: string;
+  outstandingType?: "loan" | "giveaway";
+  outstandingReason?: string;
 }
 
 export interface CreateBillInput {
@@ -177,6 +182,8 @@ export interface EditBillInput {
       paymentMethod: BillingPaymentMethod;
       reference?: string;
     }[];
+    outstandingType?: "loan" | "giveaway";
+    outstandingReason?: string;
   }[];
 }
 
@@ -199,6 +206,8 @@ export function useEditBill() {
         billProducts: dept.billProducts,
         payments: dept.payments,
         note: input.notes || undefined,
+        outstandingType: dept.outstandingType,
+        outstandingReason: dept.outstandingReason,
       })),
     };
     try {
@@ -265,4 +274,68 @@ export function useGenerateInvoice() {
   };
 
   return { generateInvoice, loading, error };
+}
+
+// ── Bill Editing Mode hooks ──────────────────────────────────────────────────
+
+export interface BillEditingResponse {
+  visitId: string;
+  status: string;
+}
+
+export function useStartBillEditing() {
+  const [mutation, { loading, error }] = useMutation<{
+    startBillEditing: { status: string; message?: string; data?: BillEditingResponse };
+  }>(START_BILL_EDITING_MUTATION);
+
+  const startBillEditing = async (visitId: string): Promise<{ status: string; message?: string }> => {
+    try {
+      const result = await mutation({ variables: { visitId } });
+      const payload = result?.data?.startBillEditing;
+      return { status: payload?.status || "ERROR", message: payload?.message };
+    } catch (err) {
+      console.error("Start bill editing error:", err);
+      throw err;
+    }
+  };
+
+  return { startBillEditing, loading, error };
+}
+
+export function useCompleteBillEditing() {
+  const [mutation, { loading, error }] = useMutation<{
+    completeBillEditing: { status: string; message?: string; data?: BillEditingResponse };
+  }>(COMPLETE_BILL_EDITING_MUTATION);
+
+  const completeBillEditing = async (visitId: string): Promise<{ status: string; message?: string }> => {
+    try {
+      const result = await mutation({ variables: { visitId } });
+      const payload = result?.data?.completeBillEditing;
+      return { status: payload?.status || "ERROR", message: payload?.message };
+    } catch (err) {
+      console.error("Complete bill editing error:", err);
+      throw err;
+    }
+  };
+
+  return { completeBillEditing, loading, error };
+}
+
+export function useCancelBillEditing() {
+  const [mutation, { loading, error }] = useMutation<{
+    cancelBillEditing: { status: string; message?: string; data?: BillEditingResponse };
+  }>(CANCEL_BILL_EDITING_MUTATION);
+
+  const cancelBillEditing = async (visitId: string): Promise<{ status: string; message?: string }> => {
+    try {
+      const result = await mutation({ variables: { visitId } });
+      const payload = result?.data?.cancelBillEditing;
+      return { status: payload?.status || "ERROR", message: payload?.message };
+    } catch (err) {
+      console.error("Cancel bill editing error:", err);
+      throw err;
+    }
+  };
+
+  return { cancelBillEditing, loading, error };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Shield, ChevronDown, Info } from "lucide-react";
+import { Plus, Shield, ChevronDown, Info, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +10,10 @@ import {
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import type { PatientInsurance } from "@/lib/api-types";
+import {
+  isInsuranceActive,
+  insuranceStatusLabel,
+} from "@/lib/insurance-utils";
 
 type BillingPatientBarProps = {
   patientName: string;
@@ -87,17 +91,28 @@ export function BillingPatientBar({
 
             <div className="flex items-center gap-2 shrink-0">
               {visitActiveInsurances.length > 0 ? (
-                visitActiveInsurances.map((pIns) => (
-                  <Badge
-                    key={pIns.id}
-                    variant="outline"
-                    className="h-6 px-2 text-[11px] font-medium rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                    title="Used for billing on this visit"
-                  >
-                    <Shield className="h-3 w-3 mr-1" />
-                    {pIns.insuranceProvider.acronym}
-                  </Badge>
-                ))
+                visitActiveInsurances.map((pIns) => {
+                  const active = isInsuranceActive(pIns);
+                  return (
+                    <Badge
+                      key={pIns.id}
+                      variant="outline"
+                      className={`h-6 px-2 text-[11px] font-medium rounded-full border ${
+                        active
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                          : "bg-gray-100 text-gray-400 border-gray-300 dark:bg-gray-800 dark:text-gray-500 dark:border-gray-700 opacity-60"
+                      }`}
+                      title={active ? "Used for billing on this visit" : insuranceStatusLabel(pIns)}
+                    >
+                      {active ? (
+                        <Shield className="h-3 w-3 mr-1" />
+                      ) : (
+                        <ShieldAlert className="h-3 w-3 mr-1" />
+                      )}
+                      {pIns.insuranceProvider.acronym}
+                    </Badge>
+                  );
+                })
               ) : (
                 <span className="text-[11px] text-muted-foreground">
                   No insurance on this visit
@@ -161,28 +176,34 @@ export function BillingPatientBar({
                       <div className="space-y-1.5 max-h-52 overflow-y-auto">
                         {patientInsurances.map((pIns) => {
                           const usedOnVisit = activeInsuranceIds.has(pIns.id);
+                          const active = isInsuranceActive(pIns);
                           return (
                             <label
                               key={pIns.id}
-                              className={`flex items-start gap-2.5 text-xs rounded-lg border px-2.5 py-2 cursor-pointer transition-colors ${
-                                usedOnVisit
-                                  ? "border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10"
-                                  : "border-border/60 hover:bg-muted/50"
+                              title={!active ? insuranceStatusLabel(pIns) : undefined}
+                              className={`flex items-start gap-2.5 text-xs rounded-lg border px-2.5 py-2 transition-colors ${
+                                !active
+                                  ? "opacity-50 cursor-not-allowed border-border/40 bg-muted/20"
+                                  : usedOnVisit
+                                    ? "border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 cursor-pointer"
+                                    : "border-border/60 hover:bg-muted/50 cursor-pointer"
                               }`}
                             >
                               <input
                                 type="checkbox"
                                 checked={usedOnVisit}
-                                disabled={addingVisitInsurance}
+                                disabled={!active || addingVisitInsurance}
                                 onChange={() =>
-                                  onToggleInsurance(pIns.id, !usedOnVisit)
+                                  active && onToggleInsurance(pIns.id, !usedOnVisit)
                                 }
                                 className="mt-0.5 h-3.5 w-3.5 accent-primary"
                                 aria-label={`Use ${pIns.insuranceProvider.acronym} on this visit`}
                               />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="font-semibold text-foreground">
+                                  <span className={`font-semibold ${
+                                    active ? "text-foreground" : "text-muted-foreground"
+                                  }`}>
                                     {pIns.insuranceProvider.acronym}
                                   </span>
                                   <span className="text-[10px] text-muted-foreground truncate max-w-[8rem]">
@@ -192,17 +213,23 @@ export function BillingPatientBar({
                                 <p className="text-[10px] text-muted-foreground truncate mt-0.5">
                                   Card: {pIns.insuranceCardNumber || "—"}
                                 </p>
-                                <p
-                                  className={`text-[10px] mt-0.5 font-medium ${
-                                    usedOnVisit
-                                      ? "text-emerald-600 dark:text-emerald-400"
-                                      : "text-muted-foreground"
-                                  }`}
-                                >
-                                  {usedOnVisit
-                                    ? "Used on this visit"
-                                    : "On patient record only"}
-                                </p>
+                                {!active ? (
+                                  <p className="text-[10px] mt-0.5 font-medium text-orange-500 dark:text-orange-400">
+                                    {insuranceStatusLabel(pIns)}
+                                  </p>
+                                ) : (
+                                  <p
+                                    className={`text-[10px] mt-0.5 font-medium ${
+                                      usedOnVisit
+                                        ? "text-emerald-600 dark:text-emerald-400"
+                                        : "text-muted-foreground"
+                                    }`}
+                                  >
+                                    {usedOnVisit
+                                      ? "Used on this visit"
+                                      : "On patient record only"}
+                                  </p>
+                                )}
                               </div>
                             </label>
                           );

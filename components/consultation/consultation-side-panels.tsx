@@ -7,7 +7,9 @@ import {
   History as HistoryIcon,
   ChevronLeft,
   ChevronRight,
+  ShieldAlert,
 } from "lucide-react";
+import { isInsuranceActive, insuranceStatusLabel } from "@/lib/insurance-utils";
 import { formatDateOnly } from "@/lib/utils";
 import type { Patient } from "@/lib/types";
 import { normalizeVisitVitalSigns } from "@/hooks/auth-hooks";
@@ -129,6 +131,9 @@ interface ConsultationSidePanelsProps {
   visitInsurances?: Array<{
     id: string;
     insuranceProvider: { acronym?: string | null; insuranceName: string };
+    deactivated?: boolean;
+    validFrom?: string | null;
+    validUntil?: string | null;
   }>;
 }
 
@@ -311,16 +316,24 @@ export function ConsultationSidePanels({
                     Insurance
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {visitInsurances.map((ins) => (
-                      <span
-                        key={ins.id}
-                        className="inline-block bg-gradient-to-r from-primary/20 to-primary/10 text-primary px-2 py-1 rounded-full text-xs font-medium border border-primary/30"
-                        title={ins.insuranceProvider.insuranceName}
-                      >
-                        {ins.insuranceProvider.acronym ||
-                          ins.insuranceProvider.insuranceName}
-                      </span>
-                    ))}
+                    {visitInsurances.map((ins) => {
+                      const active = isInsuranceActive(ins);
+                      return (
+                        <span
+                          key={ins.id}
+                          className={`inline-block px-2 py-1 rounded-full text-xs font-medium border ${
+                            active
+                              ? "bg-gradient-to-r from-primary/20 to-primary/10 text-primary border-primary/30"
+                              : "bg-gray-100 text-gray-400 border-gray-300 dark:bg-gray-800 dark:text-gray-500 dark:border-gray-700 opacity-60"
+                          }`}
+                          title={active ? ins.insuranceProvider.insuranceName : insuranceStatusLabel(ins)}
+                        >
+                          {!active && <ShieldAlert className="inline h-3 w-3 mr-0.5 -mt-0.5" />}
+                          {ins.insuranceProvider.acronym ||
+                            ins.insuranceProvider.insuranceName}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               ) : (

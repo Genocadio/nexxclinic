@@ -56,6 +56,8 @@ export const GET_BILL_BY_VISIT_QUERY = gql`
             patientPayableAmount
             paidAmount
             outstandingAmount
+            outstandingType
+            outstandingReason
             items {
               id
               visitDepartmentProductId

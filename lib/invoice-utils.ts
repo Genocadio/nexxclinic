@@ -78,7 +78,6 @@ export interface InvoiceLineItem {
 
 export interface InvoiceTotals {
   subtotal: number;
-  discount: number;
   totalDue: number;
   paid: number;
   balance: number;
@@ -195,7 +194,6 @@ export function buildInvoiceHtml(options: {
 
       <table class="totals">
         <tr><td>Subtotal</td><td class="right">${formatRWF(totals.subtotal || 0)}</td></tr>
-        <tr><td>Discount</td><td class="right">-${formatRWF(totals.discount || 0)}</td></tr>
         <tr class="grand"><td>Total Due</td><td class="right">${formatRWF(totals.totalDue || 0)}</td></tr>
         <tr><td>Paid</td><td class="right">${formatRWF(totals.paid || 0)}</td></tr>
         <tr><td>Balance</td><td class="right">${formatRWF(totals.balance || 0)}</td></tr>

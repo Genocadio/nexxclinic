@@ -135,6 +135,7 @@ export default function PatientFormDialog({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [formData, setFormData] = useState<RegisterPatientInput>(EMPTY_FORM)
   const [savingInsurances, setSavingInsurances] = useState<Set<number>>(new Set())
+  const hasInteractedRef = useRef(false)
 
   const isEdit = mode === "edit"
   const createPatientInsuranceRef = useRef(createPatientInsurance)
@@ -172,14 +173,13 @@ export default function PatientFormDialog({
   }, [isOpen, isEdit, patient])
 
   const handleInputChange = (field: string, value: string) => {
+    hasInteractedRef.current = true
     const sanitizedValue =
       field === "contactInfo.email"
         ? sanitizeEmailOrPhoneInput(value)
         : field === "contactInfo.phone" || field === "emergencyContact.phone"
           ? sanitizePhoneInput(value)
           : value
-
-    let nextData: RegisterPatientInput | undefined
 
     setFormData((prev) => {
       const keys = field.split(".")
@@ -190,12 +190,8 @@ export default function PatientFormDialog({
         current = current[keys[i]]
       }
       current[keys[keys.length - 1]] = sanitizedValue
-      nextData = updated
       return updated
     })
-
-    // Notify parent of form changes (e.g. duplicate detection)
-    if (nextData) onFormChange?.(nextData)
 
     // Clear the inline error for the field being edited (or its group).
     setFieldErrors((prev) => {
@@ -217,6 +213,7 @@ export default function PatientFormDialog({
   }
 
   const addInsurance = () => {
+    hasInteractedRef.current = true
     setFormData((prev) => ({
       ...prev,
       insurances: [
@@ -240,6 +237,7 @@ export default function PatientFormDialog({
     field: string,
     value: string | number,
   ) => {
+    hasInteractedRef.current = true
     setFormData((prev) => ({
       ...prev,
       insurances: (prev.insurances || []).map((insurance, i) => {
@@ -256,6 +254,7 @@ export default function PatientFormDialog({
   }
 
   const removeInsurance = (index: number) => {
+    hasInteractedRef.current = true
     setFormData((prev) => ({
       ...prev,
       insurances: (prev.insurances || []).filter((_, i) => i !== index),
@@ -321,6 +320,7 @@ export default function PatientFormDialog({
   }, [isEdit, patient?.id, formData])
 
   const handleCountryChange = (country: string) => {
+    hasInteractedRef.current = true
     setFormData((prev) => ({
       ...prev,
       contactInfo: {
@@ -340,6 +340,7 @@ export default function PatientFormDialog({
   }
 
   const handleProvinceChange = (province: string) => {
+    hasInteractedRef.current = true
     setFormData((prev) => ({
       ...prev,
       contactInfo: {
@@ -357,6 +358,7 @@ export default function PatientFormDialog({
   }
 
   const handleDistrictChange = (district: string) => {
+    hasInteractedRef.current = true
     setFormData((prev) => ({
       ...prev,
       contactInfo: {
@@ -373,6 +375,7 @@ export default function PatientFormDialog({
   }
 
   const handleSectorChange = (sector: string) => {
+    hasInteractedRef.current = true
     setFormData((prev) => ({
       ...prev,
       contactInfo: {
@@ -386,6 +389,16 @@ export default function PatientFormDialog({
       },
     }))
   }
+
+  // ── Notify parent of ALL form data changes (duplicate detection) ─────────
+  // A single useEffect on formData ensures every handler — handleInputChange,
+  // handleCountryChange, addInsurance, updateInsurance, removeInsurance, etc.
+  // — automatically notifies the parent without needing individual calls.
+  useEffect(() => {
+    if (hasInteractedRef.current) {
+      onFormChange?.(formData)
+    }
+  }, [formData, onFormChange])
 
   const loading = isEdit ? updateLoading : registerLoading
 

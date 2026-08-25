@@ -11,7 +11,6 @@ const EMPTY_TOTALS: BillingTotals = {
   subtotal: 0,
   insuranceCoverage: 0,
   patientResponsibility: 0,
-  discount: 0,
   totalAmount: 0,
 };
 
@@ -23,11 +22,10 @@ const EMPTY_TOTALS: BillingTotals = {
 export function useBillingTotals(
   items: BillingItem[],
   getCoveragePercentage: (item: BillingItem) => number,
-  discountPercentage: number,
 ): BillingTotals {
   return useMemo(
-    () => computeBillingTotals(items, getCoveragePercentage, discountPercentage),
-    [items, getCoveragePercentage, discountPercentage],
+    () => computeBillingTotals(items, getCoveragePercentage),
+    [items, getCoveragePercentage],
   );
 }
 

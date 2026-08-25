@@ -23,8 +23,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, User, ArrowLeft, Edit, X, ShieldPlus } from "lucide-react";
+import { Search, User, ArrowLeft, Edit, X, ShieldPlus, ShieldAlert } from "lucide-react";
 import { getMediaUrl } from "@/lib/media-url";
+import { isInsuranceActive, insuranceStatusLabel } from "@/lib/insurance-utils";
 import { toast } from "react-toastify";
 import PatientEditModal from "@/components/patient-edit-modal";
 import { AddPatientInsuranceModal } from "@/components/patient/add-patient-insurance-modal";
@@ -40,7 +41,8 @@ interface VisitCreationModalProps {
 }
 
 type ModalStep = "patient-selection" | "visit-details";
-type SearchFilterType = "name" | "phoneNumber" | "insuranceName";
+type SearchFilterType = "name" | "phoneNumber" | "insuranceCardNumber";
+type GenderFilterType = "" | "MALE" | "FEMALE";
 
 export default function VisitCreationModal({
   isOpen,
@@ -70,9 +72,9 @@ export default function VisitCreationModal({
   const { createVisit, loading: visitLoading } = useCreateVisit();
 
   // Search and filter states
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchFilterType, setSearchFilterType] =
-    useState<SearchFilterType>("name");
+  const [searchQuery, setSearchQuery] = useState("");  const [searchFilterType, setSearchFilterType] =
+  useState<SearchFilterType>("name");
+  const [genderFilter, setGenderFilter] = useState<GenderFilterType>("");
   const [patientFilter, setPatientFilter] = useState<PatientFilterInput>({});
   const [shouldSearch, setShouldSearch] = useState(false);
 
@@ -131,16 +133,19 @@ export default function VisitCreationModal({
         case "phoneNumber":
           filter.phoneNumber = searchQuery.trim();
           break;
-        case "insuranceName":
-          filter.insuranceName = searchQuery.trim();
+        case "insuranceCardNumber":
+          filter.insuranceCardNumber = searchQuery.trim();
           break;
+      }
+      if (genderFilter) {
+        filter.gender = genderFilter;
       }
       setPatientFilter(filter);
       setShouldSearch(true);
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, searchFilterType]);
+  }, [searchQuery, searchFilterType, genderFilter]);
 
   const displayedPatients =
     preSelectedPatientData &&
@@ -220,6 +225,7 @@ export default function VisitCreationModal({
       setSelectedPatient(null);
       setSearchQuery("");
       setSearchFilterType("name");
+      setGenderFilter("");
       setPatientFilter({});
       setShouldSearch(false);
       setSelectedServiceId(TRIAGE_SERVICE_ID);
@@ -289,6 +295,7 @@ export default function VisitCreationModal({
     setSelectedPatient(null);
     setSearchQuery("");
     setSearchFilterType("name");
+    setGenderFilter("");
     setPatientFilter({});
     setShouldSearch(false);
     setSelectedServiceId(TRIAGE_SERVICE_ID);
@@ -396,15 +403,24 @@ export default function VisitCreationModal({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setSearchFilterType("insuranceName")}
+                        onClick={() => setSearchFilterType("insuranceCardNumber")}
                         className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                          searchFilterType === "insuranceName"
+                          searchFilterType === "insuranceCardNumber"
                             ? "bg-primary text-primary-foreground shadow-md scale-105"
                             : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        Insurance
+                        Card #
                       </button>
+                      <select
+                        value={genderFilter}
+                        onChange={(e) => setGenderFilter(e.target.value as GenderFilterType)}
+                        className="px-2 py-1 rounded-full text-xs font-medium border border-border/50 bg-background text-muted-foreground hover:text-foreground transition-all cursor-pointer outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        <option value="">All Genders</option>
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                      </select>
                     </div>
                   </div>
 
@@ -413,7 +429,7 @@ export default function VisitCreationModal({
                     <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       type="text"
-                      placeholder={`Search patients by ${searchFilterType === "name" ? "name" : searchFilterType === "phoneNumber" ? "phone number" : "insurance"}...`}
+                      placeholder={`Search patients by ${searchFilterType === "name" ? "name" : searchFilterType === "phoneNumber" ? "phone number" : "card number"}...`}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10 pr-8 h-10 text-sm bg-transparent border-0 focus-visible:ring-0"
@@ -500,23 +516,35 @@ export default function VisitCreationModal({
                                         const iconUrl = ins.insuranceProvider?.iconUrl;
                                         const acronym = ins.insuranceProvider?.acronym || '';
                                         const name = ins.insuranceProvider?.insuranceName || '';
+                                        const active = isInsuranceActive(ins);
                                         return (
                                           <span
                                             key={idx}
-                                            className="relative group/ins inline-flex items-center justify-center h-5 min-w-[20px] rounded-full border border-primary/30 bg-primary/10 text-[10px] font-semibold text-primary px-1.5 cursor-default"
+                                            title={active ? name : insuranceStatusLabel(ins)}
+                                            className={`relative group/ins inline-flex items-center justify-center h-5 min-w-[20px] rounded-full border text-[10px] font-semibold px-1.5 cursor-default ${
+                                              active
+                                                ? "border-primary/30 bg-primary/10 text-primary"
+                                                : "border-gray-300 bg-gray-100 text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500 opacity-50"
+                                            }`}
                                           >
                                             {iconUrl ? (
                                               <img
                                                 src={getMediaUrl(iconUrl)}
                                                 alt={name}
-                                                className="h-3.5 w-3.5 rounded-full object-cover"
+                                                className={`h-3.5 w-3.5 rounded-full object-cover ${!active ? "grayscale" : ""}`}
                                               />
                                             ) : (
-                                              acronym
+                                              <>
+                                                {!active && <ShieldAlert className="h-3 w-3 mr-0.5" />}
+                                                {active ? acronym : acronym}
+                                              </>
                                             )}
                                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 opacity-0 invisible group-hover/ins:opacity-100 group-hover/ins:visible transition-all duration-150 z-50 pointer-events-none">
                                               <div className="bg-slate-900 dark:bg-slate-700 text-white text-[11px] rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-lg">
                                                 <div className="font-semibold">{name}</div>
+                                                {!active && (
+                                                  <div className="text-orange-300 font-medium">{insuranceStatusLabel(ins)}</div>
+                                                )}
                                                 {ins.insuranceCardNumber && (
                                                   <div className="text-slate-300">Card: {ins.insuranceCardNumber}</div>
                                                 )}
@@ -653,50 +681,64 @@ export default function VisitCreationModal({
                       <div>
                         <div className="space-y-2 max-h-32 overflow-y-auto border rounded-lg p-3">
                           {selectedPatient.patientInsurances.map(
-                            (insurance: any) => (
-                              <label
-                                key={insurance.id}
-                                className="flex items-center space-x-2 cursor-pointer hover:bg-muted/30 p-2 rounded transition-colors"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={selectedInsuranceIds.includes(
-                                    insurance.id,
-                                  )}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedInsuranceIds((prev) => [
-                                        ...prev,
-                                        insurance.id,
-                                      ]);
-                                    } else {
-                                      setSelectedInsuranceIds((prev) =>
-                                        prev.filter(
-                                          (id) => id !== insurance.id,
-                                        ),
-                                      );
-                                    }
-                                  }}
-                                  className="rounded"
-                                />
-                                <div className="text-sm">
-                                  <div className="font-medium">
-                                    {insurance.insuranceProvider.insuranceName}{" "}
-                                    ({insurance.insuranceProvider.acronym})
+                            (insurance: any) => {
+                              const active = isInsuranceActive(insurance);
+                              return (
+                                <label
+                                  key={insurance.id}
+                                  title={!active ? insuranceStatusLabel(insurance) : undefined}
+                                  className={`flex items-center space-x-2 p-2 rounded transition-colors ${
+                                    active
+                                      ? "cursor-pointer hover:bg-muted/30"
+                                      : "opacity-50 cursor-not-allowed bg-muted/10"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedInsuranceIds.includes(
+                                      insurance.id,
+                                    )}
+                                    disabled={!active}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedInsuranceIds((prev) => [
+                                          ...prev,
+                                          insurance.id,
+                                        ]);
+                                      } else {
+                                        setSelectedInsuranceIds((prev) =>
+                                          prev.filter(
+                                            (id) => id !== insurance.id,
+                                          ),
+                                        );
+                                      }
+                                    }}
+                                    className="rounded"
+                                  />
+                                  <div className="text-sm">
+                                    <div className={`font-medium ${!active ? "text-muted-foreground" : ""}`}>
+                                      {insurance.insuranceProvider.insuranceName}{" "}
+                                      ({insurance.insuranceProvider.acronym})
+                                    </div>
+                                    {insurance.insuranceCardNumber && (
+                                      <div className="text-xs text-muted-foreground">
+                                        Card: {insurance.insuranceCardNumber}
+                                      </div>
+                                    )}
+                                    {insurance.principalMemberName && (
+                                      <div className="text-xs text-muted-foreground">
+                                        Member: {insurance.principalMemberName}
+                                      </div>
+                                    )}
+                                    {!active && (
+                                      <div className="text-[10px] text-orange-500 dark:text-orange-400 font-medium mt-0.5">
+                                        {insuranceStatusLabel(insurance)}
+                                      </div>
+                                    )}
                                   </div>
-                                  {insurance.insuranceCardNumber && (
-                                    <div className="text-xs text-muted-foreground">
-                                      Card: {insurance.insuranceCardNumber}
-                                    </div>
-                                  )}
-                                  {insurance.principalMemberName && (
-                                    <div className="text-xs text-muted-foreground">
-                                      Member: {insurance.principalMemberName}
-                                    </div>
-                                  )}
-                                </div>
-                              </label>
-                            ),
+                                </label>
+                              );
+                            },
                           )}
                         </div>
                         {selectedInsuranceIds.length === 0 && (
