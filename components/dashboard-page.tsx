@@ -484,7 +484,11 @@ export default function DashboardPage() {
     router.push(`/triage?visitId=${visit.id}`)
   }
   const canAddDepartment = (visit: Visit) => {
-    return visit.status !== "COMPLETED"
+    return (
+      visit.status !== "COMPLETED" &&
+      visit.status !== "CANCELLED" &&
+      visit.status !== "BILL_EDITING"
+    )
   }
   const handleAddDepartment = (visit: Visit) => {
     setSelectedVisitForDepartment(visit)

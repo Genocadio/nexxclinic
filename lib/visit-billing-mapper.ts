@@ -181,6 +181,13 @@ export function mapVisitToBillingData(
               ? "full"
               : "none",
         selectedInsuranceId: defaultVisitInsuranceId,
+        processorId: line.processor ? String(line.processor.id) : undefined,
+        // Only surface processor name when the department had 2+ processors
+        // (user explicitly chose). A single-processor department auto-assigns
+        // silently — no need to clutter the UI.
+        processorName: line.processor && (department.processors || []).length > 1 ? (
+          [line.processor.firstName, line.processor.lastName].filter(Boolean).join(" ") || undefined
+        ) : undefined,
         doneBy: {
           name: workerDisplayName(
             line.addedBy || line.billedBy || line.processor,
@@ -258,6 +265,7 @@ export function mapPatientInsurancesForBilling(insurances: PatientInsurance[]) {
     name: ins.insuranceProvider.insuranceName,
     acronym: ins.insuranceProvider.acronym || "",
     coveragePercentage: getBasePatientSharePercentage(ins.insuranceProvider),
+    patientSharePercentage: ins.patientSharePercentage ?? null,
     coverages: ins.insuranceProvider.coverages.map((c) => ({
       coverageId: String(c.id),
       departmentId: c.departmentId || null,
@@ -314,7 +322,12 @@ export function getCoveragePercentageForBillingItem(
     if (enc) return Number(enc.patientSharePercentage ?? 0);
   }
 
-  // 3. Fallback: base coverage (no conditions)
+  // 3. Patient-specific percentage (if set on the PatientInsurance record)
+  if (selected.patientSharePercentage != null && selected.patientSharePercentage > 0) {
+    return Number(selected.patientSharePercentage);
+  }
+
+  // 4. Fallback: base coverage (no conditions)
   return getBasePatientSharePercentage(selected.insuranceProvider);
 }
 

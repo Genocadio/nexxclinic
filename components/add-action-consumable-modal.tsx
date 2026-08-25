@@ -45,16 +45,24 @@ interface ActionOrConsumable {
   privateRhicPrice?: number | null
 }
 
+interface Processor {
+  id: string
+  firstName: string
+  lastName?: string | null
+}
+
 interface AddActionConsumableModalProps {
   isOpen: boolean
   onClose: () => void
   departments: { id: string; name: string }[]
   currentDepartmentId?: string
   viewMode: 'all' | 'service'
-  onAdd: (type: 'action' | 'consumable', item: ActionOrConsumable, quantity: number, departmentId: string) => void
+  onAdd: (type: 'action' | 'consumable', item: ActionOrConsumable, quantity: number, departmentId: string, processorId?: string) => void
   existingProductReferenceIds?: string[]
   isSubmitting?: boolean
   linkedInsurances?: PatientInsurance[]
+  /** Workers assigned as processors for the active visit department. */
+  processors?: Processor[]
 }
 
 export default function AddActionConsumableModal({
@@ -67,6 +75,7 @@ export default function AddActionConsumableModal({
   existingProductReferenceIds = [],
   isSubmitting = false,
   linkedInsurances = [],
+  processors = [],
 }: AddActionConsumableModalProps) {
   const filterOptions: ProductTypeFilter[] = ['ALL', 'DRUG', 'MEDICAL_ACT', 'BIOLOGICAL_ACT', 'CONSUMABLE_DEVICE']
   const [productType, setProductType] = useState<ProductTypeFilter>('ALL')
@@ -79,6 +88,7 @@ export default function AddActionConsumableModal({
   const [selectedItem, setSelectedItem] = useState<ActionOrConsumable | null>(null)
   const [quantity, setQuantity] = useState('1')
   const [selectedDepartmentId, setSelectedDepartmentId] = useState(currentDepartmentId || '')
+  const [selectedProcessorId, setSelectedProcessorId] = useState<string>('')
   const isFetchingMoreRef = useRef(false)
   const existingProductIdSet = new Set((existingProductReferenceIds || []).map(String))
   const selectedAlreadyAdded = selectedItem ? existingProductIdSet.has(selectedItem.id) : false
@@ -133,6 +143,17 @@ export default function AddActionConsumableModal({
     }
   }, [currentDepartmentId, selectedDepartmentId])
 
+  // Auto-select processor when there's exactly one, clear selection when processors change
+  useEffect(() => {
+    if (processors.length === 1) {
+      setSelectedProcessorId(processors[0].id)
+    } else if (processors.length === 0) {
+      setSelectedProcessorId('')
+    } else {
+      setSelectedProcessorId('')
+    }
+  }, [processors])
+
   // Debounce the search input before querying the shared products hook.
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -177,13 +198,15 @@ export default function AddActionConsumableModal({
 
     const qty = parseInt(quantity, 10) || 1
     const itemType = selectedItem.type === 'CONSUMABLE_DEVICE' ? 'consumable' : 'action'
-    onAdd(itemType, selectedItem, qty, selectedDepartmentId)
+    const processorId = selectedProcessorId || undefined
+    onAdd(itemType, selectedItem, qty, selectedDepartmentId, processorId)
 
     // Reset form
     setSelectedItem(null)
     setQuantity('1')
     setSearchQuery('')
     setSuggestions([])
+    setSelectedProcessorId(processors.length === 1 ? processors[0].id : '')
     onClose()
   }
 
@@ -193,6 +216,7 @@ export default function AddActionConsumableModal({
     setSearchQuery('')
     setSuggestions([])
     setShowFilterOptions(false)
+    setSelectedProcessorId(processors.length === 1 ? processors[0].id : '')
     onClose()
   }
 
@@ -404,7 +428,19 @@ export default function AddActionConsumableModal({
                     <Pill className="w-4 h-4 text-primary" />
                     <span className="text-sm font-medium">Selected Product</span>
                   </div>
-                  <div className="text-sm text-muted-foreground mb-2">{selectedItem.name}</div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="text-sm text-muted-foreground">{selectedItem.name}</div>
+                    {processors.length > 1 && selectedProcessorId && (() => {
+                      const proc = processors.find(p => p.id === selectedProcessorId)
+                      if (!proc) return null
+                      return (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          {proc.firstName} {proc.lastName || ''}
+                        </span>
+                      )
+                    })()}</div>
+                  
                   {(() => {
                     const pricing = getInsuranceAwarePricing(selectedItem)
                     return (
@@ -474,6 +510,28 @@ export default function AddActionConsumableModal({
                 </div>
               )}
 
+              {/* Processor Selection — only show when 2+ processors; single processor is silently auto-assigned */}
+              {processors.length > 1 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Processor</Label>
+                  <Select
+                    value={selectedProcessorId}
+                    onValueChange={setSelectedProcessorId}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Choose processor..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {processors.map((proc) => (
+                        <SelectItem key={proc.id} value={proc.id}>
+                          {proc.firstName} {proc.lastName || ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Department Selection (all-items view) */}
               {(viewMode === 'all' || !currentDepartmentId) && (
                 <div className="space-y-2">
@@ -504,14 +562,13 @@ export default function AddActionConsumableModal({
         <DialogFooter className="gap-2 mt-4 justify-center">
           <Button variant="outline" onClick={handleClose} className="rounded-full">
             Cancel
-          </Button>
-          <Button
-            onClick={handleAddItem}
-            disabled={!selectedItem || !selectedDepartmentId || loading || isSubmitting}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full"
-          >
-            Add Product
-          </Button>
+          </Button>              <Button
+                onClick={handleAddItem}
+                disabled={!selectedItem || !selectedDepartmentId || loading || isSubmitting}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full"
+              >
+                Add Product
+              </Button>
         </DialogFooter>
         )}
       </DialogContent>

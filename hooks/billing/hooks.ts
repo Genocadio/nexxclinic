@@ -162,7 +162,7 @@ export interface EditBillInput {
   notes?: string;
   departments: {
     visitDepartmentId: string;
-    addedProducts?: { productId: string; quantity: number }[];
+    addedProducts?: { productId: string; quantity: number; processorId?: string }[];
     removedProductIds?: string[];
     updatedProducts?: { productId: string; quantity?: number }[];
     billProducts: {
@@ -200,7 +200,7 @@ export function useEditBill() {
       visitId: input.visitId,
       departments: input.departments.map((dept) => ({
         visitDepartmentId: dept.visitDepartmentId,
-        addedProducts: dept.addedProducts,
+        addedProducts: dept.addedProducts?.map(({ processorId: _, ...rest }) => rest),
         removedProductIds: dept.removedProductIds,
         updatedProducts: dept.updatedProducts,
         billProducts: dept.billProducts,

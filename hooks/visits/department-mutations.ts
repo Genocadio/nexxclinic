@@ -2,6 +2,7 @@ import { useMutation } from "@apollo/client";
 import {
   ADD_PRODUCT_TO_VISIT_DEPARTMENT_MUTATION,
   REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION,
+  REMOVE_VISIT_DEPARTMENT_MUTATION,
   UPDATE_ACTION_QUANTITY_MUTATION,
   UPDATE_CONSUMABLE_QUANTITY_MUTATION,
   ADD_CHILD_VISIT_DEPARTMENT_MUTATION,
@@ -12,6 +13,7 @@ import {
   UPDATE_VISIT_DEPARTMENT_PRODUCT_QUANTITY_MUTATION,
   UPDATE_VISIT_DEPARTMENT_PRODUCT_STATUS_MUTATION,
   UPDATE_VISIT_DEPARTMENT_ENCOUNTER_TYPE_MUTATION,
+  UPDATE_VISIT_DEPARTMENT_PRODUCT_PROCESSOR_MUTATION,
 } from "../mutations";
 import type { ApiResponse } from "../types";
 import { mapGqlVisitDepartment } from "@/lib/gql-mappers";
@@ -157,6 +159,7 @@ export function useAddActionToVisitDepartment() {
     departmentId: string,
     actionId: string,
     quantity?: number,
+    processorId?: string,
   ): Promise<ApiResponse<any>> => {
     try {
       const result = await mutation({
@@ -167,6 +170,7 @@ export function useAddActionToVisitDepartment() {
             productId: actionId,
             quantity: quantity ?? 1,
             status: "PENDING",
+            ...(processorId ? { processorId } : {}),
           },
         },
       });
@@ -243,6 +247,7 @@ export function useAddConsumableToVisitDepartment() {
     departmentId: string,
     consumableId: string,
     quantity?: number,
+    processorId?: string,
   ): Promise<ApiResponse<any>> => {
     try {
       const result = await mutation({
@@ -253,6 +258,7 @@ export function useAddConsumableToVisitDepartment() {
             productId: consumableId,
             quantity: quantity ?? 1,
             status: "PENDING",
+            ...(processorId ? { processorId } : {}),
           },
         },
       });
@@ -285,6 +291,7 @@ export function useAddProductToVisitDepartment() {
     departmentId: string,
     productId: string,
     quantity?: number,
+    processorId?: string,
   ): Promise<ApiResponse<any>> => {
     try {
       const result = await mutation({
@@ -295,6 +302,7 @@ export function useAddProductToVisitDepartment() {
             productId,
             quantity: quantity ?? 1,
             status: "PENDING",
+            ...(processorId ? { processorId } : {}),
           },
         },
       });
@@ -524,4 +532,61 @@ export function useUpdateProductStatus() {
   };
 
   return { updateStatus, loading, error };
+}
+
+export function useUpdateProductProcessor() {
+  const [mutation, { loading, error }] = useMutation(
+    UPDATE_VISIT_DEPARTMENT_PRODUCT_PROCESSOR_MUTATION,
+  );
+
+  const updateProcessor = async (
+    visitDepartmentProductId: string,
+    processorId: string | null,
+  ): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({
+        variables: {
+          input: {
+            visitDepartmentProductId,
+            processorId,
+          },
+        },
+      });
+      const payload = result.data?.updateVisitDepartmentProductProcessor;
+      return {
+        status: payload?.status || "ERROR",
+        message: payload?.message,
+        data: payload?.data,
+      };
+    } catch (err) {
+      console.error("Update product processor error:", err);
+      throw err;
+    }
+  };
+
+  return { updateProcessor, loading, error };
+}
+
+export function useRemoveVisitDepartment() {
+  const [mutation, { loading, error }] = useMutation(
+    REMOVE_VISIT_DEPARTMENT_MUTATION,
+  );
+
+  const removeVisitDepartment = async (
+    visitDepartmentId: string,
+  ): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({
+        variables: { visitDepartmentId },
+        refetchQueries: ["GetVisits", "GetVisit"],
+        awaitRefetchQueries: true,
+      });
+      return result.data?.removeVisitDepartment;
+    } catch (err) {
+      console.error("Remove visit department error:", err);
+      throw err;
+    }
+  };
+
+  return { removeVisitDepartment, loading, error };
 }

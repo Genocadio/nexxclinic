@@ -87,6 +87,7 @@ export interface BillingActionsContext {
     departmentId: string,
     productId: string,
     quantity?: number,
+    processorId?: string,
   ) => Promise<ApiResponse<any>>;
   // Refetches
   refetchVisit: () => Promise<unknown>;
@@ -527,6 +528,20 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
   const handleRemoveInsuranceFromVisit = async (insuranceId: string) => {
     if (!visitId) return;
 
+    // Frontend guard: check if any billed items use this insurance
+    if (billingData) {
+      const isUsedInBilledItem = billingData.items.some(
+        (item) => item.selectedInsuranceId === insuranceId && item.paymentStatus === "paid",
+      );
+      if (isUsedInBilledItem) {
+        toast.error(
+          "Cannot remove this insurance — it is already used in a billed item. " +
+          "Edit the bill first, change the insurance on the billed items, then remove it.",
+        );
+        return;
+      }
+    }
+
     try {
       const response = await unlinkVisitInsurances(visitId, [insuranceId]);
       if (response?.status === "SUCCESS") {
@@ -569,6 +584,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     },
     quantity: number,
     catalogDepartmentId: string,
+    processorId?: string,
   ) => {
     if (!visit?.id) return;
 
@@ -617,6 +633,22 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         const deptName = visitDept?.department?.name || "General";
         const tempId = `temp-${item.id}-${Date.now()}`;
 
+        // Resolve processor name for display
+        let processorName = "";
+        if (processorId && visit?.departments) {
+          for (const dept of visit.departments) {
+            const proc = (dept.processors || []).find(
+              (p) => String(p.id) === String(processorId),
+            );
+            if (proc) {
+              processorName = [proc.firstName, proc.lastName]
+                .filter(Boolean)
+                .join(" ");
+              break;
+            }
+          }
+        }
+
         const newBillingItem: BillingItem = {
           id: tempId,
           productId: item.id,
@@ -636,6 +668,8 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           exempted: false,
           exemptionType: "none",
           selectedInsuranceId: undefined,
+          processorId: processorId || undefined,
+          processorName: processorName || undefined,
           doneBy: {
             name: doctor?.firstName || "Doctor",
             title: "",
@@ -670,6 +704,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         catalogDepartmentId,
         item.id,
         quantity,
+        processorId,
       );
       if (response?.status === "SUCCESS") {
         // Add the new product to billing data state directly instead of refetching
@@ -705,6 +740,22 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
             await refetchVisit();
             setBillingRemapNonce((nonce) => nonce + 1);
           } else {
+            // Resolve processor name for display
+            let newProcessorName = "";
+            if (processorId && visit?.departments) {
+              for (const dept of visit.departments) {
+                const proc = (dept.processors || []).find(
+                  (p) => String(p.id) === String(processorId),
+                );
+                if (proc) {
+                  newProcessorName = [proc.firstName, proc.lastName]
+                    .filter(Boolean)
+                    .join(" ");
+                  break;
+                }
+              }
+            }
+
             const newBillingItem: BillingItem = {
               id: addedLine.id,
               productId: item.id,
@@ -724,6 +775,8 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
               exempted: false,
               exemptionType: "none",
               selectedInsuranceId: undefined,
+              processorId: processorId || undefined,
+              processorName: newProcessorName || undefined,
               doneBy: {
                 name: doctor?.firstName || "Doctor",
                 title: "",

@@ -158,7 +158,7 @@ export function buildEditBillInput(
 
   type DeptEntry = {
     visitDepartmentId: string;
-    addedProducts: { productId: string; quantity: number }[];
+    addedProducts: { productId: string; quantity: number; processorId?: string }[];
     removedProductIds: string[];
     updatedProducts: { productId: string; quantity?: number }[];
     billProducts: EditBillInput["departments"][number]["billProducts"];
@@ -220,6 +220,7 @@ export function buildEditBillInput(
       dept.addedProducts.push({
         productId: item.productId,
         quantity: item.quantity,
+        processorId: item.processorId,
       });
     } else {
       // Present in both: check for quantity change

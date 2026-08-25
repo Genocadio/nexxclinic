@@ -45,6 +45,7 @@ import {
   useVisitDepartmentNotes,
   useAddVisitDepartmentNote,
   useMarkVisitDepartmentNotesViewed,
+  useRemoveVisitDepartment,
 } from "@/hooks/visits/hooks";
 import { useBillingPageState } from "@/hooks/billing/use-billing-page-state";
 import { useBillingPageActions } from "@/hooks/billing/use-billing-actions";
@@ -136,6 +137,7 @@ export function BillingPageContent() {
     skip: !visitId,
   });
   const { changeVisitDepartmentProfile } = useChangeVisitDepartmentProfile();
+  const { removeVisitDepartment } = useRemoveVisitDepartment();
   // In-flight discharge — keeps the confirm dialog open with a spinner so the
   // completeVisit/department-status loop can't be triggered twice.
   const [discharging, setDischarging] = useState(false);
@@ -264,6 +266,17 @@ export function BillingPageContent() {
     );
   }, [billingData, activeService]);
 
+  const billedInsuranceIds = useMemo(() => {
+    if (!billingData) return new Set<string>();
+    const ids = new Set<string>();
+    for (const item of billingData.items) {
+      if (item.selectedInsuranceId && item.paymentStatus === "paid") {
+        ids.add(item.selectedInsuranceId);
+      }
+    }
+    return ids;
+  }, [billingData]);
+
   // Always bill all pending items — no partial selection.
   const selectedItems = useMemo(
     () =>
@@ -344,6 +357,37 @@ export function BillingPageContent() {
       visit?.departments?.map((dept) => dept.department?.name || "General") ||
         [],
     [visit?.departments],
+  );
+
+  const serviceDepartmentIds = useMemo(
+    () => {
+      const map: Record<string, string> = {};
+      for (const dept of visit?.departments || []) {
+        const name = dept.department?.name || "General";
+        map[name] = dept.id;
+      }
+      return map;
+    },
+    [visit?.departments],
+  );
+
+  const handleRemoveDepartment = useCallback(
+    async (visitDepartmentId: string) => {
+      try {
+        const result = await removeVisitDepartment(visitDepartmentId);
+        if (result?.status === "SUCCESS") {
+          await refetchVisit();
+          setBillingRemapNonce((nonce) => nonce + 1);
+          toast.success("Department removed from visit");
+        } else {
+          toast.error(result?.message || "Failed to remove department");
+        }
+      } catch (err) {
+        console.error("Remove department error:", err);
+        toast.error("Failed to remove department");
+      }
+    },
+    [removeVisitDepartment, refetchVisit],
   );
 
   const topLevelBillingDepartments = useMemo(
@@ -555,6 +599,7 @@ export function BillingPageContent() {
         patientInsurances={patientInsurances}
         activeInsuranceIds={visitInsuranceIds}
         addingVisitInsurance={addingVisitInsurance}
+        billedInsuranceIds={billedInsuranceIds}
         onToggleInsurance={(id, active) =>
           active
             ? handleAddInsuranceToVisit(id)
@@ -598,6 +643,9 @@ export function BillingPageContent() {
           onQuantityChange={(item, qty) =>
             handleQuantityChange(item, qty, isEditMode)
           }
+          serviceDepartmentIds={serviceDepartmentIds}
+          allItems={billingData?.items || []}
+          onRemoveDepartment={handleRemoveDepartment}
         />
 
         {showBillingDock && (

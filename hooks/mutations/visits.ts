@@ -268,6 +268,27 @@ export const PROCESS_VISIT_DEPARTMENT_MUTATION = gql`
   }
 `;
 
+export const REMOVE_VISIT_DEPARTMENT_MUTATION = gql`
+  mutation RemoveVisitDepartment($visitDepartmentId: ID!) {
+    removeVisitDepartment(visitDepartmentId: $visitDepartmentId) {
+      status
+      message
+      data {
+        id
+        status
+        departments {
+          id
+          status
+          department {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const ADD_PRODUCT_TO_VISIT_DEPARTMENT_MUTATION = gql`
   mutation AddVisitDepartmentProduct(
     $input: CreateVisitDepartmentProductInput!
@@ -294,6 +315,11 @@ export const ADD_PRODUCT_TO_VISIT_DEPARTMENT_MUTATION = gql`
           }
           quantity
           status
+          processor {
+            id
+            firstName
+            lastName
+          }
           addedBy {
             id
             firstName
@@ -895,6 +921,42 @@ export const UPDATE_VISIT_DEPARTMENT_ENCOUNTER_TYPE_MUTATION = gql`
         department {
           id
           name
+        }
+      }
+    }
+  }
+`;
+
+export const UPDATE_VISIT_DEPARTMENT_PRODUCT_PROCESSOR_MUTATION = gql`
+  mutation UpdateVisitDepartmentProductProcessor(
+    $input: UpdateVisitDepartmentProductProcessorInput!
+  ) {
+    updateVisitDepartmentProductProcessor(input: $input) {
+      status
+      message
+      data {
+        id
+        department {
+          id
+          name
+        }
+        status
+        processors {
+          id
+          firstName
+          lastName
+        }
+        products {
+          id
+          product {
+            id
+            name
+          }
+          processor {
+            id
+            firstName
+            lastName
+          }
         }
       }
     }

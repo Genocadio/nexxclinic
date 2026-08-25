@@ -26,6 +26,12 @@ type PatientInsurance = {
   }
 }
 
+type Processor = {
+  id: string
+  firstName: string
+  lastName?: string | null
+}
+
 type AddVisitDepartmentProductModalProps = {
   open: boolean
   onClose: () => void
@@ -40,6 +46,7 @@ type AddVisitDepartmentProductModalProps = {
     item: ProductPickerItem,
     quantity: number,
     catalogDepartmentId: string,
+    processorId?: string,
   ) => void | Promise<void>
   existingProductReferenceIds?: string[]
   isSubmitting?: boolean
@@ -72,6 +79,14 @@ export function AddVisitDepartmentProductModal({
     return resolveCatalogDepartmentIdForService(visitDepartments, activeServiceName)
   }, [currentCatalogDepartmentId, visitDepartments, activeServiceName])
 
+  // Resolve processors from the active visit department
+  const activeProcessors = useMemo(() => {
+    const activeDept = visitDepartments.find(
+      (dept) => String(dept.department?.id) === String(resolvedCurrentDepartmentId),
+    )
+    return activeDept?.processors || []
+  }, [visitDepartments, resolvedCurrentDepartmentId])
+
   const resolvedExistingIds = useMemo(
     () => existingProductReferenceIds ?? collectExistingProductReferenceIds(visitDepartments),
     [existingProductReferenceIds, visitDepartments],
@@ -88,6 +103,7 @@ export function AddVisitDepartmentProductModal({
       existingProductReferenceIds={resolvedExistingIds}
       isSubmitting={isSubmitting}
       linkedInsurances={linkedInsurances}
+      processors={activeProcessors}
     />
   )
 }

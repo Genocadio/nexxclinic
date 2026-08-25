@@ -488,6 +488,7 @@ export interface BillVisitInput {
 export interface EditBillVisitAddProductInput {
   productId: string
   quantity: number
+  processorId?: string
 }
 
 export interface EditBillVisitUpdateProductInput {

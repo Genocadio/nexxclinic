@@ -36,6 +36,8 @@ type InsuranceOption = {
   name: string;
   acronym: string;
   coveragePercentage: number;
+  /** Patient-specific override percentage (null = use rules then provider default). */
+  patientSharePercentage?: number | null;
   /** All coverage tiers for this provider (base + conditional). */
   coverages: InsuranceCoverageTier[];
 };
@@ -364,9 +366,17 @@ export function BillingItemsList({
                               } ${isPaidLocked(item) ? "opacity-70" : ""}`}
                             >
                               <td className="py-2 px-3">
-                                <p className="font-medium text-foreground text-sm leading-tight">
-                                  {item.name}
-                                </p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-medium text-foreground text-sm leading-tight">
+                                    {item.name}
+                                  </p>
+                                  {item.processorName && (
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                      <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                                      {item.processorName}
+                                    </span>
+                                  )}
+                                </div>
                                 {item.source === "PROFILE" && (
                                   <p className="mt-0.5">
                                     <Badge
@@ -492,52 +502,93 @@ export function BillingItemsList({
                                       Not covered
                                     </p>
                                   )}
-                                {/* Coverage tier pills */}
+                                {/* Coverage tier pills — show matching rules, base, and patient-specific % */}
                                 {item.selectedInsuranceId && (() => {
                                   const selectedIns = availableInsurances.find(
                                     (ins) => ins.id === item.selectedInsuranceId,
                                   );
                                   const allTiers = selectedIns?.coverages;
-                                  if (!allTiers || allTiers.length <= 1) return null;
-                                  // Only show tiers whose conditions match this item's context
+                                  if (!allTiers) return null;
+                                  // Filter to relevant tiers: base + context-matching rules
                                   const tiers = filterMatchingCoverages(
                                     allTiers,
                                     item.departmentId,
                                     item.encounterType,
                                   );
-                                  if (tiers.length <= 1) return null;
+                                  // Check if patient has a custom percentage that differs from the best match
                                   const bestMatch = findBestMatchingCoverage(
-                                    tiers,
+                                    allTiers,
                                     item.departmentId,
                                     item.encounterType,
                                   );
+                                  const patientCustomPct = selectedIns?.patientSharePercentage ?? null;
+                                  const hasPatientCustom = patientCustomPct != null && patientCustomPct > 0;
+                                  const patientDiffersFromMatch = hasPatientCustom &&
+                                    patientCustomPct !== bestMatch?.patientSharePercentage;
+                                  // Combine: filtered rules + patient-specific if it's a distinct value
+                                  const allDisplayTiers = [
+                                    ...tiers,
+                                    ...(patientDiffersFromMatch && bestMatch
+                                      ? [{
+                                          coverageId: `__patient_${patientCustomPct}`,
+                                          departmentId: null,
+                                          departmentName: null,
+                                          encounterType: null,
+                                          patientSharePercentage: patientCustomPct,
+                                        }]
+                                      : []),
+                                  ];
+                                  if (allDisplayTiers.length <= 1) return null;
                                   const activeId = item.selectedCoverageId || bestMatch?.coverageId || '';
                                   return (
                                     <div className="flex flex-wrap gap-1 mt-1">
-                                      {tiers.map((tier) => {
-                                        const isActive = tier.coverageId === activeId;
-                                        const label = !tier.departmentId && !tier.encounterType
-                                          ? `Base ${tier.patientSharePercentage}%`
-                                          : tier.patientSharePercentage + '%';
+                                      {allDisplayTiers.map((tier) => {
+                                        const isActive = tier.coverageId === activeId ||
+                                          (tier.coverageId.startsWith('__patient_') && item.selectedCoverageId === undefined && bestMatch && !allTiers.some(t => t.coverageId === item.selectedCoverageId));
+                                        const isPatientTier = tier.coverageId.startsWith('__patient_');
+                                        const isBase = !tier.departmentId && !tier.encounterType && !isPatientTier;
+                                        const isMatch = !isBase && !isPatientTier &&
+                                          tier.departmentId === item.departmentId &&
+                                          tier.encounterType === item.encounterType;
+                                        const label = isPatientTier
+                                          ? `Patient ${tier.patientSharePercentage}%`
+                                          : isBase
+                                            ? `Base ${tier.patientSharePercentage}%`
+                                            : tier.patientSharePercentage + '%';
+                                        const tooltip = isPatientTier
+                                          ? `Patient-specific: ${tier.patientSharePercentage}%`
+                                          : isBase
+                                            ? `Base: ${tier.patientSharePercentage}% (all depts)`
+                                            : `${tier.patientSharePercentage}% — ${tier.departmentName || 'All depts'} / ${tier.encounterType || 'All types'}`;
                                         return (
                                           <button
                                             key={tier.coverageId}
                                             type="button"
                                             disabled={isPaidLocked(item)}
                                             onClick={() => {
-                                              onItemChange({
-                                                ...item,
-                                                selectedCoverageId: tier.coverageId === bestMatch?.coverageId ? undefined : tier.coverageId,
-                                              });
+                                              // For patient tier, clear selectedCoverageId so the mapper resolves it naturally
+                                              if (isPatientTier) {
+                                                onItemChange({
+                                                  ...item,
+                                                  selectedCoverageId: undefined,
+                                                });
+                                              } else {
+                                                onItemChange({
+                                                  ...item,
+                                                  selectedCoverageId: tier.coverageId === bestMatch?.coverageId ? undefined : tier.coverageId,
+                                                });
+                                              }
                                             }}
                                             className={`text-[9px] px-1.5 py-0.5 rounded-full border transition-colors ${
                                               isActive
                                                 ? 'bg-primary/15 text-primary border-primary/40 font-medium'
-                                                : 'bg-muted/50 text-muted-foreground border-border/50 hover:bg-muted'
+                                                : isPatientTier
+                                                  ? 'bg-violet-50 text-violet-700 border-violet-300 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-700'
+                                                  : isMatch
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700'
+                                                    : 'bg-muted/50 text-muted-foreground border-border/50 hover:bg-muted'
                                             }`}
-                                            title={!tier.departmentId && !tier.encounterType
-                                              ? `Base: ${tier.patientSharePercentage}% (all depts)`
-                                              : `${tier.patientSharePercentage}% — ${tier.departmentName || 'All depts'} / ${tier.encounterType || 'All types'}`}
+                                            title={tooltip}
                                           >
                                             {label}
                                           </button>

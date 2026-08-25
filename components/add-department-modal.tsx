@@ -66,6 +66,16 @@ export function AddDepartmentModal({
     onClose();
   }, [departmentsError, isOpen, onClose]);
 
+  // Block adding departments to locked visit statuses
+  useEffect(() => {
+    if (!isOpen) return;
+    const lockedStatuses = ["COMPLETED", "CANCELLED", "BILL_EDITING"];
+    if (lockedStatuses.includes(visit.status)) {
+      toast.error("Cannot add departments to this visit.");
+      onClose();
+    }
+  }, [isOpen, visit.status, onClose]);
+
   // Filter out departments already in the visit
   const existingDepartmentIds =
     visit.departments?.map((d) => String(d.department?.id)) || [];

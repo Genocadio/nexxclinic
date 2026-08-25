@@ -37,6 +37,10 @@ export interface BillingItem {
   selectedInsuranceId?: string; // Can select specific insurance or 'none'
   /** The specific coverage tier selected for this line (optional override). */
   selectedCoverageId?: string;
+  /** ID of the processor worker assigned to this product line. */
+  processorId?: string;
+  /** Name of the processor worker assigned to this product line. */
+  processorName?: string;
   /** Applied patient share percentage (0-100) for this line. */
   appliedPatientSharePct?: number | null;
   /** Source of the applied percentage. */

@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus, Pencil, Layers } from "lucide-react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { Plus, Pencil, Layers, Trash2 } from "lucide-react";
 import type { ComponentProps } from "react";
 import { BillingItemsList } from "@/components/BillingItemsList";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,11 @@ type BillingInsuranceOption = NonNullable<
 type BillingItemsWorkspaceProps = {
   activeService: string;
   allServiceNames: string[];
+  /** Visit department IDs keyed by department name, used to identify which visit department to remove. */
+  serviceDepartmentIds?: Record<string, string>;
   items: BillingItem[];
+  /** All billing items across all departments, used to check if a department has 0 products. */
+  allItems?: BillingItem[];
   canAddItems: boolean;
   canEdit?: boolean;
   editMode?: boolean;
@@ -36,12 +41,15 @@ type BillingItemsWorkspaceProps = {
   onItemChange: (item: BillingItem) => void;
   onItemRemove: (itemId: string) => void;
   onQuantityChange: (item: BillingItem, quantity: number) => void;
+  onRemoveDepartment?: (visitDepartmentId: string) => void;
 };
 
 export function BillingItemsWorkspace({
   activeService,
   allServiceNames,
+  serviceDepartmentIds = {},
   items,
+  allItems = [],
   canAddItems,
   canEdit = true,
   editMode = false,
@@ -56,7 +64,45 @@ export function BillingItemsWorkspace({
   onItemChange,
   onItemRemove,
   onQuantityChange,
+  onRemoveDepartment,
 }: BillingItemsWorkspaceProps) {
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; serviceName: string; visitDepartmentId: string } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [contextMenu]);
+
+  // Close context menu on Escape
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setContextMenu(null);
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [contextMenu]);
+
+  const handleTabContextMenu = useCallback(
+    (e: React.MouseEvent, serviceName: string) => {
+      e.preventDefault();
+      const visitDeptId = serviceDepartmentIds[serviceName];
+      if (!visitDeptId || !onRemoveDepartment) return;
+      // Check if this department has any products
+      const deptItems = allItems.filter((item) => item.departmentName === serviceName);
+      if (deptItems.length > 0) return; // Don't show menu if department has products
+      setContextMenu({ x: e.clientX, y: e.clientY, serviceName, visitDepartmentId: visitDeptId });
+    },
+    [serviceDepartmentIds, allItems, onRemoveDepartment],
+  );
   return (
     <div className="flex-1 flex flex-col min-h-0 p-6">
       <div className="flex-1 flex flex-col min-h-0 w-full min-w-0 mx-auto px-2 sm:px-4 md:px-[1cm] lg:px-[2cm]">          <div className="flex items-center justify-between gap-3 mb-2 flex-shrink-0">
@@ -130,6 +176,7 @@ export function BillingItemsWorkspace({
                   key={dept}
                   value={dept}
                   className="rounded-full px-3 text-xs h-7"
+                  onContextMenu={(e) => handleTabContextMenu(e, dept)}
                 >
                   {dept}
                 </TabsTrigger>
@@ -137,6 +184,27 @@ export function BillingItemsWorkspace({
             </TabsList>
           </Tabs>
         </div>
+
+        {/* Right-click context menu */}
+        {contextMenu && (
+          <div
+            ref={contextMenuRef}
+            className="fixed z-50 min-w-[160px] bg-popover border border-border rounded-lg shadow-lg py-1"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <button
+              type="button"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+              onClick={() => {
+                onRemoveDepartment?.(contextMenu.visitDepartmentId);
+                setContextMenu(null);
+              }}
+            >
+              <Trash2 className="h-3 w-3" />
+              Remove Department
+            </button>
+          </div>
+        )}
 
         <div className="flex-1 min-h-0 bg-card/60 backdrop-blur-xl border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
           <div className="flex-1 overflow-y-auto py-2">

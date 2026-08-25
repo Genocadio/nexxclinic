@@ -25,6 +25,8 @@ type BillingPatientBarProps = {
   patientInsurances: PatientInsurance[];
   activeInsuranceIds: Set<string>;
   addingVisitInsurance: boolean;
+  /** Insurance IDs that are used in billed items — cannot be removed. */
+  billedInsuranceIds?: Set<string>;
   onToggleInsurance: (insuranceId: string, active: boolean) => void;
   onAddInsurance: () => void;
 };
@@ -39,6 +41,7 @@ export function BillingPatientBar({
   patientInsurances,
   activeInsuranceIds,
   addingVisitInsurance,
+  billedInsuranceIds,
   onToggleInsurance,
   onAddInsurance,
 }: BillingPatientBarProps) {
@@ -192,9 +195,13 @@ export function BillingPatientBar({
                               <input
                                 type="checkbox"
                                 checked={usedOnVisit}
-                                disabled={!active || addingVisitInsurance}
+                                disabled={!active || addingVisitInsurance || (usedOnVisit && billedInsuranceIds?.has(pIns.id))}
                                 onChange={() =>
                                   active && onToggleInsurance(pIns.id, !usedOnVisit)
+                                }
+                                title={usedOnVisit && billedInsuranceIds?.has(pIns.id)
+                                  ? "This insurance is used in a billed item. Edit the bill first to change it."
+                                  : undefined
                                 }
                                 className="mt-0.5 h-3.5 w-3.5 accent-primary"
                                 aria-label={`Use ${pIns.insuranceProvider.acronym} on this visit`}

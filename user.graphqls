@@ -1348,6 +1348,19 @@ input UpdateVisitDepartmentProductStatusInput {
   status: VisitProductStatus!
 }
 
+input UpdateVisitDepartmentProductProcessorInput {
+  """ID of the visit-department-product whose processor to change."""
+  visitDepartmentProductId: ID!
+  """
+  ID of the worker to assign as processor. Pass null to clear.
+  - FINANCE/ADMIN may assign any worker.
+  - Others may only pick from the visit department's existing processors.
+  - Only the worker who originally added the product may change it (ownership guard),
+    unless the caller is FINANCE or ADMIN.
+  """
+  processorId: ID
+}
+
 input UpdateVisitDepartmentStatusInput {
   visitDepartmentId: ID!
   status: VisitDepartmentStatus!
@@ -1435,6 +1448,7 @@ input EditBillVisitDepartmentInput {
 input EditBillVisitAddProductInput {
   productId: ID!
   quantity: Float!
+  processorId: ID
 }
 
 input EditBillVisitUpdateProductInput {
@@ -1744,12 +1758,16 @@ type Mutation {
   """
   addChildVisitDepartment(input: AddChildVisitDepartmentInput!): VisitDepartmentResponse!
   removeChildVisitDepartment(visitDepartmentId: ID!): VisitDepartmentResponse!
+  """Remove a top-level visit department from a visit. Only allowed when the department has 0 products."""
+  removeVisitDepartment(visitDepartmentId: ID!): VisitResponse!
   addVisitDepartmentProcessor(visitDepartmentId: ID!, processorId: ID!): VisitDepartmentResponse!
   removeVisitDepartmentProcessor(visitDepartmentId: ID!, processorId: ID!): VisitDepartmentResponse!
   linkVisitInsurances(visitId: ID!, insuranceIds: [ID!]!): VisitResponse!
   unlinkVisitInsurances(visitId: ID!, insuranceIds: [ID!]!): VisitResponse!
   completeVisitDepartment(visitDepartmentId: ID!): VisitDepartmentResponse!
   addVisitDepartmentProduct(input: CreateVisitDepartmentProductInput!): VisitDepartmentResponse!
+  """Change (or clear) the processor on an existing visit-department product."""
+  updateVisitDepartmentProductProcessor(input: UpdateVisitDepartmentProductProcessorInput!): VisitDepartmentResponse!
   updateVisitDepartmentProductStatus(input: UpdateVisitDepartmentProductStatusInput!): VisitDepartmentResponse!
   updateVisitDepartmentStatus(input: UpdateVisitDepartmentStatusInput!): VisitDepartmentResponse!
   updateVisitDepartmentProductQuantity(input: UpdateVisitDepartmentProductQuantityInput!): VisitDepartmentResponse!
