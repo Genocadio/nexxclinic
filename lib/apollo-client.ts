@@ -200,7 +200,77 @@ export function getApolloClient(): ApolloClient<NormalizedCacheObject> {
   if (!client) {
     client = new ApolloClient({
       link: ApolloLink.from([errorLink, authMiddleware, statusLink, createHttpLink()]),
-      cache: new InMemoryCache(),
+      cache: new InMemoryCache({
+        typePolicies: {
+          Query: {
+            fields: {
+              // Merge paginated lists so refetches update the cache properly
+              visitBillings: {
+                keyArgs: ["visitId"],
+                merge(existing, incoming) {
+                  return incoming
+                },
+              },
+              // Single-object queries: always replace with latest
+              visitBilling: {
+                keyArgs: ["visitId"],
+                merge(_existing, incoming) {
+                  return incoming
+                },
+              },
+              visit: {
+                keyArgs: ["id"],
+                merge(_existing, incoming) {
+                  return incoming
+                },
+              },
+              listProducts: {
+                keyArgs: false,
+                merge(_existing, incoming) {
+                  return incoming
+                },
+              },
+              listPatients: {
+                keyArgs: false,
+                merge(_existing, incoming) {
+                  return incoming
+                },
+              },
+            },
+          },
+          // Use the natural 'id' field for cache normalization
+          VisitBilling: {
+            keyFields: ["id"],
+          },
+          VisitDepartmentBilling: {
+            keyFields: ["id"],
+          },
+          DepartmentInsuranceBilling: {
+            keyFields: ["id"],
+          },
+          VisitBillingItem: {
+            keyFields: ["id"],
+          },
+          Visit: {
+            keyFields: ["id"],
+          },
+          Patient: {
+            keyFields: ["id"],
+          },
+          PatientInsurance: {
+            keyFields: ["id"],
+          },
+          Product: {
+            keyFields: ["id"],
+          },
+          Worker: {
+            keyFields: ["id"],
+          },
+          Department: {
+            keyFields: ["id"],
+          },
+        },
+      }),
     })
   }
   return client

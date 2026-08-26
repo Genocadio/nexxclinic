@@ -12,6 +12,7 @@ import FormActionsDisplay from "@/components/form-actions-display"
 import { ProductLockedTooltip } from "@/components/consultation/product-locked-tooltip"
 import type { FormAction, FormField } from "@/lib/form-storage"
 import { useAddDiagnosisToVisitDepartment, useAddMedicationToVisitDepartment } from "@/hooks/visits"
+import { toast } from "react-toastify"
 
 interface DiagnosticRecordEntry {
   id: string
@@ -577,9 +578,16 @@ export function FormFieldRenderer({
       if (!diagnosisName || !visitDepartmentId) return
 
       // Do not send notes as ICD-11 code to backend — leave icd11Code undefined
-      const result = await addDiagnosis(visitDepartmentId, diagnosisName)
+      let result
+      try {
+        result = await addDiagnosis(visitDepartmentId, diagnosisName)
+      } catch (err) {
+        console.error('[Consultation] Failed to add diagnosis', err)
+        toast.error(err instanceof Error ? err.message : 'Failed to add diagnosis')
+        return
+      }
       if (result?.status !== 'SUCCESS') {
-        console.error('[Consultation] Failed to add diagnosis', result)
+        toast.error(result?.message || 'Failed to add diagnosis')
         return
       }
 
@@ -660,9 +668,16 @@ export function FormFieldRenderer({
       if (!name || !frequency || !amount || !days || !visitDepartmentId) return
 
       const instructions = `Frequency: ${frequency}, Amount: ${amount}, Days: ${days}${notes ? `, Extra notes: ${notes}` : ''}`
-      const result = await addMedication(visitDepartmentId, name, instructions)
+      let result
+      try {
+        result = await addMedication(visitDepartmentId, name, instructions)
+      } catch (err) {
+        console.error('[Consultation] Failed to add medication', err)
+        toast.error(err instanceof Error ? err.message : 'Failed to add medication')
+        return
+      }
       if (result?.status !== 'SUCCESS') {
-        console.error('[Consultation] Failed to add medication', result)
+        toast.error(result?.message || 'Failed to add medication')
         return
       }
 
@@ -755,9 +770,16 @@ export function FormFieldRenderer({
       if (!name || !visitDepartmentId) return
 
       const instructions = notes || 'No additional notes'
-      const result = await addMedication(visitDepartmentId, name, instructions)
+      let result
+      try {
+        result = await addMedication(visitDepartmentId, name, instructions)
+      } catch (err) {
+        console.error('[Consultation] Failed to add medication', err)
+        toast.error(err instanceof Error ? err.message : 'Failed to add medication')
+        return
+      }
       if (result?.status !== 'SUCCESS') {
-        console.error('[Consultation] Failed to add medication', result)
+        toast.error(result?.message || 'Failed to add medication')
         return
       }
 

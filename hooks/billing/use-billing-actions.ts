@@ -323,18 +323,22 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         // BILL_EDITING: the visit should already be in BILL_EDITING mode
         // (set when the user clicked Edit). We just submit the edit and
         // lock back to COMPLETED.
-        try {
-          response = await editBill(
-            buildEditBillInput(
-              billingData,
-              editModeSnapshot ?? [],
-              coverageForItem,
-              insuranceOpts,
-            ),
-          );
-        } finally {
-          // Always lock back to COMPLETED, even if editBill failed
+        response = await editBill(
+          buildEditBillInput(
+            billingData,
+            editModeSnapshot ?? [],
+            coverageForItem,
+            insuranceOpts,
+          ),
+        );
+
+        if (response.status === "SUCCESS") {
+          // Edit succeeded — lock the visit back to COMPLETED
           await completeBillEditing(billingData.visitId);
+        } else {
+          // Edit failed — cancel the editing session so the visit
+          // returns to its previous state instead of staying locked
+          await cancelBillEditing(billingData.visitId);
         }
       } else {
         response = await createBill(

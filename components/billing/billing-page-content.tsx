@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useCallback, useState } from "react";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import {
   BillingItem,
   computeBillingTotals,
@@ -76,6 +77,7 @@ export function BillingPageContent() {
   const { cancelBillEditing } = useCancelBillEditing();
   const {
     visitBilling: existingVisitBilling,
+    error: billingQueryError,
     refetch: refetchBill,
   } = useGetVisitBilling(visitId);
   const {
@@ -560,17 +562,46 @@ export function BillingPageContent() {
     return () => clearTimeout(timer);
   }, [autoPrint, didAutoPrint, existingVisitBilling, billingData]);
 
+  // ── Keyboard shortcuts ──────────────────────────────────────────────
+  useKeyboardShortcuts(
+    useMemo(
+      () => ({
+        // Ctrl+S / Cmd+S → open save/complete confirmation
+        "ctrl+s": () => {
+          if (billingData?.items.length) {
+            setConfirmSheetMode(isEditingBill ? "edit" : "complete");
+            setShowCompleteBillConfirm(true);
+          }
+        },
+        // Ctrl+P / Cmd+P → print invoice
+        "ctrl+p": () => {
+          void handlePrintBillingInvoice();
+        },
+      }),
+      [billingData, isEditingBill, setConfirmSheetMode, setShowCompleteBillConfirm, handlePrintBillingInvoice],
+    ),
+  );
+
   const hasExemptions = billingData?.items.some(
     (item) => item.exempted || item.exemptionType === "full" || item.exemptionType === "patient-share",
   ) ?? false;
 
-  if (error) {
+  const combinedError = error || billingQueryError;
+  if (combinedError) {
+    const message =
+      (typeof combinedError === "string" ? combinedError : null)
+      || (combinedError as any)?.message
+      || "An unexpected error occurred";
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-2">
-        <p className="text-destructive">Failed to load visit billing data.</p>
-        <p className="text-sm text-muted-foreground">
-          {typeof error === "string" ? error : "An unexpected error occurred"}
-        </p>
+        <p className="text-destructive">Failed to load billing data.</p>
+        <p className="text-sm text-muted-foreground">{message}</p>
+        <button
+          onClick={() => { refetchVisit(); refetchBill(); }}
+          className="mt-2 px-4 py-1 text-sm border rounded hover:bg-muted"
+        >
+          Retry
+        </button>
       </div>
     );
   }

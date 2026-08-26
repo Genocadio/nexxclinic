@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "react-toastify";
 import type { VisitDepartment } from "@/hooks/types";
 import type { FormAction } from "@/lib/form-storage";
 import type { SavedForm } from "@/lib/formbuilder-storage";
@@ -258,17 +259,30 @@ export function useConsultationVisitExtension(
           };
         });
         if (duplicate.backendId) {
-          await updateQuantity(duplicate.backendId, newQty);
+          try {
+            await updateQuantity(duplicate.backendId, newQty);
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to update quantity");
+          }
         }
         return;
       }
 
-      const result =
-        type === "action"
-          ? await addAction(visitId, departmentId, catalogId, quantity)
-          : await addConsumable(visitId, departmentId, catalogId, quantity);
+      let result;
+      try {
+        result =
+          type === "action"
+            ? await addAction(visitId, departmentId, catalogId, quantity)
+            : await addConsumable(visitId, departmentId, catalogId, quantity);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to add product");
+        return;
+      }
 
-      if (result?.status !== "SUCCESS") return;
+      if (result?.status !== "SUCCESS") {
+        toast.error(result?.message || "Failed to add product");
+        return;
+      }
 
       const backendId = extractBackendProductId(result, catalogId);
       const newAction: FormAction = {
@@ -331,11 +345,22 @@ export function useConsultationVisitExtension(
         return;
       }
 
-      const result = await removeProduct(action.backendId);
+      let result;
+      try {
+        result = await removeProduct(action.backendId);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to remove product");
+        return;
+      }
       const ok =
         result?.status === "SUCCESS" ||
         (typeof result?.message === "string" &&
           /not found/i.test(result.message));
+
+      if (!ok) {
+        toast.error(result?.message || "Failed to remove product");
+        return;
+      }
 
       if (ok) {
         setFieldActions((prev) => ({
@@ -358,7 +383,12 @@ export function useConsultationVisitExtension(
       const action = fieldActions[blockId]?.find((a) => a.id === actionId);
       if (!action?.backendId) return;
 
-      await updateQuantity(action.backendId, quantity);
+      try {
+        await updateQuantity(action.backendId, quantity);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to update quantity");
+        return;
+      }
       setFieldActions((prev) => ({
         ...prev,
         [blockId]:
@@ -384,8 +414,17 @@ export function useConsultationVisitExtension(
   const handleAddDiagnosis = useCallback(
     async (blockId: string, diagnosis: string, description?: string) => {
       if (!visitDepartmentId) return false;
-      const result = await addDiagnosis(visitDepartmentId, diagnosis.trim());
-      if (result?.status !== "SUCCESS") return false;
+      let result;
+      try {
+        result = await addDiagnosis(visitDepartmentId, diagnosis.trim());
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to add diagnosis");
+        return false;
+      }
+      if (result?.status !== "SUCCESS") {
+        toast.error(result?.message || "Failed to add diagnosis");
+        return false;
+      }
 
       const added = Array.isArray(result.data?.diagnostics)
         ? result.data.diagnostics[result.data.diagnostics.length - 1]
@@ -416,12 +455,21 @@ export function useConsultationVisitExtension(
     ) => {
       if (!visitDepartmentId) return false;
       const instructions = buildLongMedicationInstructions(entry);
-      const result = await addMedication(
-        visitDepartmentId,
-        entry.name.trim(),
-        instructions,
-      );
-      if (result?.status !== "SUCCESS") return false;
+      let result;
+      try {
+        result = await addMedication(
+          visitDepartmentId,
+          entry.name.trim(),
+          instructions,
+        );
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to add medication");
+        return false;
+      }
+      if (result?.status !== "SUCCESS") {
+        toast.error(result?.message || "Failed to add medication");
+        return false;
+      }
 
       const added = Array.isArray(result.data?.medications)
         ? result.data.medications[result.data.medications.length - 1]
@@ -451,13 +499,21 @@ export function useConsultationVisitExtension(
   const handleAddMedicationMini = useCallback(
     async (blockId: string, name: string, notes?: string) => {
       if (!visitDepartmentId) return false;
-      const instructions = notes?.trim() || "No additional notes";
-      const result = await addMedication(
-        visitDepartmentId,
-        name.trim(),
-        instructions,
-      );
-      if (result?.status !== "SUCCESS") return false;
+      const instructions = notes?.trim() || "No additional notes";      let result;
+      try {
+        result = await addMedication(
+          visitDepartmentId,
+          name.trim(),
+          instructions,
+        );
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to add medication");
+        return false;
+      }
+      if (result?.status !== "SUCCESS") {
+        toast.error(result?.message || "Failed to add medication");
+        return false;
+      }
 
       const added = Array.isArray(result.data?.medications)
         ? result.data.medications[result.data.medications.length - 1]
@@ -508,10 +564,14 @@ export function useConsultationVisitExtension(
               setProductModalOpen(true);
             },
             onRemoveProduct: (actionId) => {
-              void handleRemoveProduct(block.id, actionId);
+              void handleRemoveProduct(block.id, actionId).catch((err) => {
+                toast.error(err instanceof Error ? err.message : "Failed to remove product");
+              });
             },
             onUpdateProductQuantity: (actionId, qty) => {
-              void handleUpdateProductQuantity(block.id, actionId, qty);
+              void handleUpdateProductQuantity(block.id, actionId, qty).catch((err) => {
+                toast.error(err instanceof Error ? err.message : "Failed to update quantity");
+              });
             },
             productsLocked,
             visitId,
