@@ -452,6 +452,8 @@ export interface PatientInsurance {
   deactivated: boolean;
   /** Optional patient-specific default patient share percentage (0-100). Null = use rules then provider default. */
   patientSharePercentage?: number | null;
+  /** Reference to an InsuranceCoverage record that defines the patient's share. */
+  patientShareCoverageId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

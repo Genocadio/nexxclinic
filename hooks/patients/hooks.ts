@@ -184,6 +184,8 @@ export interface PatientInsuranceMutationInput {
   validUntil: string;
   /** Optional patient-specific default patient share percentage (0-100). */
   patientSharePercentage?: number | null;
+  /** Reference to an InsuranceCoverage record. Takes precedence over patientSharePercentage. */
+  patientShareCoverageId?: string | null;
 }
 
 export function useCreatePatientInsurance() {
@@ -277,6 +279,7 @@ export function useUpdatePatientInsurance() {
             validFrom: input.validFrom,
             validUntil: input.validUntil,
             patientSharePercentage: input.patientSharePercentage ?? null,
+            patientShareCoverageId: input.patientShareCoverageId ?? null,
           },
         },
       });

@@ -100,6 +100,13 @@ export function AddPatientInsuranceModal({
     return [...new Set(pcts)].sort((a, b) => a - b)
   }, [selectedProviderRules])
 
+  /** Coverage tiers available for this provider — used to send coverageId (UUID) instead of raw number. */
+  const availableCoverages = useMemo(() => {
+    return selectedProviderRules
+      .filter((r) => r.patientSharePercentage != null)
+      .sort((a, b) => (a.patientSharePercentage ?? 0) - (b.patientSharePercentage ?? 0))
+  }, [selectedProviderRules])
+
   const dominantRequired = isDominantMemberRequired(patientDateOfBirth, true)
 
   const {
@@ -173,6 +180,7 @@ export function AddPatientInsuranceModal({
       dominantPhone: values.dominantPhone,
       existingPatientInsurances: patientInsurances,
       patientSharePercentage: values.patientSharePercentage ? Number(values.patientSharePercentage) : null,
+      patientShareCoverageId: values.patientShareCoverageId || null,
     })
 
     if (result.status === 'VALIDATION_ERROR') {
@@ -388,15 +396,21 @@ export function AddPatientInsuranceModal({
                     This provider has multiple coverage tiers. Pick the default for this patient, or leave empty to use rules/provider default.
                   </p>
                   <div className="flex flex-wrap gap-2 mt-1">
-                    {availablePercentages.map((pct) => {
-                      const currentVal = getValues('patientSharePercentage')
-                      const isSelected = String(currentVal) === String(pct)
+                    {availableCoverages.map((cov) => {
+                      const currentCoverageId = getValues('patientShareCoverageId')
+                      const isSelected = currentCoverageId === cov.id
                       return (
                         <button
-                          key={pct}
+                          key={cov.id}
                           type="button"
                           onClick={() => {
-                            setValue('patientSharePercentage', isSelected ? '' : String(pct), { shouldValidate: true })
+                            if (isSelected) {
+                              setValue('patientShareCoverageId', null, { shouldValidate: true })
+                              setValue('patientSharePercentage', '', { shouldValidate: true })
+                            } else {
+                              setValue('patientShareCoverageId', cov.id, { shouldValidate: true })
+                              setValue('patientSharePercentage', String(cov.patientSharePercentage), { shouldValidate: true })
+                            }
                           }}
                           className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all ${
                             isSelected
@@ -404,11 +418,12 @@ export function AddPatientInsuranceModal({
                               : 'bg-white dark:bg-slate-950 border-border/40 hover:border-[#5F77E8]/40'
                           }`}
                         >
-                          {pct}%
+                          {cov.patientSharePercentage}%
                         </button>
                       )
                     })}
                   </div>
+                  <input type="hidden" {...register('patientShareCoverageId')} />
                   <input type="hidden" {...register('patientSharePercentage')} />
                 </div>
               ) : availablePercentages.length === 1 ? (

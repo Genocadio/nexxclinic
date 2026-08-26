@@ -15,6 +15,8 @@ export type SavePatientInsuranceInput = {
   existingPatientInsurances?: PatientInsurance[]
   /** Optional patient-specific default patient share percentage (0-100). */
   patientSharePercentage?: number | null
+  /** Reference to an InsuranceCoverage record. Takes precedence over patientSharePercentage. */
+  patientShareCoverageId?: string | null
 }
 
 export type SavePatientInsuranceFieldErrors = {
@@ -94,6 +96,7 @@ export function useSavePatientInsurance() {
         new Date().getDate(),
       ).toISOString().slice(0, 10),
       patientSharePercentage: input.patientSharePercentage ?? null,
+      patientShareCoverageId: input.patientShareCoverageId ?? null,
     }
 
     const response = existingInsurance

@@ -61,6 +61,7 @@ export type GqlPatientInsurance = {
   validUntil?: string | null;
   deactivated?: boolean | null;
   patientSharePercentage?: number | null;
+  patientShareCoverageId?: string | null;
   insuranceProvider: GqlInsuranceProvider;
   patient?: { id: string } | null;
 };
@@ -427,6 +428,7 @@ export function mapGqlPatientInsurance(
     validUntil: insurance.validUntil || EMPTY_TIMESTAMP,
     deactivated: Boolean(insurance.deactivated),
     patientSharePercentage: insurance.patientSharePercentage ?? null,
+    patientShareCoverageId: insurance.patientShareCoverageId ?? null,
     createdAt: EMPTY_TIMESTAMP,
     updatedAt: EMPTY_TIMESTAMP,
   };

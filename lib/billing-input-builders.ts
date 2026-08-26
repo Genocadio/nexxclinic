@@ -73,15 +73,17 @@ export function buildCreateBillInput(
       item.selectedInsuranceId && !item.insuranceNotCovered
         ? item.selectedInsuranceId
         : undefined;
-    // Resolve coverage tier override if user manually selected a non-default tier
-    let patientSharePercentageOverride: number | undefined;
+    // Resolve coverage tier override if user manually selected a non-default tier.
+    // Send the coverageId (UUID) instead of a raw percentage — the backend resolves
+    // the actual value from the InsuranceCoverage record to prevent tampering.
+    let patientSharePercentageOverride: string | undefined;
     if (coveredInsuranceId && insuranceOptions && insuranceOptions.length > 0) {
       const insOpt = insuranceOptions.find((o) => o.id === coveredInsuranceId);
       if (insOpt && insOpt.coverages.length > 1) {
         if (item.selectedCoverageId) {
-          // User explicitly chose a tier — find its percentage
+          // User explicitly chose a tier — send its coverageId (UUID)
           const chosenTier = insOpt.coverages.find((c) => c.coverageId === item.selectedCoverageId);
-          if (chosenTier) patientSharePercentageOverride = chosenTier.patientSharePercentage;
+          if (chosenTier) patientSharePercentageOverride = chosenTier.coverageId;
         }
         // If no selectedCoverageId, let the backend auto-resolve (no override needed)
       }
@@ -195,13 +197,13 @@ export function buildEditBillInput(
       item.selectedInsuranceId && !item.insuranceNotCovered
         ? item.selectedInsuranceId
         : undefined;
-    // Resolve coverage tier override
-    let patientSharePercentageOverride: number | undefined;
+    // Resolve coverage tier override — send coverageId (UUID) not raw number
+    let patientSharePercentageOverride: string | undefined;
     if (coveredInsuranceId && insuranceOptions && insuranceOptions.length > 0) {
       const insOpt = insuranceOptions.find((o) => o.id === coveredInsuranceId);
       if (insOpt && insOpt.coverages.length > 1 && item.selectedCoverageId) {
         const chosenTier = insOpt.coverages.find((c) => c.coverageId === item.selectedCoverageId);
-        if (chosenTier) patientSharePercentageOverride = chosenTier.patientSharePercentage;
+        if (chosenTier) patientSharePercentageOverride = chosenTier.coverageId;
       }
     }
     dept.billProducts.push({

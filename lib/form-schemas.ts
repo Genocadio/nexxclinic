@@ -343,6 +343,7 @@ export function createPatientInsuranceFormSchema(options: {
           },
           { message: 'Patient share must be between 0 and 100' },
         ),
+      patientShareCoverageId: z.string().optional().nullable(),
     })
     .superRefine((data, ctx) => {
       // ── Format validation (runs whether or not dominant is required) ──
