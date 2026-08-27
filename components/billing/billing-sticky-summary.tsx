@@ -32,6 +32,8 @@ type BillingStickySummaryProps = {
   generatingInvoice: boolean;
   isEditingBill: boolean;
   hasUnreadNotes?: boolean;
+  loadingEditBilling?: boolean;
+  loadingDoneEditing?: boolean;
   onCompleteBill: () => void;
   onPreview: () => void;
   onPrint: () => void;
@@ -51,6 +53,8 @@ export function BillingStickySummary({
   generatingInvoice,
   isEditingBill,
   hasUnreadNotes = false,
+  loadingEditBilling = false,
+  loadingDoneEditing = false,
   onCompleteBill,
   onPrint,
   onEditBilling,
@@ -171,9 +175,10 @@ export function BillingStickySummary({
                       size="sm"
                       variant="outline"
                       className="h-9 rounded-full text-xs"
+                      disabled={loadingDoneEditing || creatingBill}
                       onClick={onDoneEditing}
                     >
-                      Cancel
+                      {loadingDoneEditing ? "Cancelling…" : "Cancel"}
                     </Button>
                     <Button
                       size="sm"
@@ -213,13 +218,15 @@ export function BillingStickySummary({
                 {existingVisitBilling && canEditBilling && !isEditingBill && (
                   <ActionButton
                     icon={Pencil}
-                    label="Edit billing"
+                    label={loadingEditBilling ? "Entering edit mode…" : "Edit billing"}
                     onClick={onEditBilling}
-                    disabled={!canAct}
+                    disabled={!canAct || loadingEditBilling}
                     tooltipOverride={
                       !canAct
                         ? "View unread notes to enable billing actions"
-                        : undefined
+                        : loadingEditBilling
+                          ? "Entering edit mode…"
+                          : undefined
                     }
                   />
                 )}

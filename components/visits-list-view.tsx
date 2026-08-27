@@ -27,6 +27,7 @@ import {
   Plus,
   Stethoscope,
   Activity,
+  Loader2,
 } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
 import { useAuth } from "@/lib/auth-context"
@@ -72,6 +73,8 @@ export default function VisitsListView({
   // In-flight invoice generation (print/download) — disables those buttons
   // so a double click can't fire generateInvoice twice.
   const [printingInvoice, setPrintingInvoice] = useState(false)
+  // Tracks navigation in-flight so buttons show a spinner while router.push loads
+  const [navigatingVisitId, setNavigatingVisitId] = useState<string | null>(null)
   const handleDownloadInvoice = async (
     departmentInsuranceBillingId: string,
   ) => {
@@ -303,17 +306,22 @@ export default function VisitsListView({
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
+                              setNavigatingVisitId(visit.id)
                               onConsultVisit(visit)
                             }}
                             title="Start Consult"
                             className="px-2 sm:px-4 py-1.5 sm:py-2 bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
                           >
-                            <Stethoscope className="w-4 h-4 flex-shrink-0" />
+                            {navigatingVisitId === visit.id ? (
+                              <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                            ) : (
+                              <Stethoscope className="w-4 h-4 flex-shrink-0" />
+                            )}
                             <span className="hidden sm:inline lg:hidden">
                               Consult
                             </span>
                             <span className="hidden lg:inline">
-                              Start Consult
+                              {navigatingVisitId === visit.id ? "Opening…" : "Start Consult"}
                             </span>
                           </button>
                         )}
@@ -322,17 +330,22 @@ export default function VisitsListView({
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
+                              setNavigatingVisitId(visit.id)
                               handleTriageVisit(visit)
                             }}
                             title="Open Triage"
                             className="px-2 sm:px-4 py-1.5 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
                           >
-                            <Activity className="w-4 h-4 flex-shrink-0" />
+                            {navigatingVisitId === visit.id ? (
+                              <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                            ) : (
+                              <Activity className="w-4 h-4 flex-shrink-0" />
+                            )}
                             <span className="hidden sm:inline lg:hidden">
                               Triage
                             </span>
                             <span className="hidden lg:inline">
-                              Open Triage
+                              {navigatingVisitId === visit.id ? "Opening…" : "Open Triage"}
                             </span>
                           </button>
                         )}
@@ -342,6 +355,7 @@ export default function VisitsListView({
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
+                              setNavigatingVisitId(visit.id)
                               handleAddDepartment(visit)
                             }}
                             title="Add Department"
@@ -361,16 +375,23 @@ export default function VisitsListView({
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
+                              setNavigatingVisitId(visit.id)
                               handleGoToBilling(visit)
                             }}
                             title="Bill Visit"
                             className="px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
                           >
-                            <ReceiptText className="w-4 h-4 flex-shrink-0" />
+                            {navigatingVisitId === visit.id ? (
+                              <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                            ) : (
+                              <ReceiptText className="w-4 h-4 flex-shrink-0" />
+                            )}
                             <span className="hidden sm:inline lg:hidden">
                               Bill
                             </span>
-                            <span className="hidden lg:inline">Bill Visit</span>
+                            <span className="hidden lg:inline">
+                              {navigatingVisitId === visit.id ? "Opening…" : "Bill Visit"}
+                            </span>
                           </button>
                         )}
                         {/* Preview Invoice: only for FINANCE role if billed */}

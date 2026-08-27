@@ -481,36 +481,6 @@ export const calculatePatientResponsibility = (
   return subtotal - calculateInsuranceCoverage(subtotal, coveragePercentage);
 };
 
-// Calculate discount percentage from amount
-export const convertDiscountAmountToPercentage = (
-  amount: number,
-  baseAmount: number,
-): number => {
-  if (baseAmount === 0) return 0;
-  return (amount / baseAmount) * 100;
-};
-
-// Calculate discount
-export const calculateDiscount = (
-  amount: number,
-  discountPercentage: number,
-): number => {
-  return (amount * discountPercentage) / 100;
-};
-
-// Calculate discount from amount (alternative)
-export const calculateDiscountFromAmount = (discountAmount: number): number => {
-  return discountAmount;
-};
-
-// Calculate total after discount
-export const calculateTotalAfterDiscount = (
-  amount: number,
-  discountPercentage: number,
-): number => {
-  return amount - calculateDiscount(amount, discountPercentage);
-};
-
 // Calculate exempted items total
 export const calculateExemptedTotal = (items: BillingItem[]): number => {
   return items.reduce((total, item) => {

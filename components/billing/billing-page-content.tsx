@@ -116,7 +116,6 @@ export function BillingPageContent() {
     handleItemChange,
     handleQuantityChange,
     handleItemRemove,
-    handleDiscountChange,
     handleExemptionChange,
     handlePaymentMethodChange,
     handleAmountPaidChange,
@@ -147,6 +146,9 @@ export function BillingPageContent() {
   // the note-required flag should be set (avoids false triggers from automatic
   // amountPaid capping when items are removed/exempted).
   const [previousPaidCents, setPreviousPaidCents] = useState<number | null>(null);
+  // Loading states for edit/done-editing buttons in the sticky summary bar
+  const [loadingEditBilling, setLoadingEditBilling] = useState(false);
+  const [loadingDoneEditing, setLoadingDoneEditing] = useState(false);
 
   const existingBillingTotals = useMemo(
     () =>
@@ -695,6 +697,8 @@ export function BillingPageContent() {
             generatingInvoice={generatingInvoice}
             isEditingBill={isEditMode}
             hasUnreadNotes={unreadBillingNotesCount > 0}
+            loadingEditBilling={loadingEditBilling}
+            loadingDoneEditing={loadingDoneEditing}
             // Outstanding is total - paid (authoritative) — the backend's
             // reported outstandingAmount can lag a full payment and otherwise
             // keep showing the Collect payment button after the bill is settled.
@@ -719,39 +723,50 @@ export function BillingPageContent() {
                 toast.warn("Please view the notes first before continuing.");
                 return;
               }
-              if (!visitId) return;
-              // Persist BILL_EDITING status on the backend so the mode
-              // survives page refreshes. Only COMPLETED visits can enter
-              // BILL_EDITING — the backend enforces this.
-              const result = await startBillEditing(visitId);
-              if (result.status !== "SUCCESS") {
-                toast.error(result.message || "Failed to enter billing edit mode");
-                return;
+              if (!visitId || loadingEditBilling) return;
+              setLoadingEditBilling(true);
+              try {
+                // Persist BILL_EDITING status on the backend so the mode
+                // survives page refreshes. Only COMPLETED visits can enter
+                // BILL_EDITING — the backend enforces this.
+                const result = await startBillEditing(visitId);
+                if (result.status !== "SUCCESS") {
+                  toast.error(result.message || "Failed to enter billing edit mode");
+                  return;
+                }
+                setPreviousPaidCents(toCents(billingData?.amountPaid || 0));
+                setIsEditingBill(true);
+                setEditModeSnapshot(billingData?.items ?? null);
+                // Refetch so visit.status becomes BILL_EDITING and the
+                // derived isEditMode picks it up even without local state.
+                await refetchVisit();
+              } finally {
+                setLoadingEditBilling(false);
               }
-              setPreviousPaidCents(toCents(billingData?.amountPaid || 0));
-              setIsEditingBill(true);
-              setEditModeSnapshot(billingData?.items ?? null);
-              // Refetch so visit.status becomes BILL_EDITING and the
-              // derived isEditMode picks it up even without local state.
-              await refetchVisit();
             }}
             onDoneEditing={async () => {
-              // Exit BILL_EDITING mode on the backend
-              if (visitId) {
-                try {
-                  await cancelBillEditing(visitId);
-                } catch (err) {
-                  console.error("Failed to cancel bill editing mode:", err);
+              if (loadingDoneEditing) return;
+              setLoadingDoneEditing(true);
+              try {
+                // Exit BILL_EDITING mode on the backend
+                if (visitId) {
+                  try {
+                    await cancelBillEditing(visitId);
+                  } catch (err) {
+                    console.error("Failed to cancel bill editing mode:", err);
+                  }
                 }
+                setIsEditingBill(false);
+                setPreviousPaidCents(null);
+                setEditModeSnapshot(null);
+                setConfirmSheetMode("complete");
+                // Refetch so items revert back to their billed/paid state
+                await refetchVisit();
+                await refetchBill();
+                toast.info("Edit mode cancelled");
+              } finally {
+                setLoadingDoneEditing(false);
               }
-              setIsEditingBill(false);
-              setPreviousPaidCents(null);
-              setEditModeSnapshot(null);
-              setConfirmSheetMode("complete");
-              // Refetch so items revert back to their billed/paid state
-              await refetchVisit();
-              await refetchBill();
-              toast.info("Edit mode cancelled");
             }}
           />
         )}

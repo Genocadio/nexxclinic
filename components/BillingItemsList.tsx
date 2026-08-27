@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo, useRef, useState } from "react";
 import { AlertCircle, Minus, Plus, Trash2 } from "lucide-react";
+import { toast } from "react-toastify";
 import {
   BillingItem,
   applyInsuranceSelectionToItem,
@@ -693,6 +694,10 @@ export function BillingItemsList({
                                   <Select
                                     value={exemptionType}
                                     onValueChange={(value) => {
+                                      if (item.source === "PROFILE") {
+                                        toast.info("Profile products cannot be exempted individually — change the visit department's profile instead.");
+                                        return;
+                                      }
                                       const updated = {
                                         ...item,
                                         exemptionType:
@@ -710,21 +715,21 @@ export function BillingItemsList({
                                       }
                                       onItemChange(updated);
                                     }}
-                                    disabled={isPaidLocked(item)}
+                                    disabled={isPaidLocked(item) || item.source === "PROFILE"}
                                   >
                                     <SelectTrigger className="h-7 text-[10px] w-[7.5rem]">
                                       <SelectValue placeholder="Exemption" />
                                     </SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="none">
-                                        No exemption
+                                        {item.source === "PROFILE" ? "Profile product" : "No exemption"}
                                       </SelectItem>
                                       {availableInsurances.length > 0 && (
-                                        <SelectItem value="patient-share">
+                                        <SelectItem value="patient-share" disabled={item.source === "PROFILE"}>
                                           Waive patient share
                                         </SelectItem>
                                       )}
-                                      <SelectItem value="full">
+                                      <SelectItem value="full" disabled={item.source === "PROFILE"}>
                                         Full exemption
                                       </SelectItem>
                                     </SelectContent>

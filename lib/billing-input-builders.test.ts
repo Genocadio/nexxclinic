@@ -31,7 +31,6 @@ const makeBillingData = (overrides: Partial<BillingData>): BillingData => ({
   visitDate: "2026-08-04",
   currency: "RWF",
   items: [],
-  discountPercentage: 0,
   paymentMethod: "CASH",
   amountPaid: 0,
   notes: "",

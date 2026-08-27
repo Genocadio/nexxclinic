@@ -31,15 +31,10 @@ export function useBillingPageState() {
   // No per-item selection: billing is always all-or-nothing per visit department.
   // Items are removed from the list to exclude them, not deselected.
   const [showAddInsuranceModal, setShowAddInsuranceModal] = useState(false);
-  const [showDiscountControls, setShowDiscountControls] = useState(false);
   const [isEditingBill, setIsEditingBill] = useState(false);
   const [editModeSnapshot, setEditModeSnapshot] = useState<
     BillingItem[] | null
   >(null);
-  const [discountInputType, setDiscountInputType] = useState<
-    "PERCENTAGE" | "FIXED"
-  >("PERCENTAGE");
-  const [discountInputValue, setDiscountInputValue] = useState(0);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [addingBillingItem, setAddingBillingItem] = useState(false);
   const [showExemptionsWindow, setShowExemptionsWindow] = useState(false);
@@ -53,12 +48,19 @@ export function useBillingPageState() {
   // ── Sync handlers ──────────────────────────────────────────────────────────
 
   const handleItemChange = (updatedItem: BillingItem) => {
+    // Clamp quantity and price to safe bounds so corrupted values from
+    // uncontrolled inputs never reach billing totals or the backend.
+    const safeItem: BillingItem = {
+      ...updatedItem,
+      quantity: Number.isFinite(updatedItem.quantity) && updatedItem.quantity >= 1 ? updatedItem.quantity : 1,
+      price: Number.isFinite(updatedItem.price) && updatedItem.price >= 0 ? updatedItem.price : 0,
+    };
     setBillingData((prev) => {
       if (!prev) return prev;
       return {
         ...prev,
         items: prev.items.map((item) =>
-          item.id === updatedItem.id ? updatedItem : item,
+          item.id === safeItem.id ? safeItem : item,
         ),
         updatedAt: new Date().toISOString(),
       };
@@ -98,24 +100,17 @@ export function useBillingPageState() {
   const handleItemRemove = (itemId: string) => {
     setBillingData((prev) => {
       if (!prev) return prev;
+      const target = prev.items.find((item) => item.id === itemId);
+      if (target?.source === "PROFILE") {
+        toast.info("Profile products cannot be removed individually — change the visit department's profile instead.");
+        return prev;
+      }
       return {
         ...prev,
         items: prev.items.filter((item) => item.id !== itemId),
         updatedAt: new Date().toISOString(),
       };
     });
-  };
-
-  const handleDiscountChange = (discount: number) => {
-    setBillingData((prev) =>
-      prev
-        ? {
-            ...prev,
-            discountPercentage: discount,
-            updatedAt: new Date().toISOString(),
-          }
-        : prev,
-    );
   };
 
   const handleExemptionChange = (itemId: string, reason: string) => {
@@ -145,11 +140,13 @@ export function useBillingPageState() {
   };
 
   const handleAmountPaidChange = (amount: number) => {
+    // Guard against NaN / Infinity from malformed number inputs
+    const safeAmount = Number.isFinite(amount) ? Math.max(0, amount) : 0;
     setBillingData((prev) =>
       prev
         ? {
             ...prev,
-            amountPaid: amount,
+            amountPaid: safeAmount,
             updatedAt: new Date().toISOString(),
           }
         : prev,
@@ -188,16 +185,10 @@ export function useBillingPageState() {
     setActiveService,
     showAddInsuranceModal,
     setShowAddInsuranceModal,
-    showDiscountControls,
-    setShowDiscountControls,
     isEditingBill,
     setIsEditingBill,
     editModeSnapshot,
     setEditModeSnapshot,
-    discountInputType,
-    setDiscountInputType,
-    discountInputValue,
-    setDiscountInputValue,
     showAddProductModal,
     setShowAddProductModal,
     addingBillingItem,
@@ -217,7 +208,6 @@ export function useBillingPageState() {
     handleItemChange,
     handleQuantityChange,
     handleItemRemove,
-    handleDiscountChange,
     handleExemptionChange,
     handlePaymentMethodChange,
     handleAmountPaidChange,

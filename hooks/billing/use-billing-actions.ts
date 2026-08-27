@@ -5,11 +5,13 @@ import type { Dispatch, SetStateAction } from "react";
 import { toast } from "react-toastify";
 import {
   applyInsuranceSelectionToItem,
+  getItemInsuranceSplit,
   type BillingData,
   type BillingItem,
   type BillingTotals,
   type CoverageTier,
 } from "@/lib/billing-utils";
+import { formatRWF } from "@/lib/utils";
 import { getBasePatientSharePercentage } from "@/lib/api-types";
 import {
   flattenVisitDepartmentsForBilling,
@@ -320,6 +322,29 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       }));
       let response: ApiResponse<VisitBilling>;
       if (existingVisitBilling) {
+        // ── Edit-mode overpayment guard ──
+        // Before submitting, check whether the corrected bill total would
+        // drop below the amount already paid — the backend will reject this
+        // with a confusing error. Catch it here with a clear message.
+        const correctedPatientPayable = billingData.items.reduce(
+          (sum, item) => {
+            const { patientAmount, skip } = getItemInsuranceSplit(
+              item,
+              coverageForItem(item),
+            );
+            return skip ? sum : sum + patientAmount;
+          },
+          0,
+        );
+        const alreadyPaid = existingBillingTotals?.paidAmount ?? 0;
+        if (correctedPatientPayable < alreadyPaid - 0.01) {
+          toast.error(
+            `Cannot complete edit: the corrected bill (${formatRWF(correctedPatientPayable)}) is less than the amount already paid (${formatRWF(alreadyPaid)}). ` +
+            `Keep the paid product(s) or adjust the payments before correcting the billing.`,
+          );
+          return;
+        }
+
         // BILL_EDITING: the visit should already be in BILL_EDITING mode
         // (set when the user clicked Edit). We just submit the edit and
         // lock back to COMPLETED.
@@ -690,7 +715,11 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         });
 
         setShowAddProductModal(false);
-        toast.success("Product added (will be saved when edit is submitted)");
+        if (basePrice === 0) {
+          toast.warning(`"${item.name}" has no price set — it will bill at 0. Set a catalog price first.`);
+        } else {
+          toast.success("Product added (will be saved when edit is submitted)");
+        }
       } catch (err) {
         console.error("Failed to add product in edit mode:", err);
         toast.error("Failed to add product. Please try again.");
@@ -801,7 +830,12 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           await refetchVisit();
         }
         setShowAddProductModal(false);
-        toast.success("Product added successfully");
+        const catalogPrice = Number(item.clinicPrice ?? item.privateRhicPrice ?? 0);
+        if (catalogPrice === 0) {
+          toast.warning(`"${item.name}" has no price set — it will bill at 0. Set a catalog price first.`);
+        } else {
+          toast.success("Product added successfully");
+        }
       } else {
         const errorMsg =
           response?.messages?.[0]?.text || "Failed to add product";

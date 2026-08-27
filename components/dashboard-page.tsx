@@ -62,6 +62,7 @@ import {
   Activity,
   Eye,
   History,
+  Loader2,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
@@ -118,6 +119,8 @@ export default function DashboardPage() {
     }
   }, [showMetrics, isMounted])
   const [printingVisitId, setPrintingVisitId] = useState<string | null>(null)
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null)
+  const [navigatingVisitId, setNavigatingVisitId] = useState<string | null>(null)
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles ||
     []) as string[]
   const userDepartments = ((
@@ -504,11 +507,20 @@ export default function DashboardPage() {
   const handleDownloadInvoice = async (
     departmentInsuranceBillingId: string,
   ) => {
-    const invoiceUrl = await resolveInvoiceUrl(
-      departmentInsuranceBillingId,
-      generateInvoice,
-    )
-    openInvoicePreview(invoiceUrl)
+    setDownloadingInvoiceId(departmentInsuranceBillingId)
+    try {
+      const invoiceUrl = await resolveInvoiceUrl(
+        departmentInsuranceBillingId,
+        generateInvoice,
+      )
+      openInvoicePreview(invoiceUrl)
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to generate invoice"
+      toast.error(message)
+    } finally {
+      setDownloadingInvoiceId(null)
+    }
   }
   const handlePreviewInvoice = async (visit: Visit) => {
     try {
@@ -1105,13 +1117,19 @@ export default function DashboardPage() {
                                               <button
                                                 onClick={(e) => {
                                                   e.stopPropagation()
+                                                  setNavigatingVisitId(visit.id)
                                                   handleConsultVisit(visit)
                                                 }}
                                                 title="Start Consult"
                                                 aria-label="Start Consult"
+                                                disabled={navigatingVisitId === visit.id}
                                                 className="h-9 w-9 sm:h-10 sm:w-10 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
                                               >
-                                                <Stethoscope className="w-4 h-4 flex-shrink-0" />
+                                                {navigatingVisitId === visit.id ? (
+                                                  <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                                                ) : (
+                                                  <Stethoscope className="w-4 h-4 flex-shrink-0" />
+                                                )}
                                               </button>
                                             </TooltipTrigger>
                                             <TooltipContent>
@@ -1176,13 +1194,19 @@ export default function DashboardPage() {
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
+                                            setNavigatingVisitId(visit.id)
                                             handleTriageVisit(visit)
                                           }}
                                           title="Open Triage"
                                           aria-label="Open Triage"
+                                          disabled={navigatingVisitId === visit.id}
                                           className="h-9 w-9 sm:h-10 sm:w-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
                                         >
-                                          <Activity className="w-4 h-4 flex-shrink-0" />
+                                          {navigatingVisitId === visit.id ? (
+                                            <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                                          ) : (
+                                            <Activity className="w-4 h-4 flex-shrink-0" />
+                                          )}
                                         </button>
                                       </TooltipTrigger>
                                       <TooltipContent>
@@ -1228,13 +1252,19 @@ export default function DashboardPage() {
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
+                                            setNavigatingVisitId(visit.id)
                                             handleAddDepartment(visit)
                                           }}
                                           title="Add Department"
                                           aria-label="Add Department"
+                                          disabled={navigatingVisitId === visit.id}
                                           className="h-9 w-9 sm:h-10 sm:w-10 bg-purple-500 hover:bg-purple-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
                                         >
-                                          <Plus className="w-4 h-4 flex-shrink-0" />
+                                          {navigatingVisitId === visit.id ? (
+                                            <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                                          ) : (
+                                            <Plus className="w-4 h-4 flex-shrink-0" />
+                                          )}
                                         </button>
                                       </TooltipTrigger>
                                       <TooltipContent>
@@ -1265,16 +1295,21 @@ export default function DashboardPage() {
                                 {canSeeBillButton &&
                                   hasUnbilledItems(visit) && (
                                     <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <button
+                                      <TooltipTrigger asChild>                                          <button
                                           onClick={(e) => {
                                             e.stopPropagation()
+                                            setNavigatingVisitId(visit.id)
                                             handleGoToBilling(visit)
                                           }}
                                           title="Bill Visit"
+                                          disabled={navigatingVisitId === visit.id}
                                           className="h-9 w-9 sm:h-10 sm:w-10 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
                                         >
-                                          <ReceiptText className="w-4 h-4 flex-shrink-0" />
+                                          {navigatingVisitId === visit.id ? (
+                                            <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                                          ) : (
+                                            <ReceiptText className="w-4 h-4 flex-shrink-0" />
+                                          )}
                                         </button>
                                       </TooltipTrigger>
                                       <TooltipContent>
@@ -1456,6 +1491,7 @@ export default function DashboardPage() {
         onPrintInvoice={handleDownloadInvoice}
         onDownloadInvoice={handleDownloadInvoice}
         canViewMore={hasFinanceRole}
+        printingInvoice={Boolean(downloadingInvoiceId)}
         onViewMore={() => {
           if (previewVisit) {
             router.push(`/billing?visitId=${previewVisit.id}`)
