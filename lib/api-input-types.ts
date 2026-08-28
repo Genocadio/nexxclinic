@@ -326,6 +326,7 @@ export interface SearchProductsInput {
 export interface DepartmentProfileInput {
   id?: string
   name: string
+  encounterType: string
   isDefault?: boolean
   productIds?: string[]
 }

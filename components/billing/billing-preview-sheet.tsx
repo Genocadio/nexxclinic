@@ -50,6 +50,7 @@ interface BillingPreviewSheetProps {
   onViewMore?: () => void;
   canViewMore?: boolean;
   printingInvoice?: boolean;
+  isEditMode?: boolean;
 }
 
 export function BillingPreviewSheet({
@@ -65,6 +66,7 @@ export function BillingPreviewSheet({
   onViewMore,
   canViewMore = false,
   printingInvoice = false,
+  isEditMode = false,
 }: BillingPreviewSheetProps) {
   const [isRendered, setIsRendered] = useState(open);
   const [selectedDepartmentIdState, setSelectedDepartmentIdState] = useState<
@@ -389,7 +391,7 @@ export function BillingPreviewSheet({
                           View more
                         </button>
                       )}
-                      {visitBilling && printableInvoiceGroups.length > 0 &&
+                      {visitBilling && printableInvoiceGroups.length > 0 && !isEditMode &&
                         (printableInvoiceGroups.length === 1 ? (
                           <button
                             type="button"
@@ -502,7 +504,7 @@ export function BillingPreviewSheet({
                                       ? ` • ${group.insuranceLabel}`
                                       : ""}
                                   </div>
-                                  {group.id ? (
+                                  {group.id && !isEditMode ? (
                                     <button
                                       type="button"
                                       onClick={() =>

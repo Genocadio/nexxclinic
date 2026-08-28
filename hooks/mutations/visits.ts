@@ -997,6 +997,27 @@ export const FINALISE_VISIT_MUTATION = gql`
   }
 `;
 
+export const REOPEN_VISIT_MUTATION = gql`
+  mutation ReopenVisit($visitId: ID!) {
+    reopenVisit(visitId: $visitId) {
+      status
+      message
+      data {
+        id
+        status
+        departments {
+          id
+          status
+          department {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const DELETE_VISIT_MUTATION = gql`
   mutation DeleteVisit($visitId: ID!) {
     deleteVisit(visitId: $visitId) {

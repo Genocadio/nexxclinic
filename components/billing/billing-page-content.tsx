@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useCallback, useState } from "react";
+import { useEffect, useMemo, useCallback, useRef, useState } from "react";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import {
   BillingItem,
@@ -38,6 +38,7 @@ import {
 } from "@/hooks/auth-hooks";
 import type { Visit } from "@/lib/api-types";
 import { getVisitBillingTotals } from "@/lib/visit-billing-utils";
+import { formatRWF } from "@/lib/utils";
 import { useUpdateVisitDepartmentStatus } from "@/hooks/auth-hooks";
 import {
   useAddProductToVisitDepartment,
@@ -120,7 +121,15 @@ export function BillingPageContent() {
     handlePaymentMethodChange,
     handleAmountPaidChange,
     handleNotesChange,
-  } = useBillingPageState();  const { linkVisitInsurances, loading: linkingVisitInsurances } =
+  } = useBillingPageState();
+
+  // Wrap handleItemChange to set the local-edits guard
+  const trackLocalEdit = useCallback((item: BillingItem) => {
+    hasLocalEditsRef.current = true;
+    handleItemChange(item);
+  }, [handleItemChange]);
+
+  const { linkVisitInsurances, loading: linkingVisitInsurances } =
     useLinkVisitInsurances();
   const { unlinkVisitInsurances, loading: unlinkingVisitInsurances } =
     useUnlinkVisitInsurances();
@@ -149,6 +158,11 @@ export function BillingPageContent() {
   // Loading states for edit/done-editing buttons in the sticky summary bar
   const [loadingEditBilling, setLoadingEditBilling] = useState(false);
   const [loadingDoneEditing, setLoadingDoneEditing] = useState(false);
+  // Ref guard: set to true as soon as the user makes any local edit in
+  // billing edit mode. The remap useEffect checks this flag and NEVER
+  // overwrites billingData when it is true — regardless of Apollo
+  // cache-and-network refetches or structural-change checks.
+  const hasLocalEditsRef = useRef(false);
 
   const existingBillingTotals = useMemo(
     () =>
@@ -204,6 +218,36 @@ export function BillingPageContent() {
       existingVisitBilling,
       editMode: isEditMode,
     });
+
+    // In edit mode, only update billingData for STRUCTURAL changes (new or
+    // removed items). Never overwrite user edits to existing items (insurance,
+    // exemption, quantity, coverage tier, etc.) — those are tracked by the
+    // serialized snapshot and submitted via editBillVisit.
+    //
+    // hasLocalEditsRef: when the user has made ANY local change (exemption,
+    // insurance, quantity, etc.) we absolutely refuse to overwrite billingData.
+    // This prevents Apollo cache-and-network refetches from reverting local
+    // edits back to server-sourced data.
+    if ((isEditMode || hasLocalEditsRef.current) && billingData) {
+      if (hasLocalEditsRef.current) {
+        // User has made local edits — never overwrite, even for structural
+        // changes. The user's edits are authoritative until they complete or
+        // cancel the edit session.
+        return;
+      }
+      const currentIds = new Set(billingData.items.map((i) => i.id));
+      const mappedIds = new Set(mapped.items.map((i) => i.id));
+      const hasStructuralChange =
+        billingData.items.length !== mapped.items.length ||
+        [...currentIds].some((id) => !mappedIds.has(id)) ||
+        [...mappedIds].some((id) => !currentIds.has(id));
+      if (hasStructuralChange) {
+        setBillingData(mapped);
+      }
+      // Skip non-structural updates in edit mode to preserve local edits.
+      return;
+    }
+
     const shouldUpdateBillingData =
       !billingData ||
       billingData.visitId !== mapped.visitId ||
@@ -281,16 +325,40 @@ export function BillingPageContent() {
     return ids;
   }, [billingData]);
 
+  const billedDepartmentNames = useMemo(() => {
+    if (!billingData) return new Set<string>();
+    const deptMap = new Map<string, { total: number; paid: number }>();
+    for (const item of billingData.items) {
+      const dept = item.departmentName || "General";
+      const entry = deptMap.get(dept) || { total: 0, paid: 0 };
+      entry.total++;
+      if (item.paymentStatus === "paid") entry.paid++;
+      deptMap.set(dept, entry);
+    }
+    const billed = new Set<string>();
+    for (const [dept, { total, paid }] of deptMap) {
+      if (total > 0 && total === paid) billed.add(dept);
+    }
+    return billed;
+  }, [billingData]);
+
   // Always bill all pending items — no partial selection.
   const selectedItems = useMemo(
     () =>
       billingData
-        ? billingData.items.filter((it) => it.paymentStatus !== "paid")
+        ? billingData.items.filter(
+            (it) =>
+              it.paymentStatus !== "paid" &&
+              (it.departmentName || "General") === activeService,
+          )
         : [],
-    [billingData],
+    [billingData, activeService],
   );
   const hasRemainingToBill = Boolean(
     billingData?.items.some((item) => item.paymentStatus !== "paid"),
+  );
+  const activeDeptHasUnbilled = selectedItems.some(
+    (item) => item.paymentStatus !== "paid",
   );
   const hasFinanceRole = useMemo(() => {
     if (!doctor?.roles) return false;
@@ -306,6 +374,88 @@ export function BillingPageContent() {
   const isEditMode = visit?.status === "BILL_EDITING" || Boolean(isEditingBill);
   // For UI purposes (item states, dock, etc.) treat billed visit as unbilled while in edit mode
   const effectiveIsAlreadyBilled = isAlreadyBilled && !isEditMode;
+
+  // ── Serialized snapshot for change detection ─────────────────────────────
+  // Captures each item's key editable fields as a plain JSON string per ID.
+  // This is immune to React reference issues, useEffect remaps, or cache
+  // refetches that create new BillingItem objects with the same values.
+  const snapshotFields = useMemo(() => {
+    if (!editModeSnapshot) return null;
+    return new Map(
+      editModeSnapshot.map((i) => [
+        i.id,
+        JSON.stringify({
+          q: i.quantity,
+          ei: i.selectedInsuranceId,
+          ec: i.selectedCoverageId,
+          et: i.exemptionType,
+          ex: i.exempted,
+          er: i.exemptionReason,
+          inc: i.insuranceNotCovered,
+          pr: i.processorId,
+          p: i.price,
+        }),
+      ]),
+    );
+  }, [editModeSnapshot]);
+
+  const snapshotIds = useMemo(() => {
+    if (!editModeSnapshot) return null;
+    return new Set(editModeSnapshot.map((i) => i.id));
+  }, [editModeSnapshot]);
+
+  /** Serialize a single item's key fields to match snapshot format. */
+  const serializeItem = useCallback((item: BillingItem) =>
+    JSON.stringify({
+      q: item.quantity,
+      ei: item.selectedInsuranceId,
+      ec: item.selectedCoverageId,
+      et: item.exemptionType,
+      ex: item.exempted,
+      er: item.exemptionReason,
+      inc: item.insuranceNotCovered,
+      pr: item.processorId,
+      p: item.price,
+    }), []);
+
+  // Detect whether the user has made any actual changes in edit mode
+  const hasEditChanges = useMemo(() => {
+    if (!isEditMode || !snapshotFields || !snapshotIds || !billingData) return false;
+    const currentItems = billingData.items;
+    // Different number of items
+    if (currentItems.length !== snapshotIds.size) return true;
+    // Check for added or removed items
+    for (const item of currentItems) {
+      if (!snapshotIds.has(item.id)) return true; // added
+    }
+    for (const id of snapshotIds) {
+      if (!currentItems.some((i) => i.id === id)) return true; // removed
+    }
+    // Check for changed fields on existing items
+    for (const item of currentItems) {
+      const snapStr = snapshotFields.get(item.id);
+      if (snapStr === undefined) return true; // shouldn't happen, but safe
+      if (serializeItem(item) !== snapStr) return true;
+    }
+    return false;
+  }, [isEditMode, snapshotFields, snapshotIds, billingData, serializeItem]);
+
+  // Per-item change map for visual diff indicators in edit mode
+  const editedItemChanges = useMemo(() => {
+    const map = new Map<string, "added" | "modified">();
+    if (!isEditMode || !snapshotFields || !snapshotIds || !billingData) return map;
+    for (const item of billingData.items) {
+      if (!snapshotIds.has(item.id)) {
+        map.set(item.id, "added");
+      } else {
+        const snapStr = snapshotFields.get(item.id);
+        if (snapStr !== undefined && serializeItem(item) !== snapStr) {
+          map.set(item.id, "modified");
+        }
+      }
+    }
+    return map;
+  }, [isEditMode, snapshotFields, snapshotIds, billingData, serializeItem]);
 
   // Role rules:
   // - CASHIER: can bill (complete) but cannot edit bills/items.
@@ -330,12 +480,39 @@ export function BillingPageContent() {
     return calculateTotalsForItems(itemsForTotals);
   }, [billingData, itemsToDisplay, calculateTotalsForItems]);
 
-  // The confirm sheet bills ALL pending items across every department, so its
-  // totals must be the grand totals — not just the active service tab.
+  // Totals for the active department only (per-department incremental billing)
   const confirmTotals = useMemo(() => {
     if (!billingData) return EMPTY_TOTALS;
     return calculateTotalsForItems(selectedItems);
   }, [billingData, selectedItems, calculateTotalsForItems]);
+
+  // Edit-mode warning: compare corrected total to amount already paid
+  const editModeWarning = useMemo(() => {
+    if (!existingVisitBilling || !billingData) return null;
+    const alreadyPaid = existingBillingTotals?.paidAmount ?? 0;
+    if (alreadyPaid <= 0) return null;
+    // Use ALL items (not just active dept) for the visit-level comparison
+    const allUnbilledItems = billingData.items.filter(
+      (item) => item.paymentStatus !== "paid",
+    );
+    const correctedTotal = allUnbilledItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    );
+    if (correctedTotal < alreadyPaid - 0.01) {
+      const credit = alreadyPaid - correctedTotal;
+      return `Corrected bill (${formatRWF(correctedTotal)}) is less than paid (${formatRWF(alreadyPaid)}). Overpayment of ${formatRWF(credit)} will be treated as credit.`;
+    }
+    const originalTotal = billingData.items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    );
+    const diff = Math.abs(originalTotal - correctedTotal);
+    if (diff > 0.01 && diff / (originalTotal || 1) > 0.1) {
+      return `Bill total changed by ${formatRWF(diff)} (${Math.round((diff / (originalTotal || 1)) * 100)}%). Please review all changes.`;
+    }
+    return null;
+  }, [existingVisitBilling, existingBillingTotals, billingData]);
 
   // Per-department payment allocation + note requirement (mirrors the backend
   // rule: note required when a department has exemptions or its payment does
@@ -377,6 +554,7 @@ export function BillingPageContent() {
 
   const handleRemoveDepartment = useCallback(
     async (visitDepartmentId: string) => {
+      hasLocalEditsRef.current = true;
       try {
         const result = await removeVisitDepartment(visitDepartmentId);
         if (result?.status === "SUCCESS") {
@@ -501,6 +679,7 @@ export function BillingPageContent() {
     activeVisitInsurances,
     activeVisitDepartment,
     topLevelBillingDepartments,
+    activeService,
     canDischargeVisit,
     unreadBillingNotesCount,
     creatingBill,
@@ -536,6 +715,7 @@ export function BillingPageContent() {
     setPreviewStartedAt,
     setShowAddProductModal,
     setAddingBillingItem,
+    setActiveService,
   });
 
 
@@ -671,14 +851,17 @@ export function BillingPageContent() {
           onChangeProfile={(profileId) => void handleChangeProfile(profileId)}
           onServiceChange={setActiveService}
           onAddItem={() => setShowAddProductModal(true)}
-          onItemChange={handleItemChange}
-          onItemRemove={handleItemRemove}
-          onQuantityChange={(item, qty) =>
-            handleQuantityChange(item, qty, isEditMode)
-          }
+          onItemChange={trackLocalEdit}
+          onItemRemove={(id) => { hasLocalEditsRef.current = true; handleItemRemove(id, isEditMode); }}
+          onQuantityChange={(item, qty) => {
+            hasLocalEditsRef.current = true;
+            handleQuantityChange(item, qty, isEditMode);
+          }}
           serviceDepartmentIds={serviceDepartmentIds}
           allItems={billingData?.items || []}
+          billedDepartmentNames={billedDepartmentNames}
           onRemoveDepartment={handleRemoveDepartment}
+          editedItemChanges={editedItemChanges}
         />
 
         {showBillingDock && (
@@ -692,10 +875,11 @@ export function BillingPageContent() {
             }
             existingVisitBilling={isEditMode ? null : existingVisitBilling}
             canEditBilling={canEditBilling}
-            hasRemainingToBill={hasRemainingToBill}
+            hasRemainingToBill={activeDeptHasUnbilled}
             creatingBill={creatingBill || editingBill}
             generatingInvoice={generatingInvoice}
             isEditingBill={isEditMode}
+            hasEditChanges={hasEditChanges}
             hasUnreadNotes={unreadBillingNotesCount > 0}
             loadingEditBilling={loadingEditBilling}
             loadingDoneEditing={loadingDoneEditing}
@@ -736,6 +920,7 @@ export function BillingPageContent() {
                 }
                 setPreviousPaidCents(toCents(billingData?.amountPaid || 0));
                 setIsEditingBill(true);
+                hasLocalEditsRef.current = false;
                 setEditModeSnapshot(billingData?.items ?? null);
                 // Refetch so visit.status becomes BILL_EDITING and the
                 // derived isEditMode picks it up even without local state.
@@ -757,6 +942,7 @@ export function BillingPageContent() {
                   }
                 }
                 setIsEditingBill(false);
+                hasLocalEditsRef.current = false;
                 setPreviousPaidCents(null);
                 setEditModeSnapshot(null);
                 setConfirmSheetMode("complete");
@@ -829,6 +1015,7 @@ export function BillingPageContent() {
         onOutstandingReasonChange={(reason) => setBillingData(prev => prev ? { ...prev, outstandingReason: reason } : prev)}
         billingNotes={billingData.notes || ""}
         onBillingNotesChange={handleNotesChange}
+        editWarning={confirmSheetMode === "edit" ? editModeWarning : null}
         onConfirm={async () => {
           setShowCompleteBillConfirm(false);
           if (confirmSheetMode === "complete" || confirmSheetMode === "edit") {
@@ -874,6 +1061,7 @@ export function BillingPageContent() {
           router.push(`/billing?visitId=${visit?.id}`);
         }}
         printingInvoice={generatingInvoice}
+        isEditMode={isEditMode}
       />
 
       <ConfirmDialog

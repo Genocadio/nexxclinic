@@ -55,7 +55,7 @@ export function BillingPatientBar({
   });
 
   return (
-    <div className="flex-shrink-0 border-b border-border/50 bg-card/40 backdrop-blur-sm py-2.5">
+    <div className="flex-shrink-0 border-b border-border/50 bg-card/40 backdrop-blur-sm pt-5 pb-2.5">
       <div className="px-6">
         <div className="w-full min-w-0 mx-auto px-2 sm:px-4 md:px-[1cm] lg:px-[2cm]">
           <div className="flex items-center gap-4 min-w-0">

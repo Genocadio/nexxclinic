@@ -50,6 +50,7 @@ export interface BillingActionsContext {
   activeVisitInsurances: PatientInsurance[];
   activeVisitDepartment: VisitDepartment | null;
   topLevelBillingDepartments: VisitDepartment[];
+  activeService?: string;
   canDischargeVisit: boolean;
   unreadBillingNotesCount: number;
   creatingBill: boolean;
@@ -108,6 +109,7 @@ export interface BillingActionsContext {
   setPreviewStartedAt: Dispatch<SetStateAction<number | null>>;
   setShowAddProductModal: Dispatch<SetStateAction<boolean>>;
   setAddingBillingItem: Dispatch<SetStateAction<boolean>>;
+  setActiveService?: Dispatch<SetStateAction<string>>;
 }
 
 /**
@@ -128,6 +130,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     activeVisitInsurances,
     activeVisitDepartment,
     topLevelBillingDepartments,
+    activeService,
     canDischargeVisit,
     unreadBillingNotesCount,
     creatingBill,
@@ -163,6 +166,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     setPreviewStartedAt,
     setShowAddProductModal,
     setAddingBillingItem,
+    setActiveService,
   } = ctx;
 
   const handleDownloadInvoice = async (
@@ -301,13 +305,78 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         requestDischarge();
         return;
       }
-      toast.warning("All items are already billed.");
+      toast.warning("All items in this department are already billed.");
       return;
     }
 
+    // ── Pre-submission guards ───────────────────────────────────────────
+    // Warn about items with zero price
+    const zeroPriceItems = unbilledItems.filter(
+      (item) => !item.price || item.price <= 0,
+    );
+    if (zeroPriceItems.length > 0) {
+      const names = zeroPriceItems.map((i) => i.name).join(", ");
+      toast.warning(`Items with no price will bill at 0: ${names}. Set a catalog price first.`);
+    }
+
+    // Warn about insurance selected but not covered
+    const insuranceNotCovered = unbilledItems.filter(
+      (item) => item.selectedInsuranceId && item.insuranceNotCovered,
+    );
+    if (insuranceNotCovered.length > 0) {
+      const names = insuranceNotCovered.map((i) => i.name).join(", ");
+      toast.warning(`Insurance not covering: ${names}. These will be billed as PRIVATE.`);
+    }
+
+    // Warn about items with quantity < 1 (shouldn't happen but guard anyway)
+    const badQtyItems = unbilledItems.filter(
+      (item) => !item.quantity || item.quantity < 1,
+    );
+    if (badQtyItems.length > 0) {
+      const names = badQtyItems.map((i) => i.name).join(", ");
+      toast.error(`Cannot bill items with invalid quantity: ${names}. Set quantity to at least 1.`);
+      return;
+    }
+
+    // Pre-compute coverage for guards and bill building
+    const coverageForItem = (item: BillingItem) =>
+      getCoveragePercentageForBillingItem(item, activeVisitInsurances);
+
+    // ── Edit-mode: warn if total changed significantly ──────────────────
+    if (existingVisitBilling) {
+      const correctedPatientPayable = billingData.items.reduce(
+        (sum, item) => {
+          const { patientAmount, skip } = getItemInsuranceSplit(
+            item,
+            coverageForItem(item),
+          );
+          return skip ? sum : sum + patientAmount;
+        },
+        0,
+      );
+      const alreadyPaid = existingBillingTotals?.paidAmount ?? 0;
+      // Warn if corrected total < paid (overpayment becomes credit)
+      if (correctedPatientPayable < alreadyPaid - 0.01) {
+        const credit = alreadyPaid - correctedPatientPayable;
+        toast.warning(
+          `Corrected bill (${formatRWF(correctedPatientPayable)}) is less than paid (${formatRWF(alreadyPaid)}). ` +
+          `Overpayment of ${formatRWF(credit)} will be treated as credit.`,
+        );
+      }
+      // Warn if total changed significantly
+      const originalTotal = billingData.items.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
+      );
+      const diff = Math.abs(originalTotal - correctedPatientPayable);
+      if (diff > 0.01 && diff / (originalTotal || 1) > 0.1) {
+        toast.warning(
+          `Bill total changed by ${formatRWF(diff)} (${Math.round((diff / (originalTotal || 1)) * 100)}%). Review before submitting.`,
+        );
+      }
+    }
+
     try {
-      const coverageForItem = (item: BillingItem) =>
-        getCoveragePercentageForBillingItem(item, activeVisitInsurances);
 
       const insuranceOpts = activeVisitInsurances.map((ins) => ({
         id: String(ins.id),
@@ -322,29 +391,6 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       }));
       let response: ApiResponse<VisitBilling>;
       if (existingVisitBilling) {
-        // ── Edit-mode overpayment guard ──
-        // Before submitting, check whether the corrected bill total would
-        // drop below the amount already paid — the backend will reject this
-        // with a confusing error. Catch it here with a clear message.
-        const correctedPatientPayable = billingData.items.reduce(
-          (sum, item) => {
-            const { patientAmount, skip } = getItemInsuranceSplit(
-              item,
-              coverageForItem(item),
-            );
-            return skip ? sum : sum + patientAmount;
-          },
-          0,
-        );
-        const alreadyPaid = existingBillingTotals?.paidAmount ?? 0;
-        if (correctedPatientPayable < alreadyPaid - 0.01) {
-          toast.error(
-            `Cannot complete edit: the corrected bill (${formatRWF(correctedPatientPayable)}) is less than the amount already paid (${formatRWF(alreadyPaid)}). ` +
-            `Keep the paid product(s) or adjust the payments before correcting the billing.`,
-          );
-          return;
-        }
-
         // BILL_EDITING: the visit should already be in BILL_EDITING mode
         // (set when the user clicked Edit). We just submit the edit and
         // lock back to COMPLETED.
@@ -372,76 +418,53 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       }
 
       if (response.status === "SUCCESS") {
-        setBillJustCreated(true);
-
-        // Check if all items in billingData are now billed
-        const allRemainingBilled =
-          unbilledItems.length ===
-          billingData.items.filter((item) => item.paymentStatus !== "paid")
-            .length;
-
-        // Complete the visit (and any remaining departments) once everything is
-        // billed, and surface failures instead of silently swallowing them —
-        // a visit stuck as non-COMPLETED after billing is a silent breaking bug.
-        const completionErrors: string[] = [];
-        if (allRemainingBilled) {
-          try {
-            // First, complete all incomplete departments
-            const allDepartments = flattenVisitDepartmentsForBilling(
-              visit?.departments || [],
-            );
-            const notCompleted = allDepartments.filter(
-              (dept) =>
-                dept.status !== "COMPLETED",
-            );
-            for (const dept of notCompleted) {
-              const visitDeptId = String(dept.id || "");
-              if (!visitDeptId) continue;
-              const deptResult = await updateDepartmentStatus(
-                visitDeptId,
-                "COMPLETED",
-              );
-              if (deptResult?.status !== "SUCCESS") {
-                completionErrors.push(
-                  deptResult?.message ||
-                    `Failed to complete ${dept.department?.name || "department"}`,
-                );
-              }
-            }
-
-            // Now, complete the visit
-            const completeResult = await completeVisit(billingData.visitId);
-            if (completeResult?.status !== "SUCCESS") {
-              completionErrors.push(
-                completeResult?.message || "Failed to complete visit",
-              );
-            }
-          } catch (compErr) {
-            completionErrors.push("Failed to complete the visit");
-            console.error("Error completing departments/visit:", compErr);
-          }
+        setBillJustCreated(true);        // Complete ONLY the active department (not the visit itself)
+        const activeDept = visit?.departments?.find(
+          (d) => (d.department?.name || "General") === activeService,
+        );
+        if (activeDept && activeDept.status !== "COMPLETED") {
+          await updateDepartmentStatus(String(activeDept.id), "COMPLETED");
         }
 
         // Refetch visit and bill data
         await refetchVisit();
         await refetchBill();
-        // If we just finished an edit, exit edit mode before opening preview.
+        // If we just finished an edit, exit edit mode.
         if (isEditingBill) {
           setIsEditingBill(false);
           setEditModeSnapshot(null);
           setPreviousPaidCents(null);
           setConfirmSheetMode("complete");
         }
-        await handlePreviewBilling();
-        if (completionErrors.length > 0) {
-          toast.warning(
-            `Bill saved, but the visit could not be completed: ${completionErrors.join(" · ")}`,
-          );
+
+        // After refetch, check if there are still unbilled departments.
+        const refetchedData = await refetchBill() as any;
+        const freshBillingData = refetchedData?.data;
+        const stillUnbilled = freshBillingData?.items?.filter(
+          (item: any) => item.paymentStatus !== "paid",
+        ) || [];
+        const unbilledDeptNames = [...new Set(
+          stillUnbilled.map((item: any) => item.departmentName || "General"),
+        )];
+
+        if (unbilledDeptNames.length > 0) {
+          // More departments to bill — auto-advance to next
+          if (setActiveService) {
+            setActiveService(String(unbilledDeptNames[0]));
+          }
+          toast.success(`Department billed successfully! Next: ${unbilledDeptNames[0]}`);
+          return; // Don't open preview — user continues billing next dept
+        }
+
+        // All departments billed — ask user if they want to discharge
+        if (ENABLE_DISCHARGE) {
+          setDischargeConfirmOpen(true);
         } else {
+          await handlePreviewBilling();
           toast.success(
             existingVisitBilling
               ? "Bill updated successfully!"
-              : "Bill created successfully!",
+              : "All departments billed successfully!",
           );
         }
       } else {

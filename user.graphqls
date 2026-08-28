@@ -486,6 +486,7 @@ type ProductInsuranceCoverageResponse implements ApiResponse {
 type DepartmentProfile {
   id: ID!
   name: String!
+  encounterType: EncounterType!
   isDefault: Boolean!
   products: [Product!]!
   createdAt: String!
@@ -1290,6 +1291,7 @@ input SearchProductsInput {
 input DepartmentProfileInput {
   id: ID
   name: String!
+  encounterType: EncounterType!
   isDefault: Boolean
   productIds: [ID!]
 }
@@ -1837,6 +1839,8 @@ type Mutation {
   itself to FINALISED. Only allowed on COMPLETED visits.
   """
   finaliseVisit(visitId: ID!): VisitResponse!
+  """Reopen a completed visit back to PENDING. Allows adding new departments. Only ADMIN and MANAGER."""
+  reopenVisit(visitId: ID!): VisitResponse!
 
   """
   Update the billing date shown on an invoice. Only ADMIN and MANAGER.

@@ -60,6 +60,8 @@ type BillingItemsListProps = {
   editMode?: boolean;
   /** In-flight quantity update — disables the qty stepper to prevent duplicates. */
   quantityUpdating?: boolean;
+  /** Map of item IDs to their change type in edit mode. */
+  editedItemChanges?: Map<string, "added" | "modified">;
 };
 
 const getPaymentStatusColor = (
@@ -78,6 +80,36 @@ const getPaymentStatusColor = (
   }
 };
 
+/** Resolve the effective patient share % for an item, respecting its
+ *  selectedCoverageId and auto-matching rules. Falls back to the provider
+ *  base percentage when no tier matches. */
+function resolveEffectiveCoveragePct(
+  item: BillingItem,
+  insurance: InsuranceOption | undefined,
+): number {
+  if (!insurance) return 0;
+  const coverages = insurance.coverages;
+  if (!coverages || coverages.length === 0) {
+    return insurance.coveragePercentage || 0;
+  }
+  // 1. Specific coverage tier selected by the user
+  if (item.selectedCoverageId) {
+    const tier = coverages.find((c) => c.coverageId === item.selectedCoverageId);
+    if (tier) return tier.patientSharePercentage;
+  }
+  // 2. Best matching rule (dept + encounterType)
+  const best = findBestMatchingCoverage(
+    coverages, item.departmentId, item.encounterType,
+  );
+  if (best) return best.patientSharePercentage;
+  // 3. Patient-specific override
+  if (insurance.patientSharePercentage != null && insurance.patientSharePercentage > 0) {
+    return insurance.patientSharePercentage;
+  }
+  // 4. Provider base
+  return insurance.coveragePercentage || 0;
+}
+
 function computeGroupTotals(
   deptItems: BillingItem[],
   availableInsurances: InsuranceOption[],
@@ -90,7 +122,7 @@ function computeGroupTotals(
     const selectedInsurance = availableInsurances.find(
       (ins) => ins.id === item.selectedInsuranceId,
     );
-    const coveragePct = selectedInsurance?.coveragePercentage || 0;
+    const coveragePct = resolveEffectiveCoveragePct(item, selectedInsurance);
     const { itemTotal, insuranceAmount, patientAmount, skip } =
       getItemInsuranceSplit(item, coveragePct);
 
@@ -115,6 +147,7 @@ export function BillingItemsList({
   canEdit = true,
   editMode = false,
   quantityUpdating = false,
+  editedItemChanges,
 }: BillingItemsListProps) {
   // In edit mode items with paymentStatus "paid" are treated as editable.
   // We use this helper instead of checking paymentStatus directly.
@@ -346,7 +379,7 @@ export function BillingItemsList({
                             (ins) => ins.id === item.selectedInsuranceId,
                           );
                           const coveragePct =
-                            selectedInsurance?.coveragePercentage || 0;
+                            resolveEffectiveCoveragePct(item, selectedInsurance);
                           const { insuranceAmount, patientAmount } =
                             getItemInsuranceSplit(item, coveragePct);
                           const statusLabel =
@@ -371,6 +404,18 @@ export function BillingItemsList({
                                   <p className="font-medium text-foreground text-sm leading-tight">
                                     {item.name}
                                   </p>
+                                  {editedItemChanges?.get(item.id) === "added" && (
+                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                      NEW
+                                    </span>
+                                  )}
+                                  {editedItemChanges?.get(item.id) === "modified" && (
+                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                      CHANGED
+                                    </span>
+                                  )}
                                   {item.processorName && (
                                     <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full whitespace-nowrap">
                                       <span className="w-1 h-1 rounded-full bg-emerald-500" />
@@ -633,6 +678,27 @@ export function BillingItemsList({
 
                                   if (computedPct == null) return null;
 
+                                  // When multiple coverage tiers exist, the tier pills above
+                                  // already show the selected percentage — hide the redundant
+                                  // "Patient X%" badge. Only show it for single-tier insurances
+                                  // where no tier pills are rendered.
+                                  const hasMultipleTiers = (() => {
+                                    if (!selectedIns?.coverages) return false;
+                                    const allTiers = selectedIns.coverages;
+                                    const tiers = filterMatchingCoverages(
+                                      allTiers, item.departmentId, item.encounterType,
+                                    );
+                                    const bestMatch = findBestMatchingCoverage(
+                                      allTiers, item.departmentId, item.encounterType,
+                                    );
+                                    const patientCustomPct = selectedIns.patientSharePercentage ?? null;
+                                    const hasPatientCustom = patientCustomPct != null && patientCustomPct > 0;
+                                    const patientDiffersFromMatch = hasPatientCustom &&
+                                      patientCustomPct !== bestMatch?.patientSharePercentage;
+                                    const total = tiers.length + (patientDiffersFromMatch ? 1 : 0);
+                                    return total > 1;
+                                  })();
+
                                   const sourceLabel = (() => {
                                     switch (computedSource) {
                                       case 'OVERRIDE': return 'Override';
@@ -643,6 +709,9 @@ export function BillingItemsList({
                                       default: return null;
                                     }
                                   })();
+
+                                  // Don't show anything when tier pills are visible (redundant)
+                                  if (hasMultipleTiers) return null;
 
                                   return (
                                     <div className="flex items-center gap-1 mt-1">
@@ -694,7 +763,7 @@ export function BillingItemsList({
                                   <Select
                                     value={exemptionType}
                                     onValueChange={(value) => {
-                                      if (item.source === "PROFILE") {
+                                      if (!editMode && item.source === "PROFILE") {
                                         toast.info("Profile products cannot be exempted individually — change the visit department's profile instead.");
                                         return;
                                       }
@@ -715,21 +784,21 @@ export function BillingItemsList({
                                       }
                                       onItemChange(updated);
                                     }}
-                                    disabled={isPaidLocked(item) || item.source === "PROFILE"}
+                                    disabled={isPaidLocked(item) || (!editMode && item.source === "PROFILE")}
                                   >
                                     <SelectTrigger className="h-7 text-[10px] w-[7.5rem]">
                                       <SelectValue placeholder="Exemption" />
                                     </SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="none">
-                                        {item.source === "PROFILE" ? "Profile product" : "No exemption"}
+                                        {(!editMode && item.source === "PROFILE") ? "Profile product" : "No exemption"}
                                       </SelectItem>
                                       {availableInsurances.length > 0 && (
-                                        <SelectItem value="patient-share" disabled={item.source === "PROFILE"}>
+                                        <SelectItem value="patient-share" disabled={!editMode && item.source === "PROFILE"}>
                                           Waive patient share
                                         </SelectItem>
                                       )}
-                                      <SelectItem value="full" disabled={item.source === "PROFILE"}>
+                                      <SelectItem value="full" disabled={!editMode && item.source === "PROFILE"}>
                                         Full exemption
                                       </SelectItem>
                                     </SelectContent>
@@ -741,10 +810,10 @@ export function BillingItemsList({
                                       onClick={() => onItemRemove(item.id)}
                                       disabled={
                                         isPaidLocked(item) ||
-                                        item.source === "PROFILE"
+                                        (!editMode && item.source === "PROFILE")
                                       }
                                       title={
-                                        item.source === "PROFILE"
+                                        !editMode && item.source === "PROFILE"
                                           ? "Profile products cannot be removed individually — change the visit department's profile instead"
                                           : "Remove item"
                                       }

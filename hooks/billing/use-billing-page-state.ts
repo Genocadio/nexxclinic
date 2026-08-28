@@ -97,11 +97,11 @@ export function useBillingPageState() {
     }
   };
 
-  const handleItemRemove = (itemId: string) => {
+  const handleItemRemove = (itemId: string, isEditingBill?: boolean) => {
     setBillingData((prev) => {
       if (!prev) return prev;
       const target = prev.items.find((item) => item.id === itemId);
-      if (target?.source === "PROFILE") {
+      if (target?.source === "PROFILE" && !isEditingBill) {
         toast.info("Profile products cannot be removed individually — change the visit department's profile instead.");
         return prev;
       }

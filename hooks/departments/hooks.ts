@@ -6,6 +6,7 @@ import {
   REMOVE_DEPARTMENT_PROFILE_MUTATION,
 } from '../mutations'
 import type { Department, DepartmentProfile, Product } from '../types'
+import { EncounterType } from '@/lib/api-types'
 import { mapGqlInsuranceProvider, mapGqlProduct } from '@/lib/gql-mappers'
 import type { GqlInsuranceCoverage } from '@/lib/gql-mappers'
 import { DepartmentInsurancePolicyMode } from '@/lib/api-types'
@@ -57,6 +58,7 @@ export interface GqlProduct {
 export interface GqlDepartmentProfile {
   id: string
   name: string
+  encounterType?: string | null
   isDefault?: boolean | null
   products?: GqlProduct[] | null
   createdAt?: string | null
@@ -159,6 +161,7 @@ export const mapDepartmentProfileFromApi = (
 ): DepartmentProfile => ({
   id: profile.id,
   name: profile.name,
+  encounterType: (profile.encounterType || 'OUTPATIENT') as EncounterType,
   isDefault: Boolean(profile.isDefault),
   products: (profile.products || []).map(mapGqlProductForProfile),
   createdAt: profile.createdAt || '',
@@ -215,6 +218,7 @@ export function useDepartments(options?: { skip?: boolean; input?: { name?: stri
 export interface DepartmentProfileMutationInput {
   id?: string
   name: string
+  encounterType?: string
   isDefault?: boolean
   productIds?: string[]
 }

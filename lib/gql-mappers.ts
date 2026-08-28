@@ -156,6 +156,7 @@ export type GqlVisitDepartment = {
   profile?: {
     id: string;
     name: string;
+    encounterType?: string | null;
     isDefault?: boolean | null;
     products?: GqlProduct[] | null;
     createdAt?: string | null;
@@ -517,6 +518,7 @@ export function mapGqlVisitDepartment(
       ? {
           id: dept.profile.id,
           name: dept.profile.name,
+          encounterType: parseEncounterType(dept.profile.encounterType),
           isDefault: Boolean(dept.profile.isDefault),
           products: (dept.profile.products || []).map(mapGqlProduct),
           createdAt: dept.profile.createdAt || EMPTY_TIMESTAMP,

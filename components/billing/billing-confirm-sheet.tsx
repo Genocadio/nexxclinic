@@ -47,6 +47,7 @@ type BillingConfirmSheetProps = {
   billingNotes?: string;
   onBillingNotesChange?: (notes: string) => void;
   onConfirm: () => void;
+  editWarning?: string | null;
 };
 
 function buildSuggestedReasons(opts: {
@@ -114,6 +115,7 @@ export function BillingConfirmSheet({
   billingNotes = "",
   onBillingNotesChange,
   onConfirm,
+  editWarning = null,
 }: BillingConfirmSheetProps) {
   const itemsToBill = items.filter((item) => item.paymentStatus !== "paid");
   const outstanding = Math.max(0, totals.totalAmount - amountPaid);
@@ -166,12 +168,18 @@ export function BillingConfirmSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-lg p-0 flex flex-col"
+        className="w-full sm:max-w-lg p-0 flex flex-col z-[95]"
+        overlayClassName="z-[94]"
       >
         <SheetHeader className="px-4 pt-4 pb-2 border-b border-border">
           <SheetTitle>
             {showItemsReview ? "Review & Complete Bill" : "Edit Payment"}
           </SheetTitle>
+          {editWarning && (
+            <div className="mx-4 mt-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+              ⚠️ {editWarning}
+            </div>
+          )}
           <SheetDescription>
             {showItemsReview
               ? `${itemsToBill.length} item${itemsToBill.length !== 1 ? "s" : ""} to bill — set payment details below`
@@ -332,7 +340,7 @@ export function BillingConfirmSheet({
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Select a reason…" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[96]">
                   {suggestedReasons.map((reason) => (
                     <SelectItem key={reason} value={reason}>
                       {reason}

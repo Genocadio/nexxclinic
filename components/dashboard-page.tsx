@@ -36,9 +36,9 @@ import PatientHistorySidePane from "@/components/patient-history-side-pane"
 import PatientRegistrationModal from "@/components/patient-registration-modal"
 import VisitCreationModal from "@/components/visit-creation-modal"
 import { AddDepartmentModal } from "@/components/add-department-modal"
-import { EncounterTypeSelectDialog } from "@/components/encounter-type-select-dialog"
-import { useUpdateVisitDepartmentEncounterType } from "@/hooks/visits/department-mutations"
-import { EncounterType } from "@/lib/api-types"
+import { ProfileSelectDialog } from "@/components/profile-select-dialog"
+import { useChangeVisitDepartmentProfile } from "@/hooks/visits/department-mutations"
+import type { DepartmentProfile } from "@/lib/api-types"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import InlineTryAgain from "@/components/inline-try-again"
@@ -65,6 +65,7 @@ import {
   History,
   Loader2,
   Settings,
+  Info,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
@@ -83,7 +84,7 @@ export default function DashboardPage() {
       skip: !isMounted || !showMetrics,
     })
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
-  const { updateEncounterType } = useUpdateVisitDepartmentEncounterType()
+  const { changeVisitDepartmentProfile } = useChangeVisitDepartmentProfile()
   const { generateInvoice } = useGenerateInvoice()
   const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
   const [finaliseVisitMutation, { loading: finalisingVisit }] = useMutation(
@@ -190,9 +191,10 @@ export default function DashboardPage() {
   const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false)
   const [selectedVisitForDepartment, setSelectedVisitForDepartment] =
     useState<Visit | null>(null)
-  const [encounterTypeDialogOpen, setEncounterTypeDialogOpen] = useState(false)
-  const [encounterTypeVisit, setEncounterTypeVisit] = useState<Visit | null>(null)
-  const [encounterTypeLoading, setEncounterTypeLoading] = useState(false)
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false)
+  const [profileDialogVisit, setProfileDialogVisit] = useState<Visit | null>(null)
+  const [profileDialogLoading, setProfileDialogLoading] = useState(false)
+  const [profileDialogProfiles, setProfileDialogProfiles] = useState<DepartmentProfile[]>([])
   const [previewConsultationOpen, setPreviewConsultationOpen] = useState(false)
   const [previewConsultationContext, setPreviewConsultationContext] = useState<{
     answerId: string | null
@@ -336,23 +338,37 @@ export default function DashboardPage() {
   const isDischarged = (visit: Visit) =>
     (visit.status === "COMPLETED" || visit.status === "FINALISED") && !hasUnbilledItems(visit)
   const canFinaliseVisit = (visit: Visit) => {
-    if (visit.status !== "COMPLETED") return false
-    // Must have at least one department
-    if (!visit.departments || visit.departments.length === 0) return false
-    // All non-cancelled departments must be COMPLETED
+    return getFinaliseBlockers(visit).length === 0
+  }
+
+  /** Returns a list of human-readable reasons why a visit cannot be finalised. */
+  const getFinaliseBlockers = (visit: Visit): string[] => {
+    const blockers: string[] = []
+    if (visit.status !== "COMPLETED") return ["Visit is not completed yet"]
+    if (!visit.departments || visit.departments.length === 0) {
+      blockers.push("No departments assigned")
+      return blockers
+    }
     const nonCancelledDepts = (visit.departments || []).filter(
       (d) => d.status !== "CANCELLED",
     )
-    if (nonCancelledDepts.length === 0) return false
-    // All departments must be COMPLETED (not DRAFT or IN_PROGRESS)
-    if (!nonCancelledDepts.every((d) => d.status === "COMPLETED")) return false
-    // All COMPLETED departments must have non-draft answers (answerId exists and answer is not in DRAFT status)
-    // Departments without answers (products-only) are fine to finalise
-    const deptsWithAnswers = nonCancelledDepts.filter((d) => d.answerId)
-    // All answer-carrying departments should have answers that are not DRAFT
-    // We check the answerId existence here; the backend finaliseVisit mutation
-    // also validates that answers are submitted (not draft)
-    return true
+    if (nonCancelledDepts.length === 0) {
+      blockers.push("No active departments")
+      return blockers
+    }
+    // Check each department
+    for (const dept of nonCancelledDepts) {
+      if (dept.status !== "COMPLETED") {
+        blockers.push(`${dept.department.name} is not completed (${dept.status})`)
+      }
+      if (dept.hasBillableProducts) {
+        blockers.push(`${dept.department.name} has unbilled products`)
+      }
+      if (dept.answerId && !dept.hasFinalizedConsultationAnswers) {
+        blockers.push(`${dept.department.name} has draft consultation answers`)
+      }
+    }
+    return blockers
   }
   const handleFinaliseVisit = async (visit: Visit) => {
     await finaliseVisitMutation({ variables: { visitId: visit.id } })
@@ -495,14 +511,27 @@ export default function DashboardPage() {
     return filtered
   }, [visits, locallyCreatedVisits, searchQuery, statusFilter])
   const handleConsultVisit = (visit: Visit) => {
-    // Open encounter type selection dialog first
-    setEncounterTypeVisit(visit)
-    setEncounterTypeDialogOpen(true)
+    // Check if the matching department has profiles
+    const matchingDept = visit.departments?.find((d) => {
+      const deptId = String(d?.department?.id || d?.id || "")
+      const isDepartmentOpen = d?.status !== "COMPLETED"
+      return deptId && userDepartmentIds.includes(deptId) && isDepartmentOpen
+    })
+    const profiles = matchingDept?.department?.profiles || []
+    if (profiles.length > 0) {
+      // Show profile selection dialog
+      setProfileDialogVisit(visit)
+      setProfileDialogProfiles(profiles)
+      setProfileDialogOpen(true)
+    } else {
+      // No profiles — go straight to consultation
+      router.push(`/consultation?visitId=${visit.id}`)
+    }
   }
-  const handleEncounterTypeSelected = async (encounterType: EncounterType) => {
-    const visit = encounterTypeVisit
+  const handleProfileSelected = async (profile: DepartmentProfile) => {
+    const visit = profileDialogVisit
     if (!visit) return
-    setEncounterTypeLoading(true)
+    setProfileDialogLoading(true)
     try {
       const matchingDept = visit.departments?.find((d) => {
         const deptId = String(d?.department?.id || d?.id || "")
@@ -510,21 +539,22 @@ export default function DashboardPage() {
         return deptId && userDepartmentIds.includes(deptId) && isDepartmentOpen
       })
       if (matchingDept) {
-        // Update encounter type on the matching department
-        await updateEncounterType(matchingDept.id, encounterType)
+        // Apply profile (which carries encounterType)
+        await changeVisitDepartmentProfile(matchingDept.id, profile.id)
         // Mark department as ACTIVE
         await updateDepartmentStatus(matchingDept.id, "ACTIVE")
       }
       refetchVisits()
     } catch (err) {
-      console.error("Failed to set encounter type:", err)
-      toast.error("Failed to set encounter type")
-      setEncounterTypeLoading(false)
+      console.error("Failed to apply profile:", err)
+      toast.error("Failed to apply profile")
+      setProfileDialogLoading(false)
       return
     }
-    setEncounterTypeLoading(false)
-    setEncounterTypeDialogOpen(false)
-    setEncounterTypeVisit(null)
+    setProfileDialogLoading(false)
+    setProfileDialogOpen(false)
+    setProfileDialogVisit(null)
+    setProfileDialogProfiles([])
     router.push(`/consultation?visitId=${visit.id}`)
   }
   const handleTriageVisit = (visit: Visit) => {
@@ -1539,35 +1569,54 @@ export default function DashboardPage() {
                                       </Tooltip>
                                     )}
 
-                                    {/* Manager: Finalise Visit (prominent, like Consult/Bill) */}
-                                    {canFinaliseVisit(visit) && (
+                                    {/* Manager: Finalise Visit */}
+                                    {(visit.status === "COMPLETED" || visit.status === "FINALISED") && (
                                       <Tooltip>
                                         <TooltipTrigger asChild>
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation()
-                                              void handleFinaliseVisit(visit)
+                                              if (canFinaliseVisit(visit)) {
+                                                void handleFinaliseVisit(visit)
+                                              }
                                             }}
                                             title="Finalise Visit"
                                             aria-label="Finalise Visit"
-                                            disabled={finalisingVisit}
-                                            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
+                                            disabled={finalisingVisit || !canFinaliseVisit(visit)}
+                                            className={`px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-full shadow-md transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2 ${
+                                              canFinaliseVisit(visit)
+                                                ? "bg-teal-600 hover:bg-teal-700 text-white hover:shadow-lg"
+                                                : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                                            }`}
                                           >
                                             {finalisingVisit ? (
                                               <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
-                                            ) : (
+                                            ) : canFinaliseVisit(visit) ? (
                                               <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                                            ) : (
+                                              <Info className="w-4 h-4 flex-shrink-0" />
                                             )}
                                             <span className="hidden sm:inline lg:hidden">
                                               Finalise
                                             </span>
                                             <span className="hidden lg:inline">
-                                              {finalisingVisit ? "Finalising…" : "Finalise Visit"}
+                                              {finalisingVisit ? "Finalising…" : canFinaliseVisit(visit) ? "Finalise Visit" : "Not Ready"}
                                             </span>
                                           </button>
                                         </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Finalise Visit — locks all departments, no more edits</p>
+                                        <TooltipContent side="bottom" className="max-w-xs">
+                                          {canFinaliseVisit(visit) ? (
+                                            <p>Finalise Visit — locks all departments, no more edits</p>
+                                          ) : (
+                                            <div>
+                                              <p className="font-medium mb-1">Cannot finalise yet:</p>
+                                              <ul className="list-disc list-inside space-y-0.5">
+                                                {getFinaliseBlockers(visit).map((reason, i) => (
+                                                  <li key={i} className="text-xs">• {reason}</li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          )}
                                         </TooltipContent>
                                       </Tooltip>
                                     )}
@@ -1732,17 +1781,19 @@ export default function DashboardPage() {
         }}
       />
 
-      <EncounterTypeSelectDialog
-        open={encounterTypeDialogOpen}
+      <ProfileSelectDialog
+        open={profileDialogOpen}
         onClose={() => {
-          if (!encounterTypeLoading) {
-            setEncounterTypeDialogOpen(false)
-            setEncounterTypeVisit(null)
+          if (!profileDialogLoading) {
+            setProfileDialogOpen(false)
+            setProfileDialogVisit(null)
+            setProfileDialogProfiles([])
           }
         }}
-        onSelect={handleEncounterTypeSelected}
-        patientName={encounterTypeVisit ? `${encounterTypeVisit.patient.firstName} ${encounterTypeVisit.patient.lastName}` : ""}
-        loading={encounterTypeLoading}
+        onSelect={handleProfileSelected}
+        patientName={profileDialogVisit ? `${profileDialogVisit.patient.firstName} ${profileDialogVisit.patient.lastName}` : ""}
+        profiles={profileDialogProfiles}
+        loading={profileDialogLoading}
       />
 
       {settingsVisit && (

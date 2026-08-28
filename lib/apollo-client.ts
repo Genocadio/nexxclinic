@@ -91,6 +91,13 @@ const authMiddleware = new ApolloLink((operation, forward) => {
   // Get the authentication token from local storage if it exists
   const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
 
+  // Never send a token for auth operations — a stale/expired token in
+  // localStorage would cause the backend to reject with 401 before the
+  // mutation can execute (login, register, refresh, logout).
+  const opName = operation.operationName || '';
+  const isAuthOp = /^Login$|^Register$|^RefreshToken$|^Logout$/i.test(opName);
+  const shouldAttach = token && !isAuthOp;
+
   // Add the authorization header to the request
   // Only set the header when a token exists — sending an empty string
   // causes some backends to treat the request as unauthenticated even
@@ -98,7 +105,7 @@ const authMiddleware = new ApolloLink((operation, forward) => {
   operation.setContext(({ headers = {} }) => ({
     headers: {
       ...headers,
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(shouldAttach ? { authorization: `Bearer ${token}` } : {}),
     },
   }))
 

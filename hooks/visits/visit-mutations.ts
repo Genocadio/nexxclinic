@@ -10,6 +10,7 @@ import {
   GENERATE_CONSULTATION_PDF_MUTATION,
   COMPLETE_VISIT_MUTATION,
   COMPLETE_CONSULTATION_VISIT_MUTATION,
+  REOPEN_VISIT_MUTATION,
 } from "../mutations";
 import type { Visit, ApiResponse } from "../types";
 import { mapGqlVisit, type GqlVisit } from "@/lib/gql-mappers";
@@ -271,6 +272,22 @@ export function useCompleteVisit() {
   };
 
   return { completeVisit, loading, error };
+}
+
+export function useReopenVisit() {
+  const [mutation, { loading, error }] = useMutation(REOPEN_VISIT_MUTATION);
+
+  const reopenVisit = async (visitId: string): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({ variables: { visitId } });
+      return result.data.reopenVisit;
+    } catch (err) {
+      console.error("Reopen visit error:", err);
+      throw err;
+    }
+  };
+
+  return { reopenVisit, loading, error };
 }
 
 export function useCompleteConsultationVisit() {

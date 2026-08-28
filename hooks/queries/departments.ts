@@ -52,6 +52,7 @@ export const DEPARTMENT_PROFILE_FRAGMENT = gql`
   fragment DepartmentProfileFields on DepartmentProfile {
     id
     name
+    encounterType
     isDefault
     products {
       ...DepartmentProfileProduct

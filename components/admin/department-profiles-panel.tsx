@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { ProductAutocomplete } from "@/components/ui/product-autocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import type { Department, DepartmentProfile, Product } from "@/lib/api-types";
+import type { Department, DepartmentProfile, Product, EncounterType } from "@/lib/api-types";
 import {
   useUpdateDepartment,
   useRemoveDepartmentProfile,
@@ -36,6 +36,7 @@ function toProfileInputs(profiles: DepartmentProfile[]): DepartmentProfileMutati
     // Only send an id for existing profiles — new ones are created by the backend.
     ...(profile.id ? { id: profile.id } : {}),
     name: profile.name,
+    encounterType: profile.encounterType,
     isDefault: profile.isDefault,
     productIds: profile.products.map((product) => String(product.id)),
   }));
@@ -55,6 +56,7 @@ export function DepartmentProfilesPanel({
   // Add-profile form state
   const [addingProfile, setAddingProfile] = useState(false);
   const [newProfileName, setNewProfileName] = useState("Default");
+  const [newProfileEncounterType, setNewProfileEncounterType] = useState<string>("OUTPATIENT");
   const [newProfileProductIds, setNewProfileProductIds] = useState<string[]>([]);
   const [newProfileProducts, setNewProfileProducts] = useState<Record<string, Product>>({});
   const [pendingProductId, setPendingProductId] = useState("");
@@ -127,6 +129,7 @@ export function DepartmentProfilesPanel({
         {
           id: "",
           name,
+          encounterType: newProfileEncounterType as EncounterType,
           isDefault: profiles.length === 0,
           products: newProfileProductIds
             .map((id) => newProfileProducts[id] || products.find((p) => String(p.id) === id))
@@ -305,6 +308,19 @@ export function DepartmentProfilesPanel({
               placeholder="e.g. Standard OP Consultation"
               className="mt-1 h-9"
             />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Encounter Type</label>
+            <select
+              value={newProfileEncounterType}
+              onChange={(e) => setNewProfileEncounterType(e.target.value)}
+              className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="OUTPATIENT">Outpatient</option>
+              <option value="INPATIENT_OBSERVATION">Inpatient Observation</option>
+              <option value="INPATIENT_ADMISSION">Inpatient Admission</option>
+              <option value="FOLLOWUP">Follow-up</option>
+            </select>
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Products</label>

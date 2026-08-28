@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { Package, ShieldCheck, Building2, Users, BadgeInfo, FileText } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { isManagerWithoutAdmin } from "@/lib/role-utils"
+
 
 const adminActions = [
   { label: "Clinic Profile", icon: BadgeInfo, path: "/admin/clinic-profile" },
@@ -19,11 +19,7 @@ const adminActions = [
 export default function AdminDashboardPage() {
   const { doctor } = useAuth()
   const router = useRouter()
-  const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
-  const managerOnlyAdminAccess = isManagerWithoutAdmin(roles)
-  const visibleAdminActions = managerOnlyAdminAccess
-    ? adminActions.filter((action) => action.path === "/admin/users")
-    : adminActions
+  const visibleAdminActions = adminActions
 
   return (
     <div className="min-h-screen bg-background">

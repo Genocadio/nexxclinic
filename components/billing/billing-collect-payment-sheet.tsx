@@ -120,7 +120,7 @@ export function CollectPaymentSheet({
   if (buckets.length === 0) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-full sm:max-w-lg p-0">
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0 z-[95]" overlayClassName="z-[94]">
           <SheetHeader className="px-4 pt-4 pb-2 border-b border-border">
             <SheetTitle>Collect Payment</SheetTitle>
             <SheetDescription>
@@ -174,7 +174,7 @@ export function CollectPaymentSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg p-0 flex flex-col">
+      <SheetContent side="right" className="w-full sm:max-w-lg p-0 flex flex-col z-[95]" overlayClassName="z-[94]">
         <SheetHeader className="px-4 pt-4 pb-2 border-b border-border">
           <SheetTitle>Collect Payment</SheetTitle>
           <SheetDescription>

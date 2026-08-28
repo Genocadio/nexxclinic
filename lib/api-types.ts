@@ -391,6 +391,7 @@ export interface Patient {
 export interface DepartmentProfile {
   id: string;
   name: string;
+  encounterType: EncounterType;
   isDefault: boolean;
   products: Product[];
   createdAt: string;

@@ -13,8 +13,9 @@ import {
   Loader2,
   Settings,
   Building2,
-  Clock,
   Info,
+  Eye,
+  FileText,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import type { Visit } from "@/lib/api-types"
@@ -35,7 +36,9 @@ import {
 } from "@/hooks/mutations/billing"
 import {
   useStartBillEditing,
+  useGenerateInvoice,
 } from "@/hooks/billing/hooks"
+import { useGenerateConsultationPdf } from "@/hooks/visits/visit-mutations"
 import { VISITS_QUERY } from "@/hooks/queries/visits"
 
 interface VisitSettingsPanelProps {
@@ -175,13 +178,19 @@ export function VisitSettingsPanel({
             id
             status
             totalAmount
-            billingDate
             visitDepartment {
               id
               department {
                 id
                 name
               }
+            }
+            insuranceBillings {
+              id
+              status
+              totalAmount
+              billingDate
+              invoiceUrl
             }
           }
         }
@@ -196,12 +205,27 @@ export function VisitSettingsPanel({
     }
   }, [open, visit.id])
 
+  const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice()
+  const { generateConsultationPdf, loading: generatingConsultationPdf } = useGenerateConsultationPdf()
+
   const handleBillingDateChange = async (
     departmentInsuranceBillingId: string,
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const newDate = e.target.value
     if (!newDate) return
+
+    // Validate: billing date must be at least 5 minutes after visit date
+    if (visit.visitDate) {
+      const visitTime = new Date(visit.visitDate).getTime()
+      const billingTime = new Date(newDate).getTime()
+      const fiveMinutesMs = 5 * 60 * 1000
+      if (billingTime < visitTime + fiveMinutesMs) {
+        toast.error("Billing date must be at least 5 minutes after the visit date")
+        return
+      }
+    }
+
     await updateBillingDate({
       variables: {
         input: {
@@ -210,6 +234,40 @@ export function VisitSettingsPanel({
         },
       },
     })
+  }
+
+  const handlePreviewInvoice = async (departmentInsuranceBillingId: string) => {
+    try {
+      const result = await generateInvoice(departmentInsuranceBillingId)
+      if (result?.data?.signedUrl) {
+        window.open(result.data.signedUrl, "_blank")
+      } else {
+        toast.error(result?.message || "Failed to generate invoice")
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate invoice")
+    }
+  }
+
+  const handlePreviewConsultation = async (dept: Visit["departments"][number]) => {
+    if (!dept.answerId) {
+      toast.error("No consultation answers found for this department")
+      return
+    }
+    try {
+      const result = await generateConsultationPdf({
+        consultationId: dept.answerId,
+        departmentId: dept.department?.id || "",
+        formId: "",
+      })
+      if (result?.data?.signedUrl) {
+        window.open(result.data.signedUrl, "_blank")
+      } else {
+        toast.error(result?.message || "Failed to generate consultation PDF")
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate consultation PDF")
+    }
   }
 
   const handleStartBillEditing = async () => {
@@ -312,7 +370,7 @@ export function VisitSettingsPanel({
         role="dialog"
         aria-modal="true"
         aria-label="Visit Settings"
-        className={`absolute right-0 top-16 h-[calc(100vh-4rem)] w-[min(92vw,48rem)] border-l border-border bg-background dark:bg-slate-900 shadow-2xl transition-transform duration-200 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}
+        className={`absolute left-0 top-16 h-[calc(100vh-4rem)] w-[min(92vw,48rem)] border-r border-border bg-background dark:bg-slate-900 shadow-2xl transition-transform duration-200 ease-out ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex h-full flex-col">
           {/* Header */}
@@ -399,82 +457,18 @@ export function VisitSettingsPanel({
                   </div>
 
                   {/* Billing Date */}
-                  {billingData?.visitBilling?.departments?.length > 0 && (
-                    <div className="rounded-xl border border-border p-4 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <ReceiptText className="h-4 w-4 text-primary" />
-                        <h3 className="font-medium text-foreground">
-                          Billing Date
-                        </h3>
-                      </div>
-                      <div className="space-y-3">
-                        {billingData.visitBilling.departments.map(
-                          (billing: any) => (
-                            <div
-                              key={billing.id}
-                              className="rounded-lg border border-border/50 p-3 space-y-2"
-                            >
-                              <p className="text-sm font-medium text-foreground">
-                                {billing.visitDepartment?.department?.name ||
-                                  "Department"}
-                                <span className="ml-2 text-xs text-muted-foreground font-normal">
-                                  • Total: {billing.totalAmount}
-                                </span>
-                              </p>
-                              <input
-                                type="datetime-local"
-                                defaultValue={
-                                  billing.billingDate
-                                    ? new Date(billing.billingDate)
-                                        .toISOString()
-                                        .slice(0, 16)
-                                    : ""
-                                }
-                                onChange={(e) =>
-                                  handleBillingDateChange(billing.id, e)
-                                }
-                                disabled={visit.status === "CANCELLED"}
-                                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                              />
-                            </div>
-                          ),
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Visit Status */}
                   <div className="rounded-xl border border-border p-4 space-y-3">
                     <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-primary" />
+                      <ReceiptText className="h-4 w-4 text-primary" />
                       <h3 className="font-medium text-foreground">
-                        Visit Status
+                        Billing Date
                       </h3>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          visit.status === "FINALISED"
-                            ? "bg-teal-100 text-teal-700"
-                            : visit.status === "COMPLETED"
-                              ? "bg-green-100 text-green-700"
-                              : visit.status === "CANCELLED"
-                                ? "bg-red-100 text-red-700"
-                                : visit.status === "IN_PROGRESS"
-                                  ? "bg-yellow-100 text-yellow-700"
-                                  : visit.status === "BILL_EDITING"
-                                    ? "bg-amber-100 text-amber-700"
-                                    : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {visit.status}
-                      </span>
                       {visit.status === "COMPLETED" && (
                         <button
                           type="button"
                           onClick={handleStartBillEditing}
                           disabled={startingBillEdit}
-                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                          className="ml-auto px-2.5 py-1 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1"
                         >
                           {startingBillEdit ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
@@ -485,11 +479,75 @@ export function VisitSettingsPanel({
                         </button>
                       )}
                       {visit.status === "BILL_EDITING" && (
-                        <span className="text-xs text-amber-600 font-medium">
-                          Currently in billing edit mode
+                        <span className="ml-auto text-xs text-amber-600 font-medium">
+                          Billing edit mode active
                         </span>
                       )}
                     </div>
+                    {(() => {
+                      // Flatten all insurance billings across departments
+                      const allInsBillings: any[] = [];
+                      billingData?.visitBilling?.departments?.forEach((dept: any) => {
+                        (dept.insuranceBillings || []).forEach((ib: any) => {
+                          allInsBillings.push({
+                            ...ib,
+                            departmentName: dept.visitDepartment?.department?.name || "Department",
+                          });
+                        });
+                      });
+
+                      if (allInsBillings.length > 0) {
+                        return (
+                          <div className="space-y-3">
+                            {allInsBillings.map((ib: any) => (
+                              <div
+                                key={ib.id}
+                                className="rounded-lg border border-border/50 p-3 space-y-2"
+                              >
+                                <p className="text-sm font-medium text-foreground">
+                                  {ib.departmentName}
+                                  <span className="ml-2 text-xs text-muted-foreground font-normal">
+                                    • Total: {ib.totalAmount}
+                                  </span>
+                                </p>
+                                <input
+                                  type="datetime-local"
+                                  defaultValue={
+                                    ib.billingDate
+                                      ? new Date(ib.billingDate)
+                                          .toISOString()
+                                          .slice(0, 16)
+                                      : ""
+                                  }
+                                  min={visit.visitDate
+                                    ? new Date(
+                                        new Date(visit.visitDate).getTime() +
+                                          5 * 60 * 1000,
+                                      )
+                                        .toISOString()
+                                        .slice(0, 16)
+                                    : undefined}
+                                  onChange={(e) =>
+                                    handleBillingDateChange(ib.id, e)
+                                  }
+                                  disabled={visit.status === "CANCELLED"}
+                                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                  Must be at least 5 minutes after visit date
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="text-center py-4 text-muted-foreground">
+                          <p className="text-sm">No billing records yet</p>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Danger Zone */}
@@ -623,7 +681,7 @@ export function VisitSettingsPanel({
                                   </div>
                                 </div>
                               )}
-                              {hasNoProducts(dept) && (
+                              {dept.status !== "FINALISED" && dept.status !== "CANCELLED" && (
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -648,6 +706,50 @@ export function VisitSettingsPanel({
                               {dept.products.length !== 1 ? "s" : ""} added
                             </div>
                           )}
+                          {/* Preview buttons */}
+                          <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                            {dept.answerId && (
+                              <button
+                                type="button"
+                                onClick={() => handlePreviewConsultation(dept)}
+                                disabled={generatingConsultationPdf}
+                                className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-blue-200"
+                              >
+                                {generatingConsultationPdf ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <FileText className="h-3 w-3" />
+                                )}
+                                Preview Consultation
+                              </button>
+                            )}
+                            {(() => {
+                              const deptBilling = billingData?.visitBilling?.departments?.find(
+                                (b: any) => b.visitDepartment?.id === dept.id,
+                              )
+                              const invoiceBilling = deptBilling?.insuranceBillings?.find(
+                                (ib: any) => ib.invoiceUrl,
+                              )
+                              if (invoiceBilling) {
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePreviewInvoice(invoiceBilling.id)}
+                                    disabled={generatingInvoice}
+                                    className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-purple-200"
+                                  >
+                                    {generatingInvoice ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Eye className="h-3 w-3" />
+                                    )}
+                                    Preview Invoice
+                                  </button>
+                                )
+                              }
+                              return null
+                            })()}
+                          </div>
                         </div>
                       ))}
                     </div>

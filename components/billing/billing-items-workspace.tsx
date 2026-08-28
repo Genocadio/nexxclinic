@@ -27,6 +27,8 @@ type BillingItemsWorkspaceProps = {
   items: BillingItem[];
   /** All billing items across all departments, used to check if a department has 0 products. */
   allItems?: BillingItem[];
+  /** Department names that are fully billed (all items paid). */
+  billedDepartmentNames?: Set<string>;
   canAddItems: boolean;
   canEdit?: boolean;
   editMode?: boolean;
@@ -42,6 +44,7 @@ type BillingItemsWorkspaceProps = {
   onItemRemove: (itemId: string) => void;
   onQuantityChange: (item: BillingItem, quantity: number) => void;
   onRemoveDepartment?: (visitDepartmentId: string) => void;
+  editedItemChanges?: Map<string, "added" | "modified">;
 };
 
 export function BillingItemsWorkspace({
@@ -50,6 +53,7 @@ export function BillingItemsWorkspace({
   serviceDepartmentIds = {},
   items,
   allItems = [],
+  billedDepartmentNames = new Set(),
   canAddItems,
   canEdit = true,
   editMode = false,
@@ -65,6 +69,7 @@ export function BillingItemsWorkspace({
   onItemRemove,
   onQuantityChange,
   onRemoveDepartment,
+  editedItemChanges,
 }: BillingItemsWorkspaceProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; serviceName: string; visitDepartmentId: string } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -104,8 +109,8 @@ export function BillingItemsWorkspace({
     [serviceDepartmentIds, allItems, onRemoveDepartment],
   );
   return (
-    <div className="flex-1 flex flex-col min-h-0 p-6">
-      <div className="flex-1 flex flex-col min-h-0 w-full min-w-0 mx-auto px-2 sm:px-4 md:px-[1cm] lg:px-[2cm]">          <div className="flex items-center justify-between gap-3 mb-2 flex-shrink-0">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-6">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full min-w-0 mx-auto px-2 sm:px-4 md:px-[1cm] lg:px-[2cm]">          <div className="flex items-center justify-between gap-3 mb-2 flex-shrink-0">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold text-foreground">
               Items to Bill
@@ -171,16 +176,23 @@ export function BillingItemsWorkspace({
         <div className="mb-2 flex-shrink-0">
           <Tabs value={activeService} onValueChange={onServiceChange}>
             <TabsList className="h-8">
-              {allServiceNames.map((dept) => (
-                <TabsTrigger
-                  key={dept}
-                  value={dept}
-                  className="rounded-full px-3 text-xs h-7"
-                  onContextMenu={(e) => handleTabContextMenu(e, dept)}
-                >
-                  {dept}
-                </TabsTrigger>
-              ))}
+              {allServiceNames.map((dept) => {
+                const isBilled = billedDepartmentNames.has(dept);
+                return (
+                  <TabsTrigger
+                    key={dept}
+                    value={dept}
+                    className={`rounded-full px-3 text-xs h-7 ${
+                      isBilled
+                        ? "bg-green-100 text-green-700 border border-green-300 data-[state=active]:bg-green-200 data-[state=active]:text-green-800"
+                        : ""
+                    }`}
+                    onContextMenu={(e) => handleTabContextMenu(e, dept)}
+                  >
+                    {isBilled && "✓ "}{dept}
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
           </Tabs>
         </div>
@@ -220,6 +232,7 @@ export function BillingItemsWorkspace({
               hideTypeColumn
               canEdit={canEdit}
               editMode={editMode}
+              editedItemChanges={editedItemChanges}
             />
           </div>
         </div>

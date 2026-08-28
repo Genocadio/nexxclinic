@@ -21,7 +21,7 @@ export const hasRole = (roles: string[], role: string) => {
   return normalizedUserRoles.some((userRole) => equivalentRoles.includes(userRole))
 }
 
-export const hasAdminAccess = (roles: string[]) => hasRole(roles, ADMIN_ROLE) || hasRole(roles, MANAGER_ROLE)
+export const hasAdminAccess = (roles: string[]) => hasRole(roles, ADMIN_ROLE)
 
 export const isManagerOnly = (roles: string[]) => hasRole(roles, MANAGER_ROLE) && roles.length === 1
 
@@ -29,12 +29,10 @@ export const isManagerWithoutAdmin = (roles: string[]) => hasRole(roles, MANAGER
 
 export const canManageAdminUsers = (roles: string[]) => hasRole(roles, ADMIN_ROLE)
 
-export const canManagerAccessAdminPath = (pathname: string | null) => {
-  if (!pathname) return false
-  return pathname === "/admin" || pathname.startsWith("/admin/users")
-}
+/** Managers can never access admin paths — always returns false. */
+export const canManagerAccessAdminPath = (_pathname: string | null) => false
 
-export const getPostLoginPath = (roles: string[]) => (isManagerOnly(roles) ? "/admin" : "/")
+export const getPostLoginPath = (roles: string[]) => "/"
 
 export const canAccessBilling = (roles: string[]) => {
   // Only users with FINANCE or CASHIER roles can access billing

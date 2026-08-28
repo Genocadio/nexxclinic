@@ -31,6 +31,7 @@ type BillingStickySummaryProps = {
   creatingBill: boolean;
   generatingInvoice: boolean;
   isEditingBill: boolean;
+  hasEditChanges?: boolean;
   hasUnreadNotes?: boolean;
   loadingEditBilling?: boolean;
   loadingDoneEditing?: boolean;
@@ -52,6 +53,7 @@ export function BillingStickySummary({
   creatingBill,
   generatingInvoice,
   isEditingBill,
+  hasEditChanges = false,
   hasUnreadNotes = false,
   loadingEditBilling = false,
   loadingDoneEditing = false,
@@ -70,7 +72,7 @@ export function BillingStickySummary({
   if (!showActions && !existingVisitBilling) return null;
 
   return (
-    <div className="flex-shrink-0 border-t border-border bg-card/80 backdrop-blur-xl py-3">
+    <div className="flex-shrink-0 overflow-hidden border-t border-border bg-card/80 backdrop-blur-xl py-3 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
       <div className="px-6">
         <div className="w-full min-w-0 mx-auto px-2 sm:px-4 md:px-[1cm] lg:px-[2cm]">
           <div className="flex items-center gap-4 lg:gap-6">
@@ -125,7 +127,7 @@ export function BillingStickySummary({
                     Editing billing
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    Make changes, then click Complete Edit
+                    {hasEditChanges ? "Changes detected — click Complete Edit to save" : "No changes yet — modify items to enable Complete Edit"}
                   </p>
                 </div>
               ) : existingVisitBilling && billingTotals ? (
@@ -180,14 +182,16 @@ export function BillingStickySummary({
                     >
                       {loadingDoneEditing ? "Cancelling…" : "Cancel"}
                     </Button>
-                    <Button
-                      size="sm"
-                      className="h-9 rounded-full bg-[#FF6900] hover:bg-[#e05f00] text-white text-xs px-4"
-                      disabled={creatingBill || hasUnreadNotes}
-                      onClick={onCompleteBill}
-                    >
-                      {creatingBill ? "Processing…" : "Complete Edit"}
-                    </Button>
+                    {hasEditChanges && (
+                      <Button
+                        size="sm"
+                        className="h-9 rounded-full bg-[#FF6900] hover:bg-[#e05f00] text-white text-xs px-4"
+                        disabled={creatingBill || hasUnreadNotes}
+                        onClick={onCompleteBill}
+                      >
+                        {creatingBill ? "Processing…" : "Complete Edit"}
+                      </Button>
+                    )}
                   </>
                 )}
 
