@@ -760,6 +760,10 @@ type DepartmentInsuranceBilling {
   outstandingType: String
   outstandingReason: String
   items: [VisitBillingItem!]!
+  """The date/time displayed on the invoice. Defaults to createdAt but can be overridden by admin/manager."""
+  billingDate: String
+  """Signed URL of the generated invoice PDF, or null if not yet generated."""
+  invoiceUrl: String
   createdAt: String!
   updatedAt: String!
 }

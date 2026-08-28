@@ -41,6 +41,37 @@ import {
 import { useGenerateConsultationPdf } from "@/hooks/visits/visit-mutations"
 import { VISITS_QUERY } from "@/hooks/queries/visits"
 
+const GET_VISIT_BILLING = gql`
+  query GetVisitBillingForSettings($visitId: ID!) {
+    visitBilling(visitId: $visitId) {
+      status
+      message
+      data {
+        id
+        departments {
+          id
+          status
+          totalAmount
+          visitDepartment {
+            id
+            department {
+              id
+              name
+            }
+          }
+          insuranceBillings {
+            id
+            status
+            totalAmount
+            billingDate
+            invoiceUrl
+          }
+        }
+      }
+    }
+  }
+`
+
 interface VisitSettingsPanelProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -59,9 +90,17 @@ export function VisitSettingsPanel({
     "general",
   )
 
+  // ── Mutations with refetchQueries so state updates instantly ──
+  const refetchConfig = {
+    refetchQueries: [
+      { query: VISITS_QUERY, variables: { input: {} } },
+    ],
+  }
+
   const [cancelVisit, { loading: cancelling }] = useMutation(
     CANCEL_VISIT_MUTATION,
     {
+      ...refetchConfig,
       onCompleted: (data) => {
         if (data?.cancelVisit?.status === "SUCCESS") {
           toast.success("Visit cancelled successfully")
@@ -80,6 +119,7 @@ export function VisitSettingsPanel({
   const [deleteVisit, { loading: deleting }] = useMutation(
     DELETE_VISIT_MUTATION,
     {
+      ...refetchConfig,
       onCompleted: (data) => {
         if (data?.deleteVisit?.status === "SUCCESS") {
           toast.success("Visit deleted successfully")
@@ -98,6 +138,7 @@ export function VisitSettingsPanel({
   const [removeDepartment, { loading: removingDept }] = useMutation(
     REMOVE_VISIT_DEPARTMENT_MUTATION,
     {
+      ...refetchConfig,
       onCompleted: (data) => {
         if (data?.removeVisitDepartment?.status === "SUCCESS") {
           toast.success("Department removed successfully")
@@ -118,6 +159,7 @@ export function VisitSettingsPanel({
   const [finaliseDepartment, { loading: finalisingDept }] = useMutation(
     FINALISE_VISIT_DEPARTMENT_MUTATION,
     {
+      ...refetchConfig,
       onCompleted: (data) => {
         if (data?.updateVisitDepartmentStatus?.status === "SUCCESS") {
           toast.success("Department finalised successfully")
@@ -136,6 +178,7 @@ export function VisitSettingsPanel({
   )
 
   const [changeVisitDate] = useMutation(CHANGE_VISIT_DATE_MUTATION, {
+    ...refetchConfig,
     onCompleted: (data) => {
       if (data?.changeVisitDate?.status === "SUCCESS") {
         toast.success("Visit date updated successfully")
@@ -155,7 +198,8 @@ export function VisitSettingsPanel({
     onCompleted: (data) => {
       if (data?.updateBillingDate?.status === "SUCCESS") {
         toast.success("Billing date updated successfully")
-        onVisitUpdated?.()
+        // Re-fetch billing data to reflect the change
+        fetchBilling({ variables: { visitId: visit.id } })
       } else {
         toast.error(
           data?.updateBillingDate?.message || "Failed to update billing date",
@@ -169,41 +213,24 @@ export function VisitSettingsPanel({
 
   const { startBillEditing, loading: startingBillEdit } = useStartBillEditing()
 
-  const [fetchBilling, { data: billingData }] = useLazyQuery(
-    gql`
-      query GetVisitBillingForSettings($visitId: ID!) {
-        visitBilling(visitId: $visitId) {
-          id
-          departments {
-            id
-            status
-            totalAmount
-            visitDepartment {
-              id
-              department {
-                id
-                name
-              }
-            }
-            insuranceBillings {
-              id
-              status
-              totalAmount
-              billingDate
-              invoiceUrl
-            }
-          }
-        }
-      }
-    `,
+  const [fetchBilling, { data: billingData, error: billingError }] = useLazyQuery(
+    GET_VISIT_BILLING,
     { fetchPolicy: "network-only" },
   )
+
+  // Log billing query errors silently — surface via toast
+  useEffect(() => {
+    if (billingError) {
+      console.error("[VisitSettings] Billing query error:", billingError)
+      toast.error("Failed to load billing data: " + (billingError.message || "Unknown error"))
+    }
+  }, [billingError])
 
   useEffect(() => {
     if (open) {
       fetchBilling({ variables: { visitId: visit.id } })
     }
-  }, [open, visit.id])
+  }, [open, visit.id, fetchBilling])
 
   const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice()
   const { generateConsultationPdf, loading: generatingConsultationPdf } = useGenerateConsultationPdf()
@@ -353,8 +380,22 @@ export function VisitSettingsPanel({
     visit.status !== "CANCELLED" && visit.status !== "COMPLETED"
   const canDeleteVisit = visit.status !== "BILL_EDITING"
   const hasDepartments = visit.departments && visit.departments.length > 0
-  const hasNoProducts = (dept: Visit["departments"][number]) =>
-    !dept.products || dept.products.length === 0
+
+  // ── Derived billing state ──
+  const billingDepartments = billingData?.visitBilling?.data?.departments
+  const hasBillingData = billingDepartments && billingDepartments.length > 0
+  const isBillEditing = visit.status === "BILL_EDITING"
+
+  // Flatten all insurance billings across departments
+  const allInsBillings: any[] = []
+  billingDepartments?.forEach((dept: any) => {
+    ;(dept.insuranceBillings || []).forEach((ib: any) => {
+      allInsBillings.push({
+        ...ib,
+        departmentName: dept.visitDepartment?.department?.name || "Department",
+      })
+    })
+  })
 
   if (!isRendered || typeof document === "undefined") return null
 
@@ -463,6 +504,7 @@ export function VisitSettingsPanel({
                       <h3 className="font-medium text-foreground">
                         Billing Date
                       </h3>
+                      {/* Enable Billing Edit button — only when visit is COMPLETED */}
                       {visit.status === "COMPLETED" && (
                         <button
                           type="button"
@@ -478,76 +520,71 @@ export function VisitSettingsPanel({
                           Enable Billing Edit
                         </button>
                       )}
-                      {visit.status === "BILL_EDITING" && (
+                      {/* Billing edit mode active badge */}
+                      {isBillEditing && (
                         <span className="ml-auto text-xs text-amber-600 font-medium">
                           Billing edit mode active
                         </span>
                       )}
                     </div>
-                    {(() => {
-                      // Flatten all insurance billings across departments
-                      const allInsBillings: any[] = [];
-                      billingData?.visitBilling?.departments?.forEach((dept: any) => {
-                        (dept.insuranceBillings || []).forEach((ib: any) => {
-                          allInsBillings.push({
-                            ...ib,
-                            departmentName: dept.visitDepartment?.department?.name || "Department",
-                          });
-                        });
-                      });
 
-                      if (allInsBillings.length > 0) {
-                        return (
-                          <div className="space-y-3">
-                            {allInsBillings.map((ib: any) => (
-                              <div
-                                key={ib.id}
-                                className="rounded-lg border border-border/50 p-3 space-y-2"
-                              >
-                                <p className="text-sm font-medium text-foreground">
-                                  {ib.departmentName}
-                                  <span className="ml-2 text-xs text-muted-foreground font-normal">
-                                    • Total: {ib.totalAmount}
-                                  </span>
-                                </p>
-                                <input
-                                  type="datetime-local"
-                                  defaultValue={
-                                    ib.billingDate
-                                      ? new Date(ib.billingDate)
-                                          .toISOString()
-                                          .slice(0, 16)
-                                      : ""
-                                  }
-                                  min={visit.visitDate
-                                    ? new Date(
-                                        new Date(visit.visitDate).getTime() +
-                                          5 * 60 * 1000,
-                                      )
-                                        .toISOString()
-                                        .slice(0, 16)
-                                    : undefined}
-                                  onChange={(e) =>
-                                    handleBillingDateChange(ib.id, e)
-                                  }
-                                  disabled={visit.status === "CANCELLED"}
-                                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                  Must be at least 5 minutes after visit date
-                                </p>
-                              </div>
-                            ))}
+                    {/* Billing date inputs */}
+                    {hasBillingData ? (
+                      <div className="space-y-3">
+                        {allInsBillings.map((ib: any) => (
+                          <div
+                            key={ib.id}
+                            className="rounded-lg border border-border/50 p-3 space-y-2"
+                          >
+                            <p className="text-sm font-medium text-foreground">
+                              {ib.departmentName}
+                              <span className="ml-2 text-xs text-muted-foreground font-normal">
+                                • Total: {ib.totalAmount?.toLocaleString()} RWF
+                              </span>
+                              {ib.status && (
+                                <span className={`ml-2 text-xs font-medium ${
+                                  ib.status === "PAID" ? "text-emerald-600" :
+                                  ib.status === "PARTIALLY_PAID" ? "text-amber-600" :
+                                  "text-muted-foreground"
+                                }`}>
+                                  {ib.status}
+                                </span>
+                              )}
+                            </p>
+                            <input
+                              type="datetime-local"
+                              defaultValue={
+                                ib.billingDate
+                                  ? new Date(ib.billingDate)
+                                      .toISOString()
+                                      .slice(0, 16)
+                                  : ""
+                              }
+                              min={visit.visitDate
+                                ? new Date(
+                                    new Date(visit.visitDate).getTime() +
+                                      5 * 60 * 1000,
+                                  )
+                                    .toISOString()
+                                    .slice(0, 16)
+                                : undefined}
+                              onChange={(e) =>
+                                handleBillingDateChange(ib.id, e)
+                              }
+                              disabled={visit.status === "CANCELLED"}
+                              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Must be at least 5 minutes after visit date
+                            </p>
                           </div>
-                        );
-                      }
-
-                      return (
-                        <div className="text-center py-4 text-muted-foreground">
-                          <p className="text-sm">No billing records yet</p>
-                        </div>
-                      );
-                    })()}
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        <p className="text-sm">No billing records yet</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Danger Zone */}
@@ -724,7 +761,7 @@ export function VisitSettingsPanel({
                               </button>
                             )}
                             {(() => {
-                              const deptBilling = billingData?.visitBilling?.departments?.find(
+                              const deptBilling = billingDepartments?.find(
                                 (b: any) => b.visitDepartment?.id === dept.id,
                               )
                               const invoiceBilling = deptBilling?.insuranceBillings?.find(
@@ -756,7 +793,6 @@ export function VisitSettingsPanel({
                   )}
                 </div>
               )}
-
 
             </div>
           </ScrollArea>
