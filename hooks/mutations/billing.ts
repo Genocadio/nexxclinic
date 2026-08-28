@@ -190,3 +190,26 @@ export const CANCEL_BILL_EDITING_MUTATION = gql`
     }
   }
 `;
+
+export const UPDATE_BILLING_DATE_MUTATION = gql`
+  mutation UpdateBillingDate($input: UpdateBillingDateInput!) {
+    updateBillingDate(input: $input) {
+      status
+      message
+      data {
+        id
+        billingDate
+        totalAmount
+      }
+    }
+  }
+`;
+
+export const QUICK_BILL_MUTATION = gql`
+  mutation QuickBill($visitId: ID!) {
+    quickBill(visitId: $visitId) {
+      status
+      message
+    }
+  }
+`;

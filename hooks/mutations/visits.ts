@@ -962,3 +962,81 @@ export const UPDATE_VISIT_DEPARTMENT_PRODUCT_PROCESSOR_MUTATION = gql`
     }
   }
 `;
+
+export const CANCEL_VISIT_MUTATION = gql`
+  mutation CancelVisit($visitId: ID!) {
+    cancelVisit(visitId: $visitId) {
+      status
+      message
+      data {
+        id
+        status
+      }
+    }
+  }
+`;
+
+export const FINALISE_VISIT_MUTATION = gql`
+  mutation FinaliseVisit($visitId: ID!) {
+    finaliseVisit(visitId: $visitId) {
+      status
+      message
+      data {
+        id
+        status
+        departments {
+          id
+          status
+          department {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const DELETE_VISIT_MUTATION = gql`
+  mutation DeleteVisit($visitId: ID!) {
+    deleteVisit(visitId: $visitId) {
+      status
+      message
+      data
+    }
+  }
+`;
+
+export const CHANGE_VISIT_DATE_MUTATION = gql`
+  mutation ChangeVisitDate($input: ChangeVisitDateInput!) {
+    changeVisitDate(input: $input) {
+      status
+      message
+      data {
+        id
+        visitDate
+      }
+    }
+  }
+`;
+
+export const FINALISE_VISIT_DEPARTMENT_MUTATION = gql`
+  mutation FinaliseVisitDepartment($visitDepartmentId: ID!) {
+    updateVisitDepartmentStatus(
+      input: { visitDepartmentId: $visitDepartmentId, status: FINALISED }
+    ) {
+      status
+      message
+      data {
+        id
+        status
+        completedAt
+        updatedAt
+        department {
+          id
+          name
+        }
+      }
+    }
+  }
+`;

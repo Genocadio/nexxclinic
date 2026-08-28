@@ -198,6 +198,10 @@ export type GqlVisit = {
   linkedInsurances?: GqlPatientInsurance[] | null;
   patient: GqlPatient;
   departments?: GqlVisitDepartment[] | null;
+  estimatedTotal?: number | null;
+  estimatedInsurancePay?: number | null;
+  estimatedPatientPay?: number | null;
+  quickBillEligible?: boolean | null;
 };
 
 function parseGender(value?: string | null): Gender {
@@ -593,6 +597,10 @@ export function mapGqlVisit(
     ),
     departments: (visit.departments || []).map(mapGqlVisitDepartment),
     vitalSigns: [],
+    estimatedTotal: visit.estimatedTotal ?? null,
+    estimatedInsurancePay: visit.estimatedInsurancePay ?? null,
+    estimatedPatientPay: visit.estimatedPatientPay ?? null,
+    quickBillEligible: visit.quickBillEligible ?? null,
   };
 }
 

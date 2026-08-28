@@ -113,6 +113,7 @@ export enum VisitStatus {
   CANCELLED = "CANCELLED",
   COMPLETED = "COMPLETED",
   BILL_EDITING = "BILL_EDITING",
+  FINALISED = "FINALISED",
 }
 
 export enum VisitProductStatus {
@@ -510,6 +511,24 @@ export interface Visit {
   linkedInsurances: PatientInsurance[];
   departments: VisitDepartment[];
   vitalSigns: VisitVitalSignsGroup[];
+  estimatedTotal?: number | null;
+  estimatedInsurancePay?: number | null;
+  estimatedPatientPay?: number | null;
+  quickBillEligible?: boolean | null;
+}
+
+export interface VisitPriceEstimate {
+  id: string;
+  visitDepartmentProduct: VisitDepartmentProduct;
+  appliedPatientInsurance?: PatientInsurance | null;
+  resolvedPatientSharePct: number;
+  patientShareSource?: string | null;
+  unitPrice: number;
+  quantity: number;
+  lineTotal: number;
+  insuranceCoveredAmount: number;
+  patientPayableAmount: number;
+  createdAt: string;
 }
 
 export interface LastDepartmentVisitInfo {

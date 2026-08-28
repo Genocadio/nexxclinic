@@ -271,6 +271,10 @@ export const GET_VISIT_QUERY = gql`
           createdAt
           updatedAt
         }
+        estimatedTotal
+        estimatedInsurancePay
+        estimatedPatientPay
+        quickBillEligible
       }
     }
   }
@@ -376,6 +380,10 @@ export const VISITS_QUERY = gql`
             newNotes
           }
         }
+        estimatedTotal
+        estimatedInsurancePay
+        estimatedPatientPay
+        quickBillEligible
       }
       pagination {
         total
@@ -438,10 +446,13 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
             quantity
             status
             createdAt
-          }
-          createdAt
+          }          createdAt
           updatedAt
         }
+        estimatedTotal
+        estimatedInsurancePay
+        estimatedPatientPay
+        quickBillEligible
       }
       pagination {
         total
@@ -449,6 +460,7 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
         currentPage
         totalPages
       }
+
     }
   }
 `;
@@ -503,11 +515,15 @@ export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
               quantity
               status
               createdAt
-            }
-            createdAt
+            }            createdAt
             updatedAt
             answerId
           }
+          estimatedTotal
+          estimatedInsurancePay
+          estimatedPatientPay
+          quickBillEligible
+
         }
         lastDepartmentVisit {
           visitId

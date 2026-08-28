@@ -8,6 +8,7 @@ import {
   START_BILL_EDITING_MUTATION,
   COMPLETE_BILL_EDITING_MUTATION,
   CANCEL_BILL_EDITING_MUTATION,
+  QUICK_BILL_MUTATION,
 } from "../mutations";
 import type { VisitBilling, ApiResponse } from "../types";
 import type { InvoiceResponse } from "../types";
@@ -54,6 +55,13 @@ export interface GenerateInvoicePayload {
   generateInvoice: InvoiceResponse & {
     pdfBase64?: string;
     messages?: { text: string; type: string }[];
+  };
+}
+
+export interface QuickBillMutationData {
+  quickBill: {
+    status: string;
+    message?: string;
   };
 }
 
@@ -338,4 +346,21 @@ export function useCancelBillEditing() {
   };
 
   return { cancelBillEditing, loading, error };
+}
+
+export function useQuickBill() {
+  const [mutation, { loading, error }] = useMutation<QuickBillMutationData>(QUICK_BILL_MUTATION);
+
+  const quickBill = async (visitId: string) => {
+    try {
+      const result = await mutation({ variables: { visitId } });
+      const payload = result?.data?.quickBill;
+      return { status: payload?.status || "ERROR", message: payload?.message };
+    } catch (err) {
+      console.error("Quick bill error:", err);
+      throw err;
+    }
+  };
+
+  return { quickBill, loading, error };
 }

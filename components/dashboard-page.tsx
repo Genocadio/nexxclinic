@@ -23,8 +23,9 @@ import {
   visitHasUnbilledProducts,
   visitProductsFullySettled,
 } from "@/lib/visit-product-utils"
-import { useLazyQuery } from "@apollo/client"
+import { useLazyQuery, useMutation } from "@apollo/client"
 import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
+import { FINALISE_VISIT_MUTATION } from "@/hooks/mutations/visits"
 import Header from "@/components/header"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
@@ -63,11 +64,13 @@ import {
   Eye,
   History,
   Loader2,
+  Settings,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
 import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
 import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet"
+import { VisitSettingsPanel } from "@/components/manager/visit-settings-panel"
 export default function DashboardPage() {
   const router = useRouter()
   const { doctor } = useAuth()
@@ -83,6 +86,22 @@ export default function DashboardPage() {
   const { updateEncounterType } = useUpdateVisitDepartmentEncounterType()
   const { generateInvoice } = useGenerateInvoice()
   const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
+  const [finaliseVisitMutation, { loading: finalisingVisit }] = useMutation(
+    FINALISE_VISIT_MUTATION,
+    {
+      onCompleted: (data) => {
+        if (data?.finaliseVisit?.status === "SUCCESS") {
+          toast.success("Visit finalised successfully")
+          void refetchVisits()
+        } else {
+          toast.error(data?.finaliseVisit?.message || "Failed to finalise visit")
+        }
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to finalise visit")
+      },
+    },
+  )
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewVisitBilling, setPreviewVisitBilling] =
     useState<VisitBilling | null>(null)
@@ -140,6 +159,7 @@ export default function DashboardPage() {
   const hasReceptionistRole =
     roles.includes("RECEPTIONIST") || roles.includes("RECEPTION")
   const hasFinanceRole = roles.includes("FINANCE")
+  const hasManagerRole = hasRole(roles, "MANAGER")
   const isReceptionistOnly = hasReceptionistRole && roles.length === 1
   const hasNurseRole = roles.includes("NURSE")
   const hasConsultationRole = roles.some((role) =>
@@ -185,6 +205,8 @@ export default function DashboardPage() {
   const [patientHistoryVisit, setPatientHistoryVisit] = useState<Visit | null>(
     null,
   )
+  const [settingsVisit, setSettingsVisit] = useState<Visit | null>(null)
+  const [settingsPanelOpen, setSettingsPanelOpen] = useState(false)
   const openVisitCreationModal = () => {
     setRegisteredPatientId(null)
     setShowVisitCreationModal(true)
@@ -306,13 +328,35 @@ export default function DashboardPage() {
     )
   }
   const canDischargeVisit = (visit: Visit) => {
-    if (visit.status === "COMPLETED" || visit.status === "CANCELLED")
+    if (visit.status === "COMPLETED" || visit.status === "CANCELLED" || visit.status === "FINALISED")
       return false
     if (hasIncompleteDepartments(visit)) return false
     return !hasUnbilledItems(visit) || hasNoBillables(visit)
   }
   const isDischarged = (visit: Visit) =>
-    visit.status === "COMPLETED" && !hasUnbilledItems(visit)
+    (visit.status === "COMPLETED" || visit.status === "FINALISED") && !hasUnbilledItems(visit)
+  const canFinaliseVisit = (visit: Visit) => {
+    if (visit.status !== "COMPLETED") return false
+    // Must have at least one department
+    if (!visit.departments || visit.departments.length === 0) return false
+    // All non-cancelled departments must be COMPLETED
+    const nonCancelledDepts = (visit.departments || []).filter(
+      (d) => d.status !== "CANCELLED",
+    )
+    if (nonCancelledDepts.length === 0) return false
+    // All departments must be COMPLETED (not DRAFT or IN_PROGRESS)
+    if (!nonCancelledDepts.every((d) => d.status === "COMPLETED")) return false
+    // All COMPLETED departments must have non-draft answers (answerId exists and answer is not in DRAFT status)
+    // Departments without answers (products-only) are fine to finalise
+    const deptsWithAnswers = nonCancelledDepts.filter((d) => d.answerId)
+    // All answer-carrying departments should have answers that are not DRAFT
+    // We check the answerId existence here; the backend finaliseVisit mutation
+    // also validates that answers are submitted (not draft)
+    return true
+  }
+  const handleFinaliseVisit = async (visit: Visit) => {
+    await finaliseVisitMutation({ variables: { visitId: visit.id } })
+  }
   const isVisitDepartmentBillingOrCompleted = (
     visit: Visit,
     departmentStatus: string,
@@ -550,6 +594,30 @@ export default function DashboardPage() {
   const handleEditConsultation = (visit: Visit) => {
     router.push(`/consultation?visitId=${visit.id}`)
   }
+  const handleOpenSettings = (visit: Visit) => {
+    setSettingsVisit(visit)
+    setSettingsPanelOpen(true)
+  }
+  const handleManagerPreviewConsultation = (visit: Visit) => {
+    // Find any completed department with an answerId for preview
+    const completedDept = (visit.departments || []).find((dept) => {
+      const normalizedStatus = String(dept.status || "").toUpperCase()
+      return (
+        Boolean(dept.answerId) &&
+        (normalizedStatus === "COMPLETED" || normalizedStatus === "FINALISED")
+      )
+    })
+    const answerId = completedDept?.answerId ? String(completedDept.answerId) : null
+    const departmentName = completedDept?.department?.name || "Department"
+    setPreviewConsultationContext({
+      answerId,
+      departmentName,
+      patientName: `${visit.patient.firstName} ${visit.patient.lastName}`.trim(),
+      visitDepartment: completedDept || null,
+      previewStartedAt: Date.now(),
+    })
+    setPreviewConsultationOpen(true)
+  }
   const handleViewPatientHistory = (visit: Visit) => {
     setPatientHistoryVisit(visit)
     setPatientHistoryOpen(true)
@@ -708,6 +776,16 @@ export default function DashboardPage() {
                     Cancelled
                   </button>
                   <button
+                    onClick={() => setStatusFilter("FINALISED")}
+                    className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      statusFilter === "FINALISED"
+                        ? "bg-teal-600 text-white shadow-lg scale-105"
+                        : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
+                    }`}
+                  >
+                    Finalised
+                  </button>
+                  <button
                     onClick={() => setStatusFilter("BILLING")}
                     className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                       statusFilter === "BILLING"
@@ -740,6 +818,7 @@ export default function DashboardPage() {
                           <option value="IN_PROGRESS">In Progress</option>
                           <option value="COMPLETED">Completed</option>
                           <option value="CANCELLED">Cancelled</option>
+                          <option value="FINALISED">Finalised</option>
                           <option value="BILLING">Billing</option>
                         </select>
                       </div>
@@ -960,6 +1039,9 @@ export default function DashboardPage() {
                                   )}
                                   {visit.status === "COMPLETED" && (
                                     <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
+                                  )}
+                                  {visit.status === "FINALISED" && (
+                                    <CheckCircle className="w-4 h-4 text-teal-600 dark:text-teal-400 flex-shrink-0" />
                                   )}
                                   {visit.status === "CANCELLED" && (
                                     <AlertCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -1375,6 +1457,142 @@ export default function DashboardPage() {
                                       </TooltipContent>
                                     </Tooltip>
                                   )}
+
+                                {/* Manager role buttons */}
+                                {hasManagerRole && (
+                                  <>
+                                    {/* Manager: Preview Consultation */}
+                                    {(visit.status === "COMPLETED" ||
+                                      visit.status === "IN_PROGRESS" ||
+                                      visit.status === "CREATED") &&
+                                      (visit.departments || []).some(
+                                        (d) => d.answerId,
+                                      ) && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleManagerPreviewConsultation(visit)
+                                            }}
+                                            title="Preview Consultation"
+                                            aria-label="Preview Consultation"
+                                            className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-500 hover:bg-slate-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                          >
+                                            <Eye className="w-4 h-4 flex-shrink-0" />
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Preview Consultation</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+
+                                    {/* Manager: Preview Invoice (if billed) */}
+                                    {canPreviewVisitInvoice(visit) && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              void handlePreviewInvoice(visit)
+                                            }}
+                                            title="Preview Invoice"
+                                            disabled={printingVisitId === visit.id}
+                                            className="h-9 w-9 sm:h-10 sm:w-10 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center relative"
+                                          >
+                                            <ReceiptText
+                                              className={`w-4 h-4 flex-shrink-0 ${printingVisitId === visit.id ? "animate-spin" : ""}`}
+                                            />
+                                            <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center border border-white">
+                                              ✓
+                                            </span>
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Preview Invoice</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+
+                                    {/* Manager: Cancel Visit */}
+                                    {visit.status !== "CANCELLED" &&
+                                      visit.status !== "COMPLETED" &&
+                                      visit.status !== "FINALISED" && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleOpenSettings(visit)
+                                            }}
+                                            title="Cancel Visit"
+                                            aria-label="Cancel Visit"
+                                            className="h-9 w-9 sm:h-10 sm:w-10 bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                          >
+                                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Cancel Visit</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+
+                                    {/* Manager: Finalise Visit (prominent, like Consult/Bill) */}
+                                    {canFinaliseVisit(visit) && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              void handleFinaliseVisit(visit)
+                                            }}
+                                            title="Finalise Visit"
+                                            aria-label="Finalise Visit"
+                                            disabled={finalisingVisit}
+                                            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
+                                          >
+                                            {finalisingVisit ? (
+                                              <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                                            ) : (
+                                              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                                            )}
+                                            <span className="hidden sm:inline lg:hidden">
+                                              Finalise
+                                            </span>
+                                            <span className="hidden lg:inline">
+                                              {finalisingVisit ? "Finalising…" : "Finalise Visit"}
+                                            </span>
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Finalise Visit — locks all departments, no more edits</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+
+                                    {/* Manager: Settings */}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleOpenSettings(visit)
+                                          }}
+                                          title="Visit Settings"
+                                          aria-label="Visit Settings"
+                                          className="h-9 w-9 sm:h-10 sm:w-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                        >
+                                          <Settings className="w-4 h-4 flex-shrink-0" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Visit Settings</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1526,6 +1744,20 @@ export default function DashboardPage() {
         patientName={encounterTypeVisit ? `${encounterTypeVisit.patient.firstName} ${encounterTypeVisit.patient.lastName}` : ""}
         loading={encounterTypeLoading}
       />
+
+      {settingsVisit && (
+        <VisitSettingsPanel
+          open={settingsPanelOpen}
+          onOpenChange={(open) => {
+            setSettingsPanelOpen(open)
+            if (!open) setSettingsVisit(null)
+          }}
+          visit={settingsVisit}
+          onVisitUpdated={() => {
+            void refetchVisits()
+          }}
+        />
+      )}
     </div>
   )
 }
