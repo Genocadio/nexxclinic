@@ -267,7 +267,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       await refetchBill();
     } catch (err) {
       console.error("Failed to refresh bill before preview:", err);
-      toast.warning(
+      toast.warn(
         "Unable to refresh bill data before preview. Showing latest available bill.",
       );
     }
@@ -305,7 +305,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         requestDischarge();
         return;
       }
-      toast.warning("All items in this department are already billed.");
+      toast.warn("All items in this department are already billed.");
       return;
     }
 
@@ -316,7 +316,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     );
     if (zeroPriceItems.length > 0) {
       const names = zeroPriceItems.map((i) => i.name).join(", ");
-      toast.warning(`Items with no price will bill at 0: ${names}. Set a catalog price first.`);
+      toast.warn(`Items with no price will bill at 0: ${names}. Set a catalog price first.`);
     }
 
     // Warn about insurance selected but not covered
@@ -325,7 +325,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     );
     if (insuranceNotCovered.length > 0) {
       const names = insuranceNotCovered.map((i) => i.name).join(", ");
-      toast.warning(`Insurance not covering: ${names}. These will be billed as PRIVATE.`);
+      toast.warn(`Insurance not covering: ${names}. These will be billed as PRIVATE.`);
     }
 
     // Warn about items with quantity < 1 (shouldn't happen but guard anyway)
@@ -358,7 +358,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       // Warn if corrected total < paid (overpayment becomes credit)
       if (correctedPatientPayable < alreadyPaid - 0.01) {
         const credit = alreadyPaid - correctedPatientPayable;
-        toast.warning(
+        toast.warn(
           `Corrected bill (${formatRWF(correctedPatientPayable)}) is less than paid (${formatRWF(alreadyPaid)}). ` +
           `Overpayment of ${formatRWF(credit)} will be treated as credit.`,
         );
@@ -370,7 +370,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       );
       const diff = Math.abs(originalTotal - correctedPatientPayable);
       if (diff > 0.01 && diff / (originalTotal || 1) > 0.1) {
-        toast.warning(
+        toast.warn(
           `Bill total changed by ${formatRWF(diff)} (${Math.round((diff / (originalTotal || 1)) * 100)}%). Review before submitting.`,
         );
       }
@@ -507,7 +507,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           toast.error(message);
         }
       } else {
-        toast.warning("No invoice available for this billing yet.");
+        toast.warn("No invoice available for this billing yet.");
       }
       return;
     }
@@ -739,7 +739,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
 
         setShowAddProductModal(false);
         if (basePrice === 0) {
-          toast.warning(`"${item.name}" has no price set — it will bill at 0. Set a catalog price first.`);
+          toast.warn(`"${item.name}" has no price set — it will bill at 0. Set a catalog price first.`);
         } else {
           toast.success("Product added (will be saved when edit is submitted)");
         }
@@ -855,7 +855,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         setShowAddProductModal(false);
         const catalogPrice = Number(item.clinicPrice ?? item.privateRhicPrice ?? 0);
         if (catalogPrice === 0) {
-          toast.warning(`"${item.name}" has no price set — it will bill at 0. Set a catalog price first.`);
+          toast.warn(`"${item.name}" has no price set — it will bill at 0. Set a catalog price first.`);
         } else {
           toast.success("Product added successfully");
         }

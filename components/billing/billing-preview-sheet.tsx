@@ -270,7 +270,7 @@ export function BillingPreviewSheet({
       : printableInvoiceGroups[0];
 
     if (!target?.id) {
-      toast.warning(
+      toast.warn(
         "No generated invoice is available for this department yet.",
       );
       return;

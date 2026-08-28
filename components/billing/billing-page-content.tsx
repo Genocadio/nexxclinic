@@ -52,6 +52,7 @@ import {
 import { useBillingPageState } from "@/hooks/billing/use-billing-page-state";
 import { useBillingPageActions } from "@/hooks/billing/use-billing-actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { EMPTY_TOTALS } from "@/hooks/billing/use-billing-totals";
 import { Spinner } from "@/components/ui/spinner";
 import VisitNotesFloating from "@/components/visit-notes-floating";
@@ -148,6 +149,10 @@ export function BillingPageContent() {
   });
   const { changeVisitDepartmentProfile } = useChangeVisitDepartmentProfile();
   const { removeVisitDepartment } = useRemoveVisitDepartment();
+  // Tracks the visit department ID pending removal so the confirmation
+  // dialog can show dependency warnings before actually deleting.
+  const [departmentPendingRemoval, setDepartmentPendingRemoval] = useState<string | null>(null);
+  const [removingDepartment, setRemovingDepartment] = useState(false);
   // In-flight discharge — keeps the confirm dialog open with a spinner so the
   // completeVisit/department-status loop can't be triggered twice.
   const [discharging, setDischarging] = useState(false);
@@ -552,9 +557,19 @@ export function BillingPageContent() {
     [visit?.departments],
   );
 
+  // Show confirmation dialog instead of deleting immediately.
   const handleRemoveDepartment = useCallback(
+    (visitDepartmentId: string) => {
+      setDepartmentPendingRemoval(visitDepartmentId);
+    },
+    [],
+  );
+
+  // Actually perform the deletion after confirmation.
+  const confirmRemoveDepartment = useCallback(
     async (visitDepartmentId: string) => {
       hasLocalEditsRef.current = true;
+      setRemovingDepartment(true);
       try {
         const result = await removeVisitDepartment(visitDepartmentId);
         if (result?.status === "SUCCESS") {
@@ -567,10 +582,47 @@ export function BillingPageContent() {
       } catch (err) {
         console.error("Remove department error:", err);
         toast.error("Failed to remove department");
+      } finally {
+        setRemovingDepartment(false);
+        setDepartmentPendingRemoval(null);
       }
     },
     [removeVisitDepartment, refetchVisit],
   );
+
+  // Compute dependency warnings for the department pending removal.
+  const removalWarnings = useMemo(() => {
+    if (!departmentPendingRemoval || !visit) return [];
+    const dept = visit.departments?.find((d) => d.id === departmentPendingRemoval);
+    if (!dept) return [];
+    const warnings: string[] = [];
+    const productCount = dept.products?.length ?? 0;
+    if (productCount > 0) {
+      warnings.push(`${productCount} product${productCount === 1 ? '' : 's'} will be removed`);
+    }
+    const diagnosisCount = dept.diagnostics?.length ?? 0;
+    if (diagnosisCount > 0) {
+      warnings.push(`${diagnosisCount} diagnosis${diagnosisCount === 1 ? '' : 'es'} will be removed`);
+    }
+    const medicationCount = dept.medications?.length ?? 0;
+    if (medicationCount > 0) {
+      warnings.push(`${medicationCount} medication${medicationCount === 1 ? '' : 's'} will be removed`);
+    }
+    const noteCount = dept.notes?.totalNotes ?? 0;
+    if (noteCount > 0) {
+      warnings.push(`${noteCount} note${noteCount === 1 ? '' : 's'} will be removed`);
+    }
+    if (dept.preInstructions?.length) {
+      warnings.push(`${dept.preInstructions.length} pre-instruction${dept.preInstructions.length === 1 ? '' : 's'} will be removed`);
+    }
+    return warnings;
+  }, [departmentPendingRemoval, visit]);
+
+  const departmentPendingRemovalName = useMemo(() => {
+    if (!departmentPendingRemoval || !visit) return '';
+    const dept = visit.departments?.find((d) => d.id === departmentPendingRemoval);
+    return dept?.department?.name || 'this department';
+  }, [departmentPendingRemoval, visit]);
 
   const topLevelBillingDepartments = useMemo(
     () =>
@@ -1077,6 +1129,22 @@ export function BillingPageContent() {
             setDischarging(false);
             setDischargeConfirmOpen(false);
           });
+        }}
+      />
+
+      <ConfirmDeleteDialog
+        open={!!departmentPendingRemoval}
+        onOpenChange={(open) => {
+          if (!open) setDepartmentPendingRemoval(null);
+        }}
+        entityName={departmentPendingRemovalName}
+        dependencies={removalWarnings.map((w) => ({ label: w }))}
+        confirmLabel="Remove Department"
+        busy={removingDepartment}
+        onConfirm={() => {
+          if (departmentPendingRemoval) {
+            void confirmRemoveDepartment(departmentPendingRemoval);
+          }
         }}
       />
     </div>

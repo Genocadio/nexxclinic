@@ -18,6 +18,8 @@ import {
   FileText,
 } from "lucide-react"
 import { toast } from "react-toastify"
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
+import { handleResponse } from "@/lib/response-handler"
 import type { Visit } from "@/lib/api-types"
 import {
   useMutation,
@@ -89,6 +91,10 @@ export function VisitSettingsPanel({
   const [activeTab, setActiveTab] = useState<"general" | "departments">(
     "general",
   )
+  // Confirmation dialog state
+  const [deleteTarget, setDeleteTarget] = useState<
+    { type: "visit" | "department" | "finalise"; id: string; name: string } | null
+  >(null)
 
   // ── Mutations with refetchQueries so state updates instantly ──
   const refetchConfig = {
@@ -102,13 +108,10 @@ export function VisitSettingsPanel({
     {
       ...refetchConfig,
       onCompleted: (data) => {
-        if (data?.cancelVisit?.status === "SUCCESS") {
-          toast.success("Visit cancelled successfully")
-          onVisitUpdated?.()
-          onOpenChange(false)
-        } else {
-          toast.error(data?.cancelVisit?.message || "Failed to cancel visit")
-        }
+        handleResponse(data?.cancelVisit, {
+          successMessage: "Visit cancelled successfully",
+          onSuccess: () => { onVisitUpdated?.(); onOpenChange(false) },
+        })
       },
       onError: (error) => {
         toast.error(error.message || "Failed to cancel visit")
@@ -121,13 +124,10 @@ export function VisitSettingsPanel({
     {
       ...refetchConfig,
       onCompleted: (data) => {
-        if (data?.deleteVisit?.status === "SUCCESS") {
-          toast.success("Visit deleted successfully")
-          onVisitUpdated?.()
-          onOpenChange(false)
-        } else {
-          toast.error(data?.deleteVisit?.message || "Failed to delete visit")
-        }
+        handleResponse(data?.deleteVisit, {
+          successMessage: "Visit deleted successfully",
+          onSuccess: () => { onVisitUpdated?.(); onOpenChange(false) },
+        })
       },
       onError: (error) => {
         toast.error(error.message || "Failed to delete visit")
@@ -140,15 +140,10 @@ export function VisitSettingsPanel({
     {
       ...refetchConfig,
       onCompleted: (data) => {
-        if (data?.removeVisitDepartment?.status === "SUCCESS") {
-          toast.success("Department removed successfully")
-          onVisitUpdated?.()
-        } else {
-          toast.error(
-            data?.removeVisitDepartment?.message ||
-              "Failed to remove department",
-          )
-        }
+        handleResponse(data?.removeVisitDepartment, {
+          successMessage: "Department removed successfully",
+          onSuccess: () => onVisitUpdated?.(),
+        })
       },
       onError: (error) => {
         toast.error(error.message || "Failed to remove department")
@@ -161,15 +156,10 @@ export function VisitSettingsPanel({
     {
       ...refetchConfig,
       onCompleted: (data) => {
-        if (data?.updateVisitDepartmentStatus?.status === "SUCCESS") {
-          toast.success("Department finalised successfully")
-          onVisitUpdated?.()
-        } else {
-          toast.error(
-            data?.updateVisitDepartmentStatus?.message ||
-              "Failed to finalise department",
-          )
-        }
+        handleResponse(data?.updateVisitDepartmentStatus, {
+          successMessage: "Department finalised successfully",
+          onSuccess: () => onVisitUpdated?.(),
+        })
       },
       onError: (error) => {
         toast.error(error.message || "Failed to finalise department")
@@ -180,14 +170,10 @@ export function VisitSettingsPanel({
   const [changeVisitDate] = useMutation(CHANGE_VISIT_DATE_MUTATION, {
     ...refetchConfig,
     onCompleted: (data) => {
-      if (data?.changeVisitDate?.status === "SUCCESS") {
-        toast.success("Visit date updated successfully")
-        onVisitUpdated?.()
-      } else {
-        toast.error(
-          data?.changeVisitDate?.message || "Failed to update visit date",
-        )
-      }
+      handleResponse(data?.changeVisitDate, {
+        successMessage: "Visit date updated successfully",
+        onSuccess: () => onVisitUpdated?.(),
+      })
     },
     onError: (error) => {
       toast.error(error.message || "Failed to update visit date")
@@ -196,15 +182,10 @@ export function VisitSettingsPanel({
 
   const [updateBillingDate] = useMutation(UPDATE_BILLING_DATE_MUTATION, {
     onCompleted: (data) => {
-      if (data?.updateBillingDate?.status === "SUCCESS") {
-        toast.success("Billing date updated successfully")
-        // Re-fetch billing data to reflect the change
-        fetchBilling({ variables: { visitId: visit.id } })
-      } else {
-        toast.error(
-          data?.updateBillingDate?.message || "Failed to update billing date",
-        )
-      }
+      handleResponse(data?.updateBillingDate, {
+        successMessage: "Billing date updated successfully",
+        onSuccess: () => { void fetchBilling({ variables: { visitId: visit.id } }) },
+      })
     },
     onError: (error) => {
       toast.error(error.message || "Failed to update billing date")
@@ -329,36 +310,30 @@ export function VisitSettingsPanel({
     await cancelVisit({ variables: { visitId: visit.id } })
   }
 
-  const handleDeleteVisit = async () => {
-    if (
-      !window.confirm(
-        "Are you sure you want to permanently delete this visit? This action cannot be undone.",
-      )
-    )
-      return
-    await deleteVisit({ variables: { visitId: visit.id } })
+  const handleDeleteVisit = () => {
+    setDeleteTarget({ type: "visit", id: visit.id, name: `Visit ${visit.patient?.fullName || visit.patient?.firstName || ''}` })
   }
 
-  const handleRemoveDepartment = async (departmentId: string) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to remove this department from the visit?",
-      )
-    )
-      return
-    await removeDepartment({ variables: { visitDepartmentId: departmentId } })
+  const handleRemoveDepartment = (departmentId: string) => {
+    const dept = visit.departments?.find((d) => d.id === departmentId)
+    setDeleteTarget({ type: "department", id: departmentId, name: dept?.department?.name || 'this department' })
   }
 
-  const handleFinaliseDepartment = async (departmentId: string) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to finalise this department? This will lock it from further changes.",
-      )
-    )
-      return
-    await finaliseDepartment({
-      variables: { visitDepartmentId: departmentId },
-    })
+  const handleFinaliseDepartment = (departmentId: string) => {
+    const dept = visit.departments?.find((d) => d.id === departmentId)
+    setDeleteTarget({ type: "finalise", id: departmentId, name: dept?.department?.name || 'this department' })
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    if (deleteTarget.type === "visit") {
+      await deleteVisit({ variables: { visitId: deleteTarget.id } })
+    } else if (deleteTarget.type === "department") {
+      await removeDepartment({ variables: { visitDepartmentId: deleteTarget.id } })
+    } else if (deleteTarget.type === "finalise") {
+      await finaliseDepartment({ variables: { visitDepartmentId: deleteTarget.id } })
+    }
+    setDeleteTarget(null)
   }
 
   const handleVisitDateChange = async (
@@ -399,7 +374,23 @@ export function VisitSettingsPanel({
 
   if (!isRendered || typeof document === "undefined") return null
 
-  return createPortal(
+  const deleteDialogTitle =
+    deleteTarget?.type === "visit"
+      ? "Delete this visit?"
+      : deleteTarget?.type === "finalise"
+        ? `Finalise "${deleteTarget?.name || ''}"?`
+        : `Remove "${deleteTarget?.name || ''}"?`;
+
+  const deleteDialogDeps =
+    deleteTarget?.type === "department"
+      ? (visit.departments?.find((d) => d.id === deleteTarget?.id)?.products || []).map(
+          (p) => ({ label: `${p.product.name} (${p.quantity}x)` })
+        )
+      : [];
+
+  return (
+    <>
+    {createPortal(
     <div className="fixed inset-0 z-[88]">
       <div
         className={`absolute inset-0 bg-slate-950/40 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}
@@ -800,5 +791,23 @@ export function VisitSettingsPanel({
       </aside>
     </div>,
     document.body,
+  )}
+
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        entityName={deleteTarget?.name || ''}
+        dependencies={deleteDialogDeps}
+        confirmLabel={
+          deleteTarget?.type === "visit"
+            ? "Delete Visit"
+            : deleteTarget?.type === "finalise"
+              ? "Finalise"
+              : "Remove Department"
+        }
+        busy={cancelling || deleting || removingDept || finalisingDept}
+        onConfirm={() => void handleConfirmDelete()}
+      />
+    </>
   )
 }
