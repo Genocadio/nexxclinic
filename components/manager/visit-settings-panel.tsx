@@ -14,6 +14,7 @@ import {
   Settings,
   Building2,
   Clock,
+  Info,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import type { Visit } from "@/lib/api-types"
@@ -29,7 +30,12 @@ import {
   CHANGE_VISIT_DATE_MUTATION,
   FINALISE_VISIT_DEPARTMENT_MUTATION,
 } from "@/hooks/mutations/visits"
-import { UPDATE_BILLING_DATE_MUTATION } from "@/hooks/mutations/billing"
+import {
+  UPDATE_BILLING_DATE_MUTATION,
+} from "@/hooks/mutations/billing"
+import {
+  useStartBillEditing,
+} from "@/hooks/billing/hooks"
 import { VISITS_QUERY } from "@/hooks/queries/visits"
 
 interface VisitSettingsPanelProps {
@@ -46,9 +52,9 @@ export function VisitSettingsPanel({
   onVisitUpdated,
 }: VisitSettingsPanelProps) {
   const [isRendered, setIsRendered] = useState(open)
-  const [activeTab, setActiveTab] = useState<
-    "general" | "departments" | "billing"
-  >("general")
+  const [activeTab, setActiveTab] = useState<"general" | "departments">(
+    "general",
+  )
 
   const [cancelVisit, { loading: cancelling }] = useMutation(
     CANCEL_VISIT_MUTATION,
@@ -158,6 +164,8 @@ export function VisitSettingsPanel({
     },
   })
 
+  const { startBillEditing, loading: startingBillEdit } = useStartBillEditing()
+
   const [fetchBilling, { data: billingData }] = useLazyQuery(
     gql`
       query GetVisitBillingForSettings($visitId: ID!) {
@@ -183,10 +191,10 @@ export function VisitSettingsPanel({
   )
 
   useEffect(() => {
-    if (activeTab === "billing" && open) {
+    if (open) {
       fetchBilling({ variables: { visitId: visit.id } })
     }
-  }, [activeTab, open, visit.id])
+  }, [open, visit.id])
 
   const handleBillingDateChange = async (
     departmentInsuranceBillingId: string,
@@ -202,6 +210,20 @@ export function VisitSettingsPanel({
         },
       },
     })
+  }
+
+  const handleStartBillEditing = async () => {
+    try {
+      const result = await startBillEditing(visit.id)
+      if (result.status === "SUCCESS") {
+        toast.success("Billing edit mode enabled")
+        onVisitUpdated?.()
+      } else {
+        toast.error(result.message || "Failed to enable billing edit")
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to enable billing edit")
+    }
   }
 
   useEffect(() => {
@@ -343,17 +365,6 @@ export function VisitSettingsPanel({
             >
               Departments
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("billing")}
-              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                activeTab === "billing"
-                  ? "text-primary border-b-2 border-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Billing
-            </button>
           </div>
 
           {/* Content */}
@@ -387,6 +398,51 @@ export function VisitSettingsPanel({
                     </div>
                   </div>
 
+                  {/* Billing Date */}
+                  {billingData?.visitBilling?.departments?.length > 0 && (
+                    <div className="rounded-xl border border-border p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <ReceiptText className="h-4 w-4 text-primary" />
+                        <h3 className="font-medium text-foreground">
+                          Billing Date
+                        </h3>
+                      </div>
+                      <div className="space-y-3">
+                        {billingData.visitBilling.departments.map(
+                          (billing: any) => (
+                            <div
+                              key={billing.id}
+                              className="rounded-lg border border-border/50 p-3 space-y-2"
+                            >
+                              <p className="text-sm font-medium text-foreground">
+                                {billing.visitDepartment?.department?.name ||
+                                  "Department"}
+                                <span className="ml-2 text-xs text-muted-foreground font-normal">
+                                  • Total: {billing.totalAmount}
+                                </span>
+                              </p>
+                              <input
+                                type="datetime-local"
+                                defaultValue={
+                                  billing.billingDate
+                                    ? new Date(billing.billingDate)
+                                        .toISOString()
+                                        .slice(0, 16)
+                                    : ""
+                                }
+                                onChange={(e) =>
+                                  handleBillingDateChange(billing.id, e)
+                                }
+                                disabled={visit.status === "CANCELLED"}
+                                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                              />
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Visit Status */}
                   <div className="rounded-xl border border-border p-4 space-y-3">
                     <div className="flex items-center gap-2">
@@ -395,7 +451,7 @@ export function VisitSettingsPanel({
                         Visit Status
                       </h3>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <span
                         className={`px-3 py-1 rounded-full text-sm font-medium ${
                           visit.status === "FINALISED"
@@ -413,6 +469,26 @@ export function VisitSettingsPanel({
                       >
                         {visit.status}
                       </span>
+                      {visit.status === "COMPLETED" && (
+                        <button
+                          type="button"
+                          onClick={handleStartBillEditing}
+                          disabled={startingBillEdit}
+                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                        >
+                          {startingBillEdit ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <ReceiptText className="h-3 w-3" />
+                          )}
+                          Enable Billing Edit
+                        </button>
+                      )}
+                      {visit.status === "BILL_EDITING" && (
+                        <span className="text-xs text-amber-600 font-medium">
+                          Currently in billing edit mode
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -510,7 +586,9 @@ export function VisitSettingsPanel({
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
-                              {dept.status === "COMPLETED" && (
+                              {dept.status === "COMPLETED" &&
+                                dept.hasFinalizedConsultationAnswers &&
+                                !dept.hasBillableProducts && (
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -526,6 +604,24 @@ export function VisitSettingsPanel({
                                   )}
                                   Finalise
                                 </button>
+                              )}
+                              {dept.status === "COMPLETED" &&
+                                (!dept.hasFinalizedConsultationAnswers ||
+                                  dept.hasBillableProducts) && (
+                                <div className="relative group">
+                                  <Info className="h-4 w-4 text-amber-500 cursor-help" />
+                                  <div className="absolute right-0 top-6 z-50 hidden group-hover:block w-56 p-3 bg-popover border border-border rounded-lg shadow-lg text-xs text-muted-foreground space-y-1">
+                                    <p className="font-medium text-foreground">
+                                      Cannot finalise yet:
+                                    </p>
+                                    {!dept.hasFinalizedConsultationAnswers && (
+                                      <p>• Consultation answers are not finalised</p>
+                                    )}
+                                    {dept.hasBillableProducts && (
+                                      <p>• Department has unbilled products</p>
+                                    )}
+                                  </div>
+                                </div>
                               )}
                               {hasNoProducts(dept) && (
                                 <button
@@ -559,82 +655,7 @@ export function VisitSettingsPanel({
                 </div>
               )}
 
-              {/* Billing Tab */}
-              {activeTab === "billing" && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <ReceiptText className="h-4 w-4 text-primary" />
-                    <h3 className="font-medium text-foreground">
-                      Billing Management
-                    </h3>
-                  </div>
 
-                  {/* Visit Status for billing context */}
-                  <div className="rounded-xl border border-border p-4 space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      Visit billing status: <span className="font-medium text-foreground">{visit.status}</span>
-                    </p>
-                  </div>
-
-                  {/* Billing Date Management */}
-                  {billingData?.visitBilling?.departments?.length > 0 ? (
-                    <div className="space-y-3">
-                      <h4 className="font-medium text-foreground text-sm">
-                        Billing Dates
-                      </h4>
-                      {billingData.visitBilling.departments.map((billing: any) => (
-                        <div
-                          key={billing.id}
-                          className="rounded-xl border border-border p-4 space-y-3"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium text-foreground">
-                                {billing.visitDepartment?.department?.name || "Department"}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Status: {billing.status} • Total: {billing.totalAmount}
-                              </p>
-                            </div>
-                          </div>
-                          <div>
-                            <label className="text-xs text-muted-foreground mb-1 block">
-                              Billing Date
-                            </label>
-                            <input
-                              type="datetime-local"
-                              defaultValue={billing.billingDate
-                                ? new Date(billing.billingDate).toISOString().slice(0, 16)
-                                : ""}
-                              onChange={(e) => handleBillingDateChange(billing.id, e)}
-                              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <ReceiptText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>No billing records for this visit yet</p>
-                    </div>
-                  )}
-
-                  {/* Link to full billing page */}
-                  <div className="rounded-xl border border-border p-4 space-y-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        window.location.href = `/billing?visitId=${visit.id}&patientId=${visit.patient.id}`
-                      }}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-                    >
-                      <ReceiptText className="h-4 w-4" />
-                      Go to Full Billing Page
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </ScrollArea>
         </div>

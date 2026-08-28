@@ -97,6 +97,8 @@ const childVisitDepartmentFields = `
     ${visitDepartmentProductFields}
   }
   answerId
+  hasFinalizedConsultationAnswers
+  hasBillableProducts
   createdAt
   updatedAt
 `;
@@ -268,6 +270,8 @@ export const GET_VISIT_QUERY = gql`
             newNotes
           }
           answerId
+          hasFinalizedConsultationAnswers
+          hasBillableProducts
           createdAt
           updatedAt
         }
@@ -313,6 +317,8 @@ export const VISITS_QUERY = gql`
           }
           status
           answerId
+          hasFinalizedConsultationAnswers
+          hasBillableProducts
           products {
             id
             product {
@@ -344,6 +350,8 @@ export const VISITS_QUERY = gql`
             status
             completedAt
             answerId
+            hasFinalizedConsultationAnswers
+            hasBillableProducts
             department {
               id
               name
@@ -423,6 +431,8 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
           status
           completedAt
           answerId
+          hasFinalizedConsultationAnswers
+          hasBillableProducts
           diagnostics {
             id
             diagnosisName
@@ -518,6 +528,8 @@ export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
             }            createdAt
             updatedAt
             answerId
+            hasFinalizedConsultationAnswers
+            hasBillableProducts
           }
           estimatedTotal
           estimatedInsurancePay

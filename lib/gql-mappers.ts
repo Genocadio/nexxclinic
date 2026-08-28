@@ -186,6 +186,8 @@ export type GqlVisitDepartment = {
   } | null;
   processors?: GqlWorkerRef[] | null;
   answerId?: string | null;
+  hasFinalizedConsultationAnswers?: boolean | null;
+  hasBillableProducts?: boolean | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -543,6 +545,8 @@ export function mapGqlVisitDepartment(
     })),
     preInstructions: [],
     answerId: dept.answerId ?? null,
+    hasFinalizedConsultationAnswers: dept.hasFinalizedConsultationAnswers ?? null,
+    hasBillableProducts: dept.hasBillableProducts ?? null,
     createdAt: dept.createdAt || EMPTY_TIMESTAMP,
     updatedAt: dept.updatedAt || EMPTY_TIMESTAMP,
   };

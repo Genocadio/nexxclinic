@@ -563,6 +563,8 @@ export interface VisitDepartment {
   childVisitDepartments: VisitDepartment[];
   products: VisitDepartmentProduct[];
   diagnostics?: VisitDepartmentDiagnosis[] | null;
+  hasFinalizedConsultationAnswers?: boolean | null;
+  hasBillableProducts?: boolean | null;
   medications?: VisitDepartmentMedication[] | null;
   preInstructions: VisitPreInstruction[];
   notes?: VisitDepartmentNotesSummary | null;
