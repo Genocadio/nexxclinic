@@ -1,6 +1,5 @@
 import {
   computeDepartmentBillAllocations,
-  findBestMatchingCoverage,
   type BillingData,
   type BillingItem,
   type CoverageTier,
@@ -73,20 +72,19 @@ export function buildCreateBillInput(
       item.selectedInsuranceId && !item.insuranceNotCovered
         ? item.selectedInsuranceId
         : undefined;
-    // Resolve coverage tier override if user manually selected a non-default tier.
-    // Send the coverageId (UUID) instead of a raw percentage — the backend resolves
-    // the actual value from the InsuranceCoverage record to prevent tampering.
+    // Resolve coverage tier override if a tier is selected. Send the coverageId
+    // (UUID) instead of a raw percentage — the backend resolves the actual value
+    // from the InsuranceCoverage record to prevent tampering. Sent whenever
+    // selectedCoverageId is set (no length gate): the backend independently
+    // decides whether to honor it (it drops the override when an exact
+    // dept+encounterType rule exists, matching our resolver).
     let patientSharePercentageOverride: string | undefined;
-    if (coveredInsuranceId && insuranceOptions && insuranceOptions.length > 0) {
+    if (coveredInsuranceId && item.selectedCoverageId && insuranceOptions) {
       const insOpt = insuranceOptions.find((o) => o.id === coveredInsuranceId);
-      if (insOpt && insOpt.coverages.length > 1) {
-        if (item.selectedCoverageId) {
-          // User explicitly chose a tier — send its coverageId (UUID)
-          const chosenTier = insOpt.coverages.find((c) => c.coverageId === item.selectedCoverageId);
-          if (chosenTier) patientSharePercentageOverride = chosenTier.coverageId;
-        }
-        // If no selectedCoverageId, let the backend auto-resolve (no override needed)
-      }
+      const chosenTier = insOpt?.coverages.find(
+        (c) => c.coverageId === item.selectedCoverageId,
+      );
+      if (chosenTier) patientSharePercentageOverride = chosenTier.coverageId;
     }
     billableByDepartment.get(rootVisitDepartmentId)!.products.push({
       visitDepartmentProductId: item.id,
@@ -197,14 +195,16 @@ export function buildEditBillInput(
       item.selectedInsuranceId && !item.insuranceNotCovered
         ? item.selectedInsuranceId
         : undefined;
-    // Resolve coverage tier override — send coverageId (UUID) not raw number
+    // Resolve coverage tier override — send coverageId (UUID) not raw number.
+    // Sent whenever selectedCoverageId is set; the backend decides whether to
+    // honor it (drops the override if an exact rule blocks it, matching us).
     let patientSharePercentageOverride: string | undefined;
-    if (coveredInsuranceId && insuranceOptions && insuranceOptions.length > 0) {
+    if (coveredInsuranceId && item.selectedCoverageId && insuranceOptions) {
       const insOpt = insuranceOptions.find((o) => o.id === coveredInsuranceId);
-      if (insOpt && insOpt.coverages.length > 1 && item.selectedCoverageId) {
-        const chosenTier = insOpt.coverages.find((c) => c.coverageId === item.selectedCoverageId);
-        if (chosenTier) patientSharePercentageOverride = chosenTier.coverageId;
-      }
+      const chosenTier = insOpt?.coverages.find(
+        (c) => c.coverageId === item.selectedCoverageId,
+      );
+      if (chosenTier) patientSharePercentageOverride = chosenTier.coverageId;
     }
     dept.billProducts.push({
       productId: item.productId,

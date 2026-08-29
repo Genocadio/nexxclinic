@@ -3,7 +3,9 @@ import {
   computeBillingTotals,
   computeDepartmentBillAllocations,
   getItemInsuranceSplit,
+  resolvePatientSharePercentage,
   type BillingItem,
+  type CoverageTier,
 } from "@/lib/billing-utils";
 
 const makeItem = (overrides: Partial<BillingItem>): BillingItem => ({
@@ -236,3 +238,161 @@ describe("computeDepartmentBillAllocations", () => {
     expect(allocations[0].noteRequired).toBe(true);
   });
 });
+
+// ─── resolvePatientSharePercentage ───────────────────────────────────────
+// Mirrors BillingPricingCalculator.resolvePatientSharePercentage (backend
+// single source of truth). Chain:
+//   override (if allowed) -> exact(dept+enc) -> dept -> enc -> base-rule
+//   -> patient-default -> provider-base -> 0
+const tier = (
+  coverageId: string,
+  pct: number,
+  dept?: string | null,
+  enc?: string | null,
+): CoverageTier => ({
+  coverageId,
+  departmentId: dept ?? null,
+  departmentName: null,
+  encounterType: enc ?? null,
+  patientSharePercentage: pct,
+});
+
+const makeTiers = (...t: CoverageTier[]) => t;
+
+describe("resolvePatientSharePercentage", () => {
+  it("returns 0 when no coverages and no patient default", () => {
+    const pct = resolvePatientSharePercentage({
+      departmentId: "dept-a",
+      encounterType: "OUTPATIENT",
+      coverages: [],
+    });
+    expect(pct).toBe(0);
+  });
+
+  it("accepts a per-line override when no exact rule blocks it", () => {
+    // Provider has only a dept-only rule (encounter null): override allowed.
+    const coverages = makeTiers(
+      tier("dept-a", 10, "dept-a"),
+      tier("override", 30),
+    );
+    const pct = resolvePatientSharePercentage({
+      departmentId: "dept-a",
+      encounterType: "OUTPATIENT",
+      selectedCoverageId: "override",
+      coverages,
+    });
+    expect(pct).toBe(30);
+  });
+
+  it("rejects the override when an exact (dept+encounterType) rule exists, falling to the rule", () => {
+    const coverages = makeTiers(
+      tier("exact", 10, "dept-a", "OUTPATIENT"),
+      tier("override", 50),
+    );
+    const pct = resolvePatientSharePercentage({
+      departmentId: "dept-a",
+      encounterType: "OUTPATIENT",
+      selectedCoverageId: "override",
+      coverages,
+    });
+    expect(pct).toBe(10);
+  });
+
+  it("clamps an out-of-range override to [0,100]", () => {
+    const coverages = makeTiers(
+      tier("override-high", 150),
+      tier("override-low", -10),
+    );
+    expect(
+      resolvePatientSharePercentage({
+        departmentId: "dept-a",
+        selectedCoverageId: "override-high",
+        coverages,
+      }),
+    ).toBe(100);
+    expect(
+      resolvePatientSharePercentage({
+        departmentId: "dept-a",
+        selectedCoverageId: "override-low",
+        coverages,
+      }),
+    ).toBe(0);
+  });
+
+  it("ignores an override that is not among the provider coverages", () => {
+    const coverages = makeTiers(tier("dept-a", 20, "dept-a"));
+    const pct = resolvePatientSharePercentage({
+      departmentId: "dept-a",
+      encounterType: "OUTPATIENT",
+      selectedCoverageId: "ghost",
+      coverages,
+    });
+    expect(pct).toBe(20);
+  });
+
+  it("resolves exact dept+encounterType rule over dept-only", () => {
+    const coverages = makeTiers(
+      tier("dept-a", 20, "dept-a"),
+      tier("exact", 5, "dept-a", "OUTPATIENT"),
+    );
+    const pct = resolvePatientSharePercentage({
+      departmentId: "dept-a",
+      encounterType: "OUTPATIENT",
+      coverages,
+    });
+    expect(pct).toBe(5);
+  });
+
+  it("resolves dept-only rule", () => {
+    const coverages = makeTiers(tier("dept-a", 10, "dept-a"));
+    const pct = resolvePatientSharePercentage({
+      departmentId: "dept-a",
+      encounterType: "OUTPATIENT",
+      coverages,
+    });
+    expect(pct).toBe(10);
+  });
+
+  it("resolves encounter-type-only rule", () => {
+    const coverages = makeTiers(tier("enc", 8, null, "OUTPATIENT"));
+    const pct = resolvePatientSharePercentage({
+      departmentId: "dept-a",
+      encounterType: "OUTPATIENT",
+      coverages,
+    });
+    expect(pct).toBe(8);
+  });
+
+  it("uses the base rule when no dept/encounter rule matches", () => {
+    const coverages = makeTiers(tier("base", 25));
+    const pct = resolvePatientSharePercentage({
+      departmentId: "dept-z",
+      encounterType: "INPATIENT",
+      coverages,
+    });
+    expect(pct).toBe(25);
+  });
+
+  it("base coverage rule wins over the patient-specific default (backend order)", () => {
+    const coverages = makeTiers(tier("base", 25));
+    const pct = resolvePatientSharePercentage({
+      departmentId: "dept-a",
+      encounterType: "OUTPATIENT",
+      patientSharePercentage: 35,
+      coverages,
+    });
+    expect(pct).toBe(25);
+  });
+
+  it("uses the patient-specific default when no coverage rule matches", () => {
+    const coverages = makeTiers(tier("dept-other", 15, "dept-other"));
+    const pct = resolvePatientSharePercentage({
+      departmentId: "dept-a",
+      encounterType: "OUTPATIENT",
+      patientSharePercentage: 40,
+      coverages,
+    });
+    expect(pct).toBe(40);
+  });
+});
+

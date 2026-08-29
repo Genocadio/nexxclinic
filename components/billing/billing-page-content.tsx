@@ -472,6 +472,20 @@ export function BillingPageContent() {
     return calculateTotalsForItems(selectedItems);
   }, [billingData, selectedItems, calculateTotalsForItems]);
 
+  // Whole-visit patient payable across ALL pending items (every department).
+  // The edit path re-projects the entire visit and re-allocates amountPaid
+  // across all departments, so the amountPaid prefill must cover the full
+  // patient payable — otherwise the backend computes a leftover and books it
+  // as a loan. Non-edit incremental billing still caps each department at its
+  // own payable, so prefilling the visit total can never over-allocate.
+  const visitConfirmTotals = useMemo(() => {
+    if (!billingData) return EMPTY_TOTALS;
+    const allPending = billingData.items.filter(
+      (item) => item.paymentStatus !== "paid",
+    );
+    return calculateTotalsForItems(allPending);
+  }, [billingData, calculateTotalsForItems]);
+
   // Edit-mode warning: compare corrected total to amount already paid
   const editModeWarning = useMemo(() => {
     if (!existingVisitBilling || !billingData) return null;
@@ -514,9 +528,35 @@ export function BillingPageContent() {
       previousPaidCents ?? undefined,
     );
   }, [billingData, selectedItems, activeVisitInsurances, previousPaidCents]);
-  const confirmNoteRequired = billingAllocations.some(
+
+  // Note-required detection must match the backend's billing scope. Non-edit
+  // billing is per active department; edit mode re-projects the WHOLE visit and
+  // books a single note across all departments, so the note requirement must
+  // consider every department — otherwise a hidden outstanding/exemption in a
+  // non-active department lets the user submit without the note the backend
+  // demands (rejection).
+  const noteScopeItems = isEditMode
+    ? (billingData?.items.filter((item) => item.paymentStatus !== "paid") ?? [])
+    : selectedItems;
+  const noteRequiredBillingAllocations = useMemo(() => {
+    if (!billingData) return [];
+    return computeDepartmentBillAllocations(
+      noteScopeItems,
+      billingData.amountPaid || 0,
+      (item) =>
+        getCoveragePercentageForBillingItem(item, activeVisitInsurances),
+      previousPaidCents ?? undefined,
+    );
+  }, [
+    billingData,
+    noteScopeItems,
+    activeVisitInsurances,
+    previousPaidCents,
+  ]);
+  const confirmNoteRequired = noteRequiredBillingAllocations.some(
     (allocation) => allocation.noteRequired,
   );
+
 
   // Get all service names from visit departments (not just those with items)
   const allServiceNames = useMemo(
@@ -885,7 +925,7 @@ export function BillingPageContent() {
           onServiceChange={setActiveService}
           onAddItem={() => setShowAddProductModal(true)}
           onItemChange={trackLocalEdit}
-          onItemRemove={(id) => { hasLocalEditsRef.current = true; handleItemRemove(id, isEditMode); }}
+          onItemRemove={(id) => { hasLocalEditsRef.current = true; handleItemRemove(id); }}
           onQuantityChange={(item, qty) => {
             hasLocalEditsRef.current = true;
             handleQuantityChange(item, qty, isEditMode);
@@ -929,8 +969,15 @@ export function BillingPageContent() {
               // In edit mode open confirm with edit flow, else normal complete
               setConfirmSheetMode(isEditMode ? "edit" : "complete");
               // Always prefill with patient responsibility so the user can
-              // see and adjust the amount. Never default to 0.
-              handleAmountPaidChange(confirmTotals.totalAmount);
+              // see and adjust the amount. Never default to 0. In edit mode the
+              // whole visit is re-projected (prefill the whole-visit payable);
+              // in non-edit mode billing is per active department (prefill the
+              // active department's own payable so we don't overstate it).
+              handleAmountPaidChange(
+                isEditMode
+                  ? visitConfirmTotals.totalAmount
+                  : confirmTotals.totalAmount,
+              );
               setShowCompleteBillConfirm(true);
             }}
             onPreview={() => void handlePreviewBilling()}

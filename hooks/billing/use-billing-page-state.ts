@@ -97,11 +97,14 @@ export function useBillingPageState() {
     }
   };
 
-  const handleItemRemove = (itemId: string, isEditingBill?: boolean) => {
+  const handleItemRemove = (itemId: string) => {
     setBillingData((prev) => {
       if (!prev) return prev;
       const target = prev.items.find((item) => item.id === itemId);
-      if (target?.source === "PROFILE" && !isEditingBill) {
+      // The backend rejects removing PROFILE products in edit mode
+      // ("...is a profile product and cannot be removed from billing"), so we
+      // never remove them — even while editing. Change the profile instead.
+      if (target?.source === "PROFILE") {
         toast.info("Profile products cannot be removed individually — change the visit department's profile instead.");
         return prev;
       }

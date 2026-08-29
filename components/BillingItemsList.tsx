@@ -10,6 +10,7 @@ import {
   filterMatchingCoverages,
   findBestMatchingCoverage,
   getItemInsuranceSplit,
+  resolvePatientSharePercentage,
 } from "@/lib/billing-utils";
 import { formatRWF } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -82,32 +83,22 @@ const getPaymentStatusColor = (
 
 /** Resolve the effective patient share % for an item, respecting its
  *  selectedCoverageId and auto-matching rules. Falls back to the provider
- *  base percentage when no tier matches. */
+ *  base percentage when no tier matches.
+ *
+ *  Delegates to the canonical resolver (mirrors the backend) so the display
+ *  always shows the same % the backend will actually bill. */
 function resolveEffectiveCoveragePct(
   item: BillingItem,
   insurance: InsuranceOption | undefined,
 ): number {
   if (!insurance) return 0;
-  const coverages = insurance.coverages;
-  if (!coverages || coverages.length === 0) {
-    return insurance.coveragePercentage || 0;
-  }
-  // 1. Specific coverage tier selected by the user
-  if (item.selectedCoverageId) {
-    const tier = coverages.find((c) => c.coverageId === item.selectedCoverageId);
-    if (tier) return tier.patientSharePercentage;
-  }
-  // 2. Best matching rule (dept + encounterType)
-  const best = findBestMatchingCoverage(
-    coverages, item.departmentId, item.encounterType,
-  );
-  if (best) return best.patientSharePercentage;
-  // 3. Patient-specific override
-  if (insurance.patientSharePercentage != null && insurance.patientSharePercentage > 0) {
-    return insurance.patientSharePercentage;
-  }
-  // 4. Provider base
-  return insurance.coveragePercentage || 0;
+  return resolvePatientSharePercentage({
+    departmentId: item.departmentId ?? null,
+    encounterType: item.encounterType ?? null,
+    selectedCoverageId: item.selectedCoverageId ?? null,
+    patientSharePercentage: insurance.patientSharePercentage ?? null,
+    coverages: insurance.coverages,
+  });
 }
 
 function computeGroupTotals(
@@ -656,23 +647,8 @@ export function BillingItemsList({
                                   let computedPct = backendPct;
                                   let computedSource = backendSource;
                                   if (computedPct == null && selectedIns) {
-                                    // Resolve from the selected coverage tier
-                                    if (item.selectedCoverageId && selectedIns.coverages) {
-                                      const tier = selectedIns.coverages.find(
-                                        (c) => c.coverageId === item.selectedCoverageId,
-                                      );
-                                      computedPct = tier?.patientSharePercentage ?? 0;
-                                    } else if (selectedIns.coverages && selectedIns.coverages.length > 0) {
-                                      // Auto-resolve: find best matching tier
-                                      const best = findBestMatchingCoverage(
-                                        selectedIns.coverages,
-                                        item.departmentId,
-                                        item.encounterType,
-                                      );
-                                      computedPct = best?.patientSharePercentage ?? selectedIns.coveragePercentage ?? 0;
-                                    } else {
-                                      computedPct = selectedIns.coveragePercentage ?? 0;
-                                    }
+                                    // Resolve through the canonical backend-mirroring resolver.
+                                    computedPct = resolveEffectiveCoveragePct(item, selectedIns);
                                     computedSource = null; // no backend source yet
                                   }
 
@@ -810,10 +786,10 @@ export function BillingItemsList({
                                       onClick={() => onItemRemove(item.id)}
                                       disabled={
                                         isPaidLocked(item) ||
-                                        (!editMode && item.source === "PROFILE")
+                                        item.source === "PROFILE"
                                       }
                                       title={
-                                        !editMode && item.source === "PROFILE"
+                                        item.source === "PROFILE"
                                           ? "Profile products cannot be removed individually — change the visit department's profile instead"
                                           : "Remove item"
                                       }

@@ -13,6 +13,7 @@ import {
   buildProductCoverageMaps,
   getItemInsuranceSplit,
   resolveBillingUnitPrice,
+  resolvePatientSharePercentage,
   type BillingData,
   type BillingItem,
 } from "@/lib/billing-utils";
@@ -286,49 +287,21 @@ export function getCoveragePercentageForBillingItem(
   );
   if (!selected?.insuranceProvider) return 0;
 
-  const coverages = selected.insuranceProvider.coverages;
-  if (!coverages || coverages.length === 0) {
-    return getBasePatientSharePercentage(selected.insuranceProvider);
-  }
-
-  // 1. If a specific coverage tier was selected, use it
-  if (item.selectedCoverageId) {
-    const tier = coverages.find((c) => String(c.id) === item.selectedCoverageId);
-    if (tier) return Number(tier.patientSharePercentage ?? 0);
-  }
-
-  // 2. Auto-select best matching coverage by department + encounter type
-  // Exact match (dept + encounterType)
-  if (item.departmentId && item.encounterType) {
-    const exact = coverages.find(
-      (c) => c.departmentId === item.departmentId && c.encounterType === item.encounterType,
-    );
-    if (exact) return Number(exact.patientSharePercentage ?? 0);
-  }
-
-  // Dept only
-  if (item.departmentId) {
-    const dept = coverages.find(
-      (c) => c.departmentId === item.departmentId && !c.encounterType,
-    );
-    if (dept) return Number(dept.patientSharePercentage ?? 0);
-  }
-
-  // Encounter type only
-  if (item.encounterType) {
-    const enc = coverages.find(
-      (c) => !c.departmentId && c.encounterType === item.encounterType,
-    );
-    if (enc) return Number(enc.patientSharePercentage ?? 0);
-  }
-
-  // 3. Patient-specific percentage (if set on the PatientInsurance record)
-  if (selected.patientSharePercentage != null && selected.patientSharePercentage > 0) {
-    return Number(selected.patientSharePercentage);
-  }
-
-  // 4. Fallback: base coverage (no conditions)
-  return getBasePatientSharePercentage(selected.insuranceProvider);
+  // Delegate to the single canonical resolver (mirrors the backend exactly —
+  // override gating, clamping and rule ordering all live in billing-utils).
+  return resolvePatientSharePercentage({
+    departmentId: item.departmentId ?? null,
+    encounterType: item.encounterType ?? null,
+    selectedCoverageId: item.selectedCoverageId ?? null,
+    patientSharePercentage: selected.patientSharePercentage ?? null,
+    coverages: selected.insuranceProvider.coverages.map((c) => ({
+      coverageId: String(c.id),
+      departmentId: c.departmentId || null,
+      departmentName: c.departmentName || null,
+      encounterType: c.encounterType || null,
+      patientSharePercentage: Number(c.patientSharePercentage ?? 0),
+    })),
+  });
 }
 
 export function flattenVisitDepartmentsForBilling(

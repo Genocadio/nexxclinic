@@ -155,6 +155,138 @@ export function findBestMatchingCoverage(
 }
 
 /**
+ * Mirrors the backend patient-share percentage resolver
+ * (BillingPricingCalculator.resolvePatientSharePercentage). This is the SINGLE
+ * source of truth the frontend uses to predict the patient's share so the
+ * displayed/prefilled amount always matches what the backend bills.
+ *
+ * Backend chain (most specific wins):
+ *  1. Per-line override (selectedCoverageId) — honored ONLY when it is allowed:
+ *     the backend rejects the override if an EXACT (department + encounterType)
+ *     coverage rule exists for the line; partial/base rules do NOT block it.
+ *     The value is clamped to [0,100].
+ *  2. Coverage rule: exact(dept+encounterType) -> dept-only -> encounter-only -> base.
+ *  3. Patient-specific default.
+ *  4. Provider base (no-conditions) coverage.
+ *  5. 0 (insurance covers everything).
+ */
+export type PatientShareResolveInput = {
+  departmentId?: string | null;
+  encounterType?: string | null;
+  /** Reference to the coverage tier the user selected (per-line override). */
+  selectedCoverageId?: string | null;
+  /** Patient-specific default percentage (null = use rules then provider default). */
+  patientSharePercentage?: number | null;
+  /** All coverage tiers for the provider (base + conditional). */
+  coverages: CoverageTier[];
+};
+
+function clampPct(value: number): number {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function deptIdMatches(a?: string | null, b?: string | null): boolean {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  return a === b;
+}
+
+/** Backend isOverrideAllowed: only an exact (dept + encounterType) rule blocks the override. */
+function isOverrideAllowed(
+  coverages: CoverageTier[],
+  departmentId?: string | null,
+  encounterType?: string | null,
+): boolean {
+  if (!coverages || coverages.length === 0) return true;
+  for (const cov of coverages) {
+    if (
+      deptIdMatches(departmentId, cov.departmentId) &&
+      encounterType != null &&
+      encounterType === cov.encounterType
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Backend lookupCoveragePercentage: most specific rule wins, base included. */
+function lookupCoverageRule(
+  coverages: CoverageTier[],
+  departmentId?: string | null,
+  encounterType?: string | null,
+): number | null {
+  if (!coverages || coverages.length === 0) return null;
+
+  // 1. Exact: dept + encounterType
+  if (departmentId != null && encounterType != null) {
+    const exact = coverages.find(
+      (c) =>
+        c.departmentId === departmentId &&
+        encounterType === c.encounterType,
+    );
+    if (exact) return exact.patientSharePercentage;
+  }
+  // 2. Department only (encounterType null)
+  if (departmentId != null) {
+    const deptOnly = coverages.find(
+      (c) => c.departmentId === departmentId && !c.encounterType,
+    );
+    if (deptOnly) return deptOnly.patientSharePercentage;
+  }
+  // 3. Encounter type only (dept null)
+  if (encounterType != null) {
+    const etOnly = coverages.find(
+      (c) => !c.departmentId && c.encounterType === encounterType,
+    );
+    if (etOnly) return etOnly.patientSharePercentage;
+  }
+  // 4. Base (no conditions)
+  const base = coverages.find((c) => !c.departmentId && !c.encounterType);
+  if (base) return base.patientSharePercentage;
+
+  return null;
+}
+
+export function resolvePatientSharePercentage(
+  input: PatientShareResolveInput,
+): number {
+  const { departmentId, encounterType, selectedCoverageId, patientSharePercentage } =
+    input;
+  const coverages = input.coverages || [];
+
+  // Layer 1: per-line override (selected tier) — only when allowed.
+  if (selectedCoverageId != null && selectedCoverageId !== "") {
+    const override = coverages.find(
+      (c) => c.coverageId === selectedCoverageId,
+    );
+    if (override && isOverrideAllowed(coverages, departmentId, encounterType)) {
+      return clampPct(override.patientSharePercentage);
+    }
+  }
+
+  // Layer 2: coverage rule (exact -> dept -> encounter -> base).
+  const rule = lookupCoverageRule(coverages, departmentId, encounterType);
+  if (rule !== null) {
+    return clampPct(rule);
+  }
+
+  // Layer 3: patient-specific default.
+  if (patientSharePercentage != null && patientSharePercentage > 0) {
+    return clampPct(patientSharePercentage);
+  }
+
+  // Layer 4: provider base (no-conditions) coverage.
+  const base = coverages.find((c) => !c.departmentId && !c.encounterType);
+  if (base) {
+    return clampPct(base.patientSharePercentage);
+  }
+
+  // Layer 5: 0 (insurance covers everything).
+  return 0;
+}
+
+/**
  * Filter coverage tiers to only those whose conditions are satisfied by
  * the billing item's context.
  *
