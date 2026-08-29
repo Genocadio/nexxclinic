@@ -12,7 +12,6 @@ import {
   hasEditChanges as hasEditChangesUtil,
   snapshotBillingItems,
 } from "@/lib/billing-edit-diff";
-import { toCents } from "@/lib/money";
 import {
   flattenVisitDepartmentsForBilling,
   getCoveragePercentageForBillingItem,
@@ -161,10 +160,6 @@ export function BillingPageContent() {
   // In-flight discharge — keeps the confirm dialog open with a spinner so the
   // completeVisit/department-status loop can't be triggered twice.
   const [discharging, setDischarging] = useState(false);
-  // Tracks the amount paid before entering edit mode, used to determine whether
-  // the note-required flag should be set (avoids false triggers from automatic
-  // amountPaid capping when items are removed/exempted).
-  const [previousPaidCents, setPreviousPaidCents] = useState<number | null>(null);
   // Loading states for edit/done-editing buttons in the sticky summary bar
   const [loadingEditBilling, setLoadingEditBilling] = useState(false);
   const [loadingDoneEditing, setLoadingDoneEditing] = useState(false);
@@ -486,12 +481,12 @@ export function BillingPageContent() {
     return calculateTotalsForItems(allPending);
   }, [billingData, calculateTotalsForItems]);
 
-  // Edit-mode warning: compare corrected total to amount already paid
+  // Edit-mode review warning. Billing edits are FULLY INDEPENDENT snapshots —
+  // they never compare or correlate against previously-collected money, so there
+  // is no "corrected bill less than paid / treated as credit" warning. Only a
+  // gentle "total changed a lot, review before submitting" hint remains.
   const editModeWarning = useMemo(() => {
-    if (!existingVisitBilling || !billingData) return null;
-    const alreadyPaid = existingBillingTotals?.paidAmount ?? 0;
-    if (alreadyPaid <= 0) return null;
-    // Use ALL items (not just active dept) for the visit-level comparison
+    if (!billingData) return null;
     const allUnbilledItems = billingData.items.filter(
       (item) => item.paymentStatus !== "paid",
     );
@@ -499,10 +494,6 @@ export function BillingPageContent() {
       (sum, item) => sum + item.price * item.quantity,
       0,
     );
-    if (correctedTotal < alreadyPaid - 0.01) {
-      const credit = alreadyPaid - correctedTotal;
-      return `Corrected bill (${formatRWF(correctedTotal)}) is less than paid (${formatRWF(alreadyPaid)}). Overpayment of ${formatRWF(credit)} will be treated as credit.`;
-    }
     const originalTotal = billingData.items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0,
@@ -512,12 +503,12 @@ export function BillingPageContent() {
       return `Bill total changed by ${formatRWF(diff)} (${Math.round((diff / (originalTotal || 1)) * 100)}%). Please review all changes.`;
     }
     return null;
-  }, [existingVisitBilling, existingBillingTotals, billingData]);
+  }, [billingData]);
 
   // Per-department payment allocation + note requirement (mirrors the backend
   // rule: note required when a department has exemptions or its payment does
-  // not cover the full patient payable). In edit mode, pass the previous paid
-  // amount so automatic capping does not falsely trigger a note requirement.
+  // not cover the full patient payable). Edits are independent so the note
+  // requirement reflects the actual payment, not a carried-forward reference.
   const billingAllocations = useMemo(() => {
     if (!billingData) return [];
     return computeDepartmentBillAllocations(
@@ -525,9 +516,8 @@ export function BillingPageContent() {
       billingData.amountPaid || 0,
       (item) =>
         getCoveragePercentageForBillingItem(item, activeVisitInsurances),
-      previousPaidCents ?? undefined,
     );
-  }, [billingData, selectedItems, activeVisitInsurances, previousPaidCents]);
+  }, [billingData, selectedItems, activeVisitInsurances]);
 
   // Note-required detection must match the backend's billing scope. Non-edit
   // billing is per active department; edit mode re-projects the WHOLE visit and
@@ -545,14 +535,8 @@ export function BillingPageContent() {
       billingData.amountPaid || 0,
       (item) =>
         getCoveragePercentageForBillingItem(item, activeVisitInsurances),
-      previousPaidCents ?? undefined,
     );
-  }, [
-    billingData,
-    noteScopeItems,
-    activeVisitInsurances,
-    previousPaidCents,
-  ]);
+  }, [billingData, noteScopeItems, activeVisitInsurances]);
   const confirmNoteRequired = noteRequiredBillingAllocations.some(
     (allocation) => allocation.noteRequired,
   );
@@ -780,7 +764,6 @@ export function BillingPageContent() {
     setBillingRemapNonce,
     setIsEditingBill,
     setEditModeSnapshot,
-    setPreviousPaidCents,
     setConfirmSheetMode,
     setBillJustCreated,
     setPreviewOpen,
@@ -998,7 +981,6 @@ export function BillingPageContent() {
                   toast.error(result.message || "Failed to enter billing edit mode");
                   return;
                 }
-                setPreviousPaidCents(toCents(billingData?.amountPaid || 0));
                 setIsEditingBill(true);
                 hasLocalEditsRef.current = false;
                 setEditModeSnapshot(bakeSnapshotItems(billingData?.items ?? null));
@@ -1023,7 +1005,6 @@ export function BillingPageContent() {
                 }
                 setIsEditingBill(false);
                 hasLocalEditsRef.current = false;
-                setPreviousPaidCents(null);
                 setEditModeSnapshot(null);
                 setConfirmSheetMode("complete");
                 // Refetch so items revert back to their billed/paid state

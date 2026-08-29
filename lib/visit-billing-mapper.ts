@@ -249,10 +249,14 @@ export function mapVisitToBillingData(
     })),
     items,
     paymentMethod: "MOBILE_MONEY",
-    // Default amount paid to existing paid amount for carried-forward versions,
-    // or the patient contribution for first-time / edit-mode billing. The user
-    // can always adjust this in the confirm sheet.
-    amountPaid: Number(billingTotals?.paidAmount ?? fromCents(patientContributionCents)),
+    // Default amount paid to existing paid amount for carried-forward versions
+    // (incremental billing), or the patient contribution for first-time billing.
+    // In EDIT mode the edit is a fully independent new snapshot — it does NOT
+    // carry forward previously-collected money. Start at 0; the user enters what
+    // is actually collected for the corrected bill in the confirm sheet.
+    amountPaid: options?.editMode
+      ? 0
+      : Number(billingTotals?.paidAmount ?? fromCents(patientContributionCents)),
     notes: "",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

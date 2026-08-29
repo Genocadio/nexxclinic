@@ -101,7 +101,6 @@ export interface BillingActionsContext {
   setBillingRemapNonce: Dispatch<SetStateAction<number>>;
   setIsEditingBill: Dispatch<SetStateAction<boolean>>;
   setEditModeSnapshot: Dispatch<SetStateAction<BillingItem[] | null>>;
-  setPreviousPaidCents: Dispatch<SetStateAction<number | null>>;
   setConfirmSheetMode: Dispatch<SetStateAction<"complete" | "edit">>;
   setBillJustCreated: Dispatch<SetStateAction<boolean>>;
   setPreviewOpen: Dispatch<SetStateAction<boolean>>;
@@ -158,7 +157,6 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     setBillingRemapNonce,
     setIsEditingBill,
     setEditModeSnapshot,
-    setPreviousPaidCents,
     setConfirmSheetMode,
     setBillJustCreated,
     setPreviewOpen,
@@ -354,15 +352,9 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         },
         0,
       );
-      const alreadyPaid = existingBillingTotals?.paidAmount ?? 0;
-      // Warn if corrected total < paid (overpayment becomes credit)
-      if (correctedPatientPayable < alreadyPaid - 0.01) {
-        const credit = alreadyPaid - correctedPatientPayable;
-        toast.warn(
-          `Corrected bill (${formatRWF(correctedPatientPayable)}) is less than paid (${formatRWF(alreadyPaid)}). ` +
-          `Overpayment of ${formatRWF(credit)} will be treated as credit.`,
-        );
-      }
+      // Billing edits are FULLY INDEPENDENT snapshots — we never correlate the
+      // corrected bill against previously-collected money, so there is no
+      // "corrected bill less than paid / treated as credit" warning.
       // Warn if total changed significantly
       const originalTotal = billingData.items.reduce(
         (sum, item) => sum + item.price * item.quantity,
@@ -433,7 +425,6 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         if (isEditingBill) {
           setIsEditingBill(false);
           setEditModeSnapshot(null);
-          setPreviousPaidCents(null);
           setConfirmSheetMode("complete");
         }
 
