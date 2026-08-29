@@ -45,7 +45,6 @@ import InlineTryAgain from "@/components/inline-try-again"
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import {
@@ -943,8 +942,7 @@ export default function DashboardPage() {
                 ) : null}
 
                 {/* Visits / Patients view */}
-                <TooltipProvider>
-                  <div
+                <div
                     className={
                       viewMode === "grid"
                         ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"
@@ -1649,7 +1647,6 @@ export default function DashboardPage() {
                       })
                     )}
                   </div>
-                </TooltipProvider>
               </div>
             </div>
           </div>

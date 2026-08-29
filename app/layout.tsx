@@ -7,6 +7,7 @@ import { ApolloWrapper } from "@/components/apollo-wrapper"
 import { AuthGate } from "@/components/auth-gate"
 import { ThemeProvider } from "@/lib/theme-context"
 import { InvoiceViewerDialog } from "@/components/ui/invoice-viewer-dialog"
+import { Providers } from "@/components/providers"
 import { ToastContainer } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import "./globals.css"
@@ -74,11 +75,13 @@ export default function RootLayout({
     </head>
       <body className={`font-sans antialiased scrollbar-hide`}>
         <ThemeProvider>
-          <ApolloWrapper>
-            <AuthProvider>
-              <AuthGate>{children}</AuthGate>
-            </AuthProvider>
-          </ApolloWrapper>
+          <Providers>
+            <ApolloWrapper>
+              <AuthProvider>
+                <AuthGate>{children}</AuthGate>
+              </AuthProvider>
+            </ApolloWrapper>
+          </Providers>
         </ThemeProvider>
         <ToastContainer
           position="top-right"
