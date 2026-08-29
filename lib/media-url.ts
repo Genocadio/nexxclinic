@@ -13,6 +13,13 @@
 export function getMediaUrl(url: string | null | undefined): string {
   if (!url) return ''
 
+  // file:// URLs are not fetchable in the browser — strip the protocol
+  // and treat as a local backend media path to prevent SecurityError.
+  if (url.startsWith('file:///')) {
+    const localPath = url.replace('file://', '')
+    return localPath.startsWith('/') ? `/api/media${localPath}` : `/api/media/${localPath}`
+  }
+
   // Absolute URLs — pass through as-is
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
     return url

@@ -16,7 +16,7 @@ function BillingPageGuard() {
     if (isLoading) return;
 
     if (!doctor) {
-      router.push('/login');
+      router.push('/auth');
       return;
     }
 

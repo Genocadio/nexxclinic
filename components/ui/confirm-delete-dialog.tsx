@@ -63,8 +63,7 @@ export function ConfirmDeleteDialog({
             <AlertTriangle className="h-5 w-5 text-destructive" />
             {`Delete "${entityName}"?`}
           </AlertDialogTitle>
-          <AlertDialogDescription asChild>
-            <div>
+          <AlertDialogDescription>
               {hasDependencies ? (
                 <>
                   <p>
@@ -89,7 +88,6 @@ export function ConfirmDeleteDialog({
                     "This action cannot be undone. All associated data will be permanently removed."}
                 </p>
               )}
-            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
