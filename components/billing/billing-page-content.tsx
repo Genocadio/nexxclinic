@@ -7,6 +7,11 @@ import {
   computeBillingTotals,
   computeDepartmentBillAllocations,
 } from "@/lib/billing-utils";
+import {
+  detectEditedItemChanges,
+  hasEditChanges as hasEditChangesUtil,
+  snapshotBillingItems,
+} from "@/lib/billing-edit-diff";
 import { toCents } from "@/lib/money";
 import {
   flattenVisitDepartmentsForBilling,
@@ -381,86 +386,62 @@ export function BillingPageContent() {
   const effectiveIsAlreadyBilled = isAlreadyBilled && !isEditMode;
 
   // ── Serialized snapshot for change detection ─────────────────────────────
-  // Captures each item's key editable fields as a plain JSON string per ID.
-  // This is immune to React reference issues, useEffect remaps, or cache
-  // refetches that create new BillingItem objects with the same values.
-  const snapshotFields = useMemo(() => {
-    if (!editModeSnapshot) return null;
-    return new Map(
-      editModeSnapshot.map((i) => [
-        i.id,
-        JSON.stringify({
-          q: i.quantity,
-          ei: i.selectedInsuranceId,
-          ec: i.selectedCoverageId,
-          et: i.exemptionType,
-          ex: i.exempted,
-          er: i.exemptionReason,
-          inc: i.insuranceNotCovered,
-          pr: i.processorId,
-          p: i.price,
-        }),
-      ]),
-    );
-  }, [editModeSnapshot]);
+  // The serialized payload includes the *resolved* coverage / patient-share
+  // percentage alongside the raw item fields, because the displayed
+  // insurance/patient amounts are DERIVED from it — see lib/billing-edit-diff.
+  //
+  // IMPORTANT: the baseline stores a frozen `snapshotPct` (baked at capture
+  // time), while the current state resolves the pct live. So a change to
+  // insurance-level data DURING the session is still detected (live != frozen)
+  // rather than masked by both sides recomputing.
+  const resolveSnapshotPct = useCallback(
+    (item: BillingItem) =>
+      getCoveragePercentageForBillingItem(item, activeVisitInsurances),
+    [activeVisitInsurances],
+  );
 
-  const snapshotIds = useMemo(() => {
-    if (!editModeSnapshot) return null;
-    return new Set(editModeSnapshot.map((i) => i.id));
-  }, [editModeSnapshot]);
+  const bakeSnapshotItems = useCallback(
+    (items: BillingItem[] | null) =>
+      snapshotBillingItems(items, resolveSnapshotPct),
+    [resolveSnapshotPct],
+  );
 
-  /** Serialize a single item's key fields to match snapshot format. */
-  const serializeItem = useCallback((item: BillingItem) =>
-    JSON.stringify({
-      q: item.quantity,
-      ei: item.selectedInsuranceId,
-      ec: item.selectedCoverageId,
-      et: item.exemptionType,
-      ex: item.exempted,
-      er: item.exemptionReason,
-      inc: item.insuranceNotCovered,
-      pr: item.processorId,
-      p: item.price,
-    }), []);
+  // If we are editing but no snapshot baseline exists (e.g. edit mode was
+  // entered via the persisted BILL_EDITING visit status after a page refresh /
+  // remount, where onEditBilling never ran), (re)initialise it from the current
+  // billingData. Without a snapshot, change detection would short-circuit to
+  // "no changes" forever even after the user edits items.
+  useEffect(() => {
+    if (!isEditMode || !billingData) return;
+    if (editModeSnapshot) return;
+    // Base snapshot must reflect the server-sourced items, not any in-memory
+    // local edits. On a fresh mount billingData has just been remapped from the
+    // visit, so this is the clean baseline.
+    setEditModeSnapshot(bakeSnapshotItems(billingData.items));
+  }, [isEditMode, billingData, editModeSnapshot, bakeSnapshotItems]);
 
   // Detect whether the user has made any actual changes in edit mode
   const hasEditChanges = useMemo(() => {
-    if (!isEditMode || !snapshotFields || !snapshotIds || !billingData) return false;
-    const currentItems = billingData.items;
-    // Different number of items
-    if (currentItems.length !== snapshotIds.size) return true;
-    // Check for added or removed items
-    for (const item of currentItems) {
-      if (!snapshotIds.has(item.id)) return true; // added
-    }
-    for (const id of snapshotIds) {
-      if (!currentItems.some((i) => i.id === id)) return true; // removed
-    }
-    // Check for changed fields on existing items
-    for (const item of currentItems) {
-      const snapStr = snapshotFields.get(item.id);
-      if (snapStr === undefined) return true; // shouldn't happen, but safe
-      if (serializeItem(item) !== snapStr) return true;
-    }
-    return false;
-  }, [isEditMode, snapshotFields, snapshotIds, billingData, serializeItem]);
+    if (!isEditMode || !billingData) return false;
+    // NOTE: pass the already-baked editModeSnapshot directly. Re-baking it here
+    // would overwrite the frozen snapshotPct with the live resolver and mask
+    // insurance-data changes that happened during the session.
+    return hasEditChangesUtil(
+      billingData.items,
+      editModeSnapshot,
+      resolveSnapshotPct,
+    );
+  }, [isEditMode, billingData, editModeSnapshot, resolveSnapshotPct]);
 
   // Per-item change map for visual diff indicators in edit mode
   const editedItemChanges = useMemo(() => {
-    const map = new Map<string, "added" | "modified">();
-    if (!isEditMode || !snapshotFields || !snapshotIds || !billingData) return map;
-    for (const item of billingData.items) {
-      if (!snapshotIds.has(item.id)) {
-        map.set(item.id, "added");
-      } else {
-        const snapStr = snapshotFields.get(item.id);
-        if (snapStr !== undefined && serializeItem(item) !== snapStr) {
-          map.set(item.id, "modified");
-        }
-      }
-    }
-    return map;
-  }, [isEditMode, snapshotFields, snapshotIds, billingData, serializeItem]);
+    if (!isEditMode || !billingData) return new Map<string, "added" | "modified">();
+    return detectEditedItemChanges(
+      billingData.items,
+      editModeSnapshot ?? [],
+      resolveSnapshotPct,
+    );
+  }, [isEditMode, billingData, editModeSnapshot, resolveSnapshotPct]);
 
   // Role rules:
   // - CASHIER: can bill (complete) but cannot edit bills/items.
@@ -973,7 +954,7 @@ export function BillingPageContent() {
                 setPreviousPaidCents(toCents(billingData?.amountPaid || 0));
                 setIsEditingBill(true);
                 hasLocalEditsRef.current = false;
-                setEditModeSnapshot(billingData?.items ?? null);
+                setEditModeSnapshot(bakeSnapshotItems(billingData?.items ?? null));
                 // Refetch so visit.status becomes BILL_EDITING and the
                 // derived isEditMode picks it up even without local state.
                 await refetchVisit();

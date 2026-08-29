@@ -45,6 +45,13 @@ export interface BillingItem {
   appliedPatientSharePct?: number | null;
   /** Source of the applied percentage. */
   patientShareSource?: 'OVERRIDE' | 'RULE' | 'PATIENT_DEFAULT' | 'PROVIDER_DEFAULT' | 'EXEMPTED' | null;
+  /**
+   * Frozen resolved coverage/patient-share % captured when billing edit mode
+   * was entered. Used as the change-detection baseline so that derived
+   * percentage changes are detected even when no raw item field changes
+   * (and insurance-data edits during the session don't mask them).
+   */
+  snapshotPct?: number;
   doneBy: {
     name: string;
     title: string;
