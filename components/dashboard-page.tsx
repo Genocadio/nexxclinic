@@ -1405,7 +1405,8 @@ export default function DashboardPage() {
                                 {canSeeBillButton &&
                                   hasUnbilledItems(visit) && (
                                     <Tooltip>
-                                      <TooltipTrigger asChild>                                          <button
+                                      <TooltipTrigger asChild>
+                                        <button
                                           onClick={(e) => {
                                             e.stopPropagation()
                                             setNavigatingVisitId(visit.id)

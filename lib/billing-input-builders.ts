@@ -44,6 +44,7 @@ export function buildCreateBillInput(
   unbilledItems: BillingItem[],
   coverageForItem: (item: BillingItem) => number,
   insuranceOptions?: { id: string; providerId: string; coverages: CoverageTier[] }[],
+  notesByDepartment: Record<string, string> = {},
 ): CreateBillInput {
   const billableByDepartment = new Map<
     string,
@@ -100,7 +101,6 @@ export function buildCreateBillInput(
   });
 
   const paymentMethod = billingData.paymentMethod || "MOBILE_MONEY";
-  const note = billingData.notes?.trim() || undefined;
   const allocations = computeDepartmentBillAllocations(
     unbilledItems,
     billingData.amountPaid || 0,
@@ -132,7 +132,7 @@ export function buildCreateBillInput(
                   },
                 ]
               : undefined,
-          note,
+          note: notesByDepartment[department.visitDepartmentId]?.trim() || undefined,
           outstandingType: billingData.outstandingType || undefined,
           outstandingReason: billingData.outstandingReason || undefined,
         };
@@ -151,6 +151,8 @@ export function buildEditBillInput(
   snapshotItems: BillingItem[],
   coverageForItem: (item: BillingItem) => number,
   insuranceOptions?: { id: string; providerId: string; coverages: CoverageTier[] }[],
+  expectedBillingVersionId?: string,
+  notesByDepartment: Record<string, string> = {},
 ): EditBillInput {
   const currentItems = billingData.items;
   const snapshotIds = new Set(snapshotItems.map((i) => i.id));
@@ -264,7 +266,7 @@ export function buildEditBillInput(
 
   return {
     visitId: billingData.visitId,
-    notes: billingData.notes?.trim() || undefined,
+    expectedBillingVersionId,
     departments: Array.from(departmentMap.values()).map((dept) => {
       const allocated = Number(
         paymentByDept.get(dept.visitDepartmentId) || 0,
@@ -288,7 +290,8 @@ export function buildEditBillInput(
                   paymentMethod: editPaymentMethod,
                 },
               ]
-            : undefined,
+              : undefined,
+        note: notesByDepartment[dept.visitDepartmentId]?.trim() || undefined,
         outstandingType: billingData.outstandingType || undefined,
         outstandingReason: billingData.outstandingReason || undefined,
       };

@@ -167,7 +167,8 @@ export function useCreateBill() {
 
 export interface EditBillInput {
   visitId: string;
-  notes?: string;
+  /** Prevents a stale browser tab from replacing a newer billing version. */
+  expectedBillingVersionId?: string;
   departments: {
     visitDepartmentId: string;
     addedProducts?: { productId: string; quantity: number; processorId?: string }[];
@@ -190,6 +191,7 @@ export interface EditBillInput {
       paymentMethod: BillingPaymentMethod;
       reference?: string;
     }[];
+    note?: string;
     outstandingType?: "loan" | "giveaway";
     outstandingReason?: string;
   }[];
@@ -203,9 +205,9 @@ export function useEditBill() {
     input: EditBillInput,
   ): Promise<ApiResponse<VisitBilling>> => {
     // Map the hook-level input to the GraphQL EditBillVisitInput shape.
-    // Top-level `notes` is distributed as per-department `note`.
     const gqlInput = {
       visitId: input.visitId,
+      expectedBillingVersionId: input.expectedBillingVersionId,
       departments: input.departments.map((dept) => ({
         visitDepartmentId: dept.visitDepartmentId,
         addedProducts: dept.addedProducts?.map(({ processorId: _, ...rest }) => rest),
@@ -213,7 +215,7 @@ export function useEditBill() {
         updatedProducts: dept.updatedProducts,
         billProducts: dept.billProducts,
         payments: dept.payments,
-        note: input.notes || undefined,
+        note: dept.note,
         outstandingType: dept.outstandingType,
         outstandingReason: dept.outstandingReason,
       })),

@@ -45,7 +45,10 @@ export interface BillingActionsContext {
   existingVisitBilling: VisitBilling | null | undefined;
   existingBillingTotals: VisitBillingTotals | null;
   displayTotals: BillingTotals;
+  /** Items included in the completion action: one department normally, the
+   * complete visit when replacing a bill in edit mode. */
   selectedItems: BillingItem[];
+  billingNotesByDepartment: Record<string, string>;
   editModeSnapshot: BillingItem[] | null;
   activeVisitInsurances: PatientInsurance[];
   activeVisitDepartment: VisitDepartment | null;
@@ -125,6 +128,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     existingBillingTotals,
     displayTotals,
     selectedItems,
+    billingNotesByDepartment,
     editModeSnapshot,
     activeVisitInsurances,
     activeVisitDepartment,
@@ -294,6 +298,33 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       return;
     }
 
+    // Match the API's edit-input limits before showing the confirmation flow.
+    // Without this the user could prepare a valid-looking correction and only
+    // learn about the limit after entering payment/note details.
+    if (existingVisitBilling) {
+      const rootId = (item: BillingItem) =>
+        String(item.rootVisitDepartmentId || item.visitDepartmentId || "");
+      const groups = new Map<string, BillingItem[]>();
+      for (const item of billingData.items) {
+        const id = rootId(item);
+        groups.set(id, [...(groups.get(id) || []), item]);
+      }
+      const addedIds = new Set(
+        billingData.items
+          .filter((item) => !editModeSnapshot?.some((snapshot) => snapshot.id === item.id))
+          .map((item) => item.id),
+      );
+      const addedByDepartment = new Map<string, number>();
+      for (const item of billingData.items.filter((item) => addedIds.has(item.id))) {
+        const id = rootId(item);
+        addedByDepartment.set(id, (addedByDepartment.get(id) || 0) + 1);
+      }
+      if (groups.size > 20 || [...groups.values()].some((items) => items.length > 50) || [...addedByDepartment.values()].some((count) => count > 20)) {
+        toast.error("This edit exceeds the billing limit (20 departments, 50 bill items, or 20 added items per department).");
+        return;
+      }
+    }
+
     const unbilledItems = selectedItems.filter(
       (item) => item.paymentStatus !== "paid",
     );
@@ -392,20 +423,25 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
             editModeSnapshot ?? [],
             coverageForItem,
             insuranceOpts,
+            existingVisitBilling?.version?.id,
+            billingNotesByDepartment,
           ),
         );
 
-        if (response.status === "SUCCESS") {
-          // Edit succeeded — lock the visit back to COMPLETED
-          await completeBillEditing(billingData.visitId);
-        } else {
+        if (response.status !== "SUCCESS") {
           // Edit failed — cancel the editing session so the visit
           // returns to its previous state instead of staying locked
           await cancelBillEditing(billingData.visitId);
         }
       } else {
         response = await createBill(
-          buildCreateBillInput(billingData, unbilledItems, coverageForItem, insuranceOpts),
+          buildCreateBillInput(
+            billingData,
+            unbilledItems,
+            coverageForItem,
+            insuranceOpts,
+            billingNotesByDepartment,
+          ),
         );
       }
 

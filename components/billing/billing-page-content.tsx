@@ -125,7 +125,6 @@ export function BillingPageContent() {
     handleExemptionChange,
     handlePaymentMethodChange,
     handleAmountPaidChange,
-    handleNotesChange,
   } = useBillingPageState();
 
   // Wrap handleItemChange to set the local-edits guard
@@ -163,6 +162,10 @@ export function BillingPageContent() {
   // Loading states for edit/done-editing buttons in the sticky summary bar
   const [loadingEditBilling, setLoadingEditBilling] = useState(false);
   const [loadingDoneEditing, setLoadingDoneEditing] = useState(false);
+  // Billing notes belong to the department being billed. In an edit, each
+  // department can therefore satisfy its own outstanding/exemption rationale
+  // without copying one note across the complete replacement bill.
+  const [billingNotesByDepartment, setBillingNotesByDepartment] = useState<Record<string, string>>({});
   // Ref guard: set to true as soon as the user makes any local edit in
   // billing edit mode. The remap useEffect checks this flag and NEVER
   // overwrites billingData when it is true — regardless of Apollo
@@ -452,20 +455,25 @@ export function BillingPageContent() {
     (!effectiveIsAlreadyBilled && hasRemainingToBill);
 
 
-  // Totals always cover all pending items in the current service tab
+  // Normal billing is completed a department at a time. A billing edit creates
+  // a complete replacement bill, so it must always show the totals for every
+  // item in the visit rather than only the currently selected service.
   const displayTotals = useMemo(() => {
     if (!billingData) return EMPTY_TOTALS;
-    const itemsForTotals = itemsToDisplay.filter(
-      (item) => item.paymentStatus !== "paid",
-    );
+    const itemsForTotals = isEditMode
+      ? billingData.items
+      : itemsToDisplay.filter((item) => item.paymentStatus !== "paid");
     return calculateTotalsForItems(itemsForTotals);
-  }, [billingData, itemsToDisplay, calculateTotalsForItems]);
+  }, [billingData, isEditMode, itemsToDisplay, calculateTotalsForItems]);
 
-  // Totals for the active department only (per-department incremental billing)
+  // The confirmation sheet follows the same scope as the bill being created:
+  // the active department normally, or the entire visit for an edit.
   const confirmTotals = useMemo(() => {
     if (!billingData) return EMPTY_TOTALS;
-    return calculateTotalsForItems(selectedItems);
-  }, [billingData, selectedItems, calculateTotalsForItems]);
+    return calculateTotalsForItems(
+      isEditMode ? billingData.items : selectedItems,
+    );
+  }, [billingData, isEditMode, selectedItems, calculateTotalsForItems]);
 
   // Whole-visit patient payable across ALL pending items (every department).
   // The edit path re-projects the entire visit and re-allocates amountPaid
@@ -475,11 +483,16 @@ export function BillingPageContent() {
   // own payable, so prefilling the visit total can never over-allocate.
   const visitConfirmTotals = useMemo(() => {
     if (!billingData) return EMPTY_TOTALS;
-    const allPending = billingData.items.filter(
-      (item) => item.paymentStatus !== "paid",
-    );
-    return calculateTotalsForItems(allPending);
+    return calculateTotalsForItems(billingData.items);
   }, [billingData, calculateTotalsForItems]);
+
+  // Submit and validate precisely the set that will form the new bill. During
+  // an edit that is every visit item, including unchanged rows; the snapshot
+  // remains solely for NEW/CHANGED highlighting and edit eligibility.
+  const completionItems = useMemo(
+    () => (isEditMode ? billingData?.items ?? [] : selectedItems),
+    [billingData?.items, isEditMode, selectedItems],
+  );
 
   // Edit-mode review warning. Billing edits are FULLY INDEPENDENT snapshots —
   // they never compare or correlate against previously-collected money, so there
@@ -539,6 +552,15 @@ export function BillingPageContent() {
   }, [billingData, noteScopeItems, activeVisitInsurances]);
   const confirmNoteRequired = noteRequiredBillingAllocations.some(
     (allocation) => allocation.noteRequired,
+  );
+  const missingRequiredNoteDepartmentId = useMemo(
+    () =>
+      noteRequiredBillingAllocations.find(
+        (allocation) =>
+          allocation.noteRequired &&
+          !billingNotesByDepartment[allocation.visitDepartmentId]?.trim(),
+      )?.visitDepartmentId ?? null,
+    [noteRequiredBillingAllocations, billingNotesByDepartment],
   );
 
 
@@ -668,12 +690,11 @@ export function BillingPageContent() {
     [billingData?.items],
   );
 
-  const firstBillingDepartment = topLevelBillingDepartments[0];
-  const firstBillingDepartmentId = firstBillingDepartment?.id;
+  const currentBillingDepartmentId = activeVisitDepartment?.id;
   const {
     notes: billingDepartmentNotes,
     refetch: refetchNotes,
-  } = useVisitDepartmentNotes(visitId, firstBillingDepartmentId || null);
+  } = useVisitDepartmentNotes(visitId, currentBillingDepartmentId || null);
 
   // In Billing UI, only BILLING + PUBLIC notes should be considered/visible.
   const billingVisibleNotes = (billingDepartmentNotes || []).filter(
@@ -731,7 +752,8 @@ export function BillingPageContent() {
     existingVisitBilling,
     existingBillingTotals,
     displayTotals,
-    selectedItems,
+    selectedItems: completionItems,
+    billingNotesByDepartment,
     editModeSnapshot,
     activeVisitInsurances,
     activeVisitDepartment,
@@ -786,6 +808,7 @@ export function BillingPageContent() {
 
   useEffect(() => {
     setBillJustCreated(false);
+    setBillingNotesByDepartment({});
   }, [visitId]);
 
   useEffect(() => {
@@ -949,6 +972,16 @@ export function BillingPageContent() {
                 );
                 return;
               }
+              if (missingRequiredNoteDepartmentId) {
+                const departmentName = billingData.items.find(
+                  (item) =>
+                    String(item.rootVisitDepartmentId || item.visitDepartmentId) ===
+                    String(missingRequiredNoteDepartmentId),
+                )?.departmentName || "the selected department";
+                setActiveService(departmentName);
+                toast.warn(`A billing note is required for ${departmentName}.`);
+                return;
+              }
               // In edit mode open confirm with edit flow, else normal complete
               setConfirmSheetMode(isEditMode ? "edit" : "complete");
               // Always prefill with patient responsibility so the user can
@@ -998,9 +1031,15 @@ export function BillingPageContent() {
                 // Exit BILL_EDITING mode on the backend
                 if (visitId) {
                   try {
-                    await cancelBillEditing(visitId);
+                    const result = await cancelBillEditing(visitId);
+                    if (result.status !== "SUCCESS") {
+                      toast.error(result.message || "Could not cancel billing edit mode");
+                      return;
+                    }
                   } catch (err) {
                     console.error("Failed to cancel bill editing mode:", err);
+                    toast.error("Could not cancel billing edit mode. Please try again.");
+                    return;
                   }
                 }
                 setIsEditingBill(false);
@@ -1036,7 +1075,7 @@ export function BillingPageContent() {
         allowedDisplayTypes={["BILLING", "PUBLIC"]}
         noteTypes={["BILLING", "PUBLIC"]}
         onAddNote={async (noteType, content) => {
-          const visitDepartmentId = String(firstBillingDepartmentId || "");
+          const visitDepartmentId = String(currentBillingDepartmentId || "");
           if (!visitDepartmentId) {
             throw new Error("No department selected for billing note");
           }
@@ -1053,7 +1092,7 @@ export function BillingPageContent() {
           await refetchVisit();
         }}
         onMarkAsViewed={async (_noteId) => {
-          await markNotesViewed(String(firstBillingDepartmentId || ""));
+          await markNotesViewed(String(currentBillingDepartmentId || ""));
           await refetchNotes();
           await refetchVisit();
         }}
@@ -1074,8 +1113,12 @@ export function BillingPageContent() {
         onAmountPaidChange={handleAmountPaidChange}
         onOutstandingTypeChange={(type) => setBillingData(prev => prev ? { ...prev, outstandingType: type } : prev)}
         onOutstandingReasonChange={(reason) => setBillingData(prev => prev ? { ...prev, outstandingReason: reason } : prev)}
-        billingNotes={billingData.notes || ""}
-        onBillingNotesChange={handleNotesChange}
+        billingNotes={billingNotesByDepartment[String(currentBillingDepartmentId || "")] || ""}
+        onBillingNotesChange={(note) => {
+          const departmentId = String(currentBillingDepartmentId || "");
+          if (!departmentId) return;
+          setBillingNotesByDepartment((current) => ({ ...current, [departmentId]: note }));
+        }}
         editWarning={confirmSheetMode === "edit" ? editModeWarning : null}
         onConfirm={async () => {
           setShowCompleteBillConfirm(false);
