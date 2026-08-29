@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { createPortal } from "react-dom"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -32,6 +32,7 @@ import {
   REMOVE_VISIT_DEPARTMENT_MUTATION,
   CHANGE_VISIT_DATE_MUTATION,
   FINALISE_VISIT_DEPARTMENT_MUTATION,
+  CHANGE_VISIT_DEPARTMENT_PROFILE_MUTATION,
 } from "@/hooks/mutations/visits"
 import {
   UPDATE_BILLING_DATE_MUTATION,
@@ -42,6 +43,16 @@ import {
 } from "@/hooks/billing/hooks"
 import { useGenerateConsultationPdf } from "@/hooks/visits/visit-mutations"
 import { VISITS_QUERY } from "@/hooks/queries/visits"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { useAuth } from "@/lib/auth-context"
+import { hasRole } from "@/lib/role-utils"
+import type { DepartmentProfile as DepartmentProfileType } from "@/lib/api-types"
 
 const GET_VISIT_BILLING = gql`
   query GetVisitBillingForSettings($visitId: ID!) {
@@ -74,11 +85,49 @@ const GET_VISIT_BILLING = gql`
   }
 `
 
+const GET_VISIT_DEPARTMENT_PROFILES = gql`
+  query GetVisitDepartmentProfiles($visitId: ID!) {
+    visit(visitId: $visitId) {
+      status
+      message
+      data {
+        id
+        departments {
+          id
+          encounterType
+          profile {
+            id
+            name
+            encounterType
+          }
+          department {
+            id
+            name
+            profiles {
+              id
+              name
+              encounterType
+              isDefault
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
 interface VisitSettingsPanelProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   visit: Visit
   onVisitUpdated?: () => void
+}
+
+interface ProfileDept {
+  id: string
+  encounterType: string
+  assigned?: { id: string; name: string; encounterType: string } | null
+  available: { id: string; name: string; encounterType: string }[]
 }
 
 export function VisitSettingsPanel({
@@ -212,6 +261,85 @@ export function VisitSettingsPanel({
       fetchBilling({ variables: { visitId: visit.id } })
     }
   }, [open, visit.id, fetchBilling])
+
+  // ── Clinic department profile (assigned + available catalog profiles) ──
+  const { doctor: authDoctor } = useAuth()
+  const currentRoles = ((authDoctor as unknown as { roles?: string[] } | null)
+    ?.roles || []) as string[]
+  // Profiles can be changed/assigned by managers and clinicians.
+  const canManageProfile = hasRole(currentRoles, "MANAGER") || hasRole(currentRoles, "CLINICIAN")
+
+  const [fetchProfiles, {
+    data: profilesData,
+    loading: profilesLoading,
+    error: profilesError,
+  }] = useLazyQuery(GET_VISIT_DEPARTMENT_PROFILES, { fetchPolicy: "network-only" })
+
+  // Keyed by visitDepartment id so we can look up each department's assigned
+  // profile and its available catalog profiles regardless of hierarchy/order.
+  const profileDeptsByVisitDeptId = useMemo(() => {
+    const map = new Map<string, ProfileDept>()
+    const rawDepts = (profilesData?.visit?.data?.departments || []) as Array<{
+      id: string
+      encounterType: string
+      profile?: { id: string; name: string; encounterType: string } | null
+      department?: { id: string; name: string; profiles: DepartmentProfileType[] }
+    }>
+    rawDepts.forEach((dept) => {
+      map.set(dept.id, {
+        id: dept.id,
+        encounterType: dept.encounterType,
+        assigned: dept.profile
+          ? {
+              id: dept.profile.id,
+              name: dept.profile.name,
+              encounterType: dept.profile.encounterType,
+            }
+          : null,
+        available: (dept.department?.profiles || []).map((p) => ({
+          id: p.id,
+          name: p.name,
+          encounterType: p.encounterType,
+        })),
+      })
+    })
+    return map
+  }, [profilesData])
+
+  useEffect(() => {
+    if (open) {
+      fetchProfiles({ variables: { visitId: visit.id } })
+    }
+  }, [open, visit.id, fetchProfiles])
+
+  useEffect(() => {
+    if (profilesError) {
+      console.error("[VisitSettings] Profiles query error:", profilesError)
+    }
+  }, [profilesError])
+
+  const [changeProfile, { loading: changingProfile }] = useMutation(
+    CHANGE_VISIT_DEPARTMENT_PROFILE_MUTATION,
+    {
+      ...refetchConfig,
+      onCompleted: (data) => {
+        handleResponse(data?.changeVisitDepartmentProfile, {
+          successMessage: "Department profile updated successfully",
+          onSuccess: () => {
+            onVisitUpdated?.()
+            void fetchProfiles({ variables: { visitId: visit.id } })
+          },
+        })
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to update department profile")
+      },
+    },
+  )
+
+  const handleChangeDepartmentProfile = (visitDepartmentId: string, profileId: string | null) => {
+    void changeProfile({ variables: { visitDepartmentId, profileId } })
+  }
 
   const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice()
   const { generateConsultationPdf, loading: generatingConsultationPdf } = useGenerateConsultationPdf()
@@ -734,6 +862,87 @@ export function VisitSettingsPanel({
                               {dept.products.length !== 1 ? "s" : ""} added
                             </div>
                           )}
+
+                          {/* Clinic profile (assigned + available), with change/clear for managers & clinicians */}
+                          {(() => {
+                            const profileDept = profileDeptsByVisitDeptId.get(dept.id)
+                            const assigned = profileDept?.assigned
+                            const available = profileDept?.available || []
+                            const loading = profilesLoading && !profileDept
+                            return (
+                              <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                                    <FileText className="h-3.5 w-3.5 text-primary" />
+                                    Clinic Profile
+                                  </span>
+                                  {loading && (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                                  )}
+                                </div>
+                                {!profileDept && !loading ? (
+                                  <p className="text-xs text-muted-foreground">
+                                    Profile not available
+                                  </p>
+                                ) : assigned ? (
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium text-foreground truncate">
+                                        {assigned.name}
+                                      </p>
+                                      <p className="text-[11px] text-muted-foreground truncate">
+                                        {assigned.encounterType || profileDept?.encounterType || "No encounter type"}
+                                      </p>
+                                    </div>
+                                      <span className="shrink-0 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                                        Active
+                                      </span>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground">
+                                    No profile assigned
+                                    {profileDept?.encounterType
+                                      ? ` — encounter: ${profileDept.encounterType}`
+                                      : ""}
+                                  </p>
+                                )}
+                                {canManageProfile && !loading && (
+                                  <Select
+                                    value={assigned?.id || "none"}
+                                    onValueChange={(value) =>
+                                      handleChangeDepartmentProfile(
+                                        dept.id,
+                                        value === "none" ? null : value,
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger
+                                      disabled={changingProfile}
+                                      className="h-8 w-full text-xs"
+                                    >
+                                      <SelectValue
+                                        placeholder={assigned ? "Change profile" : "Assign a profile"}
+                                      />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">
+                                        No profile
+                                      </SelectItem>
+                                      {available.map((p) => (
+                                        <SelectItem key={p.id} value={p.id}>
+                                          {p.name}
+                                          {p.encounterType
+                                            ? ` — ${p.encounterType}`
+                                            : ""}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                              </div>
+                            )
+                          })()}
+
                           {/* Preview buttons */}
                           <div className="flex items-center gap-2 pt-2 border-t border-border/50">
                             {dept.answerId && (
