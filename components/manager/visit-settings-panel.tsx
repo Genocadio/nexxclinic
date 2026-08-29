@@ -906,7 +906,7 @@ export function VisitSettingsPanel({
                                       : ""}
                                   </p>
                                 )}
-                                {canManageProfile && !loading && (
+                                {canManageProfile && !loading && dept.status !== "BILLING" && dept.status !== "COMPLETED" && (
                                   <Select
                                     value={assigned?.id || "none"}
                                     onValueChange={(value) =>
