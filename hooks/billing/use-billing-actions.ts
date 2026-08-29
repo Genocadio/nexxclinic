@@ -464,25 +464,6 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           setConfirmSheetMode("complete");
         }
 
-        // After refetch, check if there are still unbilled departments.
-        const refetchedData = await refetchBill() as any;
-        const freshBillingData = refetchedData?.data;
-        const stillUnbilled = freshBillingData?.items?.filter(
-          (item: any) => item.paymentStatus !== "paid",
-        ) || [];
-        const unbilledDeptNames = [...new Set(
-          stillUnbilled.map((item: any) => item.departmentName || "General"),
-        )];
-
-        if (unbilledDeptNames.length > 0) {
-          // More departments to bill — auto-advance to next
-          if (setActiveService) {
-            setActiveService(String(unbilledDeptNames[0]));
-          }
-          toast.success(`Department billed successfully! Next: ${unbilledDeptNames[0]}`);
-          return; // Don't open preview — user continues billing next dept
-        }
-
         // All departments billed — ask user if they want to discharge
         if (ENABLE_DISCHARGE) {
           setDischargeConfirmOpen(true);
@@ -497,9 +478,9 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       } else {
         const errorMsg =
           response.messages?.map((m) => m.text).join(", ") ||
-          existingVisitBilling
+          (existingVisitBilling
             ? "Failed to update bill"
-            : "Failed to create bill";
+            : "Failed to create bill");
         toast.error(errorMsg);
       }
     } catch (err) {
