@@ -598,7 +598,7 @@ export const DASHBOARD_STATS_QUERY = gql`
 `;
 
 export const VISIT_DEPARTMENT_NOTES_QUERY = gql`
-  query GetVisitDepartmentNotes($visitId: ID!, $visitDepartmentId: ID!) {
+  query GetVisitDepartmentNotes($visitId: ID!, $visitDepartmentId: ID) {
     visitDepartmentNotes(
       visitId: $visitId
       visitDepartmentId: $visitDepartmentId

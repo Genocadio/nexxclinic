@@ -174,6 +174,10 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
   const handleDownloadInvoice = async (
     departmentInsuranceBillingId: string,
   ) => {
+    if (unreadBillingNotesCount > 0) {
+      toast.warn("Please read the unread notes before generating an invoice.");
+      return;
+    }
     const invoiceUrl = await resolveInvoiceUrl(
       departmentInsuranceBillingId,
       generateInvoice,
@@ -500,6 +504,10 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     if (!billingData) return;
 
     if (existingVisitBilling) {
+      if (unreadBillingNotesCount > 0) {
+        toast.warn("Please read the unread notes before generating an invoice.");
+        return;
+      }
       const firstDeptBilling = existingVisitBilling.departments?.[0];
       const firstInsuranceBilling = firstDeptBilling?.insuranceBillings?.[0];
       if (firstInsuranceBilling?.id) {

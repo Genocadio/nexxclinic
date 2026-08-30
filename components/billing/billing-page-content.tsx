@@ -701,22 +701,85 @@ export function BillingPageContent() {
   );
 
   const currentBillingDepartmentId = activeVisitDepartment?.id;
-  const {
-    notes: billingDepartmentNotes,
-    refetch: refetchNotes,
-  } = useVisitDepartmentNotes(visitId, currentBillingDepartmentId || null);
 
-  // In Billing UI, only PUBLIC notes are shown in the floating panel.
-  // BILLING notes are financial annotations (justification for outstanding/exemption)
-  // stored on the billing record itself — they are not inter-department communications
-  // and must not appear in the visit notes panel.
-  const billingVisibleNotes = (billingDepartmentNotes || []).filter(
-    (note: any) => String(note?.noteType || "") === "PUBLIC",
+  // Fetch ALL of the visit's notes (visitDepartmentId = null) so the unread
+  // gate matches the backend's whole-visit rule: billing operations are blocked
+  // while the acting user has any unread note on any non-CANCELLED department.
+  // The floating panel still shows only the notes dedicated to the department
+  // currently being billed; a banner points the user at other departments that
+  // hold unread notes so they never hit an invisible block.
+  const {
+    notes: visitDepartmentNotes,
+    refetch: refetchNotes,
+  } = useVisitDepartmentNotes(visitId, null);
+
+  // Notes dedicated to the department currently being billed (floating panel).
+  const billingDepartmentNotes = useMemo(
+    () =>
+      (visitDepartmentNotes || []).filter(
+        (note: any) =>
+          String(note?.visitDepartmentId || "") ===
+          String(currentBillingDepartmentId || ""),
+      ),
+    [visitDepartmentNotes, currentBillingDepartmentId],
   );
 
-  const unreadBillingNotesCount = billingVisibleNotes.filter(
-    (note: any) => !note?.viewed,
+  // CANCELLED departments are excluded from the unread gate on the backend.
+  const cancelledVisitDepartmentIds = useMemo(
+    () =>
+      new Set(
+        (visit?.departments || [])
+          .filter((dept) => dept?.status === "CANCELLED")
+          .map((dept) => String(dept.id)),
+      ),
+    [visit?.departments],
+  );
+
+  // In the Billing UI the notes panel must surface every note that can block a
+  // billing operation on this department: PUBLIC inter-department communications
+  // and BILLING financial annotations (outstanding/exemption justification).
+  // Hiding BILLING notes left finance users blocked by a note they could never
+  // see or mark as read.
+  const billingVisibleNotes = (billingDepartmentNotes || []).filter(
+    (note: any) => {
+      const type = String(note?.noteType || "");
+      return type === "PUBLIC" || type === "BILLING";
+    },
+  );
+
+  // Whole-visit unread gate — mirrors the backend's countUnreadNotesForVisit
+  // (any note type, any non-CANCELLED department, not self-created). This is
+  // what actually blocks bill/edit/payment/invoice on the backend, so the UI
+  // gates on exactly the same set.
+  const unreadBillingNotesCount = (visitDepartmentNotes || []).filter(
+    (note: any) =>
+      !note?.viewed &&
+      !cancelledVisitDepartmentIds.has(String(note?.visitDepartmentId || "")),
   ).length;
+
+  // Unread notes that live on OTHER non-cancelled departments — the user must
+  // switch to those departments and read them before billing can proceed.
+  const unreadNotesOnOtherDepartments = useMemo(() => {
+    const activeId = String(currentBillingDepartmentId || "");
+    const counts = new Map<string, { name: string; count: number }>();
+    for (const note of visitDepartmentNotes || []) {
+      if (note?.viewed) continue;
+      const deptId = String(note?.visitDepartmentId || "");
+      if (!deptId || deptId === activeId) continue;
+      if (cancelledVisitDepartmentIds.has(deptId)) continue;
+      const dept = visit?.departments?.find((d) => String(d.id) === deptId);
+      const name = dept?.department?.name || "another department";
+      const entry = counts.get(deptId) || { name, count: 0 };
+      entry.count++;
+      counts.set(deptId, entry);
+    }
+    return Array.from(counts.values());
+  }, [
+    visitDepartmentNotes,
+    currentBillingDepartmentId,
+    cancelledVisitDepartmentIds,
+    visit?.departments,
+  ]);
 
   const hasUnbilledItems = (visitData: Visit | undefined) => {
     if (!visitData) return false;
@@ -945,6 +1008,20 @@ export function BillingPageContent() {
       />
 
       <div className="flex-1 flex flex-col min-h-0">
+        {unreadNotesOnOtherDepartments.length > 0 && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-destructive/10 border-b border-border text-xs text-destructive">
+            <span>
+              Billing is blocked by unread notes in{" "}
+              {unreadNotesOnOtherDepartments
+                .map(
+                  (dept) =>
+                    `${dept.name} (${dept.count} unread)`,
+                )
+                .join(", ")}
+              . Switch to that department and read them first.
+            </span>
+          </div>
+        )}
         <BillingItemsWorkspace
           activeService={activeService}
           allServiceNames={allServiceNames}
@@ -1112,7 +1189,7 @@ export function BillingPageContent() {
       <VisitNotesFloating
         title="Visit Notes"
         notes={billingVisibleNotes}
-        allowedDisplayTypes={["PUBLIC"]}
+        allowedDisplayTypes={["PUBLIC", "BILLING"]}
         noteTypes={["PUBLIC"]}
         onAddNote={async (noteType, content) => {
           const visitDepartmentId = String(currentBillingDepartmentId || "");

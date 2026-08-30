@@ -15,7 +15,9 @@ export function useVisitDepartmentNotes(
     VISIT_DEPARTMENT_NOTES_QUERY,
     {
       variables: { visitId, visitDepartmentId },
-      skip: !visitId || !visitDepartmentId,
+      // A null visitDepartmentId fetches all of the visit's notes so the
+      // billing page can enforce the backend's whole-visit unread-notes gate.
+      skip: !visitId,
       fetchPolicy: "cache-and-network",
     },
   );
