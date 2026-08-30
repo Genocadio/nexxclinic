@@ -444,6 +444,16 @@ export function BillingPageContent() {
   // Role rules:
   // - CASHIER: can bill (complete) but cannot edit bills/items.
   // - FINANCE: can bill and can edit.
+  const hasManagerRole = useMemo(() => {
+    if (!doctor?.roles) return false;
+    return ((doctor.roles as string[]) || []).includes("MANAGER");
+  }, [doctor?.roles]);
+  const hasClinicianRole = useMemo(() => {
+    if (!doctor?.roles) return false;
+    const roles = (doctor.roles as string[]) || [];
+    return roles.includes("CLINICIAN") || roles.includes("DOCTOR");
+  }, [doctor?.roles]);
+
   const canEditBilling = hasFinanceRole;
   const canBill = hasFinanceRole || hasCashierRole;
 
@@ -926,7 +936,7 @@ export function BillingPageContent() {
           visitInsuranceOptions={visitInsuranceOptions}
           activeProfile={activeVisitDepartment?.profile ?? null}
           availableProfiles={activeCatalogDepartment?.profiles || []}
-          canChangeProfile={!isAlreadyBilled}
+          canChangeProfile={!isAlreadyBilled && (hasManagerRole || hasClinicianRole)}
           onChangeProfile={(profileId) => void handleChangeProfile(profileId)}
           onServiceChange={setActiveService}
           onAddItem={() => setShowAddProductModal(true)}
