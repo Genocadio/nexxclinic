@@ -146,7 +146,7 @@ export function BillingPageContent() {
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus();
   const { addVisitDepartmentNote } = useAddVisitDepartmentNote();
   const { markNotesViewed } = useMarkVisitDepartmentNotesViewed();
-  const { completeVisit } = useCompleteVisit();
+  const { completeVisit, loading: completingVisit } = useCompleteVisit();
   const { departments: catalogDepartments } = useDepartments({
     skip: !visitId,
   });
@@ -744,6 +744,39 @@ export function BillingPageContent() {
     (!hasUnbilledItems(visit) || hasNoBillables(visit)),
   );
 
+  // Pending (CREATED/IN_PROGRESS) visits that are already billed and fully
+  // settled can be completed directly. The button shows next to Edit billing.
+  const canCompleteVisit = Boolean(
+    visit &&
+    !isEditMode &&
+    existingVisitBilling &&
+    (visit.status === "CREATED" || visit.status === "IN_PROGRESS") &&
+    !hasIncompleteDepartments(visit) &&
+    (!hasUnbilledItems(visit) || hasNoBillables(visit)),
+  );
+
+  const [completeVisitConfirmOpen, setCompleteVisitConfirmOpen] =
+    useState(false);
+
+  const handleCompleteVisit = async () => {
+    if (!visitId) return;
+    try {
+      const result = await completeVisit(visitId);
+      if (result?.status === "SUCCESS") {
+        toast.success("Visit completed successfully");
+        await refetchVisit();
+        await refetchBill();
+      } else {
+        toast.error(
+          result?.message || "Failed to complete visit. Please try again.",
+        );
+      }
+    } catch (err) {
+      console.error("Complete visit error:", err);
+      toast.error("Failed to complete visit. Please try again.");
+    }
+  };
+
   const {
     handleDownloadInvoice,
     handleChangeProfile,
@@ -996,6 +1029,15 @@ export function BillingPageContent() {
             }}
             onPreview={() => void handlePreviewBilling()}
             onPrint={() => void handlePrintBillingInvoice()}
+            canCompleteVisit={canCompleteVisit}
+            completingVisit={completingVisit}
+            onCompleteVisit={() => {
+              if (unreadBillingNotesCount > 0) {
+                toast.warn("Please view the notes first before completing this visit.");
+                return;
+              }
+              setCompleteVisitConfirmOpen(true);
+            }}
             onEditBilling={async () => {
               if (unreadBillingNotesCount > 0) {
                 toast.warn("Please view the notes first before continuing.");
@@ -1164,6 +1206,20 @@ export function BillingPageContent() {
         }}
         printingInvoice={generatingInvoice}
         isEditMode={isEditMode}
+      />
+
+      <ConfirmDialog
+        open={completeVisitConfirmOpen}
+        onOpenChange={setCompleteVisitConfirmOpen}
+        title="Complete this visit?"
+        description="This visit is fully billed. Completing it will finalize the visit."
+        confirmLabel="Complete Visit"
+        busy={completingVisit}
+        onConfirm={() => {
+          void handleCompleteVisit().finally(() => {
+            setCompleteVisitConfirmOpen(false);
+          });
+        }}
       />
 
       <ConfirmDialog

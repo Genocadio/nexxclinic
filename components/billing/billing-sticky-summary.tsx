@@ -1,6 +1,6 @@
 "use client";
 
-import { Printer, Pencil } from "lucide-react";
+import { Printer, Pencil, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -28,6 +28,8 @@ type BillingStickySummaryProps = {
   existingVisitBilling?: VisitBilling | null;
   canEditBilling: boolean;
   hasRemainingToBill: boolean;
+  canCompleteVisit?: boolean;
+  completingVisit?: boolean;
   creatingBill: boolean;
   generatingInvoice: boolean;
   isEditingBill: boolean;
@@ -40,6 +42,7 @@ type BillingStickySummaryProps = {
   onPrint: () => void;
   onEditBilling: () => void;
   onDoneEditing: () => void;
+  onCompleteVisit?: () => void;
 };
 
 export function BillingStickySummary({
@@ -50,6 +53,8 @@ export function BillingStickySummary({
   existingVisitBilling,
   canEditBilling,
   hasRemainingToBill,
+  canCompleteVisit = false,
+  completingVisit = false,
   creatingBill,
   generatingInvoice,
   isEditingBill,
@@ -61,6 +66,7 @@ export function BillingStickySummary({
   onPrint,
   onEditBilling,
   onDoneEditing,
+  onCompleteVisit,
 }: BillingStickySummaryProps) {
   const remaining = Math.max(0, totals.totalAmount - amountPaid);
   const showActions = canEditBilling || hasRemainingToBill;
@@ -217,6 +223,24 @@ export function BillingStickySummary({
                       disabled={generatingInvoice}
                     />
                   </>
+                )}
+
+                {existingVisitBilling && canCompleteVisit && !isEditingBill && (
+                  <ActionButton
+                    icon={CheckCircle}
+                    label={
+                      completingVisit ? "Completing…" : "Complete visit"
+                    }
+                    onClick={() => onCompleteVisit?.()}
+                    disabled={!canAct || completingVisit}
+                    tooltipOverride={
+                      !canAct
+                        ? "View unread notes to complete the visit"
+                        : completingVisit
+                          ? "Completing visit…"
+                          : undefined
+                    }
+                  />
                 )}
 
                 {existingVisitBilling && canEditBilling && !isEditingBill && (
