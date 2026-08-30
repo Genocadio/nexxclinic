@@ -706,11 +706,12 @@ export function BillingPageContent() {
     refetch: refetchNotes,
   } = useVisitDepartmentNotes(visitId, currentBillingDepartmentId || null);
 
-  // In Billing UI, only BILLING + PUBLIC notes should be considered/visible.
+  // In Billing UI, only PUBLIC notes are shown in the floating panel.
+  // BILLING notes are financial annotations (justification for outstanding/exemption)
+  // stored on the billing record itself — they are not inter-department communications
+  // and must not appear in the visit notes panel.
   const billingVisibleNotes = (billingDepartmentNotes || []).filter(
-    (note: any) =>
-      String(note?.noteType || "") === "BILLING" ||
-      String(note?.noteType || "") === "PUBLIC",
+    (note: any) => String(note?.noteType || "") === "PUBLIC",
   );
 
   const unreadBillingNotesCount = billingVisibleNotes.filter(
@@ -982,23 +983,10 @@ export function BillingPageContent() {
                 );
                 return;
               }
-              if (missingRequiredNoteDepartmentId) {
-                const departmentName = billingData.items.find(
-                  (item) =>
-                    String(item.rootVisitDepartmentId || item.visitDepartmentId) ===
-                    String(missingRequiredNoteDepartmentId),
-                )?.departmentName || "the selected department";
-                setActiveService(departmentName);
-                toast.warn(`A billing note is required for ${departmentName}.`);
-                return;
-              }
-              // In edit mode open confirm with edit flow, else normal complete
+              // In edit mode open confirm with edit flow, else normal complete.
               setConfirmSheetMode(isEditMode ? "edit" : "complete");
-              // Always prefill with patient responsibility so the user can
-              // see and adjust the amount. Never default to 0. In edit mode the
-              // whole visit is re-projected (prefill the whole-visit payable);
-              // in non-edit mode billing is per active department (prefill the
-              // active department's own payable so we don't overstate it).
+              // Prefill amountPaid before opening so the note-required check
+              // inside the sheet reflects the actual intended payment, not 0.
               handleAmountPaidChange(
                 isEditMode
                   ? visitConfirmTotals.totalAmount
@@ -1080,10 +1068,10 @@ export function BillingPageContent() {
       />
 
       <VisitNotesFloating
-        title="Billing Notes & Report"
+        title="Visit Notes"
         notes={billingVisibleNotes}
-        allowedDisplayTypes={["BILLING", "PUBLIC"]}
-        noteTypes={["BILLING", "PUBLIC"]}
+        allowedDisplayTypes={["PUBLIC"]}
+        noteTypes={["PUBLIC"]}
         onAddNote={async (noteType, content) => {
           const visitDepartmentId = String(currentBillingDepartmentId || "");
           if (!visitDepartmentId) {

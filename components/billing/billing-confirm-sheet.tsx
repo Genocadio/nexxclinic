@@ -107,11 +107,11 @@ export function BillingConfirmSheet({
   creatingBill,
   showItemsReview = true,
   outstandingType = "loan",
-  outstandingReason = "",
+  outstandingReason: _outstandingReason = "",
   onPaymentMethodChange,
   onAmountPaidChange,
   onOutstandingTypeChange,
-  onOutstandingReasonChange,
+  onOutstandingReasonChange: _onOutstandingReasonChange,
   billingNotes = "",
   onBillingNotesChange,
   onConfirm,
@@ -168,7 +168,7 @@ export function BillingConfirmSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-2xl p-0 flex flex-col z-[95]"
+        className="w-full sm:max-w-lg p-0 flex flex-col z-[95]"
         overlayClassName="z-[94]"
       >
         <SheetHeader className="px-4 pt-4 pb-2 border-b border-border">
@@ -187,188 +187,176 @@ export function BillingConfirmSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
-          {/* ── Left panel: Summary ── */}
-          <div className="sm:w-[45%] sm:border-r border-border flex flex-col min-h-0">
-            <p className="px-4 pt-3 pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide flex-shrink-0">
-              Summary
-            </p>
-            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
-              {showItemsReview && (
-                <ul className="space-y-0 rounded-lg border border-border divide-y divide-border">
-                  {itemsToBill.map((item) => {
-                    const lineTotal = calculateItemTotal(item);
-                    return (
-                      <li
-                        key={item.id}
-                        className="flex items-center justify-between gap-3 text-xs px-3 py-2.5"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium truncate text-foreground">
-                            {item.name}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {item.quantity} × {formatRWF(item.price)}
-                          </p>
-                        </div>
-                        <span className="font-semibold tabular-nums shrink-0">
-                          {formatRWF(lineTotal)}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+          {showItemsReview && (
+            <ul className="space-y-0 rounded-lg border border-border divide-y divide-border">
+              {itemsToBill.map((item) => {
+                const lineTotal = calculateItemTotal(item);
+                return (
+                  <li
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 text-xs px-3 py-2.5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate text-foreground">
+                        {item.name}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {item.quantity} × {formatRWF(item.price)}
+                      </p>
+                    </div>
+                    <span className="font-semibold tabular-nums shrink-0">
+                      {formatRWF(lineTotal)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
 
-              <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-1.5 text-sm">
-                <Row label="Service total" value={totals.subtotal} />
-                {totals.insuranceCoverage > 0 && (
-                  <Row
-                    label="Insurance contribution"
-                    value={-totals.insuranceCoverage}
-                    variant="credit"
-                  />
-                )}
-                <Row
-                  label="Patient responsibility"
-                  value={totals.patientResponsibility}
-                  bold
-                />
-                <div className="border-t border-border pt-2 flex justify-between items-baseline">
-                  <span className="font-semibold">Final amount due</span>
-                  <span className="text-lg font-bold text-[#FF6900] tabular-nums">
-                    {formatRWF(totals.totalAmount)}
-                  </span>
-                </div>
-              </div>
+          <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-1.5 text-sm">
+            <Row label="Service total" value={totals.subtotal} />
+            {totals.insuranceCoverage > 0 && (
+              <Row
+                label="Insurance contribution"
+                value={-totals.insuranceCoverage}
+                variant="credit"
+              />
+            )}
+            <Row
+              label="Patient responsibility"
+              value={totals.patientResponsibility}
+              bold
+            />
+            <div className="border-t border-border pt-2 flex justify-between items-baseline">
+              <span className="font-semibold">Final amount due</span>
+              <span className="text-lg font-bold text-[#FF6900] tabular-nums">
+                {formatRWF(totals.totalAmount)}
+              </span>
             </div>
           </div>
 
-          {/* ── Right panel: Payment & Notes ── */}
-          <div className="sm:flex-1 flex flex-col min-h-0">
-            <p className="px-4 pt-3 pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide flex-shrink-0">
-              Payment &amp; Notes
-            </p>
-            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
-              <div>
-                <label className="text-xs text-muted-foreground">
-                  Payment method
-                </label>
-                <Select
-                  value={paymentMethod || "MOBILE_MONEY"}
-                  onValueChange={(v) => onPaymentMethodChange(v as PaymentMethod)}
-                >
-                  <SelectTrigger className="mt-1 h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CASH">Cash</SelectItem>
-                    <SelectItem value="MOBILE_MONEY">Mobile Money</SelectItem>
-                    <SelectItem value="CARD">Card</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                    <SelectItem value="CHEQUE">Cheque</SelectItem>
-                    <SelectItem value="MIXED">Mixed</SelectItem>
-                  </SelectContent>
-                </Select>
+          <div className="rounded-xl border border-border p-3 space-y-3">
+            <p className="text-xs font-semibold text-foreground">Payment</p>
+
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Payment method
+              </label>
+              <Select
+                value={paymentMethod || "MOBILE_MONEY"}
+                onValueChange={(v) => onPaymentMethodChange(v as PaymentMethod)}
+              >
+                <SelectTrigger className="mt-1 h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="MOBILE_MONEY">Mobile Money</SelectItem>
+                  <SelectItem value="CARD">Card</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
+                  <SelectItem value="MIXED">Mixed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Amount paid
+              </label>
+              <Input
+                type="number"
+                min={0}
+                max={totals.totalAmount}
+                value={amountPaid}
+                onChange={(e) =>
+                  onAmountPaidChange(
+                    Math.min(
+                      totals.totalAmount,
+                      Math.max(0, Number(e.target.value || 0)),
+                    ),
+                  )
+                }
+                className="mt-1 h-9 tabular-nums"
+              />
+              {amountPaid > totals.totalAmount ? (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                  Amount paid cannot exceed the total amount due — it has been
+                  capped at {formatRWF(totals.totalAmount)}.
+                </p>
+              ) : null}
+            </div>
+
+            {hasOutstanding && (
+              <div className="border-t border-border pt-3">
+                <p className="text-xs font-medium text-foreground mb-2">
+                  Outstanding balance
+                </p>
+                <p className="text-[11px] text-muted-foreground mb-2">
+                  {formatRWF(outstanding)} unpaid — classify as:
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={outstandingType === "loan" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1 h-8 text-xs"
+                    onClick={() => onOutstandingTypeChange("loan")}
+                  >
+                    Loan
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={outstandingType === "giveaway" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1 h-8 text-xs"
+                    onClick={() => onOutstandingTypeChange("giveaway")}
+                  >
+                    Giveaway
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Billing note — dropdown with suggestions, textarea only for "Other" */}
+            <div className="border-t border-border pt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-medium text-foreground">
+                    Billing note
+                  </span>
+                  {noteRequired && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                      {hasExemptions
+                        ? "Required — an item is exempted"
+                        : "Required — payment does not cover the full amount"}
+                    </p>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <label className="text-xs text-muted-foreground">
-                  Amount paid
-                </label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={totals.totalAmount}
-                  value={amountPaid}
-                  onChange={(e) =>
-                    onAmountPaidChange(
-                      Math.min(
-                        totals.totalAmount,
-                        Math.max(0, Number(e.target.value || 0)),
-                      ),
-                    )
-                  }
-                  className="mt-1 h-9 tabular-nums"
+              <Select value={dropdownValue} onValueChange={handleReasonSelect}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Select a reason…" />
+                </SelectTrigger>
+                <SelectContent className="z-[96]">
+                  {suggestedReasons.map((reason) => (
+                    <SelectItem key={reason} value={reason}>
+                      {reason}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {customNoteMode && (
+                <Textarea
+                  value={billingNotes}
+                  onChange={(e) => onBillingNotesChange?.(e.target.value)}
+                  placeholder="Type your reason here…"
+                  className="min-h-[72px] text-xs"
                 />
-                {amountPaid > totals.totalAmount ? (
-                  <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
-                    Amount paid cannot exceed the total amount due — it has been
-                    capped at {formatRWF(totals.totalAmount)}.
-                  </p>
-                ) : null}
-              </div>
-
-              {hasOutstanding && (
-                <div className="border-t border-border pt-3">
-                  <p className="text-xs font-medium text-foreground mb-2">
-                    Outstanding balance
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mb-2">
-                    {formatRWF(outstanding)} unpaid — classify as:
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={outstandingType === "loan" ? "default" : "outline"}
-                      size="sm"
-                      className="flex-1 h-8 text-xs"
-                      onClick={() => onOutstandingTypeChange("loan")}
-                    >
-                      Loan
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={outstandingType === "giveaway" ? "default" : "outline"}
-                      size="sm"
-                      className="flex-1 h-8 text-xs"
-                      onClick={() => onOutstandingTypeChange("giveaway")}
-                    >
-                      Giveaway
-                    </Button>
-                  </div>
-                </div>
               )}
-
-              {/* Billing note — dropdown with suggestions, textarea only for "Other" */}
-              <div className="border-t border-border pt-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-medium text-foreground">
-                      Billing note
-                    </span>
-                    {noteRequired && (
-                      <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
-                        {hasExemptions
-                          ? "Required — an item is exempted"
-                          : "Required — payment does not cover the full amount"}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <Select value={dropdownValue} onValueChange={handleReasonSelect}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Select a reason…" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[96]">
-                    {suggestedReasons.map((reason) => (
-                      <SelectItem key={reason} value={reason}>
-                        {reason}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {customNoteMode && (
-                  <Textarea
-                    value={billingNotes}
-                    onChange={(e) => onBillingNotesChange?.(e.target.value)}
-                    placeholder="Type your reason here…"
-                    className="min-h-[72px] text-xs"
-                  />
-                )}
-              </div>
             </div>
           </div>
         </div>
