@@ -313,8 +313,12 @@ export function getVisitBillingTotals(
     insuranceCoveredAmount,
     patientPayableAmount,
     paidAmount,
+    // Outstanding is the patient's residual only (patient payable minus paid).
+    // It must never include the insurance-contributed amount, so if the
+    // backend's reported outstanding is missing/zero, derive it from the
+    // patient payable rather than the service total.
     outstandingAmount:
-      outstandingAmount || Math.max(0, totalAmount - paidAmount),
+      outstandingAmount || Math.max(0, patientPayableAmount - paidAmount),
   };
 }
 

@@ -124,6 +124,89 @@ describe("getVisitBillingTotals", () => {
     expect(totals.outstandingAmount).toBe(8000);
   });
 
+  it("shows zero outstanding when the patient is fully paid, even when insurance-covered money is unpaid", () => {
+    const totals = getVisitBillingTotals(
+      mapGqlVisitBilling({
+        ...gqlBilling,
+        departments: [
+          {
+            id: "vdb-1",
+            status: "PAID",
+            totalAmount: 22958.26,
+            insuranceCoveredAmount: 19514.52,
+            patientPayableAmount: 3107.14,
+            paidAmount: 3107.14,
+            outstandingAmount: 0,
+            visitDepartment: {
+              id: "visit-dept-1",
+              status: "BILLING",
+              department: { id: "dep-1", name: "Consultation" },
+            },
+            payments: [],
+            insuranceBillings: [
+              {
+                id: "dib-1",
+                status: "PAID",
+                totalAmount: 22958.26,
+                insuranceCoveredAmount: 19514.52,
+                patientPayableAmount: 3107.14,
+                paidAmount: 3107.14,
+                outstandingAmount: 0,
+                patientInsurance: {
+                  id: "pi-1",
+                  insuranceCardNumber: "CARD-1",
+                  principalMemberName: "Jane Doe",
+                  insuranceProvider: {
+                    id: "prov-1",
+                    insuranceName: "RSSB",
+                    acronym: "RSSB",
+                  },
+                },
+                items: [],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(totals.totalAmount).toBe(22958.26);
+    expect(totals.patientPayableAmount).toBe(3107.14);
+    expect(totals.outstandingAmount).toBe(0);
+  });
+
+  it("derives outstanding from patient payable when the backend amount is missing", () => {
+    const totals = getVisitBillingTotals(
+      mapGqlVisitBilling({
+        ...gqlBilling,
+        departments: [
+          {
+            id: "vdb-1",
+            status: "PARTIALLY_PAID",
+            totalAmount: 20000,
+            insuranceCoveredAmount: 8000,
+            patientPayableAmount: 12000,
+            paidAmount: 4000,
+            outstandingAmount: 0,
+            visitDepartment: {
+              id: "visit-dept-1",
+              status: "BILLING",
+              department: { id: "dep-1", name: "Consultation" },
+            },
+            payments: [],
+            insuranceBillings: [
+              {
+                ...gqlBilling.departments![0].insuranceBillings![0],
+                outstandingAmount: 0,
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(totals.outstandingAmount).toBe(12000 - 4000);
+    expect(totals.outstandingAmount).not.toBe(20000 - 4000);
+  });
+
   it("returns zeros for no billing", () => {
     const totals = getVisitBillingTotals(null);
     expect(totals).toEqual({
