@@ -143,6 +143,7 @@ enum VisitDepartmentStatus {
   COMPLETED
   FINALISED
   CANCELLED
+  DEPARTMENT_EDITING
 }
 
 enum EncounterType {
