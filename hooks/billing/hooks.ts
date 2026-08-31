@@ -336,9 +336,9 @@ export function useCancelBillEditing() {
     cancelBillEditing: { status: string; message?: string; data?: BillEditingResponse };
   }>(CANCEL_BILL_EDITING_MUTATION);
 
-  const cancelBillEditing = async (visitDepartmentId: string): Promise<{ status: string; message?: string }> => {
+  const cancelBillEditing = async (visitDepartmentId: string, addedProductIds?: string[]): Promise<{ status: string; message?: string }> => {
     try {
-      const result = await mutation({ variables: { visitDepartmentId } });
+      const result = await mutation({ variables: { visitDepartmentId, addedProductIds: addedProductIds || null } });
       const payload = result?.data?.cancelBillEditing;
       return { status: payload?.status || "ERROR", message: payload?.message };
     } catch (err) {

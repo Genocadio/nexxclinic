@@ -180,8 +180,8 @@ export const COMPLETE_BILL_EDITING_MUTATION = gql`
 `;
 
 export const CANCEL_BILL_EDITING_MUTATION = gql`
-  mutation CancelBillEditing($visitDepartmentId: ID!) {
-    cancelBillEditing(visitDepartmentId: $visitDepartmentId) {
+  mutation CancelBillEditing($visitDepartmentId: ID!, $addedProductIds: [ID!]) {
+    cancelBillEditing(visitDepartmentId: $visitDepartmentId, addedProductIds: $addedProductIds) {
       status
       message
       data {

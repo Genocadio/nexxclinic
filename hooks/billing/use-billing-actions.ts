@@ -70,7 +70,7 @@ export interface BillingActionsContext {
   ) => Promise<InvoiceMutationResult>;
   startBillEditing: (visitDepartmentId: string) => Promise<{ status: string; message?: string }>;
   completeBillEditing: (visitDepartmentId: string) => Promise<{ status: string; message?: string }>;
-  cancelBillEditing: (visitDepartmentId: string) => Promise<{ status: string; message?: string }>;
+  cancelBillEditing: (visitDepartmentId: string, addedProductIds?: string[]) => Promise<{ status: string; message?: string }>;
   changeVisitDepartmentProfile: (
     visitDepartmentId: string,
     profileId?: string | null,
@@ -436,7 +436,12 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           // Edit failed — cancel the editing session so the department
           // returns to its previous state instead of staying locked
           if (activeVisitDepartment?.id) {
-            await cancelBillEditing(activeVisitDepartment.id);
+            // Collect IDs of products that were added during this edit session
+            const addedIds = billingData.items
+              .filter((item) => !editModeSnapshot?.some((s) => s.id === item.id))
+              .map((item) => item.id)
+              .filter((id) => !id.startsWith("temp-"));
+            await cancelBillEditing(activeVisitDepartment.id, addedIds);
           }
         }
       } else {

@@ -1151,8 +1151,14 @@ export function BillingPageContent() {
               try {
                 // Exit DEPARTMENT_EDITING mode on the backend for the active department
                 if (activeVisitDepartment?.id) {
+                  // Collect IDs of products that were added during this edit session
+                  // (in current items but not in the snapshot, excluding temp IDs)
+                  const addedIds = billingData.items
+                    .filter((item) => !editModeSnapshot?.some((s) => s.id === item.id))
+                    .map((item) => item.id)
+                    .filter((id) => !id.startsWith("temp-"));
                   try {
-                    const result = await cancelBillEditing(activeVisitDepartment.id);
+                    const result = await cancelBillEditing(activeVisitDepartment.id, addedIds);
                     if (result.status !== "SUCCESS") {
                       toast.error(result.message || "Could not cancel billing edit mode");
                       return;
