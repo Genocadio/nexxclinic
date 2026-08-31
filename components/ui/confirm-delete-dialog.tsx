@@ -66,9 +66,9 @@ export function ConfirmDeleteDialog({
           <AlertDialogDescription>
               {hasDependencies ? (
                 <>
-                  <p>
+                  <span>
                     This will permanently remove the following dependencies:
-                  </p>
+                  </span>
                   <ul className="mt-2 list-disc pl-4 text-sm">
                     {dependencies.map((dep, i) => (
                       <li key={i} className="text-destructive/80">
@@ -77,16 +77,16 @@ export function ConfirmDeleteDialog({
                     ))}
                   </ul>
                   {extraWarning && (
-                    <p className="mt-2 text-sm text-muted-foreground">
+                    <span className="mt-2 text-sm text-muted-foreground">
                       {extraWarning}
-                    </p>
+                    </span>
                   )}
                 </>
               ) : (
-                <p>
+                <span>
                   {extraWarning ||
                     "This action cannot be undone. All associated data will be permanently removed."}
-                </p>
+                </span>
               )}
           </AlertDialogDescription>
         </AlertDialogHeader>

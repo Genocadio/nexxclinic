@@ -42,6 +42,7 @@ import {
   useGenerateInvoice,
 } from "@/hooks/billing/hooks"
 import { useGenerateConsultationPdf } from "@/hooks/visits/visit-mutations"
+import { ConsultationPreviewSheet } from "@/components/dashboard/consultation-preview-sheet"
 import { VISITS_QUERY } from "@/hooks/queries/visits"
 import {
   Select,
@@ -144,6 +145,22 @@ export function VisitSettingsPanel({
   const [deleteTarget, setDeleteTarget] = useState<
     { type: "visit" | "department" | "finalise"; id: string; name: string } | null
   >(null)
+  // Pending date changes (require confirm before applying)
+  const [pendingBillingDate, setPendingBillingDate] = useState<{
+    billingId: string
+    date: string
+  } | null>(null)
+  const [pendingVisitDate, setPendingVisitDate] = useState<string | null>(null)
+  const [applyingDate, setApplyingDate] = useState(false)
+
+  // Consultation preview sheet state
+  const [consultationPreviewOpen, setConsultationPreviewOpen] = useState(false)
+  const [consultationPreviewContext, setConsultationPreviewContext] = useState<{
+    answerId: string | null
+    departmentName: string
+    patientName: string
+    visitDepartment: Visit["departments"][number] | null
+  } | null>(null)
 
   // ── Mutations with refetchQueries so state updates instantly ──
   const refetchConfig = {
@@ -344,7 +361,7 @@ export function VisitSettingsPanel({
   const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice()
   const { generateConsultationPdf, loading: generatingConsultationPdf } = useGenerateConsultationPdf()
 
-  const handleBillingDateChange = async (
+  const handleBillingDateChange = (
     departmentInsuranceBillingId: string,
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -365,15 +382,25 @@ export function VisitSettingsPanel({
     // datetime-local gives "YYYY-MM-DDTHH:MM" — append seconds for
     // LocalDateTime on the backend (no UTC conversion, no Z suffix).
     const billingDate = newDate.length === 16 ? `${newDate}:00` : newDate
+    setPendingBillingDate({ billingId: departmentInsuranceBillingId, date: billingDate })
+  }
 
-    await updateBillingDate({
-      variables: {
-        input: {
-          departmentInsuranceBillingId,
-          billingDate,
+  const confirmBillingDateChange = async () => {
+    if (!pendingBillingDate) return
+    setApplyingDate(true)
+    try {
+      await updateBillingDate({
+        variables: {
+          input: {
+            departmentInsuranceBillingId: pendingBillingDate.billingId,
+            billingDate: pendingBillingDate.date,
+          },
         },
-      },
-    })
+      })
+      setPendingBillingDate(null)
+    } finally {
+      setApplyingDate(false)
+    }
   }
 
   const handlePreviewInvoice = async (departmentInsuranceBillingId: string) => {
@@ -389,25 +416,18 @@ export function VisitSettingsPanel({
     }
   }
 
-  const handlePreviewConsultation = async (dept: Visit["departments"][number]) => {
+  const handlePreviewConsultation = (dept: Visit["departments"][number]) => {
     if (!dept.answerId) {
       toast.error("No consultation answers found for this department")
       return
     }
-    try {
-      const result = await generateConsultationPdf({
-        consultationId: dept.answerId,
-        departmentId: dept.department?.id || "",
-        formId: "",
-      })
-      if (result?.data?.signedUrl) {
-        window.open(result.data.signedUrl, "_blank")
-      } else {
-        toast.error(result?.message || "Failed to generate consultation PDF")
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to generate consultation PDF")
-    }
+    setConsultationPreviewContext({
+      answerId: dept.answerId,
+      departmentName: dept.department?.name || "Department",
+      patientName: `${visit.patient.firstName} ${visit.patient.lastName}`.trim(),
+      visitDepartment: dept,
+    })
+    setConsultationPreviewOpen(true)
   }
 
   const handleStartBillEditing = async (visitDepartmentId?: string) => {
@@ -473,7 +493,7 @@ export function VisitSettingsPanel({
     setDeleteTarget(null)
   }
 
-  const handleVisitDateChange = async (
+  const handleVisitDateChange = (
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const newDate = e.target.value
@@ -481,14 +501,25 @@ export function VisitSettingsPanel({
     // datetime-local gives "YYYY-MM-DDTHH:MM" — append seconds for
     // LocalDateTime on the backend (no UTC conversion, no Z suffix).
     const visitDate = newDate.length === 16 ? `${newDate}:00` : newDate
-    await changeVisitDate({
-      variables: {
-        input: {
-          visitId: visit.id,
-          visitDate,
+    setPendingVisitDate(visitDate)
+  }
+
+  const confirmVisitDateChange = async () => {
+    if (!pendingVisitDate) return
+    setApplyingDate(true)
+    try {
+      await changeVisitDate({
+        variables: {
+          input: {
+            visitId: visit.id,
+            visitDate: pendingVisitDate,
+          },
         },
-      },
-    })
+      })
+      setPendingVisitDate(null)
+    } finally {
+      setApplyingDate(false)
+    }
   }
 
   const canCancelVisit =
@@ -621,6 +652,31 @@ export function VisitSettingsPanel({
                         onChange={handleVisitDateChange}
                         className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                       />
+                      {pendingVisitDate && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <button
+                            type="button"
+                            onClick={() => void confirmVisitDateChange()}
+                            disabled={applyingDate}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1"
+                          >
+                            {applyingDate ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <CheckCircle className="h-3 w-3" />
+                            )}
+                            Apply
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPendingVisitDate(null)}
+                            disabled={applyingDate}
+                            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-md transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
                       <p className="text-xs text-muted-foreground mt-1">
                         Change the visit date for this patient encounter
                       </p>
@@ -682,6 +738,31 @@ export function VisitSettingsPanel({
                               disabled={visit.status === "CANCELLED"}
                               className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             />
+                            {pendingBillingDate?.billingId === ib.id && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => void confirmBillingDateChange()}
+                                  disabled={applyingDate}
+                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1"
+                                >
+                                  {applyingDate ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <CheckCircle className="h-3 w-3" />
+                                  )}
+                                  Apply
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setPendingBillingDate(null)}
+                                  disabled={applyingDate}
+                                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-md transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
                             <p className="text-xs text-muted-foreground">
                               Must be at least 5 minutes after visit date
                             </p>
@@ -938,14 +1019,9 @@ export function VisitSettingsPanel({
                               <button
                                 type="button"
                                 onClick={() => handlePreviewConsultation(dept)}
-                                disabled={generatingConsultationPdf}
                                 className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-blue-200"
                               >
-                                {generatingConsultationPdf ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <FileText className="h-3 w-3" />
-                                )}
+                                <FileText className="h-3 w-3" />
                                 Preview Consultation
                               </button>
                             )}
@@ -953,14 +1029,13 @@ export function VisitSettingsPanel({
                               const deptBilling = billingDepartments?.find(
                                 (b: any) => b.visitDepartment?.id === dept.id,
                               )
-                              const invoiceBilling = deptBilling?.insuranceBillings?.find(
-                                (ib: any) => ib.invoiceUrl,
-                              )
-                              if (invoiceBilling) {
+                              const firstInsuranceBilling =
+                                deptBilling?.insuranceBillings?.[0]
+                              if (firstInsuranceBilling) {
                                 return (
                                   <button
                                     type="button"
-                                    onClick={() => handlePreviewInvoice(invoiceBilling.id)}
+                                    onClick={() => handlePreviewInvoice(firstInsuranceBilling.id)}
                                     disabled={generatingInvoice}
                                     className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-purple-200"
                                   >
@@ -1005,6 +1080,15 @@ export function VisitSettingsPanel({
         }
         busy={cancelling || deleting || removingDept || finalisingDept}
         onConfirm={() => void handleConfirmDelete()}
+      />
+
+      <ConsultationPreviewSheet
+        open={consultationPreviewOpen}
+        onOpenChange={setConsultationPreviewOpen}
+        answerId={consultationPreviewContext?.answerId ?? null}
+        departmentName={consultationPreviewContext?.departmentName}
+        patientName={consultationPreviewContext?.patientName}
+        visitDepartment={consultationPreviewContext?.visitDepartment ?? null}
       />
     </>
   )

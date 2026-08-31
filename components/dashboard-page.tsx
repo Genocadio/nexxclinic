@@ -1518,57 +1518,6 @@ export default function DashboardPage() {
                                       </Tooltip>
                                     )}
 
-                                    {/* Manager: Preview Invoice (if billed) */}
-                                    {canPreviewVisitInvoice(visit) && (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              void handlePreviewInvoice(visit)
-                                            }}
-                                            title="Preview Invoice"
-                                            disabled={printingVisitId === visit.id}
-                                            className="h-9 w-9 sm:h-10 sm:w-10 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center relative"
-                                          >
-                                            <ReceiptText
-                                              className={`w-4 h-4 flex-shrink-0 ${printingVisitId === visit.id ? "animate-spin" : ""}`}
-                                            />
-                                            <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center border border-white">
-                                              ✓
-                                            </span>
-                                          </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Preview Invoice</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    )}
-
-                                    {/* Manager: Cancel Visit */}
-                                    {visit.status !== "CANCELLED" &&
-                                      visit.status !== "COMPLETED" &&
-                                      visit.status !== "FINALISED" && (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              handleOpenSettings(visit)
-                                            }}
-                                            title="Cancel Visit"
-                                            aria-label="Cancel Visit"
-                                            className="h-9 w-9 sm:h-10 sm:w-10 bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
-                                          >
-                                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                                          </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Cancel Visit</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    )}
-
                                     {/* Manager: Finalise Visit */}
                                     {(visit.status === "COMPLETED" || visit.status === "FINALISED") && (
                                       <Tooltip>
