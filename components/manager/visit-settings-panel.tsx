@@ -362,11 +362,15 @@ export function VisitSettingsPanel({
       }
     }
 
+    // datetime-local gives "YYYY-MM-DDTHH:MM" — append seconds for
+    // LocalDateTime on the backend (no UTC conversion, no Z suffix).
+    const billingDate = newDate.length === 16 ? `${newDate}:00` : newDate
+
     await updateBillingDate({
       variables: {
         input: {
           departmentInsuranceBillingId,
-          billingDate: new Date(newDate).toISOString(),
+          billingDate,
         },
       },
     })
@@ -469,11 +473,14 @@ export function VisitSettingsPanel({
   ) => {
     const newDate = e.target.value
     if (!newDate) return
+    // datetime-local gives "YYYY-MM-DDTHH:MM" — append seconds for
+    // LocalDateTime on the backend (no UTC conversion, no Z suffix).
+    const visitDate = newDate.length === 16 ? `${newDate}:00` : newDate
     await changeVisitDate({
       variables: {
         input: {
           visitId: visit.id,
-          visitDate: new Date(newDate).toISOString(),
+          visitDate,
         },
       },
     })
@@ -603,9 +610,7 @@ export function VisitSettingsPanel({
                       <input
                         type="datetime-local"
                         defaultValue={visit.visitDate
-                          ? new Date(visit.visitDate)
-                              .toISOString()
-                              .slice(0, 16)
+                          ? visit.visitDate.slice(0, 16)
                           : ""}
                         onChange={handleVisitDateChange}
                         className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
@@ -674,18 +679,11 @@ export function VisitSettingsPanel({
                               type="datetime-local"
                               defaultValue={
                                 ib.billingDate
-                                  ? new Date(ib.billingDate)
-                                      .toISOString()
-                                      .slice(0, 16)
+                                  ? ib.billingDate.slice(0, 16)
                                   : ""
                               }
                               min={visit.visitDate
-                                ? new Date(
-                                    new Date(visit.visitDate).getTime() +
-                                      5 * 60 * 1000,
-                                  )
-                                    .toISOString()
-                                    .slice(0, 16)
+                                ? visit.visitDate.slice(0, 16)
                                 : undefined}
                               onChange={(e) =>
                                 handleBillingDateChange(ib.id, e)

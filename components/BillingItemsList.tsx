@@ -481,6 +481,15 @@ export function BillingItemsList({
                                         )
                                       : undefined;
                                     const providerId = selectedOpt?.providerId;
+                                    // Guard: never apply an insurance that doesn't
+                                    // actually cover this product (grayed out). If it
+                                    // somehow gets selected, fall back to private.
+                                    if (providerId && !item.insuranceCoverageMeta?.[providerId]?.covered) {
+                                      onItemChange(
+                                        applyInsuranceSelectionToItem(item, undefined, undefined),
+                                      );
+                                      return;
+                                    }
                                     let updated = applyInsuranceSelectionToItem(
                                       item,
                                       visitInsuranceId,
@@ -520,14 +529,33 @@ export function BillingItemsList({
                                     <SelectItem value="none">
                                       Private (none)
                                     </SelectItem>
-                                    {availableInsurances.map((insurance) => (
-                                      <SelectItem
-                                        key={insurance.id}
-                                        value={insurance.id}
-                                      >
-                                        {insurance.acronym || insurance.name}
-                                      </SelectItem>
-                                    ))}
+                                    {availableInsurances.map((insurance) => {
+                                      // An insurance only supports this product when
+                                      // the product's coverage map says it is covered
+                                      // (and priced > 0). Unsupported insurances are
+                                      // grayed out so the user can't pick a payer that
+                                      // won't actually apply — the backend would reject
+                                      // it (or it would silently bill as PRIVATE).
+                                      const isCovered = Boolean(
+                                        item.insuranceCoverageMeta?.[
+                                          insurance.providerId
+                                        ]?.covered,
+                                      );
+                                      return (
+                                        <SelectItem
+                                          key={insurance.id}
+                                          value={insurance.id}
+                                          disabled={!isCovered}
+                                          title={
+                                            !isCovered
+                                              ? `${insurance.acronym || insurance.name} does not cover this product`
+                                              : undefined
+                                          }
+                                        >
+                                          {insurance.acronym || insurance.name}
+                                        </SelectItem>
+                                      );
+                                    })}
                                   </SelectContent>
                                 </Select>
                                 {availableInsurances.length === 0 &&

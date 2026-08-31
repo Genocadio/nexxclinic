@@ -577,6 +577,37 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         setActiveVisitInsuranceIds((current) =>
           current.includes(insuranceId) ? current : [...current, insuranceId],
         );
+        // When an insurance is enabled on the visit, apply it to every unbilled
+        // item that it actually covers. This makes "use insurance X for this
+        // visit" propagate to the whole bill instead of leaving untouched items
+        // on a different (default) insurance. Items the insurance does NOT cover
+        // are left as-is (private / their current payer).
+        const newlyLinked = (visit?.patient.patientInsurances || []).find(
+          (ins) => String(ins.id) === String(insuranceId),
+        );
+        const providerId = newlyLinked?.insuranceProvider?.id
+          ? String(newlyLinked.insuranceProvider.id)
+          : undefined;
+        if (providerId) {
+          setBillingData((current) => {
+            if (!current) return current;
+            return {
+              ...current,
+              items: current.items.map((item) => {
+                if (item.paymentStatus === "paid") return item;
+                const covered = Boolean(
+                  item.insuranceCoverageMeta?.[providerId]?.covered,
+                );
+                if (!covered) return item;
+                return applyInsuranceSelectionToItem(
+                  item,
+                  insuranceId,
+                  providerId,
+                );
+              }),
+            };
+          });
+        }
         await refetchVisit();
         toast.success("Insurance enabled for this visit");
       } else {

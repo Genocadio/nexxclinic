@@ -7,8 +7,8 @@ import {
   useUpdatePatient,
   useInsurances,
 } from "@/hooks/auth-hooks"
-import { useCreatePatientInsurance } from "@/hooks/patients/hooks"
-import type { Patient, Gender, Visit } from "@/lib/api-types"
+import { useSavePatientInsurance } from "@/hooks/patients/use-save-patient-insurance"
+import type { Patient, Gender, Visit, PatientInsurance } from "@/lib/api-types"
 import type { UpdatePatientInput } from "@/lib/api-input-types"
 import type { RegisterPatientInput } from "@/hooks/patients/hooks"
 import { toast } from "react-toastify"
@@ -128,7 +128,7 @@ export default function PatientFormDialog({
 }: PatientFormDialogProps) {
   const { registerPatient, loading: registerLoading } = useRegisterPatient()
   const { updatePatient, loading: updateLoading } = useUpdatePatient()
-  const { createPatientInsurance } = useCreatePatientInsurance()
+  const { savePatientInsurance } = useSavePatientInsurance()
   const { insurances } = useInsurances()
 
   const [error, setError] = useState("")
@@ -138,14 +138,45 @@ export default function PatientFormDialog({
   const hasInteractedRef = useRef(false)
 
   const isEdit = mode === "edit"
-  const createPatientInsuranceRef = useRef(createPatientInsurance)
-  createPatientInsuranceRef.current = createPatientInsurance
+  const savePatientInsuranceRef = useRef(savePatientInsurance)
+  savePatientInsuranceRef.current = savePatientInsurance
 
-  // Pre-fill form in edit mode
+  /**
+   * Convert existing PatientInsurance records from the API into the form's
+   * RegisterPatientInput.insurances shape so they appear pre-filled in edit mode.
+   */
+  const mapExistingInsurances = (patientInsurances: PatientInsurance[]): NonNullable<RegisterPatientInput["insurances"]> => {
+    return (patientInsurances || [])
+      .filter((pi) => !pi.deactivated)
+      .map((pi) => {
+        const isPrincipal = pi.principalMember
+        const nameParts = pi.principalMemberName?.trim().split(/\s+/) || []
+        return {
+          id: pi.id,
+          insuranceId: pi.insuranceProvider.id,
+          insuranceCardNumber: pi.insuranceCardNumber,
+          providingCompanyOrEmployer: pi.providingCompanyOrEmployer || "",
+          dominantMember: isPrincipal
+            ? { firstName: "", lastName: "", phone: "" }
+            : {
+                firstName: nameParts[0] || "",
+                lastName: nameParts.slice(1).join(" ") || "",
+                phone: pi.principalMemberPhoneNumber || "",
+              },
+        }
+      })
+  }
+
+  /** Tracks which insurance entries the user has actually modified (via
+   * updateInsurance).  Existing insurances loaded from the DB start with an
+   * `id` — we skip auto-saving them until the user touches a field. */
+  const touchedInsuranceIndices = useRef<Set<number>>(new Set())
+
+  // Pre-fill form in edit mode (including existing insurances)
   useEffect(() => {
     if (!isOpen) return
     if (isEdit && patient) {
-      setFormData(flatToNested({
+      const nested = flatToNested({
         firstName: patient.firstName || "",
         lastName: patient.lastName || "",
         middleName: patient.middleName || "",
@@ -163,7 +194,11 @@ export default function PatientFormDialog({
         emergencyContactName: patient.emergencyContactName || "",
         emergencyContactRelationship: patient.emergencyContactRelationship || "",
         emergencyContactPhoneNumber: patient.emergencyContactPhoneNumber || "",
-      }))
+      })
+      // Populate insurance from existing patient records
+      nested.insurances = mapExistingInsurances(patient.patientInsurances || [])
+      setFormData(nested)
+      touchedInsuranceIndices.current = new Set()
     } else if (!isEdit) {
       setFormData(EMPTY_FORM)
     }
@@ -238,6 +273,7 @@ export default function PatientFormDialog({
     value: string | number,
   ) => {
     hasInteractedRef.current = true
+    touchedInsuranceIndices.current.add(index)
     setFormData((prev) => ({
       ...prev,
       insurances: (prev.insurances || []).map((insurance, i) => {
@@ -261,13 +297,19 @@ export default function PatientFormDialog({
     }))
   }
 
-  // In edit mode, auto-save insurance when all required fields are filled
+  // In edit mode, auto-save insurance when all required fields are filled.
+  // Existing insurances (those with an `id`) are only saved once the user
+  // has actually modified them (tracked via touchedInsuranceIndices).
   const pendingSaveRef = useRef<Set<number>>(new Set())
   useEffect(() => {
     if (!isEdit || !patient?.id) return
     const insurances = formData.insurances || []
     for (let i = 0; i < insurances.length; i++) {
       const ins = insurances[i]
+      // Skip existing insurances the user hasn't touched yet
+      const isExistingSaved = Boolean(ins.id)
+      if (isExistingSaved && !touchedInsuranceIndices.current.has(i)) continue
+
       if (
         ins.insuranceId &&
         String(ins.insuranceId) !== "0" &&
@@ -286,22 +328,19 @@ export default function PatientFormDialog({
           pendingSaveRef.current.add(i)
           setSavingInsurances((prev) => new Set(prev).add(i))
 
-          const now = new Date()
-          const validFrom = now.toISOString().slice(0, 10)
-          const validUntil = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
-            .toISOString().slice(0, 10)
-
-          createPatientInsuranceRef.current({
+          savePatientInsuranceRef.current({
             patientId: patient.id,
+            patientDateOfBirth: patient.dateOfBirth,
             insuranceProviderId: String(ins.insuranceId),
             insuranceCardNumber: ins.insuranceCardNumber,
             providingCompanyOrEmployer: ins.providingCompanyOrEmployer,
-            dominantMember: ins.dominantMember,
-            validFrom,
-            validUntil,
+            dominantFirstName: ins.dominantMember?.firstName || undefined,
+            dominantLastName: ins.dominantMember?.lastName || undefined,
+            dominantPhone: ins.dominantMember?.phone || undefined,
+            existingPatientInsurances: patient.patientInsurances,
           })
             .then(() => {
-              toast.success("Insurance saved to patient record")
+              toast.success(isExistingSaved ? "Insurance updated" : "Insurance saved to patient record")
             })
             .catch(() => {
               toast.error("Failed to save insurance")
