@@ -113,11 +113,17 @@ export type CoverageTier = {
  * Find the best matching coverage tier for a billing line based on
  * department + encounter type context.
  *
- * Resolution order (most specific wins):
- * 1. Exact: dept + encounterType match
- * 2. Department only match
- * 3. Encounter type only match
- * 4. Base (no conditions)
+ * Used by the resolver for "auto-select" when no explicit override is active.
+ * A tier is applicable when its conditions are satisfied by the current context:
+ *   - base tier (no dept, no encounterType) → always applicable
+ *   - dept-only → applicable when dept matches
+ *   - encounterType-only → applicable when encounterType matches
+ *   - dept + encounterType → applicable when BOTH match
+ *
+ * Among applicable tiers, contextual rules (with at least one condition) take
+ * priority over the unconditioned base tier. Within each priority group the
+ * tier with the **lowest patient-share %** is preferred — giving the patient
+ * the best deal while honouring whatever the insurer has negotiated.
  */
 export function findBestMatchingCoverage(
   coverages: CoverageTier[],
@@ -126,32 +132,22 @@ export function findBestMatchingCoverage(
 ): CoverageTier | undefined {
   if (!coverages || coverages.length === 0) return undefined;
 
-  // 1. Exact match: dept + encounterType
-  if (departmentId && encounterType) {
-    const exact = coverages.find(
-      (c) => c.departmentId === departmentId && c.encounterType === encounterType,
-    );
-    if (exact) return exact;
-  }
+  const applicable = filterMatchingCoverages(coverages, departmentId, encounterType);
+  if (applicable.length === 0) return undefined;
 
-  // 2. Department only
-  if (departmentId) {
-    const deptOnly = coverages.find(
-      (c) => c.departmentId === departmentId && !c.encounterType,
-    );
-    if (deptOnly) return deptOnly;
-  }
+  // Split into contextual rules (have at least one condition) and base (no conditions).
+  const rules = applicable.filter((c) => c.departmentId || c.encounterType);
+  const bases = applicable.filter((c) => !c.departmentId && !c.encounterType);
 
-  // 3. Encounter type only
-  if (encounterType) {
-    const etOnly = coverages.find(
-      (c) => !c.departmentId && c.encounterType === encounterType,
+  // Prefer the matching rule with the lowest %; fall back to the base with the lowest %.
+  const lowestOf = (tiers: CoverageTier[]) =>
+    tiers.reduce<CoverageTier | undefined>(
+      (best, t) =>
+        best === undefined || t.patientSharePercentage < best.patientSharePercentage ? t : best,
+      undefined,
     );
-    if (etOnly) return etOnly;
-  }
 
-  // 4. Base (no conditions)
-  return coverages.find((c) => !c.departmentId && !c.encounterType);
+  return lowestOf(rules) ?? lowestOf(bases);
 }
 
 /**
@@ -160,15 +156,17 @@ export function findBestMatchingCoverage(
  * source of truth the frontend uses to predict the patient's share so the
  * displayed/prefilled amount always matches what the backend bills.
  *
- * Backend chain (most specific wins):
- *  1. Per-line override (selectedCoverageId) — honored ONLY when it is allowed:
- *     the backend rejects the override if an EXACT (department + encounterType)
- *     coverage rule exists for the line; partial/base rules do NOT block it.
- *     The value is clamped to [0,100].
- *  2. Coverage rule: exact(dept+encounterType) -> dept-only -> encounter-only -> base.
- *  3. Patient-specific default.
- *  4. Provider base (no-conditions) coverage.
- *  5. 0 (insurance covers everything).
+ * Resolution chain:
+ *  1. Per-line override (selectedCoverageId) — honored only when the selected
+ *     tier's own conditions are satisfied by the current billing context.
+ *     A base tier (no conditions) is always valid. A dept/encounterType-specific
+ *     tier is only valid when the context matches those conditions.
+ *  2. Patient-specific default (patientShareCoverage FK or legacy integer).
+ *     A per-patient negotiated rate takes priority over generic provider rules.
+ *  3. Auto-resolved applicable tier — lowest % among tiers whose conditions
+ *     match the current context. Contextual rules (with conditions) beat the
+ *     base tier; within each group the lowest patient-share % wins.
+ *  4. 0 (insurance covers everything).
  */
 export type PatientShareResolveInput = {
   departmentId?: string | null;
@@ -185,67 +183,38 @@ function clampPct(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function deptIdMatches(a?: string | null, b?: string | null): boolean {
-  if (a == null && b == null) return true;
-  if (a == null || b == null) return false;
-  return a === b;
-}
-
-/** Backend isOverrideAllowed: only an exact (dept + encounterType) rule blocks the override. */
+/**
+ * Checks whether a specific selected tier (identified by coverageId) is valid
+ * for the current billing context.
+ *
+ * A tier is contextually valid when its own conditions are satisfied:
+ *   - base tier (no conditions) → always valid
+ *   - dept-only → valid when the billing dept matches
+ *   - encounterType-only → valid when the visit encounterType matches
+ *   - dept + encounterType → valid only when BOTH match
+ *
+ * An override that doesn't satisfy the tier's own requirements is silently
+ * dropped and the normal auto-resolution chain applies instead.
+ */
 function isOverrideAllowed(
   coverages: CoverageTier[],
+  selectedCoverageId: string,
   departmentId?: string | null,
   encounterType?: string | null,
 ): boolean {
-  if (!coverages || coverages.length === 0) return true;
-  for (const cov of coverages) {
-    if (
-      deptIdMatches(departmentId, cov.departmentId) &&
-      encounterType != null &&
-      encounterType === cov.encounterType
-    ) {
-      return false;
-    }
-  }
+  const tier = coverages.find((c) => c.coverageId === selectedCoverageId);
+  if (!tier) return false; // unknown tier
+
+  // Base tier — no conditions, always applicable
+  if (!tier.departmentId && !tier.encounterType) return true;
+
+  // Has a dept condition — must match
+  if (tier.departmentId && tier.departmentId !== departmentId) return false;
+
+  // Has an encounterType condition — must match
+  if (tier.encounterType && tier.encounterType !== encounterType) return false;
+
   return true;
-}
-
-/** Backend lookupCoveragePercentage: most specific rule wins, base included. */
-function lookupCoverageRule(
-  coverages: CoverageTier[],
-  departmentId?: string | null,
-  encounterType?: string | null,
-): number | null {
-  if (!coverages || coverages.length === 0) return null;
-
-  // 1. Exact: dept + encounterType
-  if (departmentId != null && encounterType != null) {
-    const exact = coverages.find(
-      (c) =>
-        c.departmentId === departmentId &&
-        encounterType === c.encounterType,
-    );
-    if (exact) return exact.patientSharePercentage;
-  }
-  // 2. Department only (encounterType null)
-  if (departmentId != null) {
-    const deptOnly = coverages.find(
-      (c) => c.departmentId === departmentId && !c.encounterType,
-    );
-    if (deptOnly) return deptOnly.patientSharePercentage;
-  }
-  // 3. Encounter type only (dept null)
-  if (encounterType != null) {
-    const etOnly = coverages.find(
-      (c) => !c.departmentId && c.encounterType === encounterType,
-    );
-    if (etOnly) return etOnly.patientSharePercentage;
-  }
-  // 4. Base (no conditions)
-  const base = coverages.find((c) => !c.departmentId && !c.encounterType);
-  if (base) return base.patientSharePercentage;
-
-  return null;
 }
 
 export function resolvePatientSharePercentage(
@@ -255,34 +224,38 @@ export function resolvePatientSharePercentage(
     input;
   const coverages = input.coverages || [];
 
-  // Layer 1: per-line override (selected tier) — only when allowed.
+  // Layer 1: per-line override (selected tier) — only when the tier's own
+  // conditions are satisfied by the current billing context (dept + encounterType).
+  // A base tier (no conditions) is always accepted. A dept/encounterType-specific
+  // tier is only accepted when the current context matches its requirements.
   if (selectedCoverageId != null && selectedCoverageId !== "") {
-    const override = coverages.find(
-      (c) => c.coverageId === selectedCoverageId,
-    );
-    if (override && isOverrideAllowed(coverages, departmentId, encounterType)) {
+    const override = coverages.find((c) => c.coverageId === selectedCoverageId);
+    if (override && isOverrideAllowed(coverages, selectedCoverageId, departmentId, encounterType)) {
       return clampPct(override.patientSharePercentage);
     }
   }
 
-  // Layer 2: coverage rule (exact -> dept -> encounter -> base).
-  const rule = lookupCoverageRule(coverages, departmentId, encounterType);
-  if (rule !== null) {
-    return clampPct(rule);
-  }
-
-  // Layer 3: patient-specific default.
+  // Layer 2: patient-specific default — a per-patient negotiated rate takes
+  // priority over generic provider coverage rules. Without this ordering a
+  // dept-level rule (e.g. Dental/OUTPATIENT → 20%) silently overrides the
+  // patient's personal rate (e.g. 10%), mismatching the displayed vs billed %.
+  // Mirrors the updated BillingPricingCalculator layer ordering.
   if (patientSharePercentage != null && patientSharePercentage > 0) {
     return clampPct(patientSharePercentage);
   }
 
-  // Layer 4: provider base (no-conditions) coverage.
-  const base = coverages.find((c) => !c.departmentId && !c.encounterType);
-  if (base) {
-    return clampPct(base.patientSharePercentage);
+  // Layer 3: auto-resolved applicable tier — lowest % among tiers that match
+  // the current context. Contextual rules beat base; within each group lowest %.
+  const best = findBestMatchingCoverage(
+    coverages,
+    departmentId ?? undefined,
+    encounterType ?? undefined,
+  );
+  if (best !== undefined) {
+    return clampPct(best.patientSharePercentage);
   }
 
-  // Layer 5: 0 (insurance covers everything).
+  // Layer 4: 0 (insurance covers everything).
   return 0;
 }
 

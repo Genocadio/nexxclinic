@@ -182,6 +182,15 @@ export function mapVisitToBillingData(
               ? "full"
               : "none",
         selectedInsuranceId: defaultVisitInsuranceId,
+        // Pre-populate the coverage tier override from the patient's assigned
+        // patientShareCoverageId so the correct % is sent to the backend as an
+        // explicit override. Without this, items with a patient-specific tier
+        // omit the override and the backend falls through to the generic coverage
+        // rule (Layer 2) instead of the patient-specific one (Layer 3), causing
+        // the displayed % and the billed % to differ.
+        selectedCoverageId: coveringLinkedInsurance?.patientShareCoverageId
+          ? String(coveringLinkedInsurance.patientShareCoverageId)
+          : undefined,
         processorId: line.processor ? String(line.processor.id) : undefined,
         // Only surface processor name when the department had 2+ processors
         // (user explicitly chose). A single-processor department auto-assigns

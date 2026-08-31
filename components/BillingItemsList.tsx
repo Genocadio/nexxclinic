@@ -486,8 +486,11 @@ export function BillingItemsList({
                                       visitInsuranceId,
                                       providerId,
                                     );
-                                    // Auto-select best matching coverage tier
-                                    if (selectedOpt && selectedOpt.coverages.length > 1) {
+                                    // Auto-select the lowest-% applicable coverage tier.
+                                    // Always set selectedCoverageId explicitly so the
+                                    // override is sent to the backend even when only one
+                                    // tier exists — ensures the displayed % is billed.
+                                    if (selectedOpt) {
                                       const best = findBestMatchingCoverage(
                                         selectedOpt.coverages,
                                         item.departmentId,
@@ -576,13 +579,18 @@ export function BillingItemsList({
                                       : []),
                                   ];
                                   if (allDisplayTiers.length <= 1) return null;
-                                  const activeId = item.selectedCoverageId || bestMatch?.coverageId || '';
+                                  // The active tier is whatever is explicitly stored on the item.
+                                  // If nothing is stored, the patient tier is active (when shown)
+                                  // because Layer 2 of the resolver handles it without an override.
+                                  const activeId = item.selectedCoverageId || '';
+                                  const noExplicitOverride = !item.selectedCoverageId;
                                   return (
                                     <div className="flex flex-wrap gap-1 mt-1">
                                       {allDisplayTiers.map((tier) => {
-                                        const isActive = tier.coverageId === activeId ||
-                                          (tier.coverageId.startsWith('__patient_') && item.selectedCoverageId === undefined && bestMatch && !allTiers.some(t => t.coverageId === item.selectedCoverageId));
                                         const isPatientTier = tier.coverageId.startsWith('__patient_');
+                                        const isActive =
+                                          (isPatientTier && noExplicitOverride) ||
+                                          (!isPatientTier && tier.coverageId === activeId);
                                         const isBase = !tier.departmentId && !tier.encounterType && !isPatientTier;
                                         const isMatch = !isBase && !isPatientTier &&
                                           tier.departmentId === item.departmentId &&
@@ -603,17 +611,15 @@ export function BillingItemsList({
                                             type="button"
                                             disabled={isPaidLocked(item)}
                                             onClick={() => {
-                                              // For patient tier, clear selectedCoverageId so the mapper resolves it naturally
                                               if (isPatientTier) {
-                                                onItemChange({
-                                                  ...item,
-                                                  selectedCoverageId: undefined,
-                                                });
+                                                // Patient tier: clear the explicit override so
+                                                // the patient-specific % resolves via Layer 2.
+                                                onItemChange({ ...item, selectedCoverageId: undefined });
                                               } else {
-                                                onItemChange({
-                                                  ...item,
-                                                  selectedCoverageId: tier.coverageId === bestMatch?.coverageId ? undefined : tier.coverageId,
-                                                });
+                                                // Always store the explicit coverageId — even for
+                                                // the auto-selected tier — so the override is sent
+                                                // to the backend and the user's intent is preserved.
+                                                onItemChange({ ...item, selectedCoverageId: tier.coverageId });
                                               }
                                             }}
                                             className={`text-[9px] px-1.5 py-0.5 rounded-full border transition-colors ${
