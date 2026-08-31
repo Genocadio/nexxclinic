@@ -289,7 +289,7 @@ export function useGenerateInvoice() {
 // ── Bill Editing Mode hooks ──────────────────────────────────────────────────
 
 export interface BillEditingResponse {
-  visitId: string;
+  visitDepartmentId: string;
   status: string;
 }
 
@@ -298,9 +298,9 @@ export function useStartBillEditing() {
     startBillEditing: { status: string; message?: string; data?: BillEditingResponse };
   }>(START_BILL_EDITING_MUTATION);
 
-  const startBillEditing = async (visitId: string): Promise<{ status: string; message?: string }> => {
+  const startBillEditing = async (visitDepartmentId: string): Promise<{ status: string; message?: string }> => {
     try {
-      const result = await mutation({ variables: { visitId } });
+      const result = await mutation({ variables: { visitDepartmentId } });
       const payload = result?.data?.startBillEditing;
       return { status: payload?.status || "ERROR", message: payload?.message };
     } catch (err) {
@@ -317,9 +317,9 @@ export function useCompleteBillEditing() {
     completeBillEditing: { status: string; message?: string; data?: BillEditingResponse };
   }>(COMPLETE_BILL_EDITING_MUTATION);
 
-  const completeBillEditing = async (visitId: string): Promise<{ status: string; message?: string }> => {
+  const completeBillEditing = async (visitDepartmentId: string): Promise<{ status: string; message?: string }> => {
     try {
-      const result = await mutation({ variables: { visitId } });
+      const result = await mutation({ variables: { visitDepartmentId } });
       const payload = result?.data?.completeBillEditing;
       return { status: payload?.status || "ERROR", message: payload?.message };
     } catch (err) {
@@ -336,9 +336,9 @@ export function useCancelBillEditing() {
     cancelBillEditing: { status: string; message?: string; data?: BillEditingResponse };
   }>(CANCEL_BILL_EDITING_MUTATION);
 
-  const cancelBillEditing = async (visitId: string): Promise<{ status: string; message?: string }> => {
+  const cancelBillEditing = async (visitDepartmentId: string): Promise<{ status: string; message?: string }> => {
     try {
-      const result = await mutation({ variables: { visitId } });
+      const result = await mutation({ variables: { visitDepartmentId } });
       const payload = result?.data?.cancelBillEditing;
       return { status: payload?.status || "ERROR", message: payload?.message };
     } catch (err) {

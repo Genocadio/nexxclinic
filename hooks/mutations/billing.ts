@@ -154,12 +154,12 @@ export const GENERATE_INVOICE_MUTATION = gql`
 // ── Bill Editing Mode ────────────────────────────────────────────────────────
 
 export const START_BILL_EDITING_MUTATION = gql`
-  mutation StartBillEditing($visitId: ID!) {
-    startBillEditing(visitId: $visitId) {
+  mutation StartBillEditing($visitDepartmentId: ID!) {
+    startBillEditing(visitDepartmentId: $visitDepartmentId) {
       status
       message
       data {
-        visitId
+        visitDepartmentId
         status
       }
     }
@@ -167,12 +167,12 @@ export const START_BILL_EDITING_MUTATION = gql`
 `;
 
 export const COMPLETE_BILL_EDITING_MUTATION = gql`
-  mutation CompleteBillEditing($visitId: ID!) {
-    completeBillEditing(visitId: $visitId) {
+  mutation CompleteBillEditing($visitDepartmentId: ID!) {
+    completeBillEditing(visitDepartmentId: $visitDepartmentId) {
       status
       message
       data {
-        visitId
+        visitDepartmentId
         status
       }
     }
@@ -180,12 +180,12 @@ export const COMPLETE_BILL_EDITING_MUTATION = gql`
 `;
 
 export const CANCEL_BILL_EDITING_MUTATION = gql`
-  mutation CancelBillEditing($visitId: ID!) {
-    cancelBillEditing(visitId: $visitId) {
+  mutation CancelBillEditing($visitDepartmentId: ID!) {
+    cancelBillEditing(visitDepartmentId: $visitDepartmentId) {
       status
       message
       data {
-        visitId
+        visitDepartmentId
         status
       }
     }

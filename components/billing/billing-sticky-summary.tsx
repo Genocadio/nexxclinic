@@ -127,7 +127,7 @@ export function BillingStickySummary({
               <div className="h-8 w-px bg-border shrink-0 hidden sm:block" />
 
               {isEditingBill ? (
-                /* BILL_EDITING mode — show editing status */
+                /* DEPARTMENT_EDITING mode — show editing status */
                 <div className="shrink-0">
                   <p className="text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400 font-medium">
                     Editing billing

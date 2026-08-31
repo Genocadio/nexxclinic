@@ -68,9 +68,9 @@ export interface BillingActionsContext {
   generateInvoice: (
     departmentInsuranceBillingId: string,
   ) => Promise<InvoiceMutationResult>;
-  startBillEditing: (visitId: string) => Promise<{ status: string; message?: string }>;
-  completeBillEditing: (visitId: string) => Promise<{ status: string; message?: string }>;
-  cancelBillEditing: (visitId: string) => Promise<{ status: string; message?: string }>;
+  startBillEditing: (visitDepartmentId: string) => Promise<{ status: string; message?: string }>;
+  completeBillEditing: (visitDepartmentId: string) => Promise<{ status: string; message?: string }>;
+  cancelBillEditing: (visitDepartmentId: string) => Promise<{ status: string; message?: string }>;
   changeVisitDepartmentProfile: (
     visitDepartmentId: string,
     profileId?: string | null,
@@ -418,9 +418,9 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       }));
       let response: ApiResponse<VisitBilling>;
       if (existingVisitBilling) {
-        // BILL_EDITING: the visit should already be in BILL_EDITING mode
-        // (set when the user clicked Edit). We just submit the edit and
-        // lock back to COMPLETED.
+        // DEPARTMENT_EDITING: the department should already be in DEPARTMENT_EDITING
+        // mode (set when the user clicked Edit). We just submit the edit and
+        // the backend auto-restores the department status.
         response = await editBill(
           buildEditBillInput(
             billingData,
@@ -433,9 +433,11 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         );
 
         if (response.status !== "SUCCESS") {
-          // Edit failed — cancel the editing session so the visit
+          // Edit failed — cancel the editing session so the department
           // returns to its previous state instead of staying locked
-          await cancelBillEditing(billingData.visitId);
+          if (activeVisitDepartment?.id) {
+            await cancelBillEditing(activeVisitDepartment.id);
+          }
         }
       } else {
         response = await createBill(

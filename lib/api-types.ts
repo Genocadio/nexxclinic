@@ -143,6 +143,7 @@ export enum VisitDepartmentStatus {
   COMPLETED = "COMPLETED",
   FINALISED = "FINALISED",
   CANCELLED = "CANCELLED",
+  DEPARTMENT_EDITING = "DEPARTMENT_EDITING",
 }
 
 export enum EncounterType {

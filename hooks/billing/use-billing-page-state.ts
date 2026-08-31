@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { toast } from "react-toastify";
 import type { BillingData, BillingItem } from "@/lib/billing-utils";
 import type { BillingPaymentMethod } from "@/hooks/billing/hooks";
-import { useUpdateProductQuantity } from "@/hooks/visits/hooks";
+import { useUpdateProductQuantity, useRemoveProductFromVisitDepartment } from "@/hooks/visits/hooks";
 
 /**
  * All local UI + billing state for BillingPageContent plus the synchronous
@@ -44,6 +44,8 @@ export function useBillingPageState() {
 
   const { updateQuantity: updateProductQuantity, loading: updatingQuantity } =
     useUpdateProductQuantity();
+  const { removeProduct: removeVisitDepartmentProduct } =
+    useRemoveProductFromVisitDepartment();
 
   // ── Sync handlers ──────────────────────────────────────────────────────────
 
@@ -97,13 +99,13 @@ export function useBillingPageState() {
     }
   };
 
-  const handleItemRemove = (itemId: string) => {
+  const handleItemRemove = async (itemId: string, isEditingBill?: boolean) => {
     setBillingData((prev) => {
       if (!prev) return prev;
       const target = prev.items.find((item) => item.id === itemId);
-      // The backend rejects removing PROFILE products in edit mode
+      // The backend rejects removing PROFILE products
       // ("...is a profile product and cannot be removed from billing"), so we
-      // never remove them — even while editing. Change the profile instead.
+      // never remove them. Change the profile instead.
       if (target?.source === "PROFILE") {
         toast.info("Profile products cannot be removed individually — change the visit department's profile instead.");
         return prev;
@@ -114,6 +116,24 @@ export function useBillingPageState() {
         updatedAt: new Date().toISOString(),
       };
     });
+
+    // In non-edit mode, also delete the product from the visit department
+    // on the backend so the database stays in sync with the UI.
+    if (!isEditingBill) {
+      try {
+        const result = await removeVisitDepartmentProduct(itemId);
+        if (result?.status === "SUCCESS") {
+          // Successfully removed from backend — UI state already updated above
+        } else {
+          toast.error(result?.message || "Failed to remove product from backend");
+          // Refetch to restore the item in the UI if the backend rejected the removal
+          // (e.g. billing history guard). The caller should refetch visit data.
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to remove product";
+        toast.error(message);
+      }
+    }
   };
 
   const handleExemptionChange = (itemId: string, reason: string) => {

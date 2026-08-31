@@ -410,9 +410,14 @@ export function VisitSettingsPanel({
     }
   }
 
-  const handleStartBillEditing = async () => {
+  const handleStartBillEditing = async (visitDepartmentId?: string) => {
+    const deptId = visitDepartmentId
+    if (!deptId) {
+      toast.error("No department selected for billing edit")
+      return
+    }
     try {
-      const result = await startBillEditing(visit.id)
+      const result = await startBillEditing(deptId)
       if (result.status === "SUCCESS") {
         toast.success("Billing edit mode enabled")
         onVisitUpdated?.()
@@ -488,13 +493,14 @@ export function VisitSettingsPanel({
 
   const canCancelVisit =
     visit.status !== "CANCELLED" && visit.status !== "COMPLETED"
-  const canDeleteVisit = visit.status !== "BILL_EDITING"
+  const hasDeptEditing = (visit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING")
+  const canDeleteVisit = !hasDeptEditing
   const hasDepartments = visit.departments && visit.departments.length > 0
 
   // ── Derived billing state ──
   const billingDepartments = billingData?.visitBilling?.data?.departments
   const hasBillingData = billingDepartments && billingDepartments.length > 0
-  const isBillEditing = visit.status === "BILL_EDITING"
+  const isBillEditing = (visit.departments || []).some((d) => d.status === "DEPARTMENT_EDITING")
 
   // Flatten all insurance billings across departments
   const allInsBillings: any[] = []
@@ -628,22 +634,7 @@ export function VisitSettingsPanel({
                       <h3 className="font-medium text-foreground">
                         Billing Date
                       </h3>
-                      {/* Enable Billing Edit button — only when visit is COMPLETED */}
-                      {visit.status === "COMPLETED" && (
-                        <button
-                          type="button"
-                          onClick={handleStartBillEditing}
-                          disabled={startingBillEdit}
-                          className="ml-auto px-2.5 py-1 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1"
-                        >
-                          {startingBillEdit ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <ReceiptText className="h-3 w-3" />
-                          )}
-                          Enable Billing Edit
-                        </button>
-                      )}
+                      {/* Billing edit is now per-department, triggered from the billing page */}
                       {/* Billing edit mode active badge */}
                       {isBillEditing && (
                         <span className="ml-auto text-xs text-amber-600 font-medium">

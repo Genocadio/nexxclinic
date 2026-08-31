@@ -377,9 +377,13 @@ export function BillingPageContent() {
     return ((doctor.roles as string[]) || []).includes("CASHIER");
   }, [doctor?.roles]);
   const isAlreadyBilled = Boolean(existingVisitBilling);
-  // Derive edit mode from the backend visit status (BILL_EDITING) or local state.
-  // Reading from the persisted status means edit mode survives page refreshes.
-  const isEditMode = visit?.status === "BILL_EDITING" || Boolean(isEditingBill);
+  // Derive edit mode from any department's DEPARTMENT_EDITING status
+  // or local state. Reading from the persisted status means edit mode survives
+  // page refreshes.
+  const hasAnyDeptEditing = (visit?.departments || []).some(
+    (dept) => dept.status === "DEPARTMENT_EDITING"
+  );
+  const isEditMode = hasAnyDeptEditing || Boolean(isEditingBill);
   // For UI purposes (item states, dock, etc.) treat billed visit as unbilled while in edit mode
   const effectiveIsAlreadyBilled = isAlreadyBilled && !isEditMode;
 
@@ -405,10 +409,10 @@ export function BillingPageContent() {
   );
 
   // If we are editing but no snapshot baseline exists (e.g. edit mode was
-  // entered via the persisted BILL_EDITING visit status after a page refresh /
-  // remount, where onEditBilling never ran), (re)initialise it from the current
-  // billingData. Without a snapshot, change detection would short-circuit to
-  // "no changes" forever even after the user edits items.
+  // entered via the persisted DEPARTMENT_EDITING department status after a page
+  // refresh / remount, where onEditBilling never ran), (re)initialise it from
+  // the current billingData. Without a snapshot, change detection would
+  // short-circuit to "no changes" forever even after the user edits items.
   useEffect(() => {
     if (!isEditMode || !billingData) return;
     if (editModeSnapshot) return;
@@ -1052,7 +1056,7 @@ export function BillingPageContent() {
           onServiceChange={setActiveService}
           onAddItem={() => setShowAddProductModal(true)}
           onItemChange={trackLocalEdit}
-          onItemRemove={(id) => { hasLocalEditsRef.current = true; handleItemRemove(id); }}
+          onItemRemove={(id) => { hasLocalEditsRef.current = true; handleItemRemove(id, isEditMode); }}
           onQuantityChange={(item, qty) => {
             hasLocalEditsRef.current = true;
             handleQuantityChange(item, qty, isEditMode);
@@ -1120,13 +1124,13 @@ export function BillingPageContent() {
                 toast.warn("Please view the notes first before continuing.");
                 return;
               }
-              if (!visitId || loadingEditBilling) return;
+              if (!activeVisitDepartment?.id || loadingEditBilling) return;
               setLoadingEditBilling(true);
               try {
-                // Persist BILL_EDITING status on the backend so the mode
-                // survives page refreshes. Only COMPLETED visits can enter
-                // BILL_EDITING — the backend enforces this.
-                const result = await startBillEditing(visitId);
+                // Persist DEPARTMENT_EDITING status on the backend so the mode
+                // survives page refreshes. Only COMPLETED/FINALISED departments
+                // can enter DEPARTMENT_EDITING — the backend enforces this.
+                const result = await startBillEditing(activeVisitDepartment.id);
                 if (result.status !== "SUCCESS") {
                   toast.error(result.message || "Failed to enter billing edit mode");
                   return;
@@ -1134,7 +1138,7 @@ export function BillingPageContent() {
                 setIsEditingBill(true);
                 hasLocalEditsRef.current = false;
                 setEditModeSnapshot(bakeSnapshotItems(billingData?.items ?? null));
-                // Refetch so visit.status becomes BILL_EDITING and the
+                // Refetch so dept.status becomes DEPARTMENT_EDITING and the
                 // derived isEditMode picks it up even without local state.
                 await refetchVisit();
               } finally {
@@ -1145,10 +1149,10 @@ export function BillingPageContent() {
               if (loadingDoneEditing) return;
               setLoadingDoneEditing(true);
               try {
-                // Exit BILL_EDITING mode on the backend
-                if (visitId) {
+                // Exit DEPARTMENT_EDITING mode on the backend for the active department
+                if (activeVisitDepartment?.id) {
                   try {
-                    const result = await cancelBillEditing(visitId);
+                    const result = await cancelBillEditing(activeVisitDepartment.id);
                     if (result.status !== "SUCCESS") {
                       toast.error(result.message || "Could not cancel billing edit mode");
                       return;

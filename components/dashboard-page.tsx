@@ -235,12 +235,14 @@ export default function DashboardPage() {
     return count === 1 ? "1 product billed" : `${count} products billed`
   }
   const canPreviewVisitInvoice = (visit: Visit) => {
-    if (visit.status === "BILL_EDITING") return false
+    const hasDeptEditing = (visit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING")
+    if (hasDeptEditing) return false
     if (hasNoBillables(visit)) return false
     return countUnbilledProducts(visit) === 0 && countBilledProducts(visit) > 0
   }
   const getBillingDisplayStatus = (visit: Visit) => {
-    if (visit.status === "BILL_EDITING") return "Editing billing"
+    const hasDeptEditing = (visit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING")
+    if (hasDeptEditing) return "Editing billing"
     if (hasDepartmentReadyForBilling(visit)) return "Ready for billing"
     const unbilledCount = countUnbilledProducts(visit)
     const billedCount = countBilledProducts(visit)
@@ -562,8 +564,7 @@ export default function DashboardPage() {
   const canAddDepartment = (visit: Visit) => {
     return (
       visit.status !== "COMPLETED" &&
-      visit.status !== "CANCELLED" &&
-      visit.status !== "BILL_EDITING"
+      visit.status !== "CANCELLED"
     )
   }
   const handleAddDepartment = (visit: Visit) => {
@@ -1154,7 +1155,7 @@ export default function DashboardPage() {
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <p className={`text-xs truncate cursor-help ${
-                                          visit.status === "BILL_EDITING"
+                                          (visit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING")
                                             ? "text-amber-600 dark:text-amber-400 font-medium"
                                             : "text-muted-foreground"
                                         }`}>
@@ -1436,7 +1437,7 @@ export default function DashboardPage() {
                                     </Tooltip>
                                   )}
                                 {canSeeBillButton &&
-                                  visit.status === "BILL_EDITING" && (
+                                  (visit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING") && (
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <button

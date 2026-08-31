@@ -128,8 +128,7 @@ export default function VisitsListView({
       getDerivedVisitBillingStatus(visit) !== "BILLED" &&
       visit.status !== "IN_PROGRESS" &&
       visit.status !== "COMPLETED" &&
-      visit.status !== "CANCELLED" &&
-      visit.status !== "BILL_EDITING"
+      visit.status !== "CANCELLED"
     )
   }
   const handleAddDepartment = (visit: Visit) => {
