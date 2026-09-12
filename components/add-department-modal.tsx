@@ -11,6 +11,8 @@ import {
 } from "@/hooks/auth-hooks";
 import { toast } from "react-toastify";
 import { handleResponse } from "@/lib/response-handler";
+import { useAuth } from "@/lib/auth-context";
+import { hasRole } from "@/lib/role-utils";
 
 interface AddDepartmentModalProps {
   visit: Visit;
@@ -49,6 +51,12 @@ export function AddDepartmentModal({
     setSelectedProcessorDepartmentId("");
     clearFormError();
   };
+  const { doctor: authDoctor } = useAuth();
+  const currentRoles = ((authDoctor as unknown as { roles?: string[] } | null)
+    ?.roles || []) as string[];
+  // Only clinicians and managers can assign profiles when adding departments.
+  const canAssignProfile = hasRole(currentRoles, "CLINICIAN") || hasRole(currentRoles, "MANAGER");
+
   const { addDepartmentToVisit, loading } = useAddDepartmentToVisit();
   const { workers: processorWorkers, loading: processorsLoading } =
     useSearchWorkers({
@@ -465,7 +473,7 @@ export function AddDepartmentModal({
                   const supportsRequests = Boolean(
                     (selectedDept as any)?.supportRequests,
                   );
-                  if (!selectedDept || profiles.length === 0) return null;
+                  if (!canAssignProfile || !selectedDept || profiles.length === 0) return null;
                   if (supportsRequests) {
                     return (
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">

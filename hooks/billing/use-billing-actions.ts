@@ -441,7 +441,15 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
               .filter((item) => !editModeSnapshot?.some((s) => s.id === item.id))
               .map((item) => item.id)
               .filter((id) => !id.startsWith("temp-"));
-            await cancelBillEditing(activeVisitDepartment.id, addedIds);
+            try {
+              await cancelBillEditing(activeVisitDepartment.id, addedIds);
+            } catch (cancelErr) {
+              console.error("Failed to cancel billing edit session:", cancelErr);
+              toast.error(
+                "Bill edit failed and the edit session could not be closed. " +
+                "Please refresh the page and try again."
+              );
+            }
           }
         }
       } else {

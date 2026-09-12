@@ -100,6 +100,8 @@ export function useBillingPageState() {
   };
 
   const handleItemRemove = async (itemId: string, isEditingBill?: boolean) => {
+    // Snapshot the item BEFORE removing it so we can restore it if the backend rejects.
+    let removedItem: BillingItem | undefined;
     setBillingData((prev) => {
       if (!prev) return prev;
       const target = prev.items.find((item) => item.id === itemId);
@@ -110,6 +112,7 @@ export function useBillingPageState() {
         toast.info("Profile products cannot be removed individually — change the visit department's profile instead.");
         return prev;
       }
+      removedItem = target;
       return {
         ...prev,
         items: prev.items.filter((item) => item.id !== itemId),
@@ -125,11 +128,35 @@ export function useBillingPageState() {
         if (result?.status === "SUCCESS") {
           // Successfully removed from backend — UI state already updated above
         } else {
+          // Backend rejected the removal — restore the item in the UI so
+          // billingData stays consistent with the database.
+          if (removedItem) {
+            setBillingData((prev) => {
+              if (!prev) return prev;
+              // Avoid duplicates if a race re-added the item
+              if (prev.items.some((i) => i.id === removedItem!.id)) return prev;
+              return {
+                ...prev,
+                items: [...prev.items, removedItem!],
+                updatedAt: new Date().toISOString(),
+              };
+            });
+          }
           toast.error(result?.message || "Failed to remove product from backend");
-          // Refetch to restore the item in the UI if the backend rejected the removal
-          // (e.g. billing history guard). The caller should refetch visit data.
         }
       } catch (err) {
+        // Network error — restore the item
+        if (removedItem) {
+          setBillingData((prev) => {
+            if (!prev) return prev;
+            if (prev.items.some((i) => i.id === removedItem!.id)) return prev;
+            return {
+              ...prev,
+              items: [...prev.items, removedItem!],
+              updatedAt: new Date().toISOString(),
+            };
+          });
+        }
         const message = err instanceof Error ? err.message : "Failed to remove product";
         toast.error(message);
       }
@@ -165,15 +192,23 @@ export function useBillingPageState() {
   const handleAmountPaidChange = (amount: number) => {
     // Guard against NaN / Infinity from malformed number inputs
     const safeAmount = Number.isFinite(amount) ? Math.max(0, amount) : 0;
-    setBillingData((prev) =>
-      prev
-        ? {
-            ...prev,
-            amountPaid: safeAmount,
-            updatedAt: new Date().toISOString(),
-          }
-        : prev,
-    );
+    setBillingData((prev) => {
+      if (!prev) return prev;
+      // Soft cap: allow up to 2× the total item value so the user can type
+      // a round number slightly above the total (e.g. for overpay / credit),
+      // but reject absurdly large inputs that would confuse the backend.
+      const totalValue = prev.items.reduce(
+        (sum, item) => sum + (item.price || 0) * (item.quantity || 1),
+        0,
+      );
+      const maxAllowed = totalValue > 0 ? totalValue * 2 : 1_000_000_000;
+      const cappedAmount = Math.min(safeAmount, maxAllowed);
+      return {
+        ...prev,
+        amountPaid: cappedAmount,
+        updatedAt: new Date().toISOString(),
+      };
+    });
   };
 
   const handleNotesChange = useCallback((notes: string) => {

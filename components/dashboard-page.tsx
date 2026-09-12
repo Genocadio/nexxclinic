@@ -519,13 +519,17 @@ export default function DashboardPage() {
       return deptId && userDepartmentIds.includes(deptId) && isDepartmentOpen
     })
     const profiles = matchingDept?.department?.profiles || []
-    if (profiles.length > 0) {
+    // Only show profile selection when the department has profiles available
+    // AND the department does not already have a profile assigned.
+    // If a profile is already set, skip straight to consultation.
+    const alreadyHasProfile = Boolean(matchingDept?.profile?.id)
+    if (profiles.length > 0 && !alreadyHasProfile) {
       // Show profile selection dialog
       setProfileDialogVisit(visit)
       setProfileDialogProfiles(profiles)
       setProfileDialogOpen(true)
     } else {
-      // No profiles — go straight to consultation
+      // No profiles available or already assigned — go straight to consultation
       router.push(`/consultation?visitId=${visit.id}`)
     }
   }

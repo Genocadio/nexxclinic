@@ -454,6 +454,37 @@ export const CHANGE_VISIT_DEPARTMENT_PROFILE_MUTATION = gql`
   }
 `;
 
+export const REMOVE_VISIT_DEPARTMENT_PROFILE_MUTATION = gql`
+  mutation RemoveVisitDepartmentProfile($visitDepartmentId: ID!) {
+    removeVisitDepartmentProfile(visitDepartmentId: $visitDepartmentId) {
+      status
+      message
+      data {
+        id
+        status
+        profile {
+          id
+          name
+        }
+        department {
+          id
+          name
+        }
+        products {
+          id
+          product {
+            id
+            name
+          }
+          quantity
+          status
+          source
+        }
+      }
+    }
+  }
+`;
+
 export const LINK_VISIT_INSURANCES_MUTATION = gql`
   mutation LinkVisitInsurances($visitId: ID!, $insuranceIds: [ID!]!) {
     linkVisitInsurances(visitId: $visitId, insuranceIds: $insuranceIds) {

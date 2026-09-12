@@ -33,6 +33,7 @@ import {
   CHANGE_VISIT_DATE_MUTATION,
   FINALISE_VISIT_DEPARTMENT_MUTATION,
   CHANGE_VISIT_DEPARTMENT_PROFILE_MUTATION,
+  REMOVE_VISIT_DEPARTMENT_PROFILE_MUTATION,
 } from "@/hooks/mutations/visits"
 import {
   UPDATE_BILLING_DATE_MUTATION,
@@ -43,6 +44,7 @@ import {
 } from "@/hooks/billing/hooks"
 import { useGenerateConsultationPdf } from "@/hooks/visits/visit-mutations"
 import { ConsultationPreviewSheet } from "@/components/dashboard/consultation-preview-sheet"
+import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
 import { VISITS_QUERY } from "@/hooks/queries/visits"
 import {
   Select,
@@ -358,6 +360,29 @@ export function VisitSettingsPanel({
     void changeProfile({ variables: { visitDepartmentId, profileId } })
   }
 
+  const [removeProfile, { loading: removingProfile }] = useMutation(
+    REMOVE_VISIT_DEPARTMENT_PROFILE_MUTATION,
+    {
+      ...refetchConfig,
+      onCompleted: (data) => {
+        handleResponse(data?.removeVisitDepartmentProfile, {
+          successMessage: "Department profile removed successfully",
+          onSuccess: () => {
+            onVisitUpdated?.()
+            void fetchProfiles({ variables: { visitId: visit.id } })
+          },
+        })
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to remove department profile")
+      },
+    },
+  )
+
+  const handleRemoveDepartmentProfile = (visitDepartmentId: string) => {
+    void removeProfile({ variables: { visitDepartmentId } })
+  }
+
   const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice()
   const { generateConsultationPdf, loading: generatingConsultationPdf } = useGenerateConsultationPdf()
 
@@ -405,12 +430,11 @@ export function VisitSettingsPanel({
 
   const handlePreviewInvoice = async (departmentInsuranceBillingId: string) => {
     try {
-      const result = await generateInvoice(departmentInsuranceBillingId)
-      if (result?.data?.signedUrl) {
-        window.open(result.data.signedUrl, "_blank")
-      } else {
-        toast.error(result?.message || "Failed to generate invoice")
-      }
+      const invoiceUrl = await resolveInvoiceUrl(
+        departmentInsuranceBillingId,
+        generateInvoice,
+      )
+      openInvoicePreview(invoiceUrl)
     } catch (err: any) {
       toast.error(err.message || "Failed to generate invoice")
     }
@@ -976,38 +1000,56 @@ export function VisitSettingsPanel({
                                       : ""}
                                   </p>
                                 )}
-                                {canManageProfile && !loading && dept.status !== "BILLING" && dept.status !== "COMPLETED" && (
-                                  <Select
-                                    value={assigned?.id || "none"}
-                                    onValueChange={(value) =>
-                                      handleChangeDepartmentProfile(
-                                        dept.id,
-                                        value === "none" ? null : value,
-                                      )
-                                    }
-                                  >
-                                    <SelectTrigger
-                                      disabled={changingProfile}
-                                      className="h-8 w-full text-xs"
+                                {canManageProfile && !loading && dept.status !== "BILLING" && dept.status !== "COMPLETED" && dept.status !== "FINALISED" && dept.status !== "DEPARTMENT_EDITING" && (
+                                  <>
+                                    <Select
+                                      value={assigned?.id || "none"}
+                                      onValueChange={(value) =>
+                                        handleChangeDepartmentProfile(
+                                          dept.id,
+                                          value === "none" ? null : value,
+                                        )
+                                      }
                                     >
-                                      <SelectValue
-                                        placeholder={assigned ? "Change profile" : "Assign a profile"}
-                                      />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="none">
-                                        No profile
-                                      </SelectItem>
-                                      {available.map((p) => (
-                                        <SelectItem key={p.id} value={p.id}>
-                                          {p.name}
-                                          {p.encounterType
-                                            ? ` — ${p.encounterType}`
-                                            : ""}
+                                      <SelectTrigger
+                                        disabled={changingProfile}
+                                        className="h-8 w-full text-xs"
+                                      >
+                                        <SelectValue
+                                          placeholder={assigned ? "Change profile" : "Assign a profile"}
+                                        />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">
+                                          No profile
                                         </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
+                                        {available.map((p) => (
+                                          <SelectItem key={p.id} value={p.id}>
+                                            {p.name}
+                                            {p.encounterType
+                                              ? ` — ${p.encounterType}`
+                                              : ""}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    {assigned && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveDepartmentProfile(dept.id)}
+                                        disabled={removingProfile || changingProfile}
+                                        className="mt-1.5 px-2 py-1 text-[11px] font-medium text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                      >
+                                        {removingProfile ? "Removing..." : "Remove profile"}
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                                {canManageProfile && !loading && (dept.status === "COMPLETED" || dept.status === "FINALISED") && (
+                                  <p className="text-[11px] text-muted-foreground mt-1">
+                                    Profile is locked on {dept.status.toLowerCase()} departments. Use
+                                    "Edit Billing" on the billing page to enter edit mode first.
+                                  </p>
                                 )}
                               </div>
                             )

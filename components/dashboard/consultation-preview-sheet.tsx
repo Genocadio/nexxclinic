@@ -73,9 +73,9 @@ export function ConsultationPreviewSheet({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[88]">
+    <div className="fixed inset-0 z-[88] pointer-events-none">
       <div
-        className={`absolute top-16 bottom-0 left-0 md:left-[420px] right-0 bg-transparent transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}
+        className={`absolute top-16 bottom-0 left-0 md:left-[420px] right-0 bg-transparent transition-opacity duration-200 pointer-events-auto ${open ? "opacity-100" : "opacity-0"}`}
         onClick={() => onOpenChange(false)}
         aria-hidden="true"
       />
@@ -84,7 +84,7 @@ export function ConsultationPreviewSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Consultation Preview"
-        className={`absolute right-0 top-16 h-[calc(100vh-4rem)] w-[min(92vw,56rem)] border-l border-border bg-background shadow-2xl transition-transform duration-200 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}
+        className={`absolute right-0 top-16 h-[calc(100vh-4rem)] w-[min(92vw,56rem)] border-l border-border bg-background shadow-2xl transition-transform duration-200 ease-out pointer-events-auto ${open ? "translate-x-0" : "translate-x-full"}`}
       >
         <div className="flex h-full flex-col">
           <div className="border-b border-border/70 px-4 py-4">

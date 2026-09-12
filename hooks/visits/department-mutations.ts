@@ -10,6 +10,7 @@ import {
   UPDATE_VISIT_DEPARTMENT_STATUS_MUTATION,
   ADD_DEPARTMENT_TO_VISIT_MUTATION,
   CHANGE_VISIT_DEPARTMENT_PROFILE_MUTATION,
+  REMOVE_VISIT_DEPARTMENT_PROFILE_MUTATION,
   UPDATE_VISIT_DEPARTMENT_PRODUCT_QUANTITY_MUTATION,
   UPDATE_VISIT_DEPARTMENT_PRODUCT_STATUS_MUTATION,
   UPDATE_VISIT_DEPARTMENT_ENCOUNTER_TYPE_MUTATION,
@@ -436,6 +437,39 @@ export function useChangeVisitDepartmentProfile() {
   };
 
   return { changeVisitDepartmentProfile, loading, error };
+}
+
+export function useRemoveVisitDepartmentProfile() {
+  const [mutation, { loading, error }] = useMutation(
+    REMOVE_VISIT_DEPARTMENT_PROFILE_MUTATION,
+  );
+
+  const removeVisitDepartmentProfile = async (
+    visitDepartmentId: string,
+  ): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({
+        variables: {
+          visitDepartmentId,
+        },
+        refetchQueries: ["GetVisits", "GetVisit"],
+        awaitRefetchQueries: true,
+      });
+      const payload = result.data?.removeVisitDepartmentProfile;
+      return {
+        status: payload?.status || "ERROR",
+        message: payload?.message,
+        data: payload?.data
+          ? mapGqlVisitDepartment(payload.data)
+          : undefined,
+      };
+    } catch (err) {
+      console.error("Remove visit department profile error:", err);
+      throw err;
+    }
+  };
+
+  return { removeVisitDepartmentProfile, loading, error };
 }
 
 export function useUpdateVisitDepartmentEncounterType() {
