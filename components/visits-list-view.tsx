@@ -14,11 +14,12 @@ import {
 } from "@/lib/visit-product-utils"
 import { useLazyQuery, useMutation } from "@apollo/client"
 import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
-import { COMPLETE_VISIT_MUTATION } from "@/hooks/mutations/visits"
+import { COMPLETE_VISIT_MUTATION, CANCEL_VISIT_MUTATION } from "@/hooks/mutations/visits"
 import { toast } from "react-toastify"
 import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
 import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet"
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useRouter } from "next/navigation"
 import {
   Search,
@@ -31,6 +32,8 @@ import {
   Stethoscope,
   Activity,
   Loader2,
+  Ban,
+  X,
 } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
 import { useAuth } from "@/lib/auth-context"
@@ -210,6 +213,50 @@ export default function VisitsListView({
   const handleDischargeVisit = async (targetVisit: Visit) => {
     if (discharging) return
     await completeVisitMutation({ variables: { visitId: targetVisit.id } })
+  }
+
+  const [visitToCancel, setVisitToCancel] = useState<Visit | null>(null)
+  const [cancelVisitMutation, { loading: cancelingVisit }] = useMutation(
+    CANCEL_VISIT_MUTATION,
+    {
+      onCompleted: (data) => {
+        if (data?.cancelVisit?.status === "SUCCESS") {
+          toast.success("Visit cancelled successfully")
+          refetchVisits?.()
+          setVisitToCancel(null)
+        } else {
+          toast.error(data?.cancelVisit?.message || "Failed to cancel visit")
+        }
+      },
+      onError: (err) => {
+        toast.error(err.message || "Failed to cancel visit")
+      },
+    }
+  )
+
+  const handleCancelVisit = async (targetVisit: Visit) => {
+    if (cancelingVisit) return
+    await cancelVisitMutation({ variables: { visitId: targetVisit.id } })
+  }
+
+  const canUserCancelWholeVisit = (visit: Visit) => {
+    if (!visit || !visit.id) return false
+    if (visit.status === "COMPLETED" || visit.status === "FINALISED" || visit.status === "CANCELLED") {
+      return false
+    }
+    const canRoleCancel = hasReceptionistRole || hasFinanceRole || hasManagerRole || hasAdminRole
+    if (!canRoleCancel) return false
+
+    if ((visit.billedProductCount || 0) > 0 || (visit.unbilledProductCount || 0) > 0) {
+      return false
+    }
+    const allDepts = visit.departments || []
+    const hasProducts = allDepts.some((d: any) => d.products && d.products.length > 0)
+    if (hasProducts) return false
+    const hasCompletedDept = allDepts.some((d: any) => d.status === "COMPLETED" || d.status === "FINALISED")
+    if (hasCompletedDept) return false
+
+    return true
   }
   const getUserDepartmentIds = () => {
     if (!doctor) return []
@@ -507,6 +554,26 @@ export default function VisitsListView({
                             </span>
                           </button>
                         )}
+                        {/* Cancel Visit: for RECEPTION, FINANCE, MANAGER, ADMIN when no products/billing exist */}
+                        {canUserCancelWholeVisit(visit) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setVisitToCancel(visit)
+                            }}
+                            disabled={cancelingVisit && visitToCancel?.id === visit.id}
+                            title="Cancel Visit"
+                            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-950/40 dark:hover:bg-rose-950/80 dark:text-rose-400 text-xs sm:text-sm font-medium rounded-full border border-rose-300 dark:border-rose-900/60 shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap cursor-pointer"
+                          >
+                            <Ban className="w-4 h-4 flex-shrink-0 text-rose-600 dark:text-rose-400" />
+                            <span className="hidden sm:inline lg:hidden">
+                              Cancel
+                            </span>
+                            <span className="hidden lg:inline">
+                              Cancel Visit
+                            </span>
+                          </button>
+                        )}
                       </>
                     )
                   })()}
@@ -594,6 +661,34 @@ export default function VisitsListView({
         onConfirm={async () => {
           if (dischargeConfirmVisit) {
             await handleDischargeVisit(dischargeConfirmVisit)
+          }
+        }}
+      />
+
+      {/* Cancel Visit Confirmation Dialog */}
+      <ConfirmDialog
+        open={Boolean(visitToCancel)}
+        onOpenChange={(open) => {
+          if (!open && !cancelingVisit) setVisitToCancel(null)
+        }}
+        title="Cancel Visit"
+        description={
+          visitToCancel ? (
+            <span>
+              Are you sure you want to cancel the entire visit for{" "}
+              <strong className="text-foreground">
+                {visitToCancel.patient.firstName} {visitToCancel.patient.lastName}
+              </strong>? Since no products or services have been billed, the visit and its departments will be marked as cancelled.
+            </span>
+          ) : null
+        }
+        confirmLabel="Cancel Visit"
+        cancelLabel="Keep Visit"
+        destructive
+        busy={cancelingVisit}
+        onConfirm={() => {
+          if (visitToCancel) {
+            void handleCancelVisit(visitToCancel)
           }
         }}
       />

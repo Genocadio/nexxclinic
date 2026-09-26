@@ -40,7 +40,7 @@ import VisitCreationModal from "@/components/visit-creation-modal"
 import { AddDepartmentModal } from "@/components/add-department-modal"
 import { ProfileSelectDialog } from "@/components/profile-select-dialog"
 import { useChangeVisitDepartmentProfile, useConsultVisit } from "@/hooks/visits/department-mutations"
-import { useCompleteVisit } from "@/hooks/visits/visit-mutations"
+import { useCompleteVisit, useCancelVisit } from "@/hooks/visits/visit-mutations"
 import type { DepartmentProfile } from "@/lib/api-types"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -75,6 +75,8 @@ import {
   SlidersHorizontal,
   Info,
   ChevronDown,
+  X,
+  Ban,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
@@ -96,6 +98,7 @@ export default function DashboardPage() {
   const { changeVisitDepartmentProfile } = useChangeVisitDepartmentProfile()
   const { consultVisit } = useConsultVisit()
   const { completeVisit } = useCompleteVisit()
+  const { cancelVisit } = useCancelVisit()
   const { generateInvoice } = useGenerateInvoice()
   const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
   const [finaliseVisitMutation, { loading: finalisingVisit }] = useMutation(
@@ -242,6 +245,90 @@ export default function DashboardPage() {
   )
   const [settingsVisit, setSettingsVisit] = useState<Visit | null>(null)
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false)
+  const [departmentToCancel, setDepartmentToCancel] = useState<{
+    visit: Visit
+    dept: any
+  } | null>(null)
+  const [cancelingDept, setCancelingDept] = useState(false)
+  const [visitToCancel, setVisitToCancel] = useState<Visit | null>(null)
+  const [cancelingVisit, setCancelingVisit] = useState(false)
+
+  const canUserCancelDepartment = (dept: any) => {
+    if (!dept || !dept.id) return false
+    const status = String(dept.status || "").toUpperCase()
+    if (status === "COMPLETED" || status === "FINALISED" || status === "CANCELLED") return false
+
+    const canRoleCancel = hasReceptionistRole || hasFinanceRole || hasManagerRole || hasAdminRole
+    if (!canRoleCancel) return false
+
+    if (!hasManagerRole && !hasAdminRole) {
+      const deptProducts = dept.products || []
+      if (deptProducts.length > 0) return false
+      if (dept.billingSnapshot && dept.billingSnapshot.status === "BILLED") return false
+    }
+    return true
+  }
+
+  const canUserCancelWholeVisit = (visit: Visit) => {
+    if (!visit || !visit.id) return false
+    if (visit.status === "COMPLETED" || visit.status === "FINALISED" || visit.status === "CANCELLED") {
+      return false
+    }
+    const canRoleCancel = hasReceptionistRole || hasFinanceRole || hasManagerRole || hasAdminRole
+    if (!canRoleCancel) return false
+
+    if ((visit.billedProductCount || 0) > 0 || (visit.unbilledProductCount || 0) > 0) {
+      return false
+    }
+    const allDepts = visit.departments || []
+    const hasProducts = allDepts.some((d: any) => d.products && d.products.length > 0)
+    if (hasProducts) return false
+    const hasCompletedDept = allDepts.some((d: any) => d.status === "COMPLETED" || d.status === "FINALISED")
+    if (hasCompletedDept) return false
+
+    return true
+  }
+
+  const handleConfirmCancelDepartment = async () => {
+    if (!departmentToCancel || cancelingDept) return
+    setCancelingDept(true)
+    try {
+      const res = await updateDepartmentStatus(departmentToCancel.dept.id, "CANCELLED")
+      if (res?.status === "SUCCESS") {
+        toast.success(`${departmentToCancel.dept.department?.name || "Department"} cancelled successfully`)
+        await refetchVisits()
+      } else {
+        toast.error(res?.message || "Failed to cancel department")
+      }
+    } catch (err: any) {
+      console.error("Cancel department error:", err)
+      toast.error(err?.message || "Failed to cancel department")
+    } finally {
+      setCancelingDept(false)
+      setDepartmentToCancel(null)
+    }
+  }
+
+  const handleConfirmCancelVisit = async () => {
+    if (!visitToCancel || cancelingVisit) return
+    setCancelingVisit(true)
+    try {
+      const res = await cancelVisit(visitToCancel.id)
+      if (res?.status === "SUCCESS") {
+        toast.success("Visit cancelled successfully")
+        await refetchVisits()
+      } else {
+        toast.error(res?.message || "Failed to cancel visit")
+      }
+    } catch (err: any) {
+      console.error("Cancel visit error:", err)
+      toast.error(err?.message || "Failed to cancel visit")
+    } finally {
+      setCancelingVisit(false)
+      setVisitToCancel(null)
+    }
+  }
+
   const openVisitCreationModal = () => {
     setRegisteredPatientId(null)
     setShowVisitCreationModal(true)
@@ -1556,25 +1643,41 @@ export default function DashboardPage() {
                                                                   ?.name ||
                                                                   "Unknown Department"}
                                                               </span>
-                                                              <span
-                                                                className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                                                                  isActive
-                                                                    ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/20"
+                                                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                                <span
+                                                                  className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                                                    isActive
+                                                                      ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/20"
+                                                                      : isCompleted
+                                                                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+                                                                        : isCancelled
+                                                                          ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/20"
+                                                                          : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20"
+                                                                  }`}
+                                                                >
+                                                                  {isPending
+                                                                    ? "Pending / Not started"
                                                                     : isCompleted
-                                                                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+                                                                      ? "Completed"
                                                                       : isCancelled
-                                                                        ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/20"
-                                                                        : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20"
-                                                                }`}
-                                                              >
-                                                                {isPending
-                                                                  ? "Pending / Not started"
-                                                                  : isCompleted
-                                                                    ? "Completed"
-                                                                    : isCancelled
-                                                                      ? "Cancelled"
-                                                                      : "In Progress"}
-                                                              </span>
+                                                                        ? "Cancelled"
+                                                                        : "In Progress"}
+                                                                </span>
+                                                                {canUserCancelDepartment(dept) && (
+                                                                  <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                      e.stopPropagation()
+                                                                      setDepartmentToCancel({ visit, dept })
+                                                                    }}
+                                                                    title={`Cancel ${dept.department?.name || "department"}`}
+                                                                    aria-label={`Cancel ${dept.department?.name || "department"}`}
+                                                                    className="p-1 rounded-full text-muted-foreground hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                                                                  >
+                                                                    <X className="w-3.5 h-3.5" />
+                                                                  </button>
+                                                                )}
+                                                              </div>
                                                             </div>
 
                                                             {canSeeThisDeptTimes && (
@@ -2145,6 +2248,28 @@ export default function DashboardPage() {
                                     </Tooltip>
                                   </>
                                 )}
+
+                                {/* Cancel Visit button: for RECEPTION, FINANCE, MANAGER, ADMIN when no products/billing exist */}
+                                {canUserCancelWholeVisit(visit) && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setVisitToCancel(visit)
+                                        }}
+                                        title="Cancel Visit"
+                                        aria-label="Cancel Visit"
+                                        className="h-9 w-9 sm:h-10 sm:w-10 bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-950/40 dark:hover:bg-rose-950/80 dark:text-rose-400 rounded-full border border-rose-300 dark:border-rose-900/60 shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center cursor-pointer"
+                                      >
+                                        <Ban className="w-4 h-4 flex-shrink-0 text-rose-600 dark:text-rose-400" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Cancel Visit — No products or services billed</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -2280,6 +2405,56 @@ export default function DashboardPage() {
         onConfirm={() => {
           if (!dischargeConfirmVisit || discharging) return
           void handleDischargeVisit(dischargeConfirmVisit)
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!departmentToCancel}
+        onOpenChange={(open) => !open && setDepartmentToCancel(null)}
+        title="Cancel Department"
+        description={
+          departmentToCancel ? (
+            <span>
+              Are you sure you want to cancel{" "}
+              <strong className="text-foreground">
+                {departmentToCancel.dept?.department?.name || "this department"}
+              </strong>{" "}
+              for patient{" "}
+              <strong className="text-foreground">
+                {departmentToCancel.visit.patient.firstName} {departmentToCancel.visit.patient.lastName}
+              </strong>? This department will be marked as cancelled.
+            </span>
+          ) : null
+        }
+        confirmLabel="Cancel Department"
+        cancelLabel="Keep Department"
+        destructive
+        busy={cancelingDept}
+        onConfirm={() => {
+          void handleConfirmCancelDepartment()
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!visitToCancel}
+        onOpenChange={(open) => !open && setVisitToCancel(null)}
+        title="Cancel Visit"
+        description={
+          visitToCancel ? (
+            <span>
+              Are you sure you want to cancel the entire visit for{" "}
+              <strong className="text-foreground">
+                {visitToCancel.patient.firstName} {visitToCancel.patient.lastName}
+              </strong>? Since no products or services have been billed, the visit and its departments will be marked as cancelled.
+            </span>
+          ) : null
+        }
+        confirmLabel="Cancel Visit"
+        cancelLabel="Keep Visit"
+        destructive
+        busy={cancelingVisit}
+        onConfirm={() => {
+          void handleConfirmCancelVisit()
         }}
       />
 

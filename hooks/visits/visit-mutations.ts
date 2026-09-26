@@ -9,6 +9,7 @@ import {
   UPSERT_CONSULTATION_ANSWERS_MUTATION,
   GENERATE_CONSULTATION_PDF_MUTATION,
   COMPLETE_VISIT_MUTATION,
+  CANCEL_VISIT_MUTATION,
   COMPLETE_CONSULTATION_VISIT_MUTATION,
   REOPEN_VISIT_MUTATION,
 } from "../mutations";
@@ -272,6 +273,22 @@ export function useCompleteVisit() {
   };
 
   return { completeVisit, loading, error };
+}
+
+export function useCancelVisit() {
+  const [mutation, { loading, error }] = useMutation(CANCEL_VISIT_MUTATION);
+
+  const cancelVisit = async (visitId: string): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({ variables: { visitId } });
+      return result.data.cancelVisit;
+    } catch (err) {
+      console.error("Cancel visit error:", err);
+      throw err;
+    }
+  };
+
+  return { cancelVisit, loading, error };
 }
 
 export function useReopenVisit() {
