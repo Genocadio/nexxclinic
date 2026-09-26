@@ -143,6 +143,8 @@ export type GqlVisitDepartmentProduct = {
   source?: string | null;
   addedBy?: GqlWorkerRef | null;
   billedBy?: GqlWorkerRef | null;
+  confirmedBy?: GqlWorkerRef | null;
+  billingConfirmationStatus?: string | null;
   processor?: GqlWorkerRef | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -152,8 +154,21 @@ export type GqlVisitDepartment = {
   id: string;
   status: string;
   encounterType?: string | null;
+  startedAt?: string | null;
   completedAt?: string | null;
+  addedBy?: GqlWorkerRef | null;
+  completedBy?: GqlWorkerRef | null;
+  processors?: GqlWorkerRef[] | null;
   profile?: {
+    id: string;
+    name: string;
+    encounterType?: string | null;
+    isDefault?: boolean | null;
+    products?: GqlProduct[] | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+  } | null;
+  departmentTemplate?: {
     id: string;
     name: string;
     encounterType?: string | null;
@@ -185,7 +200,6 @@ export type GqlVisitDepartment = {
     nursing?: boolean | null;
     supportRequests?: boolean | null;
   } | null;
-  processors?: GqlWorkerRef[] | null;
   answerId?: string | null;
   hasFinalizedConsultationAnswers?: boolean | null;
   hasBillableProducts?: boolean | null;
@@ -466,6 +480,8 @@ export function mapGqlVisitDepartmentProduct(
     source: (item.source as VisitDepartmentProduct["source"]) || null,
     addedBy: mapGqlWorkerRef(item.addedBy),
     billedBy: mapGqlWorkerRef(item.billedBy),
+    confirmedBy: mapGqlWorkerRef(item.confirmedBy),
+    billingConfirmationStatus: (item.billingConfirmationStatus as any) || null,
     processor: mapGqlWorkerRef(item.processor),
     createdAt: item.createdAt || EMPTY_TIMESTAMP,
     updatedAt: item.updatedAt || EMPTY_TIMESTAMP,
@@ -525,7 +541,10 @@ export function mapGqlVisitDepartment(
           updatedAt: dept.profile.updatedAt || EMPTY_TIMESTAMP,
         }
       : null,
+    startedAt: dept.startedAt ?? null,
     completedAt: dept.completedAt,
+    addedBy: mapGqlWorkerRef(dept.addedBy),
+    completedBy: mapGqlWorkerRef(dept.completedBy),
     processors: (dept.processors || [])
       .map(mapGqlWorkerRef)
       .filter((worker): worker is Worker => Boolean(worker)),
@@ -545,7 +564,21 @@ export function mapGqlVisitDepartment(
       instructions: String(medication.instructions || ""),
       createdAt: medication.createdAt || EMPTY_TIMESTAMP,
     })),
-    preInstructions: [],
+    preInstructions: ((dept.preInstructions || []) as any[]).map((pi: any) => ({
+      id: String(pi.id || ""),
+      type: String(pi.type || ""),
+      note: pi.note || null,
+      addedBy: mapGqlWorkerRef(pi.addedBy),
+      medications: [],
+      products: [],
+      createdAt: pi.createdAt || EMPTY_TIMESTAMP,
+    })),
+    notes: (dept as any).notes
+      ? {
+          totalNotes: Number((dept as any).notes.totalNotes || 0),
+          newNotes: Number((dept as any).notes.newNotes || 0),
+        }
+      : null,
     answerId: dept.answerId ?? null,
     hasFinalizedConsultationAnswers: dept.hasFinalizedConsultationAnswers ?? null,
     hasBillableProducts: dept.hasBillableProducts ?? null,

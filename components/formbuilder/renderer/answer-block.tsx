@@ -29,8 +29,9 @@ export function AnswerBlock({
   context,
   blockHandlers,
   getBlockHandlers,
+  allBlocks,
 }: AnswerBlockProps) {
-  if (!shouldRenderBlock(block, answers)) return null;
+  if (!shouldRenderBlock(block, answers, getBlockHandlers, allBlocks)) return null;
 
   const ctx = context ?? { doctor: null, clinicProfile: null };
   const content = replacePlaceholders(block.content ?? "", ctx);
@@ -375,6 +376,7 @@ export function AnswerBlock({
           edit={edit}
           context={ctx}
           getBlockHandlers={getBlockHandlers}
+          allBlocks={allBlocks}
         />
       );
     default:

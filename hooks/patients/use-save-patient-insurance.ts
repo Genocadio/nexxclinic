@@ -49,12 +49,19 @@ export function validateSavePatientInsuranceInput(
     errors.dominant = 'Enter a valid phone number (7-15 digits, optional leading +)'
   }
 
+  const hasAnyDominant = Boolean(
+    input.dominantFirstName?.trim() ||
+    input.dominantLastName?.trim() ||
+    input.dominantPhone?.trim()
+  )
+
   if (
-    dominantRequired
+    (dominantRequired || hasAnyDominant)
     && (!input.dominantFirstName?.trim() || !input.dominantLastName?.trim() || !input.dominantPhone?.trim())
   ) {
-    errors.dominant =
-      'Dominant member first name, last name and phone are required for patients 18 years or younger.'
+    errors.dominant = dominantRequired
+      ? 'Dominant member first name, last name and phone are required for patients 18 years or younger.'
+      : 'Dominant member first name, last name and phone are all required if dominant member details are provided.'
   }
 
   return errors

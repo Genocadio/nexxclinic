@@ -284,15 +284,15 @@ describe("resolvePatientSharePercentage", () => {
     expect(pct).toBe(30);
   });
 
-  it("rejects the override when an exact (dept+encounterType) rule exists, falling to the rule", () => {
+  it("rejects the override when its own conditions are not satisfied, falling to the matching rule", () => {
     const coverages = makeTiers(
       tier("exact", 10, "dept-a", "OUTPATIENT"),
-      tier("override", 50),
+      tier("invalid-override", 50, "dept-b", "INPATIENT"),
     );
     const pct = resolvePatientSharePercentage({
       departmentId: "dept-a",
       encounterType: "OUTPATIENT",
-      selectedCoverageId: "override",
+      selectedCoverageId: "invalid-override",
       coverages,
     });
     expect(pct).toBe(10);
@@ -373,7 +373,7 @@ describe("resolvePatientSharePercentage", () => {
     expect(pct).toBe(25);
   });
 
-  it("base coverage rule wins over the patient-specific default (backend order)", () => {
+  it("patient-specific default wins over provider base coverage rule (backend order)", () => {
     const coverages = makeTiers(tier("base", 25));
     const pct = resolvePatientSharePercentage({
       departmentId: "dept-a",
@@ -381,7 +381,7 @@ describe("resolvePatientSharePercentage", () => {
       patientSharePercentage: 35,
       coverages,
     });
-    expect(pct).toBe(25);
+    expect(pct).toBe(35);
   });
 
   it("uses the patient-specific default when no coverage rule matches", () => {

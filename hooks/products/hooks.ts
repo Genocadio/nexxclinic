@@ -7,6 +7,7 @@ type ProductTypeFilter = 'DRUG' | 'MEDICAL_ACT' | 'BIOLOGICAL_ACT' | 'CONSUMABLE
 interface UseProductSearchOptions {
   type?: ProductTypeFilter
   size?: number
+  visitDepartmentId?: string
 }
 
 export function useProducts() {
@@ -21,10 +22,16 @@ export function useProducts() {
   return { products, loading, error: error?.message || null, refetch }
 }
 
-export function useProductsPaginated(options?: { name?: string; type?: ProductTypeFilter; size?: number }) {
+export function useProductsPaginated(options?: {
+  name?: string
+  type?: ProductTypeFilter
+  size?: number
+  visitDepartmentId?: string
+}) {
   const pageSize = options?.size ?? 30
   const typeFilter = options?.type && options.type !== 'ALL' ? options.type : undefined
   const searchQuery = options?.name
+  const visitDepartmentId = options?.visitDepartmentId
 
   const { data, loading, error, fetchMore, refetch } = useQuery(GET_PRODUCTS_QUERY, {
     variables: {
@@ -33,6 +40,7 @@ export function useProductsPaginated(options?: { name?: string; type?: ProductTy
         type: typeFilter,
         page: 0,
         size: pageSize,
+        visitDepartmentId: visitDepartmentId || undefined,
       }
     },
     fetchPolicy: 'cache-and-network',
@@ -59,6 +67,7 @@ export function useProductsPaginated(options?: { name?: string; type?: ProductTy
           type: typeFilter,
           page: nextPage,
           size: pageSize,
+          visitDepartmentId: visitDepartmentId || undefined,
         },
       },
       updateQuery: (previousResult, { fetchMoreResult }) => {
@@ -94,6 +103,7 @@ export function useProductsPaginated(options?: { name?: string; type?: ProductTy
         type: typeFilter,
         page: 0,
         size: pageSize,
+        visitDepartmentId: visitDepartmentId || undefined,
       },
     })
 
@@ -103,6 +113,7 @@ export function useProductsPaginated(options?: { name?: string; type?: ProductTy
 export function useProductSearch(searchQuery: string, options?: UseProductSearchOptions) {
   const pageSize = options?.size ?? 20
   const typeFilter = options?.type && options.type !== 'ALL' ? options.type : undefined
+  const visitDepartmentId = options?.visitDepartmentId
 
   const { data, loading, error, fetchMore, refetch } = useQuery(GET_PRODUCTS_QUERY, {
     variables: { 
@@ -111,6 +122,7 @@ export function useProductSearch(searchQuery: string, options?: UseProductSearch
         type: typeFilter,
         page: 0, 
         size: pageSize,
+        visitDepartmentId: visitDepartmentId || undefined,
       } 
     },
     fetchPolicy: 'cache-and-network',
@@ -138,6 +150,7 @@ export function useProductSearch(searchQuery: string, options?: UseProductSearch
           type: typeFilter,
           page: nextPage,
           size: pageSize,
+          visitDepartmentId: visitDepartmentId || undefined,
         },
       },
       updateQuery: (previousResult, { fetchMoreResult }) => {
@@ -173,6 +186,7 @@ export function useProductSearch(searchQuery: string, options?: UseProductSearch
         type: typeFilter,
         page: 0,
         size: pageSize,
+        visitDepartmentId: visitDepartmentId || undefined,
       },
     })
 

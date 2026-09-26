@@ -355,28 +355,34 @@ export function createPatientInsuranceFormSchema(options: {
         });
       }
 
-      // ── Dominant-member required rules ──
-      if (!options.dominantRequired) return;
-      if (!data.dominantFirstName) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["dominantFirstName"],
-          message: "Dominant member first name is required",
-        });
-      }
-      if (!data.dominantLastName) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["dominantLastName"],
-          message: "Dominant member last name is required",
-        });
-      }
-      if (!data.dominantPhone) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["dominantPhone"],
-          message: "Dominant member phone is required",
-        });
+      // ── Dominant-member rules ──
+      // Required if patient is <=18, OR if the user provided ANY dominant member detail (e.g. name without phone)
+      const hasAnyDominant = Boolean(
+        data.dominantFirstName || data.dominantLastName || data.dominantPhone,
+      );
+
+      if (options.dominantRequired || hasAnyDominant) {
+        if (!data.dominantFirstName) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["dominantFirstName"],
+            message: "Dominant member first name is required",
+          });
+        }
+        if (!data.dominantLastName) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["dominantLastName"],
+            message: "Dominant member last name is required",
+          });
+        }
+        if (!data.dominantPhone) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["dominantPhone"],
+            message: "Dominant member phone is required",
+          });
+        }
       }
     });
 }

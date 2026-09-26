@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, SetStateAction, MutableRefObject } from "react";
 import { toast } from "react-toastify";
 import {
   applyInsuranceSelectionToItem,
@@ -112,6 +112,7 @@ export interface BillingActionsContext {
   setShowAddProductModal: Dispatch<SetStateAction<boolean>>;
   setAddingBillingItem: Dispatch<SetStateAction<boolean>>;
   setActiveService?: Dispatch<SetStateAction<string>>;
+  hasLocalEditsRef?: MutableRefObject<boolean>;
 }
 
 /**
@@ -169,6 +170,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     setShowAddProductModal,
     setAddingBillingItem,
     setActiveService,
+    hasLocalEditsRef,
   } = ctx;
 
   const handleDownloadInvoice = async (
@@ -278,16 +280,26 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       );
     }
 
-    const availableDepartments = topLevelBillingDepartments;
-    const initialDepartment =
-      availableDepartments.length === 1
-        ? availableDepartments[0]
-        : availableDepartments.find(
+    const targetDept =
+      (activeVisitDepartment
+        ? topLevelBillingDepartments.find(
+            (d) =>
+              d.id === activeVisitDepartment.id ||
+              (d.childVisitDepartments &&
+                d.childVisitDepartments.some(
+                  (c) => c.id === activeVisitDepartment.id,
+                )),
+          )
+        : null) ||
+      (previewDepartmentId
+        ? topLevelBillingDepartments.find(
             (dept) => dept.id === previewDepartmentId,
-          ) || availableDepartments[0];
+          )
+        : null) ||
+      topLevelBillingDepartments[0];
 
-    if (initialDepartment) {
-      setPreviewDepartmentId(initialDepartment.id);
+    if (targetDept?.id) {
+      setPreviewDepartmentId(targetDept.id);
     }
 
     setPreviewStartedAt(Date.now());
@@ -333,7 +345,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       (item) => item.paymentStatus !== "paid",
     );
 
-    if (unbilledItems.length === 0) {
+    if (!isEditingBill && unbilledItems.length === 0) {
       if (canDischargeVisit && ENABLE_DISCHARGE) {
         requestDischarge();
         return;
@@ -433,24 +445,11 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         );
 
         if (response.status !== "SUCCESS") {
-          // Edit failed — cancel the editing session so the department
-          // returns to its previous state instead of staying locked
-          if (activeVisitDepartment?.id) {
-            // Collect IDs of products that were added during this edit session
-            const addedIds = billingData.items
-              .filter((item) => !editModeSnapshot?.some((s) => s.id === item.id))
-              .map((item) => item.id)
-              .filter((id) => !id.startsWith("temp-"));
-            try {
-              await cancelBillEditing(activeVisitDepartment.id, addedIds);
-            } catch (cancelErr) {
-              console.error("Failed to cancel billing edit session:", cancelErr);
-              toast.error(
-                "Bill edit failed and the edit session could not be closed. " +
-                "Please refresh the page and try again."
-              );
-            }
-          }
+          // Do not auto-cancel edit session on failure. Keep the user in edit
+          // mode on the frontend and keep the backend DEPARTMENT_EDITING lock intact
+          // so the user can correct validation errors or retry.
+          toast.error(response.message || "Failed to update bill.");
+          return;
         }
       } else {
         response = await createBill(
@@ -465,23 +464,32 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       }
 
       if (response.status === "SUCCESS") {
-        setBillJustCreated(true);        // Complete ONLY the active department (not the visit itself)
+        setBillJustCreated(true);
+        // Immediately exit edit mode and clear local edits guard
+        setIsEditingBill(false);
+        setEditModeSnapshot(null);
+        setConfirmSheetMode("complete");
+        if (hasLocalEditsRef) {
+          hasLocalEditsRef.current = false;
+        }
+
         const activeDept = visit?.departments?.find(
           (d) => (d.department?.name || "General") === activeService,
         );
-        if (activeDept && activeDept.status !== "COMPLETED") {
+        if (
+          activeDept &&
+          activeDept.status !== "COMPLETED" &&
+          activeDept.status !== "DEPARTMENT_EDITING"
+        ) {
           await updateDepartmentStatus(String(activeDept.id), "COMPLETED");
         }
 
-        // Refetch visit and bill data
+        // Force a re-map of the updated billing data from server
+        setBillingRemapNonce((n) => n + 1);
+
+        // Refetch visit and bill data so the new version and items are loaded
         await refetchVisit();
         await refetchBill();
-        // If we just finished an edit, exit edit mode.
-        if (isEditingBill) {
-          setIsEditingBill(false);
-          setEditModeSnapshot(null);
-          setConfirmSheetMode("complete");
-        }
 
         // All departments billed — ask user if they want to discharge
         if (ENABLE_DISCHARGE) {
@@ -909,6 +917,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
                 updatedAt: new Date().toISOString(),
               };
             });
+            await refetchVisit();
           }
         } else {
           // Fallback to refetch if response data is incomplete

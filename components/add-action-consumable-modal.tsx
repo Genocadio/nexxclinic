@@ -54,8 +54,9 @@ interface Processor {
 interface AddActionConsumableModalProps {
   isOpen: boolean
   onClose: () => void
-  departments: { id: string; name: string }[]
+  departments: { id: string; name: string; visitDepartmentId?: string }[]
   currentDepartmentId?: string
+  visitDepartmentId?: string
   viewMode: 'all' | 'service'
   onAdd: (type: 'action' | 'consumable', item: ActionOrConsumable, quantity: number, departmentId: string, processorId?: string) => void
   existingProductReferenceIds?: string[]
@@ -70,6 +71,7 @@ export default function AddActionConsumableModal({
   onClose,
   departments,
   currentDepartmentId,
+  visitDepartmentId,
   viewMode,
   onAdd,
   existingProductReferenceIds = [],
@@ -92,6 +94,9 @@ export default function AddActionConsumableModal({
   const isFetchingMoreRef = useRef(false)
   const existingProductIdSet = new Set((existingProductReferenceIds || []).map(String))
   const selectedAlreadyAdded = selectedItem ? existingProductIdSet.has(selectedItem.id) : false
+
+  // Resolve active visit department id for backend product filtering
+  const activeVisitDepartmentId = departments.find((d) => d.id === selectedDepartmentId)?.visitDepartmentId || visitDepartmentId
 
   // Helper to get insurance-aware pricing
   const getInsuranceAwarePricing = (item: ActionOrConsumable) => {
@@ -134,7 +139,11 @@ export default function AddActionConsumableModal({
     loading,
     hasMore,
     loadMore,
-  } = useProductSearch(debouncedSearchQuery, { type: productType, size: 10 })
+  } = useProductSearch(debouncedSearchQuery, {
+    type: productType,
+    size: 10,
+    visitDepartmentId: activeVisitDepartmentId,
+  })
 
   // Keep department selection in sync with the view's current department
   useEffect(() => {

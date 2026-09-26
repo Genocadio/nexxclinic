@@ -66,3 +66,18 @@ function formatDate(dateStr: string): string {
     return dateStr;
   }
 }
+
+/**
+ * Resolves the display name for an insurance provider, prioritizing the acronym
+ * if present and non-empty, falling back to full insuranceName, name, or "Insurance".
+ */
+export function getInsuranceDisplayName(
+  provider?: { acronym?: string | null; insuranceName?: string | null; name?: string | null } | null
+): string {
+  if (!provider) return "Insurance"
+  if (provider.acronym && provider.acronym.trim()) return provider.acronym.trim()
+  if (provider.insuranceName && provider.insuranceName.trim()) return provider.insuranceName.trim()
+  if (provider.name && provider.name.trim()) return provider.name.trim()
+  return "Insurance"
+}
+

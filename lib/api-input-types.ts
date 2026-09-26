@@ -317,6 +317,8 @@ export interface SearchProductsInput {
   type?: ProductType
   page?: number
   size?: number
+  insuranceProviderId?: string
+  visitDepartmentId?: string
 }
 
 // ============================================
@@ -430,6 +432,10 @@ export interface UpdateVisitDepartmentProductQuantityInput {
 
 export interface SearchVisitsInput {
   visitDate?: string
+  fromDate?: string
+  toDate?: string
+  recentDays?: number
+  activeOnly?: boolean
   status?: VisitStatus
   patientName?: string
   page?: number

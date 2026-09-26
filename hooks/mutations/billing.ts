@@ -138,8 +138,12 @@ export const RECORD_VISIT_BILLING_PAYMENT_MUTATION = gql`
 `;
 
 export const GENERATE_INVOICE_MUTATION = gql`
-  mutation GenerateInvoice($departmentInsuranceBillingId: ID!) {
+  mutation GenerateInvoice(
+    $visitDepartmentId: ID
+    $departmentInsuranceBillingId: ID
+  ) {
     generateInvoice(
+      visitDepartmentId: $visitDepartmentId
       departmentInsuranceBillingId: $departmentInsuranceBillingId
     ) {
       status
@@ -214,3 +218,13 @@ export const QUICK_BILL_MUTATION = gql`
     }
   }
 `;
+
+export const CONFIRM_VISIT_DEPARTMENT_PRODUCT_MUTATION = gql`
+  mutation ConfirmVisitDepartmentProduct($visitDepartmentProductId: ID!) {
+    confirmVisitDepartmentProduct(visitDepartmentProductId: $visitDepartmentProductId) {
+      status
+      message
+    }
+  }
+`;
+

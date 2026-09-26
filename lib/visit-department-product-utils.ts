@@ -29,6 +29,17 @@ export function resolveCatalogDepartmentIdForService(
   return match?.department?.id ? String(match.department.id) : undefined
 }
 
+export function resolveVisitDepartmentIdForService(
+  visitDepartments: VisitDepartment[] = [],
+  serviceName?: string,
+): string | undefined {
+  if (!serviceName) return undefined
+  const match = visitDepartments.find(
+    (dept) => (dept.department?.name || 'General') === serviceName,
+  )
+  return match?.id ? String(match.id) : undefined
+}
+
 export function collectExistingProductReferenceIds(
   visitDepartments: VisitDepartment[] = [],
 ): string[] {

@@ -257,6 +257,8 @@ export default function PatientFormDialog({
           insuranceId: "0",
           insuranceCardNumber: "",
           providingCompanyOrEmployer: "",
+          patientShareCoverageId: "",
+          patientSharePercentage: "",
           dominantMember: {
             firstName: "",
             lastName: "",
@@ -319,12 +321,21 @@ export default function PatientFormDialog({
         !pendingSaveRef.current.has(i)
       ) {
         const dominantRequired = isDominantMemberRequired(formData.dateOfBirth, true)
-        if (
-          !dominantRequired ||
-          (ins.dominantMember?.firstName?.trim() &&
-            ins.dominantMember?.lastName?.trim() &&
-            ins.dominantMember?.phone?.trim())
-        ) {
+        const hasAnyDominant = Boolean(
+          ins.dominantMember?.firstName?.trim() ||
+          ins.dominantMember?.lastName?.trim() ||
+          ins.dominantMember?.phone?.trim()
+        )
+        const dominantValid = !dominantRequired && !hasAnyDominant
+          ? true
+          : Boolean(
+              ins.dominantMember?.firstName?.trim() &&
+              ins.dominantMember?.lastName?.trim() &&
+              ins.dominantMember?.phone?.trim() &&
+              /^\+?\d{7,15}$/.test(ins.dominantMember.phone.trim())
+            )
+
+        if (dominantValid) {
           pendingSaveRef.current.add(i)
           setSavingInsurances((prev) => new Set(prev).add(i))
 
@@ -517,14 +528,21 @@ export default function PatientFormDialog({
           insuranceErrors[`${prefix}.dominant`] =
             "Enter a valid phone number (7-15 digits, optional leading +)"
         }
-        if (dominantMemberRequired) {
+        const hasAnyDominant = Boolean(
+          insurance.dominantMember?.firstName?.trim() ||
+          insurance.dominantMember?.lastName?.trim() ||
+          phone
+        )
+
+        if (dominantMemberRequired || hasAnyDominant) {
           if (
             missing(insurance.dominantMember?.firstName) ||
             missing(insurance.dominantMember?.lastName) ||
             missing(insurance.dominantMember?.phone)
           ) {
-            insuranceErrors[`${prefix}.dominant`] =
-              "Dominant member first name, last name, and phone are required for patients 18 years or younger"
+            insuranceErrors[`${prefix}.dominant`] = dominantMemberRequired
+              ? "Dominant member first name, last name, and phone are required for patients 18 years or younger"
+              : "Dominant member first name, last name, and phone are all required if dominant member details are provided"
           }
         }
       }

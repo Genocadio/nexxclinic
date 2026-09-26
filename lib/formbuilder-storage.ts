@@ -121,10 +121,12 @@ export interface BlockConditional {
   /** ID of the block whose value drives the condition */
   dependsOn: string;
   condition: ConditionalConditionType;
-  /** For 'equals', 'includes', 'hasItem' (item name filter) */
+  /** For 'equals', 'includes', 'hasItem' (item ID or filter string) */
   value?: string;
   /** For 'hasItem' — filter by product type */
   itemType?: "action" | "consumable";
+  /** Human-friendly label for display summary (e.g. product name) */
+  itemLabel?: string;
 }
 
 // ─── Inline answer fields (for paragraph blocks) ──────────────────────────

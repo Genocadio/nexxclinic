@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@apollo/client";
-import { GET_BILL_BY_VISIT_QUERY } from "../queries";
+import { GET_BILL_BY_VISIT_QUERY, GET_VISIT_DEPARTMENT_BILLING_QUERY } from "../queries";
 import {
   CREATE_BILL_MUTATION,
   EDIT_BILL_MUTATION,
@@ -9,13 +9,17 @@ import {
   COMPLETE_BILL_EDITING_MUTATION,
   CANCEL_BILL_EDITING_MUTATION,
   QUICK_BILL_MUTATION,
+  CONFIRM_VISIT_DEPARTMENT_PRODUCT_MUTATION,
 } from "../mutations";
 import type { VisitBilling, ApiResponse } from "../types";
 import type { InvoiceResponse } from "../types";
 import {
   mapGqlVisitBilling,
+  mapGqlVisitDepartmentBilling,
   type GqlVisitBilling,
+  type GqlVisitDepartmentBilling,
 } from "@/lib/visit-billing-utils";
+import type { VisitDepartmentBilling } from "@/lib/api-types";
 
 export type { GqlVisitBilling } from "@/lib/visit-billing-utils";
 
@@ -197,9 +201,21 @@ export interface EditBillInput {
   }[];
 }
 
+const billingRefetchQueries = [
+  "GetVisits",
+  "GetVisit",
+  "GetVisitBilling",
+  "GetVisitBillingForSettings",
+  "GetVisitDepartmentProfiles",
+  "GetBillByVisit",
+];
+
 export function useEditBill() {
   const [editBillMutation, { loading, error }] =
-    useMutation<EditBillPayload>(EDIT_BILL_MUTATION);
+    useMutation<EditBillPayload>(EDIT_BILL_MUTATION, {
+      refetchQueries: billingRefetchQueries,
+      awaitRefetchQueries: true,
+    });
 
   const editBill = async (
     input: EditBillInput,
@@ -241,6 +257,10 @@ export function useRecordVisitBillingPayment() {
   const [mutation, { loading, error }] =
     useMutation<RecordVisitBillingPaymentPayload>(
       RECORD_VISIT_BILLING_PAYMENT_MUTATION,
+      {
+        refetchQueries: billingRefetchQueries,
+        awaitRefetchQueries: true,
+      },
     );
 
   const recordPayment = async (input: {
@@ -271,10 +291,19 @@ export function useGenerateInvoice() {
   const [generateInvoiceMutation, { loading, error }] =
     useMutation<GenerateInvoicePayload>(GENERATE_INVOICE_MUTATION);
 
-  const generateInvoice = async (departmentInsuranceBillingId: string) => {
+  const generateInvoice = async (
+    targetId: string,
+    options?: { isVisitDepartmentId?: boolean; visitDepartmentId?: string; departmentInsuranceBillingId?: string }
+  ) => {
     try {
+      const isVisitDept = options?.isVisitDepartmentId ?? false;
+      const visitDepartmentId = options?.visitDepartmentId ?? (isVisitDept ? targetId : undefined);
+      const departmentInsuranceBillingId = options?.departmentInsuranceBillingId ?? (!isVisitDept ? targetId : undefined);
       const result = await generateInvoiceMutation({
-        variables: { departmentInsuranceBillingId },
+        variables: {
+          visitDepartmentId,
+          departmentInsuranceBillingId,
+        },
       });
       return result?.data?.generateInvoice;
     } catch (err) {
@@ -296,7 +325,10 @@ export interface BillEditingResponse {
 export function useStartBillEditing() {
   const [mutation, { loading, error }] = useMutation<{
     startBillEditing: { status: string; message?: string; data?: BillEditingResponse };
-  }>(START_BILL_EDITING_MUTATION);
+  }>(START_BILL_EDITING_MUTATION, {
+    refetchQueries: billingRefetchQueries,
+    awaitRefetchQueries: true,
+  });
 
   const startBillEditing = async (visitDepartmentId: string): Promise<{ status: string; message?: string }> => {
     try {
@@ -315,7 +347,10 @@ export function useStartBillEditing() {
 export function useCompleteBillEditing() {
   const [mutation, { loading, error }] = useMutation<{
     completeBillEditing: { status: string; message?: string; data?: BillEditingResponse };
-  }>(COMPLETE_BILL_EDITING_MUTATION);
+  }>(COMPLETE_BILL_EDITING_MUTATION, {
+    refetchQueries: billingRefetchQueries,
+    awaitRefetchQueries: true,
+  });
 
   const completeBillEditing = async (visitDepartmentId: string): Promise<{ status: string; message?: string }> => {
     try {
@@ -334,7 +369,10 @@ export function useCompleteBillEditing() {
 export function useCancelBillEditing() {
   const [mutation, { loading, error }] = useMutation<{
     cancelBillEditing: { status: string; message?: string; data?: BillEditingResponse };
-  }>(CANCEL_BILL_EDITING_MUTATION);
+  }>(CANCEL_BILL_EDITING_MUTATION, {
+    refetchQueries: billingRefetchQueries,
+    awaitRefetchQueries: true,
+  });
 
   const cancelBillEditing = async (visitDepartmentId: string, addedProductIds?: string[]): Promise<{ status: string; message?: string }> => {
     try {
@@ -351,7 +389,10 @@ export function useCancelBillEditing() {
 }
 
 export function useQuickBill() {
-  const [mutation, { loading, error }] = useMutation<QuickBillMutationData>(QUICK_BILL_MUTATION);
+  const [mutation, { loading, error }] = useMutation<QuickBillMutationData>(QUICK_BILL_MUTATION, {
+    refetchQueries: billingRefetchQueries,
+    awaitRefetchQueries: true,
+  });
 
   const quickBill = async (visitId: string) => {
     try {
@@ -366,3 +407,58 @@ export function useQuickBill() {
 
   return { quickBill, loading, error };
 }
+
+export function useConfirmVisitDepartmentProduct() {
+  const [mutation, { loading, error }] = useMutation(CONFIRM_VISIT_DEPARTMENT_PRODUCT_MUTATION, {
+    refetchQueries: billingRefetchQueries,
+    awaitRefetchQueries: true,
+  });
+
+  const confirmVisitDepartmentProduct = async (visitDepartmentProductId: string) => {
+    try {
+      const result = await mutation({ variables: { visitDepartmentProductId } });
+      const payload = result?.data?.confirmVisitDepartmentProduct;
+      return { status: payload?.status || "ERROR", message: payload?.message };
+    } catch (err) {
+      console.error("Confirm visit department product error:", err);
+      throw err;
+    }
+  };
+
+  return { confirmVisitDepartmentProduct, loading, error };
+}
+
+export interface VisitDepartmentBillingQueryData {
+  getVisitDepartmentBilling: {
+    status: string;
+    message?: string;
+    data?: GqlVisitDepartmentBilling | null;
+  };
+}
+
+export function useVisitDepartmentBilling(
+  visitDepartmentId?: string | null,
+  options?: { skip?: boolean },
+) {
+  const { data, loading, error, refetch } = useQuery<VisitDepartmentBillingQueryData>(
+    GET_VISIT_DEPARTMENT_BILLING_QUERY,
+    {
+      variables: { visitDepartmentId },
+      skip: !visitDepartmentId || Boolean(options?.skip),
+      fetchPolicy: "cache-and-network",
+    },
+  );
+
+  const gqlData = data?.getVisitDepartmentBilling?.data;
+  const departmentBilling: VisitDepartmentBilling | null = gqlData
+    ? mapGqlVisitDepartmentBilling(gqlData)
+    : null;
+
+  return {
+    departmentBilling,
+    loading,
+    error,
+    refetch,
+  };
+}
+

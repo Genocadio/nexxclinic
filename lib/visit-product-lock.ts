@@ -9,9 +9,9 @@ export function isVisitOrDepartmentClosedForProducts(
   const normalizedDepartmentStatus = String(visitDepartmentStatus || '').toUpperCase()
 
   return (
-    normalizedVisitStatus === 'COMPLETED' ||
     normalizedVisitStatus === 'CANCELLED' ||
     normalizedDepartmentStatus === 'COMPLETED' ||
-    normalizedDepartmentStatus === 'CANCELLED'
+    normalizedDepartmentStatus === 'CANCELLED' ||
+    normalizedDepartmentStatus === 'FINALISED'
   )
 }

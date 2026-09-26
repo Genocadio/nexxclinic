@@ -469,23 +469,31 @@ export function AddPatientInsuranceModal({
                   Dominant Member {dominantRequired ? '(required for patients 18 years or younger)' : '(optional)'}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Input
-                    {...register('dominantFirstName')}
-                    placeholder="First name"
-                    className={formErrors.dominantFirstName ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                  />
-                  <Input
-                    {...register('dominantLastName')}
-                    placeholder="Last name"
-                    className={formErrors.dominantLastName ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                  />
+                  <div className="space-y-1">
+                    <Input
+                      {...register('dominantFirstName')}
+                      placeholder="First name"
+                      className={formErrors.dominantFirstName ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                    />
+                    <FieldError message={formErrors.dominantFirstName?.message} />
+                  </div>
+                  <div className="space-y-1">
+                    <Input
+                      {...register('dominantLastName')}
+                      placeholder="Last name"
+                      className={formErrors.dominantLastName ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                    />
+                    <FieldError message={formErrors.dominantLastName?.message} />
+                  </div>
                 </div>
-                <Input
-                  {...register('dominantPhone')}
-                  placeholder="Phone"
-                  className={formErrors.dominantPhone ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                />
-                <FieldError message={formErrors.dominantFirstName?.message ?? formErrors.dominantLastName?.message ?? formErrors.dominantPhone?.message} />
+                <div className="space-y-1">
+                  <Input
+                    {...register('dominantPhone')}
+                    placeholder="Phone (e.g. +250788123456 or 0788123456)"
+                    className={formErrors.dominantPhone ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                  />
+                  <FieldError message={formErrors.dominantPhone?.message} />
+                </div>
               </div>
             </>
           )}

@@ -247,6 +247,38 @@ describe("createPatientInsuranceFormSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("requires phone if dominant-member name is provided for adults", () => {
+    const result = createPatientInsuranceFormSchema({
+      dominantRequired: false,
+    }).safeParse({
+      ...base,
+      dominantFirstName: "Jane",
+      dominantLastName: "Doe",
+      dominantPhone: "",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const phoneError = result.error.issues.find((i) => i.path.includes("dominantPhone"));
+      expect(phoneError?.message).toBe("Dominant member phone is required");
+    }
+  });
+
+  it("requires name if dominant-member phone is provided for adults", () => {
+    const result = createPatientInsuranceFormSchema({
+      dominantRequired: false,
+    }).safeParse({
+      ...base,
+      dominantFirstName: "",
+      dominantLastName: "",
+      dominantPhone: "0712345678",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const fnError = result.error.issues.find((i) => i.path.includes("dominantFirstName"));
+      expect(fnError?.message).toBe("Dominant member first name is required");
+    }
+  });
+
   it("accepts complete dominant-member info", () => {
     const result = createPatientInsuranceFormSchema({
       dominantRequired: true,

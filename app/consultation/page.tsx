@@ -6,8 +6,10 @@ import {
     useVisitDepartmentNotes,
     useAddVisitDepartmentNote,
     useMarkVisitDepartmentNotesViewed,
+    useConsultVisit,
 } from "@/hooks/visits/hooks";
 import { useAuth } from "@/lib/auth-context";
+import { hasRole } from "@/lib/role-utils";
 import { StandaloneConsultationView } from "@/components/consultation/standalone-consultation-view";
 import VisitNotesFloating from "@/components/visit-notes-floating";
 import Header from "@/components/header";
@@ -15,6 +17,8 @@ import type { FormAction } from "@/lib/form-storage";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import InlineTryAgain from "@/components/inline-try-again";
+
+import { visitProductToFormAction } from "@/components/formbuilder/extensions/consultation-visit/utils";
 
 export default function ConsultationPage() {
     const router = useRouter();
@@ -26,12 +30,54 @@ export default function ConsultationPage() {
     const { visit, loading, error, refetch } = useVisit(visitId || "");
     const { addVisitDepartmentNote } = useAddVisitDepartmentNote();
     const { markNotesViewed } = useMarkVisitDepartmentNotesViewed();
+    const { consultVisit } = useConsultVisit();
     const [notesOpen, setNotesOpen] = useState(false);
 
-    const firstDepartment = visit?.departments?.[0];
-    const firstVisitDepartmentId = firstDepartment?.id;
+    const visitDepartmentIdParam = searchParams.get("visitDepartmentId");
+    const departmentIdParam = searchParams.get("departmentId");
+
+    const activeDepartment =
+        (visit?.departments || []).find((d) =>
+            (visitDepartmentIdParam && d.id === visitDepartmentIdParam) ||
+            (departmentIdParam && d.department?.id === departmentIdParam)
+        ) ||
+        (visit?.departments || []).find((d) =>
+            doctor?.departments?.some((docDept) => docDept.id === d.department?.id)
+        ) ||
+        (visit?.departments || []).find((d) =>
+            d.products && d.products.length > 0
+        ) ||
+        (visit?.departments || []).find((d) =>
+            d.department?.name?.toLowerCase() !== "triage" &&
+            d.department?.name?.toLowerCase() !== "nursing"
+        ) ||
+        visit?.departments?.[0];
+
+    const activeVisitDepartmentId = activeDepartment?.id;
     const { notes: departmentNotes, refetch: refetchNotes } =
-        useVisitDepartmentNotes(visitId || "", firstVisitDepartmentId || null);
+        useVisitDepartmentNotes(visitId || "", activeVisitDepartmentId || null);
+
+    useEffect(() => {
+        if (
+            visit &&
+            activeDepartment &&
+            doctor?.id &&
+            hasRole(doctor.roles || [], "CLINICIAN") &&
+            activeDepartment.status !== "COMPLETED" &&
+            activeDepartment.status !== "FINALISED" &&
+            activeDepartment.status !== "CANCELLED"
+        ) {
+            const isAlreadyProcessor = (activeDepartment.processors || []).some(
+                (p) => p.id === doctor.id
+            );
+            const isPending = activeDepartment.status === "PENDING";
+            if (isPending || !isAlreadyProcessor) {
+                consultVisit(activeDepartment.id).catch((err) => {
+                    console.error("Auto consultVisit sync failed:", err);
+                });
+            }
+        }
+    }, [visit?.id, activeDepartment?.id, activeDepartment?.status, doctor?.id]);
 
     useEffect(() => {
         if (!loading && !visit && !error) {
@@ -78,29 +124,10 @@ export default function ConsultationPage() {
         );
     }
 
-    if (!visit || !firstDepartment) return consultationSkeleton;
+    if (!visit || !activeDepartment) return consultationSkeleton;
 
-    const existingProducts: FormAction[] = (firstDepartment.products || []).map(
-        (line) => ({
-            id: line.id,
-            name: line.product.name,
-            type: line.product.type === "CONSUMABLE_DEVICE" ? "consumable" : "action",
-            quantity: line.quantity || 0,
-            // The backend no longer returns a price on the visit product line —
-            // fall back to the product catalog price.
-            price: Number(
-                line.product.clinicPrice ??
-                line.product.privateRhicPrice ??
-                0,
-            ),
-            privatePrice: Number(
-                line.product.clinicPrice ??
-                line.product.privateRhicPrice ??
-                0,
-            ),
-            isQuantifiable: true,
-            backendId: String(line.id),
-        }),
+    const existingProducts: FormAction[] = (activeDepartment.products || []).map(
+        (line) => visitProductToFormAction(line as any),
     );
 
     return (
@@ -109,7 +136,7 @@ export default function ConsultationPage() {
 
             <StandaloneConsultationView
                 visit={visit}
-                visitDepartment={firstDepartment}
+                visitDepartment={activeDepartment}
                 patient={visit.patient}
                 existingProducts={existingProducts}
                 onVisitRefetch={() => {
@@ -126,7 +153,7 @@ export default function ConsultationPage() {
                 onOpenChange={setNotesOpen}
                 hideToggleButton
                 onAddNote={async (noteType, content) => {
-                    const visitDepartmentId = String(firstVisitDepartmentId || "");
+                    const visitDepartmentId = String(activeVisitDepartmentId || "");
                     if (!visitDepartmentId)
                         throw new Error("No department selected for consultation note");
                     const result = await addVisitDepartmentNote(
@@ -141,7 +168,7 @@ export default function ConsultationPage() {
                     await refetch();
                 }}
                 onMarkAsViewed={async () => {
-                    await markNotesViewed(String(firstVisitDepartmentId || ""));
+                    await markNotesViewed(String(activeVisitDepartmentId || ""));
                     await refetchNotes();
                     await refetch();
                 }}

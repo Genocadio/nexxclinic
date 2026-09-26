@@ -198,6 +198,9 @@ export function mapVisitToBillingData(
         processorName: line.processor && (department.processors || []).length > 1 ? (
           [line.processor.firstName, line.processor.lastName].filter(Boolean).join(" ") || undefined
         ) : undefined,
+        billingConfirmationStatus: (line.billingConfirmationStatus as any) || null,
+        confirmedByName: line.confirmedBy ? workerDisplayName(line.confirmedBy) : null,
+        visitBillingItemId: line.billingItem?.id || null,
         doneBy: {
           name: workerDisplayName(
             line.addedBy || line.billedBy || line.processor,

@@ -2,6 +2,7 @@
 
 import { GitBranch, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { ProductAutocomplete } from '@/components/ui/product-autocomplete'
 import type { FormBlock, BlockConditional, ConditionalConditionType } from '@/lib/formbuilder-storage'
 import {
   canBlockBeParent,
@@ -207,24 +208,31 @@ export function ConditionalConfig({
                   }
                   className="w-full mt-0.5 h-7 px-2 text-xs border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
                 >
-                  <option value="">Any type</option>
+                  <option value="">Any product type</option>
                   <option value="action">Actions only</option>
                   <option value="consumable">Consumables only</option>
                 </select>
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">
-                  Product name filter{' '}
-                  <span className="font-normal">(optional — leave blank for any)</span>
+                  Required product{' '}
+                  <span className="font-normal">(select by name to match ID, or leave blank for any)</span>
                 </label>
-                <Input
-                  className="mt-0.5 h-7 text-xs"
-                  value={value.value ?? ''}
-                  placeholder="e.g. ECG, Consultation…"
-                  onChange={e =>
-                    onChange({ ...value, value: e.target.value || undefined })
-                  }
-                />
+                <div className="mt-1">
+                  <ProductAutocomplete
+                    selectedProductId={value.value ?? ''}
+                    selectedProductName={value.itemLabel}
+                    onProductSelect={(id, prod) => {
+                      onChange({
+                        ...value,
+                        value: id || undefined,
+                        itemLabel: prod?.name || undefined,
+                      })
+                    }}
+                    placeholder="Search product by name…"
+                    className="h-8 text-xs"
+                  />
+                </div>
               </div>
             </>
           )}

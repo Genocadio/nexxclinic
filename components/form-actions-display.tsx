@@ -4,9 +4,11 @@ import { useState, useRef } from "react"
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Pill, Trash2, Minus, Plus, AlertTriangle } from "lucide-react"
+import { Pill, Trash2, Minus, Plus, AlertTriangle, Check } from "lucide-react"
+import { toast } from "react-toastify"
 import type { FormAction } from "@/lib/form-storage"
 import { useRemoveProductFromVisitDepartment, useUpdateProductQuantity } from "@/hooks/visits"
+import { useConfirmVisitDepartmentProduct } from "@/hooks/billing/hooks"
 
 interface FormActionsDisplayProps {
   items: FormAction[]
@@ -41,6 +43,8 @@ export default function FormActionsDisplay({
 }: FormActionsDisplayProps) {
   const { updateQuantity } = useUpdateProductQuantity()
   const { removeProduct } = useRemoveProductFromVisitDepartment()
+  const { confirmVisitDepartmentProduct } = useConfirmVisitDepartmentProduct()
+  const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set())
   // Track which item's qty is being directly edited, and the draft string value
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draftQty, setDraftQty] = useState<string>('')
@@ -127,11 +131,61 @@ export default function FormActionsDisplay({
             <p className={`text-sm font-medium truncate leading-tight ${isRemoved ? 'line-through text-muted-foreground' : ''}`}>
               {item.name}
             </p>
+            {item.billingConfirmationStatus === "PENDING_OPERATOR_CONFIRMATION" &&
+              !confirmedIds.has(item.id) && (
+                <span className="shrink-0 text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-medium">
+                  Added in Billing
+                </span>
+              )}
+            {(confirmedIds.has(item.id) ||
+              item.billingConfirmationStatus === "CONFIRMED" ||
+              item.confirmedByName) && (
+              <span className="shrink-0 text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-1.5 py-0.5 rounded-full font-medium">
+                {item.confirmedByName
+                  ? `Confirmed by ${item.confirmedByName}`
+                  : "Confirmed"}
+              </span>
+            )}
           </div>
-          {/* Quantity pill — always visible */}
-          <span className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground bg-muted/60 rounded-full px-2 py-0.5 leading-none">
-            ×{item.quantity}
-          </span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Quantity pill — always visible */}
+            <span className="text-xs font-semibold tabular-nums text-muted-foreground bg-muted/60 rounded-full px-2 py-0.5 leading-none">
+              ×{item.quantity}
+            </span>
+            {item.billingConfirmationStatus === "PENDING_OPERATOR_CONFIRMATION" &&
+              !confirmedIds.has(item.id) &&
+              item.backendId && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-[11px] px-2 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 gap-1 font-medium"
+                  disabled={busyId === item.id}
+                  onClick={async (e) => {
+                    e.stopPropagation()
+                    if (!item.backendId) return
+                    setBusyId(item.id)
+                    try {
+                      const res = await confirmVisitDepartmentProduct(item.backendId)
+                      if (res.status === "SUCCESS") {
+                        toast.success("Product accepted")
+                        setConfirmedIds((prev) => new Set([...prev, item.id]))
+                      } else {
+                        toast.error(res.message || "Failed to accept product")
+                      }
+                    } catch (err) {
+                      console.error("Error accepting product:", err)
+                      toast.error("Failed to accept product")
+                    } finally {
+                      setBusyId(null)
+                    }
+                  }}
+                >
+                  <Check className="h-3 w-3" />
+                  Accept
+                </Button>
+              )}
+          </div>
         </div>
 
         {/* Hover-only controls — collapses to 0 height by default */}

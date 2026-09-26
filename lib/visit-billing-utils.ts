@@ -120,6 +120,7 @@ export type GqlVisitDepartmentBilling = {
     department?: { id: string; name?: string | null } | null;
   } | null;
   payments?: GqlBillingPayment[] | null;
+  version?: { id: string; version: number } | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -209,7 +210,7 @@ function mapGqlDepartmentInsuranceBilling(
   };
 }
 
-function mapGqlVisitDepartmentBilling(
+export function mapGqlVisitDepartmentBilling(
   department: GqlVisitDepartmentBilling,
 ): VisitDepartmentBilling {
   return {
@@ -235,6 +236,9 @@ function mapGqlVisitDepartmentBilling(
     insuranceBillings: (department.insuranceBillings || []).map(
       mapGqlDepartmentInsuranceBilling,
     ),
+    version: department.version
+      ? { id: department.version.id, version: Number(department.version.version ?? 0) }
+      : undefined,
     createdAt: department.createdAt || EMPTY_TS,
     updatedAt: department.updatedAt || EMPTY_TS,
   };

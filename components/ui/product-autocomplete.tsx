@@ -10,8 +10,9 @@ import type { Product as ApiProduct } from '@/lib/api-types'
 import { useProductSearch } from '@/hooks/auth-hooks'
 
 interface ProductAutocompleteProps {
-  products: ApiProduct[]
+  products?: ApiProduct[]
   selectedProductId: string
+  selectedProductName?: string
   /** Called with the id and the full picked product (may come from backend search results). */
   onProductSelect: (productId: string, product?: ApiProduct) => void
   placeholder?: string
@@ -20,8 +21,9 @@ interface ProductAutocompleteProps {
 }
 
 export function ProductAutocomplete({
-  products,
+  products = [],
   selectedProductId,
+  selectedProductName,
   onProductSelect,
   placeholder = 'Search products...',
   disabled = false,
@@ -31,7 +33,12 @@ export function ProductAutocomplete({
   const [inputValue, setInputValue] = React.useState('')
   // Keep the full picked product locally so the selection stays visible even
   // when it came from backend search results (not present in the `products` prop).
-  const [selectedProduct, setSelectedProduct] = React.useState<ApiProduct | null>(null)
+  const [selectedProduct, setSelectedProduct] = React.useState<ApiProduct | null>(() => {
+    if (selectedProductId && selectedProductName) {
+      return { id: selectedProductId, name: selectedProductName } as ApiProduct
+    }
+    return null
+  })
 
   // Use backend search when user types, otherwise use provided products
   const { products: searchResults, loading: searchLoading } = useProductSearch(inputValue)
@@ -58,8 +65,10 @@ export function ProductAutocomplete({
       searchResults.find((p: ApiProduct) => String(p.id) === selectedProductId)
     if (found) {
       setSelectedProduct(found)
+    } else if (selectedProductName) {
+      setSelectedProduct({ id: selectedProductId, name: selectedProductName } as ApiProduct)
     }
-  }, [products, searchResults, selectedProductId])
+  }, [products, searchResults, selectedProductId, selectedProductName])
 
   const handleSelect = (product: ApiProduct) => {
     setSelectedProduct(product)

@@ -7,6 +7,7 @@ import {
   X,
   Trash2,
   Calendar,
+  CalendarClock,
   ReceiptText,
   AlertTriangle,
   CheckCircle,
@@ -16,6 +17,7 @@ import {
   Info,
   Eye,
   FileText,
+  Ban,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
@@ -30,22 +32,28 @@ import {
   CANCEL_VISIT_MUTATION,
   DELETE_VISIT_MUTATION,
   REMOVE_VISIT_DEPARTMENT_MUTATION,
-  CHANGE_VISIT_DATE_MUTATION,
   FINALISE_VISIT_DEPARTMENT_MUTATION,
+  UPDATE_VISIT_DEPARTMENT_STATUS_MUTATION,
   CHANGE_VISIT_DEPARTMENT_PROFILE_MUTATION,
   REMOVE_VISIT_DEPARTMENT_PROFILE_MUTATION,
+  UPDATE_VISIT_DEPARTMENT_ENCOUNTER_DATE_MUTATION,
+  COMPLETE_VISIT_MUTATION,
 } from "@/hooks/mutations/visits"
+import { canDischargeVisit } from "@/lib/visit-product-utils"
 import {
   UPDATE_BILLING_DATE_MUTATION,
 } from "@/hooks/mutations/billing"
 import {
   useStartBillEditing,
+  useCompleteBillEditing,
+  useCancelBillEditing,
   useGenerateInvoice,
 } from "@/hooks/billing/hooks"
 import { useGenerateConsultationPdf } from "@/hooks/visits/visit-mutations"
 import { ConsultationPreviewSheet } from "@/components/dashboard/consultation-preview-sheet"
 import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
-import { VISITS_QUERY } from "@/hooks/queries/visits"
+import { VISITS_QUERY, GET_VISIT_QUERY } from "@/hooks/queries/visits"
+import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries/billing"
 import {
   Select,
   SelectContent,
@@ -56,6 +64,24 @@ import {
 import { useAuth } from "@/lib/auth-context"
 import { hasRole } from "@/lib/role-utils"
 import type { DepartmentProfile as DepartmentProfileType } from "@/lib/api-types"
+
+function formatFullDateTime(val: unknown): string {
+  if (!val) return "—"
+  try {
+    const d = new Date(val as string | number)
+    if (isNaN(d.getTime())) return String(val)
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).format(d)
+  } catch {
+    return String(val)
+  }
+}
 
 const GET_VISIT_BILLING = gql`
   query GetVisitBillingForSettings($visitId: ID!) {
@@ -139,20 +165,34 @@ export function VisitSettingsPanel({
   visit,
   onVisitUpdated,
 }: VisitSettingsPanelProps) {
+  const { doctor } = useAuth()
+  const roles = useMemo(
+    () => ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[],
+    [doctor]
+  )
+  const hasAdminRole = hasRole(roles, "ADMIN")
+  const hasManagerRole = hasRole(roles, "MANAGER")
+  const hasFinanceRole = hasRole(roles, "FINANCE")
+  const isAdminOrManager = hasAdminRole || hasManagerRole || hasFinanceRole
+
   const [isRendered, setIsRendered] = useState(open)
   const [activeTab, setActiveTab] = useState<"general" | "departments">(
     "general",
   )
   // Confirmation dialog state
   const [deleteTarget, setDeleteTarget] = useState<
-    { type: "visit" | "department" | "finalise"; id: string; name: string } | null
+    { type: "visit" | "cancel-visit" | "department" | "finalise" | "cancel-department" | "discharge"; id: string; name: string } | null
   >(null)
-  // Pending date changes (require confirm before applying)
-  const [pendingBillingDate, setPendingBillingDate] = useState<{
-    billingId: string
+  // Pending date changes per department (encounter date & billing date)
+  const [pendingDepartmentEncounterDate, setPendingDepartmentEncounterDate] = useState<{
+    visitDepartmentId: string
     date: string
   } | null>(null)
-  const [pendingVisitDate, setPendingVisitDate] = useState<string | null>(null)
+  const [pendingBillingDate, setPendingBillingDate] = useState<{
+    billingId: string
+    visitDepartmentId: string
+    date: string
+  } | null>(null)
   const [applyingDate, setApplyingDate] = useState(false)
 
   // Consultation preview sheet state
@@ -167,9 +207,38 @@ export function VisitSettingsPanel({
   // ── Mutations with refetchQueries so state updates instantly ──
   const refetchConfig = {
     refetchQueries: [
+      "GetVisit",
+      "GetVisits",
+      "GetVisitBilling",
+      "GetVisitBillingForSettings",
+      "GetVisitDepartmentProfiles",
       { query: VISITS_QUERY, variables: { input: {} } },
+      { query: GET_VISIT_QUERY, variables: { id: visit.id } },
+      { query: GET_BILL_BY_VISIT_QUERY, variables: { visitId: visit.id } },
+      { query: GET_VISIT_BILLING, variables: { visitId: visit.id } },
+      { query: GET_VISIT_DEPARTMENT_PROFILES, variables: { visitId: visit.id } },
     ],
+    awaitRefetchQueries: true,
   }
+
+  const [completeVisitMutation, { loading: completingVisit }] = useMutation(
+    COMPLETE_VISIT_MUTATION,
+    {
+      ...refetchConfig,
+      onCompleted: (data) => {
+        handleResponse(data?.completeVisit, {
+          successMessage: "Patient discharged successfully",
+          onSuccess: () => {
+            onVisitUpdated?.()
+            onOpenChange(false)
+          },
+        })
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to discharge patient")
+      },
+    },
+  )
 
   const [cancelVisit, { loading: cancelling }] = useMutation(
     CANCEL_VISIT_MUTATION,
@@ -210,11 +279,35 @@ export function VisitSettingsPanel({
       onCompleted: (data) => {
         handleResponse(data?.removeVisitDepartment, {
           successMessage: "Department removed successfully",
-          onSuccess: () => onVisitUpdated?.(),
+          onSuccess: () => {
+            onVisitUpdated?.()
+            void fetchBilling({ variables: { visitId: visit.id } })
+            void fetchProfiles({ variables: { visitId: visit.id } })
+          },
         })
       },
       onError: (error) => {
         toast.error(error.message || "Failed to remove department")
+      },
+    },
+  )
+
+  const [cancelDepartment, { loading: cancellingDept }] = useMutation(
+    UPDATE_VISIT_DEPARTMENT_STATUS_MUTATION,
+    {
+      ...refetchConfig,
+      onCompleted: (data) => {
+        handleResponse(data?.updateVisitDepartmentStatus, {
+          successMessage: "Department cancelled successfully",
+          onSuccess: () => {
+            onVisitUpdated?.()
+            void fetchBilling({ variables: { visitId: visit.id } })
+            void fetchProfiles({ variables: { visitId: visit.id } })
+          },
+        })
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to cancel department")
       },
     },
   )
@@ -226,7 +319,11 @@ export function VisitSettingsPanel({
       onCompleted: (data) => {
         handleResponse(data?.updateVisitDepartmentStatus, {
           successMessage: "Department finalised successfully",
-          onSuccess: () => onVisitUpdated?.(),
+          onSuccess: () => {
+            onVisitUpdated?.()
+            void fetchBilling({ variables: { visitId: visit.id } })
+            void fetchProfiles({ variables: { visitId: visit.id } })
+          },
         })
       },
       onError: (error) => {
@@ -235,24 +332,35 @@ export function VisitSettingsPanel({
     },
   )
 
-  const [changeVisitDate] = useMutation(CHANGE_VISIT_DATE_MUTATION, {
-    ...refetchConfig,
-    onCompleted: (data) => {
-      handleResponse(data?.changeVisitDate, {
-        successMessage: "Visit date updated successfully",
-        onSuccess: () => onVisitUpdated?.(),
-      })
+  const [updateDepartmentEncounterDate, { loading: updatingEncounterDate }] = useMutation(
+    UPDATE_VISIT_DEPARTMENT_ENCOUNTER_DATE_MUTATION,
+    {
+      ...refetchConfig,
+      onCompleted: (data) => {
+        handleResponse(data?.updateVisitDepartmentEncounterDate, {
+          successMessage: "Department encounter date updated successfully",
+          onSuccess: () => {
+            onVisitUpdated?.()
+            void fetchBilling({ variables: { visitId: visit.id } })
+            void fetchProfiles({ variables: { visitId: visit.id } })
+          },
+        })
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to update department encounter date")
+      },
     },
-    onError: (error) => {
-      toast.error(error.message || "Failed to update visit date")
-    },
-  })
+  )
 
-  const [updateBillingDate] = useMutation(UPDATE_BILLING_DATE_MUTATION, {
+  const [updateBillingDate, { loading: updatingBillingDate }] = useMutation(UPDATE_BILLING_DATE_MUTATION, {
+    ...refetchConfig,
     onCompleted: (data) => {
       handleResponse(data?.updateBillingDate, {
         successMessage: "Billing date updated successfully",
-        onSuccess: () => { void fetchBilling({ variables: { visitId: visit.id } }) },
+        onSuccess: () => {
+          onVisitUpdated?.()
+          void fetchBilling({ variables: { visitId: visit.id } })
+        },
       })
     },
     onError: (error) => {
@@ -261,6 +369,8 @@ export function VisitSettingsPanel({
   })
 
   const { startBillEditing, loading: startingBillEdit } = useStartBillEditing()
+  const { completeBillEditing, loading: completingBillEdit } = useCompleteBillEditing()
+  const { cancelBillEditing, loading: cancellingBillEdit } = useCancelBillEditing()
 
   const [fetchBilling, { data: billingData, error: billingError }] = useLazyQuery(
     GET_VISIT_BILLING,
@@ -347,6 +457,7 @@ export function VisitSettingsPanel({
           onSuccess: () => {
             onVisitUpdated?.()
             void fetchProfiles({ variables: { visitId: visit.id } })
+            void fetchBilling({ variables: { visitId: visit.id } })
           },
         })
       },
@@ -370,6 +481,7 @@ export function VisitSettingsPanel({
           onSuccess: () => {
             onVisitUpdated?.()
             void fetchProfiles({ variables: { visitId: visit.id } })
+            void fetchBilling({ variables: { visitId: visit.id } })
           },
         })
       },
@@ -386,28 +498,57 @@ export function VisitSettingsPanel({
   const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice()
   const { generateConsultationPdf, loading: generatingConsultationPdf } = useGenerateConsultationPdf()
 
+  const handleDepartmentEncounterDateChange = (
+    visitDepartmentId: string,
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const newDate = e.target.value
+    if (!newDate) return
+    const encounterDate = newDate.length === 16 ? `${newDate}:00` : newDate
+    setPendingDepartmentEncounterDate({ visitDepartmentId, date: encounterDate })
+  }
+
+  const confirmDepartmentEncounterDateChange = async () => {
+    if (!pendingDepartmentEncounterDate) return
+    setApplyingDate(true)
+    try {
+      await updateDepartmentEncounterDate({
+        variables: {
+          input: {
+            visitDepartmentId: pendingDepartmentEncounterDate.visitDepartmentId,
+            encounterDate: pendingDepartmentEncounterDate.date,
+          },
+        },
+      })
+      setPendingDepartmentEncounterDate(null)
+    } finally {
+      setApplyingDate(false)
+    }
+  }
+
   const handleBillingDateChange = (
     departmentInsuranceBillingId: string,
+    visitDepartmentId: string,
+    dept: Visit["departments"][number],
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const newDate = e.target.value
     if (!newDate) return
 
-    // Validate: billing date must be at least 5 minutes after visit date
-    if (visit.visitDate) {
-      const visitTime = new Date(visit.visitDate).getTime()
+    // Validate: billing date must be at least 5 minutes after department encounter date
+    const refDateStr = dept.startedAt || dept.createdAt
+    if (refDateStr) {
+      const refTime = new Date(refDateStr).getTime()
       const billingTime = new Date(newDate).getTime()
       const fiveMinutesMs = 5 * 60 * 1000
-      if (billingTime < visitTime + fiveMinutesMs) {
-        toast.error("Billing date must be at least 5 minutes after the visit date")
+      if (billingTime < refTime + fiveMinutesMs) {
+        toast.error("Billing date must be at least 5 minutes after this department's encounter date")
         return
       }
     }
 
-    // datetime-local gives "YYYY-MM-DDTHH:MM" — append seconds for
-    // LocalDateTime on the backend (no UTC conversion, no Z suffix).
     const billingDate = newDate.length === 16 ? `${newDate}:00` : newDate
-    setPendingBillingDate({ billingId: departmentInsuranceBillingId, date: billingDate })
+    setPendingBillingDate({ billingId: departmentInsuranceBillingId, visitDepartmentId, date: billingDate })
   }
 
   const confirmBillingDateChange = async () => {
@@ -463,13 +604,48 @@ export function VisitSettingsPanel({
     try {
       const result = await startBillEditing(deptId)
       if (result.status === "SUCCESS") {
-        toast.success("Billing edit mode enabled")
+        toast.success("Billing editing mode enabled for department")
         onVisitUpdated?.()
+        void fetchBilling({ variables: { visitId: visit.id } })
       } else {
-        toast.error(result.message || "Failed to enable billing edit")
+        toast.error(result.message || "Failed to enable billing editing")
       }
     } catch (err: any) {
-      toast.error(err.message || "Failed to enable billing edit")
+      toast.error(err.message || "Failed to enable billing editing")
+    }
+  }
+
+  const handleCompleteBillEditing = async (visitDepartmentId?: string) => {
+    const deptId = visitDepartmentId
+    if (!deptId) return
+    try {
+      const result = await completeBillEditing(deptId)
+      if (result.status === "SUCCESS") {
+        toast.success("Billing editing completed successfully")
+        onVisitUpdated?.()
+        void fetchBilling({ variables: { visitId: visit.id } })
+      } else {
+        toast.error(result.message || "Failed to complete billing editing")
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to complete billing editing")
+    }
+  }
+
+  const handleCancelBillEditing = async (visitDepartmentId?: string) => {
+    const deptId = visitDepartmentId
+    if (!deptId) return
+    try {
+      const result = await cancelBillEditing(deptId)
+      if (result.status === "SUCCESS") {
+        toast.success("Billing editing cancelled")
+        onVisitUpdated?.()
+        void fetchBilling({ variables: { visitId: visit.id } })
+      } else {
+        toast.error(result.message || "Failed to cancel billing editing")
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to cancel billing editing")
     }
   }
 
@@ -486,9 +662,12 @@ export function VisitSettingsPanel({
     return () => window.clearTimeout(timeout)
   }, [open])
 
-  const handleCancelVisit = async () => {
-    if (!window.confirm("Are you sure you want to cancel this visit?")) return
-    await cancelVisit({ variables: { visitId: visit.id } })
+  const handleCancelVisit = () => {
+    setDeleteTarget({
+      type: "cancel-visit",
+      id: visit.id,
+      name: `Visit #${visit.id.slice(-8)} for ${visit.patient?.fullName || visit.patient?.firstName || 'Patient'}`,
+    })
   }
 
   const handleDeleteVisit = () => {
@@ -500,6 +679,11 @@ export function VisitSettingsPanel({
     setDeleteTarget({ type: "department", id: departmentId, name: dept?.department?.name || 'this department' })
   }
 
+  const handleCancelDepartment = (departmentId: string) => {
+    const dept = visit.departments?.find((d) => d.id === departmentId)
+    setDeleteTarget({ type: "cancel-department", id: departmentId, name: dept?.department?.name || 'this department' })
+  }
+
   const handleFinaliseDepartment = (departmentId: string) => {
     const dept = visit.departments?.find((d) => d.id === departmentId)
     setDeleteTarget({ type: "finalise", id: departmentId, name: dept?.department?.name || 'this department' })
@@ -509,41 +693,25 @@ export function VisitSettingsPanel({
     if (!deleteTarget) return
     if (deleteTarget.type === "visit") {
       await deleteVisit({ variables: { visitId: deleteTarget.id } })
+    } else if (deleteTarget.type === "cancel-visit") {
+      await cancelVisit({ variables: { visitId: deleteTarget.id } })
+    } else if (deleteTarget.type === "discharge") {
+      await completeVisitMutation({ variables: { visitId: deleteTarget.id } })
     } else if (deleteTarget.type === "department") {
       await removeDepartment({ variables: { visitDepartmentId: deleteTarget.id } })
     } else if (deleteTarget.type === "finalise") {
       await finaliseDepartment({ variables: { visitDepartmentId: deleteTarget.id } })
-    }
-    setDeleteTarget(null)
-  }
-
-  const handleVisitDateChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const newDate = e.target.value
-    if (!newDate) return
-    // datetime-local gives "YYYY-MM-DDTHH:MM" — append seconds for
-    // LocalDateTime on the backend (no UTC conversion, no Z suffix).
-    const visitDate = newDate.length === 16 ? `${newDate}:00` : newDate
-    setPendingVisitDate(visitDate)
-  }
-
-  const confirmVisitDateChange = async () => {
-    if (!pendingVisitDate) return
-    setApplyingDate(true)
-    try {
-      await changeVisitDate({
+    } else if (deleteTarget.type === "cancel-department") {
+      await cancelDepartment({
         variables: {
           input: {
-            visitId: visit.id,
-            visitDate: pendingVisitDate,
+            visitDepartmentId: deleteTarget.id,
+            status: "CANCELLED",
           },
         },
       })
-      setPendingVisitDate(null)
-    } finally {
-      setApplyingDate(false)
     }
+    setDeleteTarget(null)
   }
 
   const canCancelVisit =
@@ -551,31 +719,27 @@ export function VisitSettingsPanel({
   const hasDeptEditing = (visit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING")
   const canDeleteVisit = !hasDeptEditing
   const hasDepartments = visit.departments && visit.departments.length > 0
+  const canDischarge = canDischargeVisit(visit)
 
   // ── Derived billing state ──
   const billingDepartments = billingData?.visitBilling?.data?.departments
   const hasBillingData = billingDepartments && billingDepartments.length > 0
   const isBillEditing = (visit.departments || []).some((d) => d.status === "DEPARTMENT_EDITING")
 
-  // Flatten all insurance billings across departments
-  const allInsBillings: any[] = []
-  billingDepartments?.forEach((dept: any) => {
-    ;(dept.insuranceBillings || []).forEach((ib: any) => {
-      allInsBillings.push({
-        ...ib,
-        departmentName: dept.visitDepartment?.department?.name || "Department",
-      })
-    })
-  })
-
   if (!isRendered || typeof document === "undefined") return null
 
   const deleteDialogTitle =
     deleteTarget?.type === "visit"
       ? "Delete this visit?"
-      : deleteTarget?.type === "finalise"
-        ? `Finalise "${deleteTarget?.name || ''}"?`
-        : `Remove "${deleteTarget?.name || ''}"?`;
+      : deleteTarget?.type === "cancel-visit"
+        ? "Cancel this visit?"
+        : deleteTarget?.type === "discharge"
+          ? `Discharge "${deleteTarget?.name || 'patient'}"?`
+          : deleteTarget?.type === "finalise"
+            ? `Finalise "${deleteTarget?.name || ''}"?`
+            : deleteTarget?.type === "cancel-department"
+              ? `Cancel "${deleteTarget?.name || ''}"?`
+              : `Remove "${deleteTarget?.name || ''}"?`;
 
   const deleteDialogDeps =
     deleteTarget?.type === "department"
@@ -659,146 +823,99 @@ export function VisitSettingsPanel({
               {/* General Tab */}
               {activeTab === "general" && (
                 <div className="space-y-6">
-                  {/* Visit Date */}
-                  <div className="rounded-xl border border-border p-4 space-y-3">
+                  {/* Visit Overview */}
+                  <div className="rounded-xl border border-border p-4 space-y-4 bg-muted/10">
                     <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-primary" />
+                      <FileText className="h-4 w-4 text-primary" />
                       <h3 className="font-medium text-foreground">
-                        Visit Date
+                        Visit Overview
                       </h3>
+                      <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium ${
+                        visit.status === "COMPLETED"
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                          : visit.status === "CANCELLED"
+                            ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
+                            : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+                      }`}>
+                        {visit.status}
+                      </span>
                     </div>
-                    <div>
-                      <input
-                        type="datetime-local"
-                        defaultValue={visit.visitDate
-                          ? visit.visitDate.slice(0, 16)
-                          : ""}
-                        onChange={handleVisitDateChange}
-                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                      {pendingVisitDate && (
-                        <div className="flex items-center gap-2 mt-2">
-                          <button
-                            type="button"
-                            onClick={() => void confirmVisitDateChange()}
-                            disabled={applyingDate}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1"
-                          >
-                            {applyingDate ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <CheckCircle className="h-3 w-3" />
-                            )}
-                            Apply
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPendingVisitDate(null)}
-                            disabled={applyingDate}
-                            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-md transition-colors"
-                          >
-                            Cancel
-                          </button>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="space-y-1">
+                        <span className="text-muted-foreground">Patient</span>
+                        <p className="font-semibold text-foreground text-sm">
+                          {visit.patient?.firstName} {visit.patient?.lastName}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-muted-foreground">Created At</span>
+                        <p className="font-medium text-foreground">
+                          {formatFullDateTime(visit.createdAt)}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-muted-foreground">Total Departments</span>
+                        <p className="font-medium text-foreground">
+                          {visit.departments?.length || 0}
+                        </p>
+                      </div>
+                      {isBillEditing && (
+                        <div className="space-y-1">
+                          <span className="text-muted-foreground">Billing Edit Mode</span>
+                          <p className="font-semibold text-amber-600">Active</p>
                         </div>
                       )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Change the visit date for this patient encounter
-                      </p>
                     </div>
+
+                    <p className="text-xs text-muted-foreground pt-2 border-t border-border/60">
+                      Encounter timestamps and billing dates are configured per department in the{" "}
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("departments")}
+                        className="text-primary hover:underline font-medium"
+                      >
+                        Departments
+                      </button>{" "}
+                      tab.
+                    </p>
                   </div>
 
-                  {/* Billing Date */}
-                  <div className="rounded-xl border border-border p-4 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <ReceiptText className="h-4 w-4 text-primary" />
-                      <h3 className="font-medium text-foreground">
-                        Billing Date
-                      </h3>
-                      {/* Billing edit is now per-department, triggered from the billing page */}
-                      {/* Billing edit mode active badge */}
-                      {isBillEditing && (
-                        <span className="ml-auto text-xs text-amber-600 font-medium">
-                          Billing edit mode active
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Billing date inputs */}
-                    {hasBillingData ? (
-                      <div className="space-y-3">
-                        {allInsBillings.map((ib: any) => (
-                          <div
-                            key={ib.id}
-                            className="rounded-lg border border-border/50 p-3 space-y-2"
-                          >
-                            <p className="text-sm font-medium text-foreground">
-                              {ib.departmentName}
-                              <span className="ml-2 text-xs text-muted-foreground font-normal">
-                                • Total: {ib.totalAmount?.toLocaleString()} RWF
-                              </span>
-                              {ib.status && (
-                                <span className={`ml-2 text-xs font-medium ${
-                                  ib.status === "PAID" ? "text-emerald-600" :
-                                  ib.status === "PARTIALLY_PAID" ? "text-amber-600" :
-                                  "text-muted-foreground"
-                                }`}>
-                                  {ib.status}
-                                </span>
-                              )}
-                            </p>
-                            <input
-                              type="datetime-local"
-                              defaultValue={
-                                ib.billingDate
-                                  ? ib.billingDate.slice(0, 16)
-                                  : ""
-                              }
-                              min={visit.visitDate
-                                ? visit.visitDate.slice(0, 16)
-                                : undefined}
-                              onChange={(e) =>
-                                handleBillingDateChange(ib.id, e)
-                              }
-                              disabled={visit.status === "CANCELLED"}
-                              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                            />
-                            {pendingBillingDate?.billingId === ib.id && (
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => void confirmBillingDateChange()}
-                                  disabled={applyingDate}
-                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1"
-                                >
-                                  {applyingDate ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <CheckCircle className="h-3 w-3" />
-                                  )}
-                                  Apply
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setPendingBillingDate(null)}
-                                  disabled={applyingDate}
-                                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-md transition-colors"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                              Must be at least 5 minutes after visit date
-                            </p>
+                  {/* Discharge Patient Action */}
+                  {canDischarge && (
+                    <div className="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-4 space-y-3 shadow-xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                            <h3 className="font-semibold text-emerald-900 dark:text-emerald-200 text-sm">
+                              Ready for Patient Discharge
+                            </h3>
                           </div>
-                        ))}
+                          <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                            All departments are completed. You can discharge the patient and mark the visit as completed.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget({
+                            type: "discharge",
+                            id: visit.id,
+                            name: `${visit.patient?.firstName} ${visit.patient?.lastName}`.trim(),
+                          })}
+                          disabled={completingVisit}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-center"
+                        >
+                          {completingVisit ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle className="h-3.5 w-3.5" />
+                          )}
+                          Discharge Patient
+                        </button>
                       </div>
-                    ) : (
-                      <div className="text-center py-4 text-muted-foreground">
-                        <p className="text-sm">No billing records yet</p>
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {/* Danger Zone */}
                   <div className="rounded-xl border border-red-200 bg-red-50/50 p-4 space-y-4">
@@ -889,11 +1006,71 @@ export function VisitSettingsPanel({
                               <p className="font-medium text-foreground">
                                 {dept.department?.name || "Unknown Department"}
                               </p>
-                              <p className="text-sm text-muted-foreground">
-                                Status: {dept.status}
+                              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                                Status: <span className="font-semibold text-foreground">{dept.status}</span>
+                                {dept.status === "DEPARTMENT_EDITING" && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300">
+                                    Editing Active
+                                  </span>
+                                )}
                               </p>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {/* Billing Editing Controls for Manager / Admin */}
+                              {isAdminOrManager && (
+                                <>
+                                  {dept.status === "DEPARTMENT_EDITING" ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCompleteBillEditing(dept.id)}
+                                        disabled={completingBillEdit}
+                                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1 shadow-xs"
+                                        title="Complete billing edits and restore department status"
+                                      >
+                                        {completingBillEdit ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <CheckCircle className="h-3 w-3" />
+                                        )}
+                                        Complete Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCancelBillEditing(dept.id)}
+                                        disabled={cancellingBillEdit}
+                                        className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200 text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
+                                        title="Cancel billing edits"
+                                      >
+                                        {cancellingBillEdit ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <X className="h-3 w-3" />
+                                        )}
+                                        Cancel Edit
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    (dept.status === "COMPLETED" || dept.status === "FINALISED") && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleStartBillEditing(dept.id)}
+                                        disabled={startingBillEdit}
+                                        className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow-xs"
+                                        title="Enable billing editing mode on this department"
+                                      >
+                                        {startingBillEdit ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <ReceiptText className="h-3 w-3" />
+                                        )}
+                                        Enable Billing Edit
+                                      </button>
+                                    )
+                                  )}
+                                </>
+                              )}
+
                               {dept.status === "COMPLETED" &&
                                 dept.hasFinalizedConsultationAnswers &&
                                 !dept.hasBillableProducts && (
@@ -931,23 +1108,69 @@ export function VisitSettingsPanel({
                                   </div>
                                 </div>
                               )}
-                              {dept.status !== "FINALISED" && dept.status !== "CANCELLED" && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleRemoveDepartment(dept.id)
+                              {(() => {
+                                const isTerminal =
+                                  dept.status === "COMPLETED" ||
+                                  dept.status === "FINALISED" ||
+                                  dept.status === "CANCELLED";
+                                const hasProducts = Boolean(
+                                  dept.products && dept.products.length > 0
+                                );
+                                const isAdminOrManager =
+                                  hasAdminRole || hasManagerRole || hasFinanceRole;
+                                const isAssignedProcessor = Boolean(
+                                  doctor?.id &&
+                                    dept.processors?.some(
+                                      (p) => String(p.id) === String(doctor.id)
+                                    )
+                                );
+
+                                let canCancelDept = false;
+                                if (!isTerminal) {
+                                  if (dept.status === "ACTIVE") {
+                                    canCancelDept = isAssignedProcessor || isAdminOrManager;
+                                  } else {
+                                    canCancelDept =
+                                      !hasProducts || isAssignedProcessor || isAdminOrManager;
                                   }
-                                  disabled={removingDept}
-                                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
-                                >
-                                  {removingDept ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-3 w-3" />
-                                  )}
-                                  Remove
-                                </button>
-                              )}
+                                }
+                                const canDeleteDept = (hasAdminRole || hasManagerRole) && dept.status !== "FINALISED";
+
+                                return (
+                                  <>
+                                    {canCancelDept && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCancelDepartment(dept.id)}
+                                        disabled={cancellingDept}
+                                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
+                                      >
+                                        {cancellingDept ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <Ban className="h-3 w-3" />
+                                        )}
+                                        Cancel
+                                      </button>
+                                    )}
+                                    {canDeleteDept && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveDepartment(dept.id)}
+                                        disabled={removingDept}
+                                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
+                                      >
+                                        {removingDept ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <Trash2 className="h-3 w-3" />
+                                        )}
+                                        Remove
+                                      </button>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                           {dept.products && dept.products.length > 0 && (
@@ -956,6 +1179,163 @@ export function VisitSettingsPanel({
                               {dept.products.length !== 1 ? "s" : ""} added
                             </div>
                           )}
+
+                          {/* Encounter Date & Time for this department */}
+                          <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
+                            <div className="flex items-center gap-1.5">
+                              <CalendarClock className="h-3.5 w-3.5 text-primary" />
+                              <span className="text-xs font-medium text-foreground">
+                                Encounter Date & Time
+                              </span>
+                            </div>
+                            <div>
+                              <input
+                                type="datetime-local"
+                                key={`dept-encounter-${dept.id}-${dept.startedAt || dept.createdAt}`}
+                                defaultValue={
+                                  dept.startedAt
+                                    ? dept.startedAt.slice(0, 16)
+                                    : dept.createdAt
+                                      ? dept.createdAt.slice(0, 16)
+                                      : ""
+                                }
+                                onChange={(e) =>
+                                  handleDepartmentEncounterDateChange(dept.id, e)
+                                }
+                                disabled={visit.status === "CANCELLED" || dept.status === "CANCELLED"}
+                                className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                              />
+                              {pendingDepartmentEncounterDate?.visitDepartmentId === dept.id && (
+                                <div className="flex items-center gap-2 mt-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => void confirmDepartmentEncounterDateChange()}
+                                    disabled={applyingDate}
+                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1"
+                                  >
+                                    {applyingDate ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <CheckCircle className="h-3 w-3" />
+                                    )}
+                                    Apply Encounter Date
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPendingDepartmentEncounterDate(null)}
+                                    disabled={applyingDate}
+                                    className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-xs font-medium rounded-md transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              )}
+                              <p className="text-[11px] text-muted-foreground mt-1">
+                                Sets the encounter timestamp for this department
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Billing Date & Time for this department */}
+                          {(() => {
+                            const deptBilling = billingDepartments?.find(
+                              (b: any) => b.visitDepartment?.id === dept.id,
+                            )
+                            const insBillings = deptBilling?.insuranceBillings || []
+                            return (
+                              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
+                                <div className="flex items-center gap-1.5">
+                                  <ReceiptText className="h-3.5 w-3.5 text-primary" />
+                                  <span className="text-xs font-medium text-foreground">
+                                    Department Billing Date & Time
+                                  </span>
+                                </div>
+
+                                {insBillings.length > 0 ? (
+                                  <div className="space-y-3">
+                                    {insBillings.map((ib: any) => (
+                                      <div
+                                        key={ib.id}
+                                        className="rounded-md border border-border/40 bg-background p-2.5 space-y-1.5"
+                                      >
+                                        <div className="flex items-center justify-between text-xs">
+                                          <span className="font-medium text-foreground">
+                                            {ib.insurance?.name || "Billing Record"}
+                                            {ib.insurance?.acronym ? ` (${ib.insurance.acronym})` : ""}
+                                          </span>
+                                          <span className="text-muted-foreground">
+                                            {ib.totalAmount?.toLocaleString()} RWF
+                                            {ib.status && (
+                                              <span className={`ml-2 font-medium ${
+                                                ib.status === "PAID" ? "text-emerald-600" :
+                                                ib.status === "PARTIALLY_PAID" ? "text-amber-600" :
+                                                "text-muted-foreground"
+                                              }`}>
+                                                • {ib.status}
+                                              </span>
+                                            )}
+                                          </span>
+                                        </div>
+                                        <input
+                                          type="datetime-local"
+                                          key={`billing-date-${ib.id}-${ib.billingDate}`}
+                                          defaultValue={
+                                            ib.billingDate
+                                              ? ib.billingDate.slice(0, 16)
+                                              : ""
+                                          }
+                                          min={
+                                            dept.startedAt
+                                              ? dept.startedAt.slice(0, 16)
+                                              : dept.createdAt
+                                                ? dept.createdAt.slice(0, 16)
+                                                : undefined
+                                          }
+                                          onChange={(e) =>
+                                            handleBillingDateChange(ib.id, dept.id, dept, e)
+                                          }
+                                          disabled={visit.status === "CANCELLED" || dept.status === "CANCELLED"}
+                                          className="w-full px-3 py-1.5 bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                                        />
+                                        {pendingBillingDate?.billingId === ib.id && (
+                                          <div className="flex items-center gap-2 mt-1.5">
+                                            <button
+                                              type="button"
+                                              onClick={() => void confirmBillingDateChange()}
+                                              disabled={applyingDate}
+                                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1"
+                                            >
+                                              {applyingDate ? (
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                              ) : (
+                                                <CheckCircle className="h-3 w-3" />
+                                              )}
+                                              Apply Billing Date
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => setPendingBillingDate(null)}
+                                              disabled={applyingDate}
+                                              className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-xs font-medium rounded-md transition-colors"
+                                            >
+                                              Cancel
+                                            </button>
+                                          </div>
+                                        )}
+                                        <p className="text-[10px] text-muted-foreground">
+                                          Must be at least 5 minutes after this department&apos;s encounter date
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground italic">
+                                    No billing records for this department yet
+                                  </p>
+                                )}
+                              </div>
+                            )
+                          })()}
 
                           {/* Clinic profile (assigned + available), with change/clear for managers & clinicians */}
                           {(() => {
@@ -1048,7 +1428,7 @@ export function VisitSettingsPanel({
                                 {canManageProfile && !loading && (dept.status === "COMPLETED" || dept.status === "FINALISED") && (
                                   <p className="text-[11px] text-muted-foreground mt-1">
                                     Profile is locked on {dept.status.toLowerCase()} departments. Use
-                                    "Edit Billing" on the billing page to enter edit mode first.
+                                    &quot;Edit Billing&quot; on the billing page to enter edit mode first.
                                   </p>
                                 )}
                               </div>
@@ -1111,16 +1491,21 @@ export function VisitSettingsPanel({
       <ConfirmDeleteDialog
         open={!!deleteTarget}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title={deleteDialogTitle}
         entityName={deleteTarget?.name || ''}
         dependencies={deleteDialogDeps}
         confirmLabel={
           deleteTarget?.type === "visit"
             ? "Delete Visit"
-            : deleteTarget?.type === "finalise"
-              ? "Finalise"
-              : "Remove Department"
+            : deleteTarget?.type === "cancel-visit"
+              ? "Cancel Visit"
+              : deleteTarget?.type === "finalise"
+                ? "Finalise"
+                : deleteTarget?.type === "cancel-department"
+                  ? "Cancel Department"
+                  : "Remove Department"
         }
-        busy={cancelling || deleting || removingDept || finalisingDept}
+        busy={cancelling || deleting || removingDept || finalisingDept || cancellingDept}
         onConfirm={() => void handleConfirmDelete()}
       />
 

@@ -20,15 +20,20 @@ export interface MedicalBlockHandlers {
   productsLocked?: boolean;
   hideProductAddButton?: boolean;
 
-  /** Diagnostic record — sync add to visit department */
+  /** Diagnostic record — live list from visit & direct mutations */
+  diagnostics?: DiagEntry[];
   onAddDiagnosis?: (
     diagnosis: string,
     description?: string,
   ) => Promise<boolean>;
+  onRemoveDiagnosis?: (diagnosisId: string) => Promise<boolean>;
 
-  /** Medication blocks — sync add to visit department */
+  /** Medication blocks — live list from visit & direct mutations */
+  medicationsFull?: MedFullEntry[];
+  medicationsMini?: MedMiniEntry[];
   onAddMedicationFull?: (entry: Omit<MedFullEntry, "id">) => Promise<boolean>;
   onAddMedicationMini?: (name: string, notes?: string) => Promise<boolean>;
+  onRemoveMedication?: (medicationId: string) => Promise<boolean>;
 
   visitId?: string;
   departmentId?: string;

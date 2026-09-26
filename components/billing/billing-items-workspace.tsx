@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Plus, Pencil, Layers, Trash2 } from "lucide-react";
+import { Plus, Pencil, Layers, Trash2, Check, Ban, MoreVertical } from "lucide-react";
 import type { ComponentProps } from "react";
 import { BillingItemsList } from "@/components/BillingItemsList";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import type { BillingItem } from "@/lib/billing-utils";
+import type { VisitDepartment } from "@/lib/api-types";
 
 type BillingInsuranceOption = NonNullable<
   ComponentProps<typeof BillingItemsList>["availableInsurances"]
@@ -24,6 +31,10 @@ type BillingItemsWorkspaceProps = {
   allServiceNames: string[];
   /** Visit department IDs keyed by department name, used to identify which visit department to remove. */
   serviceDepartmentIds?: Record<string, string>;
+  /** Visit departments from the active visit */
+  departments?: VisitDepartment[];
+  currentUserId?: string;
+  userRoles?: string[];
   items: BillingItem[];
   /** All billing items across all departments, used to check if a department has 0 products. */
   allItems?: BillingItem[];
@@ -43,6 +54,7 @@ type BillingItemsWorkspaceProps = {
   onItemChange: (item: BillingItem) => void;
   onItemRemove: (itemId: string) => void;
   onQuantityChange: (item: BillingItem, quantity: number) => void;
+  onCancelDepartment?: (visitDepartmentId: string) => void;
   onRemoveDepartment?: (visitDepartmentId: string) => void;
   editedItemChanges?: Map<string, "added" | "modified">;
 };
@@ -51,6 +63,9 @@ export function BillingItemsWorkspace({
   activeService,
   allServiceNames,
   serviceDepartmentIds = {},
+  departments = [],
+  currentUserId,
+  userRoles = [],
   items,
   allItems = [],
   billedDepartmentNames = new Set(),
@@ -68,45 +83,71 @@ export function BillingItemsWorkspace({
   onItemChange,
   onItemRemove,
   onQuantityChange,
+  onCancelDepartment,
   onRemoveDepartment,
   editedItemChanges,
 }: BillingItemsWorkspaceProps) {
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; serviceName: string; visitDepartmentId: string } | null>(null);
-  const contextMenuRef = useRef<HTMLDivElement>(null);
-
-  // Close context menu on outside click
-  useEffect(() => {
-    if (!contextMenu) return;
-    const handleClick = (e: MouseEvent) => {
-      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
-        setContextMenu(null);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [contextMenu]);
-
-  // Close context menu on Escape
-  useEffect(() => {
-    if (!contextMenu) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setContextMenu(null);
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [contextMenu]);
-
-  const handleTabContextMenu = useCallback(
-    (e: React.MouseEvent, serviceName: string) => {
-      e.preventDefault();
+  const getDepartmentPermissions = useCallback(
+    (serviceName: string) => {
       const visitDeptId = serviceDepartmentIds[serviceName];
-      if (!visitDeptId || !onRemoveDepartment) return;
-      // Check if this department has any products
+      if (!visitDeptId) return null;
+
+      const dept = departments.find(
+        (d) => d.id === visitDeptId || d.department?.name === serviceName
+      );
+      const isTerminal =
+        dept?.status === "COMPLETED" ||
+        dept?.status === "FINALISED" ||
+        dept?.status === "CANCELLED";
+
       const deptItems = allItems.filter((item) => item.departmentName === serviceName);
-      if (deptItems.length > 0) return; // Don't show menu if department has products
-      setContextMenu({ x: e.clientX, y: e.clientY, serviceName, visitDepartmentId: visitDeptId });
+      const hasProducts =
+        deptItems.length > 0 || (dept?.products && dept.products.length > 0);
+
+      const normalizedRoles = userRoles.map((r) => r.toUpperCase());
+      const isAdminOrManager = normalizedRoles.some((r) =>
+        ["ADMIN", "CLINIC_ADMIN", "MANAGER", "FINANCE"].includes(r)
+      );
+      const isAssignedProcessor = Boolean(
+        currentUserId &&
+          dept?.processors?.some((p) => String(p.id) === String(currentUserId))
+      );
+
+      // Permission matrix:
+      // 1. Terminal states cannot be cancelled
+      // 2. If ACTIVE: assigned processor OR admin/manager can cancel
+      // 3. If PENDING (or not ACTIVE):
+      //    - If has products: assigned processor OR admin/manager can cancel
+      //    - If no products: reception, nurse, clinician, manager, admin can cancel
+      let canCancel = false;
+      if (!isTerminal && onCancelDepartment) {
+        if (dept?.status === "ACTIVE") {
+          canCancel = isAssignedProcessor || isAdminOrManager;
+        } else {
+          canCancel = !hasProducts || isAssignedProcessor || isAdminOrManager;
+        }
+      }
+
+      // Admin or Manager can delete
+      const canDelete = Boolean(isAdminOrManager && onRemoveDepartment);
+
+      if (!canCancel && !canDelete) return null;
+
+      return {
+        visitDepartmentId: visitDeptId,
+        canCancel,
+        canDelete,
+      };
     },
-    [serviceDepartmentIds, allItems, onRemoveDepartment],
+    [
+      serviceDepartmentIds,
+      departments,
+      allItems,
+      userRoles,
+      currentUserId,
+      onCancelDepartment,
+      onRemoveDepartment,
+    ]
   );
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-6">
@@ -178,45 +219,80 @@ export function BillingItemsWorkspace({
             <TabsList className="h-8">
               {allServiceNames.map((dept) => {
                 const isBilled = billedDepartmentNames.has(dept);
+                const menuPerms = getDepartmentPermissions(dept);
+
                 return (
                   <TabsTrigger
                     key={dept}
                     value={dept}
-                    className={`rounded-full px-3 text-xs h-7 ${
+                    className={`rounded-full pl-3 pr-1.5 text-xs h-7 gap-1 transition-colors ${
                       isBilled
-                        ? "bg-green-100 text-green-700 border border-green-300 data-[state=active]:bg-green-200 data-[state=active]:text-green-800"
+                        ? "bg-green-100/90 text-green-800 border border-green-300/80 hover:bg-green-200/90 data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=active]:border-green-600 dark:bg-green-950/50 dark:text-green-300 dark:border-green-800 dark:data-[state=active]:bg-green-600 dark:data-[state=active]:text-white"
                         : ""
                     }`}
-                    onContextMenu={(e) => handleTabContextMenu(e, dept)}
                   >
-                    {isBilled && "✓ "}{dept}
+                    {isBilled && (
+                      <Check
+                        className="h-3.5 w-3.5 shrink-0 text-green-700 dark:text-green-400 group-data-[state=active]:text-white data-[state=active]:text-white"
+                        strokeWidth={2.5}
+                      />
+                    )}
+                    <span>{dept}</span>
+                    {menuPerms && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            className="inline-flex items-center justify-center h-4 w-4 ml-0.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.stopPropagation();
+                              }
+                            }}
+                            title="Department options"
+                          >
+                            <MoreVertical className="h-3 w-3" />
+                          </span>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="min-w-[160px]">
+                          {menuPerms.canCancel && (
+                            <DropdownMenuItem
+                              className="text-amber-600 dark:text-amber-400 focus:text-amber-600 focus:bg-amber-50 dark:focus:bg-amber-950/30 cursor-pointer text-xs flex items-center gap-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onCancelDepartment?.(menuPerms.visitDepartmentId);
+                              }}
+                            >
+                              <Ban className="h-3.5 w-3.5" />
+                              Cancel Department
+                            </DropdownMenuItem>
+                          )}
+                          {menuPerms.canDelete && (
+                            <DropdownMenuItem
+                              variant="destructive"
+                              className="text-red-600 dark:text-red-400 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer text-xs flex items-center gap-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRemoveDepartment?.(menuPerms.visitDepartmentId);
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete Department
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </TabsTrigger>
                 );
               })}
             </TabsList>
           </Tabs>
         </div>
-
-        {/* Right-click context menu */}
-        {contextMenu && (
-          <div
-            ref={contextMenuRef}
-            className="fixed z-50 min-w-[160px] bg-popover border border-border rounded-lg shadow-lg py-1"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
-          >
-            <button
-              type="button"
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-              onClick={() => {
-                onRemoveDepartment?.(contextMenu.visitDepartmentId);
-                setContextMenu(null);
-              }}
-            >
-              <Trash2 className="h-3 w-3" />
-              Remove Department
-            </button>
-          </div>
-        )}
 
         <div className="flex-1 min-h-0 bg-card/60 backdrop-blur-xl border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
           <div className="flex-1 overflow-y-auto py-2">

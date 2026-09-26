@@ -178,6 +178,7 @@ export function LayoutAnswerBlock({
   edit,
   context,
   getBlockHandlers,
+  allBlocks,
 }: AnswerBlockProps) {
   const columns = block.layoutColumns ?? [];
   const numCols = Math.max(1, columns.length || 1);
@@ -209,6 +210,7 @@ export function LayoutAnswerBlock({
                 context={context}
                 blockHandlers={getBlockHandlers?.(b)}
                 getBlockHandlers={getBlockHandlers}
+                allBlocks={allBlocks}
               />
             ))}
           </div>

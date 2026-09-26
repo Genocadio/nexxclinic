@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth-context";
+import { hasRole } from "@/lib/role-utils";
 
 interface VisitNoteItem {
   id?: string;
@@ -77,7 +78,14 @@ export default function VisitNotesFloating({
     }
   }, [noteTypes, selectedType]);
 
+  const userRoles = doctor?.roles || [];
+  const isManagerOrAdmin =
+    hasRole(userRoles, "MANAGER") || hasRole(userRoles, "ADMIN");
+
   const visibleNotes = useMemo(() => {
+    if (isManagerOrAdmin) {
+      return notes || [];
+    }
     if (!allowedDisplayTypes || allowedDisplayTypes.length === 0) {
       return notes || [];
     }
@@ -86,7 +94,7 @@ export default function VisitNotesFloating({
     return (notes || []).filter(
       (note) => note?.noteType && allowed.has(String(note.noteType)),
     );
-  }, [allowedDisplayTypes, notes]);
+  }, [allowedDisplayTypes, notes, isManagerOrAdmin]);
 
   const unreadNotesCount = useMemo(
     () => (visibleNotes || []).filter((note) => !note?.viewed).length,

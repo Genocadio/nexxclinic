@@ -45,6 +45,12 @@ export interface BillingItem {
   appliedPatientSharePct?: number | null;
   /** Source of the applied percentage. */
   patientShareSource?: 'OVERRIDE' | 'RULE' | 'PATIENT_DEFAULT' | 'PROVIDER_DEFAULT' | 'EXEMPTED' | null;
+  /** Billing operator confirmation status */
+  billingConfirmationStatus?: "CONFIRMED" | "PENDING_OPERATOR_CONFIRMATION" | "REJECTED" | null;
+  /** Name of the worker who confirmed this item */
+  confirmedByName?: string | null;
+  /** ID of the corresponding VisitBillingItem snapshot */
+  visitBillingItemId?: string | null;
   /**
    * Frozen resolved coverage/patient-share % captured when billing edit mode
    * was entered. Used as the change-detection baseline so that derived

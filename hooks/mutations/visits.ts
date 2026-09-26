@@ -140,6 +140,7 @@ export const ADD_CHILD_VISIT_DEPARTMENT_MUTATION = gql`
       data {
         id
         status
+        startedAt
         completedAt
         department {
           id
@@ -171,6 +172,7 @@ export const ADD_DIAGNOSIS_MUTATION = gql`
       data {
         id
         status
+        startedAt
         completedAt
         updatedAt
         department {
@@ -196,6 +198,7 @@ export const ADD_MEDICATION_MUTATION = gql`
       data {
         id
         status
+        startedAt
         completedAt
         updatedAt
         department {
@@ -358,6 +361,7 @@ export const UPDATE_VISIT_DEPARTMENT_STATUS_MUTATION = gql`
       data {
         id
         status
+        startedAt
         completedAt
         updatedAt
         department {
@@ -410,6 +414,170 @@ export const ADD_DEPARTMENT_TO_VISIT_MUTATION = gql`
             }
           }
         }
+      }
+    }
+  }
+`;
+
+export const CONSULT_VISIT_MUTATION = gql`
+  mutation ConsultVisit($visitDepartmentId: ID!, $profileId: ID) {
+    consultVisit(
+      visitDepartmentId: $visitDepartmentId
+      profileId: $profileId
+    ) {
+      status
+      message
+      data {
+        id
+        status
+        encounterType
+        startedAt
+        completedAt
+        addedBy {
+          id
+          firstName
+          lastName
+        }
+        completedBy {
+          id
+          firstName
+          lastName
+        }
+        processors {
+          id
+          firstName
+          lastName
+        }
+        profile {
+          id
+          name
+          isDefault
+          products {
+            id
+            name
+          }
+        }
+        department {
+          id
+          name
+          requestsProducts
+        }
+        products {
+          id
+          product {
+            id
+            name
+            code
+            type
+            unit
+            privateRhicPrice
+            clinicPrice
+          }
+          quantity
+          status
+          source
+          addedBy {
+            id
+            firstName
+            lastName
+          }
+          billedBy {
+            id
+            firstName
+            lastName
+          }
+          processor {
+            id
+            firstName
+            lastName
+          }
+          createdAt
+          updatedAt
+        }
+        diagnostics {
+          id
+          diagnosisName
+          icd11Code
+          createdAt
+        }
+        medications {
+          id
+          medicationName
+          instructions
+          createdAt
+        }
+        childVisitDepartments {
+          id
+          status
+          startedAt
+        completedAt
+          addedBy {
+            id
+            firstName
+            lastName
+          }
+          completedBy {
+            id
+            firstName
+            lastName
+          }
+          processors {
+            id
+            firstName
+            lastName
+          }
+          department {
+            id
+            name
+            requestsProducts
+          }
+          products {
+            id
+            product {
+              id
+              name
+              code
+              type
+              unit
+              privateRhicPrice
+              clinicPrice
+            }
+            quantity
+            status
+            source
+            addedBy {
+              id
+              firstName
+              lastName
+            }
+            billedBy {
+              id
+              firstName
+              lastName
+            }
+            processor {
+              id
+              firstName
+              lastName
+            }
+            createdAt
+            updatedAt
+          }
+          answerId
+          hasFinalizedConsultationAnswers
+          hasBillableProducts
+          createdAt
+          updatedAt
+        }
+        notes {
+          totalNotes
+          newNotes
+        }
+        answerId
+        hasFinalizedConsultationAnswers
+        hasBillableProducts
+        createdAt
+        updatedAt
       }
     }
   }
@@ -1072,6 +1240,26 @@ export const CHANGE_VISIT_DATE_MUTATION = gql`
   }
 `;
 
+export const UPDATE_VISIT_DEPARTMENT_ENCOUNTER_DATE_MUTATION = gql`
+  mutation UpdateVisitDepartmentEncounterDate($input: UpdateVisitDepartmentEncounterDateInput!) {
+    updateVisitDepartmentEncounterDate(input: $input) {
+      status
+      message
+      data {
+        id
+        status
+        startedAt
+        createdAt
+        updatedAt
+        department {
+          id
+          name
+        }
+      }
+    }
+  }
+`;
+
 export const FINALISE_VISIT_DEPARTMENT_MUTATION = gql`
   mutation FinaliseVisitDepartment($visitDepartmentId: ID!) {
     updateVisitDepartmentStatus(
@@ -1082,6 +1270,7 @@ export const FINALISE_VISIT_DEPARTMENT_MUTATION = gql`
       data {
         id
         status
+        startedAt
         completedAt
         updatedAt
         department {

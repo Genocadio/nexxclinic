@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@/lib/auth-context";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormRendererHandle } from "@/components/formbuilder/form-renderer";
 import { useRouter } from "next/navigation";
@@ -13,8 +14,10 @@ import {
   Plus,
   Search,
   MessageSquarePlus,
+  Check,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { useConfirmVisitDepartmentProduct } from "@/hooks/billing/hooks";
 import type { Patient, Visit, VisitDepartment } from "@/lib/api-types";
 import type { FormAction } from "@/lib/form-storage";
 import type { SavedForm } from "@/lib/formbuilder-storage";
@@ -70,6 +73,7 @@ import {
   parseStandaloneAnswers,
 } from "@/lib/standalone-form-mapper";
 import { isVisitOrDepartmentClosedForProducts } from "@/lib/visit-product-lock";
+import { stripClinicalAnswers } from "@/components/formbuilder/extensions/consultation-visit/utils";
 
 interface StandaloneConsultationViewProps {
   visit: Visit;
@@ -143,6 +147,7 @@ export function StandaloneConsultationView({
   const [isFinalising, setIsFinalising] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
 
+  const { doctor } = useAuth();
   const { answer, defaultForm, loading, error, refetch, source } =
     useConsultationFormLoader({
       departmentId: catalogDepartmentId,
@@ -155,6 +160,8 @@ export function StandaloneConsultationView({
   const { saveVisitAnswer } = useSaveVisitStandaloneAnswer();
   const { addChildVisitDepartment } = useAddChildVisitDepartment();
   const { addProduct } = useAddProductToVisitDepartment();
+  const { confirmVisitDepartmentProduct } = useConfirmVisitDepartmentProduct();
+  const [confirmingChildProductId, setConfirmingChildProductId] = useState<string | null>(null);
   const { addVisitDepartmentNote } = useAddVisitDepartmentNote();
   const { markNotesViewed } = useMarkVisitDepartmentNotesViewed();
   const { notes: departmentNotes, refetch: refetchNotes } =
@@ -357,7 +364,10 @@ export function StandaloneConsultationView({
         return null;
       }
 
-      const snapshot = buildAnswersSnapshot(nextAnswers);
+      // Strip live clinical block answers (products, diagnoses, medications)
+      // because they are maintained on visit_department relational entities.
+      const cleanAnswers = stripClinicalAnswers(nextAnswers, rendererForm?.blocks);
+      const snapshot = buildAnswersSnapshot(cleanAnswers);
       if (
         status === "DRAFT" &&
         !options?.skipDuplicateCheck &&
@@ -375,7 +385,7 @@ export function StandaloneConsultationView({
         visitId: visit.id,
         visitDepartmentId: String(visitDepartment.id),
         formVersionId,
-        answers: nextAnswers,
+        answers: cleanAnswers,
         status,
         answerId: localAnswerIdRef.current,
       });
@@ -722,6 +732,7 @@ export function StandaloneConsultationView({
           parentVisitDepartmentId: firstVisitDepartmentId,
           departmentId: selectedRequestDepartmentId,
           products: [],
+          processorId: doctor?.id,
         });
         targetVisitDepartmentId = String(created?.data?.id || "");
       }
@@ -736,6 +747,7 @@ export function StandaloneConsultationView({
           targetVisitDepartmentId,
           product.id,
           product.quantity,
+          doctor?.id,
         );
       }
 
@@ -990,13 +1002,55 @@ export function StandaloneConsultationView({
                             </span>
                           </div>
                           {(childDept.products || []).length > 0 ? (
-                            <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                              {(childDept.products || []).map((line) => (
-                                <li key={line.id}>
-                                  {line.product?.name || "Product"} ×{" "}
-                                  {line.quantity}
-                                </li>
-                              ))}
+                            <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
+                              {(childDept.products || []).map((line) => {
+                                const isPendingConfirm =
+                                  line.billingConfirmationStatus === "PENDING_OPERATOR_CONFIRMATION";
+                                const isConfirmingThis = confirmingChildProductId === line.id;
+                                return (
+                                  <li key={line.id} className="flex items-center justify-between gap-2 py-0.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="font-medium text-foreground">
+                                        {line.product?.name || "Product"}
+                                      </span>
+                                      <span className="text-muted-foreground">× {line.quantity}</span>
+                                      {isPendingConfirm && (
+                                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                                          Added in Billing
+                                        </span>
+                                      )}
+                                    </div>
+                                    {isPendingConfirm && (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={isConfirmingThis}
+                                        className="h-6 px-2 text-[11px] font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-300 dark:border-emerald-800 shrink-0"
+                                        onClick={async () => {
+                                          try {
+                                            setConfirmingChildProductId(line.id);
+                                            await confirmVisitDepartmentProduct(line.id);
+                                            toast.success("Product accepted");
+                                            onVisitRefetch?.();
+                                          } catch (err: any) {
+                                            toast.error(err?.message || "Failed to confirm product");
+                                          } finally {
+                                            setConfirmingChildProductId(null);
+                                          }
+                                        }}
+                                      >
+                                        {isConfirmingThis ? (
+                                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                        ) : (
+                                          <Check className="h-3 w-3 mr-1 text-emerald-600" />
+                                        )}
+                                        Accept
+                                      </Button>
+                                    )}
+                                  </li>
+                                );
+                              })}
                             </ul>
                           ) : (
                             <p className="mt-2 text-xs text-muted-foreground">

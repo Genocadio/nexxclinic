@@ -157,6 +157,7 @@ export function getConditionSummary(
     case 'includes':
       return `${pName} includes "${cond.value ?? ''}"`
     case 'hasItem':
+      if (cond.itemLabel) return `${pName} has "${cond.itemLabel}"`
       if (cond.value)     return `${pName} has "${cond.value}"`
       if (cond.itemType)  return `${pName} has a ${cond.itemType}`
       return `${pName} has any product`
@@ -167,7 +168,15 @@ export function getConditionSummary(
 
 // ─── Runtime evaluator (mirrors old shouldShowField exactly) ─────────────────
 
-type ProductItem = { id?: string; name?: string; type?: string; backendId?: string }
+export type ProductItem = {
+  id?: string
+  name?: string
+  type?: string
+  backendId?: string
+  catalogProductId?: string
+  rawData?: Record<string, any>
+  product?: { id?: string; name?: string; type?: string; code?: string }
+}
 
 export function shouldShowBlock(
   block: FormBlock,
@@ -206,22 +215,45 @@ export function shouldShowBlock(
       const rawItems: unknown[] =
         Array.isArray((parentVal as Record<string, unknown>)?.['items'])
           ? (parentVal as Record<string, unknown>)['items'] as unknown[]
-          : []
+          : Array.isArray(parentVal)
+            ? (parentVal as unknown[])
+            : []
       const pool: ProductItem[] = stateItems.length > 0 ? stateItems : (rawItems as ProductItem[])
 
       const typed: ProductItem[] = itemType
-        ? pool.filter(item => String(item.type ?? '').toLowerCase() === itemType)
+        ? pool.filter(item => {
+            const t = String(item.type ?? item.product?.type ?? '').toLowerCase()
+            return (
+              t === itemType ||
+              (itemType === 'consumable' && t.includes('consumable')) ||
+              (itemType === 'action' && !t.includes('consumable'))
+            )
+          })
         : pool
 
-      if (!value) return typed.length > 0
+      if (!value && !cr.itemLabel) return typed.length > 0
 
-      const expected = value.trim().toLowerCase()
+      const expectedVal = (value || '').trim().toLowerCase()
+      const expectedLabel = (cr.itemLabel || '').trim().toLowerCase()
+
       return typed.some(item => {
-        const n = String(item.name ?? '').toLowerCase()
-        const ids = [item.id, item.backendId]
+        const n = String(item.name ?? item.product?.name ?? '').toLowerCase()
+        const ids = [
+          item.id,
+          item.catalogProductId,
+          item.backendId,
+          item.rawData?.id,
+          item.rawData?.product?.id,
+          item.product?.id,
+        ]
           .filter(Boolean)
           .map(id => String(id).toLowerCase())
-        return n.includes(expected) || ids.includes(expected)
+
+        const matchesId = expectedVal ? ids.includes(expectedVal) : false
+        const matchesName = expectedVal ? (n === expectedVal || n.includes(expectedVal)) : false
+        const matchesLabel = expectedLabel ? (n === expectedLabel || n.includes(expectedLabel)) : false
+
+        return matchesId || matchesName || matchesLabel
       })
     }
 

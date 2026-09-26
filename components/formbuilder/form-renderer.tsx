@@ -30,6 +30,7 @@ import type {
 import {
   collectAnswerableBlocks,
   isBlockViolating,
+  shouldRenderBlock,
   splitInitialAnswers,
 } from "./renderer/utils";
 import { createExtensionBlockHandlersResolver } from "./extensions";
@@ -181,8 +182,14 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
     );
 
     const violations = useMemo(
-      () => allBlocks.filter((b) => isBlockViolating(b, answers)),
-      [allBlocks, answers],
+      () =>
+        allBlocks.filter((b) => {
+          if (!shouldRenderBlock(b, answers, getBlockHandlers, form?.blocks)) {
+            return false;
+          }
+          return isBlockViolating(b, answers);
+        }),
+      [allBlocks, answers, getBlockHandlers, form?.blocks],
     );
 
     const hasViolations = violations.length > 0;
@@ -336,6 +343,7 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
                     context={context}
                     blockHandlers={getBlockHandlers(block)}
                     getBlockHandlers={getBlockHandlers}
+                    allBlocks={form.blocks}
                   />
                 </div>
               ))

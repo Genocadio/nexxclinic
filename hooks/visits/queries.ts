@@ -38,6 +38,10 @@ export function useVisits(
     ...(filter?.status ? { status: filter.status } : {}),
     ...(filter?.patientName ? { patientName: filter.patientName } : {}),
     ...(visitDate ? { visitDate } : {}),
+    ...(filter?.fromDate && filter?.fromDate !== filter?.toDate ? { fromDate: filter.fromDate } : {}),
+    ...(filter?.toDate && filter?.fromDate !== filter?.toDate ? { toDate: filter.toDate } : {}),
+    ...(filter?.recentDays ? { recentDays: filter.recentDays } : {}),
+    ...(filter?.activeOnly !== undefined ? { activeOnly: filter.activeOnly } : {}),
     page: page ?? 0,
     size: size ?? 20,
   };

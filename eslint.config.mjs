@@ -19,6 +19,7 @@ const eslintConfig = defineConfig([
       "react-hooks/purity": "warn",
       "react-hooks/preserve-manual-memoization": "warn",
       "react-hooks/refs": "warn",
+      "react-hooks/immutability": "warn",
       // `any` usage is tracked by the ongoing type-safety initiative (admin
       // products/departments pages etc.); keep it visible but non-blocking.
       "@typescript-eslint/no-explicit-any": "warn",
@@ -55,6 +56,7 @@ const eslintConfig = defineConfig([
   },
   globalIgnores([
     ".next/**",
+    ".next-preview/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

@@ -76,6 +76,11 @@ const childVisitDepartmentFields = `
     name
     requestsProducts
   }
+  addedBy {
+    id
+    firstName
+    lastName
+  }
   processors {
     id
     firstName
@@ -113,6 +118,7 @@ export const GET_VISIT_QUERY = gql`
         id
         status
         visitDate
+        createdAt
         patient {
           id
           firstName
@@ -230,7 +236,18 @@ export const GET_VISIT_QUERY = gql`
               name
             }
           }
+          startedAt
           completedAt
+          addedBy {
+            id
+            firstName
+            lastName
+          }
+          completedBy {
+            id
+            firstName
+            lastName
+          }
           processors {
             id
             firstName
@@ -294,6 +311,7 @@ export const VISITS_QUERY = gql`
         id
         status
         visitDate
+        createdAt
         patient {
           id
           firstName
@@ -316,6 +334,25 @@ export const VISITS_QUERY = gql`
             name
           }
           status
+          startedAt
+          completedAt
+          addedBy {
+            id
+            firstName
+            lastName
+          }
+          completedBy {
+            id
+            firstName
+            lastName
+          }
+          processors {
+            id
+            firstName
+            lastName
+          }
+          createdAt
+          updatedAt
           answerId
           hasFinalizedConsultationAnswers
           hasBillableProducts
@@ -332,6 +369,7 @@ export const VISITS_QUERY = gql`
             }
             quantity
             status
+            source
             addedBy {
               id
               firstName
@@ -342,13 +380,42 @@ export const VISITS_QUERY = gql`
               firstName
               lastName
             }
+            confirmedBy {
+              id
+              firstName
+              lastName
+            }
+            billingConfirmationStatus
+            processor {
+              id
+              firstName
+              lastName
+            }
             createdAt
             updatedAt
           }
           childVisitDepartments {
             id
             status
-            completedAt
+            startedAt
+          completedAt
+            addedBy {
+              id
+              firstName
+              lastName
+            }
+            completedBy {
+              id
+              firstName
+              lastName
+            }
+            processors {
+              id
+              firstName
+              lastName
+            }
+            createdAt
+            updatedAt
             answerId
             hasFinalizedConsultationAnswers
             hasBillableProducts
@@ -369,12 +436,24 @@ export const VISITS_QUERY = gql`
               }
               quantity
               status
+              source
               addedBy {
                 id
                 firstName
                 lastName
               }
               billedBy {
+                id
+                firstName
+                lastName
+              }
+              confirmedBy {
+                id
+                firstName
+                lastName
+              }
+              billingConfirmationStatus
+              processor {
                 id
                 firstName
                 lastName
@@ -429,6 +508,7 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
             name
           }
           status
+          startedAt
           completedAt
           answerId
           hasFinalizedConsultationAnswers
@@ -456,7 +536,8 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
             quantity
             status
             createdAt
-          }          createdAt
+          }
+          createdAt
           updatedAt
         }
         estimatedTotal
@@ -501,7 +582,8 @@ export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
               name
             }
             status
-            completedAt
+            startedAt
+          completedAt
             diagnostics {
               id
               diagnosisName
@@ -546,7 +628,8 @@ export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
               name
             }
             status
-            completedAt
+            startedAt
+          completedAt
             diagnostics {
               id
               diagnosisName

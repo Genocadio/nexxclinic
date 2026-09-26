@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useAuth } from "@/lib/auth-context";
 import { toast } from "react-toastify";
 import type { VisitDepartment } from "@/hooks/types";
 import type { FormAction } from "@/lib/form-storage";
@@ -15,17 +16,12 @@ import {
   useUpdateProductQuantity,
 } from "@/hooks/visits";
 import AddVisitDepartmentProductModal from "@/components/visit/add-visit-department-product-modal";
-import type { FormAnswers } from "../../renderer/types";
+import type { DiagEntry, FormAnswers, MedFullEntry, MedMiniEntry } from "../../renderer/types";
 import type { FormRendererExtension, MedicalBlockHandlers } from "../types";
 import {
-  addedProductToFormAction,
   buildLongMedicationInstructions,
   extractProductIdentifiers,
-  findSyncBlocks,
-  formActionToAddedProduct,
-  hydrateClinicalAnswers,
-  hydrateProductAnswers,
-  markRemovedVisitProducts,
+  parseMedicationInstructions,
   visitProductToFormAction,
 } from "./utils";
 
@@ -40,9 +36,8 @@ export interface ConsultationVisitExtensionOptions {
   visitDepartmentStatus?: string;
   /** Pre-mapped visit products (from page-level visit fetch) */
   existingProducts?: FormAction[];
-  /** Live answers — kept in sync by FormRenderer */
-  answers: FormAnswers;
-  setAnswers: (
+  answers?: FormAnswers;
+  setAnswers?: (
     updater: FormAnswers | ((prev: FormAnswers) => FormAnswers),
   ) => void;
   edit?: boolean;
@@ -66,6 +61,8 @@ function mapDepartmentProducts(dept: VisitDepartment | null): FormAction[] {
     visitProductToFormAction({
       id: String(line.id),
       quantity: line.quantity,
+      billingConfirmationStatus: line.billingConfirmationStatus,
+      confirmedBy: line.confirmedBy,
       product: {
         id: String(line.product.id),
         name: line.product.name,
@@ -81,7 +78,6 @@ export function useConsultationVisitExtension(
   options: ConsultationVisitExtensionOptions,
 ): FormRendererExtension {
   const {
-    form,
     visitId,
     visitDepartmentId,
     departmentId,
@@ -89,12 +85,11 @@ export function useConsultationVisitExtension(
     visitStatus,
     visitDepartmentStatus,
     existingProducts = [],
-    answers,
-    setAnswers,
     edit = true,
     onVisitRefetch,
   } = options;
 
+  const { doctor } = useAuth();
   const { addDiagnosis } = useAddDiagnosisToVisitDepartment();
   const { addMedication } = useAddMedicationToVisitDepartment();
   const { addAction } = useAddActionToVisitDepartment();
@@ -103,119 +98,59 @@ export function useConsultationVisitExtension(
   const { updateQuantity } = useUpdateProductQuantity();
 
   const [productModalOpen, setProductModalOpen] = useState(false);
-  const [activeProductBlockId, setActiveProductBlockId] = useState<
-    string | null
-  >(null);
-  const [fieldActions, setFieldActions] = useState<
-    Record<string, FormAction[]>
-  >({});
-  const hydrationDoneRef = useRef(false);
-  const syncNoticeRef = useRef<{
-    level: "info" | "warning";
-    message: string;
-  } | null>(null);
+  const [, setActiveProductBlockId] = useState<string | null>(null);
 
   const activeDepartment = useMemo(
     () => resolveVisitDepartment(visitDepartments, visitDepartmentId),
     [visitDepartments, visitDepartmentId],
   );
 
+  // Live products viewport — derived directly from visit department
   const visitProducts = useMemo(() => {
     const fromDept = mapDepartmentProducts(activeDepartment);
     if (fromDept.length > 0) return fromDept;
     return existingProducts;
   }, [activeDepartment, existingProducts]);
 
+  // Live diagnoses viewport — derived directly from visit department
+  const visitDiagnostics = useMemo((): DiagEntry[] => {
+    if (!activeDepartment?.diagnostics?.length) return [];
+    return activeDepartment.diagnostics.map((d) => ({
+      id: String(d.id),
+      diagnosis: String(d.diagnosisName || ""),
+      description: d.icd11Code || undefined,
+    }));
+  }, [activeDepartment?.diagnostics]);
+
+  // Live medications viewport — derived directly from visit department
+  const visitMedicationsFull = useMemo((): MedFullEntry[] => {
+    if (!activeDepartment?.medications?.length) return [];
+    return activeDepartment.medications.map((m) => {
+      const parsed = parseMedicationInstructions(m.instructions || "");
+      return {
+        id: String(m.id),
+        name: String(m.medicationName || ""),
+        frequency: parsed.frequency,
+        amount: parsed.amount,
+        days: parsed.days,
+        notes: parsed.notes || undefined,
+      };
+    });
+  }, [activeDepartment?.medications]);
+
+  const visitMedicationsMini = useMemo((): MedMiniEntry[] => {
+    if (!activeDepartment?.medications?.length) return [];
+    return activeDepartment.medications.map((m) => ({
+      id: String(m.id),
+      name: String(m.medicationName || ""),
+      notes: m.instructions || undefined,
+    }));
+  }, [activeDepartment?.medications]);
+
   const productsLocked = useMemo(
     () =>
       isVisitOrDepartmentClosedForProducts(visitStatus, visitDepartmentStatus),
     [visitStatus, visitDepartmentStatus],
-  );
-
-  const syncFieldActionsFromAnswers = useCallback(() => {
-    if (!form) return;
-    const productBlocks = findSyncBlocks(form.blocks).filter(
-      (b) => b.type === "product_listener",
-    );
-    if (productBlocks.length === 0) return;
-
-    setFieldActions((prev) => {
-      const next = { ...prev };
-      productBlocks.forEach((block) => {
-        const items = (
-          Array.isArray(answers[block.id]) ? answers[block.id] : []
-        ) as ReturnType<typeof formActionToAddedProduct>[];
-        next[block.id] = items.map(addedProductToFormAction);
-      });
-      return next;
-    });
-  }, [answers, form]);
-
-  useEffect(() => {
-    syncFieldActionsFromAnswers();
-  }, [syncFieldActionsFromAnswers]);
-
-  // Hydrate missing clinical + product data from visit → form
-  useEffect(() => {
-    if (!form || !visitDepartmentId || hydrationDoneRef.current) return;
-    if (!activeDepartment && visitProducts.length === 0) return;
-
-    setAnswers((prev) => {
-      let next = prev;
-      let changed = false;
-      if (activeDepartment) {
-        const clinical = hydrateClinicalAnswers(
-          form.blocks,
-          next,
-          activeDepartment,
-        );
-        if (clinical) {
-          next = clinical;
-          changed = true;
-        }
-      }
-      const products = hydrateProductAnswers(form.blocks, next, visitProducts);
-      if (products) {
-        next = products;
-        changed = true;
-      }
-      if (changed) {
-        syncNoticeRef.current = {
-          level: "info",
-          message: "Existing consultation data was synced into this form.",
-        };
-      }
-      return next === prev ? prev : next;
-    });
-
-    hydrationDoneRef.current = true;
-  }, [form, visitDepartmentId, activeDepartment, visitProducts, setAnswers]);
-
-  // Mark products removed from visit
-  useEffect(() => {
-    if (!form || visitProducts.length === 0) return;
-    setAnswers((prev) => {
-      const patch = markRemovedVisitProducts(prev, form.blocks, visitProducts);
-      return patch ?? prev;
-    });
-  }, [form, visitProducts, setAnswers]);
-
-  const extractBackendProductId = useCallback(
-    (
-      result: {
-        data?: { products?: Array<{ id?: string; product?: { id?: string } }> };
-      },
-      catalogId: string,
-    ) => {
-      if (Array.isArray(result.data?.products)) {
-        const match = result.data.products.find(
-          (p) => String(p?.product?.id) === String(catalogId),
-        );
-        if (match?.id) return String(match.id);
-      }
-      return String(catalogId);
-    },
-    [],
   );
 
   const handleAddProduct = useCallback(
@@ -229,38 +164,19 @@ export function useConsultationVisitExtension(
       },
       quantity: number,
     ) => {
-      if (!activeProductBlockId || productsLocked) return;
+      if (productsLocked) return;
 
-      const blockId = activeProductBlockId;
       const catalogId = String(item.id);
-      const currentList = fieldActions[blockId] || [];
-      const duplicate = currentList.find((a) =>
+      const existingProduct = visitProducts.find((a) =>
         extractProductIdentifiers(a).includes(catalogId),
       );
 
-      if (duplicate) {
-        const newQty = (duplicate.quantity || 0) + quantity;
-        setFieldActions((prev) => ({
-          ...prev,
-          [blockId]:
-            prev[blockId]?.map((a) =>
-              a.id === duplicate.id ? { ...a, quantity: newQty } : a,
-            ) || [],
-        }));
-        setAnswers((prev) => {
-          const items = (
-            Array.isArray(prev[blockId]) ? prev[blockId] : []
-          ) as ReturnType<typeof formActionToAddedProduct>[];
-          return {
-            ...prev,
-            [blockId]: items.map((p) =>
-              p.id === duplicate.id ? { ...p, qty: newQty } : p,
-            ),
-          };
-        });
-        if (duplicate.backendId) {
+      if (existingProduct) {
+        const newQty = (existingProduct.quantity || 0) + quantity;
+        if (existingProduct.backendId) {
           try {
-            await updateQuantity(duplicate.backendId, newQty);
+            await updateQuantity(existingProduct.backendId, newQty);
+            onVisitRefetch?.();
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Failed to update quantity");
           }
@@ -268,310 +184,169 @@ export function useConsultationVisitExtension(
         return;
       }
 
-      let result;
       try {
-        result =
+        const result =
           type === "action"
-            ? await addAction(visitId, departmentId, catalogId, quantity)
-            : await addConsumable(visitId, departmentId, catalogId, quantity);
+            ? await addAction(visitId, departmentId, catalogId, quantity, doctor?.id)
+            : await addConsumable(visitId, departmentId, catalogId, quantity, doctor?.id);
+
+        if (result?.status !== "SUCCESS") {
+          toast.error(result?.message || "Failed to add product");
+          return;
+        }
+        onVisitRefetch?.();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to add product");
-        return;
       }
-
-      if (result?.status !== "SUCCESS") {
-        toast.error(result?.message || "Failed to add product");
-        return;
-      }
-
-      const backendId = extractBackendProductId(result, catalogId);
-      const newAction: FormAction = {
-        id: `${type}-${catalogId}-${Date.now()}`,
-        name: item.name,
-        type,
-        quantity,
-        privatePrice: item.privatePrice ?? 0,
-        isQuantifiable: item.isQuantifiable !== false,
-        backendId,
-        rawData: item,
-        source: "local",
-      };
-
-      setFieldActions((prev) => ({
-        ...prev,
-        [blockId]: [...(prev[blockId] || []), newAction],
-      }));
-      setAnswers((prev) => {
-        const items = (
-          Array.isArray(prev[blockId]) ? prev[blockId] : []
-        ) as ReturnType<typeof formActionToAddedProduct>[];
-        return {
-          ...prev,
-          [blockId]: [...items, formActionToAddedProduct(newAction)],
-        };
-      });
     },
     [
-      activeProductBlockId,
       productsLocked,
-      fieldActions,
+      visitProducts,
       visitId,
       departmentId,
+      doctor?.id,
       addAction,
       addConsumable,
       updateQuantity,
-      extractBackendProductId,
-      setAnswers,
       onVisitRefetch,
     ],
   );
 
   const handleRemoveProduct = useCallback(
-    async (blockId: string, actionId: string) => {
-      const action = fieldActions[blockId]?.find((a) => a.id === actionId);
-      if (!action) return;
+    async (actionId: string) => {
+      const action = visitProducts.find((a) => a.id === actionId);
+      if (!action?.backendId) return;
 
-      if (!action.backendId || action.removedFromVisit) {
-        setFieldActions((prev) => ({
-          ...prev,
-          [blockId]: prev[blockId]?.filter((a) => a.id !== actionId) || [],
-        }));
-        setAnswers((prev) => {
-          const items = (
-            Array.isArray(prev[blockId]) ? prev[blockId] : []
-          ) as ReturnType<typeof formActionToAddedProduct>[];
-          return { ...prev, [blockId]: items.filter((p) => p.id !== actionId) };
-        });
-        return;
-      }
-
-      let result;
       try {
-        result = await removeProduct(action.backendId);
+        const result = await removeProduct(action.backendId);
+        const ok =
+          result?.status === "SUCCESS" ||
+          (typeof result?.message === "string" &&
+            /not found/i.test(result.message));
+
+        if (!ok) {
+          toast.error(result?.message || "Failed to remove product");
+          return;
+        }
+        onVisitRefetch?.();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to remove product");
-        return;
-      }
-      const ok =
-        result?.status === "SUCCESS" ||
-        (typeof result?.message === "string" &&
-          /not found/i.test(result.message));
-
-      if (!ok) {
-        toast.error(result?.message || "Failed to remove product");
-        return;
-      }
-
-      if (ok) {
-        setFieldActions((prev) => ({
-          ...prev,
-          [blockId]: prev[blockId]?.filter((a) => a.id !== actionId) || [],
-        }));
-        setAnswers((prev) => {
-          const items = (
-            Array.isArray(prev[blockId]) ? prev[blockId] : []
-          ) as ReturnType<typeof formActionToAddedProduct>[];
-          return { ...prev, [blockId]: items.filter((p) => p.id !== actionId) };
-        });
       }
     },
-    [fieldActions, removeProduct, setAnswers, onVisitRefetch],
+    [visitProducts, removeProduct, onVisitRefetch],
   );
 
   const handleUpdateProductQuantity = useCallback(
-    async (blockId: string, actionId: string, quantity: number) => {
-      const action = fieldActions[blockId]?.find((a) => a.id === actionId);
+    async (actionId: string, quantity: number) => {
+      const action = visitProducts.find((a) => a.id === actionId);
       if (!action?.backendId) return;
 
       try {
         await updateQuantity(action.backendId, quantity);
+        onVisitRefetch?.();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to update quantity");
-        return;
       }
-      setFieldActions((prev) => ({
-        ...prev,
-        [blockId]:
-          prev[blockId]?.map((a) =>
-            a.id === actionId ? { ...a, quantity } : a,
-          ) || [],
-      }));
-      setAnswers((prev) => {
-        const items = (
-          Array.isArray(prev[blockId]) ? prev[blockId] : []
-        ) as ReturnType<typeof formActionToAddedProduct>[];
-        return {
-          ...prev,
-          [blockId]: items.map((p) =>
-            p.id === actionId ? { ...p, qty: quantity } : p,
-          ),
-        };
-      });
     },
-    [fieldActions, updateQuantity, setAnswers],
+    [visitProducts, updateQuantity, onVisitRefetch],
   );
 
   const handleAddDiagnosis = useCallback(
-    async (blockId: string, diagnosis: string, description?: string) => {
+    async (diagnosis: string, description?: string) => {
       if (!visitDepartmentId) return false;
-      let result;
       try {
-        result = await addDiagnosis(visitDepartmentId, diagnosis.trim());
+        const result = await addDiagnosis(visitDepartmentId, diagnosis.trim(), description?.trim());
+        if (result?.status !== "SUCCESS") {
+          toast.error(result?.message || "Failed to add diagnosis");
+          return false;
+        }
+        onVisitRefetch?.();
+        return true;
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to add diagnosis");
         return false;
       }
-      if (result?.status !== "SUCCESS") {
-        toast.error(result?.message || "Failed to add diagnosis");
-        return false;
-      }
-
-      const added = Array.isArray(result.data?.diagnostics)
-        ? result.data.diagnostics[result.data.diagnostics.length - 1]
-        : undefined;
-
-      const entry = {
-        id: String(added?.id || `diag_${Date.now()}`),
-        diagnosis: String(added?.diagnosisName || diagnosis),
-        description: description?.trim() || undefined,
-      };
-
-      setAnswers((prev) => {
-        const existing = Array.isArray(prev[blockId]) ? prev[blockId] : [];
-        if (existing.some((r: { id?: string }) => String(r.id) === entry.id)) {
-          return prev;
-        }
-        return { ...prev, [blockId]: [...existing, entry] };
-      });
-      return true;
     },
-    [visitDepartmentId, addDiagnosis, setAnswers, onVisitRefetch],
+    [visitDepartmentId, addDiagnosis, onVisitRefetch],
   );
 
   const handleAddMedicationFull = useCallback(
-    async (
-      blockId: string,
-      entry: Omit<import("../../renderer/types").MedFullEntry, "id">,
-    ) => {
+    async (entry: Omit<MedFullEntry, "id">) => {
       if (!visitDepartmentId) return false;
       const instructions = buildLongMedicationInstructions(entry);
-      let result;
       try {
-        result = await addMedication(
+        const result = await addMedication(
           visitDepartmentId,
           entry.name.trim(),
           instructions,
         );
+        if (result?.status !== "SUCCESS") {
+          toast.error(result?.message || "Failed to add medication");
+          return false;
+        }
+        onVisitRefetch?.();
+        return true;
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to add medication");
         return false;
       }
-      if (result?.status !== "SUCCESS") {
-        toast.error(result?.message || "Failed to add medication");
-        return false;
-      }
-
-      const added = Array.isArray(result.data?.medications)
-        ? result.data.medications[result.data.medications.length - 1]
-        : undefined;
-
-      const record = {
-        id: String(added?.id || `med_full_${Date.now()}`),
-        name: String(added?.medicationName || entry.name),
-        frequency: entry.frequency,
-        amount: entry.amount,
-        days: entry.days,
-        notes: entry.notes,
-      };
-
-      setAnswers((prev) => {
-        const existing = Array.isArray(prev[blockId]) ? prev[blockId] : [];
-        if (existing.some((r: { id?: string }) => String(r.id) === record.id)) {
-          return prev;
-        }
-        return { ...prev, [blockId]: [...existing, record] };
-      });
-      return true;
     },
-    [visitDepartmentId, addMedication, setAnswers, onVisitRefetch],
+    [visitDepartmentId, addMedication, onVisitRefetch],
   );
 
   const handleAddMedicationMini = useCallback(
-    async (blockId: string, name: string, notes?: string) => {
+    async (name: string, notes?: string) => {
       if (!visitDepartmentId) return false;
-      const instructions = notes?.trim() || "No additional notes";      let result;
+      const instructions = notes?.trim() || "No additional notes";
       try {
-        result = await addMedication(
+        const result = await addMedication(
           visitDepartmentId,
           name.trim(),
           instructions,
         );
+        if (result?.status !== "SUCCESS") {
+          toast.error(result?.message || "Failed to add medication");
+          return false;
+        }
+        onVisitRefetch?.();
+        return true;
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to add medication");
         return false;
       }
-      if (result?.status !== "SUCCESS") {
-        toast.error(result?.message || "Failed to add medication");
-        return false;
-      }
-
-      const added = Array.isArray(result.data?.medications)
-        ? result.data.medications[result.data.medications.length - 1]
-        : undefined;
-
-      const record = {
-        id: String(added?.id || `med_mini_${Date.now()}`),
-        name: String(added?.medicationName || name),
-        notes: String(added?.instructions || notes || "") || undefined,
-      };
-
-      setAnswers((prev) => {
-        const existing = Array.isArray(prev[blockId]) ? prev[blockId] : [];
-        if (existing.some((r: { id?: string }) => String(r.id) === record.id)) {
-          return prev;
-        }
-        return { ...prev, [blockId]: [...existing, record] };
-      });
-      return true;
     },
-    [visitDepartmentId, addMedication, setAnswers, onVisitRefetch],
+    [visitDepartmentId, addMedication, onVisitRefetch],
   );
 
   const existingProductReferenceIds = useMemo(
     () =>
       Array.from(
         new Set(
-          Object.values(fieldActions).flatMap((actions) =>
-            actions.flatMap(extractProductIdentifiers),
-          ),
+          visitProducts.flatMap(extractProductIdentifiers),
         ),
       ),
-    [fieldActions],
+    [visitProducts],
   );
 
   const getBlockHandlers = useCallback(
     (
       block: import("@/lib/formbuilder-storage").FormBlock,
     ): MedicalBlockHandlers | null => {
-      if (!edit) return { productsLocked: true };
+      if (!edit) return { productsLocked: true, productActions: visitProducts, diagnostics: visitDiagnostics, medicationsFull: visitMedicationsFull, medicationsMini: visitMedicationsMini };
 
       switch (block.type) {
         case "product_listener":
           return {
-            productActions: fieldActions[block.id] || [],
+            productActions: visitProducts,
             onOpenProductPicker: () => {
               setActiveProductBlockId(block.id);
               setProductModalOpen(true);
             },
             onRemoveProduct: (actionId) => {
-              void handleRemoveProduct(block.id, actionId).catch((err) => {
-                toast.error(err instanceof Error ? err.message : "Failed to remove product");
-              });
+              void handleRemoveProduct(actionId);
             },
             onUpdateProductQuantity: (actionId, qty) => {
-              void handleUpdateProductQuantity(block.id, actionId, qty).catch((err) => {
-                toast.error(err instanceof Error ? err.message : "Failed to update quantity");
-              });
+              void handleUpdateProductQuantity(actionId, qty);
             },
             productsLocked,
             visitId,
@@ -579,18 +354,21 @@ export function useConsultationVisitExtension(
           };
         case "diagnostic_record":
           return {
+            diagnostics: visitDiagnostics,
             onAddDiagnosis: (diagnosis, description) =>
-              handleAddDiagnosis(block.id, diagnosis, description),
+              handleAddDiagnosis(diagnosis, description),
           };
         case "medication_full":
           return {
+            medicationsFull: visitMedicationsFull,
             onAddMedicationFull: (entry) =>
-              handleAddMedicationFull(block.id, entry),
+              handleAddMedicationFull(entry),
           };
         case "medication_mini":
           return {
+            medicationsMini: visitMedicationsMini,
             onAddMedicationMini: (name, notes) =>
-              handleAddMedicationMini(block.id, name, notes),
+              handleAddMedicationMini(name, notes),
           };
         default:
           return null;
@@ -598,7 +376,10 @@ export function useConsultationVisitExtension(
     },
     [
       edit,
-      fieldActions,
+      visitProducts,
+      visitDiagnostics,
+      visitMedicationsFull,
+      visitMedicationsMini,
       productsLocked,
       visitId,
       departmentId,
@@ -619,6 +400,7 @@ export function useConsultationVisitExtension(
           setActiveProductBlockId(null);
         }}
         visitDepartments={visitDepartments}
+        visitDepartmentId={visitDepartmentId}
         currentCatalogDepartmentId={departmentId}
         viewMode="service"
         onAdd={handleAddProduct}
@@ -628,6 +410,7 @@ export function useConsultationVisitExtension(
     [
       productModalOpen,
       visitDepartments,
+      visitDepartmentId,
       departmentId,
       handleAddProduct,
       existingProductReferenceIds,

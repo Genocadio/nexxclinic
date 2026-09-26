@@ -1,21 +1,26 @@
 import type { FormBlock } from "@/lib/formbuilder-storage";
 import type { FormAction } from "@/lib/form-storage";
-import type { VisitDepartment } from "@/hooks/types";
 import type { AddedProduct, DiagEntry, FormAnswers, MedFullEntry, MedMiniEntry } from "../../renderer/types";
 import { collectAnswerableBlocks } from "../../renderer/utils";
 
-export const SYNC_BLOCK_TYPES = new Set([
+export const CLINICAL_BLOCK_TYPES = new Set([
   "product_listener",
   "diagnostic_record",
   "medication_full",
   "medication_mini",
 ]);
 
-export function findSyncBlocks(blocks: FormBlock[]) {
+/** @deprecated Alias for backward compatibility */
+export const SYNC_BLOCK_TYPES = CLINICAL_BLOCK_TYPES;
+
+export function findClinicalBlocks(blocks: FormBlock[]) {
   return collectAnswerableBlocks(blocks).filter((b) =>
-    SYNC_BLOCK_TYPES.has(b.type),
+    CLINICAL_BLOCK_TYPES.has(b.type),
   );
 }
+
+/** @deprecated Alias for backward compatibility */
+export const findSyncBlocks = findClinicalBlocks;
 
 export function parseMedicationInstructions(instructions: string) {
   const raw = String(instructions || "");
@@ -52,6 +57,8 @@ export function visitProductToFormAction(line: {
   id: string;
   quantity?: number;
   price?: number | null;
+  billingConfirmationStatus?: any;
+  confirmedBy?: { firstName?: string | null; lastName?: string | null } | null;
   product: {
     id: string;
     name: string;
@@ -64,6 +71,9 @@ export function visitProductToFormAction(line: {
   const price = Number(
     line.price ?? line.product.clinicPrice ?? line.product.privateRhicPrice ?? 0,
   );
+  const confirmedByName = line.confirmedBy
+    ? [line.confirmedBy.firstName, line.confirmedBy.lastName].filter(Boolean).join(" ")
+    : null;
   return {
     id: `visit-prod-${line.id}`,
     name: line.product.name,
@@ -74,6 +84,8 @@ export function visitProductToFormAction(line: {
     backendId: String(line.id),
     rawData: { id: line.product.id, product: line.product },
     source: "saved",
+    billingConfirmationStatus: line.billingConfirmationStatus || null,
+    confirmedByName,
   };
 }
 
@@ -91,6 +103,8 @@ export function formActionToAddedProduct(action: FormAction): AddedProduct {
     backendId: action.backendId,
     catalogProductId: String(action.rawData?.id || action.rawData?.product?.id || ""),
     removedFromVisit: action.removedFromVisit,
+    billingConfirmationStatus: action.billingConfirmationStatus ?? undefined,
+    confirmedByName: action.confirmedByName ?? undefined,
   };
 }
 
@@ -108,167 +122,32 @@ export function addedProductToFormAction(product: AddedProduct): FormAction {
       : undefined,
     source: product.backendId ? "saved" : "local",
     removedFromVisit: product.removedFromVisit,
+    billingConfirmationStatus: product.billingConfirmationStatus ?? null,
+    confirmedByName: product.confirmedByName ?? null,
   };
 }
 
-export function hydrateClinicalAnswers(
-  blocks: FormBlock[],
+/**
+ * Strips clinical extension block answers from form answers before storage.
+ * Clinical items (products, diagnoses, medications) are managed directly on
+ * visit_department relational entities, so we do not duplicate them into JSON answers.
+ */
+export function stripClinicalAnswers(
   answers: FormAnswers,
-  visitDepartment: Pick<VisitDepartment, "diagnostics" | "medications">,
-): FormAnswers | null {
-  const syncBlocks = findSyncBlocks(blocks);
-  const diagnosticBlocks = syncBlocks.filter((b) => b.type === "diagnostic_record");
-  const medFullBlocks = syncBlocks.filter((b) => b.type === "medication_full");
-  const medMiniBlocks = syncBlocks.filter((b) => b.type === "medication_mini");
+  blocks?: FormBlock[],
+): FormAnswers {
+  if (!answers) return {};
+  if (!blocks || blocks.length === 0) return answers;
 
-  const backendDiagnostics = visitDepartment.diagnostics ?? [];
-  const backendMedications = visitDepartment.medications ?? [];
-
-  let changed = false;
-  const next = { ...answers };
-
-  const existingMedicationIds = new Set<string>();
-  Object.values(next).forEach((val) => {
-    if (Array.isArray(val)) {
-      val.forEach((item: { id?: string }) => {
-        if (item?.id) existingMedicationIds.add(String(item.id));
-      });
-    }
-  });
-
-  diagnosticBlocks.forEach((block) => {
-    const current = (Array.isArray(next[block.id]) ? next[block.id] : []) as DiagEntry[];
-    const existingKeys = new Set(
-      current.map(
-        (item) =>
-          `${item.id}:${item.diagnosis.toLowerCase()}:${String(item.description || "").toLowerCase()}`,
-      ),
-    );
-    const missing = backendDiagnostics
-      .map((item) => ({
-        id: String(item.id || `diag_${Date.now()}`),
-        diagnosis: String(item.diagnosisName || ""),
-        description: String(item.icd11Code || "") || undefined,
-      }))
-      .filter((item) => {
-        const key = `${item.id}:${item.diagnosis.toLowerCase()}:${String(item.description || "").toLowerCase()}`;
-        return item.diagnosis && !existingKeys.has(key);
-      });
-    if (missing.length > 0) {
-      next[block.id] = [...current, ...missing];
-      changed = true;
-    }
-  });
-
-  const targetMedBlocks =
-    medFullBlocks.length > 0 ? medFullBlocks : medMiniBlocks;
-
-  targetMedBlocks.forEach((block) => {
-    const current: (MedFullEntry | MedMiniEntry)[] = Array.isArray(next[block.id])
-      ? (next[block.id] as (MedFullEntry | MedMiniEntry)[])
-      : [];
-    const existingKeys = new Set(
-      (current as Array<{ id?: string; name?: string; notes?: string }>).map(
-        (item) =>
-          `${item.id}:${String(item.name || "").toLowerCase()}:${String(item.notes || "").toLowerCase()}`,
-      ),
-    );
-
-    const missing = backendMedications
-      .map((item) => {
-        const parsed = parseMedicationInstructions(String(item.instructions || ""));
-        if (block.type === "medication_full") {
-          return {
-            id: String(item.id || `med_full_${Date.now()}`),
-            name: String(item.medicationName || ""),
-            frequency: parsed.frequency,
-            amount: parsed.amount,
-            days: parsed.days,
-            notes: parsed.notes || undefined,
-          } satisfies MedFullEntry;
-        }
-        return {
-          id: String(item.id || `med_mini_${Date.now()}`),
-          name: String(item.medicationName || ""),
-          notes: String(item.instructions || "") || undefined,
-        } satisfies MedMiniEntry;
-      })
-      .filter((item) => {
-        const key = `${item.id}:${String(item.name || "").toLowerCase()}:${String((item as MedMiniEntry).notes || "").toLowerCase()}`;
-        if (!item.name) return false;
-        if (existingKeys.has(key)) return false;
-        if (existingMedicationIds.has(String(item.id))) return false;
-        return true;
-      });
-
-    if (missing.length > 0) {
-      next[block.id] = [...current, ...missing];
-      changed = true;
-    }
-  });
-
-  return changed ? next : null;
-}
-
-export function hydrateProductAnswers(
-  blocks: FormBlock[],
-  answers: FormAnswers,
-  visitProducts: FormAction[],
-): FormAnswers | null {
-  const productBlocks = findSyncBlocks(blocks).filter(
-    (b) => b.type === "product_listener",
+  const clinicalBlockIds = new Set(
+    findClinicalBlocks(blocks).map((b) => b.id),
   );
-  if (productBlocks.length === 0 || visitProducts.length === 0) return null;
 
-  let changed = false;
-  const next = { ...answers };
-
-  productBlocks.forEach((block) => {
-    const current = (Array.isArray(next[block.id]) ? next[block.id] : []) as AddedProduct[];
-    const currentIds = new Set(current.flatMap((p) => extractProductIdentifiers(p)));
-
-    const missing = visitProducts.filter((product) => {
-      const ids = extractProductIdentifiers(product);
-      return !ids.some((id) => currentIds.has(id));
-    });
-
-    if (missing.length > 0) {
-      next[block.id] = [...current, ...missing.map(formActionToAddedProduct)];
-      changed = true;
+  const cleaned: FormAnswers = {};
+  Object.entries(answers).forEach(([key, val]) => {
+    if (!clinicalBlockIds.has(key)) {
+      cleaned[key] = val;
     }
   });
-
-  return changed ? next : null;
-}
-
-export function markRemovedVisitProducts(
-  answers: FormAnswers,
-  blocks: FormBlock[],
-  visitProducts: FormAction[],
-): FormAnswers | null {
-  const productBlocks = findSyncBlocks(blocks).filter(
-    (b) => b.type === "product_listener",
-  );
-  if (productBlocks.length === 0) return null;
-
-  const visitIds = new Set(visitProducts.flatMap(extractProductIdentifiers));
-  let changed = false;
-  const next = { ...answers };
-
-  productBlocks.forEach((block) => {
-    const current = (Array.isArray(next[block.id]) ? next[block.id] : []) as AddedProduct[];
-    let blockChanged = false;
-    const updated = current.map((product) => {
-      if (!product.backendId) return product;
-      const exists = visitIds.has(String(product.backendId));
-      const removedFromVisit = !exists;
-      if (product.removedFromVisit === removedFromVisit) return product;
-      blockChanged = true;
-      changed = true;
-      return { ...product, removedFromVisit };
-    });
-    if (blockChanged) next[block.id] = updated;
-  });
-
-  return changed ? next : null;
+  return cleaned;
 }

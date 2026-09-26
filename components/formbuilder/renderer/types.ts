@@ -58,6 +58,8 @@ export interface AddedProduct {
   backendId?: string;
   catalogProductId?: string;
   removedFromVisit?: boolean;
+  billingConfirmationStatus?: "CONFIRMED" | "PENDING_OPERATOR_CONFIRMATION" | "REJECTED" | null;
+  confirmedByName?: string;
 }
 
 export interface AnswerBlockProps {
@@ -70,8 +72,9 @@ export interface AnswerBlockProps {
   edit: boolean;
   context?: { doctor: any; clinicProfile: any };
   /** Per-block handlers from FormRenderer extensions */
-  blockHandlers?: MedicalBlockHandlers;
-  getBlockHandlers?: (block: FormBlock) => MedicalBlockHandlers | undefined;
+  blockHandlers?: MedicalBlockHandlers | null;
+  getBlockHandlers?: (block: FormBlock) => MedicalBlockHandlers | null | undefined;
+  allBlocks?: FormBlock[];
 }
 
 export type { FormBlock, InlineAnswerField, LabRow, LayoutColumn, SavedForm, TableCell };

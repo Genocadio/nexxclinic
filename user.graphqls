@@ -336,6 +336,59 @@ type AuditLogListResponse implements ApiResponse {
     data: [AuditLog!]
 }
 
+type PermissionDto {
+  id: ID!
+  name: String!
+  description: String
+  module: String!
+}
+
+type RoleDto {
+  id: ID!
+  name: String!
+  description: String
+  isSystem: Boolean!
+  permissions: [PermissionDto!]!
+  createdAt: String
+  updatedAt: String
+}
+
+type RoleResponse implements ApiResponse {
+  status: ResponseStatus!
+  message: String
+  data: RoleDto
+}
+
+type RoleListResponse implements ApiResponse {
+  status: ResponseStatus!
+  message: String
+  data: [RoleDto!]
+}
+
+type PermissionListResponse implements ApiResponse {
+  status: ResponseStatus!
+  message: String
+  data: [PermissionDto!]
+}
+
+input CreateRoleInput {
+  name: String!
+  description: String
+  permissionNames: [String!]
+}
+
+input UpdateRoleInput {
+  id: ID!
+  name: String
+  description: String
+  permissionNames: [String!]
+}
+
+input AssignPermissionsToRoleInput {
+  roleId: ID!
+  permissionNames: [String!]!
+}
+
 type InsuranceProvider {
   id: ID!
   insuranceName: String!
@@ -539,6 +592,8 @@ type Visit {
   estimatedInsurancePay: Float
   estimatedPatientPay: Float
   quickBillEligible: Boolean
+  createdAt: String
+  updatedAt: String
 }
 
 type VisitVitalSignsGroup {
@@ -598,7 +653,10 @@ type VisitDepartment {
   status: VisitDepartmentStatus!
   encounterType: EncounterType!
   profile: DepartmentProfile
+  startedAt: String
   completedAt: String
+  addedBy: Worker
+  completedBy: Worker
   processors: [Worker!]
   childVisitDepartments: [VisitDepartment!]!
   products: [VisitDepartmentProduct!]!
@@ -608,6 +666,7 @@ type VisitDepartment {
   medications: [VisitDepartmentMedication!]
   preInstructions: [VisitPreInstruction!]!
   notes: VisitDepartmentNotesSummary!
+  billing: VisitDepartmentBilling
   answerId: ID
   createdAt: String!
   updatedAt: String!
@@ -713,6 +772,12 @@ type VisitDepartmentMedication {
   createdAt: String!
 }
 
+enum BillingConfirmationStatus {
+  CONFIRMED
+  PENDING_OPERATOR_CONFIRMATION
+  REJECTED
+}
+
 type VisitDepartmentProduct {
   id: ID!
   product: Product!
@@ -721,7 +786,10 @@ type VisitDepartmentProduct {
   source: VisitDepartmentProductSource!
   addedBy: Worker
   billedBy: Worker
+  confirmedBy: Worker
+  billingConfirmationStatus: BillingConfirmationStatus!
   processor: Worker
+  billingItem: VisitBillingItem
   createdAt: String!
   updatedAt: String!
 }
@@ -779,6 +847,7 @@ type VisitDepartmentBilling {
   outstandingAmount: Float!
   payments: [VisitBillingPayment!]!
   insuranceBillings: [DepartmentInsuranceBilling!]!
+  version: VisitBillingVersion
   createdAt: String!
   updatedAt: String!
 }
@@ -810,6 +879,12 @@ type VisitBillingResponse implements ApiResponse {
   status: ResponseStatus!
   message: String
     data: VisitBilling
+}
+
+type VisitDepartmentBillingResponse implements ApiResponse {
+  status: ResponseStatus!
+  message: String
+  data: VisitDepartmentBilling
 }
 
 type DepartmentInsuranceBillingResponse implements ApiResponse {
@@ -1195,7 +1270,7 @@ input CreatePatientInsuranceInput {
   validUntil: String!
   """Optional patient-specific default (0-100). Null = use rules then provider default."""
   patientSharePercentage: Int
-  """Reference to an InsuranceCoverage record. Takes precedence over patientSharePercentage."""
+  """Reference to an InsuranceCoverage record. Takes precedence over patientSharePercentage. The backend validates provider ownership."""
   patientShareCoverageId: ID
 }
 
@@ -1210,7 +1285,7 @@ input UpdatePatientInsuranceInput {
   validFrom: String
   validUntil: String
   patientSharePercentage: Int
-  """Reference to an InsuranceCoverage record. Takes precedence over patientSharePercentage."""
+  """Reference to an InsuranceCoverage record. Takes precedence over patientSharePercentage. The backend validates provider ownership."""
   patientShareCoverageId: ID
 }
 
@@ -1290,6 +1365,8 @@ input SearchProductsInput {
   type: ProductType
   page: Int
   size: Int
+  insuranceProviderId: ID
+  visitDepartmentId: ID
 }
 
 input DepartmentProfileInput {
@@ -1472,6 +1549,8 @@ Edit billing (error correction):
 """
 input EditBillVisitInput {
   visitId: ID!
+  """Latest billing-version id observed when the edit session began."""
+  expectedBillingVersionId: ID
   departments: [EditBillVisitDepartmentInput!]!
 }
 
@@ -1501,6 +1580,24 @@ input EditBillVisitUpdateProductInput {
   quantity: Float
 }
 
+input AddBillingProductInput {
+  visitId: ID!
+  visitDepartmentId: ID!
+  productId: ID!
+  quantity: Float!
+  patientSharePct: Int
+  exemptionType: ExemptionType
+}
+
+input UpdateBillingProductQuantityInput {
+  visitBillingItemId: ID!
+  quantity: Float!
+}
+
+input RemoveBillingProductInput {
+  visitBillingItemId: ID!
+}
+
 input RecordVisitBillingPaymentInput {
   departmentInsuranceBillingId: ID!
   amount: Float!
@@ -1513,15 +1610,6 @@ input RecordVisitBillingPaymentInput {
   note: String
 }
 
-enum PaymentMethod {
-  CASH
-  MOBILE_MONEY
-  CARD
-  BANK_TRANSFER
-  CHEQUE
-  MIXED
-}
-
 """
 Update the billing date shown on an invoice.
 Only ADMIN and MANAGER roles are permitted.
@@ -1532,8 +1620,30 @@ input UpdateBillingDateInput {
   billingDate: String!
 }
 
+"""
+Update the encounter date & time (startedAt) shown on a visit department.
+Only ADMIN and MANAGER roles are permitted.
+"""
+input UpdateVisitDepartmentEncounterDateInput {
+  visitDepartmentId: ID!
+  encounterDate: String!
+}
+
+enum PaymentMethod {
+  CASH
+  MOBILE_MONEY
+  CARD
+  BANK_TRANSFER
+  CHEQUE
+  MIXED
+}
+
 input SearchVisitsInput {
   visitDate: String
+  fromDate: String
+  toDate: String
+  recentDays: Int
+  activeOnly: Boolean
   status: VisitStatus
   patientName: String
   page: Int
@@ -1736,14 +1846,22 @@ type Query {
   departments(input: SearchDepartmentsInput): PaginatedDepartmentResponse!
   visit(visitId: ID!): VisitResponse!
   visits(input: SearchVisitsInput): PaginatedVisitResponse!
+  activeVisits(recentDays: Int, patientName: String, status: VisitStatus, page: Int, size: Int): PaginatedVisitResponse!
   getPatientHistory(patientId: ID!, input: SearchPatientHistoryInput): PaginatedVisitResponse!
   visitDepartmentNotes(visitId: ID!, visitDepartmentId: ID): VisitDepartmentNotesListResponse!
   visitBilling(visitId: ID!): VisitBillingResponse!
+  getVisitDepartmentBilling(visitDepartmentId: ID!): VisitDepartmentBillingResponse!
   visitPriceEstimates(visitId: ID!): VisitPriceEstimatesListResponse!
   clinicProfile: ClinicProfileResponse!
   lastPatientDepartmentVisit(visitId: ID!, departmentId: ID!): LastPatientDepartmentVisitResponse!
   insuranceCoverage(ruleId: ID!): InsuranceCoverageResponse!
   insuranceCoverages(input: SearchInsuranceCoveragesInput): InsuranceCoverageListResponse!
+  getRoles: RoleListResponse!
+  getRole(id: ID, name: String): RoleResponse!
+  getPermissions: PermissionListResponse!
+  roles: RoleListResponse!
+  role(id: ID, name: String): RoleResponse!
+  permissions: PermissionListResponse!
 }
 
 type Mutation {
@@ -1787,6 +1905,7 @@ type Mutation {
   removeDepartmentProfile(profileId: ID!): DepartmentResponse!
   createVisit(input: CreateVisitInput!): VisitResponse!
   changeVisitDate(input: ChangeVisitDateInput!): VisitResponse!
+  updateVisitDepartmentEncounterDate(input: UpdateVisitDepartmentEncounterDateInput!): VisitDepartmentResponse!
 
   """
   Add a department to a visit. The department's default profile is NEVER
@@ -1798,6 +1917,14 @@ type Mutation {
   addVisitDepartment(visitId: ID!, departmentId: ID!, profileId: ID, encounterType: EncounterType, processorId: ID): VisitResponse!
 
   """
+  Start or continue clinician consultation for a visit department.
+  Marks PENDING department as ACTIVE on first call, applies profile if provided,
+  and automatically adds the calling clinician to the department processors.
+  Only clinicians can perform this action.
+  """
+  consultVisit(visitDepartmentId: ID!, profileId: ID): VisitDepartmentResponse!
+
+  """
   Set (or clear) the profile used by a visit department, swapping its
   PROFILE-sourced products for the new profile's products (USER products are
   kept). Profile products cannot be removed individually — this is the only way
@@ -1805,6 +1932,13 @@ type Mutation {
   requests. Pass no profileId to clear the profile.
   """
   changeVisitDepartmentProfile(visitDepartmentId: ID!, profileId: ID): VisitDepartmentResponse!
+
+  """
+  Remove the profile from a visit department, clearing all PROFILE-sourced
+  products. Only managers, admins and clinic admins may remove a profile.
+  The department must not be in DEPARTMENT_EDITING or have billing history.
+  """
+  removeVisitDepartmentProfile(visitDepartmentId: ID!): VisitDepartmentResponse!
 
   """
   Add a child visit department with products. Validations occur before creation:
@@ -1831,11 +1965,20 @@ type Mutation {
   completeConsultationVisit(input: ConsultationAnswersInput!, final: Boolean!): VisitResponse!
   completeVisit(visitId: ID!): VisitResponse!
   removeVisitDepartmentProduct(visitDepartmentProductId: ID!): VisitDepartmentResponse!
+  confirmVisitDepartmentProduct(visitDepartmentProductId: ID!): VisitDepartmentResponse!
+  addBillingProduct(input: AddBillingProductInput!): VisitBillingResponse!
+  updateBillingProductQuantity(input: UpdateBillingProductQuantityInput!): VisitBillingResponse!
+  removeBillingProduct(input: RemoveBillingProductInput!): VisitBillingResponse!
   billVisit(input: BillVisitInput!): VisitBillingResponse!
   quickBill(visitId: ID!): ApiResponse!
   editBillVisit(input: EditBillVisitInput!): VisitBillingResponse!
   recordVisitBillingPayment(input: RecordVisitBillingPaymentInput!): VisitBillingResponse!
-  generateInvoice(departmentInsuranceBillingId: ID!): InvoiceResponse!
+  """
+  Update the billing date shown on an invoice. Only ADMIN and MANAGER.
+  Invalidates the existing invoice so a fresh PDF is generated on next access.
+  """
+  updateBillingDate(input: UpdateBillingDateInput!): DepartmentInsuranceBillingResponse!
+  generateInvoice(visitDepartmentId: ID, departmentInsuranceBillingId: ID): InvoiceResponse!
   flushSoftDeletedVisitProducts(visitId: ID!): BooleanResponse!
   cancelVisit(visitId: ID!): VisitResponse!
   """
@@ -1845,12 +1988,6 @@ type Mutation {
   finaliseVisit(visitId: ID!): VisitResponse!
   """Reopen a completed visit back to PENDING. Allows adding new departments. Only ADMIN and MANAGER."""
   reopenVisit(visitId: ID!): VisitResponse!
-
-  """
-  Update the billing date shown on an invoice. Only ADMIN and MANAGER.
-  Invalidates the existing invoice so a fresh PDF is generated on next access.
-  """
-  updateBillingDate(input: UpdateBillingDateInput!): DepartmentInsuranceBillingResponse!
   """Permanently delete an unbilled visit and all its data. Only ADMIN and MANAGER."""
   deleteVisit(visitId: ID!): BooleanResponse!
 
@@ -1867,4 +2004,8 @@ type Mutation {
   createInsuranceCoverage(input: CreateInsuranceCoverageInput!): InsuranceCoverageResponse!
   updateInsuranceCoverage(ruleId: ID!, input: UpdateInsuranceCoverageInput!): InsuranceCoverageResponse!
   deleteInsuranceCoverage(ruleId: ID!): BooleanResponse!
+  createRole(input: CreateRoleInput!): RoleResponse!
+  updateRole(input: UpdateRoleInput!): RoleResponse!
+  deleteRole(id: ID!): BooleanResponse!
+  assignPermissionsToRole(input: AssignPermissionsToRoleInput!): RoleResponse!
 }

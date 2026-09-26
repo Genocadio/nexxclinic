@@ -7,6 +7,7 @@ import {
   buildVisitDepartmentProductOptions,
   collectExistingProductReferenceIds,
   resolveCatalogDepartmentIdForService,
+  resolveVisitDepartmentIdForService,
 } from '@/lib/visit-department-product-utils'
 
 type ProductPickerItem = {
@@ -36,6 +37,7 @@ type AddVisitDepartmentProductModalProps = {
   open: boolean
   onClose: () => void
   visitDepartments?: VisitDepartment[]
+  visitDepartmentId?: string
   /** Active service tab name (billing) or department name (consultation) */
   activeServiceName?: string
   /** When set, locks product add to this catalog department id */
@@ -61,6 +63,7 @@ export function AddVisitDepartmentProductModal({
   open,
   onClose,
   visitDepartments = [],
+  visitDepartmentId,
   activeServiceName,
   currentCatalogDepartmentId,
   viewMode = 'service',
@@ -79,6 +82,20 @@ export function AddVisitDepartmentProductModal({
     return resolveCatalogDepartmentIdForService(visitDepartments, activeServiceName)
   }, [currentCatalogDepartmentId, visitDepartments, activeServiceName])
 
+  const resolvedVisitDepartmentId = useMemo(() => {
+    if (visitDepartmentId) return visitDepartmentId
+    if (activeServiceName) {
+      const fromService = resolveVisitDepartmentIdForService(visitDepartments, activeServiceName)
+      if (fromService) return fromService
+    }
+    const activeDept = visitDepartments.find(
+      (dept) =>
+        String(dept.department?.id) === String(resolvedCurrentDepartmentId) ||
+        String(dept.id) === String(resolvedCurrentDepartmentId),
+    )
+    return activeDept ? String(activeDept.id) : undefined
+  }, [visitDepartmentId, activeServiceName, visitDepartments, resolvedCurrentDepartmentId])
+
   // Resolve processors from the active visit department
   const activeProcessors = useMemo(() => {
     const activeDept = visitDepartments.find(
@@ -96,8 +113,9 @@ export function AddVisitDepartmentProductModal({
     <AddActionConsumableModal
       isOpen={open}
       onClose={onClose}
-      departments={departmentOptions.map(({ id, name }) => ({ id, name }))}
+      departments={departmentOptions.map(({ id, name, visitDepartmentId }) => ({ id, name, visitDepartmentId }))}
       currentDepartmentId={resolvedCurrentDepartmentId}
+      visitDepartmentId={resolvedVisitDepartmentId}
       viewMode={viewMode}
       onAdd={onAdd}
       existingProductReferenceIds={resolvedExistingIds}

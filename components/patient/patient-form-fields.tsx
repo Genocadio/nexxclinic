@@ -723,6 +723,17 @@ export default function PatientFormFields({
                                 value={`${ins.name} ${ins.acronym}`}
                                 onSelect={() => {
                                   onUpdateInsurance(index, "insuranceId", ins.id)
+                                  const covs = ins.coverages || []
+                                  if (covs.length === 1 && covs[0]) {
+                                    onUpdateInsurance(index, "patientShareCoverageId", covs[0].id)
+                                    onUpdateInsurance(index, "patientSharePercentage", covs[0].patientSharePercentage)
+                                  } else if (covs.length > 1) {
+                                    const base = covs.find((c) => !c.departmentId && !c.encounterType) || covs[0]
+                                    if (base) {
+                                      onUpdateInsurance(index, "patientShareCoverageId", base.id)
+                                      onUpdateInsurance(index, "patientSharePercentage", base.patientSharePercentage)
+                                    }
+                                  }
                                   setInsurancePopoverOpen((prev) => ({
                                     ...prev,
                                     [index]: false,
@@ -758,7 +769,7 @@ export default function PatientFormFields({
                       value={insurance.insuranceCardNumber}
                       onChange={(e) =>
                         onUpdateInsurance(
-                          index,
+                           index,
                           "insuranceCardNumber",
                           e.target.value,
                         )
@@ -796,6 +807,85 @@ export default function PatientFormFields({
                   </div>
                 </div>
               )}
+
+              {hasProvider && (() => {
+                const selectedProvider = availableInsurances.find(
+                  (ins) => String(ins.id) === String(insurance.insuranceId),
+                )
+                const coverages = selectedProvider?.coverages || []
+
+                const getCoverageLabel = (cov: typeof coverages[0]) => {
+                  if (cov.departmentName) return `${cov.departmentName} (${cov.patientSharePercentage}%)`
+                  if (cov.encounterType) {
+                    const typeName = cov.encounterType.replace(/_/g, " ").toLowerCase()
+                    const formatted = typeName.charAt(0).toUpperCase() + typeName.slice(1)
+                    return `${formatted} (${cov.patientSharePercentage}%)`
+                  }
+                  return `Base / General (${cov.patientSharePercentage}%)`
+                }
+
+                if (coverages.length > 1) {
+                  return (
+                    <div className="mt-2 sm:mt-4 p-3 rounded-xl border border-border/60 bg-muted/20">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <label className="block text-xs sm:text-sm font-medium text-foreground">
+                          Default Patient Share / Coverage Tier
+                        </label>
+                        <span className="text-[11px] text-muted-foreground">
+                          {coverages.length} tiers available
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mb-2">
+                        This insurance has multiple coverage conditions. Select the default tier for this patient:
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {coverages.map((cov) => {
+                          const isSelected = insurance.patientShareCoverageId === cov.id
+                          return (
+                            <button
+                              key={cov.id}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  onUpdateInsurance(index, "patientShareCoverageId", "")
+                                  onUpdateInsurance(index, "patientSharePercentage", "")
+                                } else {
+                                  onUpdateInsurance(index, "patientShareCoverageId", cov.id)
+                                  onUpdateInsurance(index, "patientSharePercentage", cov.patientSharePercentage)
+                                }
+                              }}
+                              className={`px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-medium transition-all ${
+                                isSelected
+                                  ? "bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white border-transparent shadow-sm"
+                                  : "bg-white dark:bg-slate-900 border-border/60 hover:border-primary/50 text-foreground"
+                              }`}
+                            >
+                              {getCoverageLabel(cov)}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                }
+
+                if (coverages.length === 1 && coverages[0]) {
+                  const singleCov = coverages[0]
+                  return (
+                    <div className="mt-2 sm:mt-4 p-2.5 rounded-xl border border-border/40 bg-muted/20 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-medium text-foreground">Default Coverage: </span>
+                        <span className="text-muted-foreground">{getCoverageLabel(singleCov)}</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold text-[11px]">
+                        {singleCov.patientSharePercentage}% Patient Share
+                      </span>
+                    </div>
+                  )
+                }
+
+                return null
+              })()}
 
               {hasProvider && (
                 <div className="mt-2 sm:mt-4">

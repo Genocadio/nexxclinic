@@ -17,6 +17,7 @@ import {
   useAddVisitDepartmentNote,
   useMarkVisitDepartmentNotesViewed,
 } from "@/hooks/visits/hooks";
+import { hasRole } from "@/lib/role-utils";
 
 interface VisitDepartment {
   id: string;
@@ -123,6 +124,18 @@ function DeptNotesPanel({
   active,
 }: DeptPanelProps) {
   const { doctor } = useAuth();
+  const userRoles = doctor?.roles || [];
+  const isManagerOrAdmin =
+    hasRole(userRoles, "MANAGER") || hasRole(userRoles, "ADMIN");
+
+  const effectiveNoteTypes = useMemo(() => {
+    if (isManagerOrAdmin) {
+      const allTypes = ["PUBLIC", "CONSULTATION", "BILLING", "FORMS", "ADMIN"];
+      return Array.from(new Set([...noteTypes, ...allTypes]));
+    }
+    return noteTypes;
+  }, [isManagerOrAdmin, noteTypes]);
+
   const { notes: rawNotes, refetch } = useVisitDepartmentNotes(
     active ? visitId : null,
     active ? visitDepartmentId : null,
@@ -131,7 +144,9 @@ function DeptNotesPanel({
   const { markNotesViewed } = useMarkVisitDepartmentNotesViewed();
 
   const [text, setText] = useState("");
-  const [selectedType, setSelectedType] = useState(noteTypes[0] || "PUBLIC");
+  const [selectedType, setSelectedType] = useState(
+    effectiveNoteTypes[0] || "PUBLIC",
+  );
   const [submitting, setSubmitting] = useState(false);
   // In-flight "mark as read" request — prevents duplicate markNotesViewed calls.
   const [markingRead, setMarkingRead] = useState(false);
@@ -149,18 +164,19 @@ function DeptNotesPanel({
 
   // Keep selectedType valid if noteTypes list changes
   useEffect(() => {
-    if (!noteTypes.includes(selectedType))
-      setSelectedType(noteTypes[0] || "PUBLIC");
-  }, [noteTypes, selectedType]);
+    if (!effectiveNoteTypes.includes(selectedType))
+      setSelectedType(effectiveNoteTypes[0] || "PUBLIC");
+  }, [effectiveNoteTypes, selectedType]);
 
   const visibleNotes = useMemo(() => {
     const all = rawNotes || [];
+    if (isManagerOrAdmin) return all; // Admins and managers can see ALL note types!
     if (!allowedDisplayTypes || allowedDisplayTypes.length === 0) return all;
     const allowed = new Set(allowedDisplayTypes);
     return all.filter(
       (n: any) => n?.noteType && allowed.has(String(n.noteType)),
     );
-  }, [rawNotes, allowedDisplayTypes]);
+  }, [rawNotes, allowedDisplayTypes, isManagerOrAdmin]);
 
   const handleAdd = async () => {
     const trimmed = text.trim();
@@ -377,9 +393,28 @@ export default function DepartmentNotesFloating({
 }: DepartmentNotesFloatingProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTabId, setActiveTabId] = useState<string>("");
+  const { doctor } = useAuth();
+  const userRoles = doctor?.roles || [];
+  const isManagerOrAdmin =
+    hasRole(userRoles, "MANAGER") || hasRole(userRoles, "ADMIN");
 
   const depts = visitDepartments.filter((d) => !!d.id);
   const activeDept = depts.find((d) => d.id === activeTabId) ?? depts[0];
+
+  // Fetch all visit notes to compute total unread notes badge
+  const { notes: allVisitNotes } = useVisitDepartmentNotes(visitId, null);
+
+  const unreadCount = useMemo(() => {
+    if (!allVisitNotes) return 0;
+    if (isManagerOrAdmin) {
+      return (allVisitNotes as any[]).filter((n: any) => !n?.viewed).length;
+    }
+    const allowed = allowedDisplayTypes ? new Set(allowedDisplayTypes) : null;
+    return (allVisitNotes as any[]).filter(
+      (n: any) => !n?.viewed && (!allowed || allowed.has(String(n?.noteType))),
+    ).length;
+  }, [allVisitNotes, isManagerOrAdmin, allowedDisplayTypes]);
+
   // Initialise / update the active tab when departments change
   useEffect(() => {
     if (depts.length === 0) return;
@@ -418,6 +453,11 @@ export default function DepartmentNotesFloating({
             <path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z" />
             <path d="M15 3v6h6" />
           </svg>
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 h-5 min-w-5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-sm animate-pulse">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
         </button>
       </div>
 
@@ -427,8 +467,13 @@ export default function DepartmentNotesFloating({
           {/* 1. Header */}
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h3 className="text-sm font-semibold text-foreground">
-                Department Notes
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <span>Department Notes</span>
+                {unreadCount > 0 && (
+                  <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
+                    {unreadCount} new
+                  </span>
+                )}
               </h3>
               <p className="text-xs text-muted-foreground">
                 Notes are scoped per department
@@ -463,19 +508,27 @@ export default function DepartmentNotesFloating({
               {depts.map((dept) => {
                 const label = dept.department?.name || dept.id;
                 const isActive = dept.id === activeDept.id;
+                const deptUnread = (allVisitNotes || []).filter(
+                  (n: any) => n.visitDepartmentId === dept.id && !n.viewed,
+                ).length;
                 return (
                   <button
                     key={dept.id}
                     type="button"
                     onClick={() => setActiveTabId(dept.id)}
                     className={[
-                      "h-7 rounded-full px-3 text-[11px] font-semibold transition-colors border",
+                      "h-7 rounded-full px-3 text-[11px] font-semibold transition-colors border flex items-center gap-1.5",
                       isActive
                         ? "bg-primary text-primary-foreground border-primary shadow-sm"
                         : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground",
                     ].join(" ")}
                   >
-                    {label}
+                    <span>{label}</span>
+                    {deptUnread > 0 && (
+                      <span className="h-4 min-w-4 px-1 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center">
+                        {deptUnread}
+                      </span>
+                    )}
                   </button>
                 );
               })}

@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   useDepartments,
   useGenerateInvoice,
@@ -10,12 +10,15 @@ import {
   getDerivedVisitBillingStatus,
   visitHasUnbilledProducts,
   visitProductsFullySettled,
+  canDischargeVisit,
 } from "@/lib/visit-product-utils"
-import { useLazyQuery } from "@apollo/client"
+import { useLazyQuery, useMutation } from "@apollo/client"
 import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
+import { COMPLETE_VISIT_MUTATION } from "@/hooks/mutations/visits"
 import { toast } from "react-toastify"
 import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
 import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet"
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
 import { useRouter } from "next/navigation"
 import {
   Search,
@@ -31,6 +34,7 @@ import {
 } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
 import { useAuth } from "@/lib/auth-context"
+import { hasRole } from "@/lib/role-utils"
 import { AddDepartmentModal } from "./add-department-modal"
 interface VisitsListViewProps {
   visits: Visit[]
@@ -73,8 +77,21 @@ export default function VisitsListView({
   // In-flight invoice generation (print/download) — disables those buttons
   // so a double click can't fire generateInvoice twice.
   const [printingInvoice, setPrintingInvoice] = useState(false)
-  // Tracks navigation in-flight so buttons show a spinner while router.push loads
   const [navigatingVisitId, setNavigatingVisitId] = useState<string | null>(null)
+
+  // Safety guard: auto-clear navigating state after 3.5s or on window focus
+  useEffect(() => {
+    if (!navigatingVisitId) return
+    const timer = setTimeout(() => {
+      setNavigatingVisitId(null)
+    }, 3500)
+    const handleFocus = () => setNavigatingVisitId(null)
+    window.addEventListener("focus", handleFocus)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [navigatingVisitId])
   const handleDownloadInvoice = async (
     departmentInsuranceBillingId: string,
   ) => {
@@ -167,6 +184,33 @@ export default function VisitsListView({
   const hasReceptionistRole =
     roles.includes("RECEPTIONIST") || roles.includes("RECEPTION")
   const hasFinanceRole = roles.includes("FINANCE")
+  const hasManagerRole = hasRole(roles, "MANAGER")
+  const hasAdminRole = hasRole(roles, "ADMIN")
+  const canSeeDischargeButton = hasManagerRole || hasAdminRole || hasFinanceRole
+
+  const [dischargeConfirmVisit, setDischargeConfirmVisit] = useState<Visit | null>(null)
+  const [completeVisitMutation, { loading: discharging }] = useMutation(
+    COMPLETE_VISIT_MUTATION,
+    {
+      onCompleted: (data) => {
+        if (data?.completeVisit?.status === "SUCCESS") {
+          toast.success("Patient discharged successfully")
+          refetchVisits?.()
+          setDischargeConfirmVisit(null)
+        } else {
+          toast.error(data?.completeVisit?.message || "Failed to discharge patient")
+        }
+      },
+      onError: (err) => {
+        toast.error(err.message || "Failed to discharge patient")
+      },
+    }
+  )
+
+  const handleDischargeVisit = async (targetVisit: Visit) => {
+    if (discharging) return
+    await completeVisitMutation({ variables: { visitId: targetVisit.id } })
+  }
   const getUserDepartmentIds = () => {
     if (!doctor) return []
     const anyDoc = doctor as any
@@ -273,10 +317,11 @@ export default function VisitsListView({
                 <div className="flex items-center gap-2 flex-wrap justify-end lg:justify-start lg:flex-nowrap">
                   {(() => {
                     // Match any visit department on the visit against user's departments
-                    // and only allow consultation when that visit department is not completed/cancelled.
+                    // and allow consultation when that visit department is not finalised/cancelled.
                     const matchingDept = visit.departments?.find((d) => {
                       const deptId = String(d?.department?.id || d?.id || "")
-                      const isDepartmentOpen = d?.status !== "COMPLETED"
+                      const isDepartmentOpen =
+                        d?.status !== "FINALISED" && d?.status !== "CANCELLED"
                       return (
                         deptId &&
                         userDepartmentIds.includes(deptId) &&
@@ -286,6 +331,29 @@ export default function VisitsListView({
                     const canUserConsultThisVisit =
                       isClinicianLike && Boolean(matchingDept)
                     const showConsultButton = canUserConsultThisVisit
+                    const hasExistingAnswer = Boolean(
+                      matchingDept?.answerId ||
+                        matchingDept?.hasFinalizedConsultationAnswers,
+                    )
+                    const isEligibleForContinue = Boolean(
+                      matchingDept &&
+                        matchingDept.status !== "FINALISED" &&
+                        matchingDept.status !== "CANCELLED",
+                    )
+                    const isContinue =
+                      hasExistingAnswer && isEligibleForContinue
+                    const consultButtonTitle = isContinue
+                      ? "Continue"
+                      : "Start Consult"
+                    const consultButtonText = isContinue
+                      ? "Continue"
+                      : "Consult"
+                    const consultButtonFullText =
+                      navigatingVisitId === visit.id
+                        ? "Opening…"
+                        : isContinue
+                          ? "Continue"
+                          : "Start Consult"
                     const showTriageButton =
                       (visit.status === "CREATED" ||
                         visit.status === "IN_PROGRESS") &&
@@ -308,7 +376,7 @@ export default function VisitsListView({
                               setNavigatingVisitId(visit.id)
                               onConsultVisit(visit)
                             }}
-                            title="Start Consult"
+                            title={consultButtonTitle}
                             className="px-2 sm:px-4 py-1.5 sm:py-2 bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
                           >
                             {navigatingVisitId === visit.id ? (
@@ -317,10 +385,10 @@ export default function VisitsListView({
                               <Stethoscope className="w-4 h-4 flex-shrink-0" />
                             )}
                             <span className="hidden sm:inline lg:hidden">
-                              Consult
+                              {consultButtonText}
                             </span>
                             <span className="hidden lg:inline">
-                              {navigatingVisitId === visit.id ? "Opening…" : "Start Consult"}
+                              {consultButtonFullText}
                             </span>
                           </button>
                         )}
@@ -354,7 +422,6 @@ export default function VisitsListView({
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              setNavigatingVisitId(visit.id)
                               handleAddDepartment(visit)
                             }}
                             title="Add Department"
@@ -416,6 +483,30 @@ export default function VisitsListView({
                               </span>
                             </button>
                           )}
+                        {/* Discharge Patient: when all departments completed, visible to MANAGER, ADMIN, FINANCE */}
+                        {canSeeDischargeButton && canDischargeVisit(visit) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDischargeConfirmVisit(visit)
+                            }}
+                            disabled={discharging && dischargeConfirmVisit?.id === visit.id}
+                            title="Discharge Patient"
+                            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
+                          >
+                            {discharging && dischargeConfirmVisit?.id === visit.id ? (
+                              <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                            ) : (
+                              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                            )}
+                            <span className="hidden sm:inline lg:hidden">
+                              Discharge
+                            </span>
+                            <span className="hidden lg:inline">
+                              Discharge
+                            </span>
+                          </button>
+                        )}
                       </>
                     )
                   })()}
@@ -487,6 +578,24 @@ export default function VisitsListView({
           }
         }}
         printingInvoice={printingInvoice}
+      />
+
+      {/* Discharge Confirmation Dialog */}
+      <ConfirmDeleteDialog
+        open={Boolean(dischargeConfirmVisit)}
+        onOpenChange={(open) => {
+          if (!open && !discharging) setDischargeConfirmVisit(null)
+        }}
+        title="Discharge patient?"
+        entityName={dischargeConfirmVisit ? `${dischargeConfirmVisit.patient.firstName} ${dischargeConfirmVisit.patient.lastName}` : "Patient"}
+        extraWarning="This will mark the patient visit as completed and finalized across all departments."
+        confirmLabel="Discharge Patient"
+        busy={discharging}
+        onConfirm={async () => {
+          if (dischargeConfirmVisit) {
+            await handleDischargeVisit(dischargeConfirmVisit)
+          }
+        }}
       />
     </div>
   )

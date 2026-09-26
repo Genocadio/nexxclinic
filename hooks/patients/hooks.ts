@@ -96,6 +96,8 @@ export interface RegisterPatientInput {
     insuranceId?: string | null;
     insuranceCardNumber: string;
     providingCompanyOrEmployer: string;
+    patientShareCoverageId?: string | null;
+    patientSharePercentage?: number | string | null;
     dominantMember?: {
       firstName?: string | null;
       lastName?: string | null;
@@ -448,6 +450,11 @@ export function useRegisterPatient() {
             ...getDominantMemberPayload(insurance.dominantMember),
             validFrom,
             validUntil,
+            patientShareCoverageId: insurance.patientShareCoverageId || null,
+            patientSharePercentage:
+              insurance.patientSharePercentage != null && insurance.patientSharePercentage !== ""
+                ? Number(insurance.patientSharePercentage)
+                : null,
           }));
       }
 

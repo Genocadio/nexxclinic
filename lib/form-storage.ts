@@ -19,6 +19,8 @@ export interface FormAction {
   rawData?: Record<string, any> // Store complete backend response for accurate ID
   source?: 'saved' | 'local'
   removedFromVisit?: boolean
+  billingConfirmationStatus?: 'CONFIRMED' | 'PENDING_OPERATOR_CONFIRMATION' | 'REJECTED' | null
+  confirmedByName?: string | null
 }
 
 export type TableHeaderPlacement =

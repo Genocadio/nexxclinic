@@ -53,8 +53,20 @@ export function visitProductsFullySettled(visit: Visit): boolean {
   if (products.length === 0) return false
   return products.every((product) => {
     const status = normalizeVisitProductStatus(product.status)
-    return status === VisitProductStatus.BILLED || status === VisitProductStatus.EXEMPTED
+    return (
+      status === VisitProductStatus.BILLED ||
+      status === VisitProductStatus.EXEMPTED ||
+      status === VisitProductStatus.PATIENT_SHARE_EXEMPTED
+    )
   })
+}
+
+export function isPendingConfirmationVisitProduct(product: VisitDepartmentProduct): boolean {
+  return product.billingConfirmationStatus === "PENDING_OPERATOR_CONFIRMATION"
+}
+
+export function countPendingOperatorConfirmations(visit: Visit): number {
+  return getAllVisitDepartmentProducts(visit).filter(isPendingConfirmationVisitProduct).length
 }
 
 export function countUnbilledVisitProducts(visit: Visit): number {
@@ -91,6 +103,26 @@ export function visitHasDepartmentReadyForBilling(visit: Visit): boolean {
   return getDepartmentsReadyForBilling(visit).length > 0
 }
 
+export function getVisitDepartmentBillingStatus(dept: VisitDepartment): string | null {
+  if (dept.billing?.status) {
+    return dept.billing.status
+  }
+  const products = dept.products || []
+  if (products.length === 0) return null
+  const allBilled = products.every((p) => {
+    const s = normalizeVisitProductStatus(p.status)
+    return (
+      s === VisitProductStatus.BILLED ||
+      s === VisitProductStatus.EXEMPTED ||
+      s === VisitProductStatus.PATIENT_SHARE_EXEMPTED
+    )
+  })
+  if (allBilled) return "BILLED"
+  const someBilled = products.some((p) => normalizeVisitProductStatus(p.status) === VisitProductStatus.BILLED)
+  if (someBilled) return "PARTIALLY_BILLED"
+  return "UNBILLED"
+}
+
 /** Visit-level billing summary derived from department products (GraphQL Visit has no billingStatus). */
 export type DerivedVisitBillingStatus = "BILLED" | "BILLING" | "PENDING"
 
@@ -99,3 +131,19 @@ export function getDerivedVisitBillingStatus(visit: Visit): DerivedVisitBillingS
   if (visitHasDepartmentReadyForBilling(visit)) return "BILLING"
   return "PENDING"
 }
+
+/** Returns true if a visit is eligible for discharge (all assigned departments are COMPLETED, FINALISED, or CANCELLED, and visit is not already terminal). */
+export function canDischargeVisit(visit?: Visit | null): boolean {
+  if (!visit) return false
+  const visitStatus = String(visit.status || "").toUpperCase()
+  if (visitStatus === "COMPLETED" || visitStatus === "CANCELLED" || visitStatus === "FINALISED") {
+    return false
+  }
+  const allDepts = flattenVisitDepartments(visit.departments || [])
+  if (allDepts.length === 0) return false
+  return allDepts.every((dept) => {
+    const status = String(dept.status || "").toUpperCase()
+    return status === "COMPLETED" || status === "FINALISED" || status === "CANCELLED"
+  })
+}
+

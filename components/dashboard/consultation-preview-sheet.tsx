@@ -180,8 +180,21 @@ export function ConsultationPreviewSheet({
                       {visitDepartment.products?.length ? (
                         <ul className="space-y-1 text-sm text-foreground list-disc pl-5">
                           {visitDepartment.products.map((item) => (
-                            <li key={item.id}>
-                              {item.product?.name || "Product"}
+                            <li key={item.id} className="flex items-center justify-between py-0.5">
+                              <span>
+                                {item.product?.name || "Product"}
+                                {item.quantity && item.quantity > 1 ? (
+                                  <span className="text-muted-foreground ml-1 font-medium">
+                                    × {item.quantity}
+                                  </span>
+                                ) : null}
+                              </span>
+                              {item.billingConfirmationStatus ===
+                                "PENDING_OPERATOR_CONFIRMATION" && (
+                                <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-medium ml-2">
+                                  Pending Doctor Confirmation
+                                </span>
+                              )}
                             </li>
                           ))}
                         </ul>

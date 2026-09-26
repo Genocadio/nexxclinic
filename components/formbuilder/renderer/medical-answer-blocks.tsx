@@ -37,8 +37,9 @@ export function DiagnosticAnswerBlock({
   onChange: (v: DiagEntry[]) => void;
   isError?: boolean;
   edit: boolean;
-  handlers?: MedicalBlockHandlers;
+  handlers?: MedicalBlockHandlers | null;
 }) {
+  const items = handlers?.diagnostics ?? value ?? [];
   const add = async (diagnosis: string, description?: string) => {
     const name = diagnosis.trim();
     if (!name) return;
@@ -55,7 +56,13 @@ export function DiagnosticAnswerBlock({
       },
     ]);
   };
-  const remove = (id: string) => onChange(value.filter((e) => e.id !== id));
+  const remove = async (id: string) => {
+    if (handlers?.onRemoveDiagnosis) {
+      await handlers.onRemoveDiagnosis(id);
+      return;
+    }
+    onChange(value.filter((e) => e.id !== id));
+  };
 
   return (
     <div className="my-3">
@@ -75,7 +82,7 @@ export function DiagnosticAnswerBlock({
         )}
         <EntryList
           emptyLabel="No diagnoses"
-          items={value}
+          items={items}
           render={(e) => (
             <div className="flex-1 min-w-0">
               <p className="font-medium leading-snug break-words">
@@ -160,9 +167,16 @@ export function MedFullAnswerBlock({
   onChange: (v: MedFullEntry[]) => void;
   isError?: boolean;
   edit: boolean;
-  handlers?: MedicalBlockHandlers;
+  handlers?: MedicalBlockHandlers | null;
 }) {
-  const remove = (id: string) => onChange(value.filter((e) => e.id !== id));
+  const items = handlers?.medicationsFull ?? value ?? [];
+  const remove = async (id: string) => {
+    if (handlers?.onRemoveMedication) {
+      await handlers.onRemoveMedication(id);
+      return;
+    }
+    onChange(value.filter((e) => e.id !== id));
+  };
   const addEntry = async (draft: Omit<MedFullEntry, "id">) => {
     if (handlers?.onAddMedicationFull) {
       await handlers.onAddMedicationFull(draft);
@@ -195,7 +209,7 @@ export function MedFullAnswerBlock({
         )}
         <EntryList
           emptyLabel="No medications"
-          items={value}
+          items={items}
           render={(e) => (
             <div className="flex-1 min-w-0">
               <p className="font-medium break-words">{e.name}</p>
@@ -311,9 +325,16 @@ export function MedMiniAnswerBlock({
   onChange: (v: MedMiniEntry[]) => void;
   isError?: boolean;
   edit: boolean;
-  handlers?: MedicalBlockHandlers;
+  handlers?: MedicalBlockHandlers | null;
 }) {
-  const remove = (id: string) => onChange(value.filter((e) => e.id !== id));
+  const items = handlers?.medicationsMini ?? value ?? [];
+  const remove = async (id: string) => {
+    if (handlers?.onRemoveMedication) {
+      await handlers.onRemoveMedication(id);
+      return;
+    }
+    onChange(value.filter((e) => e.id !== id));
+  };
   const addEntry = async (name: string, notes?: string) => {
     if (handlers?.onAddMedicationMini) {
       await handlers.onAddMedicationMini(name, notes);
@@ -346,7 +367,7 @@ export function MedMiniAnswerBlock({
         )}
         <EntryList
           emptyLabel="No medications"
-          items={value}
+          items={items}
           render={(e) => (
             <div className="flex-1 min-w-0">
               <p className="font-medium break-words">{e.name}</p>
@@ -587,7 +608,7 @@ export function ProductListenerAnswerBlock({
   onChange: (v: AddedProduct[]) => void;
   isError?: boolean;
   edit: boolean;
-  handlers?: MedicalBlockHandlers;
+  handlers?: MedicalBlockHandlers | null;
 }) {
   if (handlers?.onOpenProductPicker) {
     return (

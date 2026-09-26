@@ -20,6 +20,8 @@ export interface DeleteDependency {
 interface ConfirmDeleteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Optional custom title. If omitted, defaults to Delete "${entityName}"? */
+  title?: string;
   /** Name of the entity being deleted, shown in the title. */
   entityName: string;
   /** Dependencies that will be permanently removed. Empty = no dependencies. */
@@ -45,6 +47,7 @@ interface ConfirmDeleteDialogProps {
 export function ConfirmDeleteDialog({
   open,
   onOpenChange,
+  title,
   entityName,
   dependencies = [],
   extraWarning,
@@ -61,15 +64,16 @@ export function ConfirmDeleteDialog({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-destructive" />
-            {`Delete "${entityName}"?`}
+            {title || `Delete "${entityName}"?`}
           </AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogDescription asChild>
+            <div className="text-sm text-muted-foreground space-y-2">
               {hasDependencies ? (
                 <>
-                  <span>
+                  <p>
                     This will permanently remove the following dependencies:
-                  </span>
-                  <ul className="mt-2 list-disc pl-4 text-sm">
+                  </p>
+                  <ul className="list-disc pl-4 text-sm space-y-1">
                     {dependencies.map((dep, i) => (
                       <li key={i} className="text-destructive/80">
                         {dep.label}
@@ -77,17 +81,18 @@ export function ConfirmDeleteDialog({
                     ))}
                   </ul>
                   {extraWarning && (
-                    <span className="mt-2 text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       {extraWarning}
-                    </span>
+                    </p>
                   )}
                 </>
               ) : (
-                <span>
+                <p>
                   {extraWarning ||
                     "This action cannot be undone. All associated data will be permanently removed."}
-                </span>
+                </p>
               )}
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

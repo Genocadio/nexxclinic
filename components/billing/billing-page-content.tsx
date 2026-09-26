@@ -31,7 +31,7 @@ import {
   useVisit,
   useCreateBill,
   useEditBill,
-  useGetVisitBilling,
+  useVisitDepartmentBilling,
   useGenerateInvoice,
   useCompleteVisit,
   useDepartments,
@@ -40,7 +40,7 @@ import {
   useCompleteBillEditing,
   useCancelBillEditing,
 } from "@/hooks/auth-hooks";
-import type { Visit } from "@/lib/api-types";
+import type { Visit, VisitBilling } from "@/lib/api-types";
 import { getVisitBillingTotals } from "@/lib/visit-billing-utils";
 import { formatRWF } from "@/lib/utils";
 import { useUpdateVisitDepartmentStatus } from "@/hooks/auth-hooks";
@@ -82,11 +82,6 @@ export function BillingPageContent() {
   const { completeBillEditing } = useCompleteBillEditing();
   const { cancelBillEditing } = useCancelBillEditing();
   const {
-    visitBilling: existingVisitBilling,
-    error: billingQueryError,
-    refetch: refetchBill,
-  } = useGetVisitBilling(visitId);
-  const {
     previewOpen,
     setPreviewOpen,
     previewDepartmentId,
@@ -127,6 +122,57 @@ export function BillingPageContent() {
     handleAmountPaidChange,
   } = useBillingPageState();
 
+  const activeVisitDepartment = useMemo(
+    () =>
+      visit?.departments?.find(
+        (dept) => (dept.department?.name || "General") === activeService,
+      ) || null,
+    [visit?.departments, activeService],
+  );
+
+  const activeDeptHasBilledProducts = useMemo(() => {
+    if (!activeVisitDepartment) return false;
+    if (activeVisitDepartment.status === "DEPARTMENT_EDITING" || Boolean(activeVisitDepartment.billing)) {
+      return true;
+    }
+    const allProducts = [...(activeVisitDepartment.products || [])];
+    for (const child of activeVisitDepartment.childVisitDepartments || []) {
+      allProducts.push(...(child.products || []));
+    }
+    return allProducts.some((p) => {
+      const s = String(p.status || "").toUpperCase();
+      return s === "BILLED" || s === "EXEMPTED" || s === "PATIENT_SHARE_EXEMPTED";
+    });
+  }, [activeVisitDepartment]);
+
+  const {
+    departmentBilling: existingDepartmentBilling,
+    error: billingQueryError,
+    refetch: refetchDepartmentBilling,
+  } = useVisitDepartmentBilling(activeVisitDepartment?.id, {
+    skip: !activeDeptHasBilledProducts,
+  });
+
+  const existingVisitBilling = useMemo((): VisitBilling | null => {
+    if (!existingDepartmentBilling) return null;
+    return {
+      id: existingDepartmentBilling.id,
+      visitId: visitId || "",
+      version: existingDepartmentBilling.version || undefined,
+      departments: [existingDepartmentBilling],
+      createdAt: existingDepartmentBilling.createdAt || "",
+      updatedAt: existingDepartmentBilling.updatedAt || "",
+    };
+  }, [existingDepartmentBilling, visitId]);
+
+  const refetchBill = useCallback(async () => {
+    try {
+      await refetchDepartmentBilling();
+    } catch (err) {
+      console.error("Failed to refetch department billing:", err);
+    }
+  }, [refetchDepartmentBilling]);
+
   // Wrap handleItemChange to set the local-edits guard
   const trackLocalEdit = useCallback((item: BillingItem) => {
     hasLocalEditsRef.current = true;
@@ -152,10 +198,10 @@ export function BillingPageContent() {
   });
   const { changeVisitDepartmentProfile } = useChangeVisitDepartmentProfile();
   const { removeVisitDepartment } = useRemoveVisitDepartment();
-  // Tracks the visit department ID pending removal so the confirmation
-  // dialog can show dependency warnings before actually deleting.
   const [departmentPendingRemoval, setDepartmentPendingRemoval] = useState<string | null>(null);
   const [removingDepartment, setRemovingDepartment] = useState(false);
+  const [departmentPendingCancellation, setDepartmentPendingCancellation] = useState<string | null>(null);
+  const [cancellingDepartment, setCancellingDepartment] = useState(false);
   // In-flight discharge — keeps the confirm dialog open with a spinner so the
   // completeVisit/department-status loop can't be triggered twice.
   const [discharging, setDischarging] = useState(false);
@@ -217,6 +263,17 @@ export function BillingPageContent() {
     );
   }, [visit?.linkedInsurances, activeVisitInsuranceIds]);
 
+  const isAlreadyBilled = Boolean(existingVisitBilling);
+  // Derive edit mode from any department's DEPARTMENT_EDITING status
+  // or local state. Reading from the persisted status means edit mode survives
+  // page refreshes.
+  const hasAnyDeptEditing = (visit?.departments || []).some(
+    (dept) => dept.status === "DEPARTMENT_EDITING"
+  );
+  const isEditMode = hasAnyDeptEditing || Boolean(isEditingBill);
+  // For UI purposes (item states, dock, etc.) treat billed visit as unbilled while in edit mode
+  const effectiveIsAlreadyBilled = isAlreadyBilled && !isEditMode;
+
   useEffect(() => {
     if (!visit) return;
     // In edit mode pass editMode:true so the mapper forces all items to
@@ -227,29 +284,24 @@ export function BillingPageContent() {
       editMode: isEditMode,
     });
 
-    // In edit mode, only update billingData for STRUCTURAL changes (new or
-    // removed items). Never overwrite user edits to existing items (insurance,
-    // exemption, quantity, coverage tier, etc.) — those are tracked by the
-    // serialized snapshot and submitted via editBillVisit.
-    //
-    // hasLocalEditsRef: when the user has made ANY local change (exemption,
-    // insurance, quantity, etc.) we absolutely refuse to overwrite billingData.
-    // This prevents Apollo cache-and-network refetches from reverting local
-    // edits back to server-sourced data.
-    if ((isEditMode || hasLocalEditsRef.current) && billingData) {
-      if (hasLocalEditsRef.current) {
-        // User has made local edits — never overwrite, even for structural
-        // changes. The user's edits are authoritative until they complete or
-        // cancel the edit session.
-        return;
-      }
+    if (hasLocalEditsRef.current && billingData) {
+      // User has made local edits — never overwrite, even for structural
+      // changes. The user's edits are authoritative until they complete or
+      // cancel the edit session.
+      return;
+    }
+
+    if (isEditMode && billingData) {
+      const hasPaidItemsInEdit = billingData.items.some(
+        (i) => i.paymentStatus === "paid" || i.paymentStatus === "exempted",
+      );
       const currentIds = new Set(billingData.items.map((i) => i.id));
       const mappedIds = new Set(mapped.items.map((i) => i.id));
       const hasStructuralChange =
         billingData.items.length !== mapped.items.length ||
         [...currentIds].some((id) => !mappedIds.has(id)) ||
         [...mappedIds].some((id) => !currentIds.has(id));
-      if (hasStructuralChange) {
+      if (hasStructuralChange || hasPaidItemsInEdit) {
         setBillingData(mapped);
       }
       // Skip non-structural updates in edit mode to preserve local edits.
@@ -273,6 +325,7 @@ export function BillingPageContent() {
   }, [
     visit?.id,
     visit?.status,
+    isEditMode,
     isEditingBill,
     existingVisitBilling?.id,
     existingBillingTotals?.paidAmount,
@@ -326,7 +379,10 @@ export function BillingPageContent() {
     if (!billingData) return new Set<string>();
     const ids = new Set<string>();
     for (const item of billingData.items) {
-      if (item.selectedInsuranceId && item.paymentStatus === "paid") {
+      if (
+        item.selectedInsuranceId &&
+        (item.paymentStatus === "paid" || item.paymentStatus === "exempted")
+      ) {
         ids.add(item.selectedInsuranceId);
       }
     }
@@ -334,21 +390,65 @@ export function BillingPageContent() {
   }, [billingData]);
 
   const billedDepartmentNames = useMemo(() => {
-    if (!billingData) return new Set<string>();
-    const deptMap = new Map<string, { total: number; paid: number }>();
-    for (const item of billingData.items) {
-      const dept = item.departmentName || "General";
-      const entry = deptMap.get(dept) || { total: 0, paid: 0 };
-      entry.total++;
-      if (item.paymentStatus === "paid") entry.paid++;
-      deptMap.set(dept, entry);
-    }
     const billed = new Set<string>();
-    for (const [dept, { total, paid }] of deptMap) {
-      if (total > 0 && total === paid) billed.add(dept);
+    if (!billingData && !visit?.departments) return billed;
+
+    // 1. From billingData items (mapped representation)
+    if (billingData?.items?.length) {
+      const deptMap = new Map<string, { total: number; billed: number }>();
+      for (const item of billingData.items) {
+        const dept = item.departmentName || "General";
+        const entry = deptMap.get(dept) || { total: 0, billed: 0 };
+        entry.total++;
+        if (item.paymentStatus === "paid" || item.paymentStatus === "exempted") {
+          entry.billed++;
+        }
+        deptMap.set(dept, entry);
+      }
+      for (const [dept, { total, billed: billedCount }] of deptMap) {
+        if (total > 0 && total === billedCount) {
+          billed.add(dept);
+        }
+      }
     }
+
+    // 2. From raw visit.departments hierarchy (server state)
+    if (visit?.departments) {
+      for (const dept of visit.departments) {
+        const deptName = dept.department?.name || "General";
+        const allProducts: Array<{ status?: string | null }> = [
+          ...(dept.products || []),
+        ];
+        if (dept.childVisitDepartments) {
+          const collectChildProducts = (
+            children: typeof dept.childVisitDepartments,
+          ) => {
+            for (const child of children || []) {
+              if (child.products) allProducts.push(...child.products);
+              if (child.childVisitDepartments) {
+                collectChildProducts(child.childVisitDepartments);
+              }
+            }
+          };
+          collectChildProducts(dept.childVisitDepartments);
+        }
+
+        if (
+          allProducts.length > 0 &&
+          allProducts.every(
+            (p) =>
+              p.status === "BILLED" ||
+              p.status === "EXEMPTED" ||
+              p.status === "PATIENT_SHARE_EXEMPTED",
+          )
+        ) {
+          billed.add(deptName);
+        }
+      }
+    }
+
     return billed;
-  }, [billingData]);
+  }, [billingData?.items, visit?.departments]);
 
   // Always bill all pending items — no partial selection.
   const selectedItems = useMemo(
@@ -376,16 +476,6 @@ export function BillingPageContent() {
     if (!doctor?.roles) return false;
     return ((doctor.roles as string[]) || []).includes("CASHIER");
   }, [doctor?.roles]);
-  const isAlreadyBilled = Boolean(existingVisitBilling);
-  // Derive edit mode from any department's DEPARTMENT_EDITING status
-  // or local state. Reading from the persisted status means edit mode survives
-  // page refreshes.
-  const hasAnyDeptEditing = (visit?.departments || []).some(
-    (dept) => dept.status === "DEPARTMENT_EDITING"
-  );
-  const isEditMode = hasAnyDeptEditing || Boolean(isEditingBill);
-  // For UI purposes (item states, dock, etc.) treat billed visit as unbilled while in edit mode
-  const effectiveIsAlreadyBilled = isAlreadyBilled && !isEditMode;
 
   // ── Serialized snapshot for change detection ─────────────────────────────
   // The serialized payload includes the *resolved* coverage / patient-share
@@ -631,6 +721,46 @@ export function BillingPageContent() {
     [removeVisitDepartment, refetchVisit],
   );
 
+  const handleCancelDepartment = useCallback(
+    (visitDepartmentId: string) => {
+      setDepartmentPendingCancellation(visitDepartmentId);
+    },
+    [],
+  );
+
+  const confirmCancelDepartment = useCallback(
+    async (visitDepartmentId: string) => {
+      hasLocalEditsRef.current = true;
+      setCancellingDepartment(true);
+      try {
+        const result = await updateDepartmentStatus(
+          visitDepartmentId,
+          "CANCELLED",
+        );
+        if (result?.status === "SUCCESS") {
+          await refetchVisit();
+          setBillingRemapNonce((nonce) => nonce + 1);
+          toast.success("Department cancelled successfully");
+        } else {
+          toast.error(result?.message || "Failed to cancel department");
+        }
+      } catch (err) {
+        console.error("Cancel department error:", err);
+        toast.error("Failed to cancel department");
+      } finally {
+        setCancellingDepartment(false);
+        setDepartmentPendingCancellation(null);
+      }
+    },
+    [updateDepartmentStatus, refetchVisit],
+  );
+
+  const departmentPendingCancellationName = useMemo(() => {
+    if (!departmentPendingCancellation || !visit) return '';
+    const dept = visit.departments?.find((d) => d.id === departmentPendingCancellation);
+    return dept?.department?.name || 'this department';
+  }, [departmentPendingCancellation, visit]);
+
   // Compute dependency warnings for the department pending removal.
   const removalWarnings = useMemo(() => {
     if (!departmentPendingRemoval || !visit) return [];
@@ -671,13 +801,6 @@ export function BillingPageContent() {
     [visit?.departments],
   );
 
-  const activeVisitDepartment = useMemo(
-    () =>
-      visit?.departments?.find(
-        (dept) => (dept.department?.name || "General") === activeService,
-      ) || null,
-    [visit?.departments, activeService],
-  );
   const activeCatalogDepartment = useMemo(
     () =>
       catalogDepartments.find(
@@ -905,6 +1028,7 @@ export function BillingPageContent() {
     setShowAddProductModal,
     setAddingBillingItem,
     setActiveService,
+    hasLocalEditsRef,
   });
 
 
@@ -1062,8 +1186,12 @@ export function BillingPageContent() {
             handleQuantityChange(item, qty, isEditMode);
           }}
           serviceDepartmentIds={serviceDepartmentIds}
+          departments={visit?.departments || []}
+          currentUserId={doctor?.id ? String(doctor.id) : undefined}
+          userRoles={(doctor?.roles as string[]) || []}
           allItems={billingData?.items || []}
           billedDepartmentNames={billedDepartmentNames}
+          onCancelDepartment={handleCancelDepartment}
           onRemoveDepartment={handleRemoveDepartment}
           editedItemChanges={editedItemChanges}
         />
@@ -1137,7 +1265,12 @@ export function BillingPageContent() {
                 }
                 setIsEditingBill(true);
                 hasLocalEditsRef.current = false;
-                setEditModeSnapshot(bakeSnapshotItems(billingData?.items ?? null));
+                const editMapped = mapVisitToBillingData(visit, {
+                  existingVisitBilling,
+                  editMode: true,
+                });
+                setBillingData(editMapped);
+                setEditModeSnapshot(bakeSnapshotItems(editMapped?.items ?? null));
                 // Refetch so dept.status becomes DEPARTMENT_EDITING and the
                 // derived isEditMode picks it up even without local state.
                 await refetchVisit();
@@ -1282,8 +1415,21 @@ export function BillingPageContent() {
         // While editing, preview the pending edits (draft path); otherwise the
         // billed visit previews its actual invoice.
         visitBilling={isEditMode ? null : existingVisitBilling}
-        selectedDepartmentId={previewDepartmentId}
+        selectedDepartmentId={
+          previewDepartmentId ||
+          (activeVisitDepartment
+            ? topLevelBillingDepartments.find(
+                (d) =>
+                  d.id === activeVisitDepartment.id ||
+                  (d.childVisitDepartments &&
+                    d.childVisitDepartments.some(
+                      (c) => c.id === activeVisitDepartment.id,
+                    )),
+              )?.id || activeVisitDepartment.id
+            : null)
+        }
         onDepartmentSelect={setPreviewDepartmentId}
+        scopeToSelectedDepartment={true}
         previewStartedAt={previewStartedAt}
         onPrintInvoice={handleDownloadInvoice}
         onDownloadInvoice={handleDownloadInvoice}
@@ -1322,6 +1468,22 @@ export function BillingPageContent() {
             setDischarging(false);
             setDischargeConfirmOpen(false);
           });
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!departmentPendingCancellation}
+        onOpenChange={(open) => {
+          if (!open) setDepartmentPendingCancellation(null);
+        }}
+        title={`Cancel "${departmentPendingCancellationName}"?`}
+        description="Are you sure you want to cancel this visit department? It will be marked as CANCELLED."
+        confirmLabel="Cancel Department"
+        busy={cancellingDepartment}
+        onConfirm={() => {
+          if (departmentPendingCancellation) {
+            void confirmCancelDepartment(departmentPendingCancellation);
+          }
         }}
       />
 

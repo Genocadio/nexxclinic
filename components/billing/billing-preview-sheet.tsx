@@ -51,6 +51,7 @@ interface BillingPreviewSheetProps {
   canViewMore?: boolean;
   printingInvoice?: boolean;
   isEditMode?: boolean;
+  scopeToSelectedDepartment?: boolean;
 }
 
 export function BillingPreviewSheet({
@@ -67,6 +68,7 @@ export function BillingPreviewSheet({
   canViewMore = false,
   printingInvoice = false,
   isEditMode = false,
+  scopeToSelectedDepartment = false,
 }: BillingPreviewSheetProps) {
   const [isRendered, setIsRendered] = useState(open);
   const [selectedDepartmentIdState, setSelectedDepartmentIdState] = useState<
@@ -93,10 +95,27 @@ export function BillingPreviewSheet({
     }
   }, [open, selectedDepartmentId]);
 
-  const topLevelDepartments = useMemo(
-    () => visit?.departments || [],
-    [visit?.departments],
-  );
+  const topLevelDepartments = useMemo(() => {
+    const depts = visit?.departments || [];
+    if (scopeToSelectedDepartment) {
+      const targetId = selectedDepartmentId ?? selectedDepartmentIdState;
+      if (targetId) {
+        const match = depts.find(
+          (d) =>
+            d.id === targetId ||
+            (d.childVisitDepartments &&
+              d.childVisitDepartments.some((c) => c.id === targetId)),
+        );
+        if (match) return [match];
+      }
+    }
+    return depts;
+  }, [
+    visit?.departments,
+    scopeToSelectedDepartment,
+    selectedDepartmentId,
+    selectedDepartmentIdState,
+  ]);
 
   useEffect(() => {
     if (!open || !topLevelDepartments.length) return;
@@ -147,9 +166,9 @@ export function BillingPreviewSheet({
     // as null in edit mode so the pending edits are previewed instead).
     if (visitBilling) {
       let depts = (visitBilling.departments || []).filter((d) =>
-        deptIds.includes(String(d.visitDepartment.id)),
+        deptIds.includes(String(d.visitDepartment?.id || d.id)),
       );
-      if (!depts.length) {
+      if (!depts.length && !scopeToSelectedDepartment && !selectedDepartmentId) {
         depts = visitBilling.departments || [];
       }
 
@@ -240,7 +259,10 @@ export function BillingPreviewSheet({
     ? getVisitBillingTotals(visitBilling)
     : null;
   const showExistingBillSummary = Boolean(
-    visitBilling && visitBillingTotals && invoiceGroups.length === 0,
+    visitBilling &&
+      visitBillingTotals &&
+      invoiceGroups.length === 0 &&
+      !scopeToSelectedDepartment,
   );
   const allItemsCount = invoiceGroups.reduce(
     (sum, group) => sum + group.items.length,
@@ -251,7 +273,7 @@ export function BillingPreviewSheet({
     ? `${visit.patient?.firstName || ""} ${visit.patient?.lastName || ""}`.trim()
     : "Patient";
 
-  const canShowList = topLevelDepartments.length > 1;
+  const canShowList = !scopeToSelectedDepartment && topLevelDepartments.length > 1;
   const invoiceDate =
     visitBilling?.updatedAt ||
     billingData?.updatedAt ||

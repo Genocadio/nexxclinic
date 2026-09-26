@@ -1,6 +1,7 @@
 import type { FormBlock } from "@/lib/formbuilder-storage";
-import { shouldShowBlock } from "@/lib/formbuilder-conditional";
+import { shouldShowBlock, type ProductItem } from "@/lib/formbuilder-conditional";
 import type { FormAnswers, LabRowValues } from "./types";
+import type { MedicalBlockHandlers } from "../extensions/types";
 
 export const INLINE_WIDTH: Record<string, string> = {
   xs: "w-14",
@@ -82,8 +83,47 @@ export function collectAnswerableBlocks(blocks: FormBlock[]): FormBlock[] {
   return result;
 }
 
-export function shouldRenderBlock(block: FormBlock, answers: FormAnswers) {
-  return shouldShowBlock(block, answers);
+export function shouldRenderBlock(
+  block: FormBlock,
+  answers: FormAnswers,
+  getBlockHandlers?: (block: FormBlock) => MedicalBlockHandlers | null | undefined,
+  allBlocks?: FormBlock[],
+) {
+  const cr = block.conditionalRendering;
+  if (!cr) return true;
+
+  const fieldActions: Record<string, ProductItem[]> = {};
+  const effectiveAnswers: Record<string, unknown> = { ...answers };
+
+  if (getBlockHandlers && cr.dependsOn) {
+    const parentBlock = allBlocks?.find((b) => b.id === cr.dependsOn) ?? {
+      id: cr.dependsOn,
+      type: "product_listener" as const,
+    };
+    const handlers = getBlockHandlers(parentBlock);
+    if (handlers?.productActions) {
+      fieldActions[cr.dependsOn] = handlers.productActions.map((a) => ({
+        id: a.id,
+        catalogProductId: a.rawData?.product?.id || a.rawData?.id || (a as any).catalogProductId,
+        backendId: a.backendId,
+        name: a.name || a.rawData?.product?.name,
+        type: a.type,
+        rawData: a.rawData,
+        product: a.rawData?.product,
+      }));
+    }
+    if (handlers?.diagnostics && handlers.diagnostics.length > 0) {
+      effectiveAnswers[cr.dependsOn] = handlers.diagnostics;
+    }
+    if (handlers?.medicationsFull && handlers.medicationsFull.length > 0) {
+      effectiveAnswers[cr.dependsOn] = handlers.medicationsFull;
+    }
+    if (handlers?.medicationsMini && handlers.medicationsMini.length > 0) {
+      effectiveAnswers[cr.dependsOn] = handlers.medicationsMini;
+    }
+  }
+
+  return shouldShowBlock(block, effectiveAnswers, fieldActions);
 }
 
 export function replacePlaceholders(

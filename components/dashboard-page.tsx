@@ -12,12 +12,14 @@ import type { Visit, VisitBilling } from "@/lib/api-types"
 import { mapGqlVisitBilling } from "@/lib/visit-billing-utils"
 import {
   countBilledVisitProducts,
+  countPendingOperatorConfirmations,
   countUnbilledVisitProducts,
   flattenVisitDepartments,
   getBilledVisitProductNames,
   getDepartmentsReadyForBilling,
   getDerivedVisitBillingStatus,
   getUnbilledVisitProductNames,
+  getVisitDepartmentBillingStatus,
   visitHasBillableProducts,
   visitHasDepartmentReadyForBilling,
   visitHasUnbilledProducts,
@@ -37,7 +39,8 @@ import PatientRegistrationModal from "@/components/patient-registration-modal"
 import VisitCreationModal from "@/components/visit-creation-modal"
 import { AddDepartmentModal } from "@/components/add-department-modal"
 import { ProfileSelectDialog } from "@/components/profile-select-dialog"
-import { useChangeVisitDepartmentProfile } from "@/hooks/visits/department-mutations"
+import { useChangeVisitDepartmentProfile, useConsultVisit } from "@/hooks/visits/department-mutations"
+import { useCompleteVisit } from "@/hooks/visits/visit-mutations"
 import type { DepartmentProfile } from "@/lib/api-types"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -47,6 +50,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Search,
   Clock,
@@ -64,7 +72,9 @@ import {
   History,
   Loader2,
   Settings,
+  SlidersHorizontal,
   Info,
+  ChevronDown,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
@@ -84,6 +94,8 @@ export default function DashboardPage() {
     })
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
   const { changeVisitDepartmentProfile } = useChangeVisitDepartmentProfile()
+  const { consultVisit } = useConsultVisit()
+  const { completeVisit } = useCompleteVisit()
   const { generateInvoice } = useGenerateInvoice()
   const [getVisitBillings] = useLazyQuery(GET_BILL_BY_VISIT_QUERY)
   const [finaliseVisitMutation, { loading: finalisingVisit }] = useMutation(
@@ -140,6 +152,20 @@ export default function DashboardPage() {
   const [printingVisitId, setPrintingVisitId] = useState<string | null>(null)
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null)
   const [navigatingVisitId, setNavigatingVisitId] = useState<string | null>(null)
+
+  // Safety guard: auto-clear navigating state after 3.5s or on window focus
+  useEffect(() => {
+    if (!navigatingVisitId) return
+    const timer = setTimeout(() => {
+      setNavigatingVisitId(null)
+    }, 3500)
+    const handleFocus = () => setNavigatingVisitId(null)
+    window.addEventListener("focus", handleFocus)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [navigatingVisitId])
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles ||
     []) as string[]
   const userDepartments = ((
@@ -160,6 +186,7 @@ export default function DashboardPage() {
     roles.includes("RECEPTIONIST") || roles.includes("RECEPTION")
   const hasFinanceRole = roles.includes("FINANCE")
   const hasManagerRole = hasRole(roles, "MANAGER")
+  const hasAdminRole = hasRole(roles, "ADMIN")
   const isReceptionistOnly = hasReceptionistRole && roles.length === 1
   const hasNurseRole = roles.includes("NURSE")
   const hasConsultationRole = roles.some((role) =>
@@ -177,8 +204,15 @@ export default function DashboardPage() {
   const canSeeAddDepartment = hasReceptionistRole
   const canSeeRegisterAndCreate = hasReceptionistRole
   const canSeeVisitActionButtons = !isReceptionistOnly
-  // Feature toggle to hide/show Discharge actions globally
-  const ENABLE_DISCHARGE = false
+  // Discharge button: visible to FINANCE, MANAGER, and ADMIN when all departments are completed/finalised
+  const canSeeDischargeButton = hasFinanceRole || hasManagerRole || hasAdminRole
+  // Duration & Department times visibility: Manager and Admin can see all department times,
+  // while other users can only see time spent in their own assigned department.
+  const canViewAllDeptTimes = hasManagerRole || hasAdminRole
+  const isUserDept = (deptId?: string | null) => {
+    if (!deptId) return false
+    return userDepartmentIds.includes(String(deptId))
+  }
   // Modal states
   const [showPatientRegistrationModal, setShowPatientRegistrationModal] =
     useState(false)
@@ -246,19 +280,25 @@ export default function DashboardPage() {
     if (hasDepartmentReadyForBilling(visit)) return "Ready for billing"
     const unbilledCount = countUnbilledProducts(visit)
     const billedCount = countBilledProducts(visit)
+    const pendingConfirmations = countPendingOperatorConfirmations(visit)
     if (
       visitProductsFullySettled(visit) ||
       (unbilledCount === 0 && billedCount > 0)
     ) {
+      if (pendingConfirmations > 0) {
+        return `All products billed (${pendingConfirmations} pending confirmation)`
+      }
       return "All products billed"
     }
 
     if (hasNoBillables(visit)) return formatProductsToBillLabel(0)
     if (unbilledCount > 0 && billedCount > 0) {
-      return `${formatProductsToBillLabel(unbilledCount)} · ${billedCount} billed`
+      const base = `${formatProductsToBillLabel(unbilledCount)} · ${billedCount} billed`
+      return pendingConfirmations > 0 ? `${base} (${pendingConfirmations} pending)` : base
     }
 
-    return formatProductsToBillLabel(unbilledCount)
+    const base = formatProductsToBillLabel(unbilledCount)
+    return pendingConfirmations > 0 ? `${base} (${pendingConfirmations} pending)` : base
   }
   const renderBillingTooltipContent = (
     visit: Visit,
@@ -331,10 +371,16 @@ export default function DashboardPage() {
     )
   }
   const canDischargeVisit = (visit: Visit) => {
-    if (visit.status === "COMPLETED" || visit.status === "CANCELLED" || visit.status === "FINALISED")
+    const visitStatus = String(visit.status || "").toUpperCase()
+    if (visitStatus === "COMPLETED" || visitStatus === "CANCELLED" || visitStatus === "FINALISED") {
       return false
-    if (hasIncompleteDepartments(visit)) return false
-    return !hasUnbilledItems(visit) || hasNoBillables(visit)
+    }
+    const allDepts = flattenVisitDepartments(visit.departments || [])
+    if (allDepts.length === 0) return false
+    return allDepts.every((dept) => {
+      const status = String(dept.status || "").toUpperCase()
+      return status === "COMPLETED" || status === "FINALISED"
+    })
   }
   const isDischarged = (visit: Visit) =>
     (visit.status === "COMPLETED" || visit.status === "FINALISED") && !hasUnbilledItems(visit)
@@ -381,13 +427,7 @@ export default function DashboardPage() {
     const normalizedDepartmentStatus = String(
       departmentStatus || "",
     ).toUpperCase()
-    const normalizedVisitBillingStatus = getDerivedVisitBillingStatus(visit)
-    return (
-      normalizedDepartmentStatus === "COMPLETED" ||
-      normalizedDepartmentStatus === "BILLING" ||
-      normalizedVisitBillingStatus === "BILLED" ||
-      normalizedVisitBillingStatus === "BILLING"
-    )
+    return normalizedDepartmentStatus === "FINALISED"
   }
   const getMatchingUserDepartment = (
     visit: Visit,
@@ -411,19 +451,9 @@ export default function DashboardPage() {
         const normalizedDepartmentStatus = String(
           dept.status || "",
         ).toUpperCase()
-        const normalizedVisitBillingStatus =
-          getDerivedVisitBillingStatus(visit)
         if (
-          normalizedDepartmentStatus === "COMPLETED" ||
-          normalizedDepartmentStatus === "CANCELLED" ||
-          normalizedDepartmentStatus === "BILLING"
-        ) {
-          return false
-        }
-
-        if (
-          normalizedVisitBillingStatus === "BILLED" ||
-          normalizedVisitBillingStatus === "BILLING"
+          normalizedDepartmentStatus === "FINALISED" ||
+          normalizedDepartmentStatus === "CANCELLED"
         ) {
           return false
         }
@@ -472,13 +502,31 @@ export default function DashboardPage() {
     })
     setPreviewConsultationOpen(true)
   }
-  const formatDepartmentTime = (time?: string | null) => {
-    if (!time) return "-"
-    return new Date(time).toLocaleString()
+  const parseTimestamp = (time?: string | number | null): number | null => {
+    if (!time) return null
+    if (typeof time === "number") {
+      return isNaN(time) ? null : time
+    }
+    const str = String(time).trim()
+    if (!str) return null
+    if (/^\d+$/.test(str)) {
+      const num = Number(str)
+      return isNaN(num) ? null : num
+    }
+    const parsed = new Date(str).getTime()
+    return isNaN(parsed) ? null : parsed
+  }
+  const formatDepartmentTime = (
+    time?: string | number | null,
+    fallbackTime?: string | number | null,
+  ) => {
+    const ts = parseTimestamp(time) || parseTimestamp(fallbackTime)
+    if (!ts) return "-"
+    return new Date(ts).toLocaleString()
   }
   const getTriageDuration = (visit: Visit) => {
-    const startedAt = new Date(visit.visitDate).getTime()
-    if (Number.isNaN(startedAt)) return "Triage"
+    const startedAt = parseTimestamp(visit.visitDate)
+    if (!startedAt) return "Triage"
     const elapsedMs = Math.max(Date.now() - startedAt, 0)
     const totalMinutes = Math.floor(elapsedMs / 60000)
     const hours = Math.floor(totalMinutes / 60)
@@ -489,6 +537,122 @@ export default function DashboardPage() {
 
     return `Triage • ${hours}h ${minutes}m`
   }
+  const formatDepartmentDuration = (
+    startTime?: string | number | null,
+    endTime?: string | number | null,
+    fallbackStartTime?: string | number | null,
+  ) => {
+    const start = parseTimestamp(startTime) || parseTimestamp(fallbackStartTime)
+    if (!start) return "-"
+    const end = parseTimestamp(endTime) || Date.now()
+    const diffMs = Math.max(end - start, 0)
+    const totalMinutes = Math.floor(diffMs / 60000)
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+    if (hours <= 0) {
+      return `${minutes}m`
+    }
+    return `${hours}h ${minutes}m`
+  }
+  const getVisitActiveDepartmentInfo = (visit: Visit) => {
+    const allDepts = flattenVisitDepartments(visit.departments || [])
+    if (allDepts.length === 0) {
+      return {
+        activeDept: null,
+        displayName: "Triage / Check-in",
+        status: "IN_PROGRESS",
+        isTriage: true,
+        duration: formatDepartmentDuration(visit.visitDate),
+        allDepts: [],
+      }
+    }
+
+    // 1. First look for active / in-progress / editing / billing / on-hold department
+    const activeDept = allDepts.find((dept) => {
+      const s = String(dept.status || "").toUpperCase()
+      return (
+        s === "ACTIVE" ||
+        s === "IN_PROGRESS" ||
+        s === "DEPARTMENT_EDITING" ||
+        s === "BILLING" ||
+        s === "ON_HOLD"
+      )
+    })
+    if (activeDept) {
+      return {
+        activeDept,
+        displayName: activeDept.department?.name || "Active Department",
+        status: activeDept.status || "ACTIVE",
+        isTriage: false,
+        duration: formatDepartmentDuration(
+          activeDept.createdAt,
+          null,
+          visit.visitDate,
+        ),
+        allDepts,
+      }
+    }
+
+    // 2. Look for first pending department
+    const pendingDept = allDepts.find((dept) => {
+      const s = String(dept.status || "").toUpperCase()
+      return s === "PENDING"
+    })
+    if (pendingDept) {
+      return {
+        activeDept: pendingDept,
+        displayName: pendingDept.department?.name || "Pending Department",
+        status: "PENDING",
+        isTriage: false,
+        duration: null,
+        allDepts,
+      }
+    }
+
+    // 3. If all completed / finalised / cancelled
+    const lastDept = allDepts[allDepts.length - 1]
+    const allCompleted = allDepts.every((dept) => {
+      const s = String(dept.status || "").toUpperCase()
+      return s === "COMPLETED" || s === "FINALISED"
+    })
+
+    return {
+      activeDept: lastDept,
+      displayName: lastDept?.department?.name || "Completed",
+      status: allCompleted ? "COMPLETED" : (lastDept?.status || "COMPLETED"),
+      isTriage: false,
+      duration: lastDept
+        ? formatDepartmentDuration(
+            lastDept.createdAt,
+            lastDept.completedAt,
+            visit.visitDate,
+          )
+        : null,
+      allDepts,
+    }
+  }
+  const filterCounts = useMemo(() => {
+    const serverVisitIds = new Set(visits.map((visit) => visit.id))
+    const baseList = [
+      ...locallyCreatedVisits.filter((visit) => !serverVisitIds.has(visit.id)),
+      ...visits,
+    ]
+    let searchedList = baseList
+    if (searchQuery) {
+      searchedList = searchedList.filter((visit) =>
+        `${visit.patient.firstName} ${visit.patient.lastName}`
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()),
+      )
+    }
+
+    return {
+      all: searchedList.length,
+      IN_PROGRESS: searchedList.filter((v) => v.status === "CREATED" || v.status === "IN_PROGRESS" || (v.status as string) === "BILLING" || hasUnbilledItems(v)).length,
+      COMPLETED: searchedList.filter((v) => v.status === "COMPLETED" || v.status === "FINALISED").length,
+    }
+  }, [visits, locallyCreatedVisits, searchQuery])
+
   const allVisits = useMemo(() => {
     const serverVisitIds = new Set(visits.map((visit) => visit.id))
     let filtered = [
@@ -503,56 +667,82 @@ export default function DashboardPage() {
       )
     }
 
-    if (statusFilter === "BILLING") {
-      filtered = filtered.filter((visit) => hasUnbilledItems(visit))
+    if (statusFilter === "IN_PROGRESS") {
+      filtered = filtered.filter((visit) => visit.status === "CREATED" || visit.status === "IN_PROGRESS" || (visit.status as string) === "BILLING" || hasUnbilledItems(visit))
+    } else if (statusFilter === "COMPLETED") {
+      filtered = filtered.filter((visit) => visit.status === "COMPLETED" || visit.status === "FINALISED")
     } else if (statusFilter !== "all") {
       filtered = filtered.filter((visit) => visit.status === statusFilter)
     }
 
     return filtered
   }, [visits, locallyCreatedVisits, searchQuery, statusFilter])
-  const handleConsultVisit = (visit: Visit) => {
+  const handleConsultVisit = async (visit: Visit) => {
     // Check if the matching department has profiles
     const matchingDept = visit.departments?.find((d) => {
       const deptId = String(d?.department?.id || d?.id || "")
-      const isDepartmentOpen = d?.status !== "COMPLETED"
+      const isDepartmentOpen = d?.status !== "FINALISED" && d?.status !== "CANCELLED"
       return deptId && userDepartmentIds.includes(deptId) && isDepartmentOpen
+    }) || visit.departments?.find((d) => {
+      const deptId = String(d?.department?.id || d?.id || "")
+      return deptId && userDepartmentIds.includes(deptId)
     })
     const profiles = matchingDept?.department?.profiles || []
     // Only show profile selection when the department has profiles available
-    // AND the department does not already have a profile assigned.
+    // AND the department does not already have a profile assigned or an answer.
     // If a profile is already set, skip straight to consultation.
-    const alreadyHasProfile = Boolean(matchingDept?.profile?.id)
+    const alreadyHasProfile = Boolean(matchingDept?.profile?.id || matchingDept?.answerId || matchingDept?.status === "COMPLETED")
     if (profiles.length > 0 && !alreadyHasProfile) {
       // Show profile selection dialog
+      setNavigatingVisitId(null)
       setProfileDialogVisit(visit)
       setProfileDialogProfiles(profiles)
       setProfileDialogOpen(true)
     } else {
-      // No profiles available or already assigned — go straight to consultation
-      router.push(`/consultation?visitId=${visit.id}`)
+      // Direct consultation or continue: call consultVisit mutation to mark ACTIVE & add processor
+      if (matchingDept?.id) {
+        try {
+          const res = await consultVisit(matchingDept.id)
+          if (res?.status !== "SUCCESS") {
+            toast.error(res?.message || "Failed to start consultation")
+            setNavigatingVisitId(null)
+            return
+          }
+        } catch (err: any) {
+          console.error("Failed to start consultation:", err)
+          toast.error(err?.message || "Failed to start consultation")
+          setNavigatingVisitId(null)
+          return
+        }
+      }
+      router.push(`/consultation?visitId=${visit.id}${matchingDept?.id ? `&visitDepartmentId=${matchingDept.id}` : ""}`)
     }
   }
   const handleProfileSelected = async (profile: DepartmentProfile) => {
     const visit = profileDialogVisit
     if (!visit) return
     setProfileDialogLoading(true)
+    let matchingDeptId: string | undefined
     try {
       const matchingDept = visit.departments?.find((d) => {
         const deptId = String(d?.department?.id || d?.id || "")
-        const isDepartmentOpen = d?.status !== "COMPLETED"
+        const isDepartmentOpen = d?.status !== "FINALISED" && d?.status !== "CANCELLED"
         return deptId && userDepartmentIds.includes(deptId) && isDepartmentOpen
       })
+      matchingDeptId = matchingDept?.id
       if (matchingDept) {
-        // Apply profile (which carries encounterType)
-        await changeVisitDepartmentProfile(matchingDept.id, profile.id)
-        // Mark department as ACTIVE
-        await updateDepartmentStatus(matchingDept.id, "ACTIVE")
+        // Single unified consultVisit mutation: applies profile, sets ACTIVE on 1st time, adds processor
+        const res = await consultVisit(matchingDept.id, profile.id)
+        if (res?.status !== "SUCCESS") {
+          toast.error(res?.message || "Failed to start consultation")
+          setProfileDialogLoading(false)
+          return
+        }
       }
       refetchVisits()
-    } catch (err) {
-      console.error("Failed to apply profile:", err)
-      toast.error("Failed to apply profile")
+    } catch (err: any) {
+      console.error("Failed to apply profile and start consultation:", err)
+      toast.error(err?.message || "Failed to apply profile and start consultation")
       setProfileDialogLoading(false)
       return
     }
@@ -560,7 +750,7 @@ export default function DashboardPage() {
     setProfileDialogOpen(false)
     setProfileDialogVisit(null)
     setProfileDialogProfiles([])
-    router.push(`/consultation?visitId=${visit.id}`)
+    router.push(`/consultation?visitId=${visit.id}${matchingDeptId ? `&visitDepartmentId=${matchingDeptId}` : ""}`)
   }
   const handleTriageVisit = (visit: Visit) => {
     router.push(`/triage?visitId=${visit.id}`)
@@ -626,7 +816,11 @@ export default function DashboardPage() {
     }
   }
   const handleEditConsultation = (visit: Visit) => {
-    router.push(`/consultation?visitId=${visit.id}`)
+    const matchingDept = (visit.departments || []).find((d) => {
+      const deptId = String(d?.department?.id || d?.id || "")
+      return deptId && userDepartmentIds.includes(deptId)
+    }) || visit.departments?.[0]
+    router.push(`/consultation?visitId=${visit.id}${matchingDept?.id ? `&visitDepartmentId=${matchingDept.id}` : ""}`)
   }
   const handleOpenSettings = (visit: Visit) => {
     setSettingsVisit(visit)
@@ -665,37 +859,16 @@ export default function DashboardPage() {
     if (discharging) return
     setDischarging(true)
     try {
-      const allDepartments = visit.departments || []
-      const notCompleted = allDepartments.filter(
-        (dept) => dept.status !== "COMPLETED",
-      )
-      if (notCompleted.length > 0) {
-        for (const dept of notCompleted) {
-          const visitDeptId = String(dept.id || "")
-          if (!visitDeptId) continue
-          const res = await updateDepartmentStatus(visitDeptId, "COMPLETED")
-          if (res?.status !== "SUCCESS") {
-            toast.error(
-              res?.messages?.[0]?.text ||
-                "Failed to complete department during discharge",
-            )
-            return
-          }
-        }
+      const res = await completeVisit(visit.id)
+      if (res?.status === "SUCCESS") {
+        toast.success("Patient discharged successfully")
+        await refetchVisits()
       } else {
-        // Trigger backend completion aggregation if all departments are already marked completed.
-        const fallbackDepartment = allDepartments[allDepartments.length - 1]
-        const fallbackId = String(fallbackDepartment?.id || "")
-        if (fallbackId) {
-          await updateDepartmentStatus(fallbackId, "COMPLETED")
-        }
+        toast.error(res?.message || "Failed to discharge patient")
       }
-
-      await refetchVisits()
-      toast.success("Patient discharged successfully")
-    } catch (err) {
+    } catch (err: any) {
       console.error("Discharge visit error:", err)
-      toast.error("Failed to discharge patient")
+      toast.error(err?.message || "Failed to discharge patient")
     } finally {
       setDischarging(false)
       setDischargeConfirmVisit(null)
@@ -758,76 +931,63 @@ export default function DashboardPage() {
               {/* Status filters */}
               <div className="p-6 border-b border-border/30">
                 {/* Desktop filters - visible on md and up */}
-                <div className="hidden md:flex gap-2 flex-wrap justify-center">
+                <div className="hidden md:flex gap-2 flex-wrap justify-center items-center">
                   <button
                     onClick={() => setStatusFilter("all")}
-                    className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                       statusFilter === "all"
-                        ? "bg-primary text-primary-foreground shadow-lg scale-105"
+                        ? "bg-primary text-primary-foreground shadow-md scale-105"
                         : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
                     }`}
                   >
-                    All Visits
-                  </button>
-                  <button
-                    onClick={() => setStatusFilter("CREATED")}
-                    className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                      statusFilter === "CREATED"
-                        ? "bg-primary text-primary-foreground shadow-lg scale-105"
-                        : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
-                    }`}
-                  >
-                    Created
+                    <span>All Visits</span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                        statusFilter === "all"
+                          ? "bg-primary-foreground/20 text-primary-foreground"
+                          : "bg-muted-foreground/15 text-muted-foreground"
+                      }`}
+                    >
+                      {filterCounts.all}
+                    </span>
                   </button>
                   <button
                     onClick={() => setStatusFilter("IN_PROGRESS")}
-                    className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                       statusFilter === "IN_PROGRESS"
-                        ? "bg-primary text-primary-foreground shadow-lg scale-105"
+                        ? "bg-primary text-primary-foreground shadow-md scale-105"
                         : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
                     }`}
                   >
-                    In Progress
+                    <span>In Progress</span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                        statusFilter === "IN_PROGRESS"
+                          ? "bg-primary-foreground/20 text-primary-foreground"
+                          : "bg-muted-foreground/15 text-muted-foreground"
+                      }`}
+                    >
+                      {filterCounts.IN_PROGRESS}
+                    </span>
                   </button>
                   <button
                     onClick={() => setStatusFilter("COMPLETED")}
-                    className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                       statusFilter === "COMPLETED"
-                        ? "bg-primary text-primary-foreground shadow-lg scale-105"
+                        ? "bg-emerald-600 text-white shadow-md scale-105"
                         : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
                     }`}
                   >
-                    Completed
-                  </button>
-                  <button
-                    onClick={() => setStatusFilter("CANCELLED")}
-                    className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                      statusFilter === "CANCELLED"
-                        ? "bg-primary text-primary-foreground shadow-lg scale-105"
-                        : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
-                    }`}
-                  >
-                    Cancelled
-                  </button>
-                  <button
-                    onClick={() => setStatusFilter("FINALISED")}
-                    className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                      statusFilter === "FINALISED"
-                        ? "bg-teal-600 text-white shadow-lg scale-105"
-                        : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
-                    }`}
-                  >
-                    Finalised
-                  </button>
-                  <button
-                    onClick={() => setStatusFilter("BILLING")}
-                    className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                      statusFilter === "BILLING"
-                        ? "bg-blue-500 text-white shadow-lg scale-105"
-                        : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
-                    }`}
-                  >
-                    Billing
+                    <span>Completed</span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                        statusFilter === "COMPLETED"
+                          ? "bg-white/25 text-white"
+                          : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                      }`}
+                    >
+                      {filterCounts.COMPLETED}
+                    </span>
                   </button>
                 </div>
 
@@ -847,13 +1007,9 @@ export default function DashboardPage() {
                             paddingRight: "2rem",
                           }}
                         >
-                          <option value="all">All Visits</option>
-                          <option value="CREATED">Created</option>
-                          <option value="IN_PROGRESS">In Progress</option>
-                          <option value="COMPLETED">Completed</option>
-                          <option value="CANCELLED">Cancelled</option>
-                          <option value="FINALISED">Finalised</option>
-                          <option value="BILLING">Billing</option>
+                          <option value="all">All Visits ({filterCounts.all})</option>
+                          <option value="IN_PROGRESS">In Progress ({filterCounts.IN_PROGRESS})</option>
+                          <option value="COMPLETED">Completed ({filterCounts.COMPLETED})</option>
                         </select>
                       </div>
                       <Button
@@ -1121,19 +1277,35 @@ export default function DashboardPage() {
                                                 </p>
                                                 <p>
                                                   Status: {dept.status || "-"}
-                                                </p>
-                                                <p>
-                                                  Checked in:{" "}
-                                                  {formatDepartmentTime(
-                                                    dept.createdAt,
+                                                  {getVisitDepartmentBillingStatus(dept) && (
+                                                    <span className="ml-1.5 text-xs text-muted-foreground">
+                                                      ({getVisitDepartmentBillingStatus(dept)})
+                                                    </span>
                                                   )}
                                                 </p>
-                                                <p>
-                                                  Completed:{" "}
-                                                  {formatDepartmentTime(
-                                                    dept.completedAt,
-                                                  )}
-                                                </p>
+                                                {(canViewAllDeptTimes ||
+                                                  isUserDept(
+                                                    dept.department?.id,
+                                                  ) ||
+                                                  isUserDept(dept.id)) && (
+                                                  <>
+                                                    <p>
+                                                      Checked in:{" "}
+                                                      {formatDepartmentTime(
+                                                        dept.createdAt,
+                                                        visit.visitDate,
+                                                      )}
+                                                    </p>
+                                                    {dept.completedAt && (
+                                                      <p>
+                                                        Completed:{" "}
+                                                        {formatDepartmentTime(
+                                                          dept.completedAt,
+                                                        )}
+                                                      </p>
+                                                    )}
+                                                  </>
+                                                )}
                                                 {dept.notes &&
                                                   dept.notes.newNotes > 0 && (
                                                     <p className="text-red-500 font-semibold">
@@ -1179,11 +1351,336 @@ export default function DashboardPage() {
                                       </TooltipContent>
                                     </Tooltip>
                                   )}
-                                  {isReceptionistOnly && (
-                                    <p className="text-xs text-muted-foreground truncate">
-                                      Status: {visit.status}
-                                    </p>
-                                  )}
+                                  {(() => {
+                                    const activeDeptInfo =
+                                      getVisitActiveDepartmentInfo(visit)
+                                    const isPillActive =
+                                      activeDeptInfo.status === "ACTIVE" ||
+                                      activeDeptInfo.status === "IN_PROGRESS" ||
+                                      activeDeptInfo.status ===
+                                        "DEPARTMENT_EDITING" ||
+                                      activeDeptInfo.status === "BILLING"
+                                    const isPillPending =
+                                      activeDeptInfo.status === "PENDING"
+                                    const isPillCompleted =
+                                      activeDeptInfo.status === "COMPLETED" ||
+                                      activeDeptInfo.status === "FINALISED"
+                                    const isPillCancelled =
+                                      activeDeptInfo.status === "CANCELLED"
+                                    const isUserActiveDept =
+                                      activeDeptInfo.activeDept &&
+                                      (isUserDept(
+                                        activeDeptInfo.activeDept.department
+                                          ?.id,
+                                      ) ||
+                                        isUserDept(
+                                          activeDeptInfo.activeDept.id,
+                                        ))
+                                    const canSeeActivePillDuration =
+                                      canViewAllDeptTimes ||
+                                      Boolean(isUserActiveDept)
+                                    const canSeeTriageTimes =
+                                      canViewAllDeptTimes ||
+                                      hasNurseRole ||
+                                      hasReceptionistRole
+
+                                    return (
+                                      <div className="mt-1.5 flex items-center">
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <button
+                                              type="button"
+                                              onClick={(e) =>
+                                                e.stopPropagation()
+                                              }
+                                              className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary/15 hover:bg-secondary/25 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-foreground border border-border/60 hover:border-border transition-all shadow-2xs cursor-pointer select-none"
+                                              title="Click to view department timeline & details"
+                                              aria-label={`View department timeline for ${visit.patient.firstName} ${visit.patient.lastName}`}
+                                            >
+                                              <span className="relative flex h-2 w-2 flex-shrink-0">
+                                                {isPillActive ? (
+                                                  <>
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                                  </>
+                                                ) : isPillPending ? (
+                                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                                ) : isPillCancelled ? (
+                                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                                                ) : (
+                                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+                                                )}
+                                              </span>
+                                              <span className="font-semibold truncate max-w-[130px] sm:max-w-[170px]">
+                                                {activeDeptInfo.displayName}
+                                              </span>
+                                              {isPillActive &&
+                                                activeDeptInfo.duration &&
+                                                canSeeActivePillDuration && (
+                                                  <span className="text-[10px] text-muted-foreground font-normal">
+                                                    • {activeDeptInfo.duration}
+                                                  </span>
+                                                )}
+                                              {isPillPending && (
+                                                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                                  (Pending)
+                                                </span>
+                                              )}
+                                              {activeDeptInfo.allDepts.length >
+                                                1 && (
+                                                <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.2 rounded-full">
+                                                  {
+                                                    activeDeptInfo.allDepts
+                                                      .length
+                                                  }
+                                                </span>
+                                              )}
+                                              <ChevronDown className="w-3 h-3 text-muted-foreground group-hover:text-foreground transition-colors ml-0.5 flex-shrink-0" />
+                                            </button>
+                                          </PopoverTrigger>
+                                          <PopoverContent
+                                            align="start"
+                                            sideOffset={6}
+                                            className="w-80 sm:w-96 p-4 shadow-xl max-h-[80vh] overflow-y-auto z-50"
+                                          >
+                                            <div className="space-y-3">
+                                              <div className="flex items-center justify-between pb-2 border-b border-border/40">
+                                                <h4 className="font-semibold text-xs text-foreground">
+                                                  Visit Departments
+                                                </h4>
+                                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                                  {
+                                                    activeDeptInfo.allDepts
+                                                      .length
+                                                  }{" "}
+                                                  department
+                                                  {activeDeptInfo.allDepts
+                                                    .length === 1
+                                                    ? ""
+                                                    : "s"}
+                                                </span>
+                                              </div>
+
+                                              {activeDeptInfo.allDepts
+                                                .length === 0 ? (
+                                                <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-border/40">
+                                                  <div className="mt-0.5 h-7 w-7 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+                                                    <Clock className="w-3.5 h-3.5" />
+                                                  </div>
+                                                  <div className="flex-1 min-w-0 space-y-1">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                      <span className="font-semibold text-xs text-foreground">
+                                                        Triage / Check-in
+                                                      </span>
+                                                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                                        In Progress
+                                                      </span>
+                                                    </div>
+                                                    {canSeeTriageTimes && (
+                                                      <>
+                                                        <p className="text-[11px] text-muted-foreground">
+                                                          Checked in:{" "}
+                                                          {formatDepartmentTime(
+                                                            visit.visitDate,
+                                                          )}
+                                                        </p>
+                                                        <p className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
+                                                          Time in triage:{" "}
+                                                          {formatDepartmentDuration(
+                                                            visit.visitDate,
+                                                          )}
+                                                        </p>
+                                                      </>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              ) : (
+                                                <div className="relative pl-4 space-y-3 before:absolute before:left-1.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border/60">
+                                                  {activeDeptInfo.allDepts.map(
+                                                    (dept, idx) => {
+                                                      const status = String(
+                                                        dept.status || "",
+                                                      ).toUpperCase()
+                                                      const isPending =
+                                                        status === "PENDING"
+                                                      const isCompleted =
+                                                        status ===
+                                                          "COMPLETED" ||
+                                                        status === "FINALISED"
+                                                      const isCancelled =
+                                                        status === "CANCELLED"
+                                                      const isActive =
+                                                        !isPending &&
+                                                        !isCompleted &&
+                                                        !isCancelled
+                                                      const isThisUserDept =
+                                                        isUserDept(
+                                                          dept.department?.id,
+                                                        ) ||
+                                                        isUserDept(dept.id)
+                                                      const canSeeThisDeptTimes =
+                                                        canViewAllDeptTimes ||
+                                                        Boolean(isThisUserDept)
+
+                                                      return (
+                                                        <div
+                                                          key={dept.id || idx}
+                                                          className="relative group"
+                                                        >
+                                                          {/* Timeline indicator node */}
+                                                          <div
+                                                            className={`absolute -left-4 top-2 h-3 w-3 rounded-full border-2 border-background ${
+                                                              isActive
+                                                                ? "bg-blue-500 ring-2 ring-blue-500/30"
+                                                                : isCompleted
+                                                                  ? "bg-emerald-500"
+                                                                  : isCancelled
+                                                                    ? "bg-rose-500"
+                                                                    : "bg-amber-400"
+                                                            }`}
+                                                          />
+                                                          <div
+                                                            className={`p-3 rounded-xl border transition-colors ${
+                                                              isActive
+                                                                ? "bg-blue-50/50 dark:bg-blue-950/20 border-blue-200/60 dark:border-blue-800/40"
+                                                                : isCompleted
+                                                                  ? "bg-emerald-50/30 dark:bg-emerald-950/10 border-border/40"
+                                                                  : isCancelled
+                                                                    ? "bg-rose-50/30 dark:bg-rose-950/10 border-border/40"
+                                                                    : "bg-muted/30 border-border/40"
+                                                            }`}
+                                                          >
+                                                            <div className="flex items-center justify-between gap-2">
+                                                              <span className="font-semibold text-xs text-foreground truncate">
+                                                                {dept.department
+                                                                  ?.name ||
+                                                                  "Unknown Department"}
+                                                              </span>
+                                                              <span
+                                                                className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                                                  isActive
+                                                                    ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/20"
+                                                                    : isCompleted
+                                                                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+                                                                      : isCancelled
+                                                                        ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/20"
+                                                                        : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20"
+                                                                }`}
+                                                              >
+                                                                {isPending
+                                                                  ? "Pending / Not started"
+                                                                  : isCompleted
+                                                                    ? "Completed"
+                                                                    : isCancelled
+                                                                      ? "Cancelled"
+                                                                      : "In Progress"}
+                                                              </span>
+                                                            </div>
+
+                                                            {canSeeThisDeptTimes && (
+                                                              <div className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
+                                                                <div className="flex items-center justify-between">
+                                                                  <span>
+                                                                    Created:
+                                                                  </span>
+                                                                  <span className="font-mono text-[10px]">
+                                                                    {formatDepartmentTime(
+                                                                      dept.createdAt,
+                                                                      visit.visitDate,
+                                                                    )}
+                                                                  </span>
+                                                                </div>
+
+                                                                {isCompleted &&
+                                                                  dept.completedAt && (
+                                                                    <div className="flex items-center justify-between">
+                                                                      <span>
+                                                                        Completed:
+                                                                      </span>
+                                                                      <span className="font-mono text-[10px]">
+                                                                        {formatDepartmentTime(
+                                                                          dept.completedAt,
+                                                                        )}
+                                                                      </span>
+                                                                    </div>
+                                                                  )}
+
+                                                                {isActive && (
+                                                                  <div className="flex items-center justify-between font-medium text-blue-600 dark:text-blue-400">
+                                                                    <span>
+                                                                      Time in
+                                                                      department:
+                                                                    </span>
+                                                                    <span>
+                                                                      {formatDepartmentDuration(
+                                                                        dept.createdAt,
+                                                                        null,
+                                                                        visit.visitDate,
+                                                                      )}
+                                                                    </span>
+                                                                  </div>
+                                                                )}
+
+                                                                {isCompleted && (
+                                                                  <div className="flex items-center justify-between font-medium text-emerald-600 dark:text-emerald-400">
+                                                                    <span>
+                                                                      Total
+                                                                      duration:
+                                                                    </span>
+                                                                    <span>
+                                                                      {formatDepartmentDuration(
+                                                                        dept.createdAt,
+                                                                        dept.completedAt,
+                                                                        visit.visitDate,
+                                                                      )}
+                                                                    </span>
+                                                                  </div>
+                                                                )}
+
+                                                                {isPending && (
+                                                                  <div className="text-amber-600 dark:text-amber-400 font-medium pt-0.5">
+                                                                    Status:
+                                                                    Pending (Not
+                                                                    yet started)
+                                                                  </div>
+                                                                )}
+                                                              </div>
+                                                            )}
+
+                                                            {!canSeeThisDeptTimes &&
+                                                              isPending && (
+                                                                <div className="mt-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                                                                  Status:
+                                                                  Pending (Not
+                                                                  yet started)
+                                                                </div>
+                                                              )}
+
+                                                            {dept.notes &&
+                                                              dept.notes
+                                                                .newNotes >
+                                                                0 && (
+                                                                <div className="mt-1.5 pt-1.5 border-t border-border/30 text-[10px] text-rose-600 dark:text-rose-400 font-medium">
+                                                                  {
+                                                                    dept.notes
+                                                                      .newNotes
+                                                                  }{" "}
+                                                                  new note(s)
+                                                                </div>
+                                                              )}
+                                                          </div>
+                                                        </div>
+                                                      )
+                                                    },
+                                                  )}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </PopoverContent>
+                                        </Popover>
+                                      </div>
+                                    )
+                                  })()}
                                 </div>
                               </div>
                               <div
@@ -1200,6 +1697,33 @@ export default function DashboardPage() {
                                     hasClinicianOrDoctorRole &&
                                     matchedClosedDepartment,
                                   )
+                                  const matchingActiveDept =
+                                    getMatchingUserDepartment(visit, {
+                                      mustBeClosed: false,
+                                    }) ||
+                                    (visit.departments || []).find((d) => {
+                                      const deptId = String(
+                                        d?.department?.id || d?.id || "",
+                                      )
+                                      return (
+                                        deptId &&
+                                        userDepartmentIds.includes(deptId)
+                                      )
+                                    })
+                                  const hasExistingAnswer = Boolean(
+                                    matchingActiveDept?.answerId ||
+                                      matchingActiveDept?.hasFinalizedConsultationAnswers,
+                                  )
+                                  const isEligibleForContinue = Boolean(
+                                    matchingActiveDept &&
+                                      matchingActiveDept.status !==
+                                        "FINALISED" &&
+                                      matchingActiveDept.status !== "CANCELLED",
+                                  )
+                                  const consultButtonLabel =
+                                    hasExistingAnswer && isEligibleForContinue
+                                      ? "Continue"
+                                      : "Start Consult"
                                   return (
                                     <>
                                       {canViewPatientHistory && (
@@ -1235,8 +1759,8 @@ export default function DashboardPage() {
                                                   setNavigatingVisitId(visit.id)
                                                   handleConsultVisit(visit)
                                                 }}
-                                                title="Start Consult"
-                                                aria-label="Start Consult"
+                                                title={consultButtonLabel}
+                                                aria-label={consultButtonLabel}
                                                 disabled={navigatingVisitId === visit.id}
                                                 className="h-9 w-9 sm:h-10 sm:w-10 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
                                               >
@@ -1248,7 +1772,7 @@ export default function DashboardPage() {
                                               </button>
                                             </TooltipTrigger>
                                             <TooltipContent>
-                                              <p>Start Consult</p>
+                                              <p>{consultButtonLabel}</p>
                                             </TooltipContent>
                                           </Tooltip>
                                         )}
@@ -1367,19 +1891,13 @@ export default function DashboardPage() {
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
-                                            setNavigatingVisitId(visit.id)
                                             handleAddDepartment(visit)
                                           }}
                                           title="Add Department"
                                           aria-label="Add Department"
-                                          disabled={navigatingVisitId === visit.id}
                                           className="h-9 w-9 sm:h-10 sm:w-10 bg-purple-500 hover:bg-purple-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
                                         >
-                                          {navigatingVisitId === visit.id ? (
-                                            <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
-                                          ) : (
-                                            <Plus className="w-4 h-4 flex-shrink-0" />
-                                          )}
+                                          <Plus className="w-4 h-4 flex-shrink-0" />
                                         </button>
                                       </TooltipTrigger>
                                       <TooltipContent>
@@ -1387,25 +1905,37 @@ export default function DashboardPage() {
                                       </TooltipContent>
                                     </Tooltip>
                                   )}
-                                {canSeeVisitActionButtons &&
-                                  canDischargeVisit(visit) &&
-                                  ENABLE_DISCHARGE && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        setDischargeConfirmVisit(visit)
-                                      }}
-                                      title="Discharge Patient"
-                                      className="px-2 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
-                                    >
-                                      <CheckCircle className="w-4 h-4 flex-shrink-0" />
-                                      <span className="hidden sm:inline lg:hidden">
-                                        Discharge
-                                      </span>
-                                      <span className="hidden lg:inline">
-                                        Discharge
-                                      </span>
-                                    </button>
+                                {canSeeDischargeButton &&
+                                  canDischargeVisit(visit) && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setDischargeConfirmVisit(visit)
+                                          }}
+                                          title="Discharge Patient"
+                                          aria-label="Discharge Patient"
+                                          disabled={discharging}
+                                          className="px-2 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
+                                        >
+                                          {discharging && dischargeConfirmVisit?.id === visit.id ? (
+                                            <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                                          ) : (
+                                            <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                                          )}
+                                          <span className="hidden sm:inline lg:hidden">
+                                            Discharge
+                                          </span>
+                                          <span className="hidden lg:inline">
+                                            Discharge
+                                          </span>
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Discharge Patient (set visit to completed)</p>
+                                      </TooltipContent>
+                                    </Tooltip>
                                   )}
                                 {canSeeBillButton &&
                                   hasUnbilledItems(visit) && (
@@ -1493,7 +2023,7 @@ export default function DashboardPage() {
                                   )}
 
                                 {/* Manager role buttons */}
-                                {hasManagerRole && (
+                                {(hasManagerRole || hasAdminRole) && (
                                   <>
                                     {/* Manager: Preview Consultation */}
                                     {(visit.status === "COMPLETED" ||
@@ -1574,6 +2104,26 @@ export default function DashboardPage() {
                                       </Tooltip>
                                     )}
 
+                                    {/* Manager: Manage & Audit Detailed View */}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            router.push(`/visits/manage?visitId=${visit.id}`)
+                                          }}
+                                          title="Manage & Audit Visit"
+                                          aria-label="Manage & Audit Visit"
+                                          className="h-9 w-9 sm:h-10 sm:w-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                        >
+                                          <SlidersHorizontal className="w-4 h-4 flex-shrink-0" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Manage &amp; Audit Visit</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+
                                     {/* Manager: Settings */}
                                     <Tooltip>
                                       <TooltipTrigger asChild>
@@ -1584,7 +2134,7 @@ export default function DashboardPage() {
                                           }}
                                           title="Visit Settings"
                                           aria-label="Visit Settings"
-                                          className="h-9 w-9 sm:h-10 sm:w-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                          className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-700 hover:bg-slate-800 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
                                         >
                                           <Settings className="w-4 h-4 flex-shrink-0" />
                                         </button>
@@ -1724,7 +2274,7 @@ export default function DashboardPage() {
           if (!open) setDischargeConfirmVisit(null)
         }}
         title="Discharge this patient?"
-        description="Completing the visit will complete all open departments and finalize the visit."
+        description="Discharging will set the visit status to COMPLETED."
         confirmLabel="Discharge"
         busy={discharging}
         onConfirm={() => {

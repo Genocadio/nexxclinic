@@ -84,3 +84,83 @@ export const GET_BILL_BY_VISIT_QUERY = gql`
   }
 `;
 
+export const GET_VISIT_DEPARTMENT_BILLING_QUERY = gql`
+  query GetVisitDepartmentBilling($visitDepartmentId: ID!) {
+    getVisitDepartmentBilling(visitDepartmentId: $visitDepartmentId) {
+      status
+      message
+      data {
+        id
+        visitDepartment {
+          id
+          status
+          department {
+            id
+            name
+          }
+        }
+        status
+        totalAmount
+        insuranceCoveredAmount
+        patientPayableAmount
+        paidAmount
+        outstandingAmount
+        payments {
+          id
+          amount
+          paymentMethod
+          reference
+          createdAt
+          updatedAt
+        }
+        insuranceBillings {
+          id
+          patientInsurance {
+            id
+            insuranceCardNumber
+            patientSharePercentage
+            patientShareCoverageId
+            deactivated
+            principalMemberName
+            insuranceProvider {
+              id
+              insuranceName
+              acronym
+            }
+          }
+          status
+          totalAmount
+          insuranceCoveredAmount
+          patientPayableAmount
+          paidAmount
+          outstandingAmount
+          outstandingType
+          outstandingReason
+          invoiceUrl
+          items {
+            id
+            visitDepartmentProductId
+            productId
+            productName
+            unitPriceSnapshot
+            quantitySnapshot
+            insuranceCoveredAmount
+            patientPayableAmount
+            appliedPatientSharePct
+            patientShareSource
+          }
+          createdAt
+          updatedAt
+        }
+        version {
+          id
+          version
+        }
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+

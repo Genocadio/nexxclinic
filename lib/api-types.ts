@@ -134,6 +134,12 @@ export enum VisitDepartmentProductSource {
   PROFILE = "PROFILE",
 }
 
+export enum BillingConfirmationStatus {
+  CONFIRMED = "CONFIRMED",
+  PENDING_OPERATOR_CONFIRMATION = "PENDING_OPERATOR_CONFIRMATION",
+  REJECTED = "REJECTED",
+}
+
 export enum VisitDepartmentStatus {
   ACTIVE = "ACTIVE",
   PENDING = "PENDING",
@@ -516,6 +522,8 @@ export interface Visit {
   estimatedInsurancePay?: number | null;
   estimatedPatientPay?: number | null;
   quickBillEligible?: boolean | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface VisitPriceEstimate {
@@ -559,7 +567,10 @@ export interface VisitDepartment {
   status: VisitDepartmentStatus;
   encounterType: EncounterType;
   profile?: DepartmentProfile | null;
+  startedAt?: string | null;
   completedAt?: string | null;
+  addedBy?: Worker | null;
+  completedBy?: Worker | null;
   processors: Worker[];
   childVisitDepartments: VisitDepartment[];
   products: VisitDepartmentProduct[];
@@ -569,6 +580,7 @@ export interface VisitDepartment {
   medications?: VisitDepartmentMedication[] | null;
   preInstructions: VisitPreInstruction[];
   notes?: VisitDepartmentNotesSummary | null;
+  billing?: VisitDepartmentBilling | null;
   answerId?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -585,7 +597,10 @@ export interface VisitDepartmentProduct {
   source?: VisitDepartmentProductSource | null;
   addedBy?: Worker | null;
   billedBy?: Worker | null;
+  confirmedBy?: Worker | null;
+  billingConfirmationStatus?: BillingConfirmationStatus | null;
   processor?: Worker | null;
+  billingItem?: VisitBillingItem | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -712,6 +727,7 @@ export interface VisitDepartmentBilling {
   outstandingAmount: number;
   payments: VisitBillingPayment[];
   insuranceBillings: DepartmentInsuranceBilling[];
+  version?: VisitBillingVersion | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -852,6 +868,8 @@ export interface FormAction {
   price: number;
   isQuantifiable: boolean;
   backendId?: string | null;
+  billingConfirmationStatus?: BillingConfirmationStatus | null;
+  confirmedByName?: string | null;
 }
 
 /**

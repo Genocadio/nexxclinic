@@ -1,4 +1,5 @@
 import { useMutation } from "@apollo/client";
+import { useAuth } from "@/lib/auth-context";
 import {
   ADD_PRODUCT_TO_VISIT_DEPARTMENT_MUTATION,
   REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION,
@@ -9,19 +10,34 @@ import {
   COMPLETE_VISIT_DEPARTMENT_MUTATION,
   UPDATE_VISIT_DEPARTMENT_STATUS_MUTATION,
   ADD_DEPARTMENT_TO_VISIT_MUTATION,
+  CONSULT_VISIT_MUTATION,
   CHANGE_VISIT_DEPARTMENT_PROFILE_MUTATION,
   REMOVE_VISIT_DEPARTMENT_PROFILE_MUTATION,
   UPDATE_VISIT_DEPARTMENT_PRODUCT_QUANTITY_MUTATION,
   UPDATE_VISIT_DEPARTMENT_PRODUCT_STATUS_MUTATION,
   UPDATE_VISIT_DEPARTMENT_ENCOUNTER_TYPE_MUTATION,
   UPDATE_VISIT_DEPARTMENT_PRODUCT_PROCESSOR_MUTATION,
+  UPDATE_VISIT_DEPARTMENT_ENCOUNTER_DATE_MUTATION,
 } from "../mutations";
 import type { ApiResponse } from "../types";
 import { mapGqlVisitDepartment } from "@/lib/gql-mappers";
 
+const visitRefetchQueries = [
+  "GetVisits",
+  "GetVisit",
+  "GetVisitBilling",
+  "GetVisitBillingForSettings",
+  "GetVisitDepartmentProfiles",
+  "GetBillByVisit",
+];
+
 export function useRemoveActionFromVisitDepartment() {
   const [mutation, { loading, error }] = useMutation(
     REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
   const removeAction = async (
     visitId: string,
@@ -45,6 +61,10 @@ export function useRemoveActionFromVisitDepartment() {
 export function useRemoveConsumableFromVisitDepartment() {
   const [mutation, { loading, error }] = useMutation(
     REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
   const removeConsumable = async (
     visitId: string,
@@ -68,6 +88,10 @@ export function useRemoveConsumableFromVisitDepartment() {
 export function useRemoveProductFromVisitDepartment() {
   const [mutation, { loading, error }] = useMutation(
     REMOVE_VISIT_DEPARTMENT_PRODUCT_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
   const removeProduct = async (
     visitDepartmentProductId: string,
@@ -89,6 +113,10 @@ export function useRemoveProductFromVisitDepartment() {
 export function useUpdateActionQuantity() {
   const [mutation, { loading, error }] = useMutation(
     UPDATE_ACTION_QUANTITY_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
   const updateQuantity = async (
     visitId: string,
@@ -121,6 +149,10 @@ export function useUpdateActionQuantity() {
 export function useUpdateConsumableQuantity() {
   const [mutation, { loading, error }] = useMutation(
     UPDATE_CONSUMABLE_QUANTITY_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
   const updateQuantity = async (
     visitId: string,
@@ -151,8 +183,13 @@ export function useUpdateConsumableQuantity() {
 }
 
 export function useAddActionToVisitDepartment() {
+  const { doctor } = useAuth();
   const [mutation, { loading, error }] = useMutation(
     ADD_PRODUCT_TO_VISIT_DEPARTMENT_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
 
   const addAction = async (
@@ -163,6 +200,7 @@ export function useAddActionToVisitDepartment() {
     processorId?: string,
   ): Promise<ApiResponse<any>> => {
     try {
+      const effectiveProcessorId = processorId || doctor?.id;
       const result = await mutation({
         variables: {
           input: {
@@ -171,7 +209,7 @@ export function useAddActionToVisitDepartment() {
             productId: actionId,
             quantity: quantity ?? 1,
             status: "PENDING",
-            ...(processorId ? { processorId } : {}),
+            ...(effectiveProcessorId ? { processorId: effectiveProcessorId } : {}),
           },
         },
       });
@@ -195,8 +233,13 @@ export function useAddActionToVisitDepartment() {
 }
 
 export function useAddChildVisitDepartment() {
+  const { doctor } = useAuth();
   const [mutation, { loading, error }] = useMutation(
     ADD_CHILD_VISIT_DEPARTMENT_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
 
   const addChildVisitDepartment = async (input: {
@@ -206,6 +249,7 @@ export function useAddChildVisitDepartment() {
     processorId?: string;
   }): Promise<ApiResponse<any>> => {
     try {
+      const effectiveProcessorId = input.processorId || doctor?.id;
       const result = await mutation({
         variables: {
           input: {
@@ -215,7 +259,7 @@ export function useAddChildVisitDepartment() {
               productId: item.productId,
               quantity: item.quantity,
             })),
-            processorId: input.processorId,
+            ...(effectiveProcessorId ? { processorId: effectiveProcessorId } : {}),
           },
         },
       });
@@ -239,8 +283,13 @@ export function useAddChildVisitDepartment() {
 }
 
 export function useAddConsumableToVisitDepartment() {
+  const { doctor } = useAuth();
   const [mutation, { loading, error }] = useMutation(
     ADD_PRODUCT_TO_VISIT_DEPARTMENT_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
 
   const addConsumable = async (
@@ -251,6 +300,7 @@ export function useAddConsumableToVisitDepartment() {
     processorId?: string,
   ): Promise<ApiResponse<any>> => {
     try {
+      const effectiveProcessorId = processorId || doctor?.id;
       const result = await mutation({
         variables: {
           input: {
@@ -259,7 +309,7 @@ export function useAddConsumableToVisitDepartment() {
             productId: consumableId,
             quantity: quantity ?? 1,
             status: "PENDING",
-            ...(processorId ? { processorId } : {}),
+            ...(effectiveProcessorId ? { processorId: effectiveProcessorId } : {}),
           },
         },
       });
@@ -283,8 +333,13 @@ export function useAddConsumableToVisitDepartment() {
 }
 
 export function useAddProductToVisitDepartment() {
+  const { doctor } = useAuth();
   const [mutation, { loading, error }] = useMutation(
     ADD_PRODUCT_TO_VISIT_DEPARTMENT_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
 
   const addProduct = async (
@@ -295,6 +350,7 @@ export function useAddProductToVisitDepartment() {
     processorId?: string,
   ): Promise<ApiResponse<any>> => {
     try {
+      const effectiveProcessorId = processorId || doctor?.id;
       const result = await mutation({
         variables: {
           input: {
@@ -303,7 +359,7 @@ export function useAddProductToVisitDepartment() {
             productId,
             quantity: quantity ?? 1,
             status: "PENDING",
-            ...(processorId ? { processorId } : {}),
+            ...(effectiveProcessorId ? { processorId: effectiveProcessorId } : {}),
           },
         },
       });
@@ -329,6 +385,10 @@ export function useAddProductToVisitDepartment() {
 export function useCompleteVisitDepartment() {
   const [mutation, { loading, error }] = useMutation(
     COMPLETE_VISIT_DEPARTMENT_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
 
   const completeDepartment = async (
@@ -350,11 +410,23 @@ export function useCompleteVisitDepartment() {
 export function useUpdateVisitDepartmentStatus() {
   const [mutation, { loading, error }] = useMutation(
     UPDATE_VISIT_DEPARTMENT_STATUS_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
 
   const updateDepartmentStatus = async (
     visitDepartmentId: string,
-    status: "ACTIVE" | "PENDING" | "COMPLETED",
+    status:
+      | "ACTIVE"
+      | "PENDING"
+      | "COMPLETED"
+      | "CANCELLED"
+      | "FINALISED"
+      | "BILLING"
+      | "DEPARTMENT_EDITING"
+      | string,
   ): Promise<ApiResponse<any>> => {
     try {
       const result = await mutation({
@@ -373,6 +445,10 @@ export function useUpdateVisitDepartmentStatus() {
 export function useAddDepartmentToVisit() {
   const [mutation, { loading, error }] = useMutation(
     ADD_DEPARTMENT_TO_VISIT_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
 
   const addDepartmentToVisit = async (
@@ -391,8 +467,6 @@ export function useAddDepartmentToVisit() {
           profileId: profileId || null,
           encounterType: encounterType || null,
         },
-        refetchQueries: ["GetVisits", "GetVisit"],
-        awaitRefetchQueries: true,
       });
       return result.data?.addVisitDepartment;
     } catch (err) {
@@ -404,9 +478,45 @@ export function useAddDepartmentToVisit() {
   return { addDepartmentToVisit, loading, error };
 }
 
+export function useConsultVisit() {
+  const [mutation, { loading, error }] = useMutation(CONSULT_VISIT_MUTATION, {
+    refetchQueries: visitRefetchQueries,
+    awaitRefetchQueries: true,
+  });
+
+  const consultVisit = async (
+    visitDepartmentId: string,
+    profileId?: string | null,
+  ): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({
+        variables: {
+          visitDepartmentId,
+          profileId: profileId || null,
+        },
+      });
+      const payload = result.data?.consultVisit;
+      return {
+        status: payload?.status || "ERROR",
+        message: payload?.message,
+        data: payload?.data ? mapGqlVisitDepartment(payload.data) : undefined,
+      };
+    } catch (err) {
+      console.error("Consult visit error:", err);
+      throw err;
+    }
+  };
+
+  return { consultVisit, loading, error };
+}
+
 export function useChangeVisitDepartmentProfile() {
   const [mutation, { loading, error }] = useMutation(
     CHANGE_VISIT_DEPARTMENT_PROFILE_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
 
   const changeVisitDepartmentProfile = async (
@@ -419,8 +529,6 @@ export function useChangeVisitDepartmentProfile() {
           visitDepartmentId,
           profileId: profileId || null,
         },
-        refetchQueries: ["GetVisits", "GetVisit"],
-        awaitRefetchQueries: true,
       });
       const payload = result.data?.changeVisitDepartmentProfile;
       return {
@@ -442,6 +550,10 @@ export function useChangeVisitDepartmentProfile() {
 export function useRemoveVisitDepartmentProfile() {
   const [mutation, { loading, error }] = useMutation(
     REMOVE_VISIT_DEPARTMENT_PROFILE_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
 
   const removeVisitDepartmentProfile = async (
@@ -452,8 +564,6 @@ export function useRemoveVisitDepartmentProfile() {
         variables: {
           visitDepartmentId,
         },
-        refetchQueries: ["GetVisits", "GetVisit"],
-        awaitRefetchQueries: true,
       });
       const payload = result.data?.removeVisitDepartmentProfile;
       return {
@@ -475,6 +585,10 @@ export function useRemoveVisitDepartmentProfile() {
 export function useUpdateVisitDepartmentEncounterType() {
   const [mutation, { loading, error }] = useMutation(
     UPDATE_VISIT_DEPARTMENT_ENCOUNTER_TYPE_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
 
   const updateEncounterType = async (
@@ -484,8 +598,6 @@ export function useUpdateVisitDepartmentEncounterType() {
     try {
       const result = await mutation({
         variables: { visitDepartmentId, encounterType },
-        refetchQueries: ["GetVisits", "GetVisit"],
-        awaitRefetchQueries: true,
       });
       const payload = result.data?.updateVisitDepartmentEncounterType;
       return {
@@ -505,6 +617,10 @@ export function useUpdateVisitDepartmentEncounterType() {
 export function useUpdateProductQuantity() {
   const [mutation, { loading, error }] = useMutation(
     UPDATE_VISIT_DEPARTMENT_PRODUCT_QUANTITY_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
 
   const updateQuantity = async (
@@ -538,6 +654,10 @@ export function useUpdateProductQuantity() {
 export function useUpdateProductStatus() {
   const [mutation, { loading, error }] = useMutation(
     UPDATE_VISIT_DEPARTMENT_PRODUCT_STATUS_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
 
   const updateStatus = async (
@@ -571,6 +691,10 @@ export function useUpdateProductStatus() {
 export function useUpdateProductProcessor() {
   const [mutation, { loading, error }] = useMutation(
     UPDATE_VISIT_DEPARTMENT_PRODUCT_PROCESSOR_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
 
   const updateProcessor = async (
@@ -604,6 +728,10 @@ export function useUpdateProductProcessor() {
 export function useRemoveVisitDepartment() {
   const [mutation, { loading, error }] = useMutation(
     REMOVE_VISIT_DEPARTMENT_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
   );
 
   const removeVisitDepartment = async (
@@ -612,8 +740,6 @@ export function useRemoveVisitDepartment() {
     try {
       const result = await mutation({
         variables: { visitDepartmentId },
-        refetchQueries: ["GetVisits", "GetVisit"],
-        awaitRefetchQueries: true,
       });
       return result.data?.removeVisitDepartment;
     } catch (err) {
@@ -623,4 +749,36 @@ export function useRemoveVisitDepartment() {
   };
 
   return { removeVisitDepartment, loading, error };
+}
+
+export function useUpdateVisitDepartmentEncounterDate() {
+  const [mutation, { loading, error }] = useMutation(
+    UPDATE_VISIT_DEPARTMENT_ENCOUNTER_DATE_MUTATION,
+    {
+      refetchQueries: visitRefetchQueries,
+      awaitRefetchQueries: true,
+    },
+  );
+
+  const updateEncounterDate = async (
+    visitDepartmentId: string,
+    encounterDate: string,
+  ): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({
+        variables: { input: { visitDepartmentId, encounterDate } },
+      });
+      const payload = result.data?.updateVisitDepartmentEncounterDate;
+      return {
+        status: payload?.status || "ERROR",
+        message: payload?.message,
+        data: payload?.data,
+      };
+    } catch (err) {
+      console.error("Update department encounter date error:", err);
+      throw err;
+    }
+  };
+
+  return { updateEncounterDate, loading, error };
 }
