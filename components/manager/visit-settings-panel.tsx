@@ -62,6 +62,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useAuth } from "@/lib/auth-context"
+import { useDepartments } from "@/hooks/auth-hooks"
 import { hasRole } from "@/lib/role-utils"
 import type { DepartmentProfile as DepartmentProfileType } from "@/lib/api-types"
 
@@ -392,11 +393,15 @@ export function VisitSettingsPanel({
   }, [open, visit.id, fetchBilling])
 
   // ── Clinic department profile (assigned + available catalog profiles) ──
+  const { departments = [] } = useDepartments()
   const { doctor: authDoctor } = useAuth()
   const currentRoles = ((authDoctor as unknown as { roles?: string[] } | null)
     ?.roles || []) as string[]
-  // Profiles can be changed/assigned by managers and clinicians.
-  const canManageProfile = hasRole(currentRoles, "MANAGER") || hasRole(currentRoles, "CLINICIAN")
+  // Profiles can be changed/assigned by managers, admins, and clinicians.
+  const canManageProfile =
+    hasRole(currentRoles, "MANAGER") ||
+    hasRole(currentRoles, "ADMIN") ||
+    hasRole(currentRoles, "CLINICIAN")
 
   const [fetchProfiles, {
     data: profilesData,
@@ -1337,12 +1342,55 @@ export function VisitSettingsPanel({
                             )
                           })()}
 
-                          {/* Clinic profile (assigned + available), with change/clear for managers & clinicians */}
+                          {/* Clinic profile (assigned + available), with change/set/clear for managers & clinicians */}
                           {(() => {
                             const profileDept = profileDeptsByVisitDeptId.get(dept.id)
-                            const assigned = profileDept?.assigned
-                            const available = profileDept?.available || []
-                            const loading = profilesLoading && !profileDept
+                            const deptCatalog = departments.find(
+                              (d) => String(d.id) === String(dept.department?.id || dept.id),
+                            )
+                            const assigned = profileDept?.assigned ?? (dept.profile ? { id: dept.profile.id, name: dept.profile.name, encounterType: (dept as any).encounterType } : null)
+                            const rawAvailable = (profileDept?.available?.length ? profileDept.available : (deptCatalog?.profiles || (dept.department as any)?.profiles || [])) as Array<{ id: string; name: string; encounterType?: string }>
+                            const available = rawAvailable.map((p) => ({
+                              id: p.id,
+                              name: p.name,
+                              encounterType: p.encounterType || "",
+                            }))
+                            const isSupportRequests = Boolean(deptCatalog?.supportRequests || (dept.department as any)?.supportRequests)
+                            const loading = profilesLoading && !profileDept && !deptCatalog
+                            const isLocked = dept.status === "BILLING" || dept.status === "COMPLETED" || dept.status === "FINALISED" || dept.status === "DEPARTMENT_EDITING"
+
+                            if (isSupportRequests) {
+                              return (
+                                <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                                      <FileText className="h-3.5 w-3.5 text-primary" />
+                                      Clinic Profile
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    This department supports requests, so profiles cannot be applied.
+                                  </p>
+                                </div>
+                              )
+                            }
+
+                            if (!loading && available.length === 0) {
+                              return (
+                                <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                                      <FileText className="h-3.5 w-3.5 text-primary" />
+                                      Clinic Profile
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground italic">
+                                    No profiles configured for this department
+                                  </p>
+                                </div>
+                              )
+                            }
+
                             return (
                               <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
                                 <div className="flex items-center justify-between gap-2">
@@ -1354,11 +1402,7 @@ export function VisitSettingsPanel({
                                     <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                                   )}
                                 </div>
-                                {!profileDept && !loading ? (
-                                  <p className="text-xs text-muted-foreground">
-                                    Profile not available
-                                  </p>
-                                ) : assigned ? (
+                                {assigned ? (
                                   <div className="flex items-center justify-between gap-2">
                                     <div className="min-w-0">
                                       <p className="text-sm font-medium text-foreground truncate">
@@ -1368,9 +1412,9 @@ export function VisitSettingsPanel({
                                         {assigned.encounterType || profileDept?.encounterType || "No encounter type"}
                                       </p>
                                     </div>
-                                      <span className="shrink-0 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-                                        Active
-                                      </span>
+                                    <span className="shrink-0 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                                      Active
+                                    </span>
                                   </div>
                                 ) : (
                                   <p className="text-xs text-muted-foreground">
@@ -1380,7 +1424,7 @@ export function VisitSettingsPanel({
                                       : ""}
                                   </p>
                                 )}
-                                {canManageProfile && !loading && dept.status !== "BILLING" && dept.status !== "COMPLETED" && dept.status !== "FINALISED" && dept.status !== "DEPARTMENT_EDITING" && (
+                                {canManageProfile && !loading && !isLocked && (
                                   <>
                                     <Select
                                       value={assigned?.id || "none"}
@@ -1396,7 +1440,7 @@ export function VisitSettingsPanel({
                                         className="h-8 w-full text-xs"
                                       >
                                         <SelectValue
-                                          placeholder={assigned ? "Change profile" : "Assign a profile"}
+                                          placeholder={assigned ? "Change profile..." : "Select and assign profile..."}
                                         />
                                       </SelectTrigger>
                                       <SelectContent>
@@ -1429,6 +1473,16 @@ export function VisitSettingsPanel({
                                   <p className="text-[11px] text-muted-foreground mt-1">
                                     Profile is locked on {dept.status.toLowerCase()} departments. Use
                                     &quot;Edit Billing&quot; on the billing page to enter edit mode first.
+                                  </p>
+                                )}
+                                {canManageProfile && !loading && dept.status === "BILLING" && (
+                                  <p className="text-[11px] text-muted-foreground mt-1">
+                                    Profile is locked while the department is in billing.
+                                  </p>
+                                )}
+                                {canManageProfile && !loading && dept.status === "DEPARTMENT_EDITING" && (
+                                  <p className="text-[11px] text-muted-foreground mt-1">
+                                    Department is in billing edit mode.
                                   </p>
                                 )}
                               </div>

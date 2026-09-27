@@ -11,8 +11,6 @@ import {
 } from "@/hooks/auth-hooks";
 import { toast } from "react-toastify";
 import { handleResponse } from "@/lib/response-handler";
-import { useAuth } from "@/lib/auth-context";
-import { hasRole } from "@/lib/role-utils";
 
 interface AddDepartmentModalProps {
   visit: Visit;
@@ -33,7 +31,6 @@ export function AddDepartmentModal({
     loading: departmentsLoading,
   } = useDepartments();
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
-  const [selectedProfileId, setSelectedProfileId] = useState<string>("");
   const [mode, setMode] = useState<"department" | "processor">("department");
   const [processorQuery, setProcessorQuery] = useState("");
   const [selectedProcessorId, setSelectedProcessorId] = useState<string>("");
@@ -51,11 +48,6 @@ export function AddDepartmentModal({
     setSelectedProcessorDepartmentId("");
     clearFormError();
   };
-  const { doctor: authDoctor } = useAuth();
-  const currentRoles = ((authDoctor as unknown as { roles?: string[] } | null)
-    ?.roles || []) as string[];
-  // Only clinicians and managers can assign profiles when adding departments.
-  const canAssignProfile = hasRole(currentRoles, "CLINICIAN") || hasRole(currentRoles, "MANAGER");
 
   const { addDepartmentToVisit, loading } = useAddDepartmentToVisit();
   const { workers: processorWorkers, loading: processorsLoading } =
@@ -121,7 +113,7 @@ export function AddDepartmentModal({
         visit.id,
         departmentIdToUse,
         mode === "processor" ? selectedProcessorId : null,
-        selectedProfileId || null,
+        null,
       );
 
       const ok = await handleResponse(result, {
@@ -419,7 +411,8 @@ export function AddDepartmentModal({
                       Select Department
                     </label>
 
-                  <div className="space-y-2">
+                    <div className="space-y-2">
+
                     {departments
                       .filter((d) => !isDepartmentAlreadyInVisit(String(d.id)))
                       .map((d) => (
@@ -428,7 +421,6 @@ export function AddDepartmentModal({
                           type="button"
                           onClick={() => {
                             setSelectedDepartmentId(String(d.id));
-                            setSelectedProfileId("");
                             clearFormError();
                           }}
                           className={`w-full flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm hover:bg-muted ${
@@ -438,12 +430,6 @@ export function AddDepartmentModal({
                           }`}
                         >
                           <span>{d.name}</span>
-                          {(d as any).profiles?.length > 0 && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
-                              {(d as any).profiles.length}{" "}
-                              profile{(d as any).profiles.length > 1 ? "s" : ""}
-                            </span>
-                          )}
                         </button>
                       ))}
 
@@ -464,53 +450,6 @@ export function AddDepartmentModal({
                       ))}
                   </div>
                 </div>
-
-                {(() => {
-                  const selectedDept = departments.find(
-                    (d) => String(d.id) === String(selectedDepartmentId),
-                  );
-                  const profiles = (selectedDept as any)?.profiles || [];
-                  const supportsRequests = Boolean(
-                    (selectedDept as any)?.supportRequests,
-                  );
-                  if (!canAssignProfile || !selectedDept || profiles.length === 0) return null;
-                  if (supportsRequests) {
-                    return (
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                        This department supports requests, so a profile cannot
-                        be applied. Add its products manually.
-                      </p>
-                    );
-                  }
-                  return (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                        Profile (optional)
-                      </label>
-                      <select
-                        value={selectedProfileId}
-                        onChange={(e) => setSelectedProfileId(e.target.value)}
-                        className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm"
-                      >
-                        <option value="">
-                          No profile — add products manually
-                        </option>
-                        {profiles.map((profile: any) => (
-                          <option key={profile.id} value={String(profile.id)}>
-                            {profile.name}
-                            {profile.isDefault ? " (default)" : ""} ·{" "}
-                            {profile.products?.length || 0} products
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                        No profile is applied automatically. Only the profile
-                        you select here will add its products to this
-                        department.
-                      </p>
-                    </div>
-                  );
-                })()}
                 </>
               )}
 

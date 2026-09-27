@@ -9,6 +9,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  Building2,
+  FileText,
+  X,
+  AlertCircle,
 } from "lucide-react";
 import {
   Tooltip,
@@ -22,6 +26,14 @@ import Header from "@/components/header";
 import InlineTryAgain from "@/components/inline-try-again";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Card,
   CardContent,
@@ -37,6 +49,9 @@ import {
   useVisit,
   useDepartments,
   useAddDepartmentToVisit,
+  useChangeVisitDepartmentProfile,
+  useRemoveVisitDepartmentProfile,
+  useUpdateVisitDepartmentStatus,
   normalizeVisitVitalSigns,
 } from "@/hooks/auth-hooks";
 import { AddDepartmentModal } from "@/components/add-department-modal";
@@ -103,6 +118,20 @@ function TriagePageInner() {
   const { doctor } = useAuth();
   const { visit, loading, error, refetch } = useVisit(visitId);
   const { addVisitVitalSigns, loading: savingVitals } = useAddVisitVitalSigns();
+  const { departments = [] } = useDepartments();
+  const { changeVisitDepartmentProfile, loading: changingProfile } =
+    useChangeVisitDepartmentProfile();
+  const { removeVisitDepartmentProfile, loading: removingProfile } =
+    useRemoveVisitDepartmentProfile();
+  const { updateDepartmentStatus, loading: updatingStatus } =
+    useUpdateVisitDepartmentStatus();
+
+  const [deptToCancel, setDeptToCancel] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [cancellingDept, setCancellingDept] = useState(false);
+
   const [rows, setRows] = useState<VitalRow[]>(defaultRows);
   const [modalOpen, setModalOpen] = useState(false);
   const [addDeptOpen, setAddDeptOpen] = useState(false);
@@ -112,6 +141,51 @@ function TriagePageInner() {
   const [vitalRowErrors, setVitalRowErrors] = useState<Record<string, string>>(
     {},
   );
+
+  const handleCancelDepartment = async (departmentId: string) => {
+    if (cancellingDept) return;
+    setCancellingDept(true);
+    try {
+      const res = await updateDepartmentStatus(departmentId, "CANCELLED");
+      const ok = await handleResponse(res, {
+        successMessage: "Department cancelled successfully.",
+        errorMessage: true,
+      });
+      if (ok) {
+        setDeptToCancel(null);
+        await refetch();
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to cancel department");
+    } finally {
+      setCancellingDept(false);
+    }
+  };
+
+  const handleChangeProfile = async (
+    visitDepartmentId: string,
+    profileId: string | null,
+  ) => {
+    try {
+      let res;
+      if (!profileId) {
+        res = await removeVisitDepartmentProfile(visitDepartmentId);
+      } else {
+        res = await changeVisitDepartmentProfile(visitDepartmentId, profileId);
+      }
+      const ok = await handleResponse(res, {
+        successMessage: profileId
+          ? "Department profile updated successfully."
+          : "Department profile removed successfully.",
+        errorMessage: true,
+      });
+      if (ok) {
+        await refetch();
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update profile");
+    }
+  };
 
   useEffect(() => {
     if (!loading && !visit && !error) router.push("/");
@@ -429,6 +503,226 @@ function TriagePageInner() {
             </Card>
           </div>
         </div>
+
+        {/* Visit Departments Card */}
+        <div className="flex justify-center mt-6">
+          <div className="w-full max-w-3xl">
+            <Card className="border-border/60 bg-card/90 shadow-lg backdrop-blur-xl">
+              <CardHeader>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-primary" />
+                    <div>
+                      <CardTitle className="text-xl">
+                        Visit Departments
+                      </CardTitle>
+                      <CardDescription>
+                        Departments assigned to this visit. Manage profiles or cancel unserved departments.
+                      </CardDescription>
+                    </div>
+                  </div>
+                  {visit.status !== "COMPLETED" && visit.status !== "CANCELLED" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setAddDeptOpen(true)}
+                      className="rounded-full flex items-center gap-1.5 text-xs shadow-sm hover:bg-primary/10 hover:text-primary hover:border-primary/40"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add Department
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {(!visit.departments || visit.departments.length === 0) ? (
+                  <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 p-6 text-center">
+                    <Building2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+                    <p className="font-medium text-foreground">
+                      No departments assigned yet
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Add a department to route this patient to consultation.
+                    </p>
+                    {visit.status !== "COMPLETED" && visit.status !== "CANCELLED" && (
+                      <Button
+                        size="sm"
+                        onClick={() => setAddDeptOpen(true)}
+                        className="mt-4 rounded-full"
+                      >
+                        <Plus className="h-4 w-4 mr-1.5" />
+                        Add Department
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {visit.departments.map((dept) => {
+                      const deptCatalog = departments.find(
+                        (d) => String(d.id) === String(dept.department?.id || dept.id),
+                      );
+                      const isSupportRequests = Boolean(
+                        deptCatalog?.supportRequests || (dept.department as any)?.supportRequests,
+                      );
+                      const availableProfiles = (deptCatalog?.profiles || (dept.department as any)?.profiles || []) as Array<{ id: string; name: string; encounterType?: string }>;
+                      const assignedProfile = dept.profile;
+                      const isTerminal = dept.status === "COMPLETED" || dept.status === "FINALISED" || dept.status === "CANCELLED";
+                      const isLocked = isTerminal || dept.status === "BILLING" || dept.status === "DEPARTMENT_EDITING";
+
+                      // Can cancel department check: not terminal, no billed products
+                      const deptProducts = dept.products || [];
+                      const hasBilledProducts = deptProducts.some(
+                        (p: any) => p.status === "BILLED" || p.status === "EXEMPTED" || p.status === "PATIENT_SHARE_EXEMPTED",
+                      );
+                      const canCancel = !isTerminal && !hasBilledProducts;
+
+                      return (
+                        <div
+                          key={dept.id}
+                          className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-semibold text-foreground truncate text-base">
+                                {dept.department?.name || "Department"}
+                              </span>
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                                dept.status === "ACTIVE" || (dept.status as string) === "IN_PROGRESS"
+                                  ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                                  : dept.status === "PENDING"
+                                  ? "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                                  : dept.status === "CANCELLED"
+                                  ? "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800"
+                                  : "bg-muted text-muted-foreground border-border"
+                              }`}>
+                                {dept.status || "PENDING"}
+                              </span>
+                            </div>
+
+                            {canCancel && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  setDeptToCancel({
+                                    id: dept.id,
+                                    name: dept.department?.name || "Department",
+                                  })
+                                }
+                                className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full h-8 px-2.5 flex items-center gap-1"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                                Cancel
+                              </Button>
+                            )}
+                          </div>
+
+                          {/* Profile Management Section */}
+                          {isSupportRequests ? (
+                            <p className="text-xs text-muted-foreground italic">
+                              Requests department (no profiles applicable)
+                            </p>
+                          ) : availableProfiles.length === 0 ? (
+                            <p className="text-xs text-muted-foreground italic">
+                              No profiles configured for this department
+                            </p>
+                          ) : (
+                            <div className="space-y-1.5 pt-1 border-t border-border/40">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground font-medium flex items-center gap-1">
+                                  <FileText className="h-3 w-3 text-primary" />
+                                  Profile:
+                                </span>
+                                {assignedProfile ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-medium text-foreground">
+                                      {assignedProfile.name}
+                                    </span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-200 dark:border-emerald-800">
+                                      Active
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground italic">
+                                    None assigned
+                                  </span>
+                                )}
+                              </div>
+
+                              {!isLocked ? (
+                                <div className="flex items-center gap-2">
+                                  <Select
+                                    value={assignedProfile?.id || "none"}
+                                    onValueChange={(val) =>
+                                      handleChangeProfile(
+                                        dept.id,
+                                        val === "none" ? null : val,
+                                      )
+                                    }
+                                    disabled={changingProfile || removingProfile}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs bg-background">
+                                      <SelectValue
+                                        placeholder={
+                                          assignedProfile
+                                            ? "Change profile..."
+                                            : "Select & assign profile..."
+                                        }
+                                      />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">
+                                        No profile
+                                      </SelectItem>
+                                      {availableProfiles.map((p) => (
+                                        <SelectItem key={p.id} value={p.id}>
+                                          {p.name}
+                                          {p.encounterType
+                                            ? ` (${p.encounterType})`
+                                            : ""}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Profile is locked on {dept.status.toLowerCase()} departments.
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <ConfirmDialog
+          open={Boolean(deptToCancel)}
+          onOpenChange={(open) => {
+            if (!open) setDeptToCancel(null);
+          }}
+          title="Cancel Department"
+          description={
+            deptToCancel
+              ? `Are you sure you want to cancel the ${deptToCancel.name} department for this visit? This action cannot be undone.`
+              : undefined
+          }
+          confirmLabel={cancellingDept ? "Cancelling..." : "Cancel Department"}
+          destructive
+          busy={cancellingDept}
+          onConfirm={() => {
+            if (deptToCancel) {
+              void handleCancelDepartment(deptToCancel.id);
+            }
+          }}
+        />
 
         <Dialog open={modalOpen} onOpenChange={setModalOpen}>
           <DialogContent
