@@ -9,6 +9,7 @@ import { mapGqlVisitBilling } from "@/lib/visit-billing-utils"
 import {
   getDerivedVisitBillingStatus,
   visitHasUnbilledProducts,
+  visitHasBillableProducts,
   visitProductsFullySettled,
   canDischargeVisit,
 } from "@/lib/visit-product-utils"
@@ -247,12 +248,10 @@ export default function VisitsListView({
     const canRoleCancel = hasReceptionistRole || hasFinanceRole || hasManagerRole || hasAdminRole
     if (!canRoleCancel) return false
 
-    if ((visit.billedProductCount || 0) > 0 || (visit.unbilledProductCount || 0) > 0) {
+    if (visitHasBillableProducts(visit)) {
       return false
     }
     const allDepts = visit.departments || []
-    const hasProducts = allDepts.some((d: any) => d.products && d.products.length > 0)
-    if (hasProducts) return false
     const hasCompletedDept = allDepts.some((d: any) => d.status === "COMPLETED" || d.status === "FINALISED")
     if (hasCompletedDept) return false
 
