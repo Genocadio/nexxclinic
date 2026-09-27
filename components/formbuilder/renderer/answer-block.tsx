@@ -8,7 +8,7 @@ import {
   SignatureCanvas,
 } from "./field-renderers";
 import { DiagnosticAnswerBlock, LabAnswerBlock, MedFullAnswerBlock, MedMiniAnswerBlock, ProductListenerAnswerBlock } from "./medical-answer-blocks";
-import { isBlockViolating, shouldRenderBlock, replacePlaceholders } from "./utils";
+import { isBlockViolating, getBlockErrorMessage, shouldRenderBlock, replacePlaceholders } from "./utils";
 import { FileUploadAnswerBlock, type UploadedAnswerFile } from "./file-upload-block";
 import { getMediaUrl } from "@/lib/media-url";
 import {
@@ -38,6 +38,7 @@ export function AnswerBlock({
 
   const val = answers[block.id] ?? (block.type === "checkbox_group" ? [] : "");
   const isError = showErrors && isBlockViolating(block, answers);
+  const errorMessage = isError ? getBlockErrorMessage(block, answers) : undefined;
   const alignClass =
     block.align === "center"
       ? "text-center"
@@ -101,7 +102,7 @@ export function AnswerBlock({
         <FieldShell
           label={block.label}
           required={block.required}
-          error={isError ? "This field is required." : undefined}
+          error={errorMessage}
         >
           <input
             type="text"
@@ -118,7 +119,7 @@ export function AnswerBlock({
         <FieldShell
           label={block.label}
           required={block.required}
-          error={isError ? "This field is required." : undefined}
+          error={errorMessage}
         >
           <textarea
             rows={4}
@@ -135,7 +136,7 @@ export function AnswerBlock({
         <FieldShell
           label={block.label}
           required={block.required}
-          error={isError ? "This field is required." : undefined}
+          error={errorMessage}
         >
           <input
             type="number"
@@ -152,7 +153,7 @@ export function AnswerBlock({
         <FieldShell
           label={block.label}
           required={block.required}
-          error={isError ? "This field is required." : undefined}
+          error={errorMessage}
         >
           {edit ? (
             <input

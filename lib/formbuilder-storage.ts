@@ -42,6 +42,8 @@ export interface FormBlock {
   /** Input placeholder hint */
   placeholder?: string;
   required?: boolean;
+  /** Minimum characters or digits required for the field to be valid */
+  minChars?: number;
   /** Options list for checkbox_group, radio_group, select_input */
   options?: string[];
   /** Table config */
@@ -153,6 +155,8 @@ export interface InlineAnswerField {
   /** Options list for select type */
   options?: string[];
   required?: boolean;
+  /** Minimum characters or digits required */
+  minChars?: number;
   width?: InlineFieldWidth;
   /** Optional condition — field only shown when a parent block condition is met */
   conditionalRendering?: BlockConditional;
@@ -187,7 +191,7 @@ export type FormTemplateType =
 export interface FormTheme {
   primaryColor?: string;
   logoUrl?: string;
-  logoPlacement?: "left" | "center" | "right";
+  logoPlacement?: "left" | "center" | "right" | "none";
   fontFamily?: string;
 }
 

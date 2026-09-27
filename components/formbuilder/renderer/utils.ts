@@ -35,13 +35,21 @@ export function isBlockViolating(
   block: FormBlock,
   answers: FormAnswers,
 ): boolean {
-  if (!block.required) return false;
+  const minChars = block.minChars ?? (block as any).minLength;
+  const hasMinChars = typeof minChars === "number" && minChars > 0;
+
+  if (!block.required && !hasMinChars) return false;
   const v = answers[block.id];
   if (v === undefined || v === null) return true;
   switch (block.type) {
     case "text_input":
     case "textarea_input":
-    case "number_input":
+    case "number_input": {
+      const strVal = String(v).trim();
+      if (!strVal) return !!block.required;
+      if (hasMinChars && strVal.length < minChars) return true;
+      return false;
+    }
     case "date_input":
       return !v || String(v).trim() === "";
     case "checkbox_single":
@@ -67,6 +75,35 @@ export function isBlockViolating(
     default:
       return false;
   }
+}
+
+export function getBlockErrorMessage(
+  block: FormBlock,
+  answers: FormAnswers,
+): string | undefined {
+  if (!isBlockViolating(block, answers)) return undefined;
+  const v = answers[block.id];
+  const minChars = block.minChars ?? (block as any).minLength;
+  if (typeof minChars === "number" && minChars > 0) {
+    const strVal = v !== undefined && v !== null ? String(v).trim() : "";
+    if (!strVal) {
+      return block.type === "number_input"
+        ? `This field is required (minimum ${minChars} digits).`
+        : `This field is required (minimum ${minChars} characters).`;
+    }
+    if (strVal.length < minChars) {
+      return block.type === "number_input"
+        ? `Minimum ${minChars} digits required (currently ${strVal.length}).`
+        : `Minimum ${minChars} characters required (currently ${strVal.length}).`;
+    }
+  }
+  if (block.type === "signature") {
+    return "Signature is required.";
+  }
+  if (block.type === "file_upload") {
+    return "At least one file is required.";
+  }
+  return "This field is required.";
 }
 
 export function collectAnswerableBlocks(blocks: FormBlock[]): FormBlock[] {

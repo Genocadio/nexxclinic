@@ -264,12 +264,29 @@ export function TextBlockEditor({
                     onChange={(e) =>
                       updateParagraphInlineField(field.id, {
                         required: e.target.checked,
+                        minChars: e.target.checked ? field.minChars : undefined,
                       })
                     }
                     className="rounded text-teal-600 focus:ring-teal-500"
                   />
                   Req
                 </label>
+                {field.required && ["text", "textarea", "number"].includes(field.fieldType) && (
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Min"
+                    title="Minimum characters / digits"
+                    value={field.minChars ?? ""}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      updateParagraphInlineField(field.id, {
+                        minChars: isNaN(val) || val <= 0 ? undefined : val,
+                      });
+                    }}
+                    className="h-6 w-11 text-[11px] rounded border border-border px-1 text-center bg-background font-mono"
+                  />
+                )}
                 <button
                   onClick={() => removeParagraphInlineField(field.id)}
                   className="p-1 rounded text-muted-foreground hover:text-destructive transition-colors shrink-0"

@@ -86,6 +86,11 @@ export function InputBlockEditor({
             {block.label || "(no label)"}
           </label>
           {block.required && <span className="text-red-500 text-sm">*</span>}
+          {block.minChars && block.minChars > 0 && (
+            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">
+              min {block.minChars} {block.type === "number_input" ? "digits" : "chars"}
+            </span>
+          )}
         </div>
 
         {block.type === "text_input" && (
@@ -199,15 +204,49 @@ export function InputBlockEditor({
               />
             </div>
           )}
-          <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={!!block.required}
-              onChange={(e) => onChange({ required: e.target.checked })}
-              className="rounded"
-            />
-            Required field
-          </label>
+          <div className="flex flex-col gap-2 pt-1 border-t border-border/40">
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={!!block.required}
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  onChange({
+                    required: isChecked,
+                    minChars: isChecked ? block.minChars : undefined,
+                  });
+                }}
+                className="rounded"
+              />
+              Required field
+            </label>
+
+            {block.required &&
+              ["text_input", "textarea_input", "number_input"].includes(
+                block.type,
+              ) && (
+                <div className="ml-6 flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground whitespace-nowrap">
+                    {block.type === "number_input"
+                      ? "Min digits:"
+                      : "Min characters:"}
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    className="h-7 w-24 text-xs font-mono"
+                    placeholder="e.g. 5"
+                    value={block.minChars ?? ""}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      onChange({
+                        minChars: isNaN(val) || val <= 0 ? undefined : val,
+                      });
+                    }}
+                  />
+                </div>
+              )}
+          </div>
         </div>
       )}
     </BlockWrapper>

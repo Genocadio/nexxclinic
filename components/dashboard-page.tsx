@@ -89,10 +89,10 @@ export default function DashboardPage() {
   const { visits, loading, error, refetch: refetchVisits } = useVisits()
   const [isMounted, setIsMounted] = useState(false)
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid")
-  const [showMetrics, setShowMetrics] = useState(true)
+  const [showMetrics] = useState(false)
   const { stats: dashboardStats, loading: dashboardStatsLoading } =
     useDashboardStats(1, {
-      skip: !isMounted || !showMetrics,
+      skip: true,
     })
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus()
   const { changeVisitDepartmentProfile } = useChangeVisitDepartmentProfile()
@@ -135,10 +135,6 @@ export default function DashboardPage() {
       if (storedViewMode === "list" || storedViewMode === "grid") {
         setViewMode(storedViewMode)
       }
-      const storedShowMetrics = localStorage.getItem("dashboard_showMetrics")
-      if (storedShowMetrics !== null) {
-        setShowMetrics(storedShowMetrics === "true")
-      }
       setIsMounted(true)
     }
   }, [])
@@ -147,11 +143,6 @@ export default function DashboardPage() {
       localStorage.setItem("dashboard_viewMode", viewMode)
     }
   }, [viewMode, isMounted])
-  useEffect(() => {
-    if (isMounted && typeof window !== "undefined") {
-      localStorage.setItem("dashboard_showMetrics", String(showMetrics))
-    }
-  }, [showMetrics, isMounted])
   const [printingVisitId, setPrintingVisitId] = useState<string | null>(null)
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null)
   const [navigatingVisitId, setNavigatingVisitId] = useState<string | null>(null)
@@ -1145,8 +1136,6 @@ export default function DashboardPage() {
         <div className="flex-1 overflow-y-auto p-6">
           <div className="max-w-6xl mx-auto">
             <DashboardHeader
-              showMetrics={showMetrics}
-              onToggleMetrics={() => setShowMetrics(!showMetrics)}
               canSeeRegisterAndCreate={canSeeRegisterAndCreate}
               onRegisterNewPatient={() => setShowPatientRegistrationModal(true)}
               onCreateVisit={openVisitCreationModal}

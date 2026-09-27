@@ -524,10 +524,11 @@ function FormEditor() {
                   setTheme((t) => ({ ...t, logoPlacement: val }))
                 }
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select logo placement" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">None (Hidden)</SelectItem>
                   <SelectItem value="left">Left</SelectItem>
                   <SelectItem value="center">Center</SelectItem>
                   <SelectItem value="right">Right</SelectItem>

@@ -250,6 +250,12 @@ export default function ManageUsersPage() {
       roles,
     } = { ...values, ...submitted };
 
+    const showDepartmentSelection =
+      roles.includes("NURSE") || roles.includes("CLINICIAN");
+    const effectiveDepartmentIds = showDepartmentSelection
+      ? selectedDepartmentIds
+      : [];
+
     try {
       if (!canManageAdminUserAccounts && roles.includes(ADMIN_ROLE)) {
         toast.error("Manager cannot assign admin role");
@@ -286,7 +292,7 @@ export default function ManageUsersPage() {
           gender,
           dateOfBirth,
           profilePhotoUrl,
-          departmentIds: selectedDepartmentIds,
+          departmentIds: effectiveDepartmentIds,
           roles,
         });
         if (updateResp?.status !== "SUCCESS") {
@@ -305,7 +311,7 @@ export default function ManageUsersPage() {
           phoneNumber,
           username,
           roles,
-          departmentIds: selectedDepartmentIds,
+          departmentIds: effectiveDepartmentIds,
           gender,
           dateOfBirth,
           profilePhotoUrl,
@@ -606,11 +612,11 @@ export default function ManageUsersPage() {
                     />
                     <FieldError message={formErrors.dateOfBirth?.message} />
                   </div>
-                  <div className="space-y-1 md:col-span-2">
-                    <label className="text-xs font-semibold text-muted-foreground">
-                      Profile Photo
-                    </label>
-                    {editingUserId ? (
+                  {editingUserId && (
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="text-xs font-semibold text-muted-foreground">
+                        Profile Photo
+                      </label>
                       <MediaUploader
                         accept="image/*"
                         multiple={false}
@@ -622,13 +628,8 @@ export default function ManageUsersPage() {
                         }}
                         onError={(err) => toast.error(`Upload failed: ${err}`)}
                       />
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-border/60 bg-background/60 p-3 text-sm text-muted-foreground text-center">
-                        Create the worker first, then upload a photo when
-                        editing.
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   <div className="space-y-1 md:col-span-2">
                     <label className="text-xs font-semibold text-muted-foreground">
                       Username
@@ -672,35 +673,43 @@ export default function ManageUsersPage() {
                   </div>
                 </div>
 
-                {/* Departments Selection */}
-                <div className="space-y-2 border-t border-border/30 pt-4">
-                  <p className="text-sm font-semibold text-foreground">
-                    Departments
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {departments.map((department: any) => {
-                      const selected = selectedDepartmentIds.includes(
-                        String(department.id),
-                      );
-                      return (
-                        <button
-                          key={department.id}
-                          type="button"
-                          onClick={() =>
-                            toggleDepartment(String(department.id))
-                          }
-                          className={`px-4 h-9 rounded-xl border text-xs font-bold transition-all duration-200 ${
-                            selected
-                              ? "bg-primary text-primary-foreground border-primary shadow-md"
-                              : "bg-white dark:bg-background text-foreground border-border hover:border-primary/50 hover:bg-muted/30"
-                          }`}
-                        >
-                          {department.name}
-                        </button>
-                      );
-                    })}
+                {/* Departments Selection - only visible for NURSE or CLINICIAN roles */}
+                {(selectedRoles.includes("NURSE") ||
+                  selectedRoles.includes("CLINICIAN")) && (
+                  <div className="space-y-2 border-t border-border/30 pt-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-foreground">
+                        Departments
+                      </p>
+                      <span className="text-xs text-muted-foreground">
+                        Select assigned clinical department(s)
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {departments.map((department: any) => {
+                        const selected = selectedDepartmentIds.includes(
+                          String(department.id),
+                        );
+                        return (
+                          <button
+                            key={department.id}
+                            type="button"
+                            onClick={() =>
+                              toggleDepartment(String(department.id))
+                            }
+                            className={`px-4 h-9 rounded-xl border text-xs font-bold transition-all duration-200 ${
+                              selected
+                                ? "bg-primary text-primary-foreground border-primary shadow-md"
+                                : "bg-white dark:bg-background text-foreground border-border hover:border-primary/50 hover:bg-muted/30"
+                            }`}
+                          >
+                            {department.name}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Footer Buttons */}
                 <div className="flex justify-end gap-3 pt-4 border-t border-border/30 sticky bottom-0 bg-background/95 dark:bg-slate-900/95 -mx-2 px-2 pb-2">

@@ -53,7 +53,13 @@ export function ParagraphAnswerBlock({
               />
             );
           const key = `${block.id}__${field.id}`;
-          const fError = showErrors && field.required && !inlineAnswers[key];
+          const val = (inlineAnswers[key] ?? "").trim();
+          const minC = field.minChars ?? (field as any).minLength;
+          const hasMin = typeof minC === "number" && minC > 0;
+          const fError =
+            showErrors &&
+            (field.required || hasMin) &&
+            (!val || (hasMin && val.length < minC));
           return (
             <AnswerInlineField
               key={idx}
@@ -143,8 +149,13 @@ export function TableAnswerBlock({
                           );
                           if (!field) return <span key={pi}>{part}</span>;
                           const key = `${block.id}__${ri}__${ci}__${field.id}`;
+                          const val = (inlineAnswers[key] ?? "").trim();
+                          const minC = field.minChars ?? (field as any).minLength;
+                          const hasMin = typeof minC === "number" && minC > 0;
                           const fError =
-                            showErrors && field.required && !inlineAnswers[key];
+                            showErrors &&
+                            (field.required || hasMin) &&
+                            (!val || (hasMin && val.length < minC));
                           return (
                             <AnswerInlineField
                               key={pi}

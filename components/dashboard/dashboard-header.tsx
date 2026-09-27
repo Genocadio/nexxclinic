@@ -4,15 +4,14 @@ import { Calendar, Stethoscope, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface DashboardHeaderProps {
-  showMetrics: boolean
-  onToggleMetrics: () => void
+  showMetrics?: boolean
+  onToggleMetrics?: () => void
   canSeeRegisterAndCreate: boolean
   onRegisterNewPatient: () => void
   onCreateVisit: () => void
 }
 
 export function DashboardHeader({
-  onToggleMetrics,
   canSeeRegisterAndCreate,
   onRegisterNewPatient,
   onCreateVisit,
@@ -20,12 +19,9 @@ export function DashboardHeader({
   return (
     <div className="mb-8">
       <div className="text-center space-y-2">
-        <button
-          onClick={onToggleMetrics}
-          className="text-3xl font-bold text-foreground hover:text-primary transition-colors duration-200 cursor-pointer block w-full"
-        >
+        <h1 className="text-3xl font-bold text-foreground block w-full">
           Today
-        </button>
+        </h1>
         <p className="text-muted-foreground flex items-center justify-center gap-2">
           <Calendar className="w-4 h-4" />
           {new Date().toLocaleDateString("en-US", {

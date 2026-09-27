@@ -5,7 +5,11 @@ import {
   type ProductItem,
 } from "./formbuilder-conditional";
 import type { FormBlock } from "./formbuilder-storage";
-import { shouldRenderBlock } from "../components/formbuilder/renderer/utils";
+import {
+  shouldRenderBlock,
+  isBlockViolating,
+  getBlockErrorMessage,
+} from "../components/formbuilder/renderer/utils";
 
 describe("formbuilder-conditional", () => {
   const parentBlock: FormBlock = {
@@ -207,6 +211,45 @@ describe("formbuilder-conditional", () => {
         allBlocks,
       );
       expect(isVisible).toBe(false);
+    });
+  });
+
+  describe("minChars validation", () => {
+    const textBlockWithMin: FormBlock = {
+      id: "txt_min_5",
+      type: "text_input",
+      label: "National ID / Code",
+      required: true,
+      minChars: 5,
+    };
+
+    const numBlockWithMin: FormBlock = {
+      id: "num_min_5",
+      type: "number_input",
+      label: "Passcode",
+      required: true,
+      minChars: 5,
+    };
+
+    it("is violating when empty", () => {
+      expect(isBlockViolating(textBlockWithMin, { txt_min_5: "" })).toBe(true);
+      expect(getBlockErrorMessage(textBlockWithMin, { txt_min_5: "" })).toBe("This field is required (minimum 5 characters).");
+    });
+
+    it("is violating when fewer than 5 characters/digits are entered", () => {
+      expect(isBlockViolating(textBlockWithMin, { txt_min_5: "abc" })).toBe(true);
+      expect(getBlockErrorMessage(textBlockWithMin, { txt_min_5: "abc" })).toBe("Minimum 5 characters required (currently 3).");
+
+      expect(isBlockViolating(numBlockWithMin, { num_min_5: "123" })).toBe(true);
+      expect(getBlockErrorMessage(numBlockWithMin, { num_min_5: "123" })).toBe("Minimum 5 digits required (currently 3).");
+    });
+
+    it("is valid when 5 or more characters/digits are entered", () => {
+      expect(isBlockViolating(textBlockWithMin, { txt_min_5: "12345" })).toBe(false);
+      expect(getBlockErrorMessage(textBlockWithMin, { txt_min_5: "12345" })).toBeUndefined();
+
+      expect(isBlockViolating(numBlockWithMin, { num_min_5: "987654" })).toBe(false);
+      expect(getBlockErrorMessage(numBlockWithMin, { num_min_5: "987654" })).toBeUndefined();
     });
   });
 });

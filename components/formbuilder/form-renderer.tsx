@@ -246,6 +246,7 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
 
     const primaryColor = form.theme?.primaryColor || "#FF6900";
     const logoPlacement = form.theme?.logoPlacement || "left";
+    const showLogo = logoPlacement !== "none" && Boolean(clinicProfile?.logoUrl);
 
     const currentBlocks =
       mode === "wizard" ? sections[currentStep].blocks : form.blocks;
@@ -259,7 +260,7 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
       >
         <form onSubmit={handleSubmit} noValidate className="flex-1">
           {/* Header / Logo area */}
-          {(showTitle || clinicProfile?.logoUrl) && (
+          {(showTitle || showLogo) && (
             <div
               className={cn(
                 "mb-8 flex flex-col",
@@ -270,7 +271,7 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
                     : "items-start text-left",
               )}
             >
-              {clinicProfile?.logoUrl && (
+              {showLogo && clinicProfile?.logoUrl && (
                 <img
                   src={getMediaUrl(clinicProfile.logoUrl)}
                   alt="Clinic Logo"
