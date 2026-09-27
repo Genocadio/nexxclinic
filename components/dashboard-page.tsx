@@ -216,6 +216,102 @@ export default function DashboardPage() {
     if (!deptId) return false
     return userDepartmentIds.includes(String(deptId))
   }
+
+  const hasNonClinicianNonFinanceRoles = roles.some((r) =>
+    ["RECEPTION", "RECEPTIONIST", "NURSE", "MANAGER", "ADMIN", "CLINIC_ADMIN", "STAFF"].includes(r)
+  )
+  const isSingleRoleClinician = hasClinicianOrDoctorRole && !hasFinanceRole && !hasNonClinicianNonFinanceRoles
+  const isSingleRoleFinance = hasFinanceRole && !hasClinicianOrDoctorRole && !hasNonClinicianNonFinanceRoles
+  const isMultiRoleWithFinance = hasFinanceRole && (hasClinicianOrDoctorRole || hasNonClinicianNonFinanceRoles)
+  const isMultiRoleWithClinician = hasClinicianOrDoctorRole && (hasFinanceRole || hasNonClinicianNonFinanceRoles)
+
+  const isClinicianNew = (visit: Visit) => {
+    if (visit.status === "COMPLETED" || visit.status === "CANCELLED") return false
+    return visit.departments?.some((dept) => {
+      const deptId = String(dept?.department?.id || dept?.id || "")
+      if (!deptId || !userDepartmentIds.includes(deptId)) return false
+      if (dept.status === "FINALISED" || dept.status === "CANCELLED" || dept.status === "COMPLETED") return false
+      if (dept.status === "PENDING") return true
+      const processors = (dept as any).processors || []
+      const isAssignedToMe = processors.some((p: any) => String(p?.id || "") === String(doctor?.id || ""))
+      return !isAssignedToMe
+    })
+  }
+
+  const isClinicianInProgress = (visit: Visit) => {
+    if (visit.status === "COMPLETED" || visit.status === "CANCELLED") return false
+    return visit.departments?.some((dept) => {
+      const deptId = String(dept?.department?.id || dept?.id || "")
+      if (!deptId || !userDepartmentIds.includes(deptId)) return false
+      if (dept.status === "FINALISED" || dept.status === "CANCELLED" || dept.status === "COMPLETED") return false
+      if (dept.status === "PENDING") return false
+      const processors = (dept as any).processors || []
+      return processors.some((p: any) => String(p?.id || "") === String(doctor?.id || ""))
+    })
+  }
+
+  const isFinanceNew = (visit: Visit) => {
+    if (visit.status === "COMPLETED" || visit.status === "CANCELLED") return false
+    return visit.departments?.some((d) => d.status === "BILLING") || visitHasUnbilledProducts(visit)
+  }
+
+  const isFinanceInProgress = (visit: Visit) => {
+    if (visit.status === "COMPLETED" || visit.status === "CANCELLED") return false
+    return !isFinanceNew(visit) && (visit.status === "IN_PROGRESS" || visit.status === "CREATED")
+  }
+
+  const isVisitBilling = (visit: Visit) => {
+    return isFinanceNew(visit)
+  }
+
+  const isVisitConsultation = (visit: Visit) => {
+    return isClinicianNew(visit)
+  }
+
+  const isVisitCompleted = (visit: Visit) => {
+    return visit.status === "COMPLETED" || visit.status === "FINALISED"
+  }
+
+  const isVisitInProgress = (visit: Visit) => {
+    return visit.status === "CREATED" || visit.status === "IN_PROGRESS" || (visit.status as string) === "BILLING" || hasUnbilledItems(visit)
+  }
+
+  const availableTabs = useMemo(() => {
+    if (isSingleRoleClinician) {
+      return [
+        { id: "NEW", label: "New" },
+        { id: "IN_PROGRESS", label: "In Progress" },
+        { id: "COMPLETED", label: "Completed" },
+      ]
+    }
+    if (isSingleRoleFinance) {
+      return [
+        { id: "NEW", label: "New" },
+        { id: "IN_PROGRESS", label: "In Progress" },
+        { id: "COMPLETED", label: "Completed" },
+      ]
+    }
+    const tabs: Array<{ id: string; label: string }> = [
+      { id: "all", label: "All Visits" },
+    ]
+    if (isMultiRoleWithFinance) {
+      tabs.push({ id: "BILLING", label: "Billing" })
+    }
+    if (isMultiRoleWithClinician) {
+      tabs.push({ id: "CONSULTATION", label: "Consultation" })
+    }
+    tabs.push(
+      { id: "IN_PROGRESS", label: "In Progress" },
+      { id: "COMPLETED", label: "Completed" }
+    )
+    return tabs
+  }, [isSingleRoleClinician, isSingleRoleFinance, isMultiRoleWithFinance, isMultiRoleWithClinician])
+
+  useEffect(() => {
+    if (availableTabs.length > 0 && !availableTabs.some((t) => t.id === statusFilter)) {
+      setStatusFilter(availableTabs[0].id)
+    }
+  }, [availableTabs, statusFilter])
   // Modal states
   const [showPatientRegistrationModal, setShowPatientRegistrationModal] =
     useState(false)
@@ -734,12 +830,32 @@ export default function DashboardPage() {
       )
     }
 
-    return {
+    const counts: Record<string, number> = {
       all: searchedList.length,
-      IN_PROGRESS: searchedList.filter((v) => v.status === "CREATED" || v.status === "IN_PROGRESS" || (v.status as string) === "BILLING" || hasUnbilledItems(v)).length,
-      COMPLETED: searchedList.filter((v) => v.status === "COMPLETED" || v.status === "FINALISED").length,
+      IN_PROGRESS: isSingleRoleClinician
+        ? searchedList.filter(isClinicianInProgress).length
+        : isSingleRoleFinance
+          ? searchedList.filter(isFinanceInProgress).length
+          : searchedList.filter(isVisitInProgress).length,
+      COMPLETED: searchedList.filter(isVisitCompleted).length,
+      NEW: isSingleRoleClinician
+        ? searchedList.filter(isClinicianNew).length
+        : isSingleRoleFinance
+          ? searchedList.filter(isFinanceNew).length
+          : 0,
+      BILLING: searchedList.filter(isVisitBilling).length,
+      CONSULTATION: searchedList.filter(isVisitConsultation).length,
     }
-  }, [visits, locallyCreatedVisits, searchQuery])
+    return counts
+  }, [
+    visits,
+    locallyCreatedVisits,
+    searchQuery,
+    isSingleRoleClinician,
+    isSingleRoleFinance,
+    userDepartmentIds,
+    doctor?.id,
+  ])
 
   const allVisits = useMemo(() => {
     const serverVisitIds = new Set(visits.map((visit) => visit.id))
@@ -755,16 +871,47 @@ export default function DashboardPage() {
       )
     }
 
-    if (statusFilter === "IN_PROGRESS") {
-      filtered = filtered.filter((visit) => visit.status === "CREATED" || visit.status === "IN_PROGRESS" || (visit.status as string) === "BILLING" || hasUnbilledItems(visit))
-    } else if (statusFilter === "COMPLETED") {
-      filtered = filtered.filter((visit) => visit.status === "COMPLETED" || visit.status === "FINALISED")
-    } else if (statusFilter !== "all") {
-      filtered = filtered.filter((visit) => visit.status === statusFilter)
+    if (isSingleRoleClinician) {
+      if (statusFilter === "NEW") {
+        filtered = filtered.filter(isClinicianNew)
+      } else if (statusFilter === "IN_PROGRESS") {
+        filtered = filtered.filter(isClinicianInProgress)
+      } else if (statusFilter === "COMPLETED") {
+        filtered = filtered.filter(isVisitCompleted)
+      }
+    } else if (isSingleRoleFinance) {
+      if (statusFilter === "NEW") {
+        filtered = filtered.filter(isFinanceNew)
+      } else if (statusFilter === "IN_PROGRESS") {
+        filtered = filtered.filter(isFinanceInProgress)
+      } else if (statusFilter === "COMPLETED") {
+        filtered = filtered.filter(isVisitCompleted)
+      }
+    } else {
+      if (statusFilter === "BILLING") {
+        filtered = filtered.filter(isVisitBilling)
+      } else if (statusFilter === "CONSULTATION") {
+        filtered = filtered.filter(isVisitConsultation)
+      } else if (statusFilter === "IN_PROGRESS") {
+        filtered = filtered.filter(isVisitInProgress)
+      } else if (statusFilter === "COMPLETED") {
+        filtered = filtered.filter(isVisitCompleted)
+      } else if (statusFilter !== "all") {
+        filtered = filtered.filter((visit) => visit.status === statusFilter)
+      }
     }
 
     return filtered
-  }, [visits, locallyCreatedVisits, searchQuery, statusFilter])
+  }, [
+    visits,
+    locallyCreatedVisits,
+    searchQuery,
+    statusFilter,
+    isSingleRoleClinician,
+    isSingleRoleFinance,
+    userDepartmentIds,
+    doctor?.id,
+  ])
   const handleConsultVisit = async (visit: Visit) => {
     // Check if the matching department has profiles
     const matchingDept = visit.departments?.find((d) => {
@@ -1020,63 +1167,53 @@ export default function DashboardPage() {
               <div className="p-6 border-b border-border/30">
                 {/* Desktop filters - visible on md and up */}
                 <div className="hidden md:flex gap-2 flex-wrap justify-center items-center">
-                  <button
-                    onClick={() => setStatusFilter("all")}
-                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                      statusFilter === "all"
-                        ? "bg-primary text-primary-foreground shadow-md scale-105"
-                        : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
-                    }`}
-                  >
-                    <span>All Visits</span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                        statusFilter === "all"
-                          ? "bg-primary-foreground/20 text-primary-foreground"
-                          : "bg-muted-foreground/15 text-muted-foreground"
-                      }`}
-                    >
-                      {filterCounts.all}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => setStatusFilter("IN_PROGRESS")}
-                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                      statusFilter === "IN_PROGRESS"
-                        ? "bg-primary text-primary-foreground shadow-md scale-105"
-                        : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
-                    }`}
-                  >
-                    <span>In Progress</span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                        statusFilter === "IN_PROGRESS"
-                          ? "bg-primary-foreground/20 text-primary-foreground"
-                          : "bg-muted-foreground/15 text-muted-foreground"
-                      }`}
-                    >
-                      {filterCounts.IN_PROGRESS}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => setStatusFilter("COMPLETED")}
-                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                      statusFilter === "COMPLETED"
-                        ? "bg-emerald-600 text-white shadow-md scale-105"
-                        : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
-                    }`}
-                  >
-                    <span>Completed</span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                        statusFilter === "COMPLETED"
-                          ? "bg-white/25 text-white"
-                          : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                      }`}
-                    >
-                      {filterCounts.COMPLETED}
-                    </span>
-                  </button>
+                  {availableTabs.map((tab) => {
+                    const isActive = statusFilter === tab.id
+                    const count = filterCounts[tab.id] ?? 0
+                    const isCompletedTab = tab.id === "COMPLETED"
+                    const isBillingTab = tab.id === "BILLING"
+                    const isConsultationTab = tab.id === "CONSULTATION"
+                    const isNewTab = tab.id === "NEW"
+
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setStatusFilter(tab.id)}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                          isActive
+                            ? isCompletedTab
+                              ? "bg-emerald-600 text-white shadow-md scale-105"
+                              : isBillingTab
+                              ? "bg-amber-600 text-white shadow-md scale-105"
+                              : isConsultationTab
+                              ? "bg-sky-600 text-white shadow-md scale-105"
+                              : isNewTab
+                              ? "bg-indigo-600 text-white shadow-md scale-105"
+                              : "bg-primary text-primary-foreground shadow-md scale-105"
+                            : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
+                        }`}
+                      >
+                        <span>{tab.label}</span>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                            isActive
+                              ? "bg-white/25 text-white"
+                              : isCompletedTab
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                              : isBillingTab
+                              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                              : isConsultationTab
+                              ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
+                              : isNewTab
+                              ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400"
+                              : "bg-muted-foreground/15 text-muted-foreground"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
 
                 {/* Mobile filter, layout switch, and search controls */}
@@ -1095,9 +1232,11 @@ export default function DashboardPage() {
                             paddingRight: "2rem",
                           }}
                         >
-                          <option value="all">All Visits ({filterCounts.all})</option>
-                          <option value="IN_PROGRESS">In Progress ({filterCounts.IN_PROGRESS})</option>
-                          <option value="COMPLETED">Completed ({filterCounts.COMPLETED})</option>
+                          {availableTabs.map((tab) => (
+                            <option key={tab.id} value={tab.id}>
+                              {tab.label} ({filterCounts[tab.id] ?? 0})
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <Button
