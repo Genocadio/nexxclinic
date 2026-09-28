@@ -1134,6 +1134,7 @@ export function BillingPageContent() {
         activeInsuranceIds={visitInsuranceIds}
         addingVisitInsurance={addingVisitInsurance}
         billedInsuranceIds={billedInsuranceIds}
+        readOnly={effectiveIsAlreadyBilled && !isEditMode}
         onToggleInsurance={(id, active) =>
           active
             ? handleAddInsuranceToVisit(id)

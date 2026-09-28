@@ -657,12 +657,14 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     // Frontend guard: check if any billed items use this insurance
     if (billingData) {
       const isUsedInBilledItem = billingData.items.some(
-        (item) => item.selectedInsuranceId === insuranceId && item.paymentStatus === "paid",
+        (item) =>
+          item.selectedInsuranceId === insuranceId &&
+          (item.paymentStatus === "paid" || item.paymentStatus === "exempted"),
       );
       if (isUsedInBilledItem) {
         toast.error(
           "Cannot remove this insurance — it is already used in a billed item. " +
-          "Edit the bill first, change the insurance on the billed items, then remove it.",
+          "In edit mode, change or remove the products using this insurance first.",
         );
         return;
       }

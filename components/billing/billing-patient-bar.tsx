@@ -27,6 +27,8 @@ type BillingPatientBarProps = {
   addingVisitInsurance: boolean;
   /** Insurance IDs that are used in billed items — cannot be removed. */
   billedInsuranceIds?: Set<string>;
+  /** When true, visit is already billed and not in edit mode — all visit insurances are read-only. */
+  readOnly?: boolean;
   onToggleInsurance: (insuranceId: string, active: boolean) => void;
   onAddInsurance: () => void;
 };
@@ -42,6 +44,7 @@ export function BillingPatientBar({
   activeInsuranceIds,
   addingVisitInsurance,
   billedInsuranceIds,
+  readOnly = false,
   onToggleInsurance,
   onAddInsurance,
 }: BillingPatientBarProps) {
@@ -183,10 +186,18 @@ export function BillingPatientBar({
                           return (
                             <label
                               key={pIns.id}
-                              title={!active ? insuranceStatusLabel(pIns) : undefined}
+                              title={
+                                readOnly
+                                  ? "Visit is already billed. Click 'Edit billing' to modify insurances."
+                                  : !active
+                                    ? insuranceStatusLabel(pIns)
+                                    : usedOnVisit && billedInsuranceIds?.has(pIns.id)
+                                      ? "This insurance is used in a billed item. In edit mode, remove or change the products using this insurance first."
+                                      : undefined
+                              }
                               className={`flex items-start gap-2.5 text-xs rounded-lg border px-2.5 py-2 transition-colors ${
-                                !active
-                                  ? "opacity-50 cursor-not-allowed border-border/40 bg-muted/20"
+                                readOnly || !active
+                                  ? "opacity-60 cursor-not-allowed border-border/40 bg-muted/20"
                                   : usedOnVisit
                                     ? "border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 cursor-pointer"
                                     : "border-border/60 hover:bg-muted/50 cursor-pointer"
@@ -195,15 +206,16 @@ export function BillingPatientBar({
                               <input
                                 type="checkbox"
                                 checked={usedOnVisit}
-                                disabled={!active || addingVisitInsurance || (usedOnVisit && billedInsuranceIds?.has(pIns.id))}
+                                disabled={
+                                  readOnly ||
+                                  !active ||
+                                  addingVisitInsurance ||
+                                  (usedOnVisit && billedInsuranceIds?.has(pIns.id))
+                                }
                                 onChange={() =>
-                                  active && onToggleInsurance(pIns.id, !usedOnVisit)
+                                  !readOnly && active && onToggleInsurance(pIns.id, !usedOnVisit)
                                 }
-                                title={usedOnVisit && billedInsuranceIds?.has(pIns.id)
-                                  ? "This insurance is used in a billed item. Edit the bill first to change it."
-                                  : undefined
-                                }
-                                className="mt-0.5 h-3.5 w-3.5 accent-primary"
+                                className="mt-0.5 h-3.5 w-3.5 accent-primary disabled:cursor-not-allowed"
                                 aria-label={`Use ${pIns.insuranceProvider.acronym} on this visit`}
                               />
                               <div className="flex-1 min-w-0">
