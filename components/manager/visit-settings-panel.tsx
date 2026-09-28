@@ -513,18 +513,34 @@ export function VisitSettingsPanel({
     setPendingDepartmentEncounterDate({ visitDepartmentId, date: encounterDate })
   }
 
-  const confirmDepartmentEncounterDateChange = async () => {
+  const confirmDepartmentEncounterDateChange = async (applyToChildren = false) => {
     if (!pendingDepartmentEncounterDate) return
     setApplyingDate(true)
     try {
-      await updateDepartmentEncounterDate({
-        variables: {
-          input: {
-            visitDepartmentId: pendingDepartmentEncounterDate.visitDepartmentId,
-            encounterDate: pendingDepartmentEncounterDate.date,
+      const deptIdsToUpdate = [pendingDepartmentEncounterDate.visitDepartmentId]
+      if (applyToChildren) {
+        const parentDept = (visit.departments || []).find(
+          (d) => d.id === pendingDepartmentEncounterDate.visitDepartmentId,
+        )
+        if (parentDept?.childVisitDepartments && parentDept.childVisitDepartments.length > 0) {
+          parentDept.childVisitDepartments.forEach((c) => {
+            if (c.id && !deptIdsToUpdate.includes(c.id)) {
+              deptIdsToUpdate.push(c.id)
+            }
+          })
+        }
+      }
+
+      for (const deptId of deptIdsToUpdate) {
+        await updateDepartmentEncounterDate({
+          variables: {
+            input: {
+              visitDepartmentId: deptId,
+              encounterDate: pendingDepartmentEncounterDate.date,
+            },
           },
-        },
-      })
+        })
+      }
       setPendingDepartmentEncounterDate(null)
     } finally {
       setApplyingDate(false)
@@ -1211,20 +1227,36 @@ export function VisitSettingsPanel({
                                 className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                               />
                               {pendingDepartmentEncounterDate?.visitDepartmentId === dept.id && (
-                                <div className="flex items-center gap-2 mt-2">
+                                <div className="flex items-center gap-2 mt-2 flex-wrap">
                                   <button
                                     type="button"
-                                    onClick={() => void confirmDepartmentEncounterDateChange()}
+                                    onClick={() => void confirmDepartmentEncounterDateChange(false)}
                                     disabled={applyingDate}
-                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1"
+                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1 shadow-xs"
                                   >
                                     {applyingDate ? (
                                       <Loader2 className="h-3 w-3 animate-spin" />
                                     ) : (
                                       <CheckCircle className="h-3 w-3" />
                                     )}
-                                    Apply Encounter Date
+                                    Apply to This Dept
                                   </button>
+                                  {dept.childVisitDepartments && dept.childVisitDepartments.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => void confirmDepartmentEncounterDateChange(true)}
+                                      disabled={applyingDate}
+                                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1 shadow-xs"
+                                      title={`Apply this encounter date to ${dept.department?.name || 'this department'} and all its ${dept.childVisitDepartments.length} child department(s)`}
+                                    >
+                                      {applyingDate ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <CalendarClock className="h-3 w-3" />
+                                      )}
+                                      Apply to All Child Departments ({dept.childVisitDepartments.length})
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={() => setPendingDepartmentEncounterDate(null)}
