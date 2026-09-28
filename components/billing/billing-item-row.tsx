@@ -349,7 +349,7 @@ export function BillingItemRow({
               const meta = item.insuranceCoverageMeta?.[insurance.providerId];
               const cost = item.insuranceCoverageCosts?.[insurance.providerId];
               const isCovered = Boolean(
-                meta?.covered && Number.isFinite(cost) && cost > 0,
+                meta?.covered && typeof cost === "number" && Number.isFinite(cost) && cost > 0,
               );
               return (
                 <SelectItem
@@ -358,7 +358,7 @@ export function BillingItemRow({
                   disabled={!isCovered}
                   title={
                     !isCovered
-                      ? Number.isFinite(cost) && cost === 0
+                      ? typeof cost === "number" && Number.isFinite(cost) && cost === 0
                         ? `${insurance.acronym || insurance.name} pays 0 RWF on this product (not covered)`
                         : `${insurance.acronym || insurance.name} does not cover this product`
                       : undefined

@@ -791,7 +791,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           if (!providerId) return false;
           const coverage = meta[providerId];
           const cost = costs[providerId];
-          return coverage?.covered && Number.isFinite(cost) && cost > 0;
+          return coverage?.covered && typeof cost === "number" && Number.isFinite(cost) && cost > 0;
         });
 
         const defaultProviderId = coveringLinkedInsurance
@@ -953,7 +953,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
               if (!providerId) return false;
               const coverage = meta[providerId];
               const cost = costs[providerId];
-              return coverage?.covered && Number.isFinite(cost) && cost > 0;
+              return coverage?.covered && typeof cost === "number" && Number.isFinite(cost) && cost > 0;
             });
 
             const defaultProviderId = coveringLinkedInsurance

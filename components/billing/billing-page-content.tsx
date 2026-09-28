@@ -535,6 +535,13 @@ export function BillingPageContent() {
     );
   }, [isEditMode, billingData, editModeSnapshot, resolveSnapshotPct]);
 
+  // Removed items in edit mode for visual diff in confirmation sheet
+  const removedItems = useMemo(() => {
+    if (!isEditMode || !editModeSnapshot || !billingData) return [];
+    const currentIds = new Set(billingData.items.map((i) => i.id));
+    return editModeSnapshot.filter((snapItem) => !currentIds.has(snapItem.id));
+  }, [isEditMode, editModeSnapshot, billingData]);
+
   // Role rules:
   // - CASHIER: can bill (complete) but cannot edit bills/items.
   // - FINANCE: can bill and can edit.
@@ -1366,7 +1373,10 @@ export function BillingPageContent() {
         amountPaid={billingData.amountPaid || 0}
         paymentMethod={billingData.paymentMethod || "MOBILE_MONEY"}
         creatingBill={creatingBill || editingBill}
-        showItemsReview={confirmSheetMode === "complete"}
+        showItemsReview={confirmSheetMode === "complete" || confirmSheetMode === "edit"}
+        isEditMode={isEditMode}
+        editedItemChanges={editedItemChanges}
+        removedItems={removedItems}
         outstandingType={billingData.outstandingType || (hasExemptions ? "giveaway" : "loan")}
         outstandingReason={billingData.outstandingReason || ""}
         onPaymentMethodChange={handlePaymentMethodChange}

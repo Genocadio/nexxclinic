@@ -38,6 +38,9 @@ type BillingConfirmSheetProps = {
   paymentMethod: PaymentMethod;
   creatingBill: boolean;
   showItemsReview?: boolean;
+  isEditMode?: boolean;
+  editedItemChanges?: Map<string, "added" | "modified">;
+  removedItems?: BillingItem[];
   outstandingType?: "loan" | "giveaway";
   outstandingReason?: string;
   onPaymentMethodChange: (method: PaymentMethod) => void;
@@ -106,6 +109,9 @@ export function BillingConfirmSheet({
   paymentMethod,
   creatingBill,
   showItemsReview = true,
+  isEditMode = false,
+  editedItemChanges,
+  removedItems = [],
   outstandingType = "loan",
   outstandingReason: _outstandingReason = "",
   onPaymentMethodChange,
@@ -127,6 +133,15 @@ export function BillingConfirmSheet({
   );
   const hasOutstanding = outstanding > 0.001;
   const noteRequired = hasExemptions || hasOutstanding;
+
+  const addedCount = Array.from(editedItemChanges?.values() || []).filter(
+    (c) => c === "added",
+  ).length;
+  const modifiedCount = Array.from(editedItemChanges?.values() || []).filter(
+    (c) => c === "modified",
+  ).length;
+  const removedCount = removedItems?.length || 0;
+  const hasAnyDiffs = isEditMode && (addedCount > 0 || modifiedCount > 0 || removedCount > 0);
 
   const suggestedReasons = buildSuggestedReasons({
     hasExemptions,
@@ -173,7 +188,7 @@ export function BillingConfirmSheet({
       >
         <SheetHeader className="px-4 pt-4 pb-2 border-b border-border">
           <SheetTitle>
-            {showItemsReview ? "Review & Complete Bill" : "Edit Payment"}
+            {isEditMode ? "Review & Confirm Bill Edits" : showItemsReview ? "Review & Complete Bill" : "Edit Payment"}
           </SheetTitle>
           {editWarning && (
             <div className="mx-4 mt-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
@@ -181,37 +196,127 @@ export function BillingConfirmSheet({
             </div>
           )}
           <SheetDescription>
-            {showItemsReview
-              ? `${itemsToBill.length} item${itemsToBill.length !== 1 ? "s" : ""} to bill — set payment details below`
-              : "Update payment method or amount paid"}
+            {isEditMode
+              ? "Review adjusted items and payment changes before finalizing this version"
+              : showItemsReview
+                ? `${itemsToBill.length} item${itemsToBill.length !== 1 ? "s" : ""} to bill — set payment details below`
+                : "Update payment method or amount paid"}
           </SheetDescription>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
           {showItemsReview && (
-            <ul className="space-y-0 rounded-lg border border-border divide-y divide-border">
-              {itemsToBill.map((item) => {
-                const lineTotal = calculateItemTotal(item);
-                return (
-                  <li
-                    key={item.id}
-                    className="flex items-center justify-between gap-3 text-xs px-3 py-2.5"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate text-foreground">
-                        {item.name}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {item.quantity} × {formatRWF(item.price)}
-                      </p>
-                    </div>
-                    <span className="font-semibold tabular-nums shrink-0">
-                      {formatRWF(lineTotal)}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="space-y-2">
+              {hasAnyDiffs && (
+                <div className="flex items-center justify-between gap-2 px-1 py-1 rounded-lg bg-muted/40 border border-border">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1">
+                    Pending Edits
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {addedCount > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        +{addedCount} Added
+                      </span>
+                    )}
+                    {modifiedCount > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        ~{modifiedCount} Modified
+                      </span>
+                    )}
+                    {removedCount > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/40 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                        −{removedCount} Removed
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <ul className="space-y-0 rounded-lg border border-border divide-y divide-border overflow-hidden">
+                {itemsToBill.map((item) => {
+                  const lineTotal = calculateItemTotal(item);
+                  const changeType = editedItemChanges?.get(item.id);
+                  return (
+                    <li
+                      key={item.id}
+                      className={`flex items-center justify-between gap-3 text-xs px-3 py-2.5 transition-colors ${
+                        changeType === "added"
+                          ? "bg-emerald-50/50 dark:bg-emerald-950/20"
+                          : changeType === "modified"
+                            ? "bg-amber-50/50 dark:bg-amber-950/20"
+                            : ""
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-medium truncate text-foreground">
+                            {item.name}
+                          </p>
+                          {changeType === "added" && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                              <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                              ADDED
+                            </span>
+                          )}
+                          {changeType === "modified" && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full">
+                              <span className="w-1 h-1 rounded-full bg-amber-500" />
+                              MODIFIED
+                            </span>
+                          )}
+                          {item.processorName && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                              {item.processorName}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {item.quantity} × {formatRWF(item.price)}
+                          {item.selectedInsuranceId ? " • Insurance" : " • Private"}
+                        </p>
+                      </div>
+                      <span className="font-semibold tabular-nums shrink-0">
+                        {formatRWF(lineTotal)}
+                      </span>
+                    </li>
+                  );
+                })}
+
+                {/* Render removed items in edit mode */}
+                {isEditMode &&
+                  removedItems &&
+                  removedItems.map((item) => {
+                    const lineTotal = calculateItemTotal(item);
+                    return (
+                      <li
+                        key={`removed-${item.id}`}
+                        className="flex items-center justify-between gap-3 text-xs px-3 py-2.5 bg-rose-50/40 dark:bg-rose-950/15 opacity-75"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-medium truncate text-muted-foreground line-through">
+                              {item.name}
+                            </p>
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/40 border border-rose-200 dark:border-rose-800 px-1.5 py-0.5 rounded-full">
+                              <span className="w-1 h-1 rounded-full bg-rose-500" />
+                              REMOVED
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground line-through mt-0.5">
+                            {item.quantity} × {formatRWF(item.price)}
+                          </p>
+                        </div>
+                        <span className="font-medium text-muted-foreground line-through tabular-nums shrink-0">
+                          {formatRWF(lineTotal)}
+                        </span>
+                      </li>
+                    );
+                  })}
+              </ul>
+            </div>
           )}
 
           <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-1.5 text-sm">
