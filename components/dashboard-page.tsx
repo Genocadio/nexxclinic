@@ -190,7 +190,10 @@ export default function DashboardPage() {
     ["CLINICIAN", "DOCTOR"].includes(role),
   )
   const canViewPatientHistory = hasRole(roles, "CLINICIAN")
-  const canSeeBillingInfo = hasFinanceRole
+  // Billables visibility: detailed product names, counts, and items to bill are only visible to FINANCE, ADMIN, and MANAGER
+  const canSeeBillables = hasFinanceRole || hasManagerRole || hasAdminRole
+  // All departments can see that a patient is in billing
+  const canSeeBillingInfo = true
   const canSeeConsultButton = !isReceptionistOnly
   // Bill button: Finance role always sees billing, regardless of other roles
   const canSeeBillButton = hasFinanceRole
@@ -451,6 +454,25 @@ export default function DashboardPage() {
   }
   const getBillingDisplayStatus = (visit: Visit) => {
     const hasDeptEditing = (visit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING")
+
+    // If user does not have Finance, Admin, or Manager role, show clean status without billable item details/counts
+    if (!canSeeBillables) {
+      if (hasDeptEditing) return "In billing (Editing)"
+      if (hasDepartmentReadyForBilling(visit)) return "In billing"
+      const unbilledCount = countUnbilledProducts(visit)
+      const billedCount = countBilledProducts(visit)
+      if (
+        visitProductsFullySettled(visit) ||
+        (unbilledCount === 0 && billedCount > 0)
+      ) {
+        return "Billed"
+      }
+      if (hasNoBillables(visit) || (unbilledCount === 0 && billedCount === 0)) {
+        return "No billing required"
+      }
+      return "In billing"
+    }
+
     if (hasDeptEditing) return "Editing billing"
     if (hasDepartmentReadyForBilling(visit)) return "Ready for billing"
     const unbilledCount = countUnbilledProducts(visit)
@@ -483,6 +505,43 @@ export default function DashboardPage() {
     billedNames: string[],
     departmentsReady: string[],
   ) => {
+    if (!canSeeBillables) {
+      const hasDeptEditing = (visit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING")
+      const isReady = departmentsReady.length > 0 || hasDepartmentReadyForBilling(visit)
+      const isBilled = visitProductsFullySettled(visit) || (unbilledCount === 0 && billedCount > 0)
+      const isPending = unbilledCount > 0 || isReady || hasDeptEditing
+
+      return (
+        <div className="space-y-1.5 text-xs py-0.5">
+          {isPending ? (
+            <div>
+              <p className="font-semibold text-blue-600 dark:text-blue-400">
+                Patient is in billing
+              </p>
+              <p className="text-muted-foreground text-[11px] mt-0.5">
+                {hasDeptEditing
+                  ? "Finance is currently editing invoice."
+                  : isReady
+                  ? "Orders sent to billing."
+                  : "Pending billing processing."}
+              </p>
+            </div>
+          ) : isBilled ? (
+            <div>
+              <p className="font-semibold text-emerald-600 dark:text-emerald-400">
+                Billing completed
+              </p>
+              <p className="text-muted-foreground text-[11px] mt-0.5">
+                All services have been billed.
+              </p>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">No active billing required.</p>
+          )}
+        </div>
+      )
+    }
+
     const showAllBilledSummary =
       unbilledCount === 0 && billedCount > 0 && departmentsReady.length === 0
     return (

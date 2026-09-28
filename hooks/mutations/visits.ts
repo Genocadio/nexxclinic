@@ -315,6 +315,29 @@ export const ADD_PRODUCT_TO_VISIT_DEPARTMENT_MUTATION = gql`
             type
             privateRhicPrice
             clinicPrice
+            insuranceCoverages {
+              id
+              insuranceProvider {
+                id
+                insuranceName
+                acronym
+                coverages {
+                  id
+                  insuranceProviderId
+                  insuranceProviderName
+                  departmentId
+                  departmentName
+                  encounterType
+                  patientSharePercentage
+                  createdAt
+                  updatedAt
+                }
+              }
+              cost
+              covered
+              notPaid
+              requireMedicalAdvisor
+            }
           }
           quantity
           status

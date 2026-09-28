@@ -100,13 +100,16 @@ export default function AddActionConsumableModal({
 
   // Helper to get insurance-aware pricing
   const getInsuranceAwarePricing = (item: ActionOrConsumable) => {
+    const privatePrice = Number(item.clinicPrice ?? item.privateRhicPrice ?? 0)
     if (!linkedInsurances || linkedInsurances.length === 0) {
       // No insurance - show clinic price or private price
       return {
-        price: item.clinicPrice ?? item.privateRhicPrice ?? 0,
+        price: privatePrice,
         coverage: null,
         isCovered: false,
-        coverageDetails: []
+        coverageDetails: [],
+        hasZeroPayingCoverages: false,
+        allCoveragesZeroOrNotCovered: false,
       }
     }
 
@@ -116,22 +119,33 @@ export default function AddActionConsumableModal({
       insuranceProviderIds.has(cov.insuranceProvider.id)
     )
 
+    const validCoverages = matchingCoverages.filter(
+      (c) => c.covered !== false && !Boolean((c as any).notPaid) && Number(c.cost) > 0,
+    )
+    const firstCovered = validCoverages[0]
+
     if (matchingCoverages.length === 0) {
       // Insurance linked but no coverage for this product
       return {
-        price: item.clinicPrice ?? item.privateRhicPrice ?? 0,
+        price: privatePrice,
         coverage: null,
         isCovered: false,
-        coverageDetails: []
+        coverageDetails: [],
+        hasZeroPayingCoverages: false,
+        allCoveragesZeroOrNotCovered: false,
       }
     }
 
     // Return all matching coverages for display
     return {
-      price: matchingCoverages[0]?.cost || 0,
-      coverage: matchingCoverages[0],
-      isCovered: matchingCoverages.length > 0 && matchingCoverages[0].covered && matchingCoverages[0].cost > 0,
-      coverageDetails: matchingCoverages
+      price: firstCovered ? Number(firstCovered.cost) : privatePrice,
+      coverage: firstCovered || null,
+      isCovered: Boolean(firstCovered),
+      coverageDetails: matchingCoverages,
+      hasZeroPayingCoverages: matchingCoverages.some(
+        (c) => Number(c.cost) <= 0 || c.covered === false || Boolean((c as any).notPaid),
+      ),
+      allCoveragesZeroOrNotCovered: validCoverages.length === 0,
     }
   }
   const {
@@ -377,27 +391,30 @@ export default function AddActionConsumableModal({
                               return (
                                 <div className="text-sm mt-1 space-y-1">
                                   {pricing.coverageDetails.length > 0 ? (
-                                    pricing.coverageDetails.map((coverage, idx) => (
-                                      <div key={idx} className="flex items-center gap-2">
-                                        <span className="text-primary font-semibold">
-                                          {coverage.cost.toLocaleString()} RWF
-                                        </span>
-                                        <span className="text-xs text-muted-foreground">
-                                          {coverage.insuranceProvider.acronym}
-                                        </span>
-                                        {coverage.cost === 0 && (
-                                          <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded">
-                                            Not Covered
+                                    pricing.coverageDetails.map((coverage, idx) => {
+                                      const isZeroPaying = Number(coverage.cost) <= 0 || coverage.covered === false
+                                      return (
+                                        <div key={idx} className="flex items-center gap-2">
+                                          <span className={`font-semibold ${isZeroPaying ? "text-muted-foreground line-through" : "text-primary"}`}>
+                                            {Number(coverage.cost).toLocaleString()} RWF
                                           </span>
-                                        )}
-                                      </div>
-                                    ))
+                                          <span className="text-xs text-muted-foreground">
+                                            {coverage.insuranceProvider.acronym || coverage.insuranceProvider.insuranceName}
+                                          </span>
+                                          {isZeroPaying && (
+                                            <span className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded font-medium">
+                                              {Number(coverage.cost) === 0 ? "Pays 0 RWF (Not Covered)" : "Not Covered"}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )
+                                    })
                                   ) : (
-                                    <div className="text-muted-foreground">
-                                      {pricing.price.toLocaleString()} RWF
+                                    <div className="text-muted-foreground flex items-center gap-2">
+                                      <span>{pricing.price.toLocaleString()} RWF</span>
                                       {linkedInsurances.length > 0 && (
-                                        <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 ml-2 px-1.5 py-0.5 rounded inline-block">
-                                          Not Covered
+                                        <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded font-medium">
+                                          Private (No Insurance Coverage)
                                         </span>
                                       )}
                                     </div>
@@ -453,32 +470,44 @@ export default function AddActionConsumableModal({
                   {(() => {
                     const pricing = getInsuranceAwarePricing(selectedItem)
                     return (
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         {pricing.coverageDetails.length > 0 ? (
-                          pricing.coverageDetails.map((coverage, idx) => (
-                            <div key={idx} className="flex justify-between text-xs">
-                              <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground">Unit Price ({coverage.insuranceProvider.acronym}):</span>
-                                {coverage.cost === 0 && (
-                                  <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded">
-                                    Not Covered
+                          pricing.coverageDetails.map((coverage, idx) => {
+                            const isZeroPaying = Number(coverage.cost) <= 0 || coverage.covered === false
+                            return (
+                              <div key={idx} className="flex justify-between text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground">
+                                    Unit Price ({coverage.insuranceProvider.acronym || coverage.insuranceProvider.insuranceName}):
                                   </span>
-                                )}
+                                  {isZeroPaying && (
+                                    <span className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded font-medium">
+                                      {Number(coverage.cost) === 0 ? "Pays 0 RWF (Not Covered)" : "Not Covered"}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className={`font-semibold ${isZeroPaying ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                                  {Number(coverage.cost).toLocaleString()} RWF
+                                </span>
                               </div>
-                              <span className="font-semibold">{coverage.cost.toLocaleString()} RWF</span>
-                            </div>
-                          ))
+                            )
+                          })
                         ) : (
                           <div className="flex justify-between text-xs">
                             <div className="flex items-center gap-2">
-                              <span className="text-muted-foreground">Unit Price:</span>
+                              <span className="text-muted-foreground">Private Price:</span>
                               {linkedInsurances.length > 0 && (
-                                <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1.5 py-0.5 rounded">
-                                  Not Covered
+                                <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded font-medium">
+                                  Not Covered by Insurance
                                 </span>
                               )}
                             </div>
                             <span className="font-semibold">{pricing.price.toLocaleString()} RWF</span>
+                          </div>
+                        )}
+                        {pricing.allCoveragesZeroOrNotCovered && (
+                          <div className="mt-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 text-xs text-amber-900 dark:text-amber-200">
+                            ⚠️ This product pays 0 RWF / is not covered by the patient&apos;s insurance. It will bill under Private pricing ({Number(selectedItem.clinicPrice ?? selectedItem.privateRhicPrice ?? 0).toLocaleString()} RWF).
                           </div>
                         )}
                       </div>

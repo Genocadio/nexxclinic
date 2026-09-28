@@ -346,8 +346,10 @@ export function BillingItemRow({
           <SelectContent>
             <SelectItem value="none">Private (none)</SelectItem>
             {availableInsurances.map((insurance) => {
+              const meta = item.insuranceCoverageMeta?.[insurance.providerId];
+              const cost = item.insuranceCoverageCosts?.[insurance.providerId];
               const isCovered = Boolean(
-                item.insuranceCoverageMeta?.[insurance.providerId]?.covered,
+                meta?.covered && Number.isFinite(cost) && cost > 0,
               );
               return (
                 <SelectItem
@@ -356,11 +358,20 @@ export function BillingItemRow({
                   disabled={!isCovered}
                   title={
                     !isCovered
-                      ? `${insurance.acronym || insurance.name} does not cover this product`
+                      ? Number.isFinite(cost) && cost === 0
+                        ? `${insurance.acronym || insurance.name} pays 0 RWF on this product (not covered)`
+                        : `${insurance.acronym || insurance.name} does not cover this product`
                       : undefined
                   }
                 >
-                  {insurance.acronym || insurance.name}
+                  <span className="flex items-center justify-between w-full gap-2">
+                    <span>{insurance.acronym || insurance.name}</span>
+                    {!isCovered && (
+                      <span className="text-[10px] text-muted-foreground ml-1">
+                        {Number.isFinite(cost) && cost === 0 ? "(Pays 0)" : "(Not covered)"}
+                      </span>
+                    )}
+                  </span>
                 </SelectItem>
               );
             })}

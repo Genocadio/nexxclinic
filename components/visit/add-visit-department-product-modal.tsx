@@ -15,6 +15,7 @@ type ProductPickerItem = {
   name: string
   clinicPrice?: number | null
   privateRhicPrice?: number | null
+  insuranceCoverages?: any[]
 }
 
 type PatientInsurance = {

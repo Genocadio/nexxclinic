@@ -5,7 +5,10 @@ import type { Dispatch, SetStateAction, MutableRefObject } from "react";
 import { toast } from "react-toastify";
 import {
   applyInsuranceSelectionToItem,
+  buildProductCoverageMaps,
+  findBestMatchingCoverage,
   getItemInsuranceSplit,
+  resolveBillingUnitPrice,
   type BillingData,
   type BillingItem,
   type BillingTotals,
@@ -16,6 +19,7 @@ import { getBasePatientSharePercentage } from "@/lib/api-types";
 import {
   flattenVisitDepartmentsForBilling,
   getCoveragePercentageForBillingItem,
+  isInsuranceActive,
 } from "@/lib/visit-billing-mapper";
 import {
   buildInvoiceHtml,
@@ -771,6 +775,49 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           }
         }
 
+        const rawCoverages = (item as any)?.insuranceCoverages || [];
+        const { costs, meta } = buildProductCoverageMaps(
+          rawCoverages.map((c: any) => ({
+            insuranceProvider: c.insuranceProvider,
+            cost: c.cost,
+            covered: c.covered,
+            notPaid: c.notPaid,
+          }))
+        );
+
+        const activeLinkedInsurances = (visit.linkedInsurances || []).filter(isInsuranceActive);
+        const coveringLinkedInsurance = activeLinkedInsurances.find((ins) => {
+          const providerId = String(ins?.insuranceProvider?.id ?? "");
+          if (!providerId) return false;
+          const coverage = meta[providerId];
+          const cost = costs[providerId];
+          return coverage?.covered && Number.isFinite(cost) && cost > 0;
+        });
+
+        const defaultProviderId = coveringLinkedInsurance
+          ? String(coveringLinkedInsurance.insuranceProvider.id)
+          : undefined;
+        const defaultVisitInsuranceId = coveringLinkedInsurance
+          ? String(coveringLinkedInsurance.id)
+          : undefined;
+
+        const { price, notCovered } = resolveBillingUnitPrice(
+          basePrice,
+          costs,
+          meta,
+          defaultProviderId,
+        );
+
+        let selectedCoverageId: string | undefined = undefined;
+        if (coveringLinkedInsurance) {
+          const best = findBestMatchingCoverage(
+            (coveringLinkedInsurance.insuranceProvider as any)?.coverages || [],
+            catalogDepartmentId,
+            undefined,
+          );
+          selectedCoverageId = best?.coverageId;
+        }
+
         const newBillingItem: BillingItem = {
           id: tempId,
           productId: item.id,
@@ -778,8 +825,11 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           isNewInEditMode: true,
           name: item.name,
           quantity,
-          price: basePrice,
+          price,
           basePrice,
+          insuranceCoverageCosts: costs,
+          insuranceCoverageMeta: meta,
+          insuranceNotCovered: defaultVisitInsuranceId ? notCovered : false,
           type: "product",
           visitDepartmentId: visitDept?.id || catalogDepartmentId,
           rootVisitDepartmentId: visitDept?.id || catalogDepartmentId,
@@ -789,7 +839,8 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           paymentStatus: "pending",
           exempted: false,
           exemptionType: "none",
-          selectedInsuranceId: undefined,
+          selectedInsuranceId: defaultVisitInsuranceId,
+          selectedCoverageId,
           processorId: processorId || undefined,
           processorName: processorName || undefined,
           doneBy: {
@@ -808,7 +859,10 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         });
 
         setShowAddProductModal(false);
-        if (basePrice === 0) {
+        const hasLinkedInsurances = (visit.linkedInsurances || []).length > 0;
+        if (hasLinkedInsurances && !coveringLinkedInsurance) {
+          toast.warn(`"${item.name}" is not covered (pays 0 RWF) by the patient's insurance. Added as Private (${basePrice.toLocaleString()} RWF).`);
+        } else if (basePrice === 0 && price === 0) {
           toast.warn(`"${item.name}" has no price set — it will bill at 0. Set a catalog price first.`);
         } else {
           toast.success("Product added (will be saved when edit is submitted)");
@@ -847,6 +901,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
                 name?: string;
                 clinicPrice?: number | null;
                 privateRhicPrice?: number | null;
+                insuranceCoverages?: any[];
               };
             }>
           ).find((p) => String(p.product?.id) === String(item.id));
@@ -882,6 +937,49 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
               }
             }
 
+            const rawCoverages = (catalogProduct as any)?.insuranceCoverages || (item as any)?.insuranceCoverages || [];
+            const { costs, meta } = buildProductCoverageMaps(
+              rawCoverages.map((c: any) => ({
+                insuranceProvider: c.insuranceProvider,
+                cost: c.cost,
+                covered: c.covered,
+                notPaid: c.notPaid,
+              }))
+            );
+
+            const activeLinkedInsurances = (visit.linkedInsurances || []).filter(isInsuranceActive);
+            const coveringLinkedInsurance = activeLinkedInsurances.find((ins) => {
+              const providerId = String(ins?.insuranceProvider?.id ?? "");
+              if (!providerId) return false;
+              const coverage = meta[providerId];
+              const cost = costs[providerId];
+              return coverage?.covered && Number.isFinite(cost) && cost > 0;
+            });
+
+            const defaultProviderId = coveringLinkedInsurance
+              ? String(coveringLinkedInsurance.insuranceProvider.id)
+              : undefined;
+            const defaultVisitInsuranceId = coveringLinkedInsurance
+              ? String(coveringLinkedInsurance.id)
+              : undefined;
+
+            const { price, notCovered } = resolveBillingUnitPrice(
+              basePrice,
+              costs,
+              meta,
+              defaultProviderId,
+            );
+
+            let selectedCoverageId: string | undefined = undefined;
+            if (coveringLinkedInsurance) {
+              const best = findBestMatchingCoverage(
+                (coveringLinkedInsurance.insuranceProvider as any)?.coverages || [],
+                departmentInfo?.department?.id || catalogDepartmentId,
+                departmentInfo?.encounterType || undefined,
+              );
+              selectedCoverageId = best?.coverageId;
+            }
+
             const newBillingItem: BillingItem = {
               id: addedLine.id,
               productId: item.id,
@@ -889,18 +987,23 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
               isNewInEditMode: isEditingBill,
               name: catalogProduct?.name || item.name,
               quantity: addedLine.quantity || quantity,
-              price: basePrice,
+              price,
               basePrice,
+              insuranceCoverageCosts: costs,
+              insuranceCoverageMeta: meta,
+              insuranceNotCovered: defaultVisitInsuranceId ? notCovered : false,
               type: "product",
               visitDepartmentId: newProduct?.id || catalogDepartmentId,
               rootVisitDepartmentId: newProduct?.id || catalogDepartmentId,
               departmentId: departmentInfo?.department?.id,
               departmentName: departmentInfo?.department?.name || "General",
               departmentStatus: departmentInfo?.status,
+              encounterType: departmentInfo?.encounterType,
               paymentStatus: "pending",
               exempted: false,
               exemptionType: "none",
-              selectedInsuranceId: undefined,
+              selectedInsuranceId: defaultVisitInsuranceId,
+              selectedCoverageId,
               processorId: processorId || undefined,
               processorName: newProcessorName || undefined,
               doneBy: {
@@ -925,7 +1028,18 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         }
         setShowAddProductModal(false);
         const catalogPrice = Number(item.clinicPrice ?? item.privateRhicPrice ?? 0);
-        if (catalogPrice === 0) {
+        const hasLinkedInsurances = (visit.linkedInsurances || []).length > 0;
+        const rawCoverages = (item as any)?.insuranceCoverages || [];
+        const { costs, meta } = buildProductCoverageMaps(rawCoverages);
+        const activeLinkedInsurances = (visit.linkedInsurances || []).filter(isInsuranceActive);
+        const coveringLinkedInsurance = activeLinkedInsurances.find((ins) => {
+          const providerId = String(ins?.insuranceProvider?.id ?? "");
+          return Boolean(meta[providerId]?.covered && Number(costs[providerId]) > 0);
+        });
+
+        if (hasLinkedInsurances && !coveringLinkedInsurance) {
+          toast.warn(`"${item.name}" is not covered (pays 0 RWF) by the patient's insurance. Added as Private (${catalogPrice.toLocaleString()} RWF).`);
+        } else if (catalogPrice === 0) {
           toast.warn(`"${item.name}" has no price set — it will bill at 0. Set a catalog price first.`);
         } else {
           toast.success("Product added successfully");
