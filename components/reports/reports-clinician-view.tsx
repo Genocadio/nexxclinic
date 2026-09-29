@@ -23,6 +23,11 @@ import {
   Users,
   UserCheck,
   Activity,
+  Maximize2,
+  Minimize2,
+  ChevronDown,
+  Check,
+  Loader2,
 } from "lucide-react"
 import type {
   UserReportsData,
@@ -32,7 +37,7 @@ import type {
   ReportPeriod,
 } from "@/lib/user-reports-calculator"
 import { formatHourRange } from "@/lib/user-reports-calculator"
-import { formatRWF } from "@/lib/utils"
+import { formatRWF, cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -47,12 +52,16 @@ import { ReportsChart } from "@/components/reports/reports-chart"
 
 interface ReportsClinicianViewProps {
   data: UserReportsData
+  isTableExpanded?: boolean
+  onToggleTableExpand?: (expanded: boolean) => void
 }
 
 const ITEMS_PER_PAGE = 15
 
 export function ReportsClinicianView({
   data,
+  isTableExpanded: controlledIsTableExpanded,
+  onToggleTableExpand,
 }: ReportsClinicianViewProps) {
   const clinician = data.clinician
   const money = clinician.money
@@ -66,9 +75,22 @@ export function ReportsClinicianView({
   // 3. Finance Turnover View Switcher: "grouped" (Group by encounter) vs "detailed" (Itemized products)
   const [financeViewMode, setFinanceViewMode] = useState<"grouped" | "detailed">("grouped")
 
-  // 4. Search and Pagination state
+  // 4. Search and Continuous Pagination state
   const [searchTerm, setSearchTerm] = useState("")
-  const [currentPage, setCurrentPage] = useState(1)
+  const INITIAL_VISIBLE_COUNT = 25
+  const BATCH_SIZE = 25
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT)
+  const [internalIsTableExpanded, setInternalIsTableExpanded] = useState(false)
+  const isTableExpanded = controlledIsTableExpanded ?? internalIsTableExpanded
+
+  const toggleTableExpand = () => {
+    const nextVal = !isTableExpanded
+    if (onToggleTableExpand) {
+      onToggleTableExpand(nextVal)
+    } else {
+      setInternalIsTableExpanded(nextVal)
+    }
+  }
 
   // Available unique departments the clinician has worked in
   const availableDepartments = useMemo(() => {
@@ -310,28 +332,40 @@ export function ReportsClinicianView({
     })
   }, [departmentFilteredProducts, searchTerm])
 
-  // Pagination for Encounters
-  const totalEncounterPages = Math.max(1, Math.ceil(searchFilteredEncounters.length / ITEMS_PER_PAGE))
-  const paginatedEncounters = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-    return searchFilteredEncounters.slice(startIndex, startIndex + ITEMS_PER_PAGE)
-  }, [searchFilteredEncounters, currentPage])
+  // Continuous Visible Slices for Encounters and Detailed products
+  const visibleEncounters = useMemo(() => {
+    return searchFilteredEncounters.slice(0, visibleCount)
+  }, [searchFilteredEncounters, visibleCount])
 
-  // Pagination for Detailed products
-  const totalDetailedPages = Math.max(1, Math.ceil(searchFilteredDetailedProducts.length / ITEMS_PER_PAGE))
-  const paginatedDetailedProducts = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-    return searchFilteredDetailedProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE)
-  }, [searchFilteredDetailedProducts, currentPage])
+  const visibleDetailedProducts = useMemo(() => {
+    return searchFilteredDetailedProducts.slice(0, visibleCount)
+  }, [searchFilteredDetailedProducts, visibleCount])
+
+  const currentTotalCount = financeViewMode === "grouped" ? searchFilteredEncounters.length : searchFilteredDetailedProducts.length
+  const currentVisibleCount = financeViewMode === "grouped" ? visibleEncounters.length : visibleDetailedProducts.length
+  const hasMoreItems = currentVisibleCount < currentTotalCount
 
   const handleDepartmentChange = (dept: string) => {
     setSelectedDepartment(dept)
-    setCurrentPage(1)
+    setVisibleCount(INITIAL_VISIBLE_COUNT)
   }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
-    setCurrentPage(1)
+    setVisibleCount(INITIAL_VISIBLE_COUNT)
+  }
+
+  const handleTableScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
+    if (scrollHeight - scrollTop - clientHeight < 150 && hasMoreItems) {
+      setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, currentTotalCount))
+    }
+  }
+
+  const handleLoadMore = () => {
+    if (hasMoreItems) {
+      setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, currentTotalCount))
+    }
   }
 
   // Export CSV
@@ -441,16 +475,17 @@ export function ReportsClinicianView({
   }
 
   return (
-    <div className="space-y-6">
+    <div className={cn("transition-all", isTableExpanded ? "flex-1 flex flex-col min-h-0 h-full space-y-0" : "space-y-6")}>
       {/* Top Clinician Sub-Tabs Navigation (Centered & Clear) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card/70 backdrop-blur-xl border border-border/60 p-2 rounded-2xl">
-        <div className="flex items-center justify-center gap-2 overflow-x-auto pb-1 sm:pb-0 flex-1">
-          {/* TAB 1: Encounters & Demographics */}
-          <button
+      {!isTableExpanded && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card/70 backdrop-blur-xl border border-border/60 p-2 rounded-2xl">
+          <div className="flex items-center justify-center gap-2 overflow-x-auto pb-1 sm:pb-0 flex-1">
+            {/* TAB 1: Encounters & Demographics */}
+            <button
             type="button"
             onClick={() => {
               setActiveTab("encounters")
-              setCurrentPage(1)
+              setVisibleCount(INITIAL_VISIBLE_COUNT)
             }}
             className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === "encounters"
@@ -477,7 +512,7 @@ export function ReportsClinicianView({
             type="button"
             onClick={() => {
               setActiveTab("finance")
-              setCurrentPage(1)
+              setVisibleCount(INITIAL_VISIBLE_COUNT)
             }}
             className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === "finance"
@@ -526,8 +561,9 @@ export function ReportsClinicianView({
             </div>
           )}
 
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ========================================================================= */}
       {/* TAB 1: ENCOUNTERS & DEMOGRAPHICS VIEW */}
@@ -691,84 +727,88 @@ export function ReportsClinicianView({
       )}
 
       {/* ========================================================================= */}
+      {/* ========================================================================= */}
       {/* TAB 2: FINANCE & TURNOVER VIEW */}
       {/* ========================================================================= */}
       {activeTab === "finance" && (
-        <div className="space-y-6">
-          {/* Financial KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {/* Total Generated */}
-            <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">Total Generated</span>
-                <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+        <div className={cn("transition-all", isTableExpanded ? "flex-1 flex flex-col min-h-0 h-full" : "space-y-4")}>
+          {/* Financial KPI Cards - Compact Mini Cards */}
+          {!isTableExpanded && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {/* Total Generated */}
+              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="text-[11px] font-medium text-muted-foreground block truncate">Total Generated</span>
+                  <p className="text-base sm:text-lg font-bold text-foreground truncate mt-0.5">
+                    {formatRWF(currentFinanceStats.totalGross)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    {selectedDepartment === "ALL" ? "Across all departments" : selectedDepartment}
+                  </p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <Wallet className="h-4 w-4" />
                 </div>
               </div>
-              <p className="text-xl sm:text-2xl font-bold text-foreground mt-2">
-                {formatRWF(currentFinanceStats.totalGross)}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-1 truncate">
-                {selectedDepartment === "ALL" ? "Across all departments" : selectedDepartment}
-              </p>
-            </div>
 
-            {/* Insurance Covered */}
-            <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">Insurance Covered</span>
-                <div className="h-8 w-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              {/* Insurance Covered */}
+              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="text-[11px] font-medium text-muted-foreground block truncate">Insurance Covered</span>
+                  <p className="text-base sm:text-lg font-bold text-foreground truncate mt-0.5">
+                    {formatRWF(currentFinanceStats.insuranceCovered)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    {currentFinanceStats.totalGross > 0
+                      ? `${Math.round((currentFinanceStats.insuranceCovered / currentFinanceStats.totalGross) * 100)}% covered by insurers`
+                      : "Covered by insurance"}
+                  </p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                   <ShieldCheck className="h-4 w-4" />
                 </div>
               </div>
-              <p className="text-xl sm:text-2xl font-bold text-foreground mt-2">
-                {formatRWF(currentFinanceStats.insuranceCovered)}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                {currentFinanceStats.totalGross > 0
-                  ? `${Math.round((currentFinanceStats.insuranceCovered / currentFinanceStats.totalGross) * 100)}% covered by insurers`
-                  : "Covered by insurance"}
-              </p>
-            </div>
 
-            {/* Patient Share / Cash */}
-            <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">Patient Share (Cash)</span>
-                <div className="h-8 w-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              {/* Patient Share / Cash */}
+              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="text-[11px] font-medium text-muted-foreground block truncate">Patient Share (Cash)</span>
+                  <p className="text-base sm:text-lg font-bold text-foreground truncate mt-0.5">
+                    {formatRWF(currentFinanceStats.patientCash)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground truncate">Patient copays & private cash</p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                   <CreditCard className="h-4 w-4" />
                 </div>
               </div>
-              <p className="text-xl sm:text-2xl font-bold text-foreground mt-2">
-                {formatRWF(currentFinanceStats.patientCash)}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-1">Patient copays & private cash</p>
-            </div>
 
-            {/* Giveaways & Exemptions */}
-            <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">Giveaways & Waived</span>
-                <div className="h-8 w-8 rounded-xl bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center">
+              {/* Giveaways & Waived */}
+              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="text-[11px] font-medium text-muted-foreground block truncate">Giveaways & Waived</span>
+                  <p className="text-base sm:text-lg font-bold text-foreground truncate mt-0.5">
+                    {formatRWF(currentFinanceStats.giveawayAmount)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground truncate">Waived copays & exemptions</p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center shrink-0">
                   <Gift className="h-4 w-4" />
                 </div>
               </div>
-              <p className="text-xl sm:text-2xl font-bold text-foreground mt-2">
-                {formatRWF(currentFinanceStats.giveawayAmount)}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Waived patient copays & exempted acts
-              </p>
             </div>
-          </div>
+          )}
 
-          {/* Turnover Breakdown Table with View Switcher */}
-          <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col gap-4">
+          {/* Turnover Breakdown Table with View Switcher, Fit/Expand and Continuous Scroll */}
+          <div className={cn(
+            "bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl shadow-sm flex flex-col transition-all overflow-hidden p-4 sm:p-5 gap-3",
+            isTableExpanded && "flex-1 min-h-0"
+          )}>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-semibold text-foreground">Turnover & Prescriptions Breakdown</h3>
-                  <Badge variant="outline" className="text-xs bg-muted/30">
+                  <h3 className="text-sm sm:text-base font-semibold text-foreground">Turnover & Prescriptions Breakdown</h3>
+                  <Badge variant="outline" className="text-[11px] bg-muted/40 font-mono">
                     {financeViewMode === "grouped"
                       ? `${searchFilteredEncounters.length} Encounters`
                       : `${searchFilteredDetailedProducts.length} Items`}
@@ -781,38 +821,70 @@ export function ReportsClinicianView({
                 </p>
               </div>
 
-              {/* View Switcher: Grouped by encounter vs Detailed */}
-              <div className="flex items-center p-1 rounded-xl bg-muted/60 border border-border/70">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFinanceViewMode("grouped")
-                    setCurrentPage(1)
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                    financeViewMode === "grouped"
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+              {/* View Switcher, Export and Expand/Fit Controls */}
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <div className="flex items-center p-1 rounded-xl bg-muted/60 border border-border/70">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFinanceViewMode("grouped")
+                      setVisibleCount(INITIAL_VISIBLE_COUNT)
+                    }}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      financeViewMode === "grouped"
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Layers className="h-3.5 w-3.5" />
+                    Group by Encounter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFinanceViewMode("detailed")
+                      setVisibleCount(INITIAL_VISIBLE_COUNT)
+                    }}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      financeViewMode === "detailed"
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <ListFilter className="h-3.5 w-3.5" />
+                    Detailed View
+                  </button>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportCSV}
+                  className="h-8 px-2.5 text-xs rounded-xl border-border/80 gap-1 text-foreground hover:bg-muted/80 shrink-0"
                 >
-                  <Layers className="h-3.5 w-3.5" />
-                  Group by Encounter
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFinanceViewMode("detailed")
-                    setCurrentPage(1)
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                    financeViewMode === "detailed"
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  <FileSpreadsheet className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="hidden sm:inline">CSV</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleTableExpand}
+                  title={isTableExpanded ? "Collapse to normal view" : "Expand table height to fit screen"}
+                  className="h-8 px-2.5 text-xs rounded-xl border-border/80 gap-1.5 text-foreground hover:bg-muted/80 shrink-0"
                 >
-                  <ListFilter className="h-3.5 w-3.5" />
-                  Detailed View
-                </button>
+                  {isTableExpanded ? (
+                    <>
+                      <Minimize2 className="h-3.5 w-3.5 text-primary" />
+                      <span className="hidden sm:inline">Fit Normal</span>
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 className="h-3.5 w-3.5 text-primary" />
+                      <span className="hidden sm:inline">Expand Table</span>
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
 
@@ -823,13 +895,13 @@ export function ReportsClinicianView({
                 placeholder="Search by patient, ID, product, code, insurance, or department..."
                 value={searchTerm}
                 onChange={handleSearchChange}
-                className="pl-9 h-9 text-xs rounded-xl bg-background/60 border-border/70 placeholder:text-muted-foreground/60"
+                className="pl-9 h-8 text-xs rounded-xl bg-background/60 border-border/70 placeholder:text-muted-foreground/60"
               />
             </div>
 
             {/* MODE 1: Group by Encounter Table */}
             {financeViewMode === "grouped" && (
-              <div>
+              <div className={cn("flex flex-col gap-2", isTableExpanded && "flex-1 min-h-0")}>
                 {searchFilteredEncounters.length === 0 ? (
                   <div className="py-12 text-center flex flex-col items-center justify-center">
                     <div className="h-10 w-10 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground mb-2">
@@ -841,30 +913,36 @@ export function ReportsClinicianView({
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border border-border/60">
+                  <div
+                    onScroll={handleTableScroll}
+                    className={cn(
+                      "overflow-y-auto overflow-x-auto rounded-xl border border-border/60 transition-all relative scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent",
+                      isTableExpanded ? "flex-1 min-h-0 max-h-none" : "max-h-[500px] min-h-[320px]"
+                    )}
+                  >
                     <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-muted/40 border-b border-border/60 text-muted-foreground font-medium">
-                          <th className="py-3 px-4 whitespace-nowrap">Date & Time</th>
-                          <th className="py-3 px-4">Patient</th>
+                      <thead className="sticky top-0 z-20 bg-background/95 dark:bg-card/95 backdrop-blur-xl border-b border-border/70 shadow-xs">
+                        <tr className="border-b border-border/70 text-muted-foreground font-semibold">
+                          <th className="py-2.5 px-3.5 whitespace-nowrap bg-muted/80 backdrop-blur-xl">Date & Time</th>
+                          <th className="py-2.5 px-3.5 bg-muted/80 backdrop-blur-xl">Patient</th>
                           {selectedDepartment === "ALL" && availableDepartments.length > 1 && (
-                            <th className="py-3 px-4">Department</th>
+                            <th className="py-2.5 px-3.5 bg-muted/80 backdrop-blur-xl">Department</th>
                           )}
-                          <th className="py-3 px-4 min-w-[280px]">Products & Acts (In Same Cell)</th>
-                          <th className="py-3 px-4 whitespace-nowrap">Insurance / Payer</th>
-                          <th className="py-3 px-4 text-right whitespace-nowrap">Total Gross</th>
-                          <th className="py-3 px-4 text-right whitespace-nowrap">Insurance Share</th>
-                          <th className="py-3 px-4 text-right whitespace-nowrap">Patient Share</th>
-                          <th className="py-3 px-4 text-right whitespace-nowrap">Billing Status</th>
+                          <th className="py-2.5 px-3.5 min-w-[280px] bg-muted/80 backdrop-blur-xl">Products & Acts (In Same Cell)</th>
+                          <th className="py-2.5 px-3.5 whitespace-nowrap bg-muted/80 backdrop-blur-xl">Insurance / Payer</th>
+                          <th className="py-2.5 px-3.5 text-right whitespace-nowrap bg-muted/80 backdrop-blur-xl">Total Gross</th>
+                          <th className="py-2.5 px-3.5 text-right whitespace-nowrap bg-muted/80 backdrop-blur-xl">Insurance Share</th>
+                          <th className="py-2.5 px-3.5 text-right whitespace-nowrap bg-muted/80 backdrop-blur-xl">Patient Share</th>
+                          <th className="py-2.5 px-3.5 text-right whitespace-nowrap bg-muted/80 backdrop-blur-xl">Billing Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/50 text-foreground">
-                        {paginatedEncounters.map((enc) => (
+                        {visibleEncounters.map((enc) => (
                           <tr key={enc.id} className="hover:bg-muted/30 transition-colors align-top">
-                            <td className="py-3 px-4 font-mono text-muted-foreground whitespace-nowrap">
+                            <td className="py-2.5 px-3.5 font-mono text-muted-foreground whitespace-nowrap">
                               {formatTimestamp(enc.timestamp)}
                             </td>
-                            <td className="py-3 px-4">
+                            <td className="py-2.5 px-3.5">
                               <div className="font-semibold text-foreground">{enc.patientName}</div>
                               {enc.patientIdentifier && (
                                 <div className="text-[10px] text-muted-foreground font-mono">
@@ -873,22 +951,22 @@ export function ReportsClinicianView({
                               )}
                             </td>
                             {selectedDepartment === "ALL" && availableDepartments.length > 1 && (
-                              <td className="py-3 px-4 text-muted-foreground font-medium whitespace-nowrap">
+                              <td className="py-2.5 px-3.5 text-muted-foreground font-medium whitespace-nowrap">
                                 {enc.departmentName}
                               </td>
                             )}
                             {/* Products list in the same cell */}
-                            <td className="py-3 px-4">
+                            <td className="py-2.5 px-3.5">
                               {enc.products.length === 0 ? (
                                 <span className="text-muted-foreground italic text-[11px]">
                                   No prescribed line items
                                 </span>
                               ) : (
-                                <div className="flex flex-col gap-1.5">
+                                <div className="flex flex-col gap-1">
                                   {enc.products.map((prod, idx) => (
                                     <div
                                       key={idx}
-                                      className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-muted/30 border border-border/40 text-[11px]"
+                                      className="flex items-center justify-between gap-2 p-1 rounded-md bg-muted/40 border border-border/40 text-[11px]"
                                     >
                                       <div className="flex items-center gap-1.5 truncate">
                                         <span className="font-bold text-primary shrink-0">{prod.quantity}x</span>
@@ -908,7 +986,7 @@ export function ReportsClinicianView({
                               )}
                             </td>
                             {/* Insurance Used beside payment */}
-                            <td className="py-3 px-4 whitespace-nowrap">
+                            <td className="py-2.5 px-3.5 whitespace-nowrap">
                               <Badge
                                 variant="outline"
                                 className="text-[10px] py-0 px-1.5 bg-muted/40 border-border/80 font-medium"
@@ -916,16 +994,16 @@ export function ReportsClinicianView({
                                 {enc.insuranceName}
                               </Badge>
                             </td>
-                            <td className="py-3 px-4 text-right font-bold text-foreground whitespace-nowrap">
+                            <td className="py-2.5 px-3.5 text-right font-bold text-foreground whitespace-nowrap">
                               {formatRWF(enc.totalGross)}
                             </td>
-                            <td className="py-3 px-4 text-right text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">
+                            <td className="py-2.5 px-3.5 text-right text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">
                               {enc.totalInsurance > 0 ? formatRWF(enc.totalInsurance) : "—"}
                             </td>
-                            <td className="py-3 px-4 text-right text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap">
+                            <td className="py-2.5 px-3.5 text-right text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap">
                               {formatRWF(enc.totalPatient)}
                             </td>
-                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                            <td className="py-2.5 px-3.5 text-right whitespace-nowrap">
                               <Badge
                                 variant="outline"
                                 className={`text-[10px] uppercase tracking-wider py-0 px-1.5 ${
@@ -944,40 +1022,34 @@ export function ReportsClinicianView({
                   </div>
                 )}
 
-                {/* Pagination Footer */}
+                {/* Continuous Scroll Indicator / Load More Bar */}
                 {searchFilteredEncounters.length > 0 && (
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 text-xs text-muted-foreground">
-                    <div>
-                      Showing <span className="font-medium text-foreground">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span>{" "}
-                      to{" "}
-                      <span className="font-medium text-foreground">
-                        {Math.min(currentPage * ITEMS_PER_PAGE, searchFilteredEncounters.length)}
-                      </span>{" "}
-                      of <span className="font-medium text-foreground">{searchFilteredEncounters.length}</span> entries
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 px-1 text-xs text-muted-foreground shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <span>Showing</span>
+                      <span className="font-semibold text-foreground">{visibleEncounters.length}</span>
+                      <span>of</span>
+                      <span className="font-semibold text-foreground">{searchFilteredEncounters.length}</span>
+                      <span>encounters</span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        className="h-8 w-8 p-0 rounded-lg border-border/70"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <span className="text-xs px-2">
-                        Page {currentPage} of {totalEncounterPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((p) => Math.min(totalEncounterPages, p + 1))}
-                        disabled={currentPage === totalEncounterPages}
-                        className="h-8 w-8 p-0 rounded-lg border-border/70"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
+                      {hasMoreItems ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleLoadMore}
+                          className="h-7 px-3 text-xs rounded-lg text-primary hover:bg-primary/10 gap-1 font-medium"
+                        >
+                          <ChevronDown className="h-3.5 w-3.5 animate-bounce" />
+                          Scroll or Click to Load More ({searchFilteredEncounters.length - visibleEncounters.length} remaining)
+                        </Button>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 gap-1">
+                          <Check className="h-3 w-3" />
+                          All {searchFilteredEncounters.length} encounters loaded
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 )}
@@ -986,7 +1058,7 @@ export function ReportsClinicianView({
 
             {/* MODE 2: Detailed Line-by-Line Table */}
             {financeViewMode === "detailed" && (
-              <div>
+              <div className={cn("flex flex-col gap-2", isTableExpanded && "flex-1 min-h-0")}>
                 {searchFilteredDetailedProducts.length === 0 ? (
                   <div className="py-12 text-center flex flex-col items-center justify-center">
                     <div className="h-10 w-10 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground mb-2">
@@ -998,32 +1070,38 @@ export function ReportsClinicianView({
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border border-border/60">
+                  <div
+                    onScroll={handleTableScroll}
+                    className={cn(
+                      "overflow-y-auto overflow-x-auto rounded-xl border border-border/60 transition-all relative scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent",
+                      isTableExpanded ? "flex-1 min-h-0 max-h-none" : "max-h-[500px] min-h-[320px]"
+                    )}
+                  >
                     <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-muted/40 border-b border-border/60 text-muted-foreground font-medium">
-                          <th className="py-3 px-4 whitespace-nowrap">Time</th>
-                          <th className="py-3 px-4">Product / Act Name</th>
-                          <th className="py-3 px-4">Patient</th>
+                      <thead className="sticky top-0 z-20 bg-background/95 dark:bg-card/95 backdrop-blur-xl border-b border-border/70 shadow-xs">
+                        <tr className="border-b border-border/70 text-muted-foreground font-semibold">
+                          <th className="py-2.5 px-3.5 whitespace-nowrap bg-muted/80 backdrop-blur-xl">Time</th>
+                          <th className="py-2.5 px-3.5 bg-muted/80 backdrop-blur-xl">Product / Act Name</th>
+                          <th className="py-2.5 px-3.5 bg-muted/80 backdrop-blur-xl">Patient</th>
                           {selectedDepartment === "ALL" && availableDepartments.length > 1 && (
-                            <th className="py-3 px-4">Department</th>
+                            <th className="py-2.5 px-3.5 bg-muted/80 backdrop-blur-xl">Department</th>
                           )}
-                          <th className="py-3 px-4 text-center">Qty</th>
-                          <th className="py-3 px-4 text-right">Unit Price</th>
-                          <th className="py-3 px-4 whitespace-nowrap">Insurance Used</th>
-                          <th className="py-3 px-4 text-right">Gross Total</th>
-                          <th className="py-3 px-4 text-right">Insurance Share</th>
-                          <th className="py-3 px-4 text-right">Patient Share</th>
-                          <th className="py-3 px-4 text-right">Status</th>
+                          <th className="py-2.5 px-3.5 text-center bg-muted/80 backdrop-blur-xl">Qty</th>
+                          <th className="py-2.5 px-3.5 text-right bg-muted/80 backdrop-blur-xl">Unit Price</th>
+                          <th className="py-2.5 px-3.5 whitespace-nowrap bg-muted/80 backdrop-blur-xl">Insurance Used</th>
+                          <th className="py-2.5 px-3.5 text-right bg-muted/80 backdrop-blur-xl">Gross Total</th>
+                          <th className="py-2.5 px-3.5 text-right bg-muted/80 backdrop-blur-xl">Insurance Share</th>
+                          <th className="py-2.5 px-3.5 text-right bg-muted/80 backdrop-blur-xl">Patient Share</th>
+                          <th className="py-2.5 px-3.5 text-right bg-muted/80 backdrop-blur-xl">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/50 text-foreground">
-                        {paginatedDetailedProducts.map((item) => (
+                        {visibleDetailedProducts.map((item) => (
                           <tr key={item.id} className="hover:bg-muted/30 transition-colors">
-                            <td className="py-3 px-4 font-mono text-muted-foreground whitespace-nowrap">
+                            <td className="py-2.5 px-3.5 font-mono text-muted-foreground whitespace-nowrap">
                               {formatTimestamp(item.timestamp)}
                             </td>
-                            <td className="py-3 px-4 font-semibold text-foreground">
+                            <td className="py-2.5 px-3.5 font-semibold text-foreground">
                               {item.productName}
                               {item.productCode && (
                                 <span className="block text-[10px] text-muted-foreground font-mono font-normal">
@@ -1031,7 +1109,7 @@ export function ReportsClinicianView({
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-4">
+                            <td className="py-2.5 px-3.5">
                               <div className="font-medium text-foreground">{item.patientName}</div>
                               {item.patientIdentifier && (
                                 <div className="text-[10px] text-muted-foreground font-mono">
@@ -1040,13 +1118,13 @@ export function ReportsClinicianView({
                               )}
                             </td>
                             {selectedDepartment === "ALL" && availableDepartments.length > 1 && (
-                              <td className="py-3 px-4 text-muted-foreground">{item.departmentName}</td>
+                              <td className="py-2.5 px-3.5 text-muted-foreground">{item.departmentName}</td>
                             )}
-                            <td className="py-3 px-4 text-center font-medium">{item.quantity}</td>
-                            <td className="py-3 px-4 text-right text-muted-foreground">
+                            <td className="py-2.5 px-3.5 text-center font-medium">{item.quantity}</td>
+                            <td className="py-2.5 px-3.5 text-right text-muted-foreground">
                               {formatRWF(item.unitPrice)}
                             </td>
-                            <td className="py-3 px-4 whitespace-nowrap">
+                            <td className="py-2.5 px-3.5 whitespace-nowrap">
                               <Badge
                                 variant="outline"
                                 className="text-[10px] py-0 px-1.5 bg-muted/40 border-border/80"
@@ -1054,16 +1132,16 @@ export function ReportsClinicianView({
                                 {item.insuranceName || "Private / Cash"}
                               </Badge>
                             </td>
-                            <td className="py-3 px-4 text-right font-bold text-foreground whitespace-nowrap">
+                            <td className="py-2.5 px-3.5 text-right font-bold text-foreground whitespace-nowrap">
                               {formatRWF(item.lineTotal)}
                             </td>
-                            <td className="py-3 px-4 text-right text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">
+                            <td className="py-2.5 px-3.5 text-right text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">
                               {item.insuranceCoveredAmount > 0 ? formatRWF(item.insuranceCoveredAmount) : "—"}
                             </td>
-                            <td className="py-3 px-4 text-right text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap">
+                            <td className="py-2.5 px-3.5 text-right text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap">
                               {formatRWF(item.patientPayableAmount)}
                             </td>
-                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                            <td className="py-2.5 px-3.5 text-right whitespace-nowrap">
                               <Badge
                                 variant="outline"
                                 className={`text-[10px] uppercase tracking-wider py-0 px-1.5 ${
@@ -1084,40 +1162,34 @@ export function ReportsClinicianView({
                   </div>
                 )}
 
-                {/* Pagination Footer */}
+                {/* Continuous Scroll Indicator / Load More Bar */}
                 {searchFilteredDetailedProducts.length > 0 && (
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 text-xs text-muted-foreground">
-                    <div>
-                      Showing <span className="font-medium text-foreground">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span>{" "}
-                      to{" "}
-                      <span className="font-medium text-foreground">
-                        {Math.min(currentPage * ITEMS_PER_PAGE, searchFilteredDetailedProducts.length)}
-                      </span>{" "}
-                      of <span className="font-medium text-foreground">{searchFilteredDetailedProducts.length}</span> entries
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 px-1 text-xs text-muted-foreground shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <span>Showing</span>
+                      <span className="font-semibold text-foreground">{visibleDetailedProducts.length}</span>
+                      <span>of</span>
+                      <span className="font-semibold text-foreground">{searchFilteredDetailedProducts.length}</span>
+                      <span>items</span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        className="h-8 w-8 p-0 rounded-lg border-border/70"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <span className="text-xs px-2">
-                        Page {currentPage} of {totalDetailedPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((p) => Math.min(totalDetailedPages, p + 1))}
-                        disabled={currentPage === totalDetailedPages}
-                        className="h-8 w-8 p-0 rounded-lg border-border/70"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
+                      {hasMoreItems ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleLoadMore}
+                          className="h-7 px-3 text-xs rounded-lg text-primary hover:bg-primary/10 gap-1 font-medium"
+                        >
+                          <ChevronDown className="h-3.5 w-3.5 animate-bounce" />
+                          Scroll or Click to Load More ({searchFilteredDetailedProducts.length - visibleDetailedProducts.length} remaining)
+                        </Button>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 gap-1">
+                          <Check className="h-3 w-3" />
+                          All {searchFilteredDetailedProducts.length} items loaded
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 )}

@@ -36,7 +36,7 @@ export function DashboardStats({ showMetrics, loading, totalOpen = 0, totalCompl
         <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-lg hover:shadow-xl transition-all duration-200">
           <div className="flex items-start justify-between gap-2 md:gap-3">
             <div className="min-w-0 w-full md:w-auto">
-              <p className="hidden md:block text-xs md:text-sm text-muted-foreground mb-1 md:mb-2 font-medium truncate">Completed</p>
+              <p className="hidden md:block text-xs md:text-sm text-muted-foreground mb-1 md:mb-2 font-medium truncate">Discharged</p>
               {loading ? <Skeleton className="h-7 md:h-9 w-12 md:w-16" /> : <p className="text-xl md:text-3xl font-bold text-foreground text-center md:text-left">{totalCompleted}</p>}
             </div>
             <div className="hidden md:block bg-primary/10 p-2 md:p-3 rounded-xl md:rounded-2xl flex-shrink-0">
@@ -45,7 +45,7 @@ export function DashboardStats({ showMetrics, loading, totalOpen = 0, totalCompl
           </div>
         </div>
         <div className="md:hidden text-center">
-          <span className="inline-block px-2.5 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full border border-primary/20">Completed</span>
+          <span className="inline-block px-2.5 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full border border-primary/20">Discharged</span>
         </div>
       </div>
       <div className="flex flex-col gap-1.5">

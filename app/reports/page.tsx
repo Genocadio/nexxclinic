@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useUserReports } from "@/hooks/reports"
 import { calculateUserReports, type ReportPeriod, type UserReportsData } from "@/lib/user-reports-calculator"
 import { RoleName } from "@/lib/api-types"
+import { cn } from "@/lib/utils"
 import {
   ReportsClinicianSkeleton,
   ReportsFinanceSkeleton,
@@ -219,14 +220,25 @@ export default function ReportsPage() {
     )
   }
 
+  // Clinician table expanded state for upward expansion
+  const [isClinicianTableExpanded, setIsClinicianTableExpanded] = useState(false)
+
   // Determine if top control bar should be rendered
-  const showTopBar = !isSingleRoleUser || (activeTab !== "clinician" && activeTab !== "finance")
+  const showTopBar = (!isSingleRoleUser || (activeTab !== "clinician" && activeTab !== "finance")) && !isClinicianTableExpanded
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className={cn(
+      "bg-background text-foreground flex flex-col",
+      isClinicianTableExpanded ? "h-screen overflow-hidden" : "min-h-screen"
+    )}>
       <Header doctor={doctor} />
 
-      <main className="flex-1 container mx-auto px-4 py-6 sm:px-6 max-w-7xl space-y-6">
+      <main className={cn(
+        "container mx-auto px-4 sm:px-6 max-w-7xl transition-all",
+        isClinicianTableExpanded
+          ? "py-2.5 flex-1 flex flex-col min-h-0 overflow-hidden"
+          : "py-6 space-y-6 flex-1"
+      )}>
         {/* Top Control Bar: Rendered for multi-role users or single-role non-clinician tabs */}
         {showTopBar && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-card/80 backdrop-blur-xl border border-border/70 p-3 rounded-2xl shadow-sm">
@@ -361,7 +373,11 @@ export default function ReportsPage() {
             {activeTab === "finance" ? (
               <ReportsFinanceView data={reportData} />
             ) : activeTab === "clinician" ? (
-              <ReportsClinicianView data={reportData} />
+              <ReportsClinicianView
+                data={reportData}
+                isTableExpanded={isClinicianTableExpanded}
+                onToggleTableExpand={setIsClinicianTableExpanded}
+              />
             ) : (
               <>
                 {/* KPI Metric Cards */}

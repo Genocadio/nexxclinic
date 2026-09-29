@@ -26,8 +26,10 @@ import {
   visitProductsFullySettled,
 } from "@/lib/visit-product-utils"
 import { useLazyQuery, useMutation } from "@apollo/client"
-import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
+import { GET_BILL_BY_VISIT_QUERY, VISITS_QUERY } from "@/hooks/queries"
 import { FINALISE_VISIT_MUTATION } from "@/hooks/mutations/visits"
+import { mapGqlVisitListItem } from "@/lib/gql-mappers"
+import { normalizeVisitVitalSigns } from "@/hooks/visits/vital-signs"
 import Header from "@/components/header"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
@@ -79,12 +81,22 @@ import {
   ChevronDown,
   X,
   Ban,
+  RotateCcw,
+  Database,
+  Calendar,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
 import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
 import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet"
 import { VisitSettingsPanel } from "@/components/manager/visit-settings-panel"
+import { getPatientAge } from "@/lib/patient-display-utils"
+import {
+  DashboardFilterPopover,
+  type AnswersFilterType,
+  type GenderFilterType,
+  type AgeRangeType,
+} from "@/components/dashboard/dashboard-filter-card"
 export default function DashboardPage() {
   const router = useRouter()
   const { doctor } = useAuth()
@@ -129,36 +141,33 @@ export default function DashboardPage() {
   const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [answersFilter, setAnswersFilter] = useState<"all" | "finalised" | "pending">("all")
-  const [answersFilterExpanded, setAnswersFilterExpanded] = useState(false)
-  const collapseTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const [answersFilter, setAnswersFilter] = useState<AnswersFilterType>("all")
+  const [genderFilter, setGenderFilter] = useState<GenderFilterType>("all")
+  const [ageRange, setAgeRange] = useState<AgeRangeType>("all")
+  const [customAgeMin, setCustomAgeMin] = useState<string>("")
+  const [customAgeMax, setCustomAgeMax] = useState<string>("")
+  const [dobFilter, setDobFilter] = useState<string>("")
+  const [searchAllHistorical, setSearchAllHistorical] = useState(false)
+  const [backendHistoricalVisits, setBackendHistoricalVisits] = useState<Visit[]>([])
 
-  const handleSelectAnswersFilter = (val: "all" | "finalised" | "pending") => {
-    setAnswersFilter(val)
-    if (collapseTimerRef.current) {
-      clearTimeout(collapseTimerRef.current)
-    }
-    collapseTimerRef.current = setTimeout(() => {
-      setAnswersFilterExpanded(false)
-    }, 2000)
+  const activeFilterCount = useMemo(() => {
+    let count = 0
+    if (answersFilter !== "all") count++
+    if (genderFilter !== "all") count++
+    if (ageRange !== "all" || dobFilter.trim() !== "") count++
+    if (searchAllHistorical) count++
+    return count
+  }, [answersFilter, genderFilter, ageRange, dobFilter, searchAllHistorical])
+
+  const handleResetFilters = () => {
+    setAnswersFilter("all")
+    setGenderFilter("all")
+    setAgeRange("all")
+    setCustomAgeMin("")
+    setCustomAgeMax("")
+    setDobFilter("")
+    setSearchAllHistorical(false)
   }
-
-  // Auto-collapse after 5 seconds when opened
-  useEffect(() => {
-    if (answersFilterExpanded) {
-      if (collapseTimerRef.current) {
-        clearTimeout(collapseTimerRef.current)
-      }
-      collapseTimerRef.current = setTimeout(() => {
-        setAnswersFilterExpanded(false)
-      }, 5000)
-    }
-    return () => {
-      if (collapseTimerRef.current) {
-        clearTimeout(collapseTimerRef.current)
-      }
-    }
-  }, [answersFilterExpanded])
   const [mobileSearchActive, setMobileSearchActive] = useState(false)
   const [showMobileActionSheet, setShowMobileActionSheet] = useState(false)
   useEffect(() => {
@@ -371,14 +380,14 @@ export default function DashboardPage() {
       return [
         { id: "NEW", label: "New" },
         { id: "IN_PROGRESS", label: "In Progress" },
-        { id: "COMPLETED", label: "Completed" },
+        { id: "COMPLETED", label: "Discharged" },
       ]
     }
     if (isSingleRoleFinance) {
       return [
         { id: "NEW", label: "New" },
         { id: "IN_PROGRESS", label: "In Progress" },
-        { id: "COMPLETED", label: "Completed" },
+        { id: "COMPLETED", label: "Discharged" },
       ]
     }
     const tabs: Array<{ id: string; label: string }> = [
@@ -392,7 +401,7 @@ export default function DashboardPage() {
     }
     tabs.push(
       { id: "IN_PROGRESS", label: "In Progress" },
-      { id: "COMPLETED", label: "Completed" }
+      { id: "COMPLETED", label: "Discharged" }
     )
     return tabs
   }, [isSingleRoleClinician, isSingleRoleFinance, isMultiRoleWithFinance, isMultiRoleWithClinician])
@@ -402,6 +411,159 @@ export default function DashboardPage() {
       setStatusFilter(availableTabs[0].id)
     }
   }, [availableTabs, statusFilter])
+
+  // Historical Discharged / Completed Visits Infinite Continuous Loading
+  const [getOlderCompletedVisits, { loading: loadingOlderCompleted }] = useLazyQuery(VISITS_QUERY, {
+    fetchPolicy: "network-only",
+  })
+  const [completedPage, setCompletedPage] = useState(0)
+  const [hasMoreCompleted, setHasMoreCompleted] = useState(true)
+  const [extraCompletedVisits, setExtraCompletedVisits] = useState<Visit[]>([])
+  const isFetchingCompletedRef = useRef(false)
+
+  const fetchNextCompletedPage = async (pageToFetch: number) => {
+    if (isFetchingCompletedRef.current) return
+    if (!hasMoreCompleted && pageToFetch > 0) return
+    isFetchingCompletedRef.current = true
+    try {
+      const res = await getOlderCompletedVisits({
+        variables: {
+          input: {
+            status: "COMPLETED",
+            page: pageToFetch,
+            size: 20,
+          },
+        },
+      })
+      const fetchedRaw = (res.data?.visits?.data || []) as any[]
+      const totalPages = res.data?.visits?.pagination?.totalPages || 0
+      if (pageToFetch >= totalPages - 1 || fetchedRaw.length === 0) {
+        setHasMoreCompleted(false)
+      }
+      const mapped: Visit[] = fetchedRaw.map((v) => {
+        const m = mapGqlVisitListItem(v)
+        m.vitalSigns = normalizeVisitVitalSigns(v.vitalSigns || [])
+        return m
+      })
+      setExtraCompletedVisits((prev) => {
+        const existingIds = new Set(prev.map((v) => v.id))
+        const combined = [...prev]
+        for (const item of mapped) {
+          if (!existingIds.has(item.id)) {
+            combined.push(item)
+            existingIds.add(item.id)
+          }
+        }
+        return combined
+      })
+      setCompletedPage(pageToFetch)
+    } catch (err) {
+      console.error("Failed to fetch older completed visits:", err)
+    } finally {
+      isFetchingCompletedRef.current = false
+    }
+  }
+
+  // When switching to COMPLETED tab, ensure initial page of completed visits is loaded
+  useEffect(() => {
+    if (statusFilter === "COMPLETED" && extraCompletedVisits.length === 0) {
+      void fetchNextCompletedPage(0)
+    }
+  }, [statusFilter])
+
+  // Sentinel ref for automatic continuous scroll loading via IntersectionObserver
+  const completedSentinelRef = useRef<HTMLDivElement | null>(null)
+
+  // IntersectionObserver for seamless auto-fetching as user scrolls near the bottom of Discharged visits
+  useEffect(() => {
+    if (statusFilter !== "COMPLETED" || !hasMoreCompleted) return
+    const sentinel = completedSentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries
+        if (entry.isIntersecting && !isFetchingCompletedRef.current && hasMoreCompleted) {
+          void fetchNextCompletedPage(completedPage + 1)
+        }
+      },
+      { root: null, rootMargin: "350px", threshold: 0.05 }
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [statusFilter, completedPage, hasMoreCompleted])
+
+  const handleVisitsContainerScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (statusFilter !== "COMPLETED" || !hasMoreCompleted || isFetchingCompletedRef.current) return
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
+    if (scrollHeight - scrollTop - clientHeight < 300) {
+      void fetchNextCompletedPage(completedPage + 1)
+    }
+  }
+
+  // Deep Historical Backend Search Query
+  const [fetchHistoricalVisits, { loading: loadingHistoricalSearch }] = useLazyQuery(VISITS_QUERY, {
+    fetchPolicy: "network-only",
+  })
+
+  useEffect(() => {
+    const shouldFetch = searchAllHistorical || (statusFilter === "COMPLETED" && Boolean(searchQuery.trim()))
+    if (!shouldFetch) {
+      if (!searchAllHistorical) {
+        setBackendHistoricalVisits([])
+      }
+      return
+    }
+
+    let isMounted = true
+    const doFetch = async () => {
+      try {
+        const res = await fetchHistoricalVisits({
+          variables: {
+            input: {
+              patientName: searchQuery.trim() || undefined,
+              status:
+                statusFilter !== "all" &&
+                statusFilter !== "NEW" &&
+                statusFilter !== "BILLING" &&
+                statusFilter !== "CONSULTATION"
+                  ? (statusFilter as any)
+                  : undefined,
+              recentDays: 0, // 0 = all historical records from backend
+              page: 0,
+              size: 150,
+            },
+          },
+        })
+        if (!isMounted) return
+        const raw = (res.data?.visits?.data || []) as any[]
+        const mapped: Visit[] = raw.map((v) => {
+          const m = mapGqlVisitListItem(v)
+          m.vitalSigns = normalizeVisitVitalSigns(v.vitalSigns || [])
+          return m
+        })
+        setBackendHistoricalVisits(mapped)
+      } catch (err) {
+        console.error("Historical visits query error:", err)
+      }
+    }
+
+    // Immediate execution when toggling filter or tab, minimal debounce for typing
+    const delay = searchQuery.trim() ? 150 : 0
+    if (delay === 0) {
+      void doFetch()
+      return () => {
+        isMounted = false
+      }
+    }
+
+    const timer = setTimeout(doFetch, delay)
+    return () => {
+      isMounted = false
+      clearTimeout(timer)
+    }
+  }, [searchAllHistorical, searchQuery, statusFilter, fetchHistoricalVisits])
   // Modal states
   const [showPatientRegistrationModal, setShowPatientRegistrationModal] =
     useState(false)
@@ -961,32 +1123,101 @@ export default function DashboardPage() {
       allDepts,
     }
   }
-  const filterCounts = useMemo(() => {
-    const serverVisitIds = new Set(visits.map((visit) => visit.id))
-    const baseList = [
-      ...locallyCreatedVisits.filter((visit) => !serverVisitIds.has(visit.id)),
+  const combinedVisitsList = useMemo(() => {
+    const serverVisitIds = new Set<string>()
+    const baseList: Visit[] = []
+    const sources = [
+      ...locallyCreatedVisits,
       ...visits,
+      ...extraCompletedVisits,
+      ...backendHistoricalVisits,
     ]
-    let searchedList = baseList
-    if (searchQuery) {
-      searchedList = searchedList.filter((visit) =>
-        `${visit.patient.firstName} ${visit.patient.lastName}`
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()),
-      )
-    }
-
-    if (canQueryAnswerState && answersFilter !== "all") {
-      if (answersFilter === "finalised") {
-        searchedList = searchedList.filter(
-          (visit) => getVisitAnswerState(visit).isFinalised,
-        )
-      } else if (answersFilter === "pending") {
-        searchedList = searchedList.filter(
-          (visit) => getVisitAnswerState(visit).isPending,
-        )
+    for (const visit of sources) {
+      if (visit && visit.id && !serverVisitIds.has(visit.id)) {
+        serverVisitIds.add(visit.id)
+        baseList.push(visit)
       }
     }
+    return baseList
+  }, [locallyCreatedVisits, visits, extraCompletedVisits, backendHistoricalVisits])
+
+  const applyGeneralFilters = (list: Visit[]) => {
+    let result = list
+
+    // 1. Search Query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim()
+      result = result.filter((visit) => {
+        const name = `${visit.patient?.firstName || ""} ${visit.patient?.lastName || ""}`.toLowerCase()
+        const idStr = String(visit.patient?.patientIdentifier || "").toLowerCase()
+        return name.includes(q) || idStr.includes(q)
+      })
+    }
+
+    // 2. Consultation Answers Filter
+    if (canQueryAnswerState && answersFilter !== "all") {
+      if (answersFilter === "finalised") {
+        result = result.filter((visit) => getVisitAnswerState(visit).isFinalised)
+      } else if (answersFilter === "pending") {
+        result = result.filter((visit) => getVisitAnswerState(visit).isPending)
+      }
+    }
+
+    // 3. Gender Filter
+    if (genderFilter !== "all") {
+      result = result.filter((visit) => {
+        const g = String(visit.patient?.gender || "").toUpperCase()
+        if (genderFilter === "OTHER") {
+          return g !== "MALE" && g !== "FEMALE"
+        }
+        return g === genderFilter
+      })
+    }
+
+    // 4. Age & Date of Birth Filter
+    if (dobFilter.trim()) {
+      const q = dobFilter.trim().toLowerCase()
+      result = result.filter((visit) => {
+        const patientDob = String(visit.patient?.dateOfBirth || "").trim().toLowerCase()
+        if (!patientDob) return false
+        if (patientDob.includes(q)) return true
+        const parsed = new Date(patientDob)
+        if (!isNaN(parsed.getTime()) && parsed.getFullYear().toString() === q) {
+          return true
+        }
+        return false
+      })
+    } else if (ageRange !== "all") {
+      result = result.filter((visit) => {
+        const patientAge =
+          getPatientAge(visit.patient) ??
+          (typeof visit.patient?.age === "number" ? visit.patient.age : null)
+        if (patientAge === null || patientAge === undefined) return false
+        if (ageRange === "pediatric") {
+          return patientAge >= 0 && patientAge <= 17
+        }
+        if (ageRange === "adult") {
+          return patientAge >= 18 && patientAge <= 64
+        }
+        if (ageRange === "senior") {
+          return patientAge >= 65
+        }
+        if (ageRange === "custom") {
+          const min = customAgeMin.trim() !== "" ? Number(customAgeMin) : null
+          const max = customAgeMax.trim() !== "" ? Number(customAgeMax) : null
+          if (min !== null && !isNaN(min) && patientAge < min) return false
+          if (max !== null && !isNaN(max) && patientAge > max) return false
+          return true
+        }
+        return true
+      })
+    }
+
+    return result
+  }
+
+  const filterCounts = useMemo(() => {
+    const searchedList = applyGeneralFilters(combinedVisitsList)
 
     const counts: Record<string, number> = {
       all: searchedList.length,
@@ -1006,10 +1237,14 @@ export default function DashboardPage() {
     }
     return counts
   }, [
-    visits,
-    locallyCreatedVisits,
+    combinedVisitsList,
     searchQuery,
     answersFilter,
+    genderFilter,
+    ageRange,
+    customAgeMin,
+    customAgeMax,
+    dobFilter,
     canQueryAnswerState,
     isSingleRoleClinician,
     isSingleRoleFinance,
@@ -1018,68 +1253,49 @@ export default function DashboardPage() {
   ])
 
   const allVisits = useMemo(() => {
-    const serverVisitIds = new Set(visits.map((visit) => visit.id))
-    let filtered = [
-      ...locallyCreatedVisits.filter((visit) => !serverVisitIds.has(visit.id)),
-      ...visits,
-    ]
-    if (searchQuery) {
-      filtered = filtered.filter((visit) =>
-        `${visit.patient.firstName} ${visit.patient.lastName}`
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()),
-      )
-    }
-
-    if (canQueryAnswerState && answersFilter !== "all") {
-      if (answersFilter === "finalised") {
-        filtered = filtered.filter(
-          (visit) => getVisitAnswerState(visit).isFinalised,
-        )
-      } else if (answersFilter === "pending") {
-        filtered = filtered.filter(
-          (visit) => getVisitAnswerState(visit).isPending,
-        )
-      }
-    }
+    const filtered = applyGeneralFilters(combinedVisitsList)
 
     if (isSingleRoleClinician) {
       if (statusFilter === "NEW") {
-        filtered = filtered.filter(isClinicianNew)
+        return filtered.filter(isClinicianNew)
       } else if (statusFilter === "IN_PROGRESS") {
-        filtered = filtered.filter(isClinicianInProgress)
+        return filtered.filter(isClinicianInProgress)
       } else if (statusFilter === "COMPLETED") {
-        filtered = filtered.filter(isVisitCompleted)
+        return filtered.filter(isVisitCompleted)
       }
     } else if (isSingleRoleFinance) {
       if (statusFilter === "NEW") {
-        filtered = filtered.filter(isFinanceNew)
+        return filtered.filter(isFinanceNew)
       } else if (statusFilter === "IN_PROGRESS") {
-        filtered = filtered.filter(isFinanceInProgress)
+        return filtered.filter(isFinanceInProgress)
       } else if (statusFilter === "COMPLETED") {
-        filtered = filtered.filter(isVisitCompleted)
+        return filtered.filter(isVisitCompleted)
       }
     } else {
       if (statusFilter === "BILLING") {
-        filtered = filtered.filter(isVisitBilling)
+        return filtered.filter(isVisitBilling)
       } else if (statusFilter === "CONSULTATION") {
-        filtered = filtered.filter(isVisitConsultation)
+        return filtered.filter(isVisitConsultation)
       } else if (statusFilter === "IN_PROGRESS") {
-        filtered = filtered.filter(isVisitInProgress)
+        return filtered.filter(isVisitInProgress)
       } else if (statusFilter === "COMPLETED") {
-        filtered = filtered.filter(isVisitCompleted)
+        return filtered.filter(isVisitCompleted)
       } else if (statusFilter !== "all") {
-        filtered = filtered.filter((visit) => visit.status === statusFilter)
+        return filtered.filter((visit) => visit.status === statusFilter)
       }
     }
 
     return filtered
   }, [
-    visits,
-    locallyCreatedVisits,
+    combinedVisitsList,
     searchQuery,
-    statusFilter,
     answersFilter,
+    genderFilter,
+    ageRange,
+    customAgeMin,
+    customAgeMax,
+    dobFilter,
+    statusFilter,
     canQueryAnswerState,
     isSingleRoleClinician,
     isSingleRoleFinance,
@@ -1413,32 +1629,6 @@ export default function DashboardPage() {
                             ))}
                           </select>
                         </div>
-                        {canQueryAnswerState && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current)
-                              setAnswersFilterExpanded((prev) => !prev)
-                            }}
-                            className={`relative inline-flex items-center justify-center h-10 w-10 rounded-full border flex-shrink-0 transition-all ${
-                              answersFilter === "finalised"
-                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
-                                : answersFilter === "pending"
-                                  ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
-                                  : "bg-card/80 dark:bg-slate-900/70 border-border/50 text-muted-foreground"
-                            }`}
-                            title="Filter consultation answers"
-                            aria-label="Filter consultation answers"
-                          >
-                            <FileText className="w-4 h-4" />
-                            {answersFilter === "finalised" && (
-                              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-background" />
-                            )}
-                            {answersFilter === "pending" && (
-                              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-background" />
-                            )}
-                          </button>
-                        )}
                         <Button
                           type="button"
                           size="icon"
@@ -1477,47 +1667,29 @@ export default function DashboardPage() {
                         >
                           <Search className="w-4 h-4" />
                         </Button>
+                        <DashboardFilterPopover
+                          canQueryAnswerState={canQueryAnswerState}
+                          answersFilter={answersFilter}
+                          setAnswersFilter={setAnswersFilter}
+                          genderFilter={genderFilter}
+                          setGenderFilter={setGenderFilter}
+                          ageRange={ageRange}
+                          setAgeRange={setAgeRange}
+                          customAgeMin={customAgeMin}
+                          setCustomAgeMin={setCustomAgeMin}
+                          customAgeMax={customAgeMax}
+                          setCustomAgeMax={setCustomAgeMax}
+                          dobFilter={dobFilter}
+                          setDobFilter={setDobFilter}
+                          searchAllHistorical={searchAllHistorical}
+                          setSearchAllHistorical={setSearchAllHistorical}
+                          showDatabaseSearch={statusFilter === "COMPLETED"}
+                          activeFilterCount={activeFilterCount}
+                          handleResetFilters={handleResetFilters}
+                          loadingHistoricalSearch={loadingHistoricalSearch}
+                          matchCount={filterCounts.all}
+                        />
                       </div>
-
-                      {canQueryAnswerState && answersFilterExpanded && (
-                        <div className="flex items-center p-0.5 rounded-full bg-muted/70 dark:bg-slate-800/80 border border-border/50 gap-0.5 text-[11px] font-medium animate-in fade-in-0 duration-150">
-                          <button
-                            type="button"
-                            onClick={() => handleSelectAnswersFilter("all")}
-                            className={`flex-1 py-1 rounded-full text-center transition-all ${
-                              answersFilter === "all"
-                                ? "bg-background text-foreground shadow-xs font-semibold"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            All
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSelectAnswersFilter("finalised")}
-                            className={`flex-1 py-1 rounded-full text-center transition-all flex items-center justify-center gap-1 ${
-                              answersFilter === "finalised"
-                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-semibold"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
-                            Finalised
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSelectAnswersFilter("pending")}
-                            className={`flex-1 py-1 rounded-full text-center transition-all flex items-center justify-center gap-1 ${
-                              answersFilter === "pending"
-                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 font-semibold"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                            Draft / Pending
-                          </button>
-                        </div>
-                      )}
                     </div>
                   ) : null}
                 </div>
@@ -1535,92 +1707,28 @@ export default function DashboardPage() {
                         className="w-full pl-11 pr-4 py-2 bg-card/80 dark:bg-slate-900/70 backdrop-blur-sm border border-border/50 dark:border-slate-800 rounded-full text-foreground dark:text-slate-100 placeholder-muted-foreground dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 shadow-sm text-sm"
                       />
                     </div>
-                    {canQueryAnswerState && (
-                      answersFilterExpanded ? (
-                        <div className="inline-flex items-center p-1 rounded-full bg-muted/70 dark:bg-slate-800/80 border border-border/50 gap-1 text-xs font-medium shrink-0 animate-in fade-in-0 duration-150 shadow-xs">
-                          <button
-                            type="button"
-                            onClick={() => handleSelectAnswersFilter("all")}
-                            className={`px-3 py-1.5 rounded-full transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
-                              answersFilter === "all"
-                                ? "bg-background text-foreground shadow-xs font-semibold"
-                                : "text-muted-foreground hover:text-foreground"
-                            }`}
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            All Answers
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSelectAnswersFilter("finalised")}
-                            className={`px-3 py-1.5 rounded-full transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
-                              answersFilter === "finalised"
-                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shadow-xs font-semibold"
-                                : "text-muted-foreground hover:text-foreground"
-                            }`}
-                          >
-                            <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
-                            Finalised Only
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSelectAnswersFilter("pending")}
-                            className={`px-3 py-1.5 rounded-full transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
-                              answersFilter === "pending"
-                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shadow-xs font-semibold"
-                                : "text-muted-foreground hover:text-foreground"
-                            }`}
-                          >
-                            <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-                            Draft / Pending Only
-                          </button>
-                        </div>
-                      ) : (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current)
-                                setAnswersFilterExpanded(true)
-                              }}
-                              className={`relative inline-flex items-center justify-center h-9 w-9 rounded-full border transition-all duration-150 cursor-pointer shadow-2xs ${
-                                answersFilter === "finalised"
-                                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
-                                  : answersFilter === "pending"
-                                    ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
-                                    : "bg-card/80 dark:bg-slate-900/70 border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                              }`}
-                              title={
-                                answersFilter === "finalised"
-                                  ? "Filter: Finalised Only (Click to change)"
-                                  : answersFilter === "pending"
-                                    ? "Filter: Draft / Pending Only (Click to change)"
-                                    : "Filter consultation answers (Click to expand)"
-                              }
-                              aria-label="Filter consultation answers"
-                            >
-                              <FileText className="w-4 h-4" />
-                              {answersFilter === "finalised" && (
-                                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-background" />
-                              )}
-                              {answersFilter === "pending" && (
-                                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-background" />
-                              )}
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="text-xs">
-                              {answersFilter === "finalised"
-                                ? "Filter: Finalised Only (Click to change)"
-                                : answersFilter === "pending"
-                                  ? "Filter: Draft / Pending Only (Click to change)"
-                                  : "Filter consultation answers (Click to expand)"}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )
-                    )}
+                    <DashboardFilterPopover
+                      canQueryAnswerState={canQueryAnswerState}
+                      answersFilter={answersFilter}
+                      setAnswersFilter={setAnswersFilter}
+                      genderFilter={genderFilter}
+                      setGenderFilter={setGenderFilter}
+                      ageRange={ageRange}
+                      setAgeRange={setAgeRange}
+                      customAgeMin={customAgeMin}
+                      setCustomAgeMin={setCustomAgeMin}
+                      customAgeMax={customAgeMax}
+                      setCustomAgeMax={setCustomAgeMax}
+                      dobFilter={dobFilter}
+                      setDobFilter={setDobFilter}
+                      searchAllHistorical={searchAllHistorical}
+                      setSearchAllHistorical={setSearchAllHistorical}
+                      showDatabaseSearch={statusFilter === "COMPLETED"}
+                      activeFilterCount={activeFilterCount}
+                      handleResetFilters={handleResetFilters}
+                      loadingHistoricalSearch={loadingHistoricalSearch}
+                      matchCount={filterCounts.all}
+                    />
                     <Button
                       type="button"
                       size="icon"
@@ -1654,6 +1762,7 @@ export default function DashboardPage() {
 
               {/* Visits list - scrollable inside the container */}
               <div
+                onScroll={handleVisitsContainerScroll}
                 className={`flex-1 min-h-0 overflow-y-auto p-4 md:p-6 ${mobileSearchActive ? "hidden md:block" : ""}`}
               >
                 {/* Visits / Patients view */}
@@ -2830,6 +2939,20 @@ export default function DashboardPage() {
                       })
                     )}
                   </div>
+
+                  {/* Discharged Tab Automatic Continuous Scroll Sentinel & Status */}
+                  {statusFilter === "COMPLETED" && (
+                    <div
+                      ref={completedSentinelRef}
+                      className="py-3 flex items-center justify-center min-h-[36px] w-full"
+                    >
+                      {loadingOlderCompleted ? (
+                        <div className="flex items-center justify-center p-2 rounded-full bg-card/60 backdrop-blur-xs border border-border/40 text-primary shadow-xs">
+                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
               </div>
             </div>
           </div>
