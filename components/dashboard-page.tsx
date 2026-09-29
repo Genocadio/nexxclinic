@@ -532,7 +532,7 @@ export default function DashboardPage() {
                   : undefined,
               recentDays: 0, // 0 = all historical records from backend
               page: 0,
-              size: 150,
+              size: 50,
             },
           },
         })
