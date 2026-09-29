@@ -315,8 +315,11 @@ export const VISITS_QUERY = gql`
         patient {
           id
           firstName
+          middleName
           lastName
           patientIdentifier
+          gender
+          dateOfBirth
           primaryPhoneNumber
         }
         linkedInsurances {
@@ -355,7 +358,27 @@ export const VISITS_QUERY = gql`
           updatedAt
           answerId
           hasFinalizedConsultationAnswers
-          hasBillableProducts
+          billing {
+            id
+            status
+            totalAmount
+            insuranceCoveredAmount
+            patientPayableAmount
+            paidAmount
+            outstandingAmount
+            insuranceBillings {
+              id
+              status
+              totalAmount
+              insuranceCoveredAmount
+              patientPayableAmount
+              paidAmount
+              outstandingAmount
+              outstandingType
+              outstandingReason
+              billingDate
+            }
+          }
           products {
             id
             product {
@@ -391,6 +414,14 @@ export const VISITS_QUERY = gql`
               firstName
               lastName
             }
+            billingItem {
+              id
+              unitPriceSnapshot
+              quantitySnapshot
+              insuranceCoveredAmount
+              patientPayableAmount
+              appliedPatientSharePct
+            }
             createdAt
             updatedAt
           }
@@ -398,7 +429,7 @@ export const VISITS_QUERY = gql`
             id
             status
             startedAt
-          completedAt
+            completedAt
             addedBy {
               id
               firstName
@@ -413,6 +444,27 @@ export const VISITS_QUERY = gql`
               id
               firstName
               lastName
+            }
+            billing {
+              id
+              status
+              totalAmount
+              insuranceCoveredAmount
+              patientPayableAmount
+              paidAmount
+              outstandingAmount
+              insuranceBillings {
+                id
+                status
+                totalAmount
+                insuranceCoveredAmount
+                patientPayableAmount
+                paidAmount
+                outstandingAmount
+                outstandingType
+                outstandingReason
+                billingDate
+              }
             }
             createdAt
             updatedAt
@@ -457,6 +509,14 @@ export const VISITS_QUERY = gql`
                 id
                 firstName
                 lastName
+              }
+              billingItem {
+                id
+                unitPriceSnapshot
+                quantitySnapshot
+                insuranceCoveredAmount
+                patientPayableAmount
+                appliedPatientSharePct
               }
               createdAt
               updatedAt

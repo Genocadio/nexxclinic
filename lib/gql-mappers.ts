@@ -414,17 +414,21 @@ export function mapGqlPatient(patient: GqlPatient): Patient {
 export function mapGqlPatientSummary(patient: {
   id: string;
   firstName: string;
+  middleName?: string | null;
   lastName?: string | null;
+  patientIdentifier?: string | null;
+  gender?: string | null;
+  dateOfBirth?: string | null;
   primaryPhoneNumber?: string | null;
 }): Patient {
   return {
     id: patient.id,
     firstName: patient.firstName,
+    middleName: patient.middleName || undefined,
     lastName: patient.lastName,
-    patientIdentifier: (patient as { patientIdentifier?: string | null })
-      .patientIdentifier,
-    dateOfBirth: EMPTY_TIMESTAMP,
-    gender: Gender.OTHER,
+    patientIdentifier: patient.patientIdentifier,
+    dateOfBirth: patient.dateOfBirth || EMPTY_TIMESTAMP,
+    gender: parseGender(patient.gender),
     primaryPhoneNumber: patient.primaryPhoneNumber,
     patientInsurances: [],
     createdAt: EMPTY_TIMESTAMP,
@@ -483,6 +487,22 @@ export function mapGqlVisitDepartmentProduct(
     confirmedBy: mapGqlWorkerRef(item.confirmedBy),
     billingConfirmationStatus: (item.billingConfirmationStatus as any) || null,
     processor: mapGqlWorkerRef(item.processor),
+    billingItem: (item as any).billingItem
+      ? {
+          id: String((item as any).billingItem.id),
+          visitDepartmentProductId: String((item as any).billingItem.visitDepartmentProductId || item.id),
+          productId: String((item as any).billingItem.productId || (item.product?.id ?? "")),
+          productName: String((item as any).billingItem.productName || (item.product?.name ?? "")),
+          unitPriceSnapshot: Number((item as any).billingItem.unitPriceSnapshot ?? 0),
+          quantitySnapshot: Number((item as any).billingItem.quantitySnapshot ?? item.quantity ?? 0),
+          insuranceCoveredAmount: Number((item as any).billingItem.insuranceCoveredAmount ?? 0),
+          patientPayableAmount: Number((item as any).billingItem.patientPayableAmount ?? 0),
+          appliedPatientSharePct: (item as any).billingItem.appliedPatientSharePct ?? null,
+          patientShareSource: (item as any).billingItem.patientShareSource ?? null,
+          createdAt: (item as any).billingItem.createdAt || EMPTY_TIMESTAMP,
+          updatedAt: (item as any).billingItem.updatedAt || EMPTY_TIMESTAMP,
+        }
+      : null,
     createdAt: item.createdAt || EMPTY_TIMESTAMP,
     updatedAt: item.updatedAt || EMPTY_TIMESTAMP,
   };
@@ -577,6 +597,36 @@ export function mapGqlVisitDepartment(
       ? {
           totalNotes: Number((dept as any).notes.totalNotes || 0),
           newNotes: Number((dept as any).notes.newNotes || 0),
+        }
+      : null,
+    billing: (dept as any).billing
+      ? {
+          id: String((dept as any).billing.id),
+          visitDepartment: null as any,
+          status: (dept as any).billing.status,
+          totalAmount: Number((dept as any).billing.totalAmount ?? 0),
+          insuranceCoveredAmount: Number((dept as any).billing.insuranceCoveredAmount ?? 0),
+          patientPayableAmount: Number((dept as any).billing.patientPayableAmount ?? 0),
+          paidAmount: Number((dept as any).billing.paidAmount ?? 0),
+          outstandingAmount: Number((dept as any).billing.outstandingAmount ?? 0),
+          payments: [],
+          insuranceBillings: ((dept as any).billing.insuranceBillings || []).map((ib: any) => ({
+            id: String(ib.id),
+            patientInsurance: ib.patientInsurance ? mapGqlPatientInsurance(ib.patientInsurance, null as any) : null,
+            status: ib.status,
+            totalAmount: Number(ib.totalAmount ?? 0),
+            insuranceCoveredAmount: Number(ib.insuranceCoveredAmount ?? 0),
+            patientPayableAmount: Number(ib.patientPayableAmount ?? 0),
+            paidAmount: Number(ib.paidAmount ?? 0),
+            outstandingAmount: Number(ib.outstandingAmount ?? 0),
+            outstandingType: ib.outstandingType ?? null,
+            outstandingReason: ib.outstandingReason ?? null,
+            items: [],
+            createdAt: ib.createdAt || EMPTY_TIMESTAMP,
+            updatedAt: ib.updatedAt || EMPTY_TIMESTAMP,
+          })),
+          createdAt: (dept as any).billing.createdAt || EMPTY_TIMESTAMP,
+          updatedAt: (dept as any).billing.updatedAt || EMPTY_TIMESTAMP,
         }
       : null,
     answerId: dept.answerId ?? null,

@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/lib/auth-context"
 import type { Worker } from "@/lib/api-types"
-import { LogOut, Moon, Sun, UserCog } from "lucide-react"
+import { LogOut, Moon, Sun, UserCog, BarChart3 } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
 import { useRouter, usePathname } from "next/navigation"
 import { useState } from "react"
@@ -100,8 +100,18 @@ export default function Header({ doctor }: HeaderProps) {
                     }}
                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-all duration-200 text-left text-foreground"
                   >
-                    <UserCog className="w-4 h-4" />
+                    <UserCog className="w-4 h-4 text-muted-foreground" />
                     <span className="text-sm font-medium">My Account</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      router.push('/reports')
+                      setDropdownOpen(false)
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-all duration-200 text-left text-foreground"
+                  >
+                    <BarChart3 className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">My Reports & Activity</span>
                   </button>
                   <button
                     onClick={() => {

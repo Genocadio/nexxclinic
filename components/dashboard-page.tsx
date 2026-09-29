@@ -1,5 +1,5 @@
 "use client"
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import {
@@ -58,6 +58,7 @@ import {
 import {
   Search,
   Clock,
+  Check,
   CheckCircle,
   AlertCircle,
   Stethoscope,
@@ -67,6 +68,7 @@ import {
   List,
   LayoutGrid,
   FilePenLine,
+  FileText,
   Activity,
   Eye,
   History,
@@ -127,6 +129,36 @@ export default function DashboardPage() {
   const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [answersFilter, setAnswersFilter] = useState<"all" | "finalised" | "pending">("all")
+  const [answersFilterExpanded, setAnswersFilterExpanded] = useState(false)
+  const collapseTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  const handleSelectAnswersFilter = (val: "all" | "finalised" | "pending") => {
+    setAnswersFilter(val)
+    if (collapseTimerRef.current) {
+      clearTimeout(collapseTimerRef.current)
+    }
+    collapseTimerRef.current = setTimeout(() => {
+      setAnswersFilterExpanded(false)
+    }, 2000)
+  }
+
+  // Auto-collapse after 5 seconds when opened
+  useEffect(() => {
+    if (answersFilterExpanded) {
+      if (collapseTimerRef.current) {
+        clearTimeout(collapseTimerRef.current)
+      }
+      collapseTimerRef.current = setTimeout(() => {
+        setAnswersFilterExpanded(false)
+      }, 5000)
+    }
+    return () => {
+      if (collapseTimerRef.current) {
+        clearTimeout(collapseTimerRef.current)
+      }
+    }
+  }, [answersFilterExpanded])
   const [mobileSearchActive, setMobileSearchActive] = useState(false)
   const [showMobileActionSheet, setShowMobileActionSheet] = useState(false)
   useEffect(() => {
@@ -218,6 +250,70 @@ export default function DashboardPage() {
   const isSingleRoleFinance = hasFinanceRole && !hasClinicianOrDoctorRole && !hasNonClinicianNonFinanceRoles
   const isMultiRoleWithFinance = hasFinanceRole && (hasClinicianOrDoctorRole || hasNonClinicianNonFinanceRoles)
   const isMultiRoleWithClinician = hasClinicianOrDoctorRole && (hasFinanceRole || hasNonClinicianNonFinanceRoles)
+  const canQueryAnswerState =
+    (hasClinicianOrDoctorRole || hasManagerRole || hasAdminRole) &&
+    !isReceptionistOnly &&
+    !isSingleRoleFinance
+
+  const isClinicianProcessorForDept = (dept: any) => {
+    if (!dept) return false
+    const processors = (dept as any).processors || []
+    const isAssignedProcessor = processors.some(
+      (p: any) => String(p?.id || "") === String(doctor?.id || ""),
+    )
+    const isDeptMember = userDepartmentIds.includes(
+      String(dept.department?.id || dept.id || ""),
+    )
+    return isAssignedProcessor || isDeptMember
+  }
+
+  const canUserSeeDeptAnswerStatus = (dept: any) => {
+    if (isReceptionistOnly || isSingleRoleFinance) return false
+    if (hasManagerRole || hasAdminRole) return true
+    if (hasClinicianOrDoctorRole) {
+      return isClinicianProcessorForDept(dept)
+    }
+    return false
+  }
+
+  const getVisitClinicianDepartment = (visit: Visit) => {
+    return (
+      (visit.departments || []).find((dept) => {
+        return isClinicianProcessorForDept(dept)
+      }) || null
+    )
+  }
+
+  const getVisitAnswerState = (visit: Visit) => {
+    if (!hasManagerRole && !hasAdminRole && hasClinicianOrDoctorRole) {
+      const clinDept = getVisitClinicianDepartment(visit)
+      if (clinDept) {
+        const isFinalised = Boolean(clinDept.hasFinalizedConsultationAnswers)
+        const hasDraft = Boolean(
+          clinDept.answerId && !clinDept.hasFinalizedConsultationAnswers,
+        )
+        return { isFinalised, hasDraft, isPending: !isFinalised }
+      }
+      return { isFinalised: false, hasDraft: false, isPending: true }
+    }
+    const nonCancelledDepts = (visit.departments || []).filter(
+      (d) => d.status !== "CANCELLED",
+    )
+    if (nonCancelledDepts.length === 0) {
+      return { isFinalised: false, hasDraft: false, isPending: true }
+    }
+    const anyFinalised = nonCancelledDepts.some((d) =>
+      Boolean(d.hasFinalizedConsultationAnswers),
+    )
+    const anyDraft = nonCancelledDepts.some(
+      (d) => Boolean(d.answerId && !d.hasFinalizedConsultationAnswers),
+    )
+    return {
+      isFinalised: anyFinalised,
+      hasDraft: anyDraft,
+      isPending: !anyFinalised,
+    }
+  }
 
   const isClinicianNew = (visit: Visit) => {
     if (visit.status === "COMPLETED" || visit.status === "CANCELLED") return false
@@ -880,6 +976,18 @@ export default function DashboardPage() {
       )
     }
 
+    if (canQueryAnswerState && answersFilter !== "all") {
+      if (answersFilter === "finalised") {
+        searchedList = searchedList.filter(
+          (visit) => getVisitAnswerState(visit).isFinalised,
+        )
+      } else if (answersFilter === "pending") {
+        searchedList = searchedList.filter(
+          (visit) => getVisitAnswerState(visit).isPending,
+        )
+      }
+    }
+
     const counts: Record<string, number> = {
       all: searchedList.length,
       IN_PROGRESS: isSingleRoleClinician
@@ -901,6 +1009,8 @@ export default function DashboardPage() {
     visits,
     locallyCreatedVisits,
     searchQuery,
+    answersFilter,
+    canQueryAnswerState,
     isSingleRoleClinician,
     isSingleRoleFinance,
     userDepartmentIds,
@@ -919,6 +1029,18 @@ export default function DashboardPage() {
           .toLowerCase()
           .includes(searchQuery.toLowerCase()),
       )
+    }
+
+    if (canQueryAnswerState && answersFilter !== "all") {
+      if (answersFilter === "finalised") {
+        filtered = filtered.filter(
+          (visit) => getVisitAnswerState(visit).isFinalised,
+        )
+      } else if (answersFilter === "pending") {
+        filtered = filtered.filter(
+          (visit) => getVisitAnswerState(visit).isPending,
+        )
+      }
     }
 
     if (isSingleRoleClinician) {
@@ -957,6 +1079,8 @@ export default function DashboardPage() {
     locallyCreatedVisits,
     searchQuery,
     statusFilter,
+    answersFilter,
+    canQueryAnswerState,
     isSingleRoleClinician,
     isSingleRoleFinance,
     userDepartmentIds,
@@ -1190,29 +1314,31 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background">
       <Header doctor={doctor} />
 
-      <div className="flex h-[calc(100vh-64px)]">
+      <div className="flex h-[calc(100vh-64px)] overflow-hidden">
         {/* Main content area */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-6xl mx-auto">
-            <DashboardHeader
-              canSeeRegisterAndCreate={canSeeRegisterAndCreate}
-              onRegisterNewPatient={() => setShowPatientRegistrationModal(true)}
-              onCreateVisit={openVisitCreationModal}
-            />
+        <div className="flex-1 flex flex-col min-h-0 p-4 md:p-6 overflow-hidden">
+          <div className="max-w-6xl w-full mx-auto flex-1 flex flex-col min-h-0 gap-4">
+            <div className="shrink-0 space-y-3">
+              <DashboardHeader
+                canSeeRegisterAndCreate={canSeeRegisterAndCreate}
+                onRegisterNewPatient={() => setShowPatientRegistrationModal(true)}
+                onCreateVisit={openVisitCreationModal}
+              />
 
-            <DashboardStats
-              showMetrics={showMetrics}
-              loading={dashboardStatsLoading}
-              totalOpen={dashboardStats?.totalOpen ?? 0}
-              totalCompleted={dashboardStats?.totalCompleted ?? 0}
-              totalWaitingForBilling={
-                dashboardStats?.totalWaitingForBilling ?? 0
-              }
-            />
+              <DashboardStats
+                showMetrics={showMetrics}
+                loading={dashboardStatsLoading}
+                totalOpen={dashboardStats?.totalOpen ?? 0}
+                totalCompleted={dashboardStats?.totalCompleted ?? 0}
+                totalWaitingForBilling={
+                  dashboardStats?.totalWaitingForBilling ?? 0
+                }
+              />
+            </div>
 
-            <div className="bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl shadow-lg overflow-hidden">
-              {/* Status filters */}
-              <div className="p-6 border-b border-border/30">
+            <div className="flex-1 min-h-0 bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl shadow-lg flex flex-col overflow-hidden">
+              {/* Status filters & search controls (fixed at top of visit container) */}
+              <div className="p-4 md:px-6 md:py-3.5 border-b border-border/30 shrink-0 bg-card/40 backdrop-blur-md">
                 {/* Desktop filters - visible on md and up */}
                 <div className="hidden md:flex gap-2 flex-wrap justify-center items-center">
                   {availableTabs.map((tab) => {
@@ -1263,95 +1389,243 @@ export default function DashboardPage() {
                     )
                   })}
                 </div>
-
                 {/* Mobile filter, layout switch, and search controls */}
                 <div className="md:hidden">
                   {!mobileSearchActive ? (
-                    <div className="flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <select
-                          value={statusFilter}
-                          onChange={(e) => setStatusFilter(e.target.value)}
-                          className="w-full px-3 py-2 rounded-full bg-primary text-primary-foreground border-none shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/50 font-medium appearance-none cursor-pointer text-sm"
-                          style={{
-                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                            backgroundRepeat: "no-repeat",
-                            backgroundPosition: "right 0.75rem center",
-                            paddingRight: "2rem",
-                          }}
-                        >
-                          {availableTabs.map((tab) => (
-                            <option key={tab.id} value={tab.id}>
-                              {tab.label} ({filterCounts[tab.id] ?? 0})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="outline"
-                        className="rounded-full h-10 w-10 flex-shrink-0"
-                        onClick={() =>
-                          setViewMode((prev) =>
-                            prev === "list" ? "grid" : "list",
-                          )
-                        }
-                        title={
-                          viewMode === "list"
-                            ? "Switch to grid view"
-                            : "Switch to list view"
-                        }
-                        aria-label={
-                          viewMode === "list"
-                            ? "Switch to grid view"
-                            : "Switch to list view"
-                        }
-                      >
-                        {viewMode === "list" ? (
-                          <LayoutGrid className="w-4 h-4" />
-                        ) : (
-                          <List className="w-4 h-4" />
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="w-full px-3 py-2 rounded-full bg-primary text-primary-foreground border-none shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/50 font-medium appearance-none cursor-pointer text-sm"
+                            style={{
+                              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                              backgroundRepeat: "no-repeat",
+                              backgroundPosition: "right 0.75rem center",
+                              paddingRight: "2rem",
+                            }}
+                          >
+                            {availableTabs.map((tab) => (
+                              <option key={tab.id} value={tab.id}>
+                                {tab.label} ({filterCounts[tab.id] ?? 0})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {canQueryAnswerState && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current)
+                              setAnswersFilterExpanded((prev) => !prev)
+                            }}
+                            className={`relative inline-flex items-center justify-center h-10 w-10 rounded-full border flex-shrink-0 transition-all ${
+                              answersFilter === "finalised"
+                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                                : answersFilter === "pending"
+                                  ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                                  : "bg-card/80 dark:bg-slate-900/70 border-border/50 text-muted-foreground"
+                            }`}
+                            title="Filter consultation answers"
+                            aria-label="Filter consultation answers"
+                          >
+                            <FileText className="w-4 h-4" />
+                            {answersFilter === "finalised" && (
+                              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-background" />
+                            )}
+                            {answersFilter === "pending" && (
+                              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-background" />
+                            )}
+                          </button>
                         )}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="outline"
-                        className="rounded-full h-10 w-10 flex-shrink-0"
-                        onClick={() => setMobileSearchActive(true)}
-                        title="Search"
-                        aria-label="Search"
-                      >
-                        <Search className="w-4 h-4" />
-                      </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          className="rounded-full h-10 w-10 flex-shrink-0"
+                          onClick={() =>
+                            setViewMode((prev) =>
+                              prev === "list" ? "grid" : "list",
+                            )
+                          }
+                          title={
+                            viewMode === "list"
+                              ? "Switch to grid view"
+                              : "Switch to list view"
+                          }
+                          aria-label={
+                            viewMode === "list"
+                              ? "Switch to grid view"
+                              : "Switch to list view"
+                          }
+                        >
+                          {viewMode === "list" ? (
+                            <LayoutGrid className="w-4 h-4" />
+                          ) : (
+                            <List className="w-4 h-4" />
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          className="rounded-full h-10 w-10 flex-shrink-0"
+                          onClick={() => setMobileSearchActive(true)}
+                          title="Search"
+                          aria-label="Search"
+                        >
+                          <Search className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      {canQueryAnswerState && answersFilterExpanded && (
+                        <div className="flex items-center p-0.5 rounded-full bg-muted/70 dark:bg-slate-800/80 border border-border/50 gap-0.5 text-[11px] font-medium animate-in fade-in-0 duration-150">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAnswersFilter("all")}
+                            className={`flex-1 py-1 rounded-full text-center transition-all ${
+                              answersFilter === "all"
+                                ? "bg-background text-foreground shadow-xs font-semibold"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            All
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAnswersFilter("finalised")}
+                            className={`flex-1 py-1 rounded-full text-center transition-all flex items-center justify-center gap-1 ${
+                              answersFilter === "finalised"
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-semibold"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
+                            Finalised
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAnswersFilter("pending")}
+                            className={`flex-1 py-1 rounded-full text-center transition-all flex items-center justify-center gap-1 ${
+                              answersFilter === "pending"
+                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 font-semibold"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            Draft / Pending
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ) : null}
                 </div>
-              </div>
 
-              {/* Visits list */}
-              <div
-                className={`p-6 ${mobileSearchActive ? "hidden md:block" : ""}`}
-              >
                 {/* Search bar - Desktop and expanded mobile */}
                 {!mobileSearchActive ? (
-                  <div className="hidden md:flex mb-4 gap-3 items-center">
+                  <div className="hidden md:flex mt-3 gap-3 items-center">
                     <div className="relative flex-1">
-                      <Search className="absolute left-4 top-3 w-4 h-4 text-muted-foreground" />
+                      <Search className="absolute left-4 top-2.5 w-4 h-4 text-muted-foreground" />
                       <input
                         type="text"
                         placeholder="Search by patient name..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 bg-card/80 dark:bg-slate-900/70 backdrop-blur-sm border border-border/50 dark:border-slate-800 rounded-full text-foreground dark:text-slate-100 placeholder-muted-foreground dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 shadow-sm"
+                        className="w-full pl-11 pr-4 py-2 bg-card/80 dark:bg-slate-900/70 backdrop-blur-sm border border-border/50 dark:border-slate-800 rounded-full text-foreground dark:text-slate-100 placeholder-muted-foreground dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 shadow-sm text-sm"
                       />
                     </div>
+                    {canQueryAnswerState && (
+                      answersFilterExpanded ? (
+                        <div className="inline-flex items-center p-1 rounded-full bg-muted/70 dark:bg-slate-800/80 border border-border/50 gap-1 text-xs font-medium shrink-0 animate-in fade-in-0 duration-150 shadow-xs">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAnswersFilter("all")}
+                            className={`px-3 py-1.5 rounded-full transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
+                              answersFilter === "all"
+                                ? "bg-background text-foreground shadow-xs font-semibold"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            All Answers
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAnswersFilter("finalised")}
+                            className={`px-3 py-1.5 rounded-full transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
+                              answersFilter === "finalised"
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shadow-xs font-semibold"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
+                            Finalised Only
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAnswersFilter("pending")}
+                            className={`px-3 py-1.5 rounded-full transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
+                              answersFilter === "pending"
+                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shadow-xs font-semibold"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+                            Draft / Pending Only
+                          </button>
+                        </div>
+                      ) : (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current)
+                                setAnswersFilterExpanded(true)
+                              }}
+                              className={`relative inline-flex items-center justify-center h-9 w-9 rounded-full border transition-all duration-150 cursor-pointer shadow-2xs ${
+                                answersFilter === "finalised"
+                                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
+                                  : answersFilter === "pending"
+                                    ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
+                                    : "bg-card/80 dark:bg-slate-900/70 border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                              }`}
+                              title={
+                                answersFilter === "finalised"
+                                  ? "Filter: Finalised Only (Click to change)"
+                                  : answersFilter === "pending"
+                                    ? "Filter: Draft / Pending Only (Click to change)"
+                                    : "Filter consultation answers (Click to expand)"
+                              }
+                              aria-label="Filter consultation answers"
+                            >
+                              <FileText className="w-4 h-4" />
+                              {answersFilter === "finalised" && (
+                                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-background" />
+                              )}
+                              {answersFilter === "pending" && (
+                                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-background" />
+                              )}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">
+                              {answersFilter === "finalised"
+                                ? "Filter: Finalised Only (Click to change)"
+                                : answersFilter === "pending"
+                                  ? "Filter: Draft / Pending Only (Click to change)"
+                                  : "Filter consultation answers (Click to expand)"}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )
+                    )}
                     <Button
                       type="button"
                       size="icon"
                       variant="outline"
-                      className="rounded-full"
+                      className="rounded-full h-9 w-9 flex-shrink-0"
                       onClick={() =>
                         setViewMode((prev) =>
                           prev === "list" ? "grid" : "list",
@@ -1376,7 +1650,12 @@ export default function DashboardPage() {
                     </Button>
                   </div>
                 ) : null}
+              </div>
 
+              {/* Visits list - scrollable inside the container */}
+              <div
+                className={`flex-1 min-h-0 overflow-y-auto p-4 md:p-6 ${mobileSearchActive ? "hidden md:block" : ""}`}
+              >
                 {/* Visits / Patients view */}
                 <div
                     className={
@@ -1495,20 +1774,64 @@ export default function DashboardPage() {
                                       : "contents"
                                   }
                                 >
-                                  {visit.status === "CREATED" && (
-                                    <AlertCircle className="w-4 h-4 text-secondary flex-shrink-0" />
-                                  )}
-                                  {visit.status === "IN_PROGRESS" && (
-                                    <Clock className="w-4 h-4 text-accent flex-shrink-0" />
-                                  )}
-                                  {visit.status === "COMPLETED" && (
-                                    <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
-                                  )}
-                                  {visit.status === "FINALISED" && (
-                                    <CheckCircle className="w-4 h-4 text-teal-600 dark:text-teal-400 flex-shrink-0" />
-                                  )}
-                                  {visit.status === "CANCELLED" && (
-                                    <AlertCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                  {hasClinicianOrDoctorRole ? (
+                                    (() => {
+                                      const ansState = getVisitAnswerState(visit)
+                                      if (ansState.isFinalised) {
+                                        return (
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <span
+                                                className="inline-flex items-center justify-center flex-shrink-0 cursor-help"
+                                                aria-label="Consultation answers finalised"
+                                              >
+                                                <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
+                                              </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p className="text-xs">Consultation answers finalised</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        )
+                                      }
+                                      return (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span
+                                              className="inline-flex items-center justify-center flex-shrink-0 cursor-help"
+                                              aria-label="Consultation answers draft or pending"
+                                            >
+                                              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 dark:bg-amber-300 ring-2 ring-amber-400/20" />
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p className="text-xs">
+                                              {ansState.hasDraft
+                                                ? "Consultation answers in draft"
+                                                : "Consultation answers pending"}
+                                            </p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      )
+                                    })()
+                                  ) : (
+                                    <>
+                                      {visit.status === "CREATED" && (
+                                        <AlertCircle className="w-4 h-4 text-secondary flex-shrink-0" />
+                                      )}
+                                      {visit.status === "IN_PROGRESS" && (
+                                        <Clock className="w-4 h-4 text-accent flex-shrink-0" />
+                                      )}
+                                      {visit.status === "COMPLETED" && (
+                                        <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
+                                      )}
+                                      {visit.status === "FINALISED" && (
+                                        <CheckCircle className="w-4 h-4 text-teal-600 dark:text-teal-400 flex-shrink-0" />
+                                      )}
+                                      {visit.status === "CANCELLED" && (
+                                        <AlertCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                      )}
+                                    </>
                                   )}
                                   {totalNewNotes > 0 && (
                                     <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full">
@@ -1689,6 +2012,21 @@ export default function DashboardPage() {
                                               <span className="font-semibold truncate max-w-[130px] sm:max-w-[170px]">
                                                 {activeDeptInfo.displayName}
                                               </span>
+                                              {activeDeptInfo.activeDept &&
+                                                canUserSeeDeptAnswerStatus(
+                                                  activeDeptInfo.activeDept,
+                                                ) && (
+                                                  activeDeptInfo.activeDept
+                                                    .hasFinalizedConsultationAnswers ? (
+                                                    <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 stroke-[2.5] flex-shrink-0" />
+                                                  ) : activeDeptInfo.activeDept
+                                                      .answerId ? (
+                                                    <span
+                                                      className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0"
+                                                      title="Draft consultation answers"
+                                                    />
+                                                  ) : null
+                                                )}
                                               {isPillActive &&
                                                 activeDeptInfo.duration &&
                                                 canSeeActivePillDuration && (
@@ -1832,6 +2170,33 @@ export default function DashboardPage() {
                                                                   "Unknown Department"}
                                                               </span>
                                                               <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                                {canUserSeeDeptAnswerStatus(dept) && (
+                                                                  dept.hasFinalizedConsultationAnswers ? (
+                                                                    <span
+                                                                      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                                                      title="Consultation answers finalised"
+                                                                    >
+                                                                      <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
+                                                                      Finalised
+                                                                    </span>
+                                                                  ) : dept.answerId ? (
+                                                                    <span
+                                                                      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                                                      title="Consultation answers in draft"
+                                                                    >
+                                                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                                                      Draft
+                                                                    </span>
+                                                                  ) : (
+                                                                    <span
+                                                                      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full text-muted-foreground bg-muted/40 border border-border/40"
+                                                                      title="No consultation answers recorded"
+                                                                    >
+                                                                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
+                                                                      Pending
+                                                                    </span>
+                                                                  )
+                                                                )}
                                                                 <span
                                                                   className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                                                                     isActive

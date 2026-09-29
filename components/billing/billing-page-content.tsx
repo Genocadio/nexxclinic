@@ -233,15 +233,13 @@ export function BillingPageContent() {
   // was already paid.
 
   // Determine if user can edit billing items based on role
-  // Only FINANCE role can edit items. CASHIER users cannot delete or adjust quantities
+  // Only ADMIN and MANAGER roles can edit billing items. FINANCE and CASHIER users cannot.
   const canEditBillingItems = useMemo(() => {
-    if (!doctor?.roles) return true; // Default to true if no roles defined
+    if (!doctor?.roles) return false;
     const roles = (doctor.roles as string[]) || [];
-    const hasFinanceRole = roles.includes("FINANCE");
-
-    // Only FINANCE role can edit items, CASHIER cannot
-    return hasFinanceRole;
+    return roles.includes("ADMIN") || roles.includes("CLINIC_ADMIN") || roles.includes("MANAGER");
   }, [doctor?.roles]);
+
   useEffect(() => {
     if (!visit?.id) return;
     const newIds = (visit.linkedInsurances || []).map((insurance) =>
@@ -544,10 +542,18 @@ export function BillingPageContent() {
 
   // Role rules:
   // - CASHIER: can bill (complete) but cannot edit bills/items.
-  // - FINANCE: can bill and can edit.
+  // Role rules:
+  // - CASHIER / RECEPTION: can bill (complete) but cannot edit bills/items.
+  // - FINANCE: can bill, view billed visits read-only, but cannot edit bills.
+  // - ADMIN / MANAGER / CLINIC_ADMIN: can edit bills/items and enable edit mode.
   const hasManagerRole = useMemo(() => {
     if (!doctor?.roles) return false;
-    return ((doctor.roles as string[]) || []).includes("MANAGER");
+    const roles = (doctor.roles as string[]) || [];
+    return (
+      roles.includes("MANAGER") ||
+      roles.includes("ADMIN") ||
+      roles.includes("CLINIC_ADMIN")
+    );
   }, [doctor?.roles]);
   const hasClinicianRole = useMemo(() => {
     if (!doctor?.roles) return false;
@@ -555,15 +561,16 @@ export function BillingPageContent() {
     return roles.includes("CLINICIAN") || roles.includes("DOCTOR");
   }, [doctor?.roles]);
 
-  const canEditBilling = hasFinanceRole;
-  const canBill = hasFinanceRole || hasCashierRole;
+  const canEditBilling = hasManagerRole;
+  const canBill = hasFinanceRole || hasCashierRole || hasManagerRole;
 
   const canViewBilledReadOnly =
-    effectiveIsAlreadyBilled && (hasFinanceRole || hasCashierRole);
+    effectiveIsAlreadyBilled && (hasFinanceRole || hasCashierRole || hasManagerRole);
   const showBillingDock =
     canViewBilledReadOnly ||
     canEditBilling ||
     (!effectiveIsAlreadyBilled && hasRemainingToBill);
+
 
 
   // Normal billing is completed a department at a time. A billing edit creates
