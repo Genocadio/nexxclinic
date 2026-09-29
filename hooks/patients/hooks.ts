@@ -98,6 +98,7 @@ export interface RegisterPatientInput {
     providingCompanyOrEmployer: string;
     patientShareCoverageId?: string | null;
     patientSharePercentage?: number | string | null;
+    isSelf?: boolean;
     dominantMember?: {
       firstName?: string | null;
       lastName?: string | null;
@@ -113,7 +114,16 @@ type RegisterPatientInsuranceInput = NonNullable<
 
 const getDominantMemberPayload = (
   dominantMember?: RegisterPatientInsuranceInput["dominantMember"],
+  isSelf?: boolean,
 ) => {
+  if (isSelf) {
+    return {
+      principalMember: true,
+      principalMemberName: null,
+      principalMemberPhoneNumber: null,
+    };
+  }
+
   const firstName = dominantMember?.firstName?.trim() || "";
   const lastName = dominantMember?.lastName?.trim() || "";
   const phone = dominantMember?.phone?.trim() || "";
@@ -447,7 +457,7 @@ export function useRegisterPatient() {
             insuranceProviderId: String(insurance.insuranceId),
             insuranceCardNumber: insurance.insuranceCardNumber,
             providingCompanyOrEmployer: insurance.providingCompanyOrEmployer,
-            ...getDominantMemberPayload(insurance.dominantMember),
+            ...getDominantMemberPayload(insurance.dominantMember, insurance.isSelf),
             validFrom,
             validUntil,
             patientShareCoverageId: insurance.patientShareCoverageId || null,

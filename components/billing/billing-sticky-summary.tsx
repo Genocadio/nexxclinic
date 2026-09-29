@@ -191,7 +191,7 @@ export function BillingStickySummary({
                     {hasEditChanges && (
                       <Button
                         size="sm"
-                        className="h-9 rounded-full bg-[#FF6900] hover:bg-[#e05f00] text-white text-xs px-4"
+                        className="h-9 rounded-full text-xs px-4"
                         disabled={creatingBill || hasUnreadNotes}
                         onClick={onCompleteBill}
                       >
@@ -204,7 +204,7 @@ export function BillingStickySummary({
                 {!isEditingBill && hasRemainingToBill && !existingVisitBilling && (
                   <Button
                     size="sm"
-                    className="h-9 rounded-full bg-[#FF6900] hover:bg-[#e05f00] text-white text-xs px-4"
+                    className="h-9 rounded-full text-xs px-4"
                     disabled={creatingBill || hasUnreadNotes}
                     onClick={onCompleteBill}
                   >
@@ -312,7 +312,7 @@ function ActionButton({
         >
           <Icon className="h-4 w-4" />
           {badge !== undefined && badge > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-0.5 bg-red-500 rounded-full text-white text-[9px] flex items-center justify-center font-bold">
+            <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-0.5 bg-destructive rounded-full text-destructive-foreground text-[9px] flex items-center justify-center font-bold">
               {badge}
             </span>
           )}

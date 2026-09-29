@@ -433,7 +433,7 @@ function FormEditor() {
           </Button>
           <Button
             size="sm"
-            className="h-8 gap-1.5 bg-[#FF6900] hover:bg-[#e05f00] text-white"
+            className="h-8 gap-1.5"
             onClick={handleManualSave}
             disabled={saving}
           >

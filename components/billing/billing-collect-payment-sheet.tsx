@@ -320,7 +320,7 @@ export function CollectPaymentSheet({
           </Button>
           <Button
             type="button"
-            className="flex-1 bg-[#FF6900] hover:bg-[#e05f00] text-white"
+            className="flex-1"
             disabled={recording || totalToCollect <= 0}
             onClick={() => void handleSubmit()}
           >

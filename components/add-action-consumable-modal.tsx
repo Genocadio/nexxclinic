@@ -265,7 +265,7 @@ export default function AddActionConsumableModal({
     <Dialog open={isOpen} onOpenChange={(open) => {
       if (!open) handleClose()
     }}>
-      <DialogContent showCloseButton={false} className="sm:max-w-[600px] backdrop-blur-xl bg-white/10 dark:bg-black/20 rounded-3xl border border-white/20 shadow-2xl">
+      <DialogContent showCloseButton={false} className="sm:max-w-[600px] backdrop-blur-2xl bg-card/95 dark:bg-card/95 text-card-foreground rounded-3xl border border-border/80 shadow-2xl">
         <DialogHeader className="text-center space-y-2">
           <DialogTitle className="text-center">Add Product</DialogTitle>
         </DialogHeader>

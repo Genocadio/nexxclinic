@@ -8,9 +8,10 @@ import { getBasePatientSharePercentage } from '@/lib/api-types'
 import { useInsurances } from '@/hooks/auth-hooks'
 import { useInsuranceCoverages } from '@/hooks/insurances/coverage-rules'
 import { useSavePatientInsurance } from '@/hooks/patients/use-save-patient-insurance'
-import { isDominantMemberRequired } from '@/lib/validation-utils'
+import { isDominantMemberRequired, calculateAge } from '@/lib/validation-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { FieldError } from '@/components/ui/field-error'
 import {
   createPatientInsuranceFormSchema,
@@ -107,16 +108,19 @@ export function AddPatientInsuranceModal({
       .sort((a, b) => (a.patientSharePercentage ?? 0) - (b.patientSharePercentage ?? 0))
   }, [selectedProviderRules])
 
+  const isAdult = calculateAge(patientDateOfBirth) >= 18
   const dominantRequired = isDominantMemberRequired(patientDateOfBirth, true)
 
   const {
     register,
     handleSubmit,
     setError,
+    clearErrors,
     reset: resetFormErrors,
     control,
     trigger,
     setValue,
+    watch,
     getValues,
     formState: { errors: formErrors },
   } = useForm<PatientInsuranceFormValues>({
@@ -127,12 +131,15 @@ export function AddPatientInsuranceModal({
     defaultValues: {
       insuranceCardNumber: '',
       providingCompanyOrEmployer: '',
+      isSelf: isAdult,
       dominantFirstName: '',
       dominantLastName: '',
       dominantPhone: '',
       patientSharePercentage: '',
     },
   })
+
+  const watchIsSelf = watch('isSelf') ?? isAdult
 
   useDebouncedValidation({ control, trigger })
 
@@ -175,6 +182,7 @@ export function AddPatientInsuranceModal({
       insuranceProviderId: selectedInsuranceId,
       insuranceCardNumber: values.insuranceCardNumber,
       providingCompanyOrEmployer: values.providingCompanyOrEmployer,
+      isSelf: isAdult ? Boolean(values.isSelf) : false,
       dominantFirstName: values.dominantFirstName,
       dominantLastName: values.dominantLastName,
       dominantPhone: values.dominantPhone,
@@ -464,37 +472,102 @@ export function AddPatientInsuranceModal({
                 </div>
               )}
 
-              <div className="space-y-1">
-                <p className="text-[11px] text-muted-foreground">
-                  Dominant Member {dominantRequired ? '(required for patients 18 years or younger)' : '(optional)'}
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Input
-                      {...register('dominantFirstName')}
-                      placeholder="First name"
-                      className={formErrors.dominantFirstName ? 'border-red-500 focus-visible:ring-red-300' : ''}
+              {isAdult ? (
+                <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="isSelf"
+                      checked={Boolean(watchIsSelf)}
+                      onCheckedChange={(checked) => {
+                        setValue('isSelf', Boolean(checked), { shouldValidate: true })
+                        if (checked) {
+                          setValue('dominantFirstName', '')
+                          setValue('dominantLastName', '')
+                          setValue('dominantPhone', '')
+                          clearErrors(['dominantFirstName', 'dominantLastName', 'dominantPhone'])
+                        }
+                      }}
                     />
-                    <FieldError message={formErrors.dominantFirstName?.message} />
+                    <label
+                      htmlFor="isSelf"
+                      className="text-xs font-medium text-foreground cursor-pointer select-none"
+                    >
+                      Self (Patient is the principal policyholder)
+                    </label>
+                  </div>
+
+                  {!watchIsSelf && (
+                    <div className="space-y-2 pt-2 border-t border-border/40">
+                      <p className="text-[11px] font-medium text-foreground">
+                        Principal Member Information <span className="text-red-500">*</span>
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Input
+                            {...register('dominantFirstName')}
+                            placeholder="First name"
+                            className={formErrors.dominantFirstName ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                          />
+                          <FieldError message={formErrors.dominantFirstName?.message} />
+                        </div>
+                        <div className="space-y-1">
+                          <Input
+                            {...register('dominantLastName')}
+                            placeholder="Last name"
+                            className={formErrors.dominantLastName ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                          />
+                          <FieldError message={formErrors.dominantLastName?.message} />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Input
+                          {...register('dominantPhone')}
+                          placeholder="Phone (e.g. +250788123456 or 0788123456)"
+                          className={formErrors.dominantPhone ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                        />
+                        <FieldError message={formErrors.dominantPhone?.message} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2 rounded-xl border border-border/60 bg-muted/20 p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-medium text-foreground">
+                      Principal Member Information <span className="text-red-500">*</span>
+                    </p>
+                    <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60">
+                      Required for patients ≤18 years
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Input
+                        {...register('dominantFirstName')}
+                        placeholder="First name"
+                        className={formErrors.dominantFirstName ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                      />
+                      <FieldError message={formErrors.dominantFirstName?.message} />
+                    </div>
+                    <div className="space-y-1">
+                      <Input
+                        {...register('dominantLastName')}
+                        placeholder="Last name"
+                        className={formErrors.dominantLastName ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                      />
+                      <FieldError message={formErrors.dominantLastName?.message} />
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <Input
-                      {...register('dominantLastName')}
-                      placeholder="Last name"
-                      className={formErrors.dominantLastName ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                      {...register('dominantPhone')}
+                      placeholder="Phone (e.g. +250788123456 or 0788123456)"
+                      className={formErrors.dominantPhone ? 'border-red-500 focus-visible:ring-red-300' : ''}
                     />
-                    <FieldError message={formErrors.dominantLastName?.message} />
+                    <FieldError message={formErrors.dominantPhone?.message} />
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <Input
-                    {...register('dominantPhone')}
-                    placeholder="Phone (e.g. +250788123456 or 0788123456)"
-                    className={formErrors.dominantPhone ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                  />
-                  <FieldError message={formErrors.dominantPhone?.message} />
-                </div>
-              </div>
+              )}
             </>
           )}
         </div>

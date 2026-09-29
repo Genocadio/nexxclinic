@@ -726,7 +726,7 @@ function TriagePageInner() {
 
         <Dialog open={modalOpen} onOpenChange={setModalOpen}>
           <DialogContent
-            className="sm:max-w-2xl max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/25 border border-white/20 rounded-3xl shadow-2xl p-3 flex flex-col"
+            className="sm:max-w-2xl max-h-[90vh] overflow-hidden backdrop-blur-2xl bg-card/95 dark:bg-card/95 text-card-foreground border border-border/80 rounded-3xl shadow-2xl p-3 flex flex-col"
             onPointerDownOutside={(e) => e.preventDefault()}
             onEscapeKeyDown={(e) => e.preventDefault()}
           >

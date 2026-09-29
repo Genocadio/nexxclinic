@@ -9,6 +9,7 @@ export type SavePatientInsuranceInput = {
   insuranceProviderId: string
   insuranceCardNumber: string
   providingCompanyOrEmployer: string
+  isSelf?: boolean
   dominantFirstName?: string
   dominantLastName?: string
   dominantPhone?: string
@@ -44,24 +45,28 @@ export function validateSavePatientInsuranceInput(
     errors.employer = 'Providing company or employer is required.'
   }
 
+  // If patient is self, no dominant member validation required
+  if (input.isSelf) {
+    return errors
+  }
+
   // Format validation — reject invalid phone even if dominant is not required
   if (input.dominantPhone?.trim() && !PHONE_NUMBER_REGEX.test(input.dominantPhone.trim())) {
     errors.dominant = 'Enter a valid phone number (7-15 digits, optional leading +)'
   }
 
-  const hasAnyDominant = Boolean(
-    input.dominantFirstName?.trim() ||
-    input.dominantLastName?.trim() ||
-    input.dominantPhone?.trim()
-  )
+  const mustFillDominant =
+    dominantRequired ||
+    input.isSelf === false ||
+    Boolean(input.dominantFirstName?.trim() || input.dominantLastName?.trim() || input.dominantPhone?.trim())
 
   if (
-    (dominantRequired || hasAnyDominant)
+    mustFillDominant
     && (!input.dominantFirstName?.trim() || !input.dominantLastName?.trim() || !input.dominantPhone?.trim())
   ) {
     errors.dominant = dominantRequired
-      ? 'Dominant member first name, last name and phone are required for patients 18 years or younger.'
-      : 'Dominant member first name, last name and phone are all required if dominant member details are provided.'
+      ? 'Principal member first name, last name and phone are required for patients 18 years or younger.'
+      : 'Principal member first name, last name and phone are required when patient is not the principal policyholder.'
   }
 
   return errors
@@ -78,7 +83,7 @@ export function useSavePatientInsurance() {
     }
 
     const dominantMember =
-      input.dominantFirstName || input.dominantLastName || input.dominantPhone
+      !input.isSelf && (input.dominantFirstName || input.dominantLastName || input.dominantPhone)
         ? {
             firstName: input.dominantFirstName || '',
             lastName: input.dominantLastName || '',

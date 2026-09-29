@@ -193,7 +193,7 @@ function SaveTemplatesDialog({
             {/* Progress bar */}
             <div className="h-1.5 bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full bg-[#FF6900] transition-all"
+                className="h-full bg-primary transition-all"
                 style={{ width: `${(currentIdx / total) * 100}%` }}
               />
             </div>
@@ -233,7 +233,7 @@ function SaveTemplatesDialog({
               </Button>
               <Button
                 size="sm"
-                className="bg-[#FF6900] hover:bg-[#e05f00] text-white gap-1.5"
+                className="gap-1.5"
                 onClick={handleSaveOne}
                 disabled={loading}
               >
@@ -402,7 +402,7 @@ export default function FormBuilderListPage() {
             <Button
               onClick={() => setPickerOpen(true)}
               disabled={creating}
-              className="bg-[#FF6900] hover:bg-[#e05f00] text-white gap-2"
+              className="gap-2"
             >
               {creating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -524,7 +524,7 @@ export default function FormBuilderListPage() {
                         Save Templates
                       </Button>
                       <Button
-                        className="bg-[#FF6900] hover:bg-[#e05f00] text-white gap-2"
+                        className="gap-2"
                         onClick={() => setPickerOpen(true)}
                       >
                         <Plus className="h-4 w-4" />

@@ -3,27 +3,52 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================
+   med — theme tokens (all text pairs >= 4.5:1, borders >= 3:1)
+   RULE: never write text-white / text-black by hand.
+   Every fill has a matching --*-foreground. Use them together.
+   ============================================================ */
+
 :root {
-  /* iOS-inspired glassy theme with brand colors */
-  --background: #FDF4EF;
-  --foreground: #1a1a1a;
-  --card: rgba(255, 255, 255, 0.7);
-  --card-foreground: #1a1a1a;
-  --popover: rgba(255, 255, 255, 0.95);
-  --popover-foreground: #1a1a1a;
-  --primary: #5E77E6;
-  --primary-foreground: #ffffff;
+  /* Canvas + text */
+  --background: #FDF4EF;              /* Soft warm linen */
+  --foreground: #1A1A1A;              /* 16.0:1 on background */
+  --muted: rgba(68, 83, 200, 0.1);
+  --muted-foreground: #4B5563;        /* 7.0:1  secondary text */
+  --placeholder: #666D7A;             /* 4.8:1  input placeholders */
+
+  /* Brand */
+  --primary: #4453C8;                 /* deeper periwinkle */
+  --primary-foreground: #FFFFFF;      /* 6.3:1 */
+  --primary-hover: #3541A8;           /* darker on hover, text stays white */
+  --link: #4453C8;                    /* 5.8:1 on background */
+  --ring: #4453C8;                    /* focus ring */
+  --accent: #4453C8;
+  --accent-foreground: #FFFFFF;
+
+  /* Secondary (fill only. Never use as text colour) */
   --secondary: #9BA5D9;
-  --secondary-foreground: #ffffff;
-  --muted: rgba(94, 119, 230, 0.1);
-  --muted-foreground: #6b7280;
-  --accent: #5E77E6;
-  --accent-foreground: #ffffff;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: rgba(94, 119, 230, 0.2);
+  --secondary-foreground: #1A1A1A;    /* 7.3:1 */
+
+  /* Status */
+  --destructive: #B42318;
+  --destructive-foreground: #FFFFFF;  /* 6.6:1 */
+  --success: #15803D;
+  --success-foreground: #FFFFFF;      /* 5.0:1 */
+  --warning: #F5B93A;
+  --warning-foreground: #1F1500;      /* 10.2:1 */
+
+  /* Surfaces (glass, mostly opaque) */
+  --card: rgba(255, 255, 255, 0.85);
+  --card-foreground: #1A1A1A;
+  --popover: rgba(255, 255, 255, 0.97);
+  --popover-foreground: #1A1A1A;
+
+  /* Borders */
+  --border: rgba(94, 119, 230, 0.25);   /* decorative dividers only */
+  --border-strong: #7B8494;             /* inputs, cards, buttons: 3.5:1+ */
   --input: rgba(255, 255, 255, 0.9);
-  --ring: #5E77E6;
+
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -38,29 +63,52 @@
   --sidebar-accent-foreground: oklch(0.98 0 0);
   --sidebar-border: oklch(0.88 0 0);
   --sidebar-ring: oklch(0.35 0 0);
+
+  --toastify-color-light: rgba(255, 255, 255, 0.9);
+  --toastify-text-color-light: #0f172a;
+  --toastify-color-dark: rgba(15, 23, 42, 0.9);
+  --toastify-text-color-dark: #f8fafc;
+  --toastify-color-info: #4453C8;
+  --toastify-color-success: #15803D;
+  --toastify-color-warning: #F5B93A;
+  --toastify-color-error: #B42318;
 }
 
-.dark {
-  /* Dark mode iOS-inspired glassy theme */
-  --background: #1a1a1a;
-  --foreground: #f5f5f5;
-  --card: rgba(30, 30, 30, 0.7);
-  --card-foreground: #f5f5f5;
-  --popover: rgba(30, 30, 30, 0.95);
-  --popover-foreground: #f5f5f5;
-  --primary: #7B93F5;
-  --primary-foreground: #ffffff;
-  --secondary: #A8B4E5;
-  --secondary-foreground: #ffffff;
+.dark,
+:root[data-theme="dark"] {
+  --background: #1A1A1A;
+  --foreground: #F5F5F5;              /* 16.0:1 */
   --muted: rgba(123, 147, 245, 0.15);
-  --muted-foreground: #9ca3af;
+  --muted-foreground: #A3A3A3;        /* 6.9:1 */
+  --placeholder: #9A9A9A;             /* 5+:1 on inputs */
+
+  --primary: #7B93F5;
+  --primary-foreground: #1A1A1A;      /* 6.1:1  DARK text on light fill */
+  --primary-hover: #93A6F8;           /* lighter on hover, text stays dark */
+  --link: #93A6F8;
+  --ring: #93A6F8;
   --accent: #7B93F5;
-  --accent-foreground: #ffffff;
-  --destructive: #f87171;
-  --destructive-foreground: #ffffff;
-  --border: rgba(148, 163, 184, 0.28);
+  --accent-foreground: #1A1A1A;
+
+  --secondary: #A8B4E5;
+  --secondary-foreground: #1A1A1A;    /* 8.6:1 */
+
+  --destructive: #F87171;
+  --destructive-foreground: #1A1A1A;  /* 6.3:1 */
+  --success: #4ADE80;
+  --success-foreground: #1A1A1A;      /* 10.0:1 */
+  --warning: #FBBF24;
+  --warning-foreground: #1A1A1A;      /* 10.4:1 */
+
+  --card: rgba(38, 38, 38, 0.88);
+  --card-foreground: #F5F5F5;
+  --popover: rgba(30, 30, 30, 0.97);
+  --popover-foreground: #F5F5F5;
+
+  --border: rgba(148, 163, 184, 0.30);  /* decorative dividers only */
+  --border-strong: #6B7280;             /* 3.6:1 on bg, 3.1:1 on cards */
   --input: rgba(226, 232, 240, 0.34);
-  --ring: #7B93F5;
+
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -81,15 +129,12 @@
   --toastify-text-color-dark: #f8fafc;
 }
 
-:root {
-  --toastify-color-light: rgba(255, 255, 255, 0.9);
-  --toastify-text-color-light: #0f172a;
-  --toastify-color-dark: rgba(15, 23, 42, 0.9);
-  --toastify-text-color-dark: #f8fafc;
-  --toastify-color-info: #2563eb;
-  --toastify-color-success: #16a34a;
-  --toastify-color-warning: #d97706;
-  --toastify-color-error: #dc2626;
+/* Extra safety for weak / low-contrast displays and user preference */
+@media (prefers-contrast: more) {
+  :root { --card: #FFFFFF; --popover: #FFFFFF; --border: var(--border-strong); }
+  .dark, :root[data-theme="dark"] {
+    --card: #262626; --popover: #1E1E1E; --border: var(--border-strong);
+  }
 }
 
 @theme inline {
@@ -103,15 +148,23 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-link: var(--link);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-placeholder: var(--placeholder);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
@@ -143,6 +196,30 @@
 }
 
 @layer utilities {
+  .btn-primary {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border: 1px solid transparent;
+  }
+  .btn-primary:hover {
+    background: var(--primary-hover);
+    color: var(--primary-foreground);
+  }
+  .input {
+    background: var(--card);
+    color: var(--foreground);
+    border: 1px solid var(--border-strong);
+  }
+  .input::placeholder {
+    color: var(--placeholder);
+  }
+  .glass {
+    background: var(--card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-strong);
+  }
+
   /* Gray glass utility with subtle grain */
   .glass-gray {
     position: relative;

@@ -419,7 +419,7 @@ export function BillingPreviewSheet({
                             type="button"
                             onClick={() => void handlePrintInvoice()}
                             disabled={printingInvoice}
-                            className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#FF6900] text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground disabled:opacity-60 disabled:cursor-not-allowed"
                           >
                             <Printer className="h-4 w-4" />
                             {printingInvoice
@@ -432,7 +432,7 @@ export function BillingPreviewSheet({
                               <button
                                 type="button"
                                 disabled={printingInvoice}
-                                className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#FF6900] text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground disabled:opacity-60 disabled:cursor-not-allowed"
                               >
                                 <Printer className="h-4 w-4" />
                                 {printingInvoice

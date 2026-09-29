@@ -16,6 +16,7 @@ import {
   sanitizeEmailOrPhoneInput,
   sanitizePhoneInput,
   isDominantMemberRequired,
+  calculateAge,
   validateDateOfBirth,
 } from "@/lib/validation-utils"
 import PatientFormFields from "@/components/patient/patient-form-fields"
@@ -156,6 +157,7 @@ export default function PatientFormDialog({
           insuranceId: pi.insuranceProvider.id,
           insuranceCardNumber: pi.insuranceCardNumber,
           providingCompanyOrEmployer: pi.providingCompanyOrEmployer || "",
+          isSelf: isPrincipal,
           dominantMember: isPrincipal
             ? { firstName: "", lastName: "", phone: "" }
             : {
@@ -249,6 +251,7 @@ export default function PatientFormDialog({
 
   const addInsurance = () => {
     hasInteractedRef.current = true
+    const isAdult = calculateAge(formData.dateOfBirth) >= 18
     setFormData((prev) => ({
       ...prev,
       insurances: [
@@ -259,6 +262,7 @@ export default function PatientFormDialog({
           providingCompanyOrEmployer: "",
           patientShareCoverageId: "",
           patientSharePercentage: "",
+          isSelf: isAdult,
           dominantMember: {
             firstName: "",
             lastName: "",
@@ -272,7 +276,7 @@ export default function PatientFormDialog({
   const updateInsurance = (
     index: number,
     field: string,
-    value: string | number,
+    value: string | number | boolean,
   ) => {
     hasInteractedRef.current = true
     touchedInsuranceIndices.current.add(index)
@@ -283,6 +287,16 @@ export default function PatientFormDialog({
           if (field.startsWith("dominantMember.")) {
             const dmField = field.split(".")[1]
             return { ...insurance, dominantMember: { ...insurance.dominantMember, [dmField]: value } }
+          }
+          if (field === "isSelf") {
+            const isSelf = Boolean(value)
+            return {
+              ...insurance,
+              isSelf,
+              dominantMember: isSelf
+                ? { firstName: "", lastName: "", phone: "" }
+                : insurance.dominantMember || { firstName: "", lastName: "", phone: "" },
+            }
           }
           return { ...insurance, [field]: value }
         }
@@ -320,13 +334,15 @@ export default function PatientFormDialog({
         !savingInsurances.has(i) &&
         !pendingSaveRef.current.has(i)
       ) {
+        const isAdult = calculateAge(formData.dateOfBirth) >= 18
+        const isSelf = isAdult ? (ins.isSelf !== false) : false
         const dominantRequired = isDominantMemberRequired(formData.dateOfBirth, true)
         const hasAnyDominant = Boolean(
           ins.dominantMember?.firstName?.trim() ||
           ins.dominantMember?.lastName?.trim() ||
           ins.dominantMember?.phone?.trim()
         )
-        const dominantValid = !dominantRequired && !hasAnyDominant
+        const dominantValid = isSelf
           ? true
           : Boolean(
               ins.dominantMember?.firstName?.trim() &&
@@ -345,9 +361,10 @@ export default function PatientFormDialog({
             insuranceProviderId: String(ins.insuranceId),
             insuranceCardNumber: ins.insuranceCardNumber,
             providingCompanyOrEmployer: ins.providingCompanyOrEmployer,
-            dominantFirstName: ins.dominantMember?.firstName || undefined,
-            dominantLastName: ins.dominantMember?.lastName || undefined,
-            dominantPhone: ins.dominantMember?.phone || undefined,
+            isSelf,
+            dominantFirstName: isSelf ? undefined : (ins.dominantMember?.firstName || undefined),
+            dominantLastName: isSelf ? undefined : (ins.dominantMember?.lastName || undefined),
+            dominantPhone: isSelf ? undefined : (ins.dominantMember?.phone || undefined),
             existingPatientInsurances: patient.patientInsurances,
           })
             .then(() => {
@@ -522,27 +539,23 @@ export default function PatientFormDialog({
         if (missing(insurance.providingCompanyOrEmployer)) {
           insuranceErrors[`${prefix}.employer`] = "Providing company or employer is required"
         }
-        // Phone format validation (must match backend rule: 7-15 digits, optional leading +)
-        const phone = insurance.dominantMember?.phone?.trim()
-        if (phone && !/^\+?\d{7,15}$/.test(phone)) {
-          insuranceErrors[`${prefix}.dominant`] =
-            "Enter a valid phone number (7-15 digits, optional leading +)"
-        }
-        const hasAnyDominant = Boolean(
-          insurance.dominantMember?.firstName?.trim() ||
-          insurance.dominantMember?.lastName?.trim() ||
-          phone
-        )
+        const isAdult = calculateAge(formData.dateOfBirth) >= 18
+        const isSelf = isAdult ? (insurance.isSelf !== false) : false
 
-        if (dominantMemberRequired || hasAnyDominant) {
+        if (!isSelf) {
+          const phone = insurance.dominantMember?.phone?.trim()
+          if (phone && !/^\+?\d{7,15}$/.test(phone)) {
+            insuranceErrors[`${prefix}.dominant`] =
+              "Enter a valid phone number (7-15 digits, optional leading +)"
+          }
           if (
             missing(insurance.dominantMember?.firstName) ||
             missing(insurance.dominantMember?.lastName) ||
             missing(insurance.dominantMember?.phone)
           ) {
-            insuranceErrors[`${prefix}.dominant`] = dominantMemberRequired
-              ? "Dominant member first name, last name, and phone are required for patients 18 years or younger"
-              : "Dominant member first name, last name, and phone are all required if dominant member details are provided"
+            insuranceErrors[`${prefix}.dominant`] = isAdult
+              ? "Principal member first name, last name, and phone are required when patient is not the principal policyholder"
+              : "Principal member first name, last name, and phone are required for patients 18 years or younger"
           }
         }
       }

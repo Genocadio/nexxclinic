@@ -22,7 +22,7 @@ export default function PatientEditModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
         showCloseButton={false}
-        className="sm:max-w-[780px] max-h-[90vh] overflow-y-auto scrollbar-hide backdrop-blur-xl bg-white/10 dark:bg-black/20 border border-white/20 rounded-3xl shadow-2xl p-2 sm:p-4"
+        className="sm:max-w-[780px] max-h-[90vh] overflow-y-auto scrollbar-hide backdrop-blur-2xl bg-card/95 dark:bg-card/95 text-card-foreground border border-border/80 rounded-3xl shadow-2xl p-2 sm:p-4"
       >
         <DialogTitle className="sr-only">Edit Patient</DialogTitle>
         <div className="mx-auto w-full max-w-[760px] pr-2 pb-20 rounded-2xl border border-border/50 bg-[#FBF2ED] dark:bg-slate-900 shadow-lg p-2 sm:p-4">

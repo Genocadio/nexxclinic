@@ -98,7 +98,7 @@ export default function PatientRegistrationModal({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent
           showCloseButton={false}
-          className={`max-w-full ${dialogWidthClass} max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/20 border border-white/20 rounded-3xl shadow-2xl p-2 sm:p-4`}
+          className={`max-w-full ${dialogWidthClass} max-h-[90vh] overflow-hidden backdrop-blur-2xl bg-card/95 dark:bg-card/95 text-card-foreground border border-border/80 rounded-3xl shadow-2xl p-2 sm:p-4`}
         >
           <DialogTitle className="sr-only">Register New Patient</DialogTitle>
           <div

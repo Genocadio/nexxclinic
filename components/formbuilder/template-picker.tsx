@@ -93,7 +93,6 @@ export function TemplatePicker({ open, onClose, onCreate }: TemplatePickerProps)
             <Button
               onClick={handleCreate}
               disabled={!name.trim()}
-              className="bg-[#FF6900] hover:bg-[#e05f00] text-white"
             >
               {selected ? `Create from ${TEMPLATE_PRESETS.find(p => p.type === selected)?.label}` : 'Create blank form'}
             </Button>

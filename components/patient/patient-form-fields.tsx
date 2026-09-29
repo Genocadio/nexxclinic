@@ -52,7 +52,7 @@ export interface PatientFormFieldsProps {
   onDistrictChange: (district: string) => void
   onSectorChange: (sector: string) => void
   onAddInsurance: () => void
-  onUpdateInsurance: (index: number, field: string, value: string | number) => void
+  onUpdateInsurance: (index: number, field: string, value: string | number | boolean) => void
   onRemoveInsurance: (index: number) => void
   availableInsurances: InsuranceProvider[]
   loading?: boolean
@@ -887,101 +887,178 @@ export default function PatientFormFields({
                 return null
               })()}
 
-              {hasProvider && (
-                <div className="mt-2 sm:mt-4">
-                  <h5 className="text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-2">
-                    Dominant Member Information
-                    {isDominantMemberRequired(formData.dateOfBirth, true) && (
-                      <span className="text-red-500 ml-1">*</span>
-                    )}
-                    <span className="text-xs text-muted-foreground ml-2">
-                      (
-                      {isDominantMemberRequired(formData.dateOfBirth, true)
-                        ? "Required"
-                        : "Optional"}{" "}
-                      for patients ≤18 years)
-                    </span>
-                  </h5>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                        First Name
-                        {isDominantMemberRequired(formData.dateOfBirth, true) && (
-                          <span className="text-red-500 ml-1">*</span>
-                        )}
-                      </label>
-                      <Input
-                        type="text"
-                        value={insurance.dominantMember?.firstName || ""}
-                        onChange={(e) =>
-                          onUpdateInsurance(
-                            index,
-                            "dominantMember.firstName",
-                            e.target.value,
-                          )
-                        }
-                        placeholder="First name"
-                        className={solidFieldClass}
-                        required={isDominantMemberRequired(
-                          formData.dateOfBirth,
-                          true,
-                        )}
-                      />
+              {hasProvider && (() => {
+                const isAdult = calculateAge(formData.dateOfBirth) >= 18
+                const isSelf = isAdult ? (insurance.isSelf !== false) : false
+
+                if (isAdult) {
+                  return (
+                    <div className="mt-2 sm:mt-4 p-3 rounded-xl border border-border/50 bg-muted/20 space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`insurance-${index}-isSelf`}
+                          checked={insurance.isSelf !== false}
+                          onCheckedChange={(checked) => {
+                            onUpdateInsurance(index, "isSelf", Boolean(checked))
+                            if (checked) {
+                              onUpdateInsurance(index, "dominantMember.firstName", "")
+                              onUpdateInsurance(index, "dominantMember.lastName", "")
+                              onUpdateInsurance(index, "dominantMember.phone", "")
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={`insurance-${index}-isSelf`}
+                          className="text-xs sm:text-sm font-medium text-foreground cursor-pointer select-none"
+                        >
+                          Self (Patient is the principal policyholder)
+                        </label>
+                      </div>
+
+                      {!isSelf && (
+                        <div className="pt-2 border-t border-border/40 space-y-2">
+                          <h5 className="text-xs sm:text-sm font-medium text-foreground">
+                            Principal Member Information <span className="text-red-500">*</span>
+                          </h5>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
+                            <div>
+                              <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
+                                First Name <span className="text-red-500">*</span>
+                              </label>
+                              <Input
+                                type="text"
+                                value={insurance.dominantMember?.firstName || ""}
+                                onChange={(e) =>
+                                  onUpdateInsurance(
+                                    index,
+                                    "dominantMember.firstName",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="First name"
+                                className={solidFieldClass}
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
+                                Last Name <span className="text-red-500">*</span>
+                              </label>
+                              <Input
+                                type="text"
+                                value={insurance.dominantMember?.lastName || ""}
+                                onChange={(e) =>
+                                  onUpdateInsurance(
+                                    index,
+                                    "dominantMember.lastName",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="Last name"
+                                className={solidFieldClass}
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
+                                Phone <span className="text-red-500">*</span>
+                              </label>
+                              <Input
+                                type="tel"
+                                value={insurance.dominantMember?.phone || ""}
+                                onChange={(e) =>
+                                  onUpdateInsurance(
+                                    index,
+                                    "dominantMember.phone",
+                                    sanitizePhoneInput(e.target.value),
+                                  )
+                                }
+                                placeholder="Phone number"
+                                className={solidFieldClass}
+                                required
+                              />
+                            </div>
+                          </div>
+                          <FieldError message={fieldErrors[`insurance.${index}.dominant`]} />
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                        Last Name
-                        {isDominantMemberRequired(formData.dateOfBirth, true) && (
-                          <span className="text-red-500 ml-1">*</span>
-                        )}
-                      </label>
-                      <Input
-                        type="text"
-                        value={insurance.dominantMember?.lastName || ""}
-                        onChange={(e) =>
-                          onUpdateInsurance(
-                            index,
-                            "dominantMember.lastName",
-                            e.target.value,
-                          )
-                        }
-                        placeholder="Last name"
-                        className={solidFieldClass}
-                        required={isDominantMemberRequired(
-                          formData.dateOfBirth,
-                          true,
-                        )}
-                      />
+                  )
+                }
+
+                return (
+                  <div className="mt-2 sm:mt-4 p-3 rounded-xl border border-border/50 bg-muted/20 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h5 className="text-xs sm:text-sm font-medium text-foreground">
+                        Principal Member Information <span className="text-red-500">*</span>
+                      </h5>
+                      <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60">
+                        Required for patients &lt;18 years
+                      </span>
                     </div>
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                        Phone
-                        {isDominantMemberRequired(formData.dateOfBirth, true) && (
-                          <span className="text-red-500 ml-1">*</span>
-                        )}
-                      </label>
-                      <Input
-                        type="tel"
-                        value={insurance.dominantMember?.phone || ""}
-                        onChange={(e) =>
-                          onUpdateInsurance(
-                            index,
-                            "dominantMember.phone",
-                            sanitizePhoneInput(e.target.value),
-                          )
-                        }
-                        placeholder="Phone number"
-                        className={solidFieldClass}
-                        required={isDominantMemberRequired(
-                          formData.dateOfBirth,
-                          true,
-                        )}
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
+                          First Name <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          type="text"
+                          value={insurance.dominantMember?.firstName || ""}
+                          onChange={(e) =>
+                            onUpdateInsurance(
+                              index,
+                              "dominantMember.firstName",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="First name"
+                          className={solidFieldClass}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
+                          Last Name <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          type="text"
+                          value={insurance.dominantMember?.lastName || ""}
+                          onChange={(e) =>
+                            onUpdateInsurance(
+                              index,
+                              "dominantMember.lastName",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="Last name"
+                          className={solidFieldClass}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
+                          Phone <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          type="tel"
+                          value={insurance.dominantMember?.phone || ""}
+                          onChange={(e) =>
+                            onUpdateInsurance(
+                              index,
+                              "dominantMember.phone",
+                              sanitizePhoneInput(e.target.value),
+                            )
+                          }
+                          placeholder="Phone number"
+                          className={solidFieldClass}
+                          required
+                        />
+                      </div>
                     </div>
+                    <FieldError message={fieldErrors[`insurance.${index}.dominant`]} />
                   </div>
-                  <FieldError message={fieldErrors[`insurance.${index}.dominant`]} />
-                </div>
-              )}
+                )
+              })()}
             </div>
           )
         })}

@@ -128,7 +128,7 @@ export function FormBuilderModal({ isOpen, departmentId, departmentName, onClose
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-7xl max-h-[90vh] overflow-hidden backdrop-blur-xl bg-white/10 dark:bg-black/20 border border-white/20 rounded-3xl shadow-2xl p-2 sm:p-4">
+      <DialogContent className="sm:max-w-7xl max-h-[90vh] overflow-hidden backdrop-blur-2xl bg-card/95 dark:bg-card/95 text-card-foreground border border-border/80 rounded-3xl shadow-2xl p-2 sm:p-4">
         <DialogHeader>
           <DialogTitle>Form Builder - {departmentName}</DialogTitle>
           <DialogDescription>Create custom forms for visit submissions</DialogDescription>

@@ -328,9 +328,10 @@ export function createPatientInsuranceFormSchema(options: {
       providingCompanyOrEmployer: requiredString(
         "Providing company or employer is required",
       ),
-      dominantFirstName: z.string().trim(),
-      dominantLastName: z.string().trim(),
-      dominantPhone: z.string().trim(),
+      isSelf: z.boolean().optional(),
+      dominantFirstName: z.string().trim().optional(),
+      dominantLastName: z.string().trim().optional(),
+      dominantPhone: z.string().trim().optional(),
       patientSharePercentage: z
         .union([z.string(), z.number()])
         .optional()
@@ -346,7 +347,12 @@ export function createPatientInsuranceFormSchema(options: {
       patientShareCoverageId: z.string().optional().nullable(),
     })
     .superRefine((data, ctx) => {
-      // ── Format validation (runs whether or not dominant is required) ──
+      // If patient is principal self, skip dominant member validation
+      if (data.isSelf) {
+        return;
+      }
+
+      // ── Format validation (runs if phone is supplied) ──
       if (data.dominantPhone && !PHONE_NUMBER_REGEX.test(data.dominantPhone)) {
         ctx.addIssue({
           code: "custom",
@@ -356,12 +362,13 @@ export function createPatientInsuranceFormSchema(options: {
       }
 
       // ── Dominant-member rules ──
-      // Required if patient is <=18, OR if the user provided ANY dominant member detail (e.g. name without phone)
-      const hasAnyDominant = Boolean(
-        data.dominantFirstName || data.dominantLastName || data.dominantPhone,
-      );
+      // Required if patient is <=18, OR isSelf is explicitly false, OR any dominant field is typed
+      const mustFillDominant =
+        options.dominantRequired ||
+        data.isSelf === false ||
+        Boolean(data.dominantFirstName || data.dominantLastName || data.dominantPhone);
 
-      if (options.dominantRequired || hasAnyDominant) {
+      if (mustFillDominant) {
         if (!data.dominantFirstName) {
           ctx.addIssue({
             code: "custom",
