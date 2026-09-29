@@ -208,6 +208,7 @@ const billingRefetchQueries = [
   "GetVisitBillingForSettings",
   "GetVisitDepartmentProfiles",
   "GetBillByVisit",
+  "GetVisitDepartmentBilling",
 ];
 
 export function useEditBill() {

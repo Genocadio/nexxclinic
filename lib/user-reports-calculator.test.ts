@@ -286,6 +286,62 @@ describe("calculateUserReports", () => {
     expect(reports.clinician.money.productTurnoverList[0].isBilled).toBe(false)
   })
 
+  it("excludes money for departments in DEPARTMENT_EDITING mode until completed", () => {
+    const editingVisit: Visit = {
+      id: "visit-edit-1",
+      status: "COMPLETED" as any,
+      visitDate: "2026-09-29T09:00:00Z",
+      createdAt: "2026-09-29T09:00:00Z",
+      patient: { id: "p-2", firstName: "Bob", lastName: "Edit" } as any,
+      departments: [
+        {
+          id: "vd-edit-1",
+          department: { id: "d-1", name: "General Consultation" } as any,
+          status: "DEPARTMENT_EDITING" as any,
+          startedAt: "2026-09-29T09:00:00Z",
+          completedAt: "2026-09-29T09:20:00Z",
+          addedBy: { id: "user-123" } as any,
+          completedBy: { id: "user-123" } as any,
+          processors: [{ id: "user-123" } as any],
+          products: [
+            {
+              id: "vdp-edit-1",
+              product: { id: "prod-1", name: "Amoxicillin", type: "DRUG", privateRhicPrice: 5000, clinicPrice: 5000 } as any,
+              quantity: 1,
+              status: "BILLED" as any,
+              addedBy: { id: "user-123" } as any,
+              createdAt: "2026-09-29T09:10:00Z",
+            } as any,
+          ],
+          billing: {
+            id: "bill-edit-1",
+            status: "BILLED" as any,
+            totalAmount: 5000,
+            insuranceCoveredAmount: 4000,
+            patientPayableAmount: 1000,
+            paidAmount: 1000,
+            outstandingAmount: 0,
+            insuranceBillings: [],
+            payments: [],
+            createdAt: "2026-09-29T09:15:00Z",
+            updatedAt: "2026-09-29T09:15:00Z",
+          } as any,
+        } as any,
+      ],
+    }
+
+    const reports = calculateUserReports([editingVisit], mockWorker, "today", "2026-09-29", "2026-09-29")
+    // Encounter is counted
+    expect(reports.clinician.consultationsCount).toBe(1)
+    // Money is excluded while in DEPARTMENT_EDITING
+    expect(reports.clinician.money.totalGrossBilled).toBe(0)
+    expect(reports.clinician.money.totalProductTurnover).toBe(0)
+    expect(reports.clinician.money.productItemsApprovedCount).toBe(0)
+    expect(reports.clinician.money.departmentBreakdown.length).toBe(1)
+    expect(reports.clinician.money.departmentBreakdown[0].totalAmount).toBe(0)
+    expect(reports.clinician.encountersList[0].totalGross).toBe(0)
+  })
+
   it("calculates detailed payment modes breakdown including MoMo, Cash, Loans, and Giveaways", () => {
     const paymentVisits: Visit[] = [
       {

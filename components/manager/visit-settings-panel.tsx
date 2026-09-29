@@ -45,7 +45,6 @@ import {
 } from "@/hooks/mutations/billing"
 import {
   useStartBillEditing,
-  useCompleteBillEditing,
   useCancelBillEditing,
   useGenerateInvoice,
 } from "@/hooks/billing/hooks"
@@ -65,6 +64,28 @@ import { useAuth } from "@/lib/auth-context"
 import { useDepartments } from "@/hooks/auth-hooks"
 import { hasRole } from "@/lib/role-utils"
 import type { DepartmentProfile as DepartmentProfileType } from "@/lib/api-types"
+
+function getRandomMinutes(min = 5, max = 10): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+function addMinutesToDate(dateStr: string | number | Date, minutes: number): string {
+  const d = new Date(dateStr)
+  d.setMinutes(d.getMinutes() + minutes)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  const hours = String(d.getHours()).padStart(2, "0")
+  const mins = String(d.getMinutes()).padStart(2, "0")
+  const secs = String(d.getSeconds()).padStart(2, "0")
+  return `${year}-${month}-${day}T${hours}:${mins}:${secs}`
+}
+
+function parseTimeMs(dateStr: string | number | Date | null | undefined): number | null {
+  if (!dateStr) return null
+  const t = new Date(dateStr).getTime()
+  return isNaN(t) ? null : t
+}
 
 function formatFullDateTime(val: unknown): string {
   if (!val) return "—"
@@ -370,8 +391,15 @@ export function VisitSettingsPanel({
   })
 
   const { startBillEditing, loading: startingBillEdit } = useStartBillEditing()
-  const { completeBillEditing, loading: completingBillEdit } = useCompleteBillEditing()
   const { cancelBillEditing, loading: cancellingBillEdit } = useCancelBillEditing()
+
+  const [fetchLiveVisit, { data: liveVisitData }] = useLazyQuery(GET_VISIT_QUERY, {
+    fetchPolicy: "network-only",
+  })
+
+  const currentVisit: Visit = useMemo(() => {
+    return (liveVisitData?.visit?.data as Visit) || visit
+  }, [liveVisitData, visit])
 
   const [fetchBilling, { data: billingData, error: billingError }] = useLazyQuery(
     GET_VISIT_BILLING,
@@ -388,9 +416,10 @@ export function VisitSettingsPanel({
 
   useEffect(() => {
     if (open) {
-      fetchBilling({ variables: { visitId: visit.id } })
+      void fetchLiveVisit({ variables: { id: visit.id } })
+      void fetchBilling({ variables: { visitId: visit.id } })
     }
-  }, [open, visit.id, fetchBilling])
+  }, [open, visit.id, fetchLiveVisit, fetchBilling])
 
   // ── Clinic department profile (assigned + available catalog profiles) ──
   const { departments = [] } = useDepartments()
@@ -542,6 +571,8 @@ export function VisitSettingsPanel({
         })
       }
       setPendingDepartmentEncounterDate(null)
+      onVisitUpdated?.()
+      void fetchLiveVisit({ variables: { id: visit.id } })
     } finally {
       setApplyingDate(false)
     }
@@ -572,6 +603,192 @@ export function VisitSettingsPanel({
     setPendingBillingDate({ billingId: departmentInsuranceBillingId, visitDepartmentId, date: billingDate })
   }
 
+  const syncAllDepartmentTimes = async (
+    anchorDeptId?: string,
+    anchorEncounterDate?: string,
+  ) => {
+    const depts = [...(currentVisit.departments || [])]
+    if (depts.length === 0) return
+
+    setApplyingDate(true)
+    try {
+      let anchorIdx = 0
+      if (anchorDeptId) {
+        const foundIdx = depts.findIndex((d) => d.id === anchorDeptId)
+        if (foundIdx !== -1) anchorIdx = foundIdx
+      }
+
+      const deptEncounterUpdates = new Map<string, string>()
+      const billingDateUpdates = new Map<string, string>()
+
+      const getDeptBillings = (d: Visit["departments"][number]) => {
+        const deptBilling = billingDepartments?.find(
+          (b: any) => b.visitDepartment?.id === d.id,
+        )
+        return (deptBilling?.insuranceBillings || []) as any[]
+      }
+
+      const getEffectiveEncDate = (d: Visit["departments"][number], idx: number): string => {
+        if (idx === anchorIdx && anchorEncounterDate) return anchorEncounterDate
+        if (deptEncounterUpdates.has(d.id)) return deptEncounterUpdates.get(d.id)!
+        return d.startedAt || d.createdAt || currentVisit.visitDate
+      }
+
+      if (anchorEncounterDate && anchorDeptId) {
+        deptEncounterUpdates.set(anchorDeptId, anchorEncounterDate)
+      }
+
+      const anchorDept = depts[anchorIdx]
+      const anchorEncDate = getEffectiveEncDate(anchorDept, anchorIdx)
+      const anchorBillings = getDeptBillings(anchorDept)
+      let anchorEndTime = anchorEncDate
+
+      if (anchorBillings.length > 0) {
+        for (const ib of anchorBillings) {
+          const currentBTime = parseTimeMs(ib.billingDate)
+          const encTime = parseTimeMs(anchorEncDate)!
+          const minAllowedBTime = encTime + 5 * 60 * 1000
+          if (currentBTime == null || currentBTime < minAllowedBTime) {
+            const newBDate = addMinutesToDate(anchorEncDate, getRandomMinutes(5, 10))
+            billingDateUpdates.set(ib.id, newBDate)
+            if (parseTimeMs(newBDate)! > parseTimeMs(anchorEndTime)!) {
+              anchorEndTime = newBDate
+            }
+          } else {
+            if (currentBTime > parseTimeMs(anchorEndTime)!) {
+              anchorEndTime = ib.billingDate
+            }
+          }
+        }
+      } else {
+        anchorEndTime = addMinutesToDate(anchorEncDate, getRandomMinutes(5, 10))
+      }
+
+      // ── Forward pass: anchorIdx + 1 to depts.length - 1 ──
+      let prevEndTime = anchorEndTime
+      for (let i = anchorIdx + 1; i < depts.length; i++) {
+        const curDept = depts[i]
+        const curEncDate = curDept.startedAt || curDept.createdAt || currentVisit.visitDate
+        const curEncTime = parseTimeMs(curEncDate)!
+        const prevEndMs = parseTimeMs(prevEndTime)!
+        const minAllowedEncTime = prevEndMs + 5 * 60 * 1000
+
+        let effectiveEncDate = curEncDate
+        if (curEncTime < minAllowedEncTime) {
+          effectiveEncDate = addMinutesToDate(prevEndTime, getRandomMinutes(5, 10))
+          deptEncounterUpdates.set(curDept.id, effectiveEncDate)
+        }
+
+        const curBillings = getDeptBillings(curDept)
+        let curEndTime = effectiveEncDate
+
+        if (curBillings.length > 0) {
+          for (const ib of curBillings) {
+            const currentBTime = parseTimeMs(ib.billingDate)
+            const encTime = parseTimeMs(effectiveEncDate)!
+            const minAllowedBTime = encTime + 5 * 60 * 1000
+            if (currentBTime == null || currentBTime < minAllowedBTime) {
+              const newBDate = addMinutesToDate(effectiveEncDate, getRandomMinutes(5, 10))
+              billingDateUpdates.set(ib.id, newBDate)
+              if (parseTimeMs(newBDate)! > parseTimeMs(curEndTime)!) {
+                curEndTime = newBDate
+              }
+            } else {
+              if (currentBTime > parseTimeMs(curEndTime)!) {
+                curEndTime = ib.billingDate
+              }
+            }
+          }
+        } else {
+          curEndTime = addMinutesToDate(effectiveEncDate, getRandomMinutes(5, 10))
+        }
+
+        prevEndTime = curEndTime
+      }
+
+      // ── Backward pass: anchorIdx - 1 down to 0 ──
+      let nextStartTime = anchorEncDate
+      for (let i = anchorIdx - 1; i >= 0; i--) {
+        const curDept = depts[i]
+        const nextStartMs = parseTimeMs(nextStartTime)!
+        const maxAllowedEndTime = nextStartMs - 5 * 60 * 1000
+
+        const curBillings = getDeptBillings(curDept)
+        const curEncDate = curDept.startedAt || curDept.createdAt || currentVisit.visitDate
+
+        let curLatestBTime = -1
+        let curLatestBDate: string | null = null
+        for (const ib of curBillings) {
+          const bMs = parseTimeMs(ib.billingDate)
+          if (bMs != null && bMs > curLatestBTime) {
+            curLatestBTime = bMs
+            curLatestBDate = ib.billingDate
+          }
+        }
+
+        let curEndMs = curLatestBTime > 0 ? curLatestBTime : parseTimeMs(curEncDate)! + 5 * 60 * 1000
+        let effectiveEndDate = curLatestBDate || addMinutesToDate(curEncDate, 5)
+
+        if (curEndMs > maxAllowedEndTime) {
+          effectiveEndDate = addMinutesToDate(nextStartTime, -getRandomMinutes(5, 10))
+          curEndMs = parseTimeMs(effectiveEndDate)!
+          for (const ib of curBillings) {
+            billingDateUpdates.set(ib.id, effectiveEndDate)
+          }
+        }
+
+        const curEncTime = parseTimeMs(curEncDate)!
+        const maxAllowedEncTime = curEndMs - 5 * 60 * 1000
+        let effectiveEncDate = curEncDate
+
+        if (curEncTime > maxAllowedEncTime) {
+          effectiveEncDate = addMinutesToDate(effectiveEndDate, -getRandomMinutes(5, 10))
+          deptEncounterUpdates.set(curDept.id, effectiveEncDate)
+        }
+
+        nextStartTime = effectiveEncDate
+      }
+
+      for (const [deptId, encDate] of deptEncounterUpdates.entries()) {
+        await updateDepartmentEncounterDate({
+          variables: {
+            input: {
+              visitDepartmentId: deptId,
+              encounterDate: encDate.length === 16 ? `${encDate}:00` : encDate,
+            },
+          },
+        })
+      }
+
+      for (const [billingId, bDate] of billingDateUpdates.entries()) {
+        await updateBillingDate({
+          variables: {
+            input: {
+              departmentInsuranceBillingId: billingId,
+              billingDate: bDate.length === 16 ? `${bDate}:00` : bDate,
+            },
+          },
+        })
+      }
+
+      const totalUpdates = deptEncounterUpdates.size + billingDateUpdates.size
+      if (totalUpdates > 0) {
+        toast.success(`Synchronized ${totalUpdates} timestamp(s) across departments (5-min rule)`)
+      } else {
+        toast.info("All department timestamps already satisfy the 5-minute rule")
+      }
+      setPendingDepartmentEncounterDate(null)
+      setPendingBillingDate(null)
+      onVisitUpdated?.()
+      void fetchLiveVisit({ variables: { id: visit.id } })
+      void fetchBilling({ variables: { visitId: visit.id } })
+    } catch (err: any) {
+      toast.error(err.message || "Failed to synchronize department times")
+    } finally {
+      setApplyingDate(false)
+    }
+  }
+
   const confirmBillingDateChange = async () => {
     if (!pendingBillingDate) return
     setApplyingDate(true)
@@ -585,6 +802,8 @@ export function VisitSettingsPanel({
         },
       })
       setPendingBillingDate(null)
+      onVisitUpdated?.()
+      void fetchLiveVisit({ variables: { id: visit.id } })
     } finally {
       setApplyingDate(false)
     }
@@ -627,29 +846,13 @@ export function VisitSettingsPanel({
       if (result.status === "SUCCESS") {
         toast.success("Billing editing mode enabled for department")
         onVisitUpdated?.()
+        void fetchLiveVisit({ variables: { id: visit.id } })
         void fetchBilling({ variables: { visitId: visit.id } })
       } else {
         toast.error(result.message || "Failed to enable billing editing")
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to enable billing editing")
-    }
-  }
-
-  const handleCompleteBillEditing = async (visitDepartmentId?: string) => {
-    const deptId = visitDepartmentId
-    if (!deptId) return
-    try {
-      const result = await completeBillEditing(deptId)
-      if (result.status === "SUCCESS") {
-        toast.success("Billing editing completed successfully")
-        onVisitUpdated?.()
-        void fetchBilling({ variables: { visitId: visit.id } })
-      } else {
-        toast.error(result.message || "Failed to complete billing editing")
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to complete billing editing")
     }
   }
 
@@ -661,6 +864,7 @@ export function VisitSettingsPanel({
       if (result.status === "SUCCESS") {
         toast.success("Billing editing cancelled")
         onVisitUpdated?.()
+        void fetchLiveVisit({ variables: { id: visit.id } })
         void fetchBilling({ variables: { visitId: visit.id } })
       } else {
         toast.error(result.message || "Failed to cancel billing editing")
@@ -736,16 +940,16 @@ export function VisitSettingsPanel({
   }
 
   const canCancelVisit =
-    visit.status !== "CANCELLED" && visit.status !== "COMPLETED"
-  const hasDeptEditing = (visit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING")
+    currentVisit.status !== "CANCELLED" && currentVisit.status !== "COMPLETED"
+  const hasDeptEditing = (currentVisit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING")
   const canDeleteVisit = !hasDeptEditing
-  const hasDepartments = visit.departments && visit.departments.length > 0
-  const canDischarge = canDischargeVisit(visit)
+  const hasDepartments = currentVisit.departments && currentVisit.departments.length > 0
+  const canDischarge = canDischargeVisit(currentVisit)
 
   // ── Derived billing state ──
   const billingDepartments = billingData?.visitBilling?.data?.departments
   const hasBillingData = billingDepartments && billingDepartments.length > 0
-  const isBillEditing = (visit.departments || []).some((d) => d.status === "DEPARTMENT_EDITING")
+  const isBillEditing = (currentVisit.departments || []).some((d) => d.status === "DEPARTMENT_EDITING")
 
   if (!isRendered || typeof document === "undefined") return null
 
@@ -1003,11 +1207,29 @@ export function VisitSettingsPanel({
               {/* Departments Tab */}
               {activeTab === "departments" && (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Building2 className="h-4 w-4 text-primary" />
-                    <h3 className="font-medium text-foreground">
-                      Visit Departments
-                    </h3>
+                  <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-primary" />
+                      <h3 className="font-medium text-foreground">
+                        Visit Departments
+                      </h3>
+                    </div>
+                    {isAdminOrManager && currentVisit.departments && currentVisit.departments.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => void syncAllDepartmentTimes()}
+                        disabled={applyingDate}
+                        className="px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                        title="Auto-sync encounter and billing timestamps across all departments to follow the 5-minute rule"
+                      >
+                        {applyingDate ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <CalendarClock className="h-3.5 w-3.5" />
+                        )}
+                        Auto-Sync Department Times (5-Min Rule)
+                      </button>
+                    )}
                   </div>
 
                   {!hasDepartments ? (
@@ -1017,7 +1239,7 @@ export function VisitSettingsPanel({
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {visit.departments.map((dept) => (
+                      {currentVisit.departments.map((dept) => (
                         <div
                           key={dept.id}
                           className="rounded-xl border border-border p-4 space-y-3"
@@ -1041,36 +1263,20 @@ export function VisitSettingsPanel({
                               {isAdminOrManager && (
                                 <>
                                   {dept.status === "DEPARTMENT_EDITING" ? (
-                                    <div className="flex items-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleCompleteBillEditing(dept.id)}
-                                        disabled={completingBillEdit}
-                                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1 shadow-xs"
-                                        title="Complete billing edits and restore department status"
-                                      >
-                                        {completingBillEdit ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                          <CheckCircle className="h-3 w-3" />
-                                        )}
-                                        Complete Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleCancelBillEditing(dept.id)}
-                                        disabled={cancellingBillEdit}
-                                        className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200 text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
-                                        title="Cancel billing edits"
-                                      >
-                                        {cancellingBillEdit ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                          <X className="h-3 w-3" />
-                                        )}
-                                        Cancel Edit
-                                      </button>
-                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCancelBillEditing(dept.id)}
+                                      disabled={cancellingBillEdit}
+                                      className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow-xs"
+                                      title="Cancel billing edits and restore department status"
+                                    >
+                                      {cancellingBillEdit ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <X className="h-3 w-3" />
+                                      )}
+                                      Cancel Edit
+                                    </button>
                                   ) : (
                                     (dept.status === "COMPLETED" || dept.status === "FINALISED") && (
                                       <button

@@ -84,6 +84,7 @@ import {
   RotateCcw,
   Database,
   Calendar,
+  Package,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
@@ -233,6 +234,10 @@ export default function DashboardPage() {
   const canViewPatientHistory = hasRole(roles, "CLINICIAN")
   // Billables visibility: detailed product names, counts, and items to bill are only visible to FINANCE, ADMIN, and MANAGER
   const canSeeBillables = hasFinanceRole || hasManagerRole || hasAdminRole
+  // Products visibility: Receptionists cannot see products. Visible to CLINICIAN, DOCTOR, NURSE, FINANCE, ADMIN, MANAGER
+  const canSeeProducts =
+    !isReceptionistOnly &&
+    (!hasReceptionistRole || hasFinanceRole || hasManagerRole || hasAdminRole || hasClinicianOrDoctorRole || hasNurseRole)
   // All departments can see that a patient is in billing
   const canSeeBillingInfo = true
   const canSeeConsultButton = !isReceptionistOnly
@@ -244,9 +249,10 @@ export default function DashboardPage() {
   const canSeeVisitActionButtons = !isReceptionistOnly
   // Discharge button: visible to FINANCE, MANAGER, and ADMIN when all departments are completed/finalised
   const canSeeDischargeButton = hasFinanceRole || hasManagerRole || hasAdminRole
-  // Duration & Department times visibility: Manager and Admin can see all department times,
+  // Duration & Department times visibility: Manager, Admin, and Receptionist can see all department times,
   // while other users can only see time spent in their own assigned department.
-  const canViewAllDeptTimes = hasManagerRole || hasAdminRole
+  const canViewAllDeptTimes =
+    hasManagerRole || hasAdminRole || hasReceptionistRole
   const isUserDept = (deptId?: string | null) => {
     if (!deptId) return false
     return userDepartmentIds.includes(String(deptId))
@@ -854,6 +860,150 @@ export default function DashboardPage() {
             {formatProductsToBillLabel(0)}
           </p>
         )}
+      </div>
+    )
+  }
+
+  const renderDepartmentProductsHover = (dept: any) => {
+    if (!canSeeProducts || !dept) return null
+    const deptProducts = (dept.products || []) as any[]
+    const childProducts = ((dept.childVisitDepartments || []) as any[]).flatMap((c: any) => c.products || [])
+    const allProducts = [...deptProducts, ...childProducts]
+
+    return (
+      <div className="space-y-1.5 text-xs max-w-xs">
+        <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-1">
+          <p className="font-semibold text-foreground text-[11px] truncate">
+            {dept.department?.name || "Department"} Products
+          </p>
+          <span className="text-[10px] text-muted-foreground font-mono">
+            {allProducts.length} {allProducts.length === 1 ? "item" : "items"}
+          </span>
+        </div>
+        {allProducts.length === 0 ? (
+          <p className="text-muted-foreground text-[11px]">No products added</p>
+        ) : (
+          <div className="max-h-48 overflow-y-auto space-y-1 pr-0.5">
+            {allProducts.map((p: any, idx: number) => {
+              const statusStr = String(p.status || "PENDING").toUpperCase()
+              const isBilled =
+                statusStr === "BILLED" ||
+                statusStr === "EXEMPTED" ||
+                statusStr === "PATIENT_SHARE_EXEMPTED"
+              const isUnpaid = statusStr === "UNPAID" || statusStr === "PENDING"
+              return (
+                <div
+                  key={p.id || idx}
+                  className="flex items-center justify-between gap-2 text-[11px] py-0.5"
+                >
+                  <span
+                    className="text-foreground truncate flex-1"
+                    title={p.product?.name}
+                  >
+                    {p.product?.name || p.product?.code || "Product"}
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {p.quantity && (
+                      <span className="text-muted-foreground font-mono text-[10px]">
+                        x{p.quantity}
+                      </span>
+                    )}
+                    <span
+                      className={`text-[9px] px-1.5 py-0.2 rounded font-medium ${
+                        isBilled
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                          : isUnpaid
+                            ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                            : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {statusStr}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderVisitActiveDepartmentHover = (activeDeptInfo: any) => {
+    if (!canSeeProducts || !activeDeptInfo) return null
+    const allDepts = (activeDeptInfo.allDepts || []) as any[]
+    if (allDepts.length === 0) return null
+
+    return (
+      <div className="space-y-2.5 text-xs max-w-sm">
+        <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-1">
+          <p className="font-semibold text-foreground text-xs">
+            Department Products
+          </p>
+          <span className="text-[10px] text-muted-foreground">
+            {allDepts.length} {allDepts.length === 1 ? "dept" : "depts"}
+          </span>
+        </div>
+        <div className="max-h-60 overflow-y-auto space-y-2 pr-0.5">
+          {allDepts.map((d: any, dIdx: number) => {
+            const deptProducts = (d.products || []) as any[]
+            const childProducts = ((d.childVisitDepartments || []) as any[]).flatMap(
+              (c: any) => c.products || [],
+            )
+            const allProducts = [...deptProducts, ...childProducts]
+            return (
+              <div key={d.id || dIdx} className="space-y-1">
+                <div className="flex items-center justify-between text-[11px] font-medium text-foreground">
+                  <span className="truncate">
+                    {d.department?.name || "Department"}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    {allProducts.length}{" "}
+                    {allProducts.length === 1 ? "product" : "products"}
+                  </span>
+                </div>
+                {allProducts.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground pl-2 italic">
+                    No products
+                  </p>
+                ) : (
+                  <div className="pl-2 space-y-0.5 border-l-2 border-border/50">
+                    {allProducts.map((p: any, pIdx: number) => {
+                      const statusStr = String(p.status || "PENDING").toUpperCase()
+                      const isBilled =
+                        statusStr === "BILLED" || statusStr === "EXEMPTED"
+                      return (
+                        <div
+                          key={p.id || pIdx}
+                          className="flex items-center justify-between gap-2 text-[10px]"
+                        >
+                          <span
+                            className="text-foreground/90 truncate flex-1"
+                            title={p.product?.name}
+                          >
+                            {p.product?.name || p.product?.code || "Product"}
+                          </span>
+                          <span className="text-muted-foreground font-mono flex-shrink-0">
+                            {p.quantity ? `x${p.quantity}` : ""}
+                          </span>
+                          <span
+                            className={`text-[8px] px-1 py-0.2 rounded font-medium flex-shrink-0 ${
+                              isBilled
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                                : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                            }`}
+                          >
+                            {statusStr}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   }
@@ -2034,30 +2184,6 @@ export default function DashboardPage() {
                                       visit.visitDate,
                                     ).toLocaleDateString()}
                                   </p>
-                                  {canSeeBillingInfo && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <p className={`text-xs truncate cursor-help ${
-                                          (visit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING")
-                                            ? "text-amber-600 dark:text-amber-400 font-medium"
-                                            : "text-muted-foreground"
-                                        }`}>
-                                          Billing:{" "}
-                                          {getBillingDisplayStatus(visit)}
-                                        </p>
-                                      </TooltipTrigger>
-                                      <TooltipContent className="max-w-xs">
-                                        {renderBillingTooltipContent(
-                                          visit,
-                                          unbilledProductCount,
-                                          unbilledProductNames,
-                                          billedProductCount,
-                                          billedProductNames,
-                                          departmentsReadyForBilling,
-                                        )}
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  )}
                                   {(() => {
                                     const activeDeptInfo =
                                       getVisitActiveDepartmentInfo(visit)
@@ -2091,75 +2217,92 @@ export default function DashboardPage() {
                                       hasNurseRole ||
                                       hasReceptionistRole
 
+                                    const pillButton = (
+                                      <button
+                                        type="button"
+                                        onClick={(e) =>
+                                          e.stopPropagation()
+                                        }
+                                        className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary/15 hover:bg-secondary/25 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-foreground border border-border/60 hover:border-border transition-all shadow-2xs cursor-pointer select-none"
+                                        title="Click to view department timeline & details"
+                                        aria-label={`View department timeline for ${visit.patient.firstName} ${visit.patient.lastName}`}
+                                      >
+                                        <span className="relative flex h-2 w-2 flex-shrink-0">
+                                          {isPillActive ? (
+                                            <>
+                                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                            </>
+                                          ) : isPillPending ? (
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                          ) : isPillCancelled ? (
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                                          ) : (
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+                                          )}
+                                        </span>
+                                        <span className="font-semibold truncate max-w-[130px] sm:max-w-[170px]">
+                                          {activeDeptInfo.displayName}
+                                        </span>
+                                        {activeDeptInfo.activeDept &&
+                                          canUserSeeDeptAnswerStatus(
+                                            activeDeptInfo.activeDept,
+                                          ) && (
+                                            activeDeptInfo.activeDept
+                                              .hasFinalizedConsultationAnswers ? (
+                                              <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 stroke-[2.5] flex-shrink-0" />
+                                            ) : activeDeptInfo.activeDept
+                                                .answerId ? (
+                                              <span
+                                                className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0"
+                                                title="Draft consultation answers"
+                                              />
+                                            ) : null
+                                          )}
+                                        {isPillActive &&
+                                          activeDeptInfo.duration &&
+                                          canSeeActivePillDuration && (
+                                            <span className="text-[10px] text-muted-foreground font-normal">
+                                              • {activeDeptInfo.duration}
+                                            </span>
+                                          )}
+                                        {isPillPending && (
+                                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                            (Pending)
+                                          </span>
+                                        )}
+                                        {activeDeptInfo.allDepts.length >
+                                          1 && (
+                                          <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.2 rounded-full">
+                                            {
+                                              activeDeptInfo.allDepts
+                                                .length
+                                            }
+                                          </span>
+                                        )}
+                                        <ChevronDown className="w-3 h-3 text-muted-foreground group-hover:text-foreground transition-colors ml-0.5 flex-shrink-0" />
+                                      </button>
+                                    )
+
                                     return (
                                       <div className="mt-1.5 flex items-center">
                                         <Popover>
-                                          <PopoverTrigger asChild>
-                                            <button
-                                              type="button"
-                                              onClick={(e) =>
-                                                e.stopPropagation()
-                                              }
-                                              className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary/15 hover:bg-secondary/25 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-foreground border border-border/60 hover:border-border transition-all shadow-2xs cursor-pointer select-none"
-                                              title="Click to view department timeline & details"
-                                              aria-label={`View department timeline for ${visit.patient.firstName} ${visit.patient.lastName}`}
-                                            >
-                                              <span className="relative flex h-2 w-2 flex-shrink-0">
-                                                {isPillActive ? (
-                                                  <>
-                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                                  </>
-                                                ) : isPillPending ? (
-                                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                                                ) : isPillCancelled ? (
-                                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                                                ) : (
-                                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
-                                                )}
-                                              </span>
-                                              <span className="font-semibold truncate max-w-[130px] sm:max-w-[170px]">
-                                                {activeDeptInfo.displayName}
-                                              </span>
-                                              {activeDeptInfo.activeDept &&
-                                                canUserSeeDeptAnswerStatus(
-                                                  activeDeptInfo.activeDept,
-                                                ) && (
-                                                  activeDeptInfo.activeDept
-                                                    .hasFinalizedConsultationAnswers ? (
-                                                    <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 stroke-[2.5] flex-shrink-0" />
-                                                  ) : activeDeptInfo.activeDept
-                                                      .answerId ? (
-                                                    <span
-                                                      className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0"
-                                                      title="Draft consultation answers"
-                                                    />
-                                                  ) : null
-                                                )}
-                                              {isPillActive &&
-                                                activeDeptInfo.duration &&
-                                                canSeeActivePillDuration && (
-                                                  <span className="text-[10px] text-muted-foreground font-normal">
-                                                    • {activeDeptInfo.duration}
-                                                  </span>
-                                                )}
-                                              {isPillPending && (
-                                                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                                                  (Pending)
-                                                </span>
-                                              )}
-                                              {activeDeptInfo.allDepts.length >
-                                                1 && (
-                                                <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.2 rounded-full">
-                                                  {
-                                                    activeDeptInfo.allDepts
-                                                      .length
-                                                  }
-                                                </span>
-                                              )}
-                                              <ChevronDown className="w-3 h-3 text-muted-foreground group-hover:text-foreground transition-colors ml-0.5 flex-shrink-0" />
-                                            </button>
-                                          </PopoverTrigger>
+                                          {canSeeProducts ? (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <PopoverTrigger asChild>
+                                                  {pillButton}
+                                                </PopoverTrigger>
+                                              </TooltipTrigger>
+                                              <TooltipContent className="max-w-sm p-3 z-50">
+                                                {renderVisitActiveDepartmentHover(activeDeptInfo)}
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          ) : (
+                                            <PopoverTrigger asChild>
+                                              {pillButton}
+                                            </PopoverTrigger>
+                                          )}
                                           <PopoverContent
                                             align="start"
                                             sideOffset={6}
@@ -2433,6 +2576,32 @@ export default function DashboardPage() {
                                                                   new note(s)
                                                                 </div>
                                                               )}
+
+                                                            {canSeeProducts && (() => {
+                                                              const deptProducts = (dept.products || []) as any[]
+                                                              const childProducts = ((dept.childVisitDepartments || []) as any[]).flatMap(
+                                                                (c: any) => c.products || [],
+                                                              )
+                                                              const allDeptProducts = [...deptProducts, ...childProducts]
+                                                              if (allDeptProducts.length === 0) return null
+                                                              return (
+                                                                <div className="mt-1.5 pt-1.5 border-t border-border/30">
+                                                                  <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                      <div className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground font-medium cursor-help transition-colors">
+                                                                        <Package className="w-3 h-3 text-primary" />
+                                                                        <span>
+                                                                          {allDeptProducts.length} product{allDeptProducts.length === 1 ? "" : "s"}
+                                                                        </span>
+                                                                      </div>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent className="max-w-xs p-2.5 z-50">
+                                                                      {renderDepartmentProductsHover(dept)}
+                                                                    </TooltipContent>
+                                                                  </Tooltip>
+                                                                </div>
+                                                              )
+                                                            })()}
                                                           </div>
                                                         </div>
                                                       )

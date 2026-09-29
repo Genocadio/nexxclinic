@@ -783,6 +783,9 @@ export function calculateUserReports(
         })
 
         // CLINICIAN FINANCIAL ACCUMULATION for this department encounter
+        // Only count financial amounts if the department is completed / finalised and not in DEPARTMENT_EDITING
+        const isDeptCompletedBilled = dept.status === "COMPLETED" || dept.status === "FINALISED"
+
         let encounterGross = 0
         let encounterInsCov = 0
         let encounterPatPay = 0
@@ -792,7 +795,7 @@ export function calculateUserReports(
 
         const resolvedDeptInsuranceName = resolveVisitInsuranceAcronym(dept, visit, hasInsurance)
 
-        if (dept.billing) {
+        if (isDeptCompletedBilled && dept.billing) {
           const b = dept.billing
           if (Array.isArray(b.insuranceBillings) && b.insuranceBillings.length > 0) {
             for (const ib of b.insuranceBillings) {
@@ -857,7 +860,7 @@ export function calculateUserReports(
               clinicianLoanCount++
             }
           }
-        } else if (Array.isArray(dept.products)) {
+        } else if (isDeptCompletedBilled && Array.isArray(dept.products)) {
           // Fallback if dept.billing is not attached: sum ONLY products that are BILLED or EXEMPTED
           for (const p of dept.products) {
             const isProdBilled = p.status === "BILLED" || p.status === "EXEMPTED" || p.status === "PATIENT_SHARE_EXEMPTED"
@@ -904,9 +907,15 @@ export function calculateUserReports(
         const billedEncounterProducts = encounterProducts.filter(
           (p) => p.status === "BILLED" || p.status === "EXEMPTED" || p.status === "PATIENT_SHARE_EXEMPTED",
         )
-        const effectiveGross = encounterGross > 0 ? encounterGross : billedEncounterProducts.reduce((s, p) => s + p.lineTotal, 0)
-        const effectiveInsCov = encounterInsCov > 0 ? encounterInsCov : billedEncounterProducts.reduce((s, p) => s + p.insuranceCovered, 0)
-        const effectivePatPay = encounterPatPay > 0 ? encounterPatPay : billedEncounterProducts.reduce((s, p) => s + p.patientShare, 0)
+        const effectiveGross = isDeptCompletedBilled
+          ? (encounterGross > 0 ? encounterGross : billedEncounterProducts.reduce((s, p) => s + p.lineTotal, 0))
+          : 0
+        const effectiveInsCov = isDeptCompletedBilled
+          ? (encounterInsCov > 0 ? encounterInsCov : billedEncounterProducts.reduce((s, p) => s + p.insuranceCovered, 0))
+          : 0
+        const effectivePatPay = isDeptCompletedBilled
+          ? (encounterPatPay > 0 ? encounterPatPay : billedEncounterProducts.reduce((s, p) => s + p.patientShare, 0))
+          : 0
 
         clinicianEncountersList.push({
           id: `clinician-enc-${dept.id}`,
@@ -1009,8 +1018,11 @@ export function calculateUserReports(
             const isExempted = prod.status === "EXEMPTED" || prod.status === "PATIENT_SHARE_EXEMPTED"
             const isBilledOrExempted = isBilled || isExempted
 
-            // Only add monetary turnover if the product has been billed or exempted
-            if (isBilledOrExempted) {
+            const isDeptCompletedBilled = dept.status === "COMPLETED" || dept.status === "FINALISED"
+            const shouldCountMoney = isBilledOrExempted && isDeptCompletedBilled
+
+            // Only add monetary turnover if the product has been billed or exempted on a completed/billed department
+            if (shouldCountMoney) {
               clinicianProductTurnoverTotal += lineTotal
               clinicianProductItemsApprovedCount += qty
             }
@@ -1026,7 +1038,7 @@ export function calculateUserReports(
             }
             const catEntry = clinicianProductTurnoverByCategory[prodType]
             catEntry.count += qty
-            if (isBilledOrExempted) {
+            if (shouldCountMoney) {
               catEntry.totalRevenue += lineTotal
               catEntry.insuranceCovered += insCov
               catEntry.patientShare += patPay
@@ -1052,8 +1064,8 @@ export function calculateUserReports(
               departmentId: deptId,
               departmentName: deptName,
               timestamp: prodTime,
-              isBilled,
-              isExempted,
+              isBilled: isBilled && isDeptCompletedBilled,
+              isExempted: isExempted && isDeptCompletedBilled,
               insuranceName: deptInsuranceName,
               visitId: String(visit.id || ""),
               visitDepartmentId: String(dept.id || ""),
