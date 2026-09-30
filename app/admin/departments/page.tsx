@@ -732,7 +732,7 @@ export default function DepartmentsPage() {
                   <CardHeader>
                     <CardTitle className="text-lg">General Department Settings</CardTitle>
                     <CardDescription>
-                      Update the department's name, nursing capabilities, and clinical request workflow mode.
+                      Update the department&apos;s name, nursing capabilities, and clinical request workflow mode.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
@@ -964,7 +964,7 @@ export default function DepartmentsPage() {
                             Universal Insurance Coverage Enabled
                           </p>
                           <p className="text-xs text-emerald-800 dark:text-emerald-300 mt-0.5">
-                            Patients with any valid insurance scheme can receive covered services in this department. To restrict coverage or blacklist specific insurers, select "Only Selected" or "Exempt Selected" above.
+                            Patients with any valid insurance scheme can receive covered services in this department. To restrict coverage or blacklist specific insurers, select &quot;Only Selected&quot; or &quot;Exempt Selected&quot; above.
                           </p>
                         </div>
                       </div>

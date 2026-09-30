@@ -209,6 +209,9 @@ export default function ReportsPage() {
     return reportData.allActivities
   }, [activeTab, reportData])
 
+  // Clinician table expanded state for upward expansion
+  const [isClinicianTableExpanded, setIsClinicianTableExpanded] = useState(false)
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -219,9 +222,6 @@ export default function ReportsPage() {
       </div>
     )
   }
-
-  // Clinician table expanded state for upward expansion
-  const [isClinicianTableExpanded, setIsClinicianTableExpanded] = useState(false)
 
   // Determine if top control bar should be rendered
   const showTopBar = (!isSingleRoleUser || (activeTab !== "clinician" && activeTab !== "finance")) && !isClinicianTableExpanded

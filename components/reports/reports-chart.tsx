@@ -14,6 +14,38 @@ import {
 import type { UserReportsData } from "@/lib/user-reports-calculator"
 import { BarChart3 } from "lucide-react"
 
+// Custom tooltip
+function CustomTooltip({ active, payload, label }: any) {
+  if (active && payload && payload.length) {
+    // Format hourly label nicely in tooltip if it's HH:00
+    let displayHeader = label
+    if (typeof label === "string" && /^\d{2}:00$/.test(label)) {
+      const h = parseInt(label.slice(0, 2), 10)
+      const nextH = (h + 1) % 24
+      displayHeader = `${label} – ${String(nextH).padStart(2, "0")}:00`
+    }
+
+    return (
+      <div className="bg-card/95 backdrop-blur-xl border border-border/80 rounded-xl p-3 shadow-xl text-xs space-y-1.5 min-w-[150px]">
+        <p className="font-semibold text-foreground border-b border-border/50 pb-1">{displayHeader}</p>
+        {payload.map((entry: any, index: number) => (
+          <div key={`item-${index}`} className="flex items-center justify-between gap-4">
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-full"
+                style={{ backgroundColor: entry.color }}
+              />
+              {entry.name}:
+            </span>
+            <span className="font-bold text-foreground">{entry.value}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+  return null
+}
+
 interface ReportsChartProps {
   data: UserReportsData
   activeTab: string
@@ -70,37 +102,6 @@ export function ReportsChart({ data, activeTab }: ReportsChartProps) {
     )
   }
 
-  // Custom tooltip
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      // Format hourly label nicely in tooltip if it's HH:00
-      let displayHeader = label
-      if (typeof label === "string" && /^\d{2}:00$/.test(label)) {
-        const h = parseInt(label.slice(0, 2), 10)
-        const nextH = (h + 1) % 24
-        displayHeader = `${label} – ${String(nextH).padStart(2, "0")}:00`
-      }
-
-      return (
-        <div className="bg-card/95 backdrop-blur-xl border border-border/80 rounded-xl p-3 shadow-xl text-xs space-y-1.5 min-w-[150px]">
-          <p className="font-semibold text-foreground border-b border-border/50 pb-1">{displayHeader}</p>
-          {payload.map((entry: any, index: number) => (
-            <div key={`item-${index}`} className="flex items-center justify-between gap-4">
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <span
-                  className="inline-block w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: entry.color }}
-                />
-                {entry.name}:
-              </span>
-              <span className="font-bold text-foreground">{entry.value}</span>
-            </div>
-          ))}
-        </div>
-      )
-    }
-    return null
-  }
 
   return (
     <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-5 sm:p-6 shadow-sm">

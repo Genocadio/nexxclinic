@@ -34,6 +34,30 @@ interface ReportsFinanceViewProps {
   data: UserReportsData
 }
 
+// Custom chart tooltip
+function CustomMoneyTooltip({ active, payload, label }: any) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-card/95 backdrop-blur-xl border border-border/80 rounded-xl p-3 shadow-xl text-xs space-y-1.5 min-w-[170px]">
+        <p className="font-semibold text-foreground border-b border-border/50 pb-1">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <div key={`item-${index}`} className="flex items-center justify-between gap-4">
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-full"
+                style={{ backgroundColor: entry.color }}
+              />
+              {entry.name}:
+            </span>
+            <span className="font-bold text-foreground">{formatRWF(entry.value)}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+  return null
+}
+
 export function ReportsFinanceView({
   data,
 }: ReportsFinanceViewProps) {
@@ -62,30 +86,6 @@ export function ReportsFinanceView({
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-  }
-
-  // Custom chart tooltip
-  const CustomMoneyTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-card/95 backdrop-blur-xl border border-border/80 rounded-xl p-3 shadow-xl text-xs space-y-1.5 min-w-[170px]">
-          <p className="font-semibold text-foreground border-b border-border/50 pb-1">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <div key={`item-${index}`} className="flex items-center justify-between gap-4">
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <span
-                  className="inline-block w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: entry.color }}
-                />
-                {entry.name}:
-              </span>
-              <span className="font-bold text-foreground">{formatRWF(entry.value)}</span>
-            </div>
-          ))}
-        </div>
-      )
-    }
-    return null
   }
 
   return (

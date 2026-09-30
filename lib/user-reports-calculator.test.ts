@@ -328,7 +328,9 @@ describe("calculateUserReports", () => {
           } as any,
         } as any,
       ],
-    }
+      linkedInsurances: [],
+      vitalSigns: [],
+    } as any
 
     const reports = calculateUserReports([editingVisit], mockWorker, "today", "2026-09-29", "2026-09-29")
     // Encounter is counted
