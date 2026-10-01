@@ -419,7 +419,12 @@ export function mapGqlPatientSummary(patient: {
   patientIdentifier?: string | null;
   gender?: string | null;
   dateOfBirth?: string | null;
+  age?: number | null;
   primaryPhoneNumber?: string | null;
+  district?: string | null;
+  cell?: string | null;
+  village?: string | null;
+  nationalIdNumber?: string | null;
 }): Patient {
   return {
     id: patient.id,
@@ -428,8 +433,13 @@ export function mapGqlPatientSummary(patient: {
     lastName: patient.lastName,
     patientIdentifier: patient.patientIdentifier,
     dateOfBirth: patient.dateOfBirth || EMPTY_TIMESTAMP,
+    age: patient.age ?? null,
     gender: parseGender(patient.gender),
     primaryPhoneNumber: patient.primaryPhoneNumber,
+    district: patient.district,
+    cell: patient.cell,
+    village: patient.village,
+    nationalIdNumber: patient.nationalIdNumber,
     patientInsurances: [],
     createdAt: EMPTY_TIMESTAMP,
     updatedAt: EMPTY_TIMESTAMP,

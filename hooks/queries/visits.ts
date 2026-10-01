@@ -320,10 +320,18 @@ export const VISITS_QUERY = gql`
           patientIdentifier
           gender
           dateOfBirth
+          age
           primaryPhoneNumber
+          district
+          cell
+          village
+          nationalIdNumber
         }
         linkedInsurances {
           id
+          insuranceCardNumber
+          providingCompanyOrEmployer
+          principalMember
           insuranceProvider {
             id
             insuranceName

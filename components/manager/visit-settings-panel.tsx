@@ -1322,7 +1322,7 @@ export function VisitSettingsPanel({
                                   dept.hasBillableProducts) && (
                                 <div className="relative group">
                                   <Info className="h-4 w-4 text-amber-500 cursor-help" />
-                                  <div className="absolute right-0 top-6 z-50 hidden group-hover:block w-56 p-3 bg-popover border border-border rounded-lg shadow-lg text-xs text-muted-foreground space-y-1">
+                                  <div className="absolute right-0 top-6 z-[150] hidden group-hover:block w-56 p-3 bg-popover border border-border rounded-lg shadow-lg text-xs text-muted-foreground space-y-1">
                                     <p className="font-medium text-foreground">
                                       Cannot finalise yet:
                                     </p>

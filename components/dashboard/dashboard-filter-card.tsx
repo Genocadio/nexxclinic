@@ -401,7 +401,7 @@ export function DashboardFilterPopover(props: DashboardFilterCardProps) {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-80 sm:w-96 p-4 bg-card/95 dark:bg-slate-900/95 backdrop-blur-xl border border-border/60 dark:border-slate-800 shadow-2xl rounded-2xl space-y-4 z-50 animate-in fade-in-0 zoom-in-95 duration-150"
+        className="w-80 sm:w-96 p-4 bg-card/95 dark:bg-slate-900/95 backdrop-blur-xl border border-border/60 dark:border-slate-800 shadow-2xl rounded-2xl space-y-4 z-[150] animate-in fade-in-0 zoom-in-95 duration-150"
       >
         <DashboardFilterCardContent {...props} onClose={() => setOpen(false)} />
       </PopoverContent>

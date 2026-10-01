@@ -58,7 +58,7 @@ export function ReportsPeriodSelector({
         side="top"
         align="end"
         sideOffset={10}
-        className="w-80 p-3.5 rounded-2xl border-border/80 bg-card/95 backdrop-blur-2xl shadow-2xl space-y-3 z-50"
+        className="w-80 p-3.5 rounded-2xl border-border/80 bg-card/95 backdrop-blur-2xl shadow-2xl space-y-3 z-[150]"
       >
         <div className="flex items-center justify-between pb-2 border-b border-border/50">
           <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">

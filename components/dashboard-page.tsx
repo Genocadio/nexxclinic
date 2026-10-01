@@ -85,13 +85,19 @@ import {
   Database,
   Calendar,
   Package,
+  Shield,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
 import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
 import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet"
 import { VisitSettingsPanel } from "@/components/manager/visit-settings-panel"
-import { getPatientAge } from "@/lib/patient-display-utils"
+import {
+  getPatientAge,
+  getPatientDisplayName,
+  formatPatientGender,
+  getPatientPhone,
+} from "@/lib/patient-display-utils"
 import {
   DashboardFilterPopover,
   type AnswersFilterType,
@@ -871,19 +877,19 @@ export default function DashboardPage() {
     const allProducts = [...deptProducts, ...childProducts]
 
     return (
-      <div className="space-y-1.5 text-xs max-w-xs">
-        <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-1">
-          <p className="font-semibold text-foreground text-[11px] truncate">
+      <div className="space-y-2 text-xs max-w-xs min-w-[210px]">
+        <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-1.5">
+          <p className="font-semibold text-foreground text-xs truncate">
             {dept.department?.name || "Department"} Products
           </p>
-          <span className="text-[10px] text-muted-foreground font-mono">
+          <span className="text-[10px] text-muted-foreground font-mono bg-muted/60 px-1.5 py-0.5 rounded border border-border/40">
             {allProducts.length} {allProducts.length === 1 ? "item" : "items"}
           </span>
         </div>
         {allProducts.length === 0 ? (
-          <p className="text-muted-foreground text-[11px]">No products added</p>
+          <p className="text-muted-foreground text-[11px] italic py-0.5">No products added</p>
         ) : (
-          <div className="max-h-48 overflow-y-auto space-y-1 pr-0.5">
+          <div className="max-h-48 overflow-y-auto space-y-1.5 pr-0.5">
             {allProducts.map((p: any, idx: number) => {
               const statusStr = String(p.status || "PENDING").toUpperCase()
               const isBilled =
@@ -894,10 +900,10 @@ export default function DashboardPage() {
               return (
                 <div
                   key={p.id || idx}
-                  className="flex items-center justify-between gap-2 text-[11px] py-0.5"
+                  className="flex items-center justify-between gap-2 text-[11px] py-1 px-1.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
                 >
                   <span
-                    className="text-foreground truncate flex-1"
+                    className="text-foreground font-medium truncate flex-1"
                     title={p.product?.name}
                   >
                     {p.product?.name || p.product?.code || "Product"}
@@ -909,12 +915,12 @@ export default function DashboardPage() {
                       </span>
                     )}
                     <span
-                      className={`text-[9px] px-1.5 py-0.2 rounded font-medium ${
+                      className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
                         isBilled
-                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
                           : isUnpaid
-                            ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                            : "bg-muted text-muted-foreground"
+                            ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20"
+                            : "bg-muted text-muted-foreground border border-border/50"
                       }`}
                     >
                       {statusStr}
@@ -929,84 +935,138 @@ export default function DashboardPage() {
     )
   }
 
-  const renderVisitActiveDepartmentHover = (activeDeptInfo: any) => {
-    if (!canSeeProducts || !activeDeptInfo) return null
-    const allDepts = (activeDeptInfo.allDepts || []) as any[]
-    if (allDepts.length === 0) return null
+  const renderPatientDemographicsHover = (visit: Visit) => {
+    const patient = visit.patient
+    if (!patient) return null
+
+    const fullName = getPatientDisplayName(patient)
+    const age = getPatientAge(patient)
+    const formattedDob = patient.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString() : null
+    const genderLabel = patient.gender ? formatPatientGender(patient.gender) : null
+    const phone = getPatientPhone(patient)
+    const linkedInsurances = visit.linkedInsurances || []
+    const locationParts = [patient.district, patient.cell, patient.village].filter(Boolean)
 
     return (
-      <div className="space-y-2.5 text-xs max-w-sm">
-        <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-1">
-          <p className="font-semibold text-foreground text-xs">
-            Department Products
-          </p>
-          <span className="text-[10px] text-muted-foreground">
-            {allDepts.length} {allDepts.length === 1 ? "dept" : "depts"}
-          </span>
+      <div className="space-y-2.5 text-xs max-w-sm min-w-[250px] p-0.5">
+        {/* Header: Full Name & Patient ID */}
+        <div className="border-b border-border/60 pb-2">
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="font-bold text-sm text-foreground truncate">
+              {fullName}
+            </h4>
+            {patient.patientIdentifier && (
+              <span className="font-mono text-[10px] bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-md border border-primary/20 shrink-0">
+                {patient.patientIdentifier}
+              </span>
+            )}
+          </div>
         </div>
-        <div className="max-h-60 overflow-y-auto space-y-2 pr-0.5">
-          {allDepts.map((d: any, dIdx: number) => {
-            const deptProducts = (d.products || []) as any[]
-            const childProducts = ((d.childVisitDepartments || []) as any[]).flatMap(
-              (c: any) => c.products || [],
-            )
-            const allProducts = [...deptProducts, ...childProducts]
-            return (
-              <div key={d.id || dIdx} className="space-y-1">
-                <div className="flex items-center justify-between text-[11px] font-medium text-foreground">
-                  <span className="truncate">
-                    {d.department?.name || "Department"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    {allProducts.length}{" "}
-                    {allProducts.length === 1 ? "product" : "products"}
-                  </span>
-                </div>
-                {allProducts.length === 0 ? (
-                  <p className="text-[10px] text-muted-foreground pl-2 italic">
-                    No products
-                  </p>
-                ) : (
-                  <div className="pl-2 space-y-0.5 border-l-2 border-border/50">
-                    {allProducts.map((p: any, pIdx: number) => {
-                      const statusStr = String(p.status || "PENDING").toUpperCase()
-                      const isBilled =
-                        statusStr === "BILLED" || statusStr === "EXEMPTED"
-                      return (
-                        <div
-                          key={p.id || pIdx}
-                          className="flex items-center justify-between gap-2 text-[10px]"
-                        >
-                          <span
-                            className="text-foreground/90 truncate flex-1"
-                            title={p.product?.name}
-                          >
-                            {p.product?.name || p.product?.code || "Product"}
-                          </span>
-                          <span className="text-muted-foreground font-mono flex-shrink-0">
-                            {p.quantity ? `x${p.quantity}` : ""}
-                          </span>
-                          <span
-                            className={`text-[8px] px-1 py-0.2 rounded font-medium flex-shrink-0 ${
-                              isBilled
-                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                                : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                            }`}
-                          >
-                            {statusStr}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
+
+        {/* Demographics Details */}
+        <div className="space-y-1.5 bg-muted/30 rounded-xl p-2.5 border border-border/40">
+          <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
+            Demographics
+          </p>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+            <div>
+              <span className="text-muted-foreground">Age / DOB:</span>{" "}
+              <span className="font-medium text-foreground">
+                {age !== null ? `${age} yrs` : "—"} {formattedDob ? `(${formattedDob})` : ""}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Gender:</span>{" "}
+              <span className="font-medium text-foreground">
+                {genderLabel || "—"}
+              </span>
+            </div>
+            {phone && (
+              <div className="col-span-2">
+                <span className="text-muted-foreground">Phone:</span>{" "}
+                <span className="font-mono font-medium text-foreground">
+                  {phone}
+                </span>
               </div>
-            )
-          })}
+            )}
+            {patient.nationalIdNumber && (
+              <div className="col-span-2">
+                <span className="text-muted-foreground">National ID:</span>{" "}
+                <span className="font-mono font-medium text-foreground">
+                  {patient.nationalIdNumber}
+                </span>
+              </div>
+            )}
+            {locationParts.length > 0 && (
+              <div className="col-span-2">
+                <span className="text-muted-foreground">Location:</span>{" "}
+                <span className="font-medium text-foreground">
+                  {locationParts.join(", ")}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Insurance Applied to this Visit */}
+        <div className="space-y-1.5 bg-muted/30 rounded-xl p-2.5 border border-border/40">
+          <div className="flex items-center justify-between gap-1 mb-1">
+            <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+              <Shield className="w-3.5 h-3.5 text-primary" />
+              <span>Applied Insurance</span>
+            </div>
+            <span className="text-[10px] font-medium text-muted-foreground">
+              {linkedInsurances.length > 0 ? `${linkedInsurances.length} linked` : "Self-pay"}
+            </span>
+          </div>
+
+          {linkedInsurances.length > 0 ? (
+            <div className="space-y-1.5 pt-0.5">
+              {linkedInsurances.map((ins, idx) => {
+                const providerName = ins.insuranceProvider?.insuranceName || "Insurance Provider"
+                const acronym = ins.insuranceProvider?.acronym
+                return (
+                  <div
+                    key={ins.id || idx}
+                    className="p-2 rounded-lg bg-card/80 border border-border/60 shadow-2xs space-y-1 text-[11px]"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-foreground">
+                        {providerName} {acronym ? `(${acronym})` : ""}
+                      </span>
+                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                        {ins.principalMember ? "Principal" : "Beneficiary"}
+                      </span>
+                    </div>
+                    {ins.insuranceCardNumber && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Card No: <span className="font-mono font-medium text-foreground">{ins.insuranceCardNumber}</span>
+                      </p>
+                    )}
+                    {ins.providingCompanyOrEmployer && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Employer: <span className="font-medium text-foreground">{ins.providingCompanyOrEmployer}</span>
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="p-2 rounded-lg bg-card/60 border border-border/40 text-[11px] text-muted-foreground space-y-0.5">
+              <p className="font-semibold text-foreground">
+                Private / Self-paying
+              </p>
+              <p className="text-[10px]">
+                No insurance applied to this visit (Patient settles directly).
+              </p>
+            </div>
+          )}
         </div>
       </div>
     )
   }
+
   const hasIncompleteDepartments = (visit: Visit) => {
     return flattenVisitDepartments(visit.departments || []).some(
       (dept) => dept.status !== "COMPLETED",
@@ -2104,77 +2164,8 @@ export default function DashboardPage() {
                                         {visit.patient.lastName}
                                       </h3>
                                     </TooltipTrigger>
-                                    <TooltipContent className="max-w-sm">
-                                      <div className="space-y-2 text-xs">
-                                        {visit.patient.patientIdentifier && (
-                                          <p className="font-mono text-[11px] text-muted-foreground">
-                                            ID:{" "}
-                                            {visit.patient.patientIdentifier}
-                                          </p>
-                                        )}
-                                        <p className="font-semibold">
-                                          Departments history
-                                        </p>
-                                        {(visit.departments || []).length ===
-                                        0 ? (
-                                          <p className="text-muted-foreground">
-                                            Current service:{" "}
-                                            {getTriageDuration(visit)}
-                                          </p>
-                                        ) : (
-                                          (visit.departments || []).map(
-                                            (dept) => (
-                                              <div
-                                                key={dept.id}
-                                                className="border-b border-border/30 pb-2 last:border-b-0 last:pb-0"
-                                              >
-                                                <p className="font-medium">
-                                                  {dept.department?.name ||
-                                                    "Unknown Department"}
-                                                </p>
-                                                <p>
-                                                  Status: {dept.status || "-"}
-                                                  {getVisitDepartmentBillingStatus(dept) && (
-                                                    <span className="ml-1.5 text-xs text-muted-foreground">
-                                                      ({getVisitDepartmentBillingStatus(dept)})
-                                                    </span>
-                                                  )}
-                                                </p>
-                                                {(canViewAllDeptTimes ||
-                                                  isUserDept(
-                                                    dept.department?.id,
-                                                  ) ||
-                                                  isUserDept(dept.id)) && (
-                                                  <>
-                                                    <p>
-                                                      Checked in:{" "}
-                                                      {formatDepartmentTime(
-                                                        dept.createdAt,
-                                                        visit.visitDate,
-                                                      )}
-                                                    </p>
-                                                    {dept.completedAt && (
-                                                      <p>
-                                                        Completed:{" "}
-                                                        {formatDepartmentTime(
-                                                          dept.completedAt,
-                                                        )}
-                                                      </p>
-                                                    )}
-                                                  </>
-                                                )}
-                                                {dept.notes &&
-                                                  dept.notes.newNotes > 0 && (
-                                                    <p className="text-red-500 font-semibold">
-                                                      {dept.notes.newNotes} new
-                                                      note(s)
-                                                    </p>
-                                                  )}
-                                              </div>
-                                            ),
-                                          )
-                                        )}
-                                      </div>
+                                    <TooltipContent className="max-w-sm p-3 z-[150]">
+                                      {renderPatientDemographicsHover(visit)}
                                     </TooltipContent>
                                   </Tooltip>
                                 </div>
@@ -2287,26 +2278,13 @@ export default function DashboardPage() {
                                     return (
                                       <div className="mt-1.5 flex items-center">
                                         <Popover>
-                                          {canSeeProducts ? (
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <PopoverTrigger asChild>
-                                                  {pillButton}
-                                                </PopoverTrigger>
-                                              </TooltipTrigger>
-                                              <TooltipContent className="max-w-sm p-3 z-50">
-                                                {renderVisitActiveDepartmentHover(activeDeptInfo)}
-                                              </TooltipContent>
-                                            </Tooltip>
-                                          ) : (
-                                            <PopoverTrigger asChild>
-                                              {pillButton}
-                                            </PopoverTrigger>
-                                          )}
+                                          <PopoverTrigger asChild>
+                                            {pillButton}
+                                          </PopoverTrigger>
                                           <PopoverContent
                                             align="start"
                                             sideOffset={6}
-                                            className="w-80 sm:w-96 p-4 shadow-xl max-h-[80vh] overflow-y-auto z-50"
+                                            className="w-80 sm:w-96 p-4 shadow-xl max-h-[80vh] overflow-y-auto z-[150] bg-popover/95 backdrop-blur-xl border border-border/80"
                                           >
                                             <div className="space-y-3">
                                               <div className="flex items-center justify-between pb-2 border-b border-border/40">
@@ -2585,17 +2563,17 @@ export default function DashboardPage() {
                                                               const allDeptProducts = [...deptProducts, ...childProducts]
                                                               if (allDeptProducts.length === 0) return null
                                                               return (
-                                                                <div className="mt-1.5 pt-1.5 border-t border-border/30">
+                                                                <div className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between">
                                                                   <Tooltip>
                                                                     <TooltipTrigger asChild>
-                                                                      <div className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground font-medium cursor-help transition-colors">
-                                                                        <Package className="w-3 h-3 text-primary" />
+                                                                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/15 hover:bg-secondary/30 text-[11px] text-foreground font-medium cursor-help transition-all border border-border/50 shadow-2xs hover:border-border">
+                                                                        <Package className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                                                                         <span>
                                                                           {allDeptProducts.length} product{allDeptProducts.length === 1 ? "" : "s"}
                                                                         </span>
                                                                       </div>
                                                                     </TooltipTrigger>
-                                                                    <TooltipContent className="max-w-xs p-2.5 z-50">
+                                                                    <TooltipContent side="right" align="start" className="max-w-xs p-2.5 z-[150]">
                                                                       {renderDepartmentProductsHover(dept)}
                                                                     </TooltipContent>
                                                                   </Tooltip>

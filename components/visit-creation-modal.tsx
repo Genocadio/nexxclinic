@@ -539,7 +539,7 @@ export default function VisitCreationModal({
                                                 {active ? acronym : acronym}
                                               </>
                                             )}
-                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 opacity-0 invisible group-hover/ins:opacity-100 group-hover/ins:visible transition-all duration-150 z-50 pointer-events-none">
+                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 opacity-0 invisible group-hover/ins:opacity-100 group-hover/ins:visible transition-all duration-150 z-[150] pointer-events-none">
                                               <div className="bg-slate-900 dark:bg-slate-700 text-white text-[11px] rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-lg">
                                                 <div className="font-semibold">{name}</div>
                                                 {!active && (

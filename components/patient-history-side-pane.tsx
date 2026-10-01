@@ -798,7 +798,7 @@ export default function PatientHistorySidePane({
                             (dept.medications?.length || 0) >
                             0 &&
                           !disableDepartmentEntry && (
-                            <div className="absolute left-0 top-full mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg p-3 w-48 pointer-events-none">
+                            <div className="absolute left-0 top-full mt-1 z-[150] bg-popover border border-border rounded-lg shadow-lg p-3 w-48 pointer-events-none">
                               {dept.diagnostics &&
                                 dept.diagnostics.length > 0 && (
                                   <div className="mb-2">
