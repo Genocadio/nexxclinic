@@ -17,6 +17,8 @@ export const GET_PRODUCTS_QUERY = gql`
         metadata
         privateRhicPrice
         clinicPrice
+        notPaid
+        quantifiable
         insuranceCoverages {
           id
           insuranceProvider {
@@ -72,6 +74,8 @@ export const GET_PRODUCT_QUERY = gql`
         metadata
         privateRhicPrice
         clinicPrice
+        notPaid
+        quantifiable
         insuranceCoverages {
           id
           insuranceProvider {

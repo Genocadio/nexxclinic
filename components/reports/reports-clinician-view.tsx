@@ -41,6 +41,7 @@ import { formatRWF, cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
   SelectContent,
@@ -1017,6 +1018,54 @@ export function ReportsClinicianView({
                             </td>
                           </tr>
                         ))}
+
+                        {/* Skeleton rows indicating continuous scroll loading */}
+                        {hasMoreItems && (
+                          <>
+                            {[1, 2, 3].map((idx) => (
+                              <tr key={`encounter-scroll-skeleton-${idx}`} className="border-b border-border/30 animate-pulse bg-muted/10">
+                                <td className="py-2.5 px-3.5 whitespace-nowrap">
+                                  <div className="space-y-1">
+                                    <Skeleton className="h-3.5 w-16 rounded" />
+                                    <Skeleton className="h-2.5 w-12 rounded" />
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3.5">
+                                  <div className="space-y-1">
+                                    <Skeleton className="h-3.5 w-28 rounded" />
+                                    <Skeleton className="h-2.5 w-16 rounded" />
+                                  </div>
+                                </td>
+                                {selectedDepartment === "ALL" && availableDepartments.length > 1 && (
+                                  <td className="py-2.5 px-3.5 whitespace-nowrap">
+                                    <Skeleton className="h-3.5 w-24 rounded" />
+                                  </td>
+                                )}
+                                <td className="py-2.5 px-3.5">
+                                  <div className="flex flex-col gap-1">
+                                    <Skeleton className="h-6 w-48 rounded-md" />
+                                    <Skeleton className="h-6 w-36 rounded-md" />
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3.5 whitespace-nowrap">
+                                  <Skeleton className="h-4 w-16 rounded-full" />
+                                </td>
+                                <td className="py-2.5 px-3.5 text-right">
+                                  <Skeleton className="h-3.5 w-16 rounded ml-auto" />
+                                </td>
+                                <td className="py-2.5 px-3.5 text-right">
+                                  <Skeleton className="h-3.5 w-14 rounded ml-auto" />
+                                </td>
+                                <td className="py-2.5 px-3.5 text-right">
+                                  <Skeleton className="h-3.5 w-14 rounded ml-auto" />
+                                </td>
+                                <td className="py-2.5 px-3.5 text-right">
+                                  <Skeleton className="h-4 w-16 rounded-full ml-auto" />
+                                </td>
+                              </tr>
+                            ))}
+                          </>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -1039,9 +1088,9 @@ export function ReportsClinicianView({
                           variant="ghost"
                           size="sm"
                           onClick={handleLoadMore}
-                          className="h-7 px-3 text-xs rounded-lg text-primary hover:bg-primary/10 gap-1 font-medium"
+                          className="h-7 px-3 text-xs rounded-lg text-primary hover:bg-primary/10 gap-1.5 font-medium"
                         >
-                          <ChevronDown className="h-3.5 w-3.5 animate-bounce" />
+                          <ChevronDown className="h-3.5 w-3.5" />
                           Scroll or Click to Load More ({searchFilteredEncounters.length - visibleEncounters.length} remaining)
                         </Button>
                       ) : (
@@ -1157,6 +1206,57 @@ export function ReportsClinicianView({
                             </td>
                           </tr>
                         ))}
+
+                        {/* Skeleton rows indicating continuous scroll loading */}
+                        {hasMoreItems && (
+                          <>
+                            {[1, 2, 3].map((idx) => (
+                              <tr key={`detailed-scroll-skeleton-${idx}`} className="border-b border-border/30 animate-pulse bg-muted/10">
+                                <td className="py-2.5 px-3.5 font-mono whitespace-nowrap">
+                                  <Skeleton className="h-3.5 w-14 rounded" />
+                                </td>
+                                <td className="py-2.5 px-3.5">
+                                  <div className="space-y-1">
+                                    <Skeleton className="h-3.5 w-36 rounded" />
+                                    <Skeleton className="h-2.5 w-16 rounded" />
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3.5">
+                                  <div className="space-y-1">
+                                    <Skeleton className="h-3.5 w-24 rounded" />
+                                    <Skeleton className="h-2.5 w-14 rounded" />
+                                  </div>
+                                </td>
+                                {selectedDepartment === "ALL" && availableDepartments.length > 1 && (
+                                  <td className="py-2.5 px-3.5 whitespace-nowrap">
+                                    <Skeleton className="h-3.5 w-24 rounded" />
+                                  </td>
+                                )}
+                                <td className="py-2.5 px-3.5 text-center">
+                                  <Skeleton className="h-3.5 w-6 rounded mx-auto" />
+                                </td>
+                                <td className="py-2.5 px-3.5 text-right">
+                                  <Skeleton className="h-3.5 w-14 rounded ml-auto" />
+                                </td>
+                                <td className="py-2.5 px-3.5 whitespace-nowrap">
+                                  <Skeleton className="h-4 w-16 rounded-full" />
+                                </td>
+                                <td className="py-2.5 px-3.5 text-right">
+                                  <Skeleton className="h-3.5 w-16 rounded ml-auto" />
+                                </td>
+                                <td className="py-2.5 px-3.5 text-right">
+                                  <Skeleton className="h-3.5 w-14 rounded ml-auto" />
+                                </td>
+                                <td className="py-2.5 px-3.5 text-right">
+                                  <Skeleton className="h-3.5 w-14 rounded ml-auto" />
+                                </td>
+                                <td className="py-2.5 px-3.5 text-right">
+                                  <Skeleton className="h-4 w-16 rounded-full ml-auto" />
+                                </td>
+                              </tr>
+                            ))}
+                          </>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -1179,9 +1279,9 @@ export function ReportsClinicianView({
                           variant="ghost"
                           size="sm"
                           onClick={handleLoadMore}
-                          className="h-7 px-3 text-xs rounded-lg text-primary hover:bg-primary/10 gap-1 font-medium"
+                          className="h-7 px-3 text-xs rounded-lg text-primary hover:bg-primary/10 gap-1.5 font-medium"
                         >
-                          <ChevronDown className="h-3.5 w-3.5 animate-bounce" />
+                          <ChevronDown className="h-3.5 w-3.5" />
                           Scroll or Click to Load More ({searchFilteredDetailedProducts.length - visibleDetailedProducts.length} remaining)
                         </Button>
                       ) : (

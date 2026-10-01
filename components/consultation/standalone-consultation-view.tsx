@@ -226,6 +226,7 @@ export function StandaloneConsultationView({
       name: string;
       type?: string;
       code?: string;
+      quantifiable?: boolean;
       quantity: number;
     }>
   >([]);
@@ -689,10 +690,11 @@ export function StandaloneConsultationView({
     name: string;
     type?: string;
     code?: string;
+    quantifiable?: boolean;
   }) => {
     setPendingRequestProducts((prev) => {
       if (prev.some((item) => item.id === product.id)) return prev;
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, quantity: 1, quantifiable: product.quantifiable !== false }];
     });
     setProductSearchQuery("");
     setDebouncedProductSearchQuery("");
@@ -1297,65 +1299,67 @@ export function StandaloneConsultationView({
                               {product.code || "No code"}
                             </div>
                           </div>
-                          <div className="flex shrink-0 items-center gap-1">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-7 w-7 rounded-full"
-                              aria-label={`Decrease quantity for ${product.name}`}
-                              disabled={product.quantity <= 1}
-                              onClick={() =>
-                                handleUpdatePendingRequestProductQuantity(
-                                  product.id,
-                                  product.quantity - 1,
-                                )
-                              }
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <input
-                              type="number"
-                              min={1}
-                              step={1}
-                              value={product.quantity}
-                              onChange={(event) => {
-                                const parsed = Number(event.target.value);
-                                if (Number.isFinite(parsed)) {
+                          {product.quantifiable !== false && (
+                            <div className="flex shrink-0 items-center gap-1">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7 rounded-full"
+                                aria-label={`Decrease quantity for ${product.name}`}
+                                disabled={product.quantity <= 1}
+                                onClick={() =>
                                   handleUpdatePendingRequestProductQuantity(
                                     product.id,
-                                    parsed,
-                                  );
+                                    product.quantity - 1,
+                                  )
                                 }
-                              }}
-                              onBlur={(event) => {
-                                const parsed = Number(event.target.value);
-                                if (!Number.isFinite(parsed) || parsed < 1) {
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <input
+                                type="number"
+                                min={1}
+                                step={1}
+                                value={product.quantity}
+                                onChange={(event) => {
+                                  const parsed = Number(event.target.value);
+                                  if (Number.isFinite(parsed)) {
+                                    handleUpdatePendingRequestProductQuantity(
+                                      product.id,
+                                      parsed,
+                                    );
+                                  }
+                                }}
+                                onBlur={(event) => {
+                                  const parsed = Number(event.target.value);
+                                  if (!Number.isFinite(parsed) || parsed < 1) {
+                                    handleUpdatePendingRequestProductQuantity(
+                                      product.id,
+                                      1,
+                                    );
+                                  }
+                                }}
+                                className="h-7 w-12 rounded-md border border-border bg-background text-center text-xs tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                aria-label={`Quantity for ${product.name}`}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7 rounded-full"
+                                aria-label={`Increase quantity for ${product.name}`}
+                                onClick={() =>
                                   handleUpdatePendingRequestProductQuantity(
                                     product.id,
-                                    1,
-                                  );
+                                    product.quantity + 1,
+                                  )
                                 }
-                              }}
-                              className="h-7 w-12 rounded-md border border-border bg-background text-center text-xs tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                              aria-label={`Quantity for ${product.name}`}
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-7 w-7 rounded-full"
-                              aria-label={`Increase quantity for ${product.name}`}
-                              onClick={() =>
-                                handleUpdatePendingRequestProductQuantity(
-                                  product.id,
-                                  product.quantity + 1,
-                                )
-                              }
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
                           <button
                             type="button"
                             onClick={() =>

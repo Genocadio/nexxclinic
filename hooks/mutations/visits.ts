@@ -315,6 +315,8 @@ export const ADD_PRODUCT_TO_VISIT_DEPARTMENT_MUTATION = gql`
             type
             privateRhicPrice
             clinicPrice
+            notPaid
+            quantifiable
             insuranceCoverages {
               id
               insuranceProvider {
@@ -495,6 +497,8 @@ export const CONSULT_VISIT_MUTATION = gql`
             unit
             privateRhicPrice
             clinicPrice
+            notPaid
+            quantifiable
           }
           quantity
           status
@@ -564,6 +568,8 @@ export const CONSULT_VISIT_MUTATION = gql`
               unit
               privateRhicPrice
               clinicPrice
+              notPaid
+              quantifiable
             }
             quantity
             status

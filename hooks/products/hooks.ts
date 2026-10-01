@@ -205,6 +205,8 @@ export function useCreateProduct() {
     metadata?: Record<string, unknown>
     privateRhicPrice?: number
     clinicPrice?: number
+    notPaid?: boolean
+    quantifiable?: boolean
     insuranceCoverages?: {
       insuranceProviderId: string
       cost?: number

@@ -296,6 +296,8 @@ export interface CreateProductInput {
   metadata?: Record<string, unknown>
   privateRhicPrice?: number
   clinicPrice?: number
+  notPaid?: boolean
+  quantifiable?: boolean
   insuranceCoverages?: CreateProductInsuranceCoverageInput[]
 }
 
@@ -309,6 +311,8 @@ export interface UpdateProductInput {
   metadata?: Record<string, unknown>
   privateRhicPrice?: number
   clinicPrice?: number
+  notPaid?: boolean
+  quantifiable?: boolean
   insuranceCoverages?: UpdateProductInsuranceCoverageInput[]
 }
 

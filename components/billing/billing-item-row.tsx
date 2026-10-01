@@ -212,7 +212,7 @@ export function BillingItemRow({
         </td>
       )}
       <td className="py-2 px-3 text-center">
-        {isPaidLocked || !canEdit ? (
+        {isPaidLocked || !canEdit || item.quantifiable === false ? (
           <span className="tabular-nums">{item.quantity}</span>
         ) : (
           <div className="inline-flex items-center justify-center gap-0.5">

@@ -481,6 +481,7 @@ export interface Product {
   privateRhicPrice?: number | null;
   clinicPrice?: number | null;
   notPaid: boolean;
+  quantifiable?: boolean;
   insuranceCoverages: ProductInsuranceCoverage[];
   createdAt: string;
   updatedAt: string;

@@ -17,6 +17,8 @@ export const CREATE_PRODUCT_MUTATION = gql`
         metadata
         privateRhicPrice
         clinicPrice
+        notPaid
+        quantifiable
         insuranceCoverages {
           id
           insuranceProvider {
@@ -66,6 +68,8 @@ export const UPDATE_PRODUCT_MUTATION = gql`
         metadata
         privateRhicPrice
         clinicPrice
+        notPaid
+        quantifiable
         insuranceCoverages {
           id
           insuranceProvider {

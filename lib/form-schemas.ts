@@ -229,6 +229,7 @@ export const productFormSchema = z.object({
       return !Number.isNaN(n) && n >= 0;
     }, "Private price must be a positive number"),
   clinicPrice: z.string().trim(),
+  quantifiable: z.boolean().default(true),
 });
 export type ProductFormValues = z.infer<typeof productFormSchema>;
 

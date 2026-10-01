@@ -11,6 +11,8 @@ const visitDepartmentProductFields = `
     unit
     privateRhicPrice
     clinicPrice
+    notPaid
+    quantifiable
     insuranceCoverages {
       id
       insuranceProvider {
@@ -397,6 +399,8 @@ export const VISITS_QUERY = gql`
               unit
               privateRhicPrice
               clinicPrice
+              notPaid
+              quantifiable
             }
             quantity
             status
@@ -493,6 +497,8 @@ export const VISITS_QUERY = gql`
                 unit
                 privateRhicPrice
                 clinicPrice
+                notPaid
+                quantifiable
               }
               quantity
               status

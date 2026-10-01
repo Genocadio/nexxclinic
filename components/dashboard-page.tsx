@@ -3091,12 +3091,62 @@ export default function DashboardPage() {
                   {statusFilter === "COMPLETED" && (
                     <div
                       ref={completedSentinelRef}
-                      className="py-3 flex items-center justify-center min-h-[36px] w-full"
+                      className="w-full py-2"
                     >
                       {loadingOlderCompleted ? (
-                        <div className="flex items-center justify-center p-2 rounded-full bg-card/60 backdrop-blur-xs border border-border/40 text-primary shadow-xs">
-                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                        </div>
+                        viewMode === "grid" ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {[1, 2, 3].map((idx) => (
+                              <div
+                                key={`completed-skeleton-grid-${idx}`}
+                                className="p-4 bg-card/80 dark:bg-slate-900/70 backdrop-blur-sm border border-border/50 dark:border-slate-800 rounded-2xl animate-pulse h-full"
+                              >
+                                <div className="space-y-4">
+                                  <div className="space-y-3">
+                                    <div className="flex items-center gap-3">
+                                      <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                                      <div className="min-w-0 flex-1 space-y-2">
+                                        <Skeleton className="h-4 w-3/5 max-w-40" />
+                                        <Skeleton className="h-3 w-1/2 max-w-28" />
+                                      </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                      <Skeleton className="h-3 w-full max-w-52" />
+                                      <Skeleton className="h-3 w-2/3 max-w-40" />
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3">
+                                    <Skeleton className="h-8 w-24 rounded-full" />
+                                    <Skeleton className="h-8 w-20 rounded-full" />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {[1, 2, 3].map((idx) => (
+                              <div
+                                key={`completed-skeleton-list-${idx}`}
+                                className="p-4 bg-card/80 dark:bg-slate-900/70 backdrop-blur-sm border border-border/50 dark:border-slate-800 rounded-2xl animate-pulse"
+                              >
+                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                                    <div className="min-w-0 flex-1 space-y-2">
+                                      <Skeleton className="h-4 w-3/5 max-w-64" />
+                                      <Skeleton className="h-3 w-2/5 max-w-40" />
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <Skeleton className="h-8 w-24 rounded-full" />
+                                    <Skeleton className="h-8 w-24 rounded-full" />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )
                       ) : null}
                     </div>
                   )}

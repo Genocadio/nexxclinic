@@ -15,6 +15,7 @@ export interface BillingItem {
   source?: "USER" | "PROFILE" | null;
   name: string;
   quantity: number;
+  quantifiable?: boolean;
   price: number;
   basePrice?: number;
   insuranceCoverageCosts?: Record<string, number>;

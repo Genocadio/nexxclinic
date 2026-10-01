@@ -197,7 +197,7 @@ export default function AddActionConsumableModal({
         id: String(item.id),
         name: item.name,
         privatePrice: Number(item.privateRhicPrice ?? item.clinicPrice ?? 0),
-        isQuantifiable: true,
+        isQuantifiable: item.quantifiable !== false,
         type: item.type,
         description: item.description,
         ...item,
@@ -219,7 +219,7 @@ export default function AddActionConsumableModal({
   const handleAddItem = () => {
     if (!selectedItem || !selectedDepartmentId) return
 
-    const qty = parseInt(quantity, 10) || 1
+    const qty = selectedItem.isQuantifiable === false ? 1 : (parseInt(quantity, 10) || 1)
     const itemType = selectedItem.type === 'CONSUMABLE_DEVICE' ? 'consumable' : 'action'
     const processorId = selectedProcessorId || undefined
     onAdd(itemType, selectedItem, qty, selectedDepartmentId, processorId)

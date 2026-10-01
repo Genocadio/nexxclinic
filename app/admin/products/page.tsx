@@ -125,6 +125,7 @@ export default function ManageProductsPage() {
       type: "MEDICAL_ACT",
       privatePrice: "",
       clinicPrice: "",
+      quantifiable: true,
     },
   });
   const watchedType = watch("type");
@@ -136,6 +137,7 @@ export default function ManageProductsPage() {
       type: "MEDICAL_ACT",
       privatePrice: "",
       clinicPrice: "",
+      quantifiable: true,
     });
     setEditingItemId(null);
   };
@@ -160,6 +162,7 @@ export default function ManageProductsPage() {
         : "MEDICAL_ACT",
       privatePrice: String(item.privateRhicPrice ?? ""),
       clinicPrice: item.clinicPrice ? String(item.clinicPrice) : "",
+      quantifiable: item.quantifiable !== false,
     });
     setModalMode("edit");
     setAddEditModalOpen(true);
@@ -180,6 +183,7 @@ export default function ManageProductsPage() {
         unit: "PCS",
         privateRhicPrice: Number(values.privatePrice),
         clinicPrice: values.clinicPrice ? Number(values.clinicPrice) : undefined,
+        quantifiable: values.quantifiable !== false,
         insuranceCoverages: [],
       });
       await refresh();
@@ -215,6 +219,7 @@ export default function ManageProductsPage() {
         unit: "PCS",
         privateRhicPrice: Number(values.privatePrice),
         clinicPrice: values.clinicPrice ? Number(values.clinicPrice) : undefined,
+        quantifiable: values.quantifiable !== false,
       });
       await refresh();
       if (updatedResp?.status === "SUCCESS") {
@@ -234,6 +239,7 @@ export default function ManageProductsPage() {
           type: values.type as ProductType,
           privateRhicPrice: Number(values.privatePrice),
           clinicPrice: values.clinicPrice ? Number(values.clinicPrice) : undefined,
+          quantifiable: values.quantifiable !== false,
         });
       }
 
@@ -568,6 +574,12 @@ export default function ManageProductsPage() {
                         <strong>Type:</strong> {selectedItem.type}
                       </p>
                       <p>
+                        <strong>Quantifiable:</strong>{" "}
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${selectedItem.quantifiable !== false ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"}`}>
+                          {selectedItem.quantifiable !== false ? "Yes (Variable Qty)" : "No (Fixed Qty = 1)"}
+                        </span>
+                      </p>
+                      <p>
                         <strong>Private RHIC Price:</strong>{" "}
                         {selectedItem.privateRhicPrice ?? 0} RWF
                       </p>
@@ -800,6 +812,23 @@ export default function ManageProductsPage() {
                     className="rounded-xl bg-white dark:bg-slate-950"
                   />
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl border border-border/40 p-3 bg-muted/20">
+                <div className="space-y-0.5">
+                  <Label htmlFor="quantifiable" className="text-xs font-semibold text-foreground cursor-pointer">
+                    Quantifiable
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Allow changing quantity in consultations and billing. When unchecked, quantity is locked to 1.
+                  </p>
+                </div>
+                <input
+                  id="quantifiable"
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                  {...register("quantifiable")}
+                />
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border/30 sticky bottom-0 bg-background/95 dark:bg-slate-900/95 -mx-2 px-2 pb-2">

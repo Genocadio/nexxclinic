@@ -150,6 +150,7 @@ export function mapVisitToBillingData(
         source: line.source ?? null,
         name: product.name || "Product",
         quantity: line.quantity || 1,
+        quantifiable: product.quantifiable !== false,
         price,
         basePrice,
         insuranceCoverageCosts: costs,

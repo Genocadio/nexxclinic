@@ -132,6 +132,8 @@ export type GqlProduct = {
   unit?: string | null;
   privateRhicPrice?: number | null;
   clinicPrice?: number | null;
+  notPaid?: boolean | null;
+  quantifiable?: boolean | null;
   insuranceCoverages?: GqlCoverage[] | null;
 };
 
@@ -303,6 +305,7 @@ export function mapGqlProduct(product: GqlProduct): Product {
     privateRhicPrice: product.privateRhicPrice,
     clinicPrice: product.clinicPrice,
     notPaid: Boolean((product as Record<string, unknown>).notPaid),
+    quantifiable: product.quantifiable !== false,
     insuranceCoverages: (product.insuranceCoverages || []).map(
       mapGqlProductInsuranceCoverage,
     ),
