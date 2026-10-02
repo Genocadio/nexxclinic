@@ -3,6 +3,7 @@ import {
   CREATE_VISIT_MUTATION,
   ADD_VISIT_NOTE_MUTATION,
   ADD_VISIT_VITAL_SIGNS_MUTATION,
+  UPDATE_VISIT_VITAL_SIGNS_MUTATION,
   ADD_DEPARTMENT_NOTE_MUTATION,
   ADD_DIAGNOSIS_MUTATION,
   ADD_MEDICATION_MUTATION,
@@ -121,6 +122,49 @@ export function useAddVisitVitalSigns() {
   };
 
   return { addVisitVitalSigns, loading, error };
+}
+
+export function useUpdateVisitVitalSigns() {
+  const [mutation, { loading, error }] = useMutation(
+    UPDATE_VISIT_VITAL_SIGNS_MUTATION,
+  );
+
+  const updateVisitVitalSigns = async (
+    groupId: string,
+    vitalSigns: Array<{ measurementName: string; value: string; unit: string }>,
+  ): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({
+        variables: {
+          input: {
+            groupId,
+            vitalSigns,
+          },
+        },
+      });
+      const payload = result.data?.updateVisitVitalSigns;
+      return {
+        status: payload?.status || "ERROR",
+        message: payload?.message,
+        messages: payload?.message
+          ? [{ text: payload.message, type: payload.status || "ERROR" }]
+          : undefined,
+        data: payload?.data
+          ? {
+              ...payload.data,
+              vitalSigns: normalizeVisitVitalSigns(
+                payload.data.vitalSigns || [],
+              ),
+            }
+          : undefined,
+      };
+    } catch (err) {
+      console.error("Update visit vital signs error:", err);
+      throw err;
+    }
+  };
+
+  return { updateVisitVitalSigns, loading, error };
 }
 
 export function useAddDepartmentNote() {

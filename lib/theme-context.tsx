@@ -3,13 +3,15 @@
 import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 
-type Theme = "light" | "dark"
-type ThemePreference = Theme | "system"
+export type Theme = "light" | "dark"
+export type ThemePreference = Theme | "system"
 
 interface ThemeContextType {
   theme: Theme
   preference: ThemePreference
   toggleTheme: () => void
+  setThemePreference: (preference: ThemePreference) => void
+  setPreference: (preference: ThemePreference) => void
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
@@ -90,14 +92,36 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return <>{children}</>
   }
 
-  return <ThemeContext.Provider value={{ theme, preference, toggleTheme }}>{children}</ThemeContext.Provider>
+  const setThemePreference = (pref: ThemePreference) => {
+    setPreference(pref)
+  }
+
+  return (
+    <ThemeContext.Provider
+      value={{
+        theme,
+        preference,
+        toggleTheme,
+        setThemePreference,
+        setPreference,
+      }}
+    >
+      {children}
+    </ThemeContext.Provider>
+  )
 }
 
 export function useTheme() {
   const context = useContext(ThemeContext)
   if (!context) {
     // Return default theme context if not wrapped in provider
-    return { theme: "light" as const, preference: "system" as const, toggleTheme: () => {} }
+    return {
+      theme: "light" as const,
+      preference: "system" as const,
+      toggleTheme: () => {},
+      setThemePreference: () => {},
+      setPreference: () => {},
+    }
   }
   return context
 }

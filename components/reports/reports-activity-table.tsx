@@ -30,12 +30,19 @@ import { formatRWF } from "@/lib/utils"
 
 interface ReportsActivityTableProps {
   activities: UserActivityItem[]
-  title?: string
+  title?: string | null
+  description?: string | null
+  hideTitle?: boolean
 }
 
 const ITEMS_PER_PAGE = 15
 
-export function ReportsActivityTable({ activities, title = "Activity Audit Log" }: ReportsActivityTableProps) {
+export function ReportsActivityTable({
+  activities,
+  title = "Activity Audit Log",
+  description = "Detailed log of all individual interactions, records, and dispatches performed by you",
+  hideTitle = false,
+}: ReportsActivityTableProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("ALL")
   const [currentPage, setCurrentPage] = useState(1)
@@ -166,27 +173,29 @@ export function ReportsActivityTable({ activities, title = "Activity Audit Log" 
   return (
     <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col gap-4">
       {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h3 className="text-base font-semibold text-foreground">{title}</h3>
-          <p className="text-xs text-muted-foreground">
-            Detailed log of all individual interactions, records, and dispatches performed by you
-          </p>
-        </div>
+      {!hideTitle && (title || description) && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            {title && <h3 className="text-base font-semibold text-foreground">{title}</h3>}
+            {description && (
+              <p className="text-xs text-muted-foreground">{description}</p>
+            )}
+          </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportCSV}
-            disabled={filteredActivities.length === 0}
-            className="h-9 px-3 gap-1.5 border-border/80 text-foreground hover:bg-muted/80 rounded-xl text-xs font-medium"
-          >
-            <Download className="h-3.5 w-3.5 text-muted-foreground" />
-            Export CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              disabled={filteredActivities.length === 0}
+              className="h-9 px-3 gap-1.5 border-border/80 text-foreground hover:bg-muted/80 rounded-xl text-xs font-medium"
+            >
+              <Download className="h-3.5 w-3.5 text-muted-foreground" />
+              Export CSV
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Search & Filter Bar */}
       <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -217,6 +226,19 @@ export function ReportsActivityTable({ activities, title = "Activity Audit Log" 
             </SelectContent>
           </Select>
         </div>
+
+        {hideTitle && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={filteredActivities.length === 0}
+            className="h-9 px-3 gap-1.5 border-border/80 text-foreground hover:bg-muted/80 rounded-xl text-xs font-medium shrink-0 w-full sm:w-auto"
+          >
+            <Download className="h-3.5 w-3.5 text-muted-foreground" />
+            Export CSV
+          </Button>
+        )}
       </div>
 
       {/* Table Container */}

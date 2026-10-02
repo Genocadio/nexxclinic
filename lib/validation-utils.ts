@@ -185,3 +185,59 @@ export function validateDateOfBirth(dateOfBirth: string): { valid: boolean; erro
 
   return { valid: true }
 }
+
+export interface InsuranceEntryLike {
+  insuranceId?: string | number | null
+  insuranceCardNumber?: string | null
+  providingCompanyOrEmployer?: string | null
+  isSelf?: boolean | null
+  dominantMember?: {
+    firstName?: string | null
+    lastName?: string | null
+    phone?: string | null
+  } | null
+}
+
+export function isInsuranceEntryComplete(
+  ins: InsuranceEntryLike,
+  dateOfBirth?: string,
+): boolean {
+  if (!ins) return false
+  if (
+    !ins.insuranceId ||
+    String(ins.insuranceId) === "0" ||
+    String(ins.insuranceId).trim() === ""
+  ) {
+    return false
+  }
+  if (!ins.insuranceCardNumber?.trim()) {
+    return false
+  }
+  if (!ins.providingCompanyOrEmployer?.trim()) {
+    return false
+  }
+
+  const isAdult = calculateAge(dateOfBirth || "") >= 18
+  const isSelf = isAdult ? ins.isSelf !== false : false
+
+  if (!isSelf) {
+    if (
+      !ins.dominantMember?.firstName?.trim() ||
+      !ins.dominantMember?.lastName?.trim() ||
+      !ins.dominantMember?.phone?.trim()
+    ) {
+      return false
+    }
+  }
+
+  return true
+}
+
+export function canAddNewInsurance(
+  insurances: InsuranceEntryLike[] | undefined | null,
+  dateOfBirth?: string,
+): boolean {
+  if (!insurances || insurances.length === 0) return true
+  return insurances.every((ins) => isInsuranceEntryComplete(ins, dateOfBirth))
+}
+

@@ -34,6 +34,7 @@ import {
   calculateAge,
   isDominantMemberRequired,
   validateDateOfBirth,
+  canAddNewInsurance,
 } from "@/lib/validation-utils"
 import { DatePickerGrid } from "@/components/ui/date-picker-grid"
 import {
@@ -105,6 +106,11 @@ export default function PatientFormFields({
   const dobValidation = formData.dateOfBirth
     ? validateDateOfBirth(formData.dateOfBirth)
     : null
+
+  const canAddInsurance = canAddNewInsurance(
+    formData.insurances,
+    formData.dateOfBirth,
+  )
 
   return (
     <>
@@ -594,66 +600,34 @@ export default function PatientFormFields({
         </div>
       </div>
 
-      {/* Emergency Contact */}
-      <div
-        className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}
-      >
-        <h3 className="text-sm sm:text-lg font-semibold mb-2 sm:mb-4">
-          Emergency Contact
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
-          <Input
-            type="text"
-            value={fieldValue(formData.emergencyContact?.name)}
-            onChange={(e) =>
-              onFieldChange("emergencyContact.name", e.target.value)
-            }
-            placeholder="Contact name"
-            className={solidFieldClass}
-          />
-          <Select
-            value={formData.emergencyContact?.relation || ""}
-            onValueChange={(value) =>
-              onFieldChange("emergencyContact.relation", value)
-            }
-          >
-            <SelectTrigger className="h-10 text-sm">
-              <SelectValue placeholder="Relation" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Spouse">Spouse</SelectItem>
-              <SelectItem value="Parent">Parent</SelectItem>
-              <SelectItem value="Child">Child</SelectItem>
-              <SelectItem value="Sibling">Sibling</SelectItem>
-              <SelectItem value="Relative">Relative</SelectItem>
-              <SelectItem value="Friend">Friend</SelectItem>
-              <SelectItem value="Neighbor">Neighbor</SelectItem>
-              <SelectItem value="Colleague">Colleague</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="tel"
-            value={fieldValue(formData.emergencyContact?.phone)}
-            onChange={(e) =>
-              onFieldChange("emergencyContact.phone", e.target.value)
-            }
-            placeholder="Phone number"
-            className={solidFieldClass}
-          />
-        </div>
-      </div>
-
       {/* Insurance Information */}
       <div
         className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}
       >
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-          <h3 className="text-sm sm:text-lg font-semibold">Insurance</h3>
+          <div>
+            <h3 className="text-sm sm:text-lg font-semibold">Insurance</h3>
+            {!canAddInsurance && (formData.insurances?.length ?? 0) > 0 && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                Complete existing insurance details to add another
+              </p>
+            )}
+          </div>
           <button
             type="button"
             onClick={onAddInsurance}
-            className="rounded-full px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md text-xs sm:text-base inline-block w-fit"
+            disabled={!canAddInsurance}
+            title={
+              !canAddInsurance
+                ? "Please complete all required fields on the current insurance first"
+                : undefined
+            }
+            className={cn(
+              "rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-base inline-block w-fit shadow-md transition-all",
+              canAddInsurance
+                ? "bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white cursor-pointer"
+                : "bg-muted text-muted-foreground cursor-not-allowed opacity-50 border border-border/60"
+            )}
           >
             + Add
           </button>
@@ -1062,6 +1036,56 @@ export default function PatientFormFields({
             </div>
           )
         })}
+      </div>
+
+      {/* Emergency Contact */}
+      <div
+        className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}
+      >
+        <h3 className="text-sm sm:text-lg font-semibold mb-2 sm:mb-4">
+          Emergency Contact
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
+          <Input
+            type="text"
+            value={fieldValue(formData.emergencyContact?.name)}
+            onChange={(e) =>
+              onFieldChange("emergencyContact.name", e.target.value)
+            }
+            placeholder="Contact name"
+            className={solidFieldClass}
+          />
+          <Select
+            value={formData.emergencyContact?.relation || ""}
+            onValueChange={(value) =>
+              onFieldChange("emergencyContact.relation", value)
+            }
+          >
+            <SelectTrigger className="h-10 text-sm">
+              <SelectValue placeholder="Relation" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Spouse">Spouse</SelectItem>
+              <SelectItem value="Parent">Parent</SelectItem>
+              <SelectItem value="Child">Child</SelectItem>
+              <SelectItem value="Sibling">Sibling</SelectItem>
+              <SelectItem value="Relative">Relative</SelectItem>
+              <SelectItem value="Friend">Friend</SelectItem>
+              <SelectItem value="Neighbor">Neighbor</SelectItem>
+              <SelectItem value="Colleague">Colleague</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="tel"
+            value={fieldValue(formData.emergencyContact?.phone)}
+            onChange={(e) =>
+              onFieldChange("emergencyContact.phone", e.target.value)
+            }
+            placeholder="Phone number"
+            className={solidFieldClass}
+          />
+        </div>
       </div>
     </>
   )

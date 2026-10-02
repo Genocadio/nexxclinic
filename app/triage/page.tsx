@@ -13,7 +13,12 @@ import {
   FileText,
   X,
   AlertCircle,
+  User,
+  ShieldAlert,
+  Pencil,
 } from "lucide-react";
+import { isInsuranceActive, insuranceStatusLabel } from "@/lib/insurance-utils";
+import { formatDateOnly } from "@/lib/utils";
 import {
   Tooltip,
   TooltipContent,
@@ -25,7 +30,12 @@ import { useAuth } from "@/lib/auth-context";
 import Header from "@/components/header";
 import InlineTryAgain from "@/components/inline-try-again";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -46,6 +56,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { handleResponse } from "@/lib/response-handler";
 import {
   useAddVisitVitalSigns,
+  useUpdateVisitVitalSigns,
   useVisit,
   useDepartments,
   useAddDepartmentToVisit,
@@ -66,7 +77,7 @@ interface VitalRow {
   isPreset?: boolean;
 }
 
-const defaultRows = (): VitalRow[] => [
+const defaultRows = (initialHeight = "", initialWeight = ""): VitalRow[] => [
   {
     id: "preset-bp",
     measurementName: "Blood Pressure",
@@ -98,14 +109,14 @@ const defaultRows = (): VitalRow[] => [
   {
     id: "preset-weight",
     measurementName: "Weight",
-    value: "",
+    value: initialWeight || "",
     unit: "kg",
     isPreset: true,
   },
   {
     id: "preset-height",
     measurementName: "Height",
-    value: "",
+    value: initialHeight || "",
     unit: "cm",
     isPreset: true,
   },
@@ -118,6 +129,8 @@ function TriagePageInner() {
   const { doctor } = useAuth();
   const { visit, loading, error, refetch } = useVisit(visitId);
   const { addVisitVitalSigns, loading: savingVitals } = useAddVisitVitalSigns();
+  const { updateVisitVitalSigns, loading: updatingVitals } =
+    useUpdateVisitVitalSigns();
   const { departments = [] } = useDepartments();
   const { changeVisitDepartmentProfile, loading: changingProfile } =
     useChangeVisitDepartmentProfile();
@@ -134,8 +147,11 @@ function TriagePageInner() {
 
   const [rows, setRows] = useState<VitalRow[]>(defaultRows);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [addDeptOpen, setAddDeptOpen] = useState(false);
   const [vitalIndex, setVitalIndex] = useState(0);
+  const [idPanel, setIdPanel] = useState({ pinned: true, hover: false });
+  const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
   // Inline validation for the vitals dialog (shown under the rows, no toasts).
   const [vitalFormError, setVitalFormError] = useState("");
   const [vitalRowErrors, setVitalRowErrors] = useState<Record<string, string>>(
@@ -191,6 +207,22 @@ function TriagePageInner() {
     if (!loading && !visit && !error) router.push("/");
   }, [loading, visit, error, router]);
 
+  useEffect(() => {
+    if (visit?.departments && visit.departments.length > 0) {
+      if (
+        !selectedDeptId ||
+        !visit.departments.some((d) => d.id === selectedDeptId)
+      ) {
+        const firstActive = visit.departments.find(
+          (d) => d.status !== "COMPLETED" && d.status !== "CANCELLED",
+        );
+        setSelectedDeptId(firstActive ? firstActive.id : visit.departments[0].id);
+      }
+    } else {
+      setSelectedDeptId(null);
+    }
+  }, [visit?.departments, selectedDeptId]);
+
   const patientName = visit
     ? `${visit.patient.firstName} ${visit.patient.lastName || ""}`.trim()
     : "Unknown patient";
@@ -220,6 +252,68 @@ function TriagePageInner() {
     setVitalIndex((i) => Math.min(i, Math.max(0, groupedEntries.length - 1)));
   }, [groupedEntries.length]);
 
+  const getPreviousHeightAndWeight = () => {
+    let prevHeight = "";
+    let prevWeight = "";
+    for (const group of groupedEntries) {
+      for (const m of group.measurements || []) {
+        const name = (m.measurementName || "").trim().toLowerCase();
+        if (!prevHeight && name === "height" && m.value) {
+          prevHeight = m.value;
+        }
+        if (!prevWeight && name === "weight" && m.value) {
+          prevWeight = m.value;
+        }
+      }
+      if (prevHeight && prevWeight) break;
+    }
+    return { prevHeight, prevWeight };
+  };
+
+  const canEditGroup = (group: any) => {
+    if (visit?.status === "COMPLETED" || visit?.status === "CANCELLED")
+      return false;
+    if (!group.createdAt || group.createdAt === "unknown") return false;
+    const createdTime = new Date(group.createdAt).getTime();
+    if (isNaN(createdTime)) return false;
+    const tenMinutes = 10 * 60 * 1000;
+    return Date.now() - createdTime <= tenMinutes;
+  };
+
+  const handleOpenAddVitals = () => {
+    setEditingGroupId(null);
+    const { prevHeight, prevWeight } = getPreviousHeightAndWeight();
+    setRows(defaultRows(prevHeight, prevWeight));
+    setVitalFormError("");
+    setVitalRowErrors({});
+    setModalOpen(true);
+  };
+
+  const handleEditVitalsGroup = (group: any) => {
+    setEditingGroupId(group.id);
+    const presetNames = [
+      "Blood Pressure",
+      "Heart Rate",
+      "Temperature",
+      "Oxygen Saturation",
+      "Weight",
+      "Height",
+    ];
+    const mappedRows: VitalRow[] = (group.measurements || []).map(
+      (m: any, idx: number) => ({
+        id: m.id || `edit-${idx}`,
+        measurementName: m.measurementName,
+        value: m.value,
+        unit: m.unit,
+        isPreset: presetNames.includes(m.measurementName),
+      }),
+    );
+    setRows(mappedRows.length > 0 ? mappedRows : defaultRows());
+    setVitalFormError("");
+    setVitalRowErrors({});
+    setModalOpen(true);
+  };
+
   const updateRow = (rowId: string, field: keyof VitalRow, value: string) => {
     setRows((rs) =>
       rs.map((r) => (r.id === rowId ? { ...r, [field]: value } : r)),
@@ -244,8 +338,23 @@ function TriagePageInner() {
       return next;
     });
   };
+  const addRow = () => {
+    const newId = `custom-${Date.now()}`;
+    setRows((rs) => [
+      ...rs,
+      {
+        id: newId,
+        measurementName: "",
+        value: "",
+        unit: "",
+        isPreset: false,
+      },
+    ]);
+  };
   const resetRows = () => {
-    setRows(defaultRows());
+    const { prevHeight, prevWeight } = getPreviousHeightAndWeight();
+    setRows(defaultRows(prevHeight, prevWeight));
+    setEditingGroupId(null);
     setVitalFormError("");
     setVitalRowErrors({});
   };
@@ -289,13 +398,21 @@ function TriagePageInner() {
       return false;
     }
     try {
-      const response = await addVisitVitalSigns(visit.id, payload);
+      let response;
+      if (editingGroupId) {
+        response = await updateVisitVitalSigns(editingGroupId, payload);
+      } else {
+        response = await addVisitVitalSigns(visit.id, payload);
+      }
       const saved = await handleResponse(response, {
-        successMessage: "Vital signs saved successfully.",
+        successMessage: editingGroupId
+          ? "Vital signs updated successfully."
+          : "Vital signs saved successfully.",
         errorMessage: true,
       });
       if (saved) {
         resetRows();
+        setEditingGroupId(null);
         await refetch();
         return true;
       }
@@ -348,358 +465,391 @@ function TriagePageInner() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.18),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.16),_transparent_28%),linear-gradient(180deg,_rgba(248,250,252,1)_0%,_rgba(241,245,249,1)_100%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.18),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.16),_transparent_28%),linear-gradient(180deg,_rgba(15,23,42,1)_0%,_rgba(15,23,42,1)_100%)]">
       <Header doctor={doctor} />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <div>
-            <Button
-              variant="ghost"
-              onClick={() => router.back()}
-              className="px-0 hover:bg-transparent"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </div>
-        </div>
 
-        {/* patient header: avatar left, actions right */}
-        <div className="max-w-3xl mx-auto mb-6">
-          <div className="rounded-2xl border border-border/60 bg-card/85 p-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="h-16 w-16 rounded-full bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white flex items-center justify-center text-lg font-semibold shadow-xl">
-                {getInitials(patientName)}
-              </div>
-              <div className="text-left">
-                <p className="text-lg font-semibold text-foreground">
-                  {patientName}
-                </p>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                  <span>
-                    {getAge(visit.patient.dateOfBirth) !== null
-                      ? `${getAge(visit.patient.dateOfBirth)}y`
-                      : ""}
-                  </span>
-                  <span>{visit.patient.gender || ""}</span>
-                </div>
-              </div>
+      {/* Floating Left Identification Button */}
+      <div className="fixed left-6 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-2 bg-card/60 backdrop-blur-xl border border-border/50 rounded-full p-2 shadow-2xl">
+        <button
+          title="Identification"
+          className={`p-2 rounded-full transition-colors cursor-pointer ${
+            idPanel.pinned
+              ? "bg-primary/20 text-primary ring-2 ring-primary/40"
+              : "hover:bg-muted text-muted-foreground hover:text-foreground"
+          }`}
+          onMouseEnter={() =>
+            setIdPanel((prev) => ({ ...prev, hover: !prev.pinned }))
+          }
+          onMouseLeave={() => setIdPanel((prev) => ({ ...prev, hover: false }))}
+          onClick={() =>
+            setIdPanel((prev) => ({ ...prev, pinned: !prev.pinned, hover: false }))
+          }
+        >
+          <User className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Identification Panel */}
+      {(idPanel.pinned || idPanel.hover) && visit?.patient && (
+        <div
+          className="fixed z-40 w-80 bg-background border border-border rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
+          style={{ left: "5rem", top: "50%", transform: "translateY(-50%)" }}
+          onMouseEnter={() => setIdPanel((prev) => ({ ...prev, hover: true }))}
+          onMouseLeave={() => setIdPanel((prev) => ({ ...prev, hover: false }))}
+        >
+          <div className="flex items-center justify-between p-3 border-b border-border">
+            <p className="text-sm font-semibold">Identification</p>
+            {idPanel.pinned && (
+              <span className="text-xs bg-muted px-2 py-1 rounded font-medium">
+                Pinned
+              </span>
+            )}
+          </div>
+          <div className="p-4 space-y-2 text-sm">
+            <div className="font-medium text-foreground">
+              {visit.patient.firstName} {visit.patient.lastName || ""}
             </div>
-
-            {/* actions moved to bottom dock */}
-          </div>
-        </div>
-
-        {/* current vitals centered — GLOBAL to the visit, unchanged */}
-        <div className="flex justify-center">
-          <div className="w-full max-w-3xl">
-            <Card className="border-border/60 bg-card/90 shadow-lg backdrop-blur-xl">
-              <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <CardTitle className="text-xl">
-                      Current vital signs
-                    </CardTitle>
-                    <CardDescription>
-                      Most recent measurements recorded for this visit.
-                    </CardDescription>
+            {visit.patient.patientIdentifier && (
+              <div className="text-muted-foreground">
+                ID: {visit.patient.patientIdentifier}
+              </div>
+            )}
+            <div className="text-muted-foreground">
+              DOB: {formatDateOnly(visit.patient.dateOfBirth)}
+              {getAge(visit.patient.dateOfBirth) !== null
+                ? ` (${getAge(visit.patient.dateOfBirth)}y)`
+                : ""}
+            </div>
+            {visit.patient.gender && (
+              <div className="text-muted-foreground">
+                Gender: {visit.patient.gender}
+              </div>
+            )}
+            {visit.patient.primaryPhoneNumber && (
+              <div className="text-muted-foreground">
+                Phone: {visit.patient.primaryPhoneNumber}
+              </div>
+            )}
+            <div className="pt-2 border-t border-border/40">
+              {visit.patient.patientInsurances && visit.patient.patientInsurances.length > 0 ? (
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                    Insurance
                   </div>
-                  <div className="flex items-center gap-2">
-                    {groupedEntries.length > 1 && (
-                      <div className="flex items-center gap-1">
-                        <button
-                          aria-label="Previous entry"
-                          onClick={() =>
-                            setVitalIndex((i) => Math.max(0, i - 1))
-                          }
-                          className="p-2 rounded-md hover:bg-muted/40"
-                          disabled={vitalIndex === 0}
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <button
-                          aria-label="Next entry"
-                          onClick={() =>
-                            setVitalIndex((i) =>
-                              Math.min(groupedEntries.length - 1, i + 1),
-                            )
-                          }
-                          className="p-2 rounded-md hover:bg-muted/40"
-                          disabled={vitalIndex === groupedEntries.length - 1}
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {groupedEntries.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 p-6 text-center">
-                    <Activity className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-                    <p className="font-medium text-foreground">
-                      No vitals recorded yet
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Use the Record vital signs button above to capture the
-                      first entry.
-                    </p>
-                  </div>
-                ) : (
-                  (() => {
-                    const group = groupedEntries[vitalIndex];
-                    if (!group) return null;
-                    return (
-                      <div key={group.createdAt} className="space-y-3">
-                        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                          <span>
-                            {group.createdAt && group.createdAt !== "unknown"
-                              ? new Date(group.createdAt).toLocaleString()
-                              : ""}
-                          </span>
-                          {groupedEntries.length > 0 && (
-                            <span className="font-medium text-foreground">
-                              {group.createdAt && group.createdAt !== "unknown"
-                                ? new Date(group.createdAt).toLocaleString()
-                                : "Recorded"}
-                              {group.addedBy
-                                ? ` • ${group.addedBy.firstName || ""} ${group.addedBy.lastName || ""}`
-                                : null}
-                            </span>
-                          )}
-                        </div>
-                        {group.measurements.map((vital: any) => (
-                          <div
-                            key={vital.id}
-                            className="rounded-2xl border border-border/60 bg-muted/20 p-4"
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <div>
-                                <p className="text-sm font-semibold text-foreground">
-                                  {vital.measurementName}
-                                </p>
-                                <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
-                                  {vital.value}{" "}
-                                  <span className="text-sm font-medium text-muted-foreground">
-                                    {vital.unit}
-                                  </span>
-                                </p>
-                              </div>
-                              <div className="text-right text-xs text-muted-foreground">
-                                {group.addedBy ? (
-                                  <p>
-                                    By {group.addedBy.firstName || ""}{" "}
-                                    {group.addedBy.lastName || ""}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Visit Departments Card */}
-        <div className="flex justify-center mt-6">
-          <div className="w-full max-w-3xl">
-            <Card className="border-border/60 bg-card/90 shadow-lg backdrop-blur-xl">
-              <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-primary" />
-                    <div>
-                      <CardTitle className="text-xl">
-                        Visit Departments
-                      </CardTitle>
-                      <CardDescription>
-                        Departments assigned to this visit. Manage profiles or cancel unserved departments.
-                      </CardDescription>
-                    </div>
-                  </div>
-                  {visit.status !== "COMPLETED" && visit.status !== "CANCELLED" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setAddDeptOpen(true)}
-                      className="rounded-full flex items-center gap-1.5 text-xs shadow-sm hover:bg-primary/10 hover:text-primary hover:border-primary/40"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Add Department
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {(!visit.departments || visit.departments.length === 0) ? (
-                  <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 p-6 text-center">
-                    <Building2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-                    <p className="font-medium text-foreground">
-                      No departments assigned yet
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Add a department to route this patient to consultation.
-                    </p>
-                    {visit.status !== "COMPLETED" && visit.status !== "CANCELLED" && (
-                      <Button
-                        size="sm"
-                        onClick={() => setAddDeptOpen(true)}
-                        className="mt-4 rounded-full"
-                      >
-                        <Plus className="h-4 w-4 mr-1.5" />
-                        Add Department
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {visit.departments.map((dept) => {
-                      const deptCatalog = departments.find(
-                        (d) => String(d.id) === String(dept.department?.id || dept.id),
-                      );
-                      const isSupportRequests = Boolean(
-                        deptCatalog?.supportRequests || (dept.department as any)?.supportRequests,
-                      );
-                      const availableProfiles = (deptCatalog?.profiles || (dept.department as any)?.profiles || []) as Array<{ id: string; name: string; encounterType?: string }>;
-                      const assignedProfile = dept.profile;
-                      const isTerminal = dept.status === "COMPLETED" || dept.status === "FINALISED" || dept.status === "CANCELLED";
-                      const isLocked = isTerminal || dept.status === "BILLING" || dept.status === "DEPARTMENT_EDITING";
-
-                      // Can cancel department check: not terminal, no billed products
-                      const deptProducts = dept.products || [];
-                      const hasBilledProducts = deptProducts.some(
-                        (p: any) => p.status === "BILLED" || p.status === "EXEMPTED" || p.status === "PATIENT_SHARE_EXEMPTED",
-                      );
-                      const canCancel = !isTerminal && !hasBilledProducts;
-
+                  <div className="flex flex-wrap gap-1">
+                    {visit.patient.patientInsurances.map((ins: any) => {
+                      const active = isInsuranceActive(ins);
                       return (
-                        <div
-                          key={dept.id}
-                          className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-3"
+                        <span
+                          key={ins.id}
+                          className={`inline-block px-2 py-1 rounded-full text-xs font-medium border ${
+                            active
+                              ? "bg-gradient-to-r from-primary/20 to-primary/10 text-primary border-primary/30"
+                              : "bg-gray-100 text-gray-400 border-gray-300 dark:bg-gray-800 dark:text-gray-500 dark:border-gray-700 opacity-60"
+                          }`}
+                          title={active ? ins.insuranceProvider?.insuranceName : insuranceStatusLabel(ins)}
                         >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="font-semibold text-foreground truncate text-base">
-                                {dept.department?.name || "Department"}
-                              </span>
-                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                                dept.status === "ACTIVE" || (dept.status as string) === "IN_PROGRESS"
-                                  ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
-                                  : dept.status === "PENDING"
-                                  ? "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
-                                  : dept.status === "CANCELLED"
-                                  ? "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800"
-                                  : "bg-muted text-muted-foreground border-border"
-                              }`}>
-                                {dept.status || "PENDING"}
-                              </span>
-                            </div>
-
-                            {canCancel && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  setDeptToCancel({
-                                    id: dept.id,
-                                    name: dept.department?.name || "Department",
-                                  })
-                                }
-                                className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full h-8 px-2.5 flex items-center gap-1"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                                Cancel
-                              </Button>
-                            )}
-                          </div>
-
-                          {/* Profile Management Section */}
-                          {isSupportRequests ? (
-                            <p className="text-xs text-muted-foreground italic">
-                              Requests department (no profiles applicable)
-                            </p>
-                          ) : availableProfiles.length === 0 ? (
-                            <p className="text-xs text-muted-foreground italic">
-                              No profiles configured for this department
-                            </p>
-                          ) : (
-                            <div className="space-y-1.5 pt-1 border-t border-border/40">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground font-medium flex items-center gap-1">
-                                  <FileText className="h-3 w-3 text-primary" />
-                                  Profile:
-                                </span>
-                                {assignedProfile ? (
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="font-medium text-foreground">
-                                      {assignedProfile.name}
-                                    </span>
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-200 dark:border-emerald-800">
-                                      Active
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground italic">
-                                    None assigned
-                                  </span>
-                                )}
-                              </div>
-
-                              {!isLocked ? (
-                                <div className="flex items-center gap-2">
-                                  <Select
-                                    value={assignedProfile?.id || "none"}
-                                    onValueChange={(val) =>
-                                      handleChangeProfile(
-                                        dept.id,
-                                        val === "none" ? null : val,
-                                      )
-                                    }
-                                    disabled={changingProfile || removingProfile}
-                                  >
-                                    <SelectTrigger className="h-8 text-xs bg-background">
-                                      <SelectValue
-                                        placeholder={
-                                          assignedProfile
-                                            ? "Change profile..."
-                                            : "Select & assign profile..."
-                                        }
-                                      />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="none">
-                                        No profile
-                                      </SelectItem>
-                                      {availableProfiles.map((p) => (
-                                        <SelectItem key={p.id} value={p.id}>
-                                          {p.name}
-                                          {p.encounterType
-                                            ? ` (${p.encounterType})`
-                                            : ""}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              ) : (
-                                <p className="text-[11px] text-muted-foreground">
-                                  Profile is locked on {dept.status.toLowerCase()} departments.
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                          {!active && <ShieldAlert className="inline h-3 w-3 mr-0.5 -mt-0.5" />}
+                          {ins.insuranceProvider?.acronym ||
+                            ins.insuranceProvider?.insuranceName}
+                        </span>
                       );
                     })}
                   </div>
+                </div>
+              ) : (
+                <div className="text-xs font-medium text-muted-foreground">
+                  <span className="inline-block bg-muted/40 px-2 py-1 rounded-full">
+                    Private
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <div>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="group h-9 px-3.5 rounded-xl bg-card border border-border/80 hover:border-primary/50 text-foreground hover:bg-muted/60 dark:hover:bg-muted/40 shadow-sm hover:shadow-md transition-all font-medium flex items-center gap-2 cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4 text-foreground group-hover:text-primary transition-all group-hover:-translate-x-0.5" />
+              <span className="text-foreground group-hover:text-primary text-sm font-semibold">Back</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Vital Signs Section (Centered Vertical Tables + Increased Height + Rightmost Circular Add Button) */}
+        <div className="flex justify-center w-full my-4">
+          <div className="w-full max-w-5xl space-y-4">
+            <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                  <Activity className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">
+                    Vital Signs
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Recorded physiological measurements
+                  </p>
+                </div>
+                {groupedEntries.length > 0 && (
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/25 font-semibold ml-2">
+                    {groupedEntries.length}{" "}
+                    {groupedEntries.length === 1 ? "record" : "records"}
+                  </span>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+
+            <div className="flex justify-center items-stretch gap-6 overflow-x-auto pb-4 pt-1 scrollbar-thin">
+              {groupedEntries.map((group, index) => {
+                const isLatest = index === 0;
+                const canEdit = canEditGroup(group);
+
+                return (
+                  <div
+                    key={group.id || group.createdAt}
+                    className={`flex-shrink-0 w-80 sm:w-96 rounded-3xl border bg-card/95 shadow-xl backdrop-blur-2xl overflow-hidden flex flex-col min-h-[380px] transition-all hover:shadow-2xl ${
+                      isLatest
+                        ? "border-primary/50 ring-2 ring-primary/30"
+                        : "border-border/80"
+                    }`}
+                  >
+                    {/* Table Header */}
+                    <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/70 bg-muted/40">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isLatest && (
+                          <span className="text-[10px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/40 shadow-xs">
+                            Latest
+                          </span>
+                        )}
+                        <span className="text-sm font-bold text-foreground truncate">
+                          {group.createdAt && group.createdAt !== "unknown"
+                            ? new Date(group.createdAt).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }) +
+                              " • " +
+                              new Date(group.createdAt).toLocaleDateString([], {
+                                month: "short",
+                                day: "numeric",
+                              })
+                            : "Recorded"}
+                        </span>
+                      </div>
+
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => handleEditVitalsGroup(group)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/15 transition-all cursor-pointer"
+                          title="Edit vitals (within 10m)"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {group.addedBy && (
+                      <div className="px-5 py-1.5 bg-muted/15 text-xs text-muted-foreground font-medium border-b border-border/40 truncate">
+                        Recorded by {group.addedBy.firstName || ""}{" "}
+                        {group.addedBy.lastName || ""}
+                      </div>
+                    )}
+
+                    {/* Vertical Table */}
+                    <div className="p-0 flex-1 flex flex-col justify-between">
+                      <table className="w-full text-sm text-left border-collapse">
+                        <tbody>
+                          {group.measurements.map((vital: any, mIdx: number) => (
+                            <tr
+                              key={vital.id || mIdx}
+                              className="border-b border-border/50 last:border-0 hover:bg-muted/25 transition-colors"
+                            >
+                              <td className="px-5 py-3 font-medium text-foreground/80">
+                                {vital.measurementName}
+                              </td>
+                              <td className="px-5 py-3 text-right whitespace-nowrap">
+                                <span className="text-xl sm:text-2xl font-bold text-indigo-700 dark:text-indigo-300">
+                                  {vital.value}
+                                </span>
+                                <span className="text-xs font-semibold text-muted-foreground ml-1.5">
+                                  {vital.unit}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Circular Add Button on the rightmost */}
+              {visit.status !== "COMPLETED" && visit.status !== "CANCELLED" && (
+                <div className="flex-shrink-0 flex flex-col items-center justify-center min-h-[380px] w-36 gap-3 border-2 border-dashed border-primary/40 hover:border-primary/80 rounded-3xl bg-card/50 hover:bg-primary/5 transition-all p-4 shadow-sm hover:shadow-md">
+                  <button
+                    type="button"
+                    onClick={handleOpenAddVitals}
+                    className="w-16 h-16 rounded-full border-2 border-primary/60 hover:border-primary bg-primary/10 hover:bg-primary text-primary hover:text-white flex items-center justify-center shadow-lg hover:shadow-2xl hover:scale-110 transition-all cursor-pointer group"
+                    title="Add Vital Signs"
+                  >
+                    <Plus className="w-8 h-8 transition-transform group-hover:scale-110" />
+                  </button>
+                  <span className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors text-center">
+                    Add Vitals
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Visit Departments (Pill Dock) */}
+        <div className="flex items-center justify-center mt-6">
+          <div className="flex flex-wrap items-center justify-center gap-2 p-1.5 bg-card/85 backdrop-blur-md rounded-full border border-border/70 shadow-sm max-w-full">
+            {visit.departments && visit.departments.length > 0 ? (
+              <>
+                {visit.departments.map((dept, index) => {
+                  const isCompleted =
+                    dept.status === "COMPLETED" || dept.status === "FINALISED";
+                  const isCancelled = dept.status === "CANCELLED";
+
+                  // Can cancel department check: not terminal, no billed products
+                  const deptProducts = dept.products || [];
+                  const hasBilledProducts = deptProducts.some(
+                    (p: any) =>
+                      p.status === "BILLED" ||
+                      p.status === "EXEMPTED" ||
+                      p.status === "PATIENT_SHARE_EXEMPTED",
+                  );
+                  const canCancel =
+                    !isCompleted && !isCancelled && !hasBilledProducts;
+
+                  const totalDepts = visit.departments?.length ?? 0;
+                  const isMany = totalDepts > 6;
+                  const isOlder = isMany && index < totalDepts - 4;
+                  const deptName = dept.department?.name || `Dept #${index + 1}`;
+                  const shortLetters = deptName.replace(/[^a-zA-Z]/g, "").slice(0, 2).toUpperCase() || "DP";
+
+                  return (
+                    <div
+                      key={dept.id}
+                      className={`group relative flex items-center h-8 rounded-full text-xs font-semibold transition-all duration-300 ease-in-out border ${
+                        isCompleted
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25"
+                          : isCancelled
+                          ? "bg-red-500/10 text-red-500 border-red-500/20 line-through opacity-70"
+                          : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/25"
+                      } ${
+                        isOlder
+                          ? "px-2.5 hover:px-3.5"
+                          : "px-3.5"
+                      }`}
+                      title={deptName}
+                    >
+                      <span
+                        className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                          isCompleted
+                            ? "bg-emerald-500"
+                            : isCancelled
+                            ? "bg-red-500"
+                            : "bg-amber-500 animate-pulse"
+                        }`}
+                      />
+
+                      {isOlder ? (
+                        <>
+                          {/* 2-letter abbreviation by default when older */}
+                          <span className="font-bold uppercase tracking-wider ml-1.5 group-hover:hidden select-none">
+                            {shortLetters}
+                          </span>
+                          {/* Expands on hover to show full name, status, and cancel */}
+                          <div className="hidden group-hover:flex items-center gap-1.5 ml-1.5 whitespace-nowrap animate-in fade-in duration-200">
+                            <span className="font-bold max-w-[160px] truncate">
+                              {deptName}
+                            </span>
+                            <span className="text-[10px] uppercase font-bold opacity-80">
+                              {dept.status || "PENDING"}
+                            </span>
+                            {canCancel && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeptToCancel({
+                                    id: dept.id,
+                                    name: deptName,
+                                  });
+                                }}
+                                title="Cancel department"
+                                className="ml-1 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-1.5 ml-1.5 whitespace-nowrap">
+                          <span className="font-bold max-w-[160px] truncate">
+                            {deptName}
+                          </span>
+                          <span className="text-[10px] uppercase font-bold opacity-80">
+                            {dept.status || "PENDING"}
+                          </span>
+                          {canCancel && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDeptToCancel({
+                                  id: dept.id,
+                                  name: deptName,
+                                })
+                              }
+                              title="Cancel department"
+                              className="ml-1 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {visit.status !== "COMPLETED" &&
+                  visit.status !== "CANCELLED" && (
+                    <button
+                      type="button"
+                      onClick={() => setAddDeptOpen(true)}
+                      className="flex items-center gap-1.5 h-8 px-3.5 rounded-full text-xs font-semibold border border-dashed border-primary/50 hover:border-primary bg-primary/5 hover:bg-primary/10 text-primary transition-all cursor-pointer shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Department</span>
+                    </button>
+                  )}
+              </>
+            ) : (
+              visit.status !== "COMPLETED" &&
+              visit.status !== "CANCELLED" && (
+                <button
+                  type="button"
+                  onClick={() => setAddDeptOpen(true)}
+                  className="flex items-center gap-1.5 h-8 px-4 rounded-full text-xs font-semibold border border-dashed border-primary/50 hover:border-primary bg-primary/5 hover:bg-primary/10 text-primary transition-all cursor-pointer shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Department</span>
+                </button>
+              )
+            )}
           </div>
         </div>
 
@@ -726,196 +876,222 @@ function TriagePageInner() {
 
         <Dialog open={modalOpen} onOpenChange={setModalOpen}>
           <DialogContent
-            className="sm:max-w-2xl max-h-[90vh] overflow-hidden backdrop-blur-2xl bg-card/95 dark:bg-card/95 text-card-foreground border border-border/80 rounded-3xl shadow-2xl p-3 flex flex-col"
+            showCloseButton={false}
+            className="sm:max-w-2xl bg-card/95 text-card-foreground border border-border/80 rounded-3xl shadow-2xl p-6 flex flex-col gap-4"
             onPointerDownOutside={(e) => e.preventDefault()}
             onEscapeKeyDown={(e) => e.preventDefault()}
           >
-            <DialogTitle className="sr-only">Record vital signs</DialogTitle>
-            <div className="grid grid-cols-1 gap-4">
-              <div className="overflow-y-auto scrollbar-hide pr-2 pb-6 rounded-2xl border border-border/50 bg-[#FBF2ED] dark:bg-slate-900 shadow-lg p-4 max-h-[64vh]">
-                <h3 className="text-lg font-semibold mb-2">
-                  Record vital signs
-                </h3>
-                <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-                  {vitalFormError && (
-                    <p
-                      role="alert"
-                      className="text-xs font-medium text-red-600 dark:text-red-400"
-                    >
-                      {vitalFormError}
-                    </p>
-                  )}
-                  <div className="space-y-3">
-                    {rows.map((row, index) => {
-                      return (
+            {/* Header */}
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-primary/10 text-primary border border-primary/20">
+                <Activity className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-foreground">
+                  {editingGroupId ? "Edit Vital Signs" : "Record Vital Signs"}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  Enter patient physiological measurements
+                </DialogDescription>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
+              {vitalFormError && (
+                <div
+                  role="alert"
+                  className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-medium"
+                >
+                  {vitalFormError}
+                </div>
+              )}
+
+              {/* 6 Preset vitals in a sleek 3-column / 2-row grid (no scrolling needed) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {rows
+                  .filter((r) => r.isPreset)
+                  .map((row) => {
+                    const hasError = !!vitalRowErrors[row.id];
+                    return (
+                      <div
+                        key={row.id}
+                        className={`rounded-2xl border p-3 bg-muted/20 hover:bg-muted/30 transition-all flex flex-col justify-between gap-1 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary ${
+                          hasError
+                            ? "border-red-500/80 bg-red-500/5"
+                            : "border-border/70 hover:border-primary/40"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-semibold text-foreground/80 truncate">
+                            {row.measurementName}
+                          </span>
+                          <span className="text-[10px] font-bold text-muted-foreground bg-muted/70 px-1.5 py-0.5 rounded-md">
+                            {row.unit}
+                          </span>
+                        </div>
+                        <Input
+                          value={row.value}
+                          onChange={(ev) =>
+                            updateRow(row.id, "value", ev.target.value)
+                          }
+                          placeholder={
+                            row.measurementName === "Blood Pressure"
+                              ? "120/80"
+                              : row.measurementName === "Heart Rate"
+                              ? "72"
+                              : row.measurementName === "Temperature"
+                              ? "37.0"
+                              : row.measurementName === "Oxygen Saturation"
+                              ? "98"
+                              : row.measurementName === "Weight"
+                              ? "70"
+                              : row.measurementName === "Height"
+                              ? "165"
+                              : "Value"
+                          }
+                          className="h-8 text-lg font-bold text-indigo-700 dark:text-indigo-300 placeholder:text-muted-foreground/30 border-0 bg-transparent px-0 focus-visible:ring-0 shadow-none"
+                        />
+                        {hasError && (
+                          <p className="text-[10px] font-medium text-red-600 dark:text-red-400 truncate">
+                            {vitalRowErrors[row.id]}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* Custom Measurements (if any) */}
+              {rows.some((r) => !r.isPreset) && (
+                <div className="space-y-2 pt-1">
+                  <div className="text-xs font-semibold text-muted-foreground">
+                    Additional Measurements
+                  </div>
+                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1 scrollbar-thin">
+                    {rows
+                      .filter((r) => !r.isPreset)
+                      .map((row) => (
                         <div
                           key={row.id}
-                          className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr_0.6fr_auto] gap-3 rounded-2xl border border-border/60 bg-muted/20 p-4"
+                          className="flex items-center gap-2 p-2 rounded-xl border border-border/60 bg-muted/20"
                         >
-                          <div className="space-y-2">
-                            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                              Measurement
-                            </label>
-                            {row.isPreset ? (
-                              <div className="flex h-10 items-center rounded-md border border-transparent bg-transparent px-3 text-sm font-medium text-foreground select-none pointer-events-none">
-                                {row.measurementName}
-                              </div>
-                            ) : (
-                              <Input
-                                value={row.measurementName}
-                                onChange={(ev) =>
-                                  updateRow(
-                                    row.id,
-                                    "measurementName",
-                                    ev.target.value,
-                                  )
-                                }
-                                placeholder={
-                                  index === 0
-                                    ? "Blood Pressure"
-                                    : "Measurement name"
-                                }
-                                className={
-                                  vitalRowErrors[`${row.id}:name`]
-                                    ? "border-red-500 focus-visible:ring-red-300"
-                                    : ""
-                                }
-                              />
-                            )}
+                          <div className="flex-1">
+                            <Input
+                              value={row.measurementName}
+                              onChange={(e) =>
+                                updateRow(
+                                  row.id,
+                                  "measurementName",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="Name (e.g. Glucose)"
+                              className={`h-8 text-xs font-medium ${
+                                vitalRowErrors[`${row.id}:name`]
+                                  ? "border-red-500"
+                                  : ""
+                              }`}
+                            />
                             {vitalRowErrors[`${row.id}:name`] && (
-                              <p
-                                className="mt-1 text-xs font-medium text-red-600 dark:text-red-400"
-                                role="alert"
-                              >
+                              <p className="text-[10px] text-red-600 dark:text-red-400 mt-0.5">
                                 {vitalRowErrors[`${row.id}:name`]}
                               </p>
                             )}
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                              Value
-                            </label>
+                          <div className="w-24">
                             <Input
                               value={row.value}
-                              onChange={(ev) =>
-                                updateRow(row.id, "value", ev.target.value)
+                              onChange={(e) =>
+                                updateRow(row.id, "value", e.target.value)
                               }
-                              className={
-                                vitalRowErrors[row.id]
-                                  ? "border-red-500 focus-visible:ring-red-300"
-                                  : ""
-                              }
-                              placeholder={
-                                row.isPreset
-                                  ? (() => {
-                                      switch (row.measurementName) {
-                                        case "Blood Pressure":
-                                          return "120/80";
-                                        case "Heart Rate":
-                                          return "72";
-                                        case "Temperature":
-                                          return "37.0";
-                                        case "Oxygen Saturation":
-                                          return "98";
-                                        case "Weight":
-                                          return "70";
-                                        case "Height":
-                                          return "165";
-                                        default:
-                                          return "Value";
-                                      }
-                                    })()                                      : "Value"
-                              }
+                              placeholder="Value"
+                              className={`h-8 text-xs font-bold ${
+                                vitalRowErrors[row.id] ? "border-red-500" : ""
+                              }`}
                             />
                             {vitalRowErrors[row.id] && (
-                              <p
-                                className="mt-1 text-xs font-medium text-red-600 dark:text-red-400"
-                                role="alert"
-                              >
+                              <p className="text-[10px] text-red-600 dark:text-red-400 mt-0.5">
                                 {vitalRowErrors[row.id]}
                               </p>
                             )}
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                              Unit
-                            </label>
-                            {row.isPreset ? (
-                              <div className="flex h-10 items-center rounded-md border border-transparent bg-transparent px-3 text-sm text-muted-foreground select-none pointer-events-none">
-                                {row.unit}
-                              </div>
-                            ) : (
-                              <Input
-                                value={row.unit}
-                                onChange={(ev) =>
-                                  updateRow(row.id, "unit", ev.target.value)
-                                }
-                                placeholder="mmHg"
-                                className={
-                                  vitalRowErrors[`${row.id}:unit`]
-                                    ? "border-red-500 focus-visible:ring-red-300"
-                                    : ""
-                                }
-                              />
-                            )}
+                          <div className="w-20">
+                            <Input
+                              value={row.unit}
+                              onChange={(e) =>
+                                updateRow(row.id, "unit", e.target.value)
+                              }
+                              placeholder="Unit"
+                              className={`h-8 text-xs ${
+                                vitalRowErrors[`${row.id}:unit`]
+                                  ? "border-red-500"
+                                  : ""
+                              }`}
+                            />
                             {vitalRowErrors[`${row.id}:unit`] && (
-                              <p
-                                className="mt-1 text-xs font-medium text-red-600 dark:text-red-400"
-                                role="alert"
-                              >
+                              <p className="text-[10px] text-red-600 dark:text-red-400 mt-0.5">
                                 {vitalRowErrors[`${row.id}:unit`]}
                               </p>
                             )}
                           </div>
-                          <div className="flex items-end justify-end">
-                            {!row.isPreset ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeRow(row.id)}
-                                disabled={rows.length === 1}
-                                className="text-muted-foreground hover:text-destructive rounded-full"
-                                aria-label="Remove measurement"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            ) : (
-                              <div className="h-10 w-10" />
-                            )}
-                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeRow(row.id)}
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive rounded-lg flex-shrink-0"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
                         </div>
-                      );
-                    })}
+                      ))}
                   </div>
-                </form>
+                </div>
+              )}
+
+              {/* Add Custom Vital Trigger */}
+              <div className="flex items-center justify-between pt-0.5">
+                <button
+                  type="button"
+                  onClick={addRow}
+                  className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add custom vital
+                </button>
               </div>
-              <div className="flex items-center gap-2">
+
+              {/* Action Buttons (Cancel and Save/Update, No X button in header) */}
+              <div className="flex items-center justify-between pt-3 border-t border-border/60">
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => {
                     resetRows();
                     setModalOpen(false);
                   }}
-                  className="rounded-full px-5"
+                  className="rounded-full px-5 font-semibold"
                 >
                   Cancel
                 </Button>
-                <div className="flex-1" />
                 <Button
+                  type="button"
                   size="sm"
                   onClick={async () => {
                     const saved = await handleSubmit();
                     if (saved) setModalOpen(false);
                   }}
-                  disabled={savingVitals}
-                  className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md"
+                  disabled={savingVitals || updatingVitals}
+                  className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white font-semibold shadow-md cursor-pointer"
                 >
-                  {savingVitals ? "Saving..." : "Save vital signs"}
+                  {savingVitals || updatingVitals
+                    ? "Saving..."
+                    : editingGroupId
+                    ? "Update vital signs"
+                    : "Save vital signs"}
                 </Button>
               </div>
-            </div>
+            </form>
           </DialogContent>
         </Dialog>
 
@@ -928,51 +1104,6 @@ function TriagePageInner() {
             await refetch();
           }}
         />
-
-        {/* Floating dock (center bottom) with Add Vital and Add Department. Hidden for completed/cancelled visits. */}
-        {visit && !["COMPLETED", "CANCELLED"].includes(visit.status) && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
-            <div className="glass-gray rounded-full shadow-xl px-3 py-2 flex items-center gap-2">
-              <TooltipProvider>
-                <div className="flex items-center gap-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg"
-                        onClick={() => setModalOpen(true)}
-                        aria-label="Add vital signs"
-                      >
-                        <Activity className="h-5 w-5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Add vital signs</p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <div className="w-px h-8 bg-white/20" />
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg"
-                        onClick={() => setAddDeptOpen(true)}
-                        aria-label="Add department"
-                      >
-                        <Plus className="h-5 w-5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Add department</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </TooltipProvider>
-            </div>
-          </div>
-        )}
 
         {/*
           ── Department notes (floating, right-side) ──────────────────────────

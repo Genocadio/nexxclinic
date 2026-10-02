@@ -8,7 +8,7 @@ import {
   useDashboardStats,
   useGenerateInvoice,
 } from "@/hooks/auth-hooks"
-import type { Visit, VisitBilling } from "@/lib/api-types"
+import type { Visit, VisitBilling, Patient } from "@/lib/api-types"
 import { mapGqlVisitBilling } from "@/lib/visit-billing-utils"
 import {
   countBilledVisitProducts,
@@ -40,6 +40,7 @@ import PatientHistorySidePane from "@/components/patient-history-side-pane"
 import PatientRegistrationModal from "@/components/patient-registration-modal"
 import VisitCreationModal from "@/components/visit-creation-modal"
 import { AddDepartmentModal } from "@/components/add-department-modal"
+import PatientEditModal from "@/components/patient-edit-modal"
 import { ProfileSelectDialog } from "@/components/profile-select-dialog"
 import { useChangeVisitDepartmentProfile, useConsultVisit } from "@/hooks/visits/department-mutations"
 import { useCompleteVisit, useCancelVisit } from "@/hooks/visits/visit-mutations"
@@ -65,6 +66,7 @@ import {
   AlertCircle,
   Stethoscope,
   User,
+  UserPen,
   ReceiptText,
   Plus,
   List,
@@ -194,6 +196,8 @@ export default function DashboardPage() {
   const [printingVisitId, setPrintingVisitId] = useState<string | null>(null)
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null)
   const [navigatingVisitId, setNavigatingVisitId] = useState<string | null>(null)
+  const [editPatientModalOpen, setEditPatientModalOpen] = useState(false)
+  const [selectedPatientForEdit, setSelectedPatientForEdit] = useState<Patient | null>(null)
 
   // Safety guard: auto-clear navigating state after 3.5s or on window focus
   useEffect(() => {
@@ -230,7 +234,7 @@ export default function DashboardPage() {
   const hasManagerRole = hasRole(roles, "MANAGER")
   const hasAdminRole = hasRole(roles, "ADMIN")
   const isReceptionistOnly = hasReceptionistRole && roles.length === 1
-  const hasNurseRole = roles.includes("NURSE")
+  const hasNurseRole = roles.includes("NURSE") || roles.includes("NURSING")
   const hasConsultationRole = roles.some((role) =>
     ["DOCTOR", "OPHTHALMOLOGIST", "SPECIALIST", "ADMIN"].includes(role),
   )
@@ -251,6 +255,7 @@ export default function DashboardPage() {
   const canSeeBillButton = hasFinanceRole
   // Add Department: only Receptionists can route a patient to a new department
   const canSeeAddDepartment = hasReceptionistRole
+  const canSeeEditPatient = hasReceptionistRole || hasAdminRole || hasManagerRole
   const canSeeRegisterAndCreate = hasReceptionistRole
   const canSeeVisitActionButtons = !isReceptionistOnly
   // Discharge button: visible to FINANCE, MANAGER, and ADMIN when all departments are completed/finalised
@@ -265,10 +270,17 @@ export default function DashboardPage() {
   }
 
   const hasNonClinicianNonFinanceRoles = roles.some((r) =>
-    ["RECEPTION", "RECEPTIONIST", "NURSE", "MANAGER", "ADMIN", "CLINIC_ADMIN", "STAFF"].includes(r)
+    ["RECEPTION", "RECEPTIONIST", "NURSE", "NURSING", "MANAGER", "ADMIN", "CLINIC_ADMIN", "STAFF"].includes(r)
   )
   const isSingleRoleClinician = hasClinicianOrDoctorRole && !hasFinanceRole && !hasNonClinicianNonFinanceRoles
   const isSingleRoleFinance = hasFinanceRole && !hasClinicianOrDoctorRole && !hasNonClinicianNonFinanceRoles
+  const isSingleRoleNurse =
+    hasNurseRole &&
+    !hasClinicianOrDoctorRole &&
+    !hasFinanceRole &&
+    !hasReceptionistRole &&
+    !hasManagerRole &&
+    !hasAdminRole
   const isMultiRoleWithFinance = hasFinanceRole && (hasClinicianOrDoctorRole || hasNonClinicianNonFinanceRoles)
   const isMultiRoleWithClinician = hasClinicianOrDoctorRole && (hasFinanceRole || hasNonClinicianNonFinanceRoles)
   const canQueryAnswerState =
@@ -379,11 +391,26 @@ export default function DashboardPage() {
     return isClinicianNew(visit)
   }
 
+  const isNurseNew = (visit: Visit) => {
+    if (visit.status === "COMPLETED" || visit.status === "CANCELLED" || visit.status === "FINALISED") return false
+    const activeDepts = (visit.departments || []).filter((d) => d.status !== "CANCELLED")
+    return activeDepts.length === 0
+  }
+
+  const isNurseInProgress = (visit: Visit) => {
+    if (visit.status === "COMPLETED" || visit.status === "CANCELLED" || visit.status === "FINALISED") return false
+    const activeDepts = (visit.departments || []).filter((d) => d.status !== "CANCELLED")
+    return activeDepts.length > 0
+  }
+
   const isVisitCompleted = (visit: Visit) => {
     return visit.status === "COMPLETED" || visit.status === "FINALISED"
   }
 
   const isVisitInProgress = (visit: Visit) => {
+    if (visit.status === "COMPLETED" || visit.status === "CANCELLED" || visit.status === "FINALISED") return false
+    const activeDepts = (visit.departments || []).filter((d) => d.status !== "CANCELLED")
+    if (activeDepts.length === 0) return false
     return visit.status === "CREATED" || visit.status === "IN_PROGRESS" || (visit.status as string) === "BILLING" || hasUnbilledItems(visit)
   }
 
@@ -396,6 +423,13 @@ export default function DashboardPage() {
       ]
     }
     if (isSingleRoleFinance) {
+      return [
+        { id: "NEW", label: "New" },
+        { id: "IN_PROGRESS", label: "In Progress" },
+        { id: "COMPLETED", label: "Discharged" },
+      ]
+    }
+    if (isSingleRoleNurse) {
       return [
         { id: "NEW", label: "New" },
         { id: "IN_PROGRESS", label: "In Progress" },
@@ -416,7 +450,7 @@ export default function DashboardPage() {
       { id: "COMPLETED", label: "Discharged" }
     )
     return tabs
-  }, [isSingleRoleClinician, isSingleRoleFinance, isMultiRoleWithFinance, isMultiRoleWithClinician])
+  }, [isSingleRoleClinician, isSingleRoleFinance, isSingleRoleNurse, isMultiRoleWithFinance, isMultiRoleWithClinician])
 
   useEffect(() => {
     if (availableTabs.length > 0 && !availableTabs.some((t) => t.id === statusFilter)) {
@@ -1435,13 +1469,17 @@ export default function DashboardPage() {
         ? searchedList.filter(isClinicianInProgress).length
         : isSingleRoleFinance
           ? searchedList.filter(isFinanceInProgress).length
-          : searchedList.filter(isVisitInProgress).length,
+          : isSingleRoleNurse
+            ? searchedList.filter(isNurseInProgress).length
+            : searchedList.filter(isVisitInProgress).length,
       COMPLETED: searchedList.filter(isVisitCompleted).length,
       NEW: isSingleRoleClinician
         ? searchedList.filter(isClinicianNew).length
         : isSingleRoleFinance
           ? searchedList.filter(isFinanceNew).length
-          : 0,
+          : isSingleRoleNurse
+            ? searchedList.filter(isNurseNew).length
+            : 0,
       BILLING: searchedList.filter(isVisitBilling).length,
       CONSULTATION: searchedList.filter(isVisitConsultation).length,
     }
@@ -1458,6 +1496,7 @@ export default function DashboardPage() {
     canQueryAnswerState,
     isSingleRoleClinician,
     isSingleRoleFinance,
+    isSingleRoleNurse,
     userDepartmentIds,
     doctor?.id,
   ])
@@ -1478,6 +1517,14 @@ export default function DashboardPage() {
         return filtered.filter(isFinanceNew)
       } else if (statusFilter === "IN_PROGRESS") {
         return filtered.filter(isFinanceInProgress)
+      } else if (statusFilter === "COMPLETED") {
+        return filtered.filter(isVisitCompleted)
+      }
+    } else if (isSingleRoleNurse) {
+      if (statusFilter === "NEW") {
+        return filtered.filter(isNurseNew)
+      } else if (statusFilter === "IN_PROGRESS") {
+        return filtered.filter(isNurseInProgress)
       } else if (statusFilter === "COMPLETED") {
         return filtered.filter(isVisitCompleted)
       }
@@ -1509,6 +1556,7 @@ export default function DashboardPage() {
     canQueryAnswerState,
     isSingleRoleClinician,
     isSingleRoleFinance,
+    isSingleRoleNurse,
     userDepartmentIds,
     doctor?.id,
   ])
@@ -2157,17 +2205,34 @@ export default function DashboardPage() {
                                       {totalNewNotes}
                                     </span>
                                   )}
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <h3 className="font-medium text-foreground truncate cursor-help">
-                                        {visit.patient.firstName}{" "}
-                                        {visit.patient.lastName}
-                                      </h3>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="max-w-sm p-3 z-[150]">
-                                      {renderPatientDemographicsHover(visit)}
-                                    </TooltipContent>
-                                  </Tooltip>
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <h3 className="font-medium text-foreground truncate cursor-help">
+                                          {visit.patient.firstName}{" "}
+                                          {visit.patient.lastName}
+                                        </h3>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-sm p-3 z-[150]">
+                                        {renderPatientDemographicsHover(visit)}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                    {canSeeEditPatient && !isDischarged(visit) && visit.status !== "CANCELLED" && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setSelectedPatientForEdit(visit.patient)
+                                          setEditPatientModalOpen(true)
+                                        }}
+                                        className="text-muted-foreground hover:text-primary transition-colors p-0.5 rounded-md hover:bg-muted/60 shrink-0"
+                                        title={`Edit ${visit.patient.firstName} ${visit.patient.lastName}'s information`}
+                                        aria-label="Edit Patient Details"
+                                      >
+                                        <UserPen className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="min-w-0">
                                   <p className="text-sm text-muted-foreground truncate">
@@ -3356,6 +3421,28 @@ export default function DashboardPage() {
           visit={settingsVisit}
           onVisitUpdated={() => {
             void refetchVisits()
+          }}
+        />
+      )}
+
+      {editPatientModalOpen && (
+        <PatientEditModal
+          isOpen={editPatientModalOpen}
+          onClose={() => {
+            setEditPatientModalOpen(false)
+            setSelectedPatientForEdit(null)
+          }}
+          patient={selectedPatientForEdit}
+          onPatientUpdated={(updatedPatient) => {
+            toast.success(
+              `Patient updated: ${updatedPatient.firstName} ${updatedPatient.lastName}`
+            )
+            setEditPatientModalOpen(false)
+            setSelectedPatientForEdit(null)
+            void refetchVisits()
+            if (searchAllHistorical || statusFilter === "COMPLETED") {
+              void fetchHistoricalVisits()
+            }
           }}
         />
       )}

@@ -103,6 +103,42 @@ export const ADD_VISIT_VITAL_SIGNS_MUTATION = gql`
   }
 `;
 
+export const UPDATE_VISIT_VITAL_SIGNS_MUTATION = gql`
+  mutation UpdateVisitVitalSigns($input: UpdateVisitVitalSignsInput!) {
+    updateVisitVitalSigns(input: $input) {
+      status
+      message
+
+      data {
+        id
+        visitDate
+        status
+        patient {
+          id
+          firstName
+          lastName
+        }
+        vitalSigns {
+          id
+          createdAt
+          addedBy {
+            id
+            firstName
+            lastName
+          }
+          measurements {
+            id
+            measurementName
+            value
+            unit
+            createdAt
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const ADD_DEPARTMENT_NOTE_MUTATION = gql`
   mutation AddDepartmentNote(
     $visitId: ID!

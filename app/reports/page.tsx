@@ -79,6 +79,8 @@ export default function ReportsPage() {
 
   // Period state: 'today', 'week', 'month', 'custom'
   const [period, setPeriod] = useState<ReportPeriod>("today")
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth())
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear())
   const [customFromDate, setCustomFromDate] = useState<string>(() => formatLocalDate(new Date()))
   const [customToDate, setCustomToDate] = useState<string>(() => formatLocalDate(new Date()))
   const [activeTab, setActiveTab] = useState<string>("clinician")
@@ -105,12 +107,41 @@ export default function ReportsPage() {
     }
 
     if (period === "month") {
-      const monthName = today.toLocaleDateString("en-GB", { month: "long" })
-      return `${monthName} ${today.getFullYear()}`
+      const targetDate = new Date(selectedYear, selectedMonth, 1)
+      const monthName = targetDate.toLocaleDateString("en-GB", { month: "long" })
+      return `${monthName} ${selectedYear}`
     }
 
     // Custom
     if (customFromDate && customToDate) {
+      const yDate = new Date(today)
+      yDate.setDate(today.getDate() - 1)
+      const yesterdayStr = formatLocalDate(yDate)
+
+      if (customFromDate === yesterdayStr && customToDate === yesterdayStr) {
+        return `Yesterday (${yDate.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })})`
+      }
+
+      const pEnd = new Date(today)
+      pEnd.setDate(today.getDate() - 7)
+      const pStart = new Date(today)
+      pStart.setDate(today.getDate() - 13)
+      if (
+        customFromDate === formatLocalDate(pStart) &&
+        customToDate === formatLocalDate(pEnd)
+      ) {
+        const fromStr = pStart.toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "short",
+        })
+        const toStr = pEnd.toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+        return `Previous Week (${fromStr} – ${toStr})`
+      }
+
       const f = new Date(customFromDate)
       const t = new Date(customToDate)
       const fStr = f.toLocaleDateString("en-GB", {
@@ -123,11 +154,18 @@ export default function ReportsPage() {
         month: "short",
         year: "numeric",
       })
+      if (customFromDate === customToDate) {
+        return f.toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+      }
       return `${fStr} – ${tStr}`
     }
 
     return "Custom Range"
-  }, [period, customFromDate, customToDate])
+  }, [period, selectedMonth, selectedYear, customFromDate, customToDate])
 
   // Compute actual fromDate and toDate based on selected period
   const { fromDate, toDate } = useMemo(() => {
@@ -142,15 +180,31 @@ export default function ReportsPage() {
       return { fromDate: formatLocalDate(past7), toDate: formatLocalDate(today) }
     }
     if (period === "month") {
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
-      return { fromDate: formatLocalDate(firstDay), toDate: formatLocalDate(today) }
+      const safeYear = Math.min(selectedYear, today.getFullYear())
+      const safeMonth =
+        safeYear === today.getFullYear()
+          ? Math.min(selectedMonth, today.getMonth())
+          : selectedMonth
+      const firstDay = new Date(safeYear, safeMonth, 1)
+      const lastDay = new Date(safeYear, safeMonth + 1, 0)
+      return {
+        fromDate: formatLocalDate(firstDay),
+        toDate: formatLocalDate(lastDay),
+      }
     }
     // custom
+    const todayStr = formatLocalDate(today)
+    const safeFrom =
+      customFromDate > todayStr
+        ? todayStr
+        : customFromDate || todayStr
+    const safeTo =
+      customToDate > todayStr ? todayStr : customToDate || todayStr
     return {
-      fromDate: customFromDate || formatLocalDate(today),
-      toDate: customToDate || formatLocalDate(today),
+      fromDate: safeFrom,
+      toDate: safeTo,
     }
-  }, [period, customFromDate, customToDate])
+  }, [period, selectedMonth, selectedYear, customFromDate, customToDate])
 
   // Fetch reports from backend for the period
   const { reportData: backendReportData, loading: reportsLoading, refetch } = useUserReports({
@@ -223,8 +277,8 @@ export default function ReportsPage() {
     )
   }
 
-  // Determine if top control bar should be rendered
-  const showTopBar = (!isSingleRoleUser || (activeTab !== "clinician" && activeTab !== "finance")) && !isClinicianTableExpanded
+  // Determine if top control bar should be rendered (only for multi-role users to switch tabs)
+  const showTopBar = !isSingleRoleUser && !isClinicianTableExpanded
 
   return (
     <div className={cn(
@@ -239,110 +293,90 @@ export default function ReportsPage() {
           ? "py-2.5 flex-1 flex flex-col min-h-0 overflow-hidden"
           : "py-6 space-y-6 flex-1"
       )}>
-        {/* Top Control Bar: Rendered for multi-role users or single-role non-clinician tabs */}
+        {/* Top Control Bar: Rendered only for multi-role users to switch report views */}
         {showTopBar && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-card/80 backdrop-blur-xl border border-border/70 p-3 rounded-2xl shadow-sm">
-            {/* Left: Multi-role navigation or single-role clean header */}
-            {!isSingleRoleUser ? (
-              <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-                {reportData.hasClinician && (
-                  <Button
-                    variant={activeTab === "clinician" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setActiveTab("clinician")}
-                    className="rounded-xl h-8 px-3 text-xs font-medium gap-1.5 whitespace-nowrap"
-                  >
-                    <Stethoscope className="h-3.5 w-3.5" />
-                    Clinician
-                    {reportData.clinician.activities.length > 0 && (
-                      <Badge
-                        variant="secondary"
-                        className="ml-1 py-0 px-1.5 text-[10px] bg-secondary/80 text-secondary-foreground"
-                      >
-                        {reportData.clinician.activities.length}
-                      </Badge>
-                    )}
-                  </Button>
-                )}
-
-                {reportData.hasNurse && (
-                  <Button
-                    variant={activeTab === "nurse" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setActiveTab("nurse")}
-                    className="rounded-xl h-8 px-3 text-xs font-medium gap-1.5 whitespace-nowrap"
-                  >
-                    <HeartPulse className="h-3.5 w-3.5" />
-                    Nursing
-                    {reportData.nurse.activities.length > 0 && (
-                      <Badge
-                        variant="secondary"
-                        className="ml-1 py-0 px-1.5 text-[10px] bg-secondary/80 text-secondary-foreground"
-                      >
-                        {reportData.nurse.activities.length}
-                      </Badge>
-                    )}
-                  </Button>
-                )}
-
-                {reportData.hasFinance && (
-                  <Button
-                    variant={activeTab === "finance" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setActiveTab("finance")}
-                    className="rounded-xl h-8 px-3 text-xs font-medium gap-1.5 whitespace-nowrap"
-                  >
-                    <Wallet className="h-3.5 w-3.5" />
-                    Billing & Money
-                    {reportData.finance.activities.length > 0 && (
-                      <Badge
-                        variant="secondary"
-                        className="ml-1 py-0 px-1.5 text-[10px] bg-secondary/80 text-secondary-foreground"
-                      >
-                        {reportData.finance.activities.length}
-                      </Badge>
-                    )}
-                  </Button>
-                )}
-
-                {reportData.hasReception && (
-                  <Button
-                    variant={activeTab === "reception" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setActiveTab("reception")}
-                    className="rounded-xl h-8 px-3 text-xs font-medium gap-1.5 whitespace-nowrap"
-                  >
-                    <UserCheck className="h-3.5 w-3.5" />
-                    Reception
-                    {reportData.reception.activities.length > 0 && (
-                      <Badge
-                        variant="secondary"
-                        className="ml-1 py-0 px-1.5 text-[10px] bg-secondary/80 text-secondary-foreground"
-                      >
-                        {reportData.reception.activities.length}
-                      </Badge>
-                    )}
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
-                  {activeTab === "nurse" ? (
-                    <HeartPulse className="h-4 w-4" />
-                  ) : (
-                    <UserCheck className="h-4 w-4" />
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+              {reportData.hasClinician && (
+                <Button
+                  variant={activeTab === "clinician" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setActiveTab("clinician")}
+                  className="rounded-xl h-8 px-3 text-xs font-medium gap-1.5 whitespace-nowrap"
+                >
+                  <Stethoscope className="h-3.5 w-3.5" />
+                  Clinician
+                  {reportData.clinician.activities.length > 0 && (
+                    <Badge
+                      variant="secondary"
+                      className="ml-1 py-0 px-1.5 text-[10px] bg-secondary/80 text-secondary-foreground"
+                    >
+                      {reportData.clinician.activities.length}
+                    </Badge>
                   )}
-                </div>
-                <div>
-                  <h1 className="text-sm font-bold text-foreground">
-                    {activeTab === "nurse"
-                      ? "Nursing & Triage Report"
-                      : "Reception & Intake Report"}
-                  </h1>
-                </div>
-              </div>
-            )}
+                </Button>
+              )}
+
+              {reportData.hasNurse && (
+                <Button
+                  variant={activeTab === "nurse" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setActiveTab("nurse")}
+                  className="rounded-xl h-8 px-3 text-xs font-medium gap-1.5 whitespace-nowrap"
+                >
+                  <HeartPulse className="h-3.5 w-3.5" />
+                  Nursing
+                  {reportData.nurse.activities.length > 0 && (
+                    <Badge
+                      variant="secondary"
+                      className="ml-1 py-0 px-1.5 text-[10px] bg-secondary/80 text-secondary-foreground"
+                    >
+                      {reportData.nurse.activities.length}
+                    </Badge>
+                  )}
+                </Button>
+              )}
+
+              {reportData.hasFinance && (
+                <Button
+                  variant={activeTab === "finance" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setActiveTab("finance")}
+                  className="rounded-xl h-8 px-3 text-xs font-medium gap-1.5 whitespace-nowrap"
+                >
+                  <Wallet className="h-3.5 w-3.5" />
+                  Billing & Money
+                  {reportData.finance.activities.length > 0 && (
+                    <Badge
+                      variant="secondary"
+                      className="ml-1 py-0 px-1.5 text-[10px] bg-secondary/80 text-secondary-foreground"
+                    >
+                      {reportData.finance.activities.length}
+                    </Badge>
+                  )}
+                </Button>
+              )}
+
+              {reportData.hasReception && (
+                <Button
+                  variant={activeTab === "reception" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setActiveTab("reception")}
+                  className="rounded-xl h-8 px-3 text-xs font-medium gap-1.5 whitespace-nowrap"
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  Reception
+                  {reportData.reception.activities.length > 0 && (
+                    <Badge
+                      variant="secondary"
+                      className="ml-1 py-0 px-1.5 text-[10px] bg-secondary/80 text-secondary-foreground"
+                    >
+                      {reportData.reception.activities.length}
+                    </Badge>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         )}
 
@@ -388,15 +422,11 @@ export default function ReportsPage() {
               </>
             )}
 
-            {/* Detailed Audit Table (For nurse, reception) */}
-            {activeTab !== "clinician" && activeTab !== "finance" && (
+            {/* Detailed Audit Table (For nurse only; reception cannot view or export patient lists) */}
+            {activeTab === "nurse" && (
               <ReportsActivityTable
                 activities={activitiesForActiveTab}
-                title={
-                  activeTab === "nurse"
-                    ? "Triage & Vital Signs Encounters"
-                    : "Reception & Intake Activity Records"
-                }
+                title="Triage & Vital Signs Encounters"
               />
             )}
           </>
@@ -413,6 +443,10 @@ export default function ReportsPage() {
           setCustomFromDate={setCustomFromDate}
           customToDate={customToDate}
           setCustomToDate={setCustomToDate}
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
+          selectedYear={selectedYear}
+          setSelectedYear={setSelectedYear}
           rangeDisplayLabel={rangeDisplayLabel}
         />
       </div>

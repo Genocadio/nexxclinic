@@ -18,6 +18,7 @@ import {
   isDominantMemberRequired,
   calculateAge,
   validateDateOfBirth,
+  isInsuranceEntryComplete,
 } from "@/lib/validation-utils"
 import PatientFormFields from "@/components/patient/patient-form-fields"
 
@@ -251,6 +252,18 @@ export default function PatientFormDialog({
 
   const addInsurance = () => {
     hasInteractedRef.current = true
+    const insurances = formData.insurances || []
+    if (insurances.length > 0) {
+      const incompleteIndex = insurances.findIndex(
+        (ins) => !isInsuranceEntryComplete(ins, formData.dateOfBirth),
+      )
+      if (incompleteIndex !== -1) {
+        toast.warning(
+          `Please fill in all required fields for Insurance #${incompleteIndex + 1} before adding another.`,
+        )
+        return
+      }
+    }
     const isAdult = calculateAge(formData.dateOfBirth) >= 18
     setFormData((prev) => ({
       ...prev,
