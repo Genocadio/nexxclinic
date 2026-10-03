@@ -65,15 +65,15 @@ const PAPER_SIZES: PaperSizeOption[] = [
   },
   {
     key: "a4l",
-    name: "A4 Landscape (2-Up Dual)",
-    subtitle: "Two Invoices Per Sheet",
+    name: "A4 Landscape (2-Up)",
+    subtitle: "Half-Page Dual Column Layout",
     dimensions: "297 × 210 mm",
     dimensionsInches: '11.69" × 8.27"',
     orientation: "Landscape",
     printerType: "Laser / Inkjet (A4 Tray)",
-    bestFor: "Saves 50% paper. Prints 2 side-by-side receipts (Patient copy & Clinic archive copy).",
-    badge: "Paper Saver",
-    scaleRatio: "0.85× (Dual Column)",
+    bestFor: "Compact half-page format (2-column layout). Fits consecutive invoices side-by-side in batch printing.",
+    badge: "Compact 2-Up",
+    scaleRatio: "0.82×",
   },
   {
     key: "pos",
@@ -440,10 +440,10 @@ export default function AdminSettingsPage() {
               <div className="bg-card/50 backdrop-blur-md border border-border/50 rounded-2xl p-5 space-y-2">
                 <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
                   <Layers className="h-4 w-4 text-purple-500" />
-                  2-Up Dual Copy
+                  Half-Page Landscape (2-Up)
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Select <strong>A4 Landscape (2-Up)</strong> to print two identical half-sheet slips on one sheet of paper. Cut in half to give one copy to patient and archive one copy.
+                  Select <strong>A4 Landscape (2-Up)</strong> for compact half-sheet billing. In batch invoice printing, consecutive bills fill the left and right halves of each sheet.
                 </p>
               </div>
 
