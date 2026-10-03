@@ -5,7 +5,7 @@ import type { Worker } from "@/lib/api-types"
 import { LogOut, Moon, Sun, UserCog, BarChart3, Monitor } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
 import { useRouter, usePathname } from "next/navigation"
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { hasAdminAccess } from "@/lib/role-utils"
 import { getClinicDisplayName, getClinicLogoUrl } from "@/lib/clinic-profile"
 import { cn } from "@/lib/utils"
@@ -20,6 +20,9 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
   const { logout, clinicProfile } = useAuth()
   const { preference, setThemePreference } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [showClinicName, setShowClinicName] = useState(false)
+  const hoverTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
   const canAccessAdmin = hasAdminAccess(roles)
   const isAdminPath = pathname?.startsWith("/admin")
@@ -37,11 +40,56 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
     return (parts[0]?.substring(0, 2) || "DR").toUpperCase()
   }
 
+  const handleMouseEnter = () => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current)
+    }
+    hoverTimerRef.current = setTimeout(() => {
+      setShowClinicName(true)
+    }, 5000)
+  }
+
+  const handleMouseLeave = () => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current)
+      hoverTimerRef.current = null
+    }
+    setShowClinicName(false)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current)
+      }
+    }
+  }, [])
+
   return (
-    <>
-      {/* Floating Avatar (Left) */}
+    <div className="fixed top-3 right-3 sm:top-3.5 sm:right-4 z-40 flex items-center gap-2 sm:gap-2.5">
+      {/* Floating Logo / Home (Right) */}
+      <button
+        type="button"
+        onClick={() => router.push(isAdminPath ? "/admin" : "/")}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className="h-10 sm:h-11 px-2.5 sm:px-3.5 rounded-full bg-card/85 dark:bg-slate-900/85 backdrop-blur-xl border border-border/60 shadow-md hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center gap-2 cursor-pointer ring-2 ring-background/60 group select-none"
+        title={showClinicName ? clinicName : "Home"}
+        aria-label={showClinicName ? clinicName : "Home"}
+      >
+        <img
+          src={clinicLogoUrl}
+          alt={`${clinicName} logo`}
+          className="h-6 w-6 sm:h-7 sm:w-7 object-contain rounded-full"
+        />
+        <span className="font-semibold text-xs sm:text-sm text-foreground max-w-[140px] sm:max-w-[200px] truncate group-hover:text-primary transition-all duration-300">
+          {showClinicName ? clinicName : "Home"}
+        </span>
+      </button>
+
+      {/* Floating Avatar (Right) */}
       {doctor && (
-        <div className="fixed top-3 left-3 sm:top-3.5 sm:left-4 z-40">
+        <div className="relative">
           <button
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -58,7 +106,7 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
                 className="fixed inset-0 z-[95]"
                 onClick={() => setDropdownOpen(false)}
               />
-              <div className="absolute left-0 mt-2 w-64 bg-card/95 dark:bg-slate-900/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl z-[100] overflow-hidden isolate animate-in fade-in-0 zoom-in-95 duration-150">
+              <div className="absolute right-0 mt-2 w-64 bg-card/95 dark:bg-slate-900/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl z-[100] overflow-hidden isolate animate-in fade-in-0 zoom-in-95 duration-150">
                 <div className="px-4 py-3 border-b border-border/30">
                   <p className="text-sm font-semibold text-card-foreground">
                     {doctor.firstName} {doctor.lastName}
@@ -193,26 +241,6 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
           )}
         </div>
       )}
-
-      {/* Floating Logo (Right) */}
-      <div className="fixed top-3 right-3 sm:top-3.5 sm:right-4 z-40">
-        <button
-          type="button"
-          onClick={() => router.push(isAdminPath ? "/admin" : "/")}
-          className="h-10 sm:h-11 px-2.5 sm:px-3.5 rounded-full bg-card/85 dark:bg-slate-900/85 backdrop-blur-xl border border-border/60 shadow-md hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center gap-2.5 cursor-pointer ring-2 ring-background/60 group"
-          title={clinicName}
-          aria-label={clinicName}
-        >
-          <img
-            src={clinicLogoUrl}
-            alt={`${clinicName} logo`}
-            className="h-6 w-6 sm:h-7 sm:w-7 object-contain rounded-full"
-          />
-          <span className="font-bold text-xs sm:text-sm text-foreground max-w-[120px] sm:max-w-[180px] truncate group-hover:text-primary transition-colors hidden xs:inline sm:inline">
-            {clinicName}
-          </span>
-        </button>
-      </div>
-    </>
+    </div>
   )
 }
