@@ -65,9 +65,25 @@ import { BillingStickySummary } from "@/components/billing/billing-sticky-summar
 import { BillingConfirmSheet } from "@/components/billing/billing-confirm-sheet";
 import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet";
 import { BillingItemsWorkspace } from "@/components/billing/billing-items-workspace";
-import { AddPatientInsuranceModal } from "@/components/patient/add-patient-insurance-modal";
-import { AddVisitDepartmentProductModal } from "@/components/visit/add-visit-department-product-modal";
 import { toast } from "react-toastify";
+import dynamic from "next/dynamic";
+
+const AddPatientInsuranceModal = dynamic(
+  () => import("@/components/patient/add-patient-insurance-modal").then((m) => m.AddPatientInsuranceModal),
+  { ssr: false }
+);
+const AddVisitDepartmentProductModal = dynamic(
+  () => import("@/components/visit/add-visit-department-product-modal").then((m) => m.AddVisitDepartmentProductModal),
+  { ssr: false }
+);
+const PostBillingActionDialog = dynamic(
+  () => import("@/components/billing/post-billing-action-dialog").then((m) => m.PostBillingActionDialog),
+  { ssr: false }
+);
+const AddDepartmentModal = dynamic(
+  () => import("@/components/add-department-modal").then((m) => m.AddDepartmentModal),
+  { ssr: false }
+);
 
 export function BillingPageContent() {
   const router = useRouter();
@@ -202,6 +218,7 @@ export function BillingPageContent() {
   const [removingDepartment, setRemovingDepartment] = useState(false);
   const [departmentPendingCancellation, setDepartmentPendingCancellation] = useState<string | null>(null);
   const [cancellingDepartment, setCancellingDepartment] = useState(false);
+  const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false);
   // In-flight discharge — keeps the confirm dialog open with a spinner so the
   // completeVisit/department-status loop can't be triggered twice.
   const [discharging, setDischarging] = useState(false);
@@ -993,6 +1010,8 @@ export function BillingPageContent() {
     handleDischargeVisit,
     dischargeConfirmOpen,
     setDischargeConfirmOpen,
+    postBillingActionOpen,
+    setPostBillingActionOpen,
   } = useBillingPageActions({
     visitId,
     visit,
@@ -1520,6 +1539,44 @@ export function BillingPageContent() {
           }
         }}
       />
+      <PostBillingActionDialog
+        open={postBillingActionOpen}
+        onOpenChange={setPostBillingActionOpen}
+        patientName={
+          visit?.patient
+            ? `${visit.patient.firstName || ""} ${visit.patient.lastName || ""}`.trim() || "the patient"
+            : "the patient"
+        }
+        discharging={completingVisit || discharging}
+        onDischarge={async () => {
+          setDischarging(true);
+          try {
+            await handleCompleteVisit();
+          } finally {
+            setDischarging(false);
+            setPostBillingActionOpen(false);
+          }
+        }}
+        onAddDepartment={() => {
+          setPostBillingActionOpen(false);
+          setAddDepartmentModalOpen(true);
+        }}
+      />
+
+      {visit && addDepartmentModalOpen && (
+        <AddDepartmentModal
+          visit={visit}
+          isOpen={addDepartmentModalOpen}
+          onClose={() => setAddDepartmentModalOpen(false)}
+          onSuccess={async () => {
+            setAddDepartmentModalOpen(false);
+            await refetchVisit();
+            await refetchBill();
+            setBillingRemapNonce((n) => n + 1);
+            toast.success("Department added to visit successfully");
+          }}
+        />
+      )}
     </div>
   );
 }

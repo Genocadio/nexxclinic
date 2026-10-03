@@ -132,7 +132,7 @@ export function getDerivedVisitBillingStatus(visit: Visit): DerivedVisitBillingS
   return "PENDING"
 }
 
-/** Returns true if a visit is eligible for discharge (all assigned departments are COMPLETED, FINALISED, or CANCELLED, and visit is not already terminal). */
+/** Returns true if a visit is eligible for discharge (all assigned departments are COMPLETED, FINALISED, or CANCELLED, visit has at least one recorded consultation answer, and visit is not already terminal). */
 export function canDischargeVisit(visit?: Visit | null): boolean {
   if (!visit) return false
   const visitStatus = String(visit.status || "").toUpperCase()
@@ -141,6 +141,12 @@ export function canDischargeVisit(visit?: Visit | null): boolean {
   }
   const allDepts = flattenVisitDepartments(visit.departments || [])
   if (allDepts.length === 0) return false
+
+  const hasAnyAnswer = allDepts.some(
+    (dept) => Boolean(dept.answerId || dept.hasFinalizedConsultationAnswers),
+  )
+  if (!hasAnyAnswer) return false
+
   return allDepts.every((dept) => {
     const status = String(dept.status || "").toUpperCase()
     return status === "COMPLETED" || status === "FINALISED" || status === "CANCELLED"

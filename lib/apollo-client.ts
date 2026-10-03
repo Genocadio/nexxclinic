@@ -282,3 +282,13 @@ export function getApolloClient(): ApolloClient<NormalizedCacheObject> {
   }
   return client
 }
+
+export function pruneApolloCache(): void {
+  if (client) {
+    try {
+      client.cache.gc()
+    } catch {
+      // noop
+    }
+  }
+}

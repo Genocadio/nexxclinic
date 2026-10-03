@@ -35,13 +35,36 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardStats } from "@/components/dashboard/dashboard-stats"
 import { DashboardMobileUi } from "@/components/dashboard/dashboard-mobile-ui"
-import { ConsultationPreviewSheet } from "@/components/dashboard/consultation-preview-sheet"
-import PatientHistorySidePane from "@/components/patient-history-side-pane"
-import PatientRegistrationModal from "@/components/patient-registration-modal"
-import VisitCreationModal from "@/components/visit-creation-modal"
-import { AddDepartmentModal } from "@/components/add-department-modal"
-import PatientEditModal from "@/components/patient-edit-modal"
-import { ProfileSelectDialog } from "@/components/profile-select-dialog"
+import dynamic from "next/dynamic"
+
+const ConsultationPreviewSheet = dynamic(
+  () => import("@/components/dashboard/consultation-preview-sheet").then((m) => m.ConsultationPreviewSheet),
+  { ssr: false }
+)
+const PatientHistorySidePane = dynamic(
+  () => import("@/components/patient-history-side-pane"),
+  { ssr: false }
+)
+const PatientRegistrationModal = dynamic(
+  () => import("@/components/patient-registration-modal"),
+  { ssr: false }
+)
+const VisitCreationModal = dynamic(
+  () => import("@/components/visit-creation-modal"),
+  { ssr: false }
+)
+const AddDepartmentModal = dynamic(
+  () => import("@/components/add-department-modal").then((m) => m.AddDepartmentModal),
+  { ssr: false }
+)
+const PatientEditModal = dynamic(
+  () => import("@/components/patient-edit-modal"),
+  { ssr: false }
+)
+const ProfileSelectDialog = dynamic(
+  () => import("@/components/profile-select-dialog").then((m) => m.ProfileSelectDialog),
+  { ssr: false }
+)
 import { useChangeVisitDepartmentProfile, useConsultVisit } from "@/hooks/visits/department-mutations"
 import { useCompleteVisit, useCancelVisit } from "@/hooks/visits/visit-mutations"
 import type { DepartmentProfile } from "@/lib/api-types"
@@ -92,14 +115,21 @@ import {
 import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
 import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
-import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet"
-import { VisitSettingsPanel } from "@/components/manager/visit-settings-panel"
+const BillingPreviewSheet = dynamic(
+  () => import("@/components/billing/billing-preview-sheet").then((m) => m.BillingPreviewSheet),
+  { ssr: false }
+)
+const VisitSettingsPanel = dynamic(
+  () => import("@/components/manager/visit-settings-panel").then((m) => m.VisitSettingsPanel),
+  { ssr: false }
+)
 import {
   getPatientAge,
   getPatientDisplayName,
   formatPatientGender,
   getPatientPhone,
 } from "@/lib/patient-display-utils"
+import { canDischargeVisit as canDischargeVisitUtil } from "@/lib/visit-product-utils"
 import {
   DashboardFilterPopover,
   type AnswersFilterType,
@@ -1151,16 +1181,7 @@ export default function DashboardPage() {
     )
   }
   const canDischargeVisit = (visit: Visit) => {
-    const visitStatus = String(visit.status || "").toUpperCase()
-    if (visitStatus === "COMPLETED" || visitStatus === "CANCELLED" || visitStatus === "FINALISED") {
-      return false
-    }
-    const allDepts = flattenVisitDepartments(visit.departments || [])
-    if (allDepts.length === 0) return false
-    return allDepts.every((dept) => {
-      const status = String(dept.status || "").toUpperCase()
-      return status === "COMPLETED" || status === "FINALISED"
-    })
+    return canDischargeVisitUtil(visit)
   }
   const isDischarged = (visit: Visit) =>
     (visit.status === "COMPLETED" || visit.status === "FINALISED") && !hasUnbilledItems(visit)
@@ -1183,6 +1204,14 @@ export default function DashboardPage() {
       blockers.push("No active departments")
       return blockers
     }
+
+    const hasAnyAnswer = nonCancelledDepts.some(
+      (d) => Boolean(d.answerId || d.hasFinalizedConsultationAnswers),
+    )
+    if (!hasAnyAnswer) {
+      blockers.push("Visit has no recorded consultation answers yet")
+    }
+
     // Check each department
     for (const dept of nonCancelledDepts) {
       if (dept.status !== "COMPLETED") {

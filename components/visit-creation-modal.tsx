@@ -50,8 +50,16 @@ import { isInsuranceActive, insuranceStatusLabel } from "@/lib/insurance-utils";
 import { calculateAge } from "@/lib/validation-utils";
 import { cn } from "@/lib/utils";
 import { toast } from "react-toastify";
-import PatientEditModal from "@/components/patient-edit-modal";
-import { AddPatientInsuranceModal } from "@/components/patient/add-patient-insurance-modal";
+import dynamic from "next/dynamic";
+
+const PatientEditModal = dynamic(
+  () => import("@/components/patient-edit-modal"),
+  { ssr: false }
+);
+const AddPatientInsuranceModal = dynamic(
+  () => import("@/components/patient/add-patient-insurance-modal").then((m) => m.AddPatientInsuranceModal),
+  { ssr: false }
+);
 import { DepartmentAutocomplete } from "@/components/ui/department-autocomplete";
 import {
   resolvePatientSearchFilter,

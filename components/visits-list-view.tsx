@@ -39,7 +39,12 @@ import {
 import { useTheme } from "@/lib/theme-context"
 import { useAuth } from "@/lib/auth-context"
 import { hasRole } from "@/lib/role-utils"
-import { AddDepartmentModal } from "./add-department-modal"
+import dynamic from "next/dynamic"
+
+const AddDepartmentModal = dynamic(
+  () => import("./add-department-modal").then((m) => m.AddDepartmentModal),
+  { ssr: false }
+)
 interface VisitsListViewProps {
   visits: Visit[]
   onVisitSelect: (visit: Visit) => void

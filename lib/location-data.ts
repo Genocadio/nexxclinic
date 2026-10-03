@@ -309,137 +309,145 @@ const sectorsByProvAndDist = new Map<string, RwandaSectorOption[]>()
 const cellsBySectorKey = new Map<string, RwandaCellOption[]>()
 const villagesByCellKey = new Map<string, RwandaVillageOption[]>()
 
-// Initialize provinces
-for (const p of RWANDA_PROVINCES) {
-  hierarchy.set(p, { province: p, districts: new Map() })
-}
+let isInitialized = false
 
-// Process 14,842 official locations in a single pass
-for (const raw of rawLocations) {
-  const province = PROVINCE_MAP[raw.province_name] || raw.province_name
-  const district = raw.district_name
-  const sector = raw.sector_name
-  const cell = formatNameSpacing(raw.cell_name)
-  const village = formatNameSpacing(raw.village_name)
+function ensureInitialized() {
+  if (isInitialized) return
+  isInitialized = true
 
-  let provObj = hierarchy.get(province)
-  if (!provObj) {
-    provObj = { province, districts: new Map() }
-    hierarchy.set(province, provObj)
+  // Initialize provinces
+  for (const p of RWANDA_PROVINCES) {
+    hierarchy.set(p, { province: p, districts: new Map() })
   }
 
-  let distObj = provObj.districts.get(district)
-  if (!distObj) {
-    distObj = { district, province, sectors: new Map() }
-    provObj.districts.set(district, distObj)
-    const dOpt: RwandaDistrictOption = { district, province }
-    allDistrictsList.push(dOpt)
-    
-    // Add to district lookup
-    const dKey = normKey(district)
-    const existingD = districtLookup.get(dKey) || []
-    existingD.push(dOpt)
-    districtLookup.set(dKey, existingD)
-  }
+  // Process 14,842 official locations in a single pass
+  for (const raw of rawLocations) {
+    const province = PROVINCE_MAP[raw.province_name] || raw.province_name
+    const district = raw.district_name
+    const sector = raw.sector_name
+    const cell = formatNameSpacing(raw.cell_name)
+    const village = formatNameSpacing(raw.village_name)
 
-  let sectObj = distObj.sectors.get(sector)
-  if (!sectObj) {
-    sectObj = { sector, district, province, cells: new Map() }
-    distObj.sectors.set(sector, sectObj)
-    const sOpt: RwandaSectorOption = { sector, district, province }
-    allSectorsList.push(sOpt)
-
-    // Add to sector lookup
-    const sKey = normKey(sector)
-    const existingS = sectorLookup.get(sKey) || []
-    existingS.push(sOpt)
-    sectorLookup.set(sKey, existingS)
-  }
-
-  let cellObj = sectObj.cells.get(cell)
-  if (!cellObj) {
-    cellObj = { cell, sector, district, province, villages: [] }
-    sectObj.cells.set(cell, cellObj)
-    const cOpt: RwandaCellOption = { cell, sector, district, province }
-    allCellsList.push(cOpt)
-
-    // Add to cell lookup
-    const cKey = normKey(cell)
-    const existingC = cellLookup.get(cKey) || []
-    existingC.push(cOpt)
-    cellLookup.set(cKey, existingC)
-  }
-
-  if (!cellObj.villages.includes(village)) {
-    cellObj.villages.push(village)
-    const vOpt: RwandaVillageOption = { village, cell, sector, district, province }
-    allVillagesList.push(vOpt)
-
-    // Add to village lookup
-    const vKey = normKey(village)
-    const existingV = villageLookup.get(vKey) || []
-    existingV.push(vOpt)
-    villageLookup.set(vKey, existingV)
-  }
-}
-
-// Sort all global lists once at startup
-allDistrictsList.sort((a, b) => a.district.localeCompare(b.district))
-allSectorsList.sort((a, b) => a.sector.localeCompare(b.sector))
-allCellsList.sort((a, b) => a.cell.localeCompare(b.cell))
-allVillagesList.sort((a, b) => a.village.localeCompare(b.village))
-
-// Pre-build all hierarchical selection caches
-for (const [provName, provObj] of hierarchy.entries()) {
-  const pDistricts: RwandaDistrictOption[] = []
-  const pSectors: RwandaSectorOption[] = []
-
-  for (const [distName, distObj] of provObj.districts.entries()) {
-    pDistricts.push({ district: distName, province: provName })
-
-    const dSectors: RwandaSectorOption[] = []
-    for (const [sectName, sectObj] of distObj.sectors.entries()) {
-      const sOpt: RwandaSectorOption = { sector: sectName, district: distName, province: provName }
-      dSectors.push(sOpt)
-      pSectors.push(sOpt)
-
-      const sCells: RwandaCellOption[] = []
-      for (const [cellName, cellObj] of sectObj.cells.entries()) {
-        const cOpt: RwandaCellOption = { cell: cellName, sector: sectName, district: distName, province: provName }
-        sCells.push(cOpt)
-
-        const cVillages: RwandaVillageOption[] = cellObj.villages.map((v) => ({
-          village: v,
-          cell: cellName,
-          sector: sectName,
-          district: distName,
-          province: provName,
-        }))
-        cVillages.sort((a, b) => a.village.localeCompare(b.village))
-        villagesByCellKey.set(`${provName}::${distName}::${sectName}::${cellName}`, cVillages)
-        villagesByCellKey.set(`*::*::${sectName}::${cellName}`, cVillages)
-        villagesByCellKey.set(`*::*::*::${cellName}`, cVillages)
-      }
-      sCells.sort((a, b) => a.cell.localeCompare(b.cell))
-      cellsBySectorKey.set(`${provName}::${distName}::${sectName}`, sCells)
-      cellsBySectorKey.set(`*::${distName}::${sectName}`, sCells)
-      cellsBySectorKey.set(`*::*::${sectName}`, sCells)
+    let provObj = hierarchy.get(province)
+    if (!provObj) {
+      provObj = { province, districts: new Map() }
+      hierarchy.set(province, provObj)
     }
 
-    dSectors.sort((a, b) => a.sector.localeCompare(b.sector))
-    sectorsByDistrict.set(distName, dSectors)
-    sectorsByProvAndDist.set(`${provName}::${distName}`, dSectors)
+    let distObj = provObj.districts.get(district)
+    if (!distObj) {
+      distObj = { district, province, sectors: new Map() }
+      provObj.districts.set(district, distObj)
+      const dOpt: RwandaDistrictOption = { district, province }
+      allDistrictsList.push(dOpt)
+      
+      // Add to district lookup
+      const dKey = normKey(district)
+      const existingD = districtLookup.get(dKey) || []
+      existingD.push(dOpt)
+      districtLookup.set(dKey, existingD)
+    }
+
+    let sectObj = distObj.sectors.get(sector)
+    if (!sectObj) {
+      sectObj = { sector, district, province, cells: new Map() }
+      distObj.sectors.set(sector, sectObj)
+      const sOpt: RwandaSectorOption = { sector, district, province }
+      allSectorsList.push(sOpt)
+
+      // Add to sector lookup
+      const sKey = normKey(sector)
+      const existingS = sectorLookup.get(sKey) || []
+      existingS.push(sOpt)
+      sectorLookup.set(sKey, existingS)
+    }
+
+    let cellObj = sectObj.cells.get(cell)
+    if (!cellObj) {
+      cellObj = { cell, sector, district, province, villages: [] }
+      sectObj.cells.set(cell, cellObj)
+      const cOpt: RwandaCellOption = { cell, sector, district, province }
+      allCellsList.push(cOpt)
+
+      // Add to cell lookup
+      const cKey = normKey(cell)
+      const existingC = cellLookup.get(cKey) || []
+      existingC.push(cOpt)
+      cellLookup.set(cKey, existingC)
+    }
+
+    if (!cellObj.villages.includes(village)) {
+      cellObj.villages.push(village)
+      const vOpt: RwandaVillageOption = { village, cell, sector, district, province }
+      allVillagesList.push(vOpt)
+
+      // Add to village lookup
+      const vKey = normKey(village)
+      const existingV = villageLookup.get(vKey) || []
+      existingV.push(vOpt)
+      villageLookup.set(vKey, existingV)
+    }
   }
 
-  pDistricts.sort((a, b) => a.district.localeCompare(b.district))
-  pSectors.sort((a, b) => a.sector.localeCompare(b.sector))
-  districtsByProvince.set(provName, pDistricts)
-  sectorsByProvince.set(provName, pSectors)
+  // Sort all global lists once
+  allDistrictsList.sort((a, b) => a.district.localeCompare(b.district))
+  allSectorsList.sort((a, b) => a.sector.localeCompare(b.sector))
+  allCellsList.sort((a, b) => a.cell.localeCompare(b.cell))
+  allVillagesList.sort((a, b) => a.village.localeCompare(b.village))
+
+  // Pre-build all hierarchical selection caches
+  for (const [provName, provObj] of hierarchy.entries()) {
+    const pDistricts: RwandaDistrictOption[] = []
+    const pSectors: RwandaSectorOption[] = []
+
+    for (const [distName, distObj] of provObj.districts.entries()) {
+      pDistricts.push({ district: distName, province: provName })
+
+      const dSectors: RwandaSectorOption[] = []
+      for (const [sectName, sectObj] of distObj.sectors.entries()) {
+        const sOpt: RwandaSectorOption = { sector: sectName, district: distName, province: provName }
+        dSectors.push(sOpt)
+        pSectors.push(sOpt)
+
+        const sCells: RwandaCellOption[] = []
+        for (const [cellName, cellObj] of sectObj.cells.entries()) {
+          const cOpt: RwandaCellOption = { cell: cellName, sector: sectName, district: distName, province: provName }
+          sCells.push(cOpt)
+
+          const cVillages: RwandaVillageOption[] = cellObj.villages.map((v) => ({
+            village: v,
+            cell: cellName,
+            sector: sectName,
+            district: distName,
+            province: provName,
+          }))
+          cVillages.sort((a, b) => a.village.localeCompare(b.village))
+          villagesByCellKey.set(`${provName}::${distName}::${sectName}::${cellName}`, cVillages)
+          villagesByCellKey.set(`*::*::${sectName}::${cellName}`, cVillages)
+          villagesByCellKey.set(`*::*::*::${cellName}`, cVillages)
+        }
+        sCells.sort((a, b) => a.cell.localeCompare(b.cell))
+        cellsBySectorKey.set(`${provName}::${distName}::${sectName}`, sCells)
+        cellsBySectorKey.set(`*::${distName}::${sectName}`, sCells)
+        cellsBySectorKey.set(`*::*::${sectName}`, sCells)
+      }
+
+      dSectors.sort((a, b) => a.sector.localeCompare(b.sector))
+      sectorsByDistrict.set(distName, dSectors)
+      sectorsByProvAndDist.set(`${provName}::${distName}`, dSectors)
+    }
+
+    pDistricts.sort((a, b) => a.district.localeCompare(b.district))
+    pSectors.sort((a, b) => a.sector.localeCompare(b.sector))
+    districtsByProvince.set(provName, pDistricts)
+    sectorsByProvince.set(provName, pSectors)
+  }
 }
 
 // ── Hierarchy querying helpers ──────────────────────────────────────────────
 
 export function getRwandaDistricts(province?: string | null): string[] {
+  ensureInitialized()
   if (!province) return allDistrictsList.map((d) => d.district)
   const cached = districtsByProvince.get(province)
   return cached ? cached.map((d) => d.district) : []
@@ -449,6 +457,7 @@ export function getRwandaSectors(
   province?: string | null,
   district?: string | null,
 ): string[] {
+  ensureInitialized()
   if (province && district) {
     const cached = sectorsByProvAndDist.get(`${province}::${district}`)
     return cached ? cached.map((s) => s.sector) : []
@@ -469,6 +478,7 @@ export function getRwandaCells(
   district?: string | null,
   sector?: string | null,
 ): string[] {
+  ensureInitialized()
   if (!sector) return []
   if (province && district) {
     const cached = cellsBySectorKey.get(`${province}::${district}::${sector}`)
@@ -488,6 +498,7 @@ export function getRwandaVillages(
   sector?: string | null,
   cell?: string | null,
 ): string[] {
+  ensureInitialized()
   if (!cell) return []
   if (province && district && sector) {
     const cached = villagesByCellKey.get(`${province}::${district}::${sector}::${cell}`)
@@ -504,24 +515,29 @@ export function getRwandaVillages(
 // ── Smart Selection List Helpers (O(1) Cached) ─────────────────────────────
 
 export function getAllRwandaDistricts(): RwandaDistrictOption[] {
+  ensureInitialized()
   return allDistrictsList
 }
 
 export function getAllRwandaSectors(): RwandaSectorOption[] {
+  ensureInitialized()
   return allSectorsList
 }
 
 export function getAllRwandaCells(): RwandaCellOption[] {
+  ensureInitialized()
   return allCellsList
 }
 
 export function getAllRwandaVillages(): RwandaVillageOption[] {
+  ensureInitialized()
   return allVillagesList
 }
 
 export function getDistrictsForSelection(
   province?: string | null,
 ): RwandaDistrictOption[] {
+  ensureInitialized()
   if (province) {
     return districtsByProvince.get(province) || allDistrictsList
   }
@@ -532,6 +548,7 @@ export function getSectorsForSelection(
   province?: string | null,
   district?: string | null,
 ): RwandaSectorOption[] {
+  ensureInitialized()
   if (province && district) {
     return sectorsByProvAndDist.get(`${province}::${district}`) || allSectorsList
   }
@@ -549,6 +566,7 @@ export function getCellsForSelection(
   district?: string | null,
   sector?: string | null,
 ): RwandaCellOption[] {
+  ensureInitialized()
   if (province && district && sector) {
     const cached = cellsBySectorKey.get(`${province}::${district}::${sector}`)
     if (cached) return cached
@@ -570,6 +588,7 @@ export function getVillagesForSelection(
   sector?: string | null,
   cell?: string | null,
 ): RwandaVillageOption[] {
+  ensureInitialized()
   if (province && district && sector && cell) {
     const cached = villagesByCellKey.get(`${province}::${district}::${sector}::${cell}`)
     if (cached) return cached
@@ -594,6 +613,7 @@ export function findRwandaVillageInfo(
   district?: string | null,
   province?: string | null,
 ): RwandaVillageOption | undefined {
+  ensureInitialized()
   const vKey = normKey(village)
   if (!vKey) return undefined
 
@@ -624,6 +644,7 @@ export function findRwandaCellInfo(
   district?: string | null,
   province?: string | null,
 ): RwandaCellOption | undefined {
+  ensureInitialized()
   const cKey = normKey(cell)
   if (!cKey) return undefined
 
@@ -651,6 +672,7 @@ export function findRwandaSectorInfo(
   district?: string | null,
   province?: string | null,
 ): RwandaSectorOption | undefined {
+  ensureInitialized()
   const sKey = normKey(sector)
   if (!sKey) return undefined
 

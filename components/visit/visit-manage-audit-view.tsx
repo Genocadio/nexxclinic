@@ -50,6 +50,8 @@ import {
 } from "@/components/ui/tooltip"
 import { ConsultationPreviewSheet } from "@/components/dashboard/consultation-preview-sheet"
 import { VisitSettingsPanel } from "@/components/manager/visit-settings-panel"
+import { ConsultationSidePanels } from "@/components/consultation/consultation-side-panels"
+import PatientHistorySidePane from "@/components/patient-history-side-pane"
 import DepartmentNotesFloating from "@/components/department-notes-floating"
 import {
   ArrowLeft,
@@ -347,6 +349,21 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
   const [showSettingsPanel, setShowSettingsPanel] = useState(false)
   const [dischargeConfirmOpen, setDischargeConfirmOpen] = useState(false)
 
+  // Floating Patient/Vitals/History Side Panels
+  const [idPanel, setIdPanel] = useState<{ pinned: boolean; hover: boolean }>({
+    pinned: false,
+    hover: false,
+  })
+  const [vitalsPanel, setVitalsPanel] = useState<{ pinned: boolean; hover: boolean }>({
+    pinned: false,
+    hover: false,
+  })
+  const [historyPanel, setHistoryPanel] = useState<{ pinned: boolean; hover: boolean }>({
+    pinned: false,
+    hover: false,
+  })
+  const [patientHistoryOpen, setPatientHistoryOpen] = useState(false)
+
   const [completeVisitMutation, { loading: discharging }] = useMutation(
     COMPLETE_VISIT_MUTATION,
     {
@@ -639,7 +656,6 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
 
   const primaryInsurance = (visit.linkedInsurances || [])[0]
   const consultationDeptWithAnswer = (visit.departments || []).find((d) => d.answerId)
-  const totalVitalsCount = (visit.vitalSigns || []).length
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col text-slate-900 dark:text-slate-100">
@@ -649,16 +665,6 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
         {/* Top Navigation & Action Controls */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push("/")}
-              className="rounded-full shadow-sm hover:bg-slate-100 dark:hover:bg-slate-800 border-slate-300 dark:border-slate-700"
-            >
-              <ArrowLeft className="w-4 h-4 mr-1.5" />
-              Dashboard
-            </Button>
-            <div className="h-6 w-px bg-slate-300 dark:bg-slate-700" />
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
@@ -1059,52 +1065,6 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                 </div>
               </div>
             </div>
-
-            {/* Global Triage Vital Signs History */}
-            {totalVitalsCount > 0 && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Stethoscope className="w-4 h-4 text-emerald-500" />
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                      Recorded Vital Signs ({totalVitalsCount} sets)
-                    </h3>
-                  </div>
-                  <span className="text-xs text-slate-400">Recorded at Triage / Admission</span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {(visit.vitalSigns || []).map((vg, vIdx) => {
-                    const vgDate = parseTimestamp(vg.createdAt)
-                    return (
-                      <div
-                        key={vg.id || vIdx}
-                        className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-2.5"
-                      >
-                        <div className="flex items-center justify-between text-xs border-b border-slate-200/60 dark:border-slate-800 pb-2">
-                          <span className="font-semibold text-slate-900 dark:text-white">
-                            Recorded By: {getWorkerName(vg.addedBy)}
-                          </span>
-                          <span className="text-slate-500 dark:text-slate-400">
-                            {formatFullDateTime(vgDate)}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          {(vg.measurements || []).map((m, mIdx) => (
-                            <div key={m.id || mIdx} className="bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200/60 dark:border-slate-800">
-                              <span className="text-[10px] text-slate-400 uppercase font-semibold block">{m.measurementName}</span>
-                              <span className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5 block">
-                                {m.value} <span className="text-xs font-normal text-slate-500">{m.unit}</span>
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -1643,6 +1603,33 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
           visitDepartments={visit.departments ?? []}
           noteTypes={["PUBLIC", "CONSULTATION", "BILLING", "FORMS", "ADMIN"]}
           allowedDisplayTypes={["PUBLIC", "CONSULTATION", "BILLING", "FORMS", "ADMIN"]}
+        />
+      )}
+
+      {/* Floating Side Panels (Identification, Vitals, History) */}
+      <ConsultationSidePanels
+        patient={(visit.patient || {}) as any}
+        vitals={visit?.vitalSigns || []}
+        visitInsurances={visit?.linkedInsurances || visit?.patient?.patientInsurances || []}
+        idPanel={idPanel}
+        vitalsPanel={vitalsPanel}
+        historyPanel={historyPanel}
+        setIdPanel={setIdPanel}
+        setVitalsPanel={setVitalsPanel}
+        setHistoryPanel={setHistoryPanel}
+        onOpenHistory={() => setPatientHistoryOpen(true)}
+      />
+
+      {/* Patient History Side Pane */}
+      {patientHistoryOpen && patient?.id && (
+        <PatientHistorySidePane
+          patientId={patient.id}
+          currentVisitId={visit.id}
+          currentVisitDepartmentId={activeDepartmentMeta?.dept?.id || null}
+          onPreviewDepartmentAnswers={({ answerId }) => {
+            if (answerId) setPreviewConsultationAnswerId(answerId)
+          }}
+          onClose={() => setPatientHistoryOpen(false)}
         />
       )}
 

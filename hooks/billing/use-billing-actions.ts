@@ -218,6 +218,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
   };
 
   const [dischargeConfirmOpen, setDischargeConfirmOpen] = useState(false);
+  const [postBillingActionOpen, setPostBillingActionOpen] = useState(false);
 
   const requestDischarge = () => {
     if (!ENABLE_DISCHARGE) return;
@@ -492,18 +493,40 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         setBillingRemapNonce((n) => n + 1);
 
         // Refetch visit and bill data so the new version and items are loaded
-        await refetchVisit();
+        const freshVisitRes = await refetchVisit();
         await refetchBill();
 
-        // All departments billed — ask user if they want to discharge
-        if (ENABLE_DISCHARGE) {
-          setDischargeConfirmOpen(true);
+        const freshVisitData = (freshVisitRes as any)?.data?.visit?.data;
+        const updatedVisit: Visit | undefined = freshVisitData
+          ? (freshVisitData as any)
+          : visit;
+
+        const allDepts = flattenVisitDepartmentsForBilling(
+          updatedVisit?.departments || [],
+        ).filter((d) => d.status !== "CANCELLED");
+
+        const hasRemainingIncompleteDepts = allDepts.some(
+          (d) => d.status !== "COMPLETED" && d.status !== "FINALISED",
+        );
+
+        const isLastDepartment =
+          !hasRemainingIncompleteDepts &&
+          updatedVisit?.status !== "COMPLETED" &&
+          updatedVisit?.status !== "CANCELLED";
+
+        if (isLastDepartment) {
+          toast.success(
+            existingVisitBilling
+              ? "Bill updated successfully!"
+              : "Department billed successfully!",
+          );
+          setPostBillingActionOpen(true);
         } else {
           await handlePreviewBilling();
           toast.success(
             existingVisitBilling
               ? "Bill updated successfully!"
-              : "All departments billed successfully!",
+              : "Department billed successfully!",
           );
         }
       } else {
@@ -1062,6 +1085,8 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
   return {
     dischargeConfirmOpen,
     setDischargeConfirmOpen,
+    postBillingActionOpen,
+    setPostBillingActionOpen,
     requestDischarge,
     handleDischargeVisit,
     handleDownloadInvoice,

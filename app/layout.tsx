@@ -12,8 +12,17 @@ import { ToastContainer } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import "./globals.css"
 
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+  display: "swap",
+})
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+  display: "swap",
+})
 
 export const dynamic = 'force-dynamic'
 
@@ -73,7 +82,7 @@ export default function RootLayout({
         }}
       />
     </head>
-      <body className={`font-sans antialiased scrollbar-hide`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased scrollbar-hide`}>
         <ThemeProvider>
           <Providers>
             <ApolloWrapper>

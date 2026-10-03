@@ -12,7 +12,12 @@ import { isInsuranceActive, insuranceStatusLabel } from "@/lib/insurance-utils"
 import { toast } from "react-toastify"
 import { calculateAge } from "@/lib/validation-utils"
 import PatientFormDialog from "@/components/patient/patient-form-dialog"
-import PatientEditModal from "@/components/patient-edit-modal"
+import dynamic from "next/dynamic"
+
+const PatientEditModal = dynamic(
+  () => import("@/components/patient-edit-modal"),
+  { ssr: false }
+)
 
 interface PatientRegistrationModalProps {
   isOpen: boolean

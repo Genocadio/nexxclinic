@@ -6,6 +6,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  experimental: {
+    optimizePackageImports: ["lucide-react", "date-fns", "recharts"],
+  },
   // Separate build dir per dev instance so a second `next dev` on a different
   // port doesn't collide on the shared .next/dev lock.
   distDir: process.env.NEXT_DIST_DIR || '.next',
