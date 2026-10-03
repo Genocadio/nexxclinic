@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/lib/auth-context"
 import type { Worker } from "@/lib/api-types"
-import { LogOut, Moon, Sun, UserCog, BarChart3, Monitor } from "lucide-react"
+import { LogOut, Moon, Sun, UserCog, BarChart3, Monitor, Home, ArrowLeft } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
 import { useRouter, usePathname } from "next/navigation"
 import { useState, useRef, useEffect } from "react"
@@ -26,6 +26,7 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
   const canAccessAdmin = hasAdminAccess(roles)
   const isAdminPath = pathname?.startsWith("/admin")
+  const isRootPage = pathname === "/" || pathname === "/admin"
   const clinicName = getClinicDisplayName(clinicProfile)
   const clinicLogoUrl = getClinicLogoUrl(clinicProfile)
 
@@ -67,31 +68,44 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
 
   return (
     <>
-      {/* Floating Home / Logo (Left side of screen) */}
+      {/* Floating Home / Logo / Back (Left side of screen) */}
       <div className="fixed top-3 left-3 sm:top-3.5 sm:left-4 z-40">
-        <button
-          type="button"
-          onClick={() => router.push(isAdminPath ? "/admin" : "/")}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          className={cn(
-            "h-10 sm:h-11 rounded-full bg-card/85 dark:bg-slate-900/85 backdrop-blur-xl border border-border/60 shadow-md hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center cursor-pointer ring-2 ring-background/60 group select-none overflow-hidden",
-            showClinicName ? "px-3 gap-2" : "w-10 sm:w-11 px-0"
-          )}
-          title={showClinicName ? clinicName : "Home"}
-          aria-label={showClinicName ? clinicName : "Home"}
-        >
-          <img
-            src={clinicLogoUrl}
-            alt={`${clinicName} logo`}
-            className="h-6 w-6 sm:h-7 sm:w-7 object-contain rounded-full shrink-0"
-          />
-          {showClinicName && (
-            <span className="font-bold text-xs sm:text-sm text-foreground max-w-[140px] sm:max-w-[200px] truncate group-hover:text-primary transition-all duration-300 animate-in fade-in-0 slide-in-from-left-2 duration-200">
-              {clinicName}
-            </span>
-          )}
-        </button>
+        {isRootPage ? (
+          <button
+            type="button"
+            onClick={() => router.push(isAdminPath ? "/admin" : "/")}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            className={cn(
+              "h-10 sm:h-11 rounded-full bg-card/85 dark:bg-slate-900/85 backdrop-blur-xl border border-border/60 shadow-md hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center cursor-pointer ring-2 ring-background/60 group select-none overflow-hidden",
+              showClinicName ? "px-3 gap-2" : "w-10 sm:w-11 px-0"
+            )}
+            title={showClinicName ? clinicName : "Clinic Logo"}
+            aria-label={showClinicName ? clinicName : "Clinic Logo"}
+          >
+            <img
+              src={clinicLogoUrl}
+              alt={`${clinicName} logo`}
+              className="h-6 w-6 sm:h-7 sm:w-7 object-contain rounded-full shrink-0"
+            />
+            {showClinicName && (
+              <span className="font-bold text-xs sm:text-sm text-foreground max-w-[140px] sm:max-w-[200px] truncate group-hover:text-primary transition-all duration-300 animate-in fade-in-0 slide-in-from-left-2 duration-200">
+                {clinicName}
+              </span>
+            )}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => router.push(isAdminPath ? "/admin" : "/")}
+            className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-card/85 dark:bg-slate-900/85 backdrop-blur-xl border border-border/60 shadow-md hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer ring-2 ring-background/60 group select-none"
+            title={isAdminPath ? "Back to Admin" : "Back to Dashboard"}
+            aria-label={isAdminPath ? "Back to Admin" : "Back to Dashboard"}
+          >
+            <Home className="h-5 w-5 text-foreground group-hover:hidden transition-all duration-200" />
+            <ArrowLeft className="h-5 w-5 text-primary hidden group-hover:block transition-all duration-200 -translate-x-0.5" />
+          </button>
+        )}
       </div>
 
       {/* Floating User Avatar (Right side of screen) */}

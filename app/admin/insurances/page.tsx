@@ -293,14 +293,6 @@ export default function ManageInsurancesPage() {
         {/* Title Bar */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="icon"
-              className="rounded-full"
-              onClick={() => router.push("/admin")}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
             <div>
               <h1 className="text-2xl font-bold text-foreground">
                 Manage Insurances

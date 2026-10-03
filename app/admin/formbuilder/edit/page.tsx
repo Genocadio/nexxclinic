@@ -11,6 +11,7 @@ import { TEMPLATE_PRESETS } from "@/lib/formbuilder-presets";
 import { BlockCanvas } from "@/components/formbuilder/block-canvas";
 import { PreviewSheet } from "@/components/formbuilder/preview-sheet";
 import { FormRenderer } from "@/components/formbuilder/form-renderer";
+import Header from "@/components/header";
 import {
   useGetStandaloneForm,
   useUpdateStandaloneForm,
@@ -65,7 +66,7 @@ const TYPE_COLORS: Record<string, string> = {
 function FormEditor() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { doctor, isAuthenticated, isLoading: authLoading } = useAuth();
 
   const formId = searchParams.get("id");
 
@@ -273,21 +274,9 @@ function FormEditor() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
+      <Header doctor={doctor} />
       {/* ── Top bar ── */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-background shrink-0 z-10">
-        {/* Back */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0"
-          onClick={() => {
-            handleManualSave();
-            router.push("/admin/formbuilder");
-          }}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-
+      <div className="flex items-center gap-3 pl-16 pr-4 py-2 border-b border-border bg-background shrink-0 z-10">
         {/* Form name (inline editable) */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {editingName ? (

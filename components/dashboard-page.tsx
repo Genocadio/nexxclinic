@@ -1371,8 +1371,8 @@ export default function DashboardPage() {
     const serverVisitIds = new Set<string>()
     const baseList: Visit[] = []
     const sources = [
-      ...locallyCreatedVisits,
       ...visits,
+      ...locallyCreatedVisits,
       ...extraCompletedVisits,
       ...backendHistoricalVisits,
     ]
@@ -1383,7 +1383,7 @@ export default function DashboardPage() {
       }
     }
     return baseList
-  }, [locallyCreatedVisits, visits, extraCompletedVisits, backendHistoricalVisits])
+  }, [visits, locallyCreatedVisits, extraCompletedVisits, backendHistoricalVisits])
 
   const applyGeneralFilters = (list: Visit[]) => {
     let result = list
@@ -1650,7 +1650,13 @@ export default function DashboardPage() {
   }
   const handleAddDepartmentSuccess = () => {
     // Refresh visits data after successful department addition
-    refetchVisits()
+    const visitId = selectedVisitForDepartment?.id
+    if (visitId) {
+      setLocallyCreatedVisits((current) =>
+        current.filter((v) => v.id !== visitId)
+      )
+    }
+    void refetchVisits()
   }
   const handleGoToBilling = (visit: Visit) => {
     router.push(`/billing?visitId=${visit.id}&patientId=${visit.patient.id}`)

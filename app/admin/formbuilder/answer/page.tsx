@@ -134,14 +134,6 @@ function FormAnswerPageInner() {
       <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3 min-w-0">
-            <Button
-              variant="outline"
-              size="icon"
-              className="rounded-full shrink-0"
-              onClick={() => router.push("/admin/formbuilder")}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold text-foreground truncate">

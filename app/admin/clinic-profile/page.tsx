@@ -268,14 +268,6 @@ export default function ClinicProfilePage() {
       <main className="max-w-6xl mx-auto px-6 py-10 space-y-6">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="icon"
-              className="rounded-full"
-              onClick={() => router.push("/admin")}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
             <div>
               <h1 className="text-2xl font-bold text-foreground">
                 Clinic Profile Management

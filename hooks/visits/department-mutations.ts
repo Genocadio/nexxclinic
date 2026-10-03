@@ -448,6 +448,10 @@ export function useAddDepartmentToVisit() {
     {
       refetchQueries: visitRefetchQueries,
       awaitRefetchQueries: true,
+      update(cache) {
+        cache.evict({ fieldName: "visits" });
+        cache.gc();
+      },
     },
   );
 

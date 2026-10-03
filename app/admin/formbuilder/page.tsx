@@ -369,14 +369,6 @@ export default function FormBuilderListPage() {
         {/* Page header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="icon"
-              className="rounded-full"
-              onClick={() => router.push("/admin")}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
             <div>
               <h1 className="text-2xl font-bold text-foreground">
                 Form Builder

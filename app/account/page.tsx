@@ -180,14 +180,6 @@ export default function AccountPage() {
       <Header doctor={doctor} />
       <main className="max-w-5xl mx-auto px-6 py-10 space-y-6">
         <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            className="rounded-full"
-            onClick={() => router.push("/")}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
           <div>
             <h1 className="text-2xl font-bold text-foreground">My Account</h1>
             <p className="text-muted-foreground">Manage your profile and password.</p>

@@ -568,19 +568,6 @@ function TriagePageInner() {
       )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <div>
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="group h-9 px-3.5 rounded-xl bg-card border border-border/80 hover:border-primary/50 text-foreground hover:bg-muted/60 dark:hover:bg-muted/40 shadow-sm hover:shadow-md transition-all font-medium flex items-center gap-2 cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4 text-foreground group-hover:text-primary transition-all group-hover:-translate-x-0.5" />
-              <span className="text-foreground group-hover:text-primary text-sm font-semibold">Back</span>
-            </button>
-          </div>
-        </div>
-
         {/* Vital Signs Section (Centered Vertical Tables + Increased Height + Rightmost Circular Add Button) */}
         <div className="flex justify-center w-full my-4">
           <div className="w-full max-w-5xl space-y-4">

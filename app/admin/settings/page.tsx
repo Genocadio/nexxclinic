@@ -216,14 +216,6 @@ export default function AdminSettingsPage() {
         {/* Top Action & Navigation Bar */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="icon"
-              className="rounded-full h-10 w-10 border-border/60 hover:bg-muted"
-              onClick={() => router.push("/admin")}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">

@@ -453,10 +453,34 @@ export const ADD_DEPARTMENT_TO_VISIT_MUTATION = gql`
       message
       data {
         id
+        status
+        visitDate
+        createdAt
         patient {
           id
           firstName
+          middleName
           lastName
+          patientIdentifier
+          gender
+          dateOfBirth
+          age
+          primaryPhoneNumber
+          district
+          cell
+          village
+          nationalIdNumber
+        }
+        linkedInsurances {
+          id
+          insuranceCardNumber
+          providingCompanyOrEmployer
+          principalMember
+          insuranceProvider {
+            id
+            insuranceName
+            acronym
+          }
         }
         departments {
           id
@@ -465,6 +489,13 @@ export const ADD_DEPARTMENT_TO_VISIT_MUTATION = gql`
             name
           }
           status
+          startedAt
+          completedAt
+          createdAt
+          updatedAt
+          isChildDepartment
+          childDepartmentName
+          childDepartmentType
           profile {
             id
             name

@@ -688,14 +688,6 @@ export default function ManageUsersPage() {
             {/* Top Navigation & Page Title */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="rounded-full shrink-0"
-                  onClick={() => router.push("/admin")}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
                 <div>
                   <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
                     <Users className="h-6 w-6 text-primary" />
