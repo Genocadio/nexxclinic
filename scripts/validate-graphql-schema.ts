@@ -33,6 +33,18 @@ const SCHEMA_DIR = existsSync(BACKEND_DIR) ? BACKEND_DIR : ROOT;
 const SCHEMA_FILES = ["user.graphqls", "forms.graphqls", "visits.graphqls", "Newforms.graphqls"];
 const TYPES_FILE = join(ROOT, "lib", "api-types.ts");
 
+// ── Check if schema files exist ────────────────────────────────────────────────
+const hasAllSchemaFiles = SCHEMA_FILES.every((file) =>
+  existsSync(join(SCHEMA_DIR, file)),
+);
+
+if (!hasAllSchemaFiles) {
+  console.log(
+    "ℹ GraphQL schema files not found on disk (NexxClinicBackend not checked out). Skipping schema drift validation.",
+  );
+  process.exit(0);
+}
+
 // ── Load & parse schema ────────────────────────────────────────────────────────
 const schemaSdl = SCHEMA_FILES.map((file) =>
   readFileSync(join(SCHEMA_DIR, file), "utf8"),

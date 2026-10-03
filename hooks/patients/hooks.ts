@@ -336,8 +336,11 @@ export function usePatients(
     ...(filter?.name ? { name: filter.name } : {}),
     ...(filter?.phoneNumber ? { phoneNumber: filter.phoneNumber } : {}),
     ...(filter?.insuranceCardNumber ? { insuranceCardNumber: filter.insuranceCardNumber } : {}),
+    ...(filter?.insuranceProviderId ? { insuranceProviderId: filter.insuranceProviderId } : {}),
     ...(filter?.gender ? { gender: filter.gender } : {}),
     ...(filter?.age != null ? { age: filter.age } : {}),
+    ...(filter?.minAge != null ? { minAge: filter.minAge } : {}),
+    ...(filter?.maxAge != null ? { maxAge: filter.maxAge } : {}),
     page,
     size,
   };

@@ -53,6 +53,10 @@ import { toast } from "react-toastify";
 import PatientEditModal from "@/components/patient-edit-modal";
 import { AddPatientInsuranceModal } from "@/components/patient/add-patient-insurance-modal";
 import { DepartmentAutocomplete } from "@/components/ui/department-autocomplete";
+import {
+  resolvePatientSearchFilter,
+  type SearchFilterType,
+} from "@/lib/patient-search-utils";
 
 const TRIAGE_SERVICE_ID = "__TRIAGE__";
 
@@ -88,7 +92,6 @@ interface VisitCreationModalProps {
 }
 
 type ModalStep = "patient-selection" | "visit-details";
-type SearchFilterType = "name" | "phoneNumber" | "insuranceCardNumber";
 type GenderFilterType = "all" | "MALE" | "FEMALE" | "OTHER";
 type AgeRangeType = "all" | "pediatric" | "adult" | "senior" | "custom" | "exact";
 
@@ -207,20 +210,13 @@ export default function VisitCreationModal({
     }
 
     const timeoutId = setTimeout(() => {
-      const filter: PatientFilterInput = {};
-      if (hasQuery) {
-        switch (searchFilterType) {
-          case "name":
-            filter.name = searchQuery.trim();
-            break;
-          case "phoneNumber":
-            filter.phoneNumber = searchQuery.trim();
-            break;
-          case "insuranceCardNumber":
-            filter.insuranceCardNumber = searchQuery.trim();
-            break;
-        }
-      }
+      const searchFilter = hasQuery
+        ? resolvePatientSearchFilter(searchQuery, searchFilterType)
+        : {};
+
+      const filter: PatientFilterInput = {
+        ...searchFilter,
+      };
 
       if (selectedInsuranceProviderId) {
         filter.insuranceProviderId = selectedInsuranceProviderId;
@@ -521,19 +517,7 @@ export default function VisitCreationModal({
                           : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground"
                       )}
                     >
-                      Name
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSearchFilterType("phoneNumber")}
-                      className={cn(
-                        "px-3.5 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer",
-                        searchFilterType === "phoneNumber"
-                          ? "bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-sm scale-105"
-                          : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      Phone
+                      Name / Phone / ID
                     </button>
                     <button
                       type="button"
@@ -839,7 +823,11 @@ export default function VisitCreationModal({
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       type="text"
-                      placeholder={`Search patients by ${searchFilterType === "name" ? "name" : searchFilterType === "phoneNumber" ? "phone number" : "insurance card number"}...`}
+                      placeholder={
+                        searchFilterType === "insuranceCardNumber"
+                          ? "Search patients by insurance card number..."
+                          : "Search patients by name, phone, or national ID..."
+                      }
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10 pr-9 h-11 text-sm rounded-xl border-border/60 bg-background/50 focus-visible:ring-primary/40"
