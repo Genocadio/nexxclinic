@@ -70,6 +70,7 @@ import {
   createUserFormSchema,
   type UserFormValues,
 } from "@/lib/form-schemas";
+import { splitWorkerName } from "@/lib/patient-display-utils";
 import { useDebouncedValidation } from "@/hooks/use-debounced-validation";
 import {
   ArrowLeft,
@@ -213,8 +214,7 @@ export default function ManageUsersPage() {
   const [activeTab, setActiveTab] = useState<string>("profile");
 
   // Workspace Profile Form state
-  const [editFirstName, setEditFirstName] = useState("");
-  const [editLastName, setEditLastName] = useState("");
+  const [editFullName, setEditFullName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPhoneNumber, setEditPhoneNumber] = useState("");
   const [editUsername, setEditUsername] = useState("");
@@ -353,8 +353,7 @@ export default function ManageUsersPage() {
   const handleSelectUser = (user: UserAccount, tab: string = "profile") => {
     setSelectedUser(user);
     setActiveTab(tab);
-    setEditFirstName(user.firstName || "");
-    setEditLastName(user.lastName || "");
+    setEditFullName([user.firstName, user.lastName].filter(Boolean).join(" ").trim());
     setEditEmail(user.email || "");
     setEditPhoneNumber(user.phoneNumber || "");
     setEditUsername(user.username || "");
@@ -405,16 +404,17 @@ export default function ManageUsersPage() {
   // Save Profile Changes
   const handleSaveProfile = async () => {
     if (!selectedUser) return;
-    if (!editFirstName.trim()) {
-      toast.error("First name is required");
+    if (!editFullName.trim()) {
+      toast.error("Full name is required");
       return;
     }
+    const { firstName, lastName } = splitWorkerName(editFullName);
 
     setSaving(true);
     try {
       const resp = await adminUpdateUser(selectedUser.id, {
-        firstName: editFirstName.trim(),
-        lastName: editLastName.trim(),
+        firstName: firstName.trim(),
+        lastName: (lastName || "").trim(),
         email: editEmail.trim(),
         phoneNumber: editPhoneNumber.trim(),
         username: editUsername.trim(),
@@ -430,8 +430,8 @@ export default function ManageUsersPage() {
         await refetchUsers();
         setSelectedUser({
           ...selectedUser,
-          firstName: editFirstName.trim(),
-          lastName: editLastName.trim(),
+          firstName: firstName.trim(),
+          lastName: (lastName || "").trim(),
           email: editEmail.trim(),
           phoneNumber: editPhoneNumber.trim(),
           username: editUsername.trim(),
@@ -545,12 +545,15 @@ export default function ManageUsersPage() {
         return;
       }
 
+      const fullName = (values.name || values.firstName || "").trim();
+      const { firstName, lastName } = splitWorkerName(fullName);
+
       const createResp = await adminCreateUser({
-        firstName: values.firstName.trim(),
-        lastName: values.lastName?.trim(),
-        email: values.email?.trim(),
-        phoneNumber: values.phoneNumber?.trim(),
-        username: values.username?.trim(),
+        firstName: firstName.trim(),
+        lastName: (lastName || values.lastName || "").trim(),
+        email: values.email?.trim() || "",
+        phoneNumber: values.phoneNumber?.trim() || "",
+        username: values.username?.trim() || "",
         roles: watchedCreateRoles,
         departmentIds: createDepartmentIds,
         gender: values.gender || undefined,
@@ -1181,22 +1184,12 @@ export default function ManageUsersPage() {
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">First Name *</Label>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label className="text-sm font-semibold">Full Name *</Label>
                         <Input
-                          value={editFirstName}
-                          onChange={(e) => setEditFirstName(e.target.value)}
-                          placeholder="e.g. Eric"
-                          className="rounded-xl"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Last Name</Label>
-                        <Input
-                          value={editLastName}
-                          onChange={(e) => setEditLastName(e.target.value)}
-                          placeholder="e.g. Habimana"
+                          value={editFullName}
+                          onChange={(e) => setEditFullName(e.target.value)}
+                          placeholder="e.g. Eric Habimana"
                           className="rounded-xl"
                         />
                       </div>
@@ -1271,7 +1264,7 @@ export default function ManageUsersPage() {
                     <div className="pt-4 border-t border-border/60 flex justify-end">
                       <Button
                         onClick={handleSaveProfile}
-                        disabled={saving || !editFirstName.trim()}
+                        disabled={saving || !editFullName.trim()}
                         className="rounded-full px-6 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md font-medium"
                       >
                         {saving ? "Saving…" : "Save Profile Details"}
@@ -1584,27 +1577,16 @@ export default function ManageUsersPage() {
                 className="flex-1 overflow-y-auto pr-2 space-y-4 my-4 scrollbar-thin"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1">
+                  <div className="space-y-1 sm:col-span-2">
                     <Label className="text-xs font-semibold text-muted-foreground">
-                      First Name *
+                      Full Name *
                     </Label>
                     <Input
-                      placeholder="e.g. Eric"
-                      {...registerCreate("firstName")}
-                      className={`rounded-xl bg-white dark:bg-slate-950 ${createErrors.firstName ? "border-red-500 focus-visible:ring-red-300" : ""}`}
+                      placeholder="e.g. Eric Habimana"
+                      {...registerCreate("name")}
+                      className={`rounded-xl bg-white dark:bg-slate-950 ${createErrors.name || createErrors.firstName ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                     />
-                    <FieldError message={createErrors.firstName?.message} />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs font-semibold text-muted-foreground">
-                      Last Name
-                    </Label>
-                    <Input
-                      placeholder="e.g. Habimana"
-                      {...registerCreate("lastName")}
-                      className="rounded-xl bg-white dark:bg-slate-950"
-                    />
+                    <FieldError message={createErrors.name?.message || createErrors.firstName?.message} />
                   </div>
 
                   <div className="space-y-1">

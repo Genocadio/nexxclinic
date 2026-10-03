@@ -118,46 +118,20 @@ export default function PatientFormFields({
       <div
         className={`${solidPanelClass} p-2 sm:p-4 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4`}
       >
-        <div>
+        <div className="col-span-1 md:col-span-2">
           <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-            First Name *
+            Full Name *
           </label>
           <Input
             type="text"
-            value={fieldValue(formData.firstName)}
-            onChange={(e) => onFieldChange("firstName", e.target.value)}
-            onBlur={() => onFieldBlur?.("firstName", formData.firstName || "")}
-            placeholder="Enter first name"
-            className={`${solidFieldClass} rounded-xl focus:ring-primary/50 ${fieldErrors["firstName"] ? "border-red-500" : ""}`}
+            value={fieldValue(formData.name ?? [formData.firstName, formData.middleName, formData.lastName].filter(Boolean).join(" "))}
+            onChange={(e) => onFieldChange("name", e.target.value)}
+            onBlur={() => onFieldBlur?.("name", formData.name || formData.firstName || "")}
+            placeholder="Enter full name (e.g. Jean Paul Habimana)"
+            className={`${solidFieldClass} rounded-xl focus:ring-primary/50 ${fieldErrors["name"] || fieldErrors["firstName"] ? "border-red-500" : ""}`}
             required
           />
-          <FieldError message={fieldErrors["firstName"]} />
-        </div>
-        <div>
-          <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-            Last Name
-          </label>
-          <Input
-            type="text"
-            value={fieldValue(formData.lastName)}
-            onChange={(e) => onFieldChange("lastName", e.target.value)}
-            onBlur={() => onFieldBlur?.("lastName", formData.lastName || "")}
-            placeholder="Enter last name"
-            className={solidFieldClass}
-          />
-        </div>
-        <div>
-          <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-            Middle Name
-          </label>
-          <Input
-            type="text"
-            value={fieldValue(formData.middleName)}
-            onChange={(e) => onFieldChange("middleName", e.target.value)}
-            onBlur={() => onFieldBlur?.("middleName", formData.middleName || "")}
-            placeholder="Enter middle name"
-            className={solidFieldClass}
-          />
+          <FieldError message={fieldErrors["name"] || fieldErrors["firstName"]} />
         </div>
         <div>
           <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
@@ -895,40 +869,21 @@ export default function PatientFormFields({
                             Principal Member Information <span className="text-red-500">*</span>
                           </h5>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
-                            <div>
+                            <div className="md:col-span-2">
                               <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
-                                First Name <span className="text-red-500">*</span>
+                                Principal Member Full Name <span className="text-red-500">*</span>
                               </label>
                               <Input
                                 type="text"
-                                value={insurance.dominantMember?.firstName || ""}
+                                value={insurance.dominantMember?.name ?? [insurance.dominantMember?.firstName, insurance.dominantMember?.lastName].filter(Boolean).join(" ")}
                                 onChange={(e) =>
                                   onUpdateInsurance(
                                     index,
-                                    "dominantMember.firstName",
+                                    "dominantMember.name",
                                     e.target.value,
                                   )
                                 }
-                                placeholder="First name"
-                                className={solidFieldClass}
-                                required
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
-                                Last Name <span className="text-red-500">*</span>
-                              </label>
-                              <Input
-                                type="text"
-                                value={insurance.dominantMember?.lastName || ""}
-                                onChange={(e) =>
-                                  onUpdateInsurance(
-                                    index,
-                                    "dominantMember.lastName",
-                                    e.target.value,
-                                  )
-                                }
-                                placeholder="Last name"
+                                placeholder="Enter principal member name"
                                 className={solidFieldClass}
                                 required
                               />
@@ -971,40 +926,21 @@ export default function PatientFormFields({
                       </span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
-                      <div>
+                      <div className="md:col-span-2">
                         <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
-                          First Name <span className="text-red-500">*</span>
+                          Principal Member Full Name <span className="text-red-500">*</span>
                         </label>
                         <Input
                           type="text"
-                          value={insurance.dominantMember?.firstName || ""}
+                          value={insurance.dominantMember?.name ?? [insurance.dominantMember?.firstName, insurance.dominantMember?.lastName].filter(Boolean).join(" ")}
                           onChange={(e) =>
                             onUpdateInsurance(
                               index,
-                              "dominantMember.firstName",
+                              "dominantMember.name",
                               e.target.value,
                             )
                           }
-                          placeholder="First name"
-                          className={solidFieldClass}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
-                          Last Name <span className="text-red-500">*</span>
-                        </label>
-                        <Input
-                          type="text"
-                          value={insurance.dominantMember?.lastName || ""}
-                          onChange={(e) =>
-                            onUpdateInsurance(
-                              index,
-                              "dominantMember.lastName",
-                              e.target.value,
-                            )
-                          }
-                          placeholder="Last name"
+                          placeholder="Enter principal member name"
                           className={solidFieldClass}
                           required
                         />

@@ -16,6 +16,7 @@ import type {
   UpdatePatientInput,
 } from "../types";
 import { Gender } from "@/lib/api-types";
+import { splitFullName } from "@/lib/patient-display-utils";
 import {
   mapGqlPatient,
   mapGqlPatientInsurance,
@@ -67,6 +68,7 @@ export interface GetPatientQueryData {
 }
 
 export interface RegisterPatientInput {
+  name?: string | null;
   firstName: string;
   middleName?: string | null;
   lastName?: string | null;
@@ -100,6 +102,7 @@ export interface RegisterPatientInput {
     patientSharePercentage?: number | string | null;
     isSelf?: boolean;
     dominantMember?: {
+      name?: string | null;
       firstName?: string | null;
       lastName?: string | null;
       phone?: string | null;
@@ -410,10 +413,18 @@ export function useRegisterPatient() {
     input: RegisterPatientInput,
   ): Promise<ApiResponse<Visit>> => {
     try {
+      const resolvedNames = input.name
+        ? splitFullName(input.name)
+        : {
+            firstName: input.firstName,
+            middleName: input.middleName,
+            lastName: input.lastName,
+          };
+
       const patientInput: any = {
-        firstName: input.firstName,
-        middleName: input.middleName || null,
-        lastName: input.lastName || null,
+        firstName: resolvedNames.firstName,
+        middleName: resolvedNames.middleName || null,
+        lastName: resolvedNames.lastName || null,
         dateOfBirth: input.dateOfBirth,
         gender:
           input.gender === "M"

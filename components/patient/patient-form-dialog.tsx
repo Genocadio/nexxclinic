@@ -20,6 +20,7 @@ import {
   validateDateOfBirth,
   isInsuranceEntryComplete,
 } from "@/lib/validation-utils"
+import { splitFullName, splitWorkerName } from "@/lib/patient-display-utils"
 import PatientFormFields from "@/components/patient/patient-form-fields"
 
 interface PatientFormDialogProps {
@@ -42,7 +43,9 @@ interface PatientFormDialogProps {
 
 const flatToNested = (flat: UpdatePatientInput): RegisterPatientInput => {
   const gender = flat.gender === "MALE" ? "M" as const : flat.gender === "FEMALE" ? "F" as const : ""
+  const fullName = [flat.firstName, flat.middleName, flat.lastName].filter(Boolean).join(" ").trim()
   return {
+    name: fullName,
     firstName: flat.firstName || "",
     lastName: flat.lastName || "",
     middleName: flat.middleName || "",
@@ -71,27 +74,38 @@ const flatToNested = (flat: UpdatePatientInput): RegisterPatientInput => {
   }
 }
 
-const nestedToFlat = (nested: RegisterPatientInput): UpdatePatientInput => ({
-  firstName: nested.firstName || undefined,
-  lastName: nested.lastName || undefined,
-  middleName: nested.middleName || undefined,
-  dateOfBirth: nested.dateOfBirth || undefined,
-  gender: nested.gender === "M" ? "MALE" as Gender : nested.gender === "F" ? "FEMALE" as Gender : undefined,
-  primaryPhoneNumber: nested.contactInfo?.phone || undefined,
-  alternativePhone: nested.contactInfo?.email || undefined,
-  cell: nested.contactInfo?.address?.cell || undefined,
-  village: nested.contactInfo?.address?.village || undefined,
-  city: nested.contactInfo?.address?.sector || undefined,
-  district: nested.contactInfo?.address?.district || undefined,
-  postalAddress: nested.contactInfo?.address?.country || undefined,
-  nationalIdNumber: nested.nationalIdNumber || undefined,
-  passportNumber: undefined,
-  emergencyContactName: nested.emergencyContact?.name || undefined,
-  emergencyContactRelationship: nested.emergencyContact?.relation || undefined,
-  emergencyContactPhoneNumber: nested.emergencyContact?.phone || undefined,
-})
+const nestedToFlat = (nested: RegisterPatientInput): UpdatePatientInput => {
+  const resolved = nested.name
+    ? splitFullName(nested.name)
+    : {
+        firstName: nested.firstName,
+        middleName: nested.middleName,
+        lastName: nested.lastName,
+      }
+
+  return {
+    firstName: resolved.firstName || undefined,
+    lastName: resolved.lastName || undefined,
+    middleName: resolved.middleName || undefined,
+    dateOfBirth: nested.dateOfBirth || undefined,
+    gender: nested.gender === "M" ? "MALE" as Gender : nested.gender === "F" ? "FEMALE" as Gender : undefined,
+    primaryPhoneNumber: nested.contactInfo?.phone || undefined,
+    alternativePhone: nested.contactInfo?.email || undefined,
+    cell: nested.contactInfo?.address?.cell || undefined,
+    village: nested.contactInfo?.address?.village || undefined,
+    city: nested.contactInfo?.address?.sector || undefined,
+    district: nested.contactInfo?.address?.district || undefined,
+    postalAddress: nested.contactInfo?.address?.country || undefined,
+    nationalIdNumber: nested.nationalIdNumber || undefined,
+    passportNumber: undefined,
+    emergencyContactName: nested.emergencyContact?.name || undefined,
+    emergencyContactRelationship: nested.emergencyContact?.relation || undefined,
+    emergencyContactPhoneNumber: nested.emergencyContact?.phone || undefined,
+  }
+}
 
 const EMPTY_FORM: RegisterPatientInput = {
+  name: "",
   firstName: "",
   lastName: "",
   middleName: "",
@@ -228,6 +242,14 @@ export default function PatientFormDialog({
         current = current[keys[i]]
       }
       current[keys[keys.length - 1]] = sanitizedValue
+
+      if (field === "name") {
+        const parts = splitFullName(sanitizedValue)
+        updated.name = sanitizedValue
+        updated.firstName = parts.firstName
+        updated.middleName = parts.middleName || ""
+        updated.lastName = parts.lastName || ""
+      }
       return updated
     })
 
@@ -235,7 +257,10 @@ export default function PatientFormDialog({
     setFieldErrors((prev) => {
       if (Object.keys(prev).length === 0) return prev
       const next = { ...prev }
-      if (field === "dateOfBirth") {
+      if (field === "name" || field === "firstName") {
+        delete next["name"]
+        delete next["firstName"]
+      } else if (field === "dateOfBirth") {
         delete next["dateOfBirth"]
       } else if (field.startsWith("insurance.")) {
         const idx = field.split(".")[1]
@@ -299,7 +324,17 @@ export default function PatientFormDialog({
         if (i === index) {
           if (field.startsWith("dominantMember.")) {
             const dmField = field.split(".")[1]
-            return { ...insurance, dominantMember: { ...insurance.dominantMember, [dmField]: value } }
+            let dm = { ...insurance.dominantMember, [dmField]: value }
+            if (dmField === "name") {
+              const split = splitWorkerName(String(value))
+              dm = {
+                ...dm,
+                name: String(value),
+                firstName: split.firstName,
+                lastName: split.lastName || "",
+              }
+            }
+            return { ...insurance, dominantMember: dm }
           }
           if (field === "isSelf") {
             const isSelf = Boolean(value)
@@ -488,8 +523,10 @@ export default function PatientFormDialog({
 
     // Inline field validation (shown below the fields, never as toasts).
     const nextErrors: Record<string, string> = {}
-    if (!formData.firstName?.trim()) {
-      nextErrors["firstName"] = "First name is required"
+    const fullNameValue = (formData.name ?? [formData.firstName, formData.middleName, formData.lastName].filter(Boolean).join(" ")).trim()
+    if (!fullNameValue) {
+      nextErrors["name"] = "Full name is required"
+      nextErrors["firstName"] = "Full name is required"
     }
     if (!formData.dateOfBirth) {
       nextErrors["dateOfBirth"] = "Date of birth is required"

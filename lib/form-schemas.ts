@@ -252,8 +252,9 @@ export type ProductFormValues = z.infer<typeof productFormSchema>;
 export function createUserFormSchema(options: { requireProfileFields: boolean }) {
   return z
     .object({
-      firstName: requiredString("First name is required"),
-      lastName: z.string().trim(),
+      name: z.string().trim().optional(),
+      firstName: z.string().trim().optional(),
+      lastName: z.string().trim().optional(),
       email: z.string().trim(),
       phoneNumber: z.string().trim(),
       gender: z.string().trim(),
@@ -262,6 +263,14 @@ export function createUserFormSchema(options: { requireProfileFields: boolean })
       roles: z.array(z.string()).min(1, "Select at least one role"),
     })
     .superRefine((data, ctx) => {
+      const hasName = Boolean(data.name?.trim() || data.firstName?.trim());
+      if (!hasName) {
+        ctx.addIssue({
+          code: "custom",
+          path: [data.name !== undefined ? "name" : "firstName"],
+          message: "Full name is required",
+        });
+      }
       if (!options.requireProfileFields) return;
       // For new users at least one contact + gender + dob are required.
       if (!data.email && !data.phoneNumber) {
@@ -414,14 +423,26 @@ export type PatientInsuranceFormValues = z.infer<
 // Patient registration (nested structure used by PatientFormDialog)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const patientBasicFieldsSchema = z.object({
-  firstName: requiredString("First name is required"),
-  dateOfBirth: dateOfBirthSchema,
-  gender: z
-    .string()
-    .trim()
-    .min(1, "Gender is required"),
-});
+export const patientBasicFieldsSchema = z
+  .object({
+    name: z.string().trim().optional(),
+    firstName: z.string().trim().optional(),
+    dateOfBirth: dateOfBirthSchema,
+    gender: z
+      .string()
+      .trim()
+      .min(1, "Gender is required"),
+  })
+  .superRefine((data, ctx) => {
+    const hasName = Boolean(data.name?.trim() || data.firstName?.trim());
+    if (!hasName) {
+      ctx.addIssue({
+        code: "custom",
+        path: [data.name !== undefined ? "name" : "firstName"],
+        message: "Full name is required",
+      });
+    }
+  });
 export type PatientBasicFieldErrors = z.inferFlattenedErrors<
   typeof patientBasicFieldsSchema
 >;
