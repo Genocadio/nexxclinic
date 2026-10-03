@@ -59,6 +59,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { EMPTY_TOTALS } from "@/hooks/billing/use-billing-totals";
 import { Spinner } from "@/components/ui/spinner";
+import { PageLoading } from "@/components/ui/page-loading";
 import VisitNotesFloating from "@/components/visit-notes-floating";
 import { BillingPatientBar } from "@/components/billing/billing-patient-bar";
 import { BillingStickySummary } from "@/components/billing/billing-sticky-summary";
@@ -1135,14 +1136,10 @@ export function BillingPageContent() {
     );
   }
 
-  // Show spinner while loading OR while visit/billingData haven't arrived yet.
+  // Show skeleton while loading OR while visit/billingData haven't arrived yet.
   // This prevents the transient "Visit not found" flash on page refresh.
   if (loading || !visit || !billingData) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Spinner className="h-8 w-8" />
-      </div>
-    );
+    return <PageLoading variant="billing" />;
   }
 
   return (

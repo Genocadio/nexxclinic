@@ -15,7 +15,7 @@ import VisitNotesFloating from "@/components/visit-notes-floating";
 import Header from "@/components/header";
 import type { FormAction } from "@/lib/form-storage";
 import { useEffect, useState } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoading } from "@/components/ui/page-loading";
 import InlineTryAgain from "@/components/inline-try-again";
 
 import { visitProductToFormAction } from "@/components/formbuilder/extensions/consultation-visit/utils";
@@ -91,27 +91,11 @@ export default function ConsultationPage() {
         }
     }, [autoPrint, visit]);
 
-    const consultationSkeleton = (
-        <div className="min-h-screen bg-background">
-            <Header doctor={doctor} />
-            <div className="max-w-5xl mx-auto px-6 py-8 space-y-4">
-                <Skeleton className="h-10 w-64 rounded-lg" />
-                {[...Array(3)].map((_, idx) => (
-                    <div
-                        key={idx}
-                        className="bg-card/70 border rounded-2xl p-4 space-y-3"
-                    >
-                        <Skeleton className="h-5 w-40" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-
     // While loading (or before visit has arrived), always show skeleton.
     // This prevents the transient "Visit not found" flash on refresh.
-    if (loading || (!visit && !error)) return consultationSkeleton;
+    if (loading || (!visit && !error)) {
+        return <PageLoading variant="consultation" />;
+    }
 
     if (error) {
         return (
@@ -124,7 +108,9 @@ export default function ConsultationPage() {
         );
     }
 
-    if (!visit || !activeDepartment) return consultationSkeleton;
+    if (!visit || !activeDepartment) {
+        return <PageLoading variant="consultation" />;
+    }
 
     const existingProducts: FormAction[] = (activeDepartment.products || []).map(
         (line) => visitProductToFormAction(line as any),

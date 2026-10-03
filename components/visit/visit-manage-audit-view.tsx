@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { PageLoading } from "@/components/ui/page-loading"
 import {
   Select,
   SelectContent,
@@ -591,24 +592,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
 
   // Loading State
   if (loading && !visit) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
-        <Header doctor={doctor} />
-        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-          <div className="flex items-center justify-between">
-            <Skeleton className="h-10 w-48 rounded-lg" />
-            <Skeleton className="h-10 w-32 rounded-lg" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Skeleton className="h-28 rounded-xl" />
-            <Skeleton className="h-28 rounded-xl" />
-            <Skeleton className="h-28 rounded-xl" />
-            <Skeleton className="h-28 rounded-xl" />
-          </div>
-          <Skeleton className="h-96 rounded-2xl" />
-        </main>
-      </div>
-    )
+    return <PageLoading variant="dashboard" />
   }
 
   // Error / Not Found State
