@@ -327,7 +327,7 @@ export function BillingPreviewSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Billing Invoice Preview"
-        className={`absolute right-0 top-16 h-[calc(100vh-4rem)] w-[min(92vw,72rem)] border-l border-border bg-background dark:bg-slate-900 shadow-2xl transition-transform duration-200 ease-out pointer-events-auto ${open ? "translate-x-0" : "translate-x-full"}`}
+        className={`absolute right-0 top-0 h-full w-[min(92vw,72rem)] border-l border-border bg-background dark:bg-slate-900 shadow-2xl transition-transform duration-200 ease-out pointer-events-auto ${open ? "translate-x-0" : "translate-x-full"}`}
       >
         <div className="flex h-full flex-col">
           <div className="border-b border-border/70 px-4 py-4">

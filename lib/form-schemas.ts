@@ -82,16 +82,28 @@ export const loginFormSchema = z.object({
 });
 export type LoginFormValues = z.infer<typeof loginFormSchema>;
 
-/** Register: full name + at least one contact (email and/or phone) + password. */
+/** Register: full name + gender + at least one contact (email and/or phone) + password. */
 export const registerFormSchema = z
   .object({
     name: requiredString("Full name is required"),
+    gender: z.enum(["MALE", "FEMALE"], {
+      required_error: "Gender is required",
+      invalid_type_error: "Gender is required",
+    }),
     email: z.string().trim(),
     phone: z.string().trim(),
     password: passwordSchema,
   })
   .superRefine((data, ctx) => {
-    const { email, phone, password, name } = data;
+    const { email, phone, password, name, gender } = data;
+
+    if (!gender) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["gender"],
+        message: "Gender is required",
+      });
+    }
 
     if (!email && !phone) {
       ctx.addIssue({

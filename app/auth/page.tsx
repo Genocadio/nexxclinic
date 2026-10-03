@@ -97,7 +97,7 @@ useEffect(() => {
     // presence + format, password-vs-name/email rules) as you type, so its
     // live validation is debounced instead of re-parsing on every keystroke.
     mode: "onSubmit",
-    defaultValues: { name: "", email: "", phone: "", password: "" },
+    defaultValues: { name: "", gender: "MALE" as const, email: "", phone: "", password: "" },
   });
 
   useDebouncedValidation({
@@ -261,7 +261,7 @@ useEffect(() => {
     setIsLoadingForm(true);
 
     try {
-      const result = await register(values.name, values.email, values.password, values.phone);
+      const result = await register(values.name, values.email, values.password, values.phone, values.gender);
       if (result.success) {
         toast.success(result.message || "Registration successful");
         switchMode("login");
@@ -383,6 +383,36 @@ useEffect(() => {
                     className={`${baseInputClass} ${registerErrors.name ? errorInputClass : ""}`}
                   />
                   <FieldError message={registerErrors.name?.message} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Gender</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={isLoadingForm}
+                      onClick={() => registerForm.setValue("gender", "MALE", { shouldValidate: true })}
+                      className={`h-10 rounded-xl border text-sm font-medium transition-all ${
+                        registerForm.watch("gender") === "MALE"
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : "bg-white/95 dark:bg-input/30 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-input hover:bg-slate-50 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      Male
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLoadingForm}
+                      onClick={() => registerForm.setValue("gender", "FEMALE", { shouldValidate: true })}
+                      className={`h-10 rounded-xl border text-sm font-medium transition-all ${
+                        registerForm.watch("gender") === "FEMALE"
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : "bg-white/95 dark:bg-input/30 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-input hover:bg-slate-50 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      Female
+                    </button>
+                  </div>
+                  <FieldError message={registerErrors.gender?.message} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">Email Address</label>

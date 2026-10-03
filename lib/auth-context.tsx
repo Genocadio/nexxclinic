@@ -34,6 +34,7 @@ interface AuthContextType {
     email: string,
     password: string,
     phoneNumber: string,
+    gender: string,
     title?: string
   ) => Promise<{ success: boolean; message?: string }>
   logout: () => void
@@ -148,6 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email: string,
     password: string,
     phoneNumber: string,
+    gender: string,
     title?: string
   ): Promise<{ success: boolean; message?: string }> => {
     try {
@@ -156,6 +158,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email,
         password,
         phoneNumber,
+        gender,
         title
       )
       if (response.status === "SUCCESS") {

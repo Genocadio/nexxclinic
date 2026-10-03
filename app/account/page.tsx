@@ -281,7 +281,6 @@ export default function AccountPage() {
                   <option value="">Select gender</option>
                   <option value={Gender.MALE}>Male</option>
                   <option value={Gender.FEMALE}>Female</option>
-                  <option value={Gender.OTHER}>Other</option>
                 </select>
               </div>
             </div>

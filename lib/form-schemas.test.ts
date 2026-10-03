@@ -91,15 +91,28 @@ describe("registerFormSchema", () => {
     expect(
       registerFormSchema.safeParse({
         name: "Jane Doe",
+        gender: "FEMALE",
         email: "jane@clinic.com",
         phone: "",
         password: strongPassword,
       }).success,
     ).toBe(true);
   });
+  it("requires gender to be MALE or FEMALE", () => {
+    expect(
+      registerFormSchema.safeParse({
+        name: "Jane Doe",
+        gender: "OTHER",
+        email: "jane@clinic.com",
+        phone: "",
+        password: strongPassword,
+      }).success,
+    ).toBe(false);
+  });
   it("requires at least one contact (email or phone)", () => {
     const result = registerFormSchema.safeParse({
       name: "Jane Doe",
+      gender: "FEMALE",
       email: "",
       phone: "",
       password: strongPassword,
@@ -109,6 +122,7 @@ describe("registerFormSchema", () => {
   it("rejects a password containing the name", () => {
     const result = registerFormSchema.safeParse({
       name: "Bob",
+      gender: "MALE",
       email: "bob@clinic.com",
       phone: "",
       password: "Bob1234!",

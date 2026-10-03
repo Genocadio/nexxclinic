@@ -45,7 +45,7 @@ export function DashboardMobileUi({
   return (
     <>
       {mobileSearchActive && (
-        <div className="md:hidden fixed inset-0 top-16 z-50 bg-background/95 backdrop-blur-sm flex flex-col">
+        <div className="md:hidden fixed inset-0 top-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col">
           <div className="flex items-center gap-2 p-4 border-b border-border/30">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />

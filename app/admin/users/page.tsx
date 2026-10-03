@@ -1251,7 +1251,6 @@ export default function ManageUsersPage() {
                           <SelectContent>
                             <SelectItem value="MALE">Male</SelectItem>
                             <SelectItem value="FEMALE">Female</SelectItem>
-                            <SelectItem value="OTHER">Other</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1623,8 +1622,9 @@ export default function ManageUsersPage() {
                     <Input
                       placeholder="e.g. eric@clinic.rw"
                       {...registerCreate("email")}
-                      className="rounded-xl bg-white dark:bg-slate-950"
+                      className={`rounded-xl bg-white dark:bg-slate-950 ${createErrors.email ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                     />
+                    <FieldError message={createErrors.email?.message} />
                   </div>
 
                   <div className="space-y-1">
@@ -1634,8 +1634,9 @@ export default function ManageUsersPage() {
                     <Input
                       placeholder="e.g. +250788000000"
                       {...registerCreate("phoneNumber")}
-                      className="rounded-xl bg-white dark:bg-slate-950"
+                      className={`rounded-xl bg-white dark:bg-slate-950 ${createErrors.phoneNumber ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                     />
+                    <FieldError message={createErrors.phoneNumber?.message} />
                   </div>
 
                   <div className="space-y-1">
@@ -1651,21 +1652,33 @@ export default function ManageUsersPage() {
 
                   <div className="space-y-1">
                     <Label className="text-xs font-semibold text-muted-foreground">
-                      Gender
+                      Gender *
                     </Label>
                     <Select
                       value={watchCreate("gender") || ""}
-                      onValueChange={(val) => setCreateValue("gender", val)}
+                      onValueChange={(val) => setCreateValue("gender", val, { shouldValidate: true })}
                     >
-                      <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950">
+                      <SelectTrigger className={`rounded-xl bg-white dark:bg-slate-950 ${createErrors.gender ? "border-red-500 focus-visible:ring-red-300" : ""}`}>
                         <SelectValue placeholder="Select gender" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="MALE">Male</SelectItem>
                         <SelectItem value="FEMALE">Female</SelectItem>
-                        <SelectItem value="OTHER">Other</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FieldError message={createErrors.gender?.message} />
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      Date of Birth *
+                    </Label>
+                    <Input
+                      type="date"
+                      {...registerCreate("dateOfBirth")}
+                      className={`rounded-xl bg-white dark:bg-slate-950 ${createErrors.dateOfBirth ? "border-red-500 focus-visible:ring-red-300" : ""}`}
+                    />
+                    <FieldError message={createErrors.dateOfBirth?.message} />
                   </div>
                 </div>
 
@@ -1674,6 +1687,7 @@ export default function ManageUsersPage() {
                   <Label className="text-xs font-semibold text-muted-foreground">
                     Assigned Roles *
                   </Label>
+                  <FieldError message={createErrors.roles?.message} />
                   <div className="flex flex-wrap gap-2">
                     {ALL_ROLES.map((role) => {
                       if (role === ADMIN_ROLE && !canManageAdminUserAccounts) {

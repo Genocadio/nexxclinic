@@ -987,7 +987,7 @@ export function VisitSettingsPanel({
         role="dialog"
         aria-modal="true"
         aria-label="Visit Settings"
-        className={`absolute left-0 top-16 h-[calc(100vh-4rem)] w-[min(92vw,48rem)] border-r border-border bg-background dark:bg-slate-900 shadow-2xl transition-transform duration-200 ease-out ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`absolute left-0 top-0 h-full w-[min(92vw,48rem)] border-r border-border bg-background dark:bg-slate-900 shadow-2xl transition-transform duration-200 ease-out ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex h-full flex-col">
           {/* Header */}

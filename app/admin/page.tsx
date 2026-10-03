@@ -1,6 +1,6 @@
 "use client"
 
-import Header from "@/components/header"
+import FloatingHeader from "@/components/floating-header"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { Package, ShieldCheck, Building2, Users, BadgeInfo, FileText, Settings } from "lucide-react"
@@ -24,20 +24,20 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header doctor={doctor} />
-      <main className="max-w-4xl mx-auto px-6 py-12 space-y-8 flex flex-col justify-center items-center">
+      <FloatingHeader doctor={doctor} />
+      <main className="w-[92%] max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8 flex flex-col justify-center items-center">
         {/* Centered header aligned with dashboard-header */}
-        <div className="text-center space-y-2 mb-4 w-full">
-          <h1 className="text-3xl font-bold text-foreground block w-full">
+        <div className="text-center space-y-2 mb-2 w-full">
+          <h1 className="text-3xl sm:text-4xl font-bold text-foreground block w-full">
             Admin Dashboard
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm sm:text-base">
             Manage system configuration and settings.
           </p>
         </div>
 
-        {/* Admin action cards centered and fully responsive */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-3xl">
+        {/* Admin action cards optimized for 50% reduced empty space across screen */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 w-full">
           {visibleAdminActions.map(({ label, icon: Icon, path }) => (
             <div
               key={label}

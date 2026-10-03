@@ -177,7 +177,7 @@ export function useSetInitialPassword() {
 export function useRegister() {
   const [registerMutation, { loading, error }] = useMutation(REGISTER_MUTATION)
 
-  const register = async (name: string, email: string, password: string, phoneNumber: string, _title?: string) => {
+  const register = async (name: string, email: string, password: string, phoneNumber: string, gender: string, _title?: string) => {
     try {
       const [firstName, ...lastNameParts] = name.trim().split(/\s+/).filter(Boolean)
       const lastName = lastNameParts.length > 0 ? lastNameParts.join(' ') : null
@@ -187,6 +187,7 @@ export function useRegister() {
           input: {
             firstName: firstName || name,
             lastName,
+            gender,
             email,
             password,
             phoneNumber,

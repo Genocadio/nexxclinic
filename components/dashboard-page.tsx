@@ -30,7 +30,7 @@ import { GET_BILL_BY_VISIT_QUERY, VISITS_QUERY } from "@/hooks/queries"
 import { FINALISE_VISIT_MUTATION } from "@/hooks/mutations/visits"
 import { mapGqlVisitListItem } from "@/lib/gql-mappers"
 import { normalizeVisitVitalSigns } from "@/hooks/visits/vital-signs"
-import Header from "@/components/header"
+import FloatingHeader from "@/components/floating-header"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardStats } from "@/components/dashboard/dashboard-stats"
@@ -1785,14 +1785,13 @@ export default function DashboardPage() {
     refetchVisits()
   }
   return (
-    <div className="min-h-screen bg-background">
-      <Header doctor={doctor} />
+    <div className="h-screen bg-background overflow-hidden flex flex-col">
+      <FloatingHeader doctor={doctor} />
 
-      <div className="flex h-[calc(100vh-64px)] overflow-hidden">
-        {/* Main content area */}
-        <div className="flex-1 flex flex-col min-h-0 p-4 md:p-6 overflow-hidden">
-          <div className="max-w-6xl w-full mx-auto flex-1 flex flex-col min-h-0 gap-4">
-            <div className="shrink-0 space-y-3">
+      <div className="flex-1 flex flex-col min-h-0 py-3.5 sm:py-4 px-3 sm:px-4 md:px-6 overflow-hidden">
+        <div className="w-[94%] 2xl:w-[92%] max-w-[96rem] mx-auto flex-1 flex flex-col min-h-0">
+          {(canSeeRegisterAndCreate || showMetrics) ? (
+            <div className="shrink-0 mb-3 space-y-3">
               <DashboardHeader
                 canSeeRegisterAndCreate={canSeeRegisterAndCreate}
                 onRegisterNewPatient={() => setShowPatientRegistrationModal(true)}
@@ -1809,12 +1808,13 @@ export default function DashboardPage() {
                 }
               />
             </div>
+          ) : null}
 
-            <div className="flex-1 min-h-0 bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl shadow-lg flex flex-col overflow-hidden">
-              {/* Status filters & search controls (fixed at top of visit container) */}
-              <div className="p-4 md:px-6 md:py-3.5 border-b border-border/30 shrink-0 bg-card/40 backdrop-blur-md">
-                {/* Desktop filters - visible on md and up */}
-                <div className="hidden md:flex gap-2 flex-wrap justify-center items-center">
+          <div className="flex-1 min-h-0 bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl shadow-lg flex flex-col overflow-hidden">
+            {/* Status filters & search controls (fixed at top of visit container) */}
+            <div className="p-4 md:px-6 md:py-3.5 border-b border-border/30 shrink-0 bg-card/40 backdrop-blur-md">
+              {/* Desktop filters - visible on md and up */}
+              <div className="hidden md:flex gap-2 flex-wrap justify-center items-center">
                   {availableTabs.map((tab) => {
                     const isActive = statusFilter === tab.id
                     const count = filterCounts[tab.id] ?? 0
@@ -1864,7 +1864,7 @@ export default function DashboardPage() {
                   })}
                 </div>
                 {/* Mobile filter, layout switch, and search controls */}
-                <div className="md:hidden">
+                <div className="md:hidden px-11 sm:px-14 md:px-0">
                   {!mobileSearchActive ? (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
@@ -3219,7 +3219,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-      </div>
 
       <DashboardMobileUi
         canSeeRegisterAndCreate={canSeeRegisterAndCreate}
