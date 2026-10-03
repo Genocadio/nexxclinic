@@ -34,13 +34,17 @@ export function ProductListenerWithVisitSync({
 
   return (
     <div className="my-3">
-      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5">
+      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
         <Package className="h-3.5 w-3.5 text-orange-600" />
         {block.label || "Products / Procedures"}
         {block.required && <span className="text-red-500">*</span>}
       </label>
       <div
-        className={`space-y-2 p-3 rounded-lg border ${isError ? "border-red-400 bg-red-50/20 dark:bg-red-950/10" : "border-orange-200 dark:border-orange-800 bg-orange-50/30 dark:bg-orange-950/10"}`}
+        className={`space-y-3 p-3.5 rounded-xl border transition-colors shadow-xs ${
+          isError
+            ? "border-red-400 bg-red-50/40 dark:bg-red-950/20"
+            : "border-orange-200/80 dark:border-orange-800/70 bg-orange-50/50 dark:bg-orange-950/30"
+        }`}
       >
         {edit && !handlers.hideProductAddButton && (
           <div
@@ -54,9 +58,9 @@ export function ProductListenerWithVisitSync({
                 variant="outline"
                 disabled={locked}
                 onClick={() => handlers.onOpenProductPicker?.()}
-                className="inline-flex h-9 px-4 rounded-xl gap-2 border-border/70 bg-card/70 hover:bg-card shadow-sm"
+                className="inline-flex h-9 px-4 rounded-xl gap-2 border-orange-200/80 dark:border-orange-800/60 bg-white dark:bg-slate-900 hover:bg-orange-50 dark:hover:bg-slate-850 text-foreground text-sm font-medium shadow-xs transition-colors"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4 text-orange-600" />
                 {block.label || "Add Product"}
               </Button>
             </ProductLockedTooltip>

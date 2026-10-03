@@ -98,11 +98,11 @@ export function TableAnswerBlock({
   const ctx = context ?? { doctor: null, clinicProfile: null };
 
   return (
-    <div className="my-4 overflow-x-auto">
+    <div className="my-4 overflow-x-auto rounded-lg border border-border shadow-xs">
       <table className="w-full border-collapse text-sm">
         <tbody>
           {Array.from({ length: rows }).map((_, ri) => (
-            <tr key={ri}>
+            <tr key={ri} className="border-b border-border/80 last:border-b-0">
               {Array.from({ length: cols }).map((_, ci) => {
                 const cell = getCell(ri, ci);
                 const cellContent = replacePlaceholders(
@@ -129,7 +129,7 @@ export function TableAnswerBlock({
                   return (
                     <td
                       key={ci}
-                      className={`border border-border px-3 py-2 text-sm min-w-[80px] select-none ${cAlign} ${cStyle}`}
+                      className={`border-r border-border/80 last:border-r-0 px-3 py-2 text-sm min-w-[80px] select-none bg-slate-50/50 dark:bg-slate-900/30 text-foreground ${cAlign} ${cStyle}`}
                     >
                       {cellContent}
                     </td>
@@ -138,9 +138,9 @@ export function TableAnswerBlock({
                 return (
                   <td
                     key={ci}
-                    className={`border border-border px-2 py-1.5 min-w-[80px] bg-teal-50/30 dark:bg-teal-900/10 ${cAlign} ${cStyle}`}
+                    className={`border-r border-border/80 last:border-r-0 px-2.5 py-2 min-w-[80px] bg-teal-50/60 dark:bg-teal-950/30 ${cAlign} ${cStyle}`}
                   >
-                    <div className="flex flex-wrap items-baseline gap-0.5">
+                    <div className="flex flex-wrap items-baseline gap-1">
                       {parts
                         .filter((p) => p.length > 0)
                         .map((part, pi) => {

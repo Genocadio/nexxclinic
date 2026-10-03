@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Search, X, Pill, Filter } from "lucide-react"
 import { useProductSearch } from "@/hooks/products"
+import { formatRWF } from "@/lib/utils"
 
 type ProductTypeFilter = 'ALL' | 'DRUG' | 'MEDICAL_ACT' | 'BIOLOGICAL_ACT' | 'CONSUMABLE_DEVICE'
 
@@ -411,7 +412,7 @@ export default function AddActionConsumableModal({
                                     })
                                   ) : (
                                     <div className="text-muted-foreground flex items-center gap-2">
-                                      <span>{pricing.price.toLocaleString()} RWF</span>
+                                      <span>{formatRWF(pricing.price)}</span>
                                       {linkedInsurances.length > 0 && (
                                         <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded font-medium">
                                           Private (No Insurance Coverage)
@@ -502,12 +503,12 @@ export default function AddActionConsumableModal({
                                 </span>
                               )}
                             </div>
-                            <span className="font-semibold">{pricing.price.toLocaleString()} RWF</span>
+                            <span className="font-semibold">{formatRWF(pricing.price)}</span>
                           </div>
                         )}
                         {pricing.allCoveragesZeroOrNotCovered && (
                           <div className="mt-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 text-xs text-amber-900 dark:text-amber-200">
-                            ⚠️ This product pays 0 RWF / is not covered by the patient&apos;s insurance. It will bill under Private pricing ({Number(selectedItem.clinicPrice ?? selectedItem.privateRhicPrice ?? 0).toLocaleString()} RWF).
+                            ⚠️ This product pays 0 RWF / is not covered by the patient&apos;s insurance. It will bill under Private pricing ({formatRWF(Number(selectedItem.clinicPrice ?? selectedItem.privateRhicPrice ?? 0))}).
                           </div>
                         )}
                       </div>
@@ -540,7 +541,7 @@ export default function AddActionConsumableModal({
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Total:</span>
                         <span className="font-semibold text-foreground">
-                          {(pricing.price * qtyNum).toLocaleString()} RWF
+                          {formatRWF(pricing.price * qtyNum)}
                         </span>
                       </div>
                     )

@@ -33,20 +33,20 @@ export function EntryList<T extends { id: string }>({
     return <p className="text-xs text-muted-foreground italic">{emptyLabel}</p>;
   }
   return (
-    <div className="space-y-1.5 pt-2 border-t border-border/50">
+    <div className="space-y-1.5 pt-2 border-t border-border/60">
       {items.map((item) => (
         <div
           key={item.id}
-          className="flex items-start gap-2 px-2.5 py-1.5 rounded-md border border-border bg-background text-sm"
+          className="flex items-start gap-2 px-3 py-2 rounded-lg border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900/90 text-sm shadow-xs transition-colors"
         >
           {render(item)}
           {onRemove && (
             <button
               type="button"
               onClick={() => onRemove(item.id)}
-              className="mt-0.5 p-0.5 text-muted-foreground hover:text-destructive shrink-0"
+              className="mt-0.5 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 transition-colors"
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="h-3.5 w-3.5" />
             </button>
           )}
         </div>

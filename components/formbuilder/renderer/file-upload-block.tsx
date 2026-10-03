@@ -88,15 +88,18 @@ export function FileUploadAnswerBlock({
       ) : value.length > 0 ? (
         <ul className="mt-2 space-y-1.5">
           {value.map((file, index) => (
-            <li key={index} className="flex items-center gap-2 text-sm">
+            <li
+              key={index}
+              className="flex items-center gap-2.5 text-sm p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 text-foreground shadow-xs"
+            >
               {isImage(file) ? (
                 <img
                   src={getMediaUrl(file.url)}
                   alt={file.name}
-                  className="h-10 w-10 rounded object-cover border border-border flex-shrink-0"
+                  className="h-10 w-10 rounded-md object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
                 />
               ) : (
-                <div className="h-10 w-10 rounded border border-border bg-muted flex items-center justify-center flex-shrink-0">
+                <div className="h-10 w-10 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
                   <svg
                     className="h-5 w-5 text-muted-foreground"
                     fill="none"
@@ -112,12 +115,12 @@ export function FileUploadAnswerBlock({
                   </svg>
                 </div>
               )}
-              <span className="truncate flex-1">{file.name}</span>
+              <span className="truncate flex-1 font-medium">{file.name}</span>
               {edit && (
                 <button
                   type="button"
                   onClick={() => removeFile(index)}
-                  className="text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0"
+                  className="p-1 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors flex-shrink-0"
                   aria-label={`Remove ${file.name}`}
                 >
                   <svg

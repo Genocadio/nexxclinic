@@ -13,7 +13,7 @@ function ReadonlyValue({
   emptyLabel?: string;
 }) {
   return (
-    <span className="inline-block min-h-7 px-2 py-1 text-sm rounded border border-dashed border-border bg-muted/30">
+    <span className="inline-flex items-center min-h-7 px-2.5 py-0.5 text-sm rounded-md border border-slate-200 dark:border-slate-700/80 bg-slate-100/90 dark:bg-slate-800/80 text-foreground font-medium shadow-xs">
       {value || emptyLabel}
     </span>
   );
@@ -49,11 +49,11 @@ export function SignatureCanvas({
         <img
           src={value}
           alt="Signature"
-          className="max-w-full h-20 object-contain border-b-2 border-dashed border-slate-400 dark:border-slate-600 rounded bg-slate-50/40 dark:bg-slate-800/20"
+          className="max-w-full h-20 object-contain border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg bg-slate-100/80 dark:bg-slate-900/70 shadow-xs"
         />
       </div>
     ) : (
-      <div className="h-20 rounded border-b-2 border-dashed border-slate-400 dark:border-slate-600 bg-slate-50/40 dark:bg-slate-800/20 flex items-center justify-center text-xs text-muted-foreground">
+      <div className="h-20 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-900/70 flex items-center justify-center text-xs text-muted-foreground shadow-xs">
         No signature
       </div>
     );
@@ -116,12 +116,12 @@ export function SignatureCanvas({
           ref={canvasRef}
           width={400}
           height={80}
-          className={`w-full border-b-2 border-dashed rounded cursor-crosshair touch-none transition-colors ${
+          className={`w-full border-2 border-dashed rounded-lg cursor-crosshair touch-none transition-colors shadow-xs ${
             value
-              ? "border-emerald-400 bg-emerald-50/10 dark:bg-emerald-900/5"
+              ? "border-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/20"
               : isError
-                ? "border-red-400 bg-red-50/30 dark:bg-red-950/20"
-                : "border-slate-400 dark:border-slate-600 bg-slate-50/40 dark:bg-slate-800/20"
+                ? "border-red-400 bg-red-50/50 dark:bg-red-950/30"
+                : "border-slate-300 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-900/70 hover:bg-slate-100 dark:hover:bg-slate-900"
           }`}
           onMouseDown={startDraw}
           onMouseMove={draw}
@@ -138,12 +138,12 @@ export function SignatureCanvas({
         )}
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-muted-foreground/50">Sign above</span>
+        <span className="text-[10px] text-muted-foreground/60">Sign above</span>
         {value && (
           <button
             type="button"
             onClick={clear}
-            className="text-[10px] text-muted-foreground hover:text-destructive"
+            className="text-[10px] text-muted-foreground hover:text-destructive transition-colors font-medium"
           >
             Clear
           </button>
@@ -168,9 +168,9 @@ export function AnswerInlineField({
 }) {
   const w = INLINE_WIDTH[field.width ?? "sm"];
   const errorClass = isError
-    ? "border-red-400 ring-1 ring-red-400/50 bg-red-50/30 dark:bg-red-950/20"
-    : "border-teal-300 dark:border-teal-600 bg-teal-50/50 dark:bg-teal-900/20";
-  const base = `${w} h-7 px-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-teal-400 ${errorClass}`;
+    ? "border-red-400 ring-2 ring-red-400/25 bg-red-50/70 dark:bg-red-950/40 text-foreground"
+    : "border-teal-300/80 dark:border-teal-600/70 bg-teal-50/80 dark:bg-teal-950/60 hover:bg-teal-100/60 dark:hover:bg-teal-950/80 focus:bg-background dark:focus:bg-slate-950 text-foreground shadow-xs";
+  const base = `${w} h-7 px-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-400/30 transition-colors ${errorClass}`;
 
   if (!edit) {
     return <ReadonlyValue value={value} emptyLabel={field.placeholder || "—"} />;
@@ -221,12 +221,12 @@ export function AnswerInlineField({
       <textarea
         placeholder={field.placeholder || ""}
         rows={2}
-        className={`w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-teal-400 resize-none mt-1 ${errorClass}`}
+        className={`w-full px-2.5 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-400/30 resize-none mt-1 transition-colors ${errorClass}`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
     ) : (
-      <span className="inline-block min-w-32 px-2 py-1 text-sm rounded border border-dashed border-border bg-muted/30 whitespace-pre-wrap">
+      <span className="inline-block min-w-32 px-2.5 py-1 text-sm rounded-md border border-slate-200 dark:border-slate-700/80 bg-slate-100/80 dark:bg-slate-800/80 whitespace-pre-wrap shadow-xs">
         {value || field.placeholder || "—"}
       </span>
     );
@@ -301,36 +301,42 @@ export function ChoiceGroup({
   };
   return (
     <div className="my-3">
-      <label className="text-sm font-medium block mb-1.5">
+      <label className="text-sm font-medium block mb-1.5 text-foreground">
         {block.label}
         {block.required && <span className="text-red-500 ml-1">*</span>}
       </label>
       <div
-        className={`space-y-1.5 ${isError ? "rounded-md p-2 -m-2 ring-1 ring-red-400/50 bg-red-50/20 dark:bg-red-950/10" : ""}`}
+        className={`space-y-1.5 ${isError ? "rounded-lg p-2 -m-2 ring-2 ring-red-400/30 bg-red-50/40 dark:bg-red-950/20" : ""}`}
       >
-        {(block.options ?? []).map((opt: string) => (
-          <label
-            key={opt}
-            className="flex items-center gap-2 text-sm cursor-pointer"
-          >
-            <input
-              type={type}
-              name={type === "radio" ? `radio_${block.id}` : undefined}
-              checked={
-                type === "checkbox"
-                  ? Array.isArray(selected) && selected.includes(opt)
-                  : selected === opt
-              }
-              onChange={() => toggle(opt)}
-              className="h-4 w-4 rounded border-2 border-border accent-primary"
-              disabled={!edit}
-            />
-            {opt}
-          </label>
-        ))}
+        {(block.options ?? []).map((opt: string) => {
+          const isChecked =
+            type === "checkbox"
+              ? Array.isArray(selected) && selected.includes(opt)
+              : selected === opt;
+          return (
+            <label
+              key={opt}
+              className={`flex items-center gap-2.5 text-sm px-3 py-2 rounded-lg border transition-all ${
+                isChecked
+                  ? "border-primary/50 bg-primary/5 dark:bg-primary/10 text-foreground font-medium shadow-xs"
+                  : "border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 text-foreground hover:bg-slate-100/80 dark:hover:bg-slate-900"
+              } ${!edit ? "cursor-default opacity-85" : "cursor-pointer"}`}
+            >
+              <input
+                type={type}
+                name={type === "radio" ? `radio_${block.id}` : undefined}
+                checked={isChecked}
+                onChange={() => toggle(opt)}
+                className="h-4 w-4 rounded border-2 border-slate-300 dark:border-slate-600 accent-primary cursor-pointer disabled:cursor-default"
+                disabled={!edit}
+              />
+              <span className="flex-1">{opt}</span>
+            </label>
+          );
+        })}
       </div>
       {isError && (
-        <p className="text-xs text-red-500 mt-1">
+        <p className="text-xs text-red-500 mt-1.5">
           {type === "checkbox"
             ? "Please select at least one option."
             : "Please select an option."}

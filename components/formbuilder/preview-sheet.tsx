@@ -99,8 +99,8 @@ export function PreviewSheet({
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-8 py-10">
+        <div className="flex-1 overflow-y-auto bg-muted/20 dark:bg-slate-950/40 p-4 sm:p-8">
+          <div className="max-w-2xl mx-auto px-6 sm:px-8 py-8 sm:py-10 bg-card rounded-2xl border border-border/80 shadow-sm">
             <FormRenderer
               key={renderKey}
               form={form}

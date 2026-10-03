@@ -31,6 +31,7 @@ import PatientHistorySidePane from "@/components/patient-history-side-pane";
 import VisitNotesFloating from "@/components/visit-notes-floating";
 import InlineTryAgain from "@/components/inline-try-again";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -768,9 +769,31 @@ export function StandaloneConsultationView({
 
   if (loading && !rendererForm) {
     return (
-      <div className="flex items-center justify-center py-24 text-muted-foreground gap-2">
-        <Loader2 className="h-5 w-5 animate-spin" />
-        Loading consultation form…
+      <div className="space-y-6 animate-pulse py-2">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-64 rounded-lg" />
+          <Skeleton className="h-4 w-96 max-w-full rounded-md" />
+        </div>
+        <div className="space-y-4">
+          {[...Array(4)].map((_, i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-border/60 bg-card p-5 space-y-3 shadow-xs"
+            >
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-5 w-40 rounded-md" />
+                <Skeleton className="h-4 w-16 rounded-full" />
+              </div>
+              <Skeleton className="h-10 w-full rounded-md" />
+              {i % 2 === 1 && (
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <Skeleton className="h-10 w-full rounded-md" />
+                  <Skeleton className="h-10 w-full rounded-md" />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -1121,9 +1144,9 @@ export function StandaloneConsultationView({
               <div className="space-y-2 rounded-xl border border-border p-4 bg-background">
                 <div className="text-sm font-semibold">Service department</div>
                 {supportDepartmentsLoading ? (
-                  <p className="text-sm text-muted-foreground">
-                    Loading services…
-                  </p>
+                  <div className="space-y-1.5 py-1">
+                    <Skeleton className="h-9 w-full rounded-md" />
+                  </div>
                 ) : supportDepartmentsError ? (
                   <p className="text-sm text-destructive">
                     Failed to load services: {supportDepartmentsError}
@@ -1219,9 +1242,10 @@ export function StandaloneConsultationView({
                     {showProductSuggestionPanel && (
                       <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-border bg-popover shadow-lg">
                         {requestProductsLoading ? (
-                          <p className="px-3 py-2 text-sm text-muted-foreground">
-                            Searching…
-                          </p>
+                          <div className="p-3 space-y-2">
+                            <Skeleton className="h-4 w-3/4 rounded" />
+                            <Skeleton className="h-4 w-1/2 rounded" />
+                          </div>
                         ) : requestProductsError ? (
                           <p className="px-3 py-2 text-sm text-destructive">
                             Search failed.

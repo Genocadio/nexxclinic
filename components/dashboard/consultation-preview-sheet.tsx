@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { FormRenderer } from "@/components/formbuilder/form-renderer"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useStandaloneAnswer } from "@/hooks/standalone-forms/visit-answers"
 import {
   mapStandaloneAnswerToSavedForm,
@@ -121,9 +122,22 @@ export function ConsultationPreviewSheet({
           <ScrollArea className="h-[calc(100vh-88px)] px-4 py-4">
             <div className="space-y-4">
               {loading && (
-                <p className="text-sm text-muted-foreground">
-                  Loading consultation answers...
-                </p>
+                <div className="mx-auto w-full max-w-3xl rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4 animate-pulse">
+                  <Skeleton className="h-7 w-56 rounded-lg" />
+                  <Skeleton className="h-4 w-80 max-w-full rounded-md" />
+                  <div className="space-y-3 pt-2">
+                    <Skeleton className="h-5 w-36 rounded-md" />
+                    <Skeleton className="h-12 w-full rounded-lg" />
+                  </div>
+                  <div className="space-y-3 pt-2">
+                    <Skeleton className="h-5 w-44 rounded-md" />
+                    <Skeleton className="h-24 w-full rounded-lg" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <Skeleton className="h-10 w-full rounded-lg" />
+                    <Skeleton className="h-10 w-full rounded-lg" />
+                  </div>
+                </div>
               )}
 
               {!loading && !answerId && visitDepartment && (

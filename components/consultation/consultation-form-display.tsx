@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
 import InlineTryAgain from "@/components/inline-try-again"
 import { FormFieldRenderer } from "./form-field-renderer"
 import type { BackendDepartmentForm } from "./consultation-form-utils"
@@ -70,7 +71,15 @@ export function ConsultationFormDisplay({
       </CardHeader>
       <CardContent className="space-y-4">
         {formLoading ? (
-          <p className="text-sm text-muted-foreground">Loading latest finalized department form...</p>
+          <div className="space-y-4 animate-pulse">
+            <Skeleton className="h-5 w-48 rounded-md" />
+            <Skeleton className="h-10 w-full rounded-md" />
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <Skeleton className="h-10 w-full rounded-md" />
+              <Skeleton className="h-10 w-full rounded-md" />
+            </div>
+            <Skeleton className="h-24 w-full rounded-md" />
+          </div>
         ) : formLoadFailed ? (
           <InlineTryAgain onTryAgain={() => { void onFormReload?.() }} />
         ) : !departmentForm ? (

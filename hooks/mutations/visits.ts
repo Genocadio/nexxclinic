@@ -493,14 +493,19 @@ export const ADD_DEPARTMENT_TO_VISIT_MUTATION = gql`
           completedAt
           createdAt
           updatedAt
-          isChildDepartment
-          childDepartmentName
-          childDepartmentType
           profile {
             id
             name
             isDefault
             products {
+              id
+              name
+            }
+          }
+          childVisitDepartments {
+            id
+            status
+            department {
               id
               name
             }

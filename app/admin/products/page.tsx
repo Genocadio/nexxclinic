@@ -1108,6 +1108,7 @@ export default function ManageProductsPage() {
                         </Label>
                         <Input
                           type="number"
+                          step="any"
                           value={settingsPrivatePrice}
                           onChange={(e) =>
                             setSettingsPrivatePrice(e.target.value)
@@ -1124,6 +1125,7 @@ export default function ManageProductsPage() {
                         </Label>
                         <Input
                           type="number"
+                          step="any"
                           value={settingsClinicPrice}
                           onChange={(e) =>
                             setSettingsClinicPrice(e.target.value)
@@ -1326,6 +1328,7 @@ export default function ManageProductsPage() {
                           </Label>
                           <Input
                             type="number"
+                            step="any"
                             placeholder="Enter coverage price"
                             value={newCoveragePrice}
                             onChange={(e) => setNewCoveragePrice(e.target.value)}
@@ -1574,6 +1577,7 @@ export default function ManageProductsPage() {
                     </Label>
                     <Input
                       type="number"
+                      step="any"
                       placeholder="e.g. 5000"
                       {...registerCreate("privatePrice")}
                       className={`rounded-xl bg-white dark:bg-slate-950 ${createErrors.privatePrice ? "border-red-500 focus-visible:ring-red-300" : ""}`}
@@ -1587,6 +1591,7 @@ export default function ManageProductsPage() {
                     </Label>
                     <Input
                       type="number"
+                      step="any"
                       placeholder="e.g. 3500"
                       {...registerCreate("clinicPrice")}
                       className="rounded-xl bg-white dark:bg-slate-950"

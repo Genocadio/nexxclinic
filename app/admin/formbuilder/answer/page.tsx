@@ -6,6 +6,7 @@ import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
   ClipboardList,
@@ -187,9 +188,20 @@ function FormAnswerPageInner() {
 
             <div className="max-h-[calc(100vh-240px)] overflow-y-auto p-3 space-y-2">
               {answersLoading && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground px-2 py-3">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading answers…
+                <div className="space-y-2 py-1 animate-pulse">
+                  {[...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="rounded-xl border border-border p-3 space-y-2"
+                    >
+                      <div className="flex justify-between">
+                        <Skeleton className="h-4 w-16 rounded" />
+                        <Skeleton className="h-3 w-10 rounded" />
+                      </div>
+                      <Skeleton className="h-3 w-32 rounded" />
+                      <Skeleton className="h-3 w-24 rounded" />
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -260,9 +272,20 @@ function FormAnswerPageInner() {
 
           <section className="min-w-0">
             {answerId && selectedAnswerLoading && (
-              <div className="rounded-2xl border border-border bg-card p-8 shadow-sm flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading selected answer…
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4 animate-pulse">
+                <Skeleton className="h-8 w-64 rounded-lg" />
+                <Skeleton className="h-4 w-96 max-w-full rounded-md" />
+                <div className="space-y-4 pt-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="rounded-xl border border-border/70 p-4 space-y-3"
+                    >
+                      <Skeleton className="h-5 w-36 rounded" />
+                      <Skeleton className="h-10 w-full rounded-md" />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

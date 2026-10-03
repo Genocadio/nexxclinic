@@ -14,7 +14,7 @@
  *
  * Exit code 1 on any enum mismatch. Run via: bun scripts/validate-graphql-schema.ts
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -28,12 +28,14 @@ import {
 import ts from "typescript";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const BACKEND_DIR = join(ROOT, "..", "NexxClinicBackend", "src", "main", "resources", "graphql");
+const SCHEMA_DIR = existsSync(BACKEND_DIR) ? BACKEND_DIR : ROOT;
 const SCHEMA_FILES = ["user.graphqls", "forms.graphqls", "visits.graphqls", "Newforms.graphqls"];
 const TYPES_FILE = join(ROOT, "lib", "api-types.ts");
 
 // ── Load & parse schema ────────────────────────────────────────────────────────
 const schemaSdl = SCHEMA_FILES.map((file) =>
-  readFileSync(join(ROOT, file), "utf8"),
+  readFileSync(join(SCHEMA_DIR, file), "utf8"),
 ).join("\n");
 
 let schema;

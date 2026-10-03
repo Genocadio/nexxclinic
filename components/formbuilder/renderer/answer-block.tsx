@@ -52,7 +52,13 @@ export function AnswerBlock({
   ]
     .filter(Boolean)
     .join(" ");
-  const inputBase = `w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 bg-background transition-colors ${isError ? "border-red-400 ring-1 ring-red-400/40 bg-red-50/20 dark:bg-red-950/10" : "border-input"}`;
+  const inputBase = `w-full rounded-md px-3 py-2 text-sm transition-all duration-150 shadow-xs placeholder:text-muted-foreground/60 ${
+    isError
+      ? "border border-red-400 ring-2 ring-red-400/20 bg-red-50/50 dark:bg-red-950/30 text-foreground"
+      : edit
+        ? "border border-slate-300 dark:border-slate-700/80 bg-slate-50/90 dark:bg-slate-900/80 text-foreground hover:bg-slate-100/70 dark:hover:bg-slate-900 focus:bg-background dark:focus:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary"
+        : "border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/50 text-foreground"
+  }`;
 
   switch (block.type) {
     case "heading1":
@@ -170,17 +176,26 @@ export function AnswerBlock({
     case "checkbox_single":
       return (
         <div
-          className={`my-2 flex items-start gap-2.5 ${isError ? "rounded-md p-1 -m-1 ring-1 ring-red-400/50 bg-red-50/20 dark:bg-red-950/10" : ""}`}
+          className={`my-2 flex items-start gap-2.5 p-2.5 rounded-lg border transition-all ${
+            isError
+              ? "border-red-400 ring-2 ring-red-400/20 bg-red-50/50 dark:bg-red-950/30"
+              : Boolean(val)
+                ? "border-primary/40 bg-primary/5 dark:bg-primary/10 shadow-xs"
+                : "border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 hover:bg-slate-100/70 dark:hover:bg-slate-900"
+          }`}
         >
           <input
             type="checkbox"
             id={`chk_${block.id}`}
             checked={Boolean(val)}
             onChange={(e) => onAnswerChange(block.id, e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-2 border-border accent-primary"
+            className="mt-0.5 h-4 w-4 rounded border-2 border-slate-300 dark:border-slate-600 accent-primary cursor-pointer disabled:cursor-default"
             disabled={!edit}
           />
-          <label htmlFor={`chk_${block.id}`} className="text-sm cursor-pointer">
+          <label
+            htmlFor={`chk_${block.id}`}
+            className="text-sm font-medium text-foreground cursor-pointer flex-1"
+          >
             {block.label}
             {block.required && <span className="text-red-500 ml-1">*</span>}
           </label>

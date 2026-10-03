@@ -66,13 +66,17 @@ export function DiagnosticAnswerBlock({
 
   return (
     <div className="my-3">
-      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5">
+      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
         <Stethoscope className="h-3.5 w-3.5 text-emerald-600" />
         {block.label || "Diagnoses"}
         {block.required && <span className="text-red-500">*</span>}
       </label>
       <div
-        className={`space-y-2 p-3 rounded-lg border ${isError ? "border-red-400 bg-red-50/20 dark:bg-red-950/10" : "border-emerald-200 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/10"}`}
+        className={`space-y-3 p-3.5 rounded-xl border transition-colors shadow-xs ${
+          isError
+            ? "border-red-400 bg-red-50/40 dark:bg-red-950/20"
+            : "border-emerald-200/80 dark:border-emerald-800/70 bg-emerald-50/50 dark:bg-emerald-950/30"
+        }`}
       >
         {edit && (
           <DiagnosticDraft
@@ -130,13 +134,13 @@ function DiagnosticDraft({
         onChange={(e) => setDraftDiag(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && submit()}
         placeholder={placeholder}
-        className="h-8 text-sm"
+        className="h-8 text-sm bg-white dark:bg-slate-900 border-emerald-300/70 dark:border-emerald-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
       />
       <Textarea
         value={draftDesc}
         onChange={(e) => setDraftDesc(e.target.value)}
         placeholder="Notes / description (optional)"
-        className="text-sm min-h-[52px] resize-none"
+        className="text-sm min-h-[52px] resize-none bg-white dark:bg-slate-900 border-emerald-300/70 dark:border-emerald-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
         rows={2}
       />
       <div className="flex justify-end">
@@ -145,7 +149,7 @@ function DiagnosticDraft({
           size="sm"
           onClick={submit}
           disabled={!draftDiag.trim() || submitting}
-          className="h-7 rounded-full gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+          className="h-7 rounded-full gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
         >
           <Plus className="h-3 w-3" /> Add Diagnosis
         </Button>
@@ -193,13 +197,17 @@ export function MedFullAnswerBlock({
   };
   return (
     <div className="my-3">
-      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5">
+      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
         <Pill className="h-3.5 w-3.5 text-blue-600" />
         {block.label || "Medications"}
         {block.required && <span className="text-red-500">*</span>}
       </label>
       <div
-        className={`space-y-2 p-3 rounded-lg border ${isError ? "border-red-400 bg-red-50/20 dark:bg-red-950/10" : "border-blue-200 dark:border-blue-800 bg-blue-50/30 dark:bg-blue-950/10"}`}
+        className={`space-y-3 p-3.5 rounded-xl border transition-colors shadow-xs ${
+          isError
+            ? "border-red-400 bg-red-50/40 dark:bg-red-950/20"
+            : "border-blue-200/80 dark:border-blue-800/70 bg-blue-50/50 dark:bg-blue-950/30"
+        }`}
       >
         {edit && (
           <MedFullDraft
@@ -268,33 +276,33 @@ function MedFullDraft({
         value={draft.name}
         onChange={upd("name")}
         placeholder={placeholder}
-        className="h-8 text-sm"
+        className="h-8 text-sm bg-white dark:bg-slate-900 border-blue-300/70 dark:border-blue-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
       />
       <div className="grid grid-cols-3 gap-2">
         <Input
           value={draft.frequency}
           onChange={upd("frequency")}
           placeholder="Frequency"
-          className="h-8 text-sm"
+          className="h-8 text-sm bg-white dark:bg-slate-900 border-blue-300/70 dark:border-blue-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
         />
         <Input
           value={draft.amount}
           onChange={upd("amount")}
           placeholder="Amount"
-          className="h-8 text-sm"
+          className="h-8 text-sm bg-white dark:bg-slate-900 border-blue-300/70 dark:border-blue-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
         />
         <Input
           value={draft.days}
           onChange={upd("days")}
           placeholder="Days"
-          className="h-8 text-sm"
+          className="h-8 text-sm bg-white dark:bg-slate-900 border-blue-300/70 dark:border-blue-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
         />
       </div>
       <Textarea
         value={draft.notes}
         onChange={upd("notes")}
         placeholder="Extra notes (optional)"
-        className="text-sm min-h-[48px] resize-none"
+        className="text-sm min-h-[48px] resize-none bg-white dark:bg-slate-900 border-blue-300/70 dark:border-blue-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
         rows={2}
       />
       <div className="flex justify-end">
@@ -303,7 +311,7 @@ function MedFullDraft({
           size="sm"
           onClick={submit}
           disabled={!canAdd || submitting}
-          className="h-7 rounded-full gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+          className="h-7 rounded-full gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-xs"
         >
           <Plus className="h-3 w-3" /> Add Medication
         </Button>
@@ -351,13 +359,17 @@ export function MedMiniAnswerBlock({
   };
   return (
     <div className="my-3">
-      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5">
+      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
         <Pill className="h-3.5 w-3.5 text-indigo-600" />
         {block.label || "Medications"}
         {block.required && <span className="text-red-500">*</span>}
       </label>
       <div
-        className={`space-y-2 p-3 rounded-lg border ${isError ? "border-red-400 bg-red-50/20 dark:bg-red-950/10" : "border-indigo-200 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-950/10"}`}
+        className={`space-y-3 p-3.5 rounded-xl border transition-colors shadow-xs ${
+          isError
+            ? "border-red-400 bg-red-50/40 dark:bg-red-950/20"
+            : "border-indigo-200/80 dark:border-indigo-800/70 bg-indigo-50/50 dark:bg-indigo-950/30"
+        }`}
       >
         {edit && (
           <MedMiniDraft
@@ -411,13 +423,13 @@ function MedMiniDraft({
         onChange={(e) => setDraftName(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && submit()}
         placeholder={placeholder}
-        className="h-8 text-sm"
+        className="h-8 text-sm bg-white dark:bg-slate-900 border-indigo-300/70 dark:border-indigo-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
       />
       <Textarea
         value={draftNotes}
         onChange={(e) => setDraftNotes(e.target.value)}
         placeholder="Notes (optional)"
-        className="text-sm min-h-[48px] resize-none"
+        className="text-sm min-h-[48px] resize-none bg-white dark:bg-slate-900 border-indigo-300/70 dark:border-indigo-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
         rows={2}
       />
       <div className="flex justify-end">
@@ -426,7 +438,7 @@ function MedMiniDraft({
           size="sm"
           onClick={submit}
           disabled={!draftName.trim() || submitting}
-          className="h-7 rounded-full gap-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+          className="h-7 rounded-full gap-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
         >
           <Plus className="h-3 w-3" /> Add Medication
         </Button>
@@ -481,31 +493,35 @@ export function LabAnswerBlock({
     onChange({ ...value, [rowId]: { ...value[rowId], [key]: val } });
   return (
     <div className="my-3">
-      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5">
+      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
         <FlaskConical className="h-3.5 w-3.5 text-purple-600" />
         {block.label || "Lab Results"}
         {block.required && <span className="text-red-500">*</span>}
       </label>
       <div
-        className={`overflow-x-auto border rounded-lg ${isError ? "border-red-400 bg-red-50/20 dark:bg-red-950/10" : "border-purple-200 dark:border-purple-800 bg-purple-50/30 dark:bg-purple-950/10"}`}
+        className={`overflow-x-auto border rounded-xl shadow-xs ${
+          isError
+            ? "border-red-400 bg-red-50/40 dark:bg-red-950/20"
+            : "border-purple-200/80 dark:border-purple-800/70 bg-purple-50/50 dark:bg-purple-950/30"
+        }`}
       >
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
-              <th className="border-b border-border bg-muted/40 px-3 py-1.5 text-left text-xs font-semibold">
+              <th className="border-b border-purple-200/60 dark:border-purple-800/60 bg-purple-100/60 dark:bg-purple-900/40 px-3 py-2 text-left text-xs font-semibold text-foreground">
                 Name
               </th>
               {layout === "valueUnit" ? (
                 <>
-                  <th className="border-b border-border bg-muted/40 px-3 py-1.5 text-left text-xs font-semibold">
+                  <th className="border-b border-purple-200/60 dark:border-purple-800/60 bg-purple-100/60 dark:bg-purple-900/40 px-3 py-2 text-left text-xs font-semibold text-foreground">
                     Value
                   </th>
-                  <th className="border-b border-border bg-muted/40 px-3 py-1.5 text-left text-xs font-semibold">
+                  <th className="border-b border-purple-200/60 dark:border-purple-800/60 bg-purple-100/60 dark:bg-purple-900/40 px-3 py-2 text-left text-xs font-semibold text-foreground">
                     Unit
                   </th>
                 </>
               ) : (
-                <th className="border-b border-border bg-muted/40 px-3 py-1.5 text-left text-xs font-semibold">
+                <th className="border-b border-purple-200/60 dark:border-purple-800/60 bg-purple-100/60 dark:bg-purple-900/40 px-3 py-2 text-left text-xs font-semibold text-foreground">
                   Result
                 </th>
               )}
@@ -522,15 +538,15 @@ export function LabAnswerBlock({
                 : ["+ve", "-ve"];
               return (
                 <tr key={row.id}>
-                  <td className="border-b border-border/50 px-3 py-2 font-medium text-sm whitespace-nowrap">
+                  <td className="border-b border-purple-200/40 dark:border-purple-800/40 px-3 py-2 font-medium text-sm whitespace-nowrap text-foreground">
                     {row.name}
                   </td>
                   {layout === "valueUnit" ? (
                     <>
-                      <td className="border-b border-border/50 px-1 py-1 min-w-[80px]">
+                      <td className="border-b border-purple-200/40 dark:border-purple-800/40 px-1.5 py-1.5 min-w-[80px]">
                         {edit ? (
                           <input
-                            className="w-full h-7 px-2 text-xs border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
+                            className="w-full h-7 px-2 text-xs border rounded-md bg-white dark:bg-slate-900 border-purple-200 dark:border-purple-800/80 text-foreground shadow-xs focus:outline-none focus:ring-1 focus:ring-purple-400 focus:bg-white dark:focus:bg-slate-950"
                             value={rv.value ?? ""}
                             onChange={(e) =>
                               set(row.id, "value", e.target.value)
@@ -538,13 +554,13 @@ export function LabAnswerBlock({
                             placeholder="Value"
                           />
                         ) : (
-                          <span className="text-xs">{rv.value || "—"}</span>
+                          <span className="text-xs text-foreground">{rv.value || "—"}</span>
                         )}
                       </td>
-                      <td className="border-b border-border/50 px-1 py-1 min-w-[90px]">
+                      <td className="border-b border-purple-200/40 dark:border-purple-800/40 px-1.5 py-1.5 min-w-[90px]">
                         {edit ? (
                           <select
-                            className="w-full h-7 px-1 text-xs border rounded bg-background focus:outline-none"
+                            className="w-full h-7 px-1.5 text-xs border rounded-md bg-white dark:bg-slate-900 border-purple-200 dark:border-purple-800/80 text-foreground shadow-xs focus:outline-none focus:ring-1 focus:ring-purple-400"
                             value={rv.unit ?? row.defaultUnit ?? units[0]}
                             onChange={(e) =>
                               set(row.id, "unit", e.target.value)
@@ -557,17 +573,17 @@ export function LabAnswerBlock({
                             ))}
                           </select>
                         ) : (
-                          <span className="text-xs">
+                          <span className="text-xs text-foreground">
                             {rv.unit ?? row.defaultUnit ?? "—"}
                           </span>
                         )}
                       </td>
                     </>
                   ) : (
-                    <td className="border-b border-border/50 px-1 py-1 min-w-[100px]">
+                    <td className="border-b border-purple-200/40 dark:border-purple-800/40 px-1.5 py-1.5 min-w-[100px]">
                       {edit ? (
                         <select
-                          className="w-full h-7 px-1 text-xs border rounded bg-background focus:outline-none"
+                          className="w-full h-7 px-1.5 text-xs border rounded-md bg-white dark:bg-slate-900 border-purple-200 dark:border-purple-800/80 text-foreground shadow-xs focus:outline-none focus:ring-1 focus:ring-purple-400"
                           value={rv.result ?? ""}
                           onChange={(e) =>
                             set(row.id, "result", e.target.value)
@@ -581,7 +597,7 @@ export function LabAnswerBlock({
                           ))}
                         </select>
                       ) : (
-                        <span className="text-xs">{rv.result || "—"}</span>
+                        <span className="text-xs text-foreground">{rv.result || "—"}</span>
                       )}
                     </td>
                   )}
@@ -629,13 +645,17 @@ export function ProductListenerAnswerBlock({
     onChange(value.filter((item) => item.id !== id));
   return (
     <div className="my-3">
-      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5">
+      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
         <Package className="h-3.5 w-3.5 text-orange-600" />
         {block.label || "Products / Procedures"}
         {block.required && <span className="text-red-500">*</span>}
       </label>
       <div
-        className={`space-y-2 p-3 rounded-lg border ${isError ? "border-red-400 bg-red-50/20 dark:bg-red-950/10" : "border-orange-200 dark:border-orange-800 bg-orange-50/30 dark:bg-orange-950/10"}`}
+        className={`space-y-3 p-3.5 rounded-xl border transition-colors shadow-xs ${
+          isError
+            ? "border-red-400 bg-red-50/40 dark:bg-red-950/20"
+            : "border-orange-200/80 dark:border-orange-800/70 bg-orange-50/50 dark:bg-orange-950/30"
+        }`}
       >
         {edit && (
           <ProductDraft
@@ -689,7 +709,7 @@ function ProductDraft({
       name: name.trim(),
       type,
       qty: 1,
-      price: Number(price) || 0,
+      price: parseFloat(price) || 0,
     });
     setName("");
     setPrice("");
@@ -699,9 +719,9 @@ function ProductDraft({
       <div className={centered ? "flex justify-center" : "flex"}>
         <button
           type="button"
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-xl border border-border bg-card/80 text-sm shadow-sm"
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-xl border border-orange-200/80 dark:border-orange-800/60 bg-white dark:bg-slate-900 hover:bg-orange-50 dark:hover:bg-slate-850 text-foreground text-sm font-medium shadow-xs transition-colors"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4 text-orange-600" />
           {btnLabel}
         </button>
       </div>
@@ -710,12 +730,12 @@ function ProductDraft({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Product / procedure name"
-          className="h-8 text-sm"
+          className="h-8 text-sm bg-white dark:bg-slate-900 border-orange-200/90 dark:border-orange-800/80 shadow-xs focus:bg-white dark:focus:bg-slate-950"
         />
         <select
           value={type}
           onChange={(e) => setType(e.target.value)}
-          className="h-8 rounded-md border border-input bg-background px-3 text-sm"
+          className="h-8 rounded-md border border-orange-200/90 dark:border-orange-800/80 bg-white dark:bg-slate-900 px-3 text-sm text-foreground shadow-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
         >
           {Object.entries(PTYPE_LABEL).map(([value, label]) => (
             <option key={value} value={value}>
@@ -727,15 +747,16 @@ function ProductDraft({
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           placeholder="Price"
-          className="h-8 text-sm"
+          className="h-8 text-sm bg-white dark:bg-slate-900 border-orange-200/90 dark:border-orange-800/80 shadow-xs focus:bg-white dark:focus:bg-slate-950"
           type="number"
+          step="any"
         />
         <Button
           type="button"
           size="sm"
           onClick={submit}
           disabled={!name.trim()}
-          className="h-8 gap-1"
+          className="h-8 gap-1 bg-orange-600 hover:bg-orange-700 text-white shadow-xs"
         >
           <Plus className="h-3 w-3" />
           Add
