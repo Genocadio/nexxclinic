@@ -113,7 +113,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setDoctor(user)
         return { success: true }
       } else if (
-        response.status === "PARTIAL_SUCCESS" &&
+        response.status === "PARTIAL_SUCCESS" ||
+        response.status === "RESET_PASSWORD" ||
         response.data?.needsPasswordSetup
       ) {
         localStorage.removeItem("authToken")
@@ -122,18 +123,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setDoctor(null)
         return {
           success: false,
-          message: response.messages?.[0]?.text ?? "Password not set. Complete initial password setup.",
-          requiresPasswordSetup: true,
-        }
-      } else if (response.status === "RESET_PASSWORD") {
-        localStorage.removeItem("authToken")
-        localStorage.removeItem("doctor")
-        localStorage.setItem("pendingResetIdentifier", email)
-        setDoctor(null)
-        return {
-          success: false,
           message:
-            response.messages?.[0]?.text ?? "Please create your password before signing in.",
+            response.messages?.[0]?.text ??
+            response.message ??
+            "Password reset required. Complete password setup to continue.",
           requiresPasswordSetup: true,
         }
       }

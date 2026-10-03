@@ -48,13 +48,32 @@ export default function PatientRegistrationModal({
       .map((s: string) => s?.trim())
       .filter(Boolean)
     const filters: SearchPatientsInput = {}
-    if (parts.length) filters.name = parts.join(' ')
+    const nid = data.nationalIdNumber?.trim()
+    const fullName = data.name?.trim() || parts.join(' ')
     const phone = data.contactInfo?.phone?.trim()
-    if (phone) filters.phoneNumber = phone
-    if (data.dateOfBirth) {
-      const age = calculateAge(data.dateOfBirth)
-      if (age > 0) filters.age = age
+
+    if (nid) {
+      // National ID already uniquely codes age/year-of-birth and gender; omit age & gender from filters
+      filters.name = nid
+    } else {
+      if (fullName) {
+        filters.name = fullName
+      }
+      if (data.dateOfBirth) {
+        const age = calculateAge(data.dateOfBirth)
+        if (age > 0) filters.age = age
+      }
+      if (data.gender) {
+        const mappedGender =
+          data.gender === "M" ? "MALE" : data.gender === "F" ? "FEMALE" : data.gender
+        filters.gender = mappedGender
+      }
     }
+
+    if (phone) {
+      filters.phoneNumber = phone
+    }
+
     const insurances = data.insurances || []
     for (const ins of insurances) {
       if (ins.insuranceId && String(ins.insuranceId) !== '0') {
@@ -117,7 +136,15 @@ export default function PatientRegistrationModal({
                 onClose={onClose}
                 mode="create"
                 onFieldBlur={(field) => {
-                  if (field === 'firstName' || field === 'lastName' || field === 'middleName') {
+                  const blurTriggerFields = [
+                    'name',
+                    'firstName',
+                    'lastName',
+                    'middleName',
+                    'nationalIdNumber',
+                    'contactInfo.phone',
+                  ]
+                  if (blurTriggerFields.includes(field)) {
                     searchActiveRef.current = true
                     // Fire immediately with current form data (no debounce on blur)
                     if (formDataRef.current) {
@@ -127,12 +154,23 @@ export default function PatientRegistrationModal({
                 }}
                 onFormChange={(data) => {
                   formDataRef.current = data
-                  if (!searchActiveRef.current) return
-                  // Debounce: build filters from full form data after 400ms idle
+                  if (!searchActiveRef.current) {
+                    const hasMeaningfulInput =
+                      (data.nationalIdNumber && data.nationalIdNumber.trim().length >= 8) ||
+                      (data.contactInfo?.phone && data.contactInfo.phone.replace(/\D/g, '').length >= 9) ||
+                      (data.name && data.name.trim().length >= 3) ||
+                      (data.firstName && data.firstName.trim().length >= 3)
+                    if (hasMeaningfulInput) {
+                      searchActiveRef.current = true
+                    } else {
+                      return
+                    }
+                  }
+                  // Debounce: build filters from full form data after 300ms idle
                   if (debounceRef.current) clearTimeout(debounceRef.current)
                   debounceRef.current = setTimeout(() => {
                     setSearchFilters(buildFilters(data))
-                  }, 400)
+                  }, 300)
                 }}
                 onPatientSaved={(
                   patientId,

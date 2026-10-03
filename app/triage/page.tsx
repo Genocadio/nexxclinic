@@ -16,6 +16,7 @@ import {
   User,
   ShieldAlert,
   Pencil,
+  RotateCcw,
 } from "lucide-react";
 import { isInsuranceActive, insuranceStatusLabel } from "@/lib/insurance-utils";
 import { formatDateOnly } from "@/lib/utils";
@@ -157,6 +158,32 @@ function TriagePageInner() {
   const [vitalRowErrors, setVitalRowErrors] = useState<Record<string, string>>(
     {},
   );
+
+  const [deptToReEnable, setDeptToReEnable] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [reEnablingDept, setReEnablingDept] = useState(false);
+
+  const handleReEnableDepartment = async (departmentId: string) => {
+    if (reEnablingDept) return;
+    setReEnablingDept(true);
+    try {
+      const res = await updateDepartmentStatus(departmentId, "PENDING");
+      const ok = await handleResponse(res, {
+        successMessage: "Department re-enabled successfully.",
+        errorMessage: true,
+      });
+      if (ok) {
+        setDeptToReEnable(null);
+        await refetch();
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to re-enable department");
+    } finally {
+      setReEnablingDept(false);
+    }
+  };
 
   const handleCancelDepartment = async (departmentId: string) => {
     if (cancellingDept) return;
@@ -707,6 +734,11 @@ function TriagePageInner() {
                   const isCompleted =
                     dept.status === "COMPLETED" || dept.status === "FINALISED";
                   const isCancelled = dept.status === "CANCELLED";
+                  const isVisitActive =
+                    visit.status !== "CANCELLED" &&
+                    visit.status !== "COMPLETED" &&
+                    visit.status !== "FINALISED";
+                  const canReEnable = isCancelled && isVisitActive;
 
                   // Can cancel department check: not terminal, no billed products
                   const deptProducts = dept.products || [];
@@ -728,7 +760,14 @@ function TriagePageInner() {
                   return (
                     <div
                       key={dept.id}
+                      onDoubleClick={() => {
+                        if (canReEnable) {
+                          setDeptToReEnable({ id: dept.id, name: deptName });
+                        }
+                      }}
                       className={`group relative flex items-center h-8 rounded-full text-xs font-semibold transition-all duration-300 ease-in-out border ${
+                        canReEnable ? "cursor-pointer hover:border-red-400" : ""
+                      } ${
                         isCompleted
                           ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25"
                           : isCancelled
@@ -765,6 +804,22 @@ function TriagePageInner() {
                             <span className="text-[10px] uppercase font-bold opacity-80">
                               {dept.status || "PENDING"}
                             </span>
+                            {canReEnable && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeptToReEnable({
+                                    id: dept.id,
+                                    name: deptName,
+                                  });
+                                }}
+                                title="Re-enable department"
+                                className="ml-1 text-muted-foreground hover:text-emerald-600 transition-colors cursor-pointer"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             {canCancel && (
                               <button
                                 type="button"
@@ -791,6 +846,21 @@ function TriagePageInner() {
                           <span className="text-[10px] uppercase font-bold opacity-80">
                             {dept.status || "PENDING"}
                           </span>
+                          {canReEnable && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDeptToReEnable({
+                                  id: dept.id,
+                                  name: deptName,
+                                })
+                              }
+                              title="Re-enable department"
+                              className="ml-1 text-muted-foreground hover:text-emerald-600 transition-colors cursor-pointer"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           {canCancel && (
                             <button
                               type="button"
@@ -839,6 +909,26 @@ function TriagePageInner() {
             )}
           </div>
         </div>
+
+        <ConfirmDialog
+          open={Boolean(deptToReEnable)}
+          onOpenChange={(open) => {
+            if (!open) setDeptToReEnable(null);
+          }}
+          title="Re-enable Department"
+          description={
+            deptToReEnable
+              ? `Are you sure you want to re-enable the ${deptToReEnable.name} department for this visit? It will be restored to active status on this visit.`
+              : undefined
+          }
+          confirmLabel={reEnablingDept ? "Re-enabling..." : "Re-enable Department"}
+          busy={reEnablingDept}
+          onConfirm={() => {
+            if (deptToReEnable) {
+              void handleReEnableDepartment(deptToReEnable.id);
+            }
+          }}
+        />
 
         <ConfirmDialog
           open={Boolean(deptToCancel)}

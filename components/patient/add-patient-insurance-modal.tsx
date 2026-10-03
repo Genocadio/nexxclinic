@@ -8,7 +8,8 @@ import { getBasePatientSharePercentage } from '@/lib/api-types'
 import { useInsurances } from '@/hooks/auth-hooks'
 import { useInsuranceCoverages } from '@/hooks/insurances/coverage-rules'
 import { useSavePatientInsurance } from '@/hooks/patients/use-save-patient-insurance'
-import { isDominantMemberRequired, calculateAge } from '@/lib/validation-utils'
+import { isDominantMemberRequired, calculateAge, sanitizePhoneInput } from '@/lib/validation-utils'
+import { splitWorkerName } from '@/lib/patient-display-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -132,6 +133,7 @@ export function AddPatientInsuranceModal({
       insuranceCardNumber: '',
       providingCompanyOrEmployer: '',
       isSelf: isAdult,
+      dominantName: '',
       dominantFirstName: '',
       dominantLastName: '',
       dominantPhone: '',
@@ -176,6 +178,8 @@ export function AddPatientInsuranceModal({
   }
 
   const handleSave = async (values: PatientInsuranceFormValues) => {
+    const rawDominantName = values.dominantName || [values.dominantFirstName, values.dominantLastName].filter(Boolean).join(' ')
+    const resolvedDominant = rawDominantName ? splitWorkerName(rawDominantName) : { firstName: '', lastName: '' }
     const result = await savePatientInsurance({
       patientId,
       patientDateOfBirth,
@@ -183,8 +187,9 @@ export function AddPatientInsuranceModal({
       insuranceCardNumber: values.insuranceCardNumber,
       providingCompanyOrEmployer: values.providingCompanyOrEmployer,
       isSelf: isAdult ? Boolean(values.isSelf) : false,
-      dominantFirstName: values.dominantFirstName,
-      dominantLastName: values.dominantLastName,
+      dominantName: rawDominantName || undefined,
+      dominantFirstName: resolvedDominant.firstName,
+      dominantLastName: resolvedDominant.lastName,
       dominantPhone: values.dominantPhone,
       existingPatientInsurances: patientInsurances,
       patientSharePercentage: values.patientSharePercentage ? Number(values.patientSharePercentage) : null,
@@ -196,8 +201,7 @@ export function AddPatientInsuranceModal({
       if (fe.card) setError('insuranceCardNumber', { type: 'server', message: fe.card })
       if (fe.employer) setError('providingCompanyOrEmployer', { type: 'server', message: fe.employer })
       if (fe.dominant) {
-        setError('dominantFirstName', { type: 'server', message: fe.dominant })
-        setError('dominantLastName', { type: 'server', message: fe.dominant })
+        setError('dominantName', { type: 'server', message: fe.dominant })
         setError('dominantPhone', { type: 'server', message: fe.dominant })
       }
       return
@@ -481,10 +485,11 @@ export function AddPatientInsuranceModal({
                       onCheckedChange={(checked) => {
                         setValue('isSelf', Boolean(checked), { shouldValidate: true })
                         if (checked) {
+                          setValue('dominantName', '')
                           setValue('dominantFirstName', '')
                           setValue('dominantLastName', '')
                           setValue('dominantPhone', '')
-                          clearErrors(['dominantFirstName', 'dominantLastName', 'dominantPhone'])
+                          clearErrors(['dominantName', 'dominantFirstName', 'dominantLastName', 'dominantPhone'])
                         }
                       }}
                     />
@@ -501,28 +506,28 @@ export function AddPatientInsuranceModal({
                       <p className="text-[11px] font-medium text-foreground">
                         Principal Member Information <span className="text-red-500">*</span>
                       </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <Input
-                            {...register('dominantFirstName')}
-                            placeholder="First name"
-                            className={formErrors.dominantFirstName ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                          />
-                          <FieldError message={formErrors.dominantFirstName?.message} />
-                        </div>
-                        <div className="space-y-1">
-                          <Input
-                            {...register('dominantLastName')}
-                            placeholder="Last name"
-                            className={formErrors.dominantLastName ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                          />
-                          <FieldError message={formErrors.dominantLastName?.message} />
-                        </div>
+                      <div className="space-y-1">
+                        <Input
+                          {...register('dominantName', {
+                            onChange: (e) => {
+                              const split = splitWorkerName(e.target.value)
+                              setValue('dominantFirstName', split.firstName)
+                              setValue('dominantLastName', split.lastName || '')
+                            },
+                          })}
+                          placeholder="Principal member full name (e.g. John Doe)"
+                          className={formErrors.dominantName || formErrors.dominantFirstName || formErrors.dominantLastName ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                        />
+                        <FieldError message={formErrors.dominantName?.message || formErrors.dominantFirstName?.message || formErrors.dominantLastName?.message} />
                       </div>
                       <div className="space-y-1">
                         <Input
-                          {...register('dominantPhone')}
-                          placeholder="Phone (e.g. +250788123456 or 0788123456)"
+                          {...register('dominantPhone', {
+                            onChange: (e) => {
+                              setValue('dominantPhone', sanitizePhoneInput(e.target.value), { shouldValidate: true })
+                            },
+                          })}
+                          placeholder="Phone (e.g. 0788 123 456 or +250 788 123 456)"
                           className={formErrors.dominantPhone ? 'border-red-500 focus-visible:ring-red-300' : ''}
                         />
                         <FieldError message={formErrors.dominantPhone?.message} />
@@ -540,28 +545,28 @@ export function AddPatientInsuranceModal({
                       Required for patients ≤18 years
                     </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Input
-                        {...register('dominantFirstName')}
-                        placeholder="First name"
-                        className={formErrors.dominantFirstName ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                      />
-                      <FieldError message={formErrors.dominantFirstName?.message} />
-                    </div>
-                    <div className="space-y-1">
-                      <Input
-                        {...register('dominantLastName')}
-                        placeholder="Last name"
-                        className={formErrors.dominantLastName ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                      />
-                      <FieldError message={formErrors.dominantLastName?.message} />
-                    </div>
+                  <div className="space-y-1">
+                    <Input
+                      {...register('dominantName', {
+                        onChange: (e) => {
+                          const split = splitWorkerName(e.target.value)
+                          setValue('dominantFirstName', split.firstName)
+                          setValue('dominantLastName', split.lastName || '')
+                        },
+                      })}
+                      placeholder="Principal member full name (e.g. John Doe)"
+                      className={formErrors.dominantName || formErrors.dominantFirstName || formErrors.dominantLastName ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                    />
+                    <FieldError message={formErrors.dominantName?.message || formErrors.dominantFirstName?.message || formErrors.dominantLastName?.message} />
                   </div>
                   <div className="space-y-1">
                     <Input
-                      {...register('dominantPhone')}
-                      placeholder="Phone (e.g. +250788123456 or 0788123456)"
+                      {...register('dominantPhone', {
+                        onChange: (e) => {
+                          setValue('dominantPhone', sanitizePhoneInput(e.target.value), { shouldValidate: true })
+                        },
+                      })}
+                      placeholder="Phone (e.g. 0788 123 456 or +250 788 123 456)"
                       className={formErrors.dominantPhone ? 'border-red-500 focus-visible:ring-red-300' : ''}
                     />
                     <FieldError message={formErrors.dominantPhone?.message} />

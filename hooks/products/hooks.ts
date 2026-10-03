@@ -275,7 +275,7 @@ export function useAddProductInsuranceCoverage() {
   const addCoverage = async (productId: string | number, insuranceProviderId: string, cost: number) => {
     try {
       const { data } = await mutate({ variables: { productId, input: { insuranceProviderId, cost } } })
-      const payload = data?.addProductInsuranceCoverage
+      const payload = data?.createProductInsuranceCoverage || data?.addProductInsuranceCoverage
       return {
         status: payload?.status || 'ERROR',
         message: payload?.message,
@@ -294,7 +294,7 @@ export function useRemoveProductInsuranceCoverage() {
   const removeCoverage = async (productInsuranceCoverageId: string | number) => {
     try {
       const { data } = await mutate({ variables: { productInsuranceCoverageId } })
-      const payload = data?.removeProductInsuranceCoverage
+      const payload = data?.deleteProductInsuranceCoverage || data?.removeProductInsuranceCoverage
       return {
         status: payload?.status || 'ERROR',
         message: payload?.message,

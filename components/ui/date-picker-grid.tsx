@@ -1,25 +1,31 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { useState, useMemo, useEffect, useRef } from "react"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { ChevronDown, X } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 const ALL_DAYS = Array.from({ length: 31 }, (_, i) =>
   String(i + 1).padStart(2, "0"),
 )
 
 const MONTHS = [
-  { value: "01", label: "Jan" },
-  { value: "02", label: "Feb" },
-  { value: "03", label: "Mar" },
-  { value: "04", label: "Apr" },
-  { value: "05", label: "May" },
-  { value: "06", label: "Jun" },
-  { value: "07", label: "Jul" },
-  { value: "08", label: "Aug" },
-  { value: "09", label: "Sep" },
-  { value: "10", label: "Oct" },
-  { value: "11", label: "Nov" },
-  { value: "12", label: "Dec" },
+  { value: "01", label: "Jan", full: "January" },
+  { value: "02", label: "Feb", full: "February" },
+  { value: "03", label: "Mar", full: "March" },
+  { value: "04", label: "Apr", full: "April" },
+  { value: "05", label: "May", full: "May" },
+  { value: "06", label: "Jun", full: "June" },
+  { value: "07", label: "Jul", full: "July" },
+  { value: "08", label: "Aug", full: "August" },
+  { value: "09", label: "Sep", full: "September" },
+  { value: "10", label: "Oct", full: "October" },
+  { value: "11", label: "Nov", full: "November" },
+  { value: "12", label: "Dec", full: "December" },
 ] as const
 
 const MONTHS_31 = new Set(["01", "03", "05", "07", "08", "10", "12"])
@@ -33,14 +39,13 @@ function daysInMonth(monthNum: number, yearNum: number) {
   return new Date(yearNum, monthNum, 0).getDate()
 }
 
-const YEAR_RANGE_SIZE = 12
-
 interface DatePickerGridProps {
   value?: string
   onChange?: (date: string) => void
+  className?: string
 }
 
-export function DatePickerGrid({ value = "", onChange }: DatePickerGridProps) {
+export function DatePickerGrid({ value = "", onChange, className }: DatePickerGridProps) {
   const parsed = useMemo(() => {
     if (!value) return { day: "", month: "", year: "" }
     const parts = value.split("-")
@@ -51,10 +56,30 @@ export function DatePickerGrid({ value = "", onChange }: DatePickerGridProps) {
   const [day, setDay] = useState(parsed.day)
   const [month, setMonth] = useState(parsed.month)
   const [year, setYear] = useState(parsed.year)
-  const [yearPage, setYearPage] = useState(0)
-  const [activePicker, setActivePicker] = useState<"day" | "month" | "year" | null>(null)
+
+  const [dayOpen, setDayOpen] = useState(false)
+  const [monthOpen, setMonthOpen] = useState(false)
+  const [yearOpen, setYearOpen] = useState(false)
+
+  const yearListRef = useRef<HTMLDivElement>(null)
+
+  // Sync state if external value changes
+  useEffect(() => {
+    setDay(parsed.day)
+    setMonth(parsed.month)
+    setYear(parsed.year)
+  }, [parsed.day, parsed.month, parsed.year])
 
   const currentYear = new Date().getFullYear()
+
+  // Generate full list of years from current year down to 1900
+  const allYears = useMemo(() => {
+    const list: string[] = []
+    for (let y = currentYear; y >= 1900; y--) {
+      list.push(String(y))
+    }
+    return list
+  }, [currentYear])
 
   const validMonths = useMemo(() => {
     if (!day) return MONTHS.map((m) => m.value)
@@ -72,251 +97,285 @@ export function DatePickerGrid({ value = "", onChange }: DatePickerGridProps) {
     return ALL_DAYS.filter((d) => Number.parseInt(d, 10) <= max)
   }, [month, year, currentYear])
 
-  const yearRangeStart = currentYear - yearPage * YEAR_RANGE_SIZE
-  const yearRangeEnd = Math.max(1900, yearRangeStart - YEAR_RANGE_SIZE + 1)
-  const yearRange = Array.from(
-    { length: Math.min(YEAR_RANGE_SIZE, yearRangeStart - 1900 + 1) },
-    (_, i) => String(yearRangeStart - i),
-  )
-
   const validYears = useMemo(() => {
-    if (!day || !month) return yearRange
+    if (!day || !month) return allYears
     const d = Number.parseInt(day, 10)
     const m = Number.parseInt(month, 10)
-    if (m !== 2) return yearRange
-    if (d <= 28) return yearRange
-    return yearRange.filter((y) => isLeapYear(Number.parseInt(y, 10)))
-  }, [day, month, yearRange])
+    if (m !== 2) return allYears
+    if (d <= 28) return allYears
+    return allYears.filter((y) => isLeapYear(Number.parseInt(y, 10)))
+  }, [day, month, allYears])
 
   const commitDate = (d: string, m: string, y: string) => {
-    onChange?.(`${y}-${m}-${d}`)
+    if (d && m && y) {
+      onChange?.(`${y}-${m}-${d}`)
+    } else {
+      onChange?.("")
+    }
   }
 
   const handleDaySelect = (d: string) => {
     const nextDay = d
     const nextMonth = validMonths.includes(month) ? month : ""
-    const nextYear = (nextMonth && validYears.includes(year)) ? year : ""
+    const nextYear = nextMonth && validYears.includes(year) ? year : ""
     setDay(nextDay)
     setMonth(nextMonth)
     setYear(nextYear)
-    if (nextDay && nextMonth && nextYear) {
-      commitDate(nextDay, nextMonth, nextYear)
+    commitDate(nextDay, nextMonth, nextYear)
+    setDayOpen(false)
+
+    // Flow forward to month if not yet chosen
+    if (!nextMonth) {
+      setTimeout(() => setMonthOpen(true), 120)
+    } else if (!nextYear) {
+      setTimeout(() => setYearOpen(true), 120)
     }
-    setActivePicker(nextMonth ? "month" : null)
   }
 
   const handleMonthSelect = (m: string) => {
     const nextMonth = m
     const nextDay = validDays.includes(day) ? day : ""
-    const nextYear = (nextMonth && validYears.includes(year) && (nextMonth !== "02" || !nextDay || Number.parseInt(nextDay, 10) <= 28 || isLeapYear(Number.parseInt(year, 10)))) ? year : ""
+    const nextYear =
+      nextMonth &&
+      validYears.includes(year) &&
+      (nextMonth !== "02" || !nextDay || Number.parseInt(nextDay, 10) <= 28 || isLeapYear(Number.parseInt(year, 10)))
+        ? year
+        : ""
     setMonth(nextMonth)
     setDay(nextDay)
     setYear(nextYear)
-    if (nextDay && nextMonth && nextYear) {
-      commitDate(nextDay, nextMonth, nextYear)
+    commitDate(nextDay, nextMonth, nextYear)
+    setMonthOpen(false)
+
+    // Flow forward to year if not yet chosen
+    if (!nextYear) {
+      setTimeout(() => setYearOpen(true), 120)
     }
-    setActivePicker(nextDay ? "year" : null)
   }
 
   const handleYearSelect = (y: string) => {
     const nextYear = y
     const nextMonth = validMonths.includes(month) ? month : ""
-    const nextDay = (nextMonth ? validDays.includes(day) : false) ? day : ""
+    const nextDay = nextMonth ? (validDays.includes(day) ? day : "") : ""
     setYear(nextYear)
     setMonth(nextMonth)
     setDay(nextDay)
-    if (nextDay && nextMonth && nextYear) {
-      commitDate(nextDay, nextMonth, nextYear)
+    commitDate(nextDay, nextMonth, nextYear)
+    setYearOpen(false)
+  }
+
+  // Auto-scroll selected year into view when year dropdown opens
+  useEffect(() => {
+    if (yearOpen && yearListRef.current) {
+      const selectedEl = yearListRef.current.querySelector("[data-selected='true']")
+      if (selectedEl) {
+        selectedEl.scrollIntoView({ block: "center" })
+      }
     }
-  }
+  }, [yearOpen])
 
-  const handleDayClear = () => {
-    setDay("")
-    onChange?.("")
-  }
-
-  const handleMonthClear = () => {
-    setMonth("")
-    onChange?.("")
-  }
-
-  const handleYearClear = () => {
-    setYear("")
-    onChange?.("")
-  }
-
-  const btnBase =
-    "h-9 rounded-lg text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  const triggerBaseClass =
+    "h-10 w-full rounded-xl border border-border/70 bg-background dark:bg-gray-900 px-3 py-2 text-xs sm:text-sm font-medium transition-all hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/40 flex items-center justify-between cursor-pointer"
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-2">
-        <button
-          type="button"
-          onClick={() => setActivePicker(activePicker === "day" ? null : "day")}
-          className={`${btnBase} border border-border/70 bg-background hover:bg-muted ${
-            day ? "text-foreground" : "text-muted-foreground"
-          }`}
+    <div className={cn("grid grid-cols-3 gap-2", className)}>
+      {/* ── Day Dropdown ── */}
+      <Popover open={dayOpen} onOpenChange={setDayOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              triggerBaseClass,
+              day ? "text-foreground font-semibold" : "text-muted-foreground",
+              dayOpen && "ring-2 ring-primary/40 border-primary"
+            )}
+          >
+            <span>{day ? day.padStart(2, "0") : "Day"}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 opacity-70" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          sideOffset={6}
+          className="w-[240px] p-2.5 rounded-2xl shadow-2xl border border-border/80 bg-white dark:bg-slate-900 text-foreground z-[160] opacity-100 backdrop-blur-none"
         >
-          {day ? day.padStart(2, "0") : "Day"}
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            setActivePicker(activePicker === "month" ? null : "month")
-          }
-          className={`${btnBase} border border-border/70 bg-background hover:bg-muted ${
-            month ? "text-foreground" : "text-muted-foreground"
-          }`}
-        >
-          {month
-            ? MONTHS.find((m) => m.value === month)?.label || month
-            : "Month"}
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            setActivePicker(activePicker === "year" ? null : "year")
-          }
-          className={`${btnBase} border border-border/70 bg-background hover:bg-muted ${
-            year ? "text-foreground" : "text-muted-foreground"
-          }`}
-        >
-          {year || "Year"}
-        </button>
-      </div>
-
-      {activePicker === "day" && (
-        <div>
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/40 px-1">
+            <span className="text-xs font-semibold text-foreground">Select Day</span>
+            {day && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDay("")
+                  commitDate("", month, year)
+                }}
+                className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+              >
+                <X className="w-3 h-3" />
+                Clear
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-7 gap-1">
             {ALL_DAYS.map((d) => {
               const disabled = !validDays.includes(d)
-              const selected = day === d
+              const isSelected = day === d
               return (
                 <button
                   key={d}
                   type="button"
                   disabled={disabled}
                   onClick={() => handleDaySelect(d)}
-                  className={`${btnBase} ${
-                    selected
-                      ? "bg-primary text-primary-foreground shadow-sm"
+                  className={cn(
+                    "h-8 rounded-lg text-xs font-medium transition-all flex items-center justify-center cursor-pointer",
+                    isSelected
+                      ? "bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-xs font-bold scale-105"
                       : disabled
-                        ? "text-muted-foreground/30 cursor-not-allowed"
-                        : "bg-muted/50 text-foreground hover:bg-muted"
-                  }`}
+                        ? "text-muted-foreground/30 cursor-not-allowed bg-muted/20"
+                        : "bg-muted/40 hover:bg-muted text-foreground hover:scale-105"
+                  )}
                 >
                   {d}
                 </button>
               )
             })}
           </div>
-          {day ? (
-            <button
-              type="button"
-              onClick={handleDayClear}
-              className="text-xs text-muted-foreground hover:text-foreground mt-1"
-            >
-              Clear
-            </button>
-          ) : null}
-        </div>
-      )}
+        </PopoverContent>
+      </Popover>
 
-      {activePicker === "month" && (
-        <div>
-          <div className="grid grid-cols-4 gap-1">
+      {/* ── Month Dropdown ── */}
+      <Popover open={monthOpen} onOpenChange={setMonthOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              triggerBaseClass,
+              month ? "text-foreground font-semibold" : "text-muted-foreground",
+              monthOpen && "ring-2 ring-primary/40 border-primary"
+            )}
+          >
+            <span>
+              {month
+                ? MONTHS.find((m) => m.value === month)?.label || month
+                : "Month"}
+            </span>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 opacity-70" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="center"
+          sideOffset={6}
+          className="w-[230px] p-2.5 rounded-2xl shadow-2xl border border-border/80 bg-white dark:bg-slate-900 text-foreground z-[160] opacity-100 backdrop-blur-none"
+        >
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/40 px-1">
+            <span className="text-xs font-semibold text-foreground">Select Month</span>
+            {month && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMonth("")
+                  commitDate(day, "", year)
+                }}
+                className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+              >
+                <X className="w-3 h-3" />
+                Clear
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
             {MONTHS.map((m) => {
               const disabled = !validMonths.includes(m.value)
-              const selected = month === m.value
+              const isSelected = month === m.value
               return (
                 <button
                   key={m.value}
                   type="button"
                   disabled={disabled}
                   onClick={() => handleMonthSelect(m.value)}
-                  className={`${btnBase} ${
-                    selected
-                      ? "bg-primary text-primary-foreground shadow-sm"
+                  className={cn(
+                    "py-2 px-1 rounded-lg text-xs font-medium transition-all text-center cursor-pointer",
+                    isSelected
+                      ? "bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-xs font-bold scale-105"
                       : disabled
-                        ? "text-muted-foreground/30 cursor-not-allowed"
-                        : "bg-muted/50 text-foreground hover:bg-muted"
-                  }`}
+                        ? "text-muted-foreground/30 cursor-not-allowed bg-muted/20"
+                        : "bg-muted/40 hover:bg-muted text-foreground hover:scale-105"
+                  )}
                 >
                   {m.label}
                 </button>
               )
             })}
           </div>
-          {month ? (
-            <button
-              type="button"
-              onClick={handleMonthClear}
-              className="text-xs text-muted-foreground hover:text-foreground mt-1"
-            >
-              Clear
-            </button>
-          ) : null}
-        </div>
-      )}
+        </PopoverContent>
+      </Popover>
 
-      {activePicker === "year" && (
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <button
-              type="button"
-              onClick={() => setYearPage((p) => p + 1)}
-              disabled={yearRangeEnd <= 1900}
-              className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="text-xs font-medium text-muted-foreground">
-              {yearRange[yearRange.length - 1]}–{yearRange[0]}
-            </span>
-            <button
-              type="button"
-              onClick={() => setYearPage((p) => Math.max(0, p - 1))}
-              disabled={yearPage === 0}
-              className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+      {/* ── Year Dropdown (3x3 scrollable grid) ── */}
+      <Popover open={yearOpen} onOpenChange={setYearOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              triggerBaseClass,
+              year ? "text-foreground font-semibold" : "text-muted-foreground",
+              yearOpen && "ring-2 ring-primary/40 border-primary"
+            )}
+          >
+            <span>{year || "Year"}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 opacity-70" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          sideOffset={6}
+          className="w-[240px] p-2.5 rounded-2xl shadow-2xl border border-border/80 bg-white dark:bg-slate-900 text-foreground z-[160] opacity-100 backdrop-blur-none"
+        >
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/40 px-1">
+            <span className="text-xs font-semibold text-foreground">Select Year</span>
+            {year && (
+              <button
+                type="button"
+                onClick={() => {
+                  setYear("")
+                  commitDate(day, month, "")
+                }}
+                className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+              >
+                <X className="w-3 h-3" />
+                Clear
+              </button>
+            )}
           </div>
-          <div className="grid grid-cols-4 gap-1">
-            {yearRange.map((y) => {
+          {/* 3x3 scrollable grid of years (scrolls smoothly from currentYear down to 1900 without pagination) */}
+          <div
+            ref={yearListRef}
+            className="grid grid-cols-3 gap-1.5 max-h-[210px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-muted-foreground/20"
+          >
+            {allYears.map((y) => {
               const disabled = !validYears.includes(y)
-              const selected = year === y
+              const isSelected = year === y
               return (
                 <button
                   key={y}
                   type="button"
+                  data-selected={isSelected}
                   disabled={disabled}
                   onClick={() => handleYearSelect(y)}
-                  className={`${btnBase} ${
-                    selected
-                      ? "bg-primary text-primary-foreground shadow-sm"
+                  className={cn(
+                    "py-2 px-1 rounded-lg text-xs font-medium transition-all text-center cursor-pointer",
+                    isSelected
+                      ? "bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-xs font-bold scale-105"
                       : disabled
-                        ? "text-muted-foreground/30 cursor-not-allowed"
-                        : "bg-muted/50 text-foreground hover:bg-muted"
-                  }`}
+                        ? "text-muted-foreground/30 cursor-not-allowed bg-muted/20"
+                        : "bg-muted/40 hover:bg-muted text-foreground hover:scale-105"
+                  )}
                 >
                   {y}
                 </button>
               )
             })}
           </div>
-          {year ? (
-            <button
-              type="button"
-              onClick={handleYearClear}
-              className="text-xs text-muted-foreground hover:text-foreground mt-1"
-            >
-              Clear
-            </button>
-          ) : null}
-        </div>
-      )}
+        </PopoverContent>
+      </Popover>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import type { PatientInsurance } from '@/lib/api-types'
 import { isDominantMemberRequired } from '@/lib/validation-utils'
+import { splitFullName } from '@/lib/patient-display-utils'
 import { useCreatePatientInsurance, useUpdatePatientInsurance } from '@/hooks/patients/hooks'
 
 export type SavePatientInsuranceInput = {
@@ -10,6 +11,7 @@ export type SavePatientInsuranceInput = {
   insuranceCardNumber: string
   providingCompanyOrEmployer: string
   isSelf?: boolean
+  dominantName?: string
   dominantFirstName?: string
   dominantLastName?: string
   dominantPhone?: string
@@ -51,22 +53,32 @@ export function validateSavePatientInsuranceInput(
   }
 
   // Format validation — reject invalid phone even if dominant is not required
-  if (input.dominantPhone?.trim() && !PHONE_NUMBER_REGEX.test(input.dominantPhone.trim())) {
+  if (input.dominantPhone?.trim() && !PHONE_NUMBER_REGEX.test(input.dominantPhone.trim().replace(/\s+/g, ''))) {
     errors.dominant = 'Enter a valid phone number (7-15 digits, optional leading +)'
   }
+
+  const resolved = input.dominantName
+    ? splitFullName(input.dominantName)
+    : {
+        firstName: input.dominantFirstName?.trim() || '',
+        lastName: input.dominantLastName?.trim() || '',
+      }
+
+  const firstName = resolved.firstName || input.dominantFirstName?.trim() || ''
+  const lastName = resolved.lastName || input.dominantLastName?.trim() || ''
 
   const mustFillDominant =
     dominantRequired ||
     input.isSelf === false ||
-    Boolean(input.dominantFirstName?.trim() || input.dominantLastName?.trim() || input.dominantPhone?.trim())
+    Boolean(input.dominantName?.trim() || firstName || lastName || input.dominantPhone?.trim())
 
   if (
     mustFillDominant
-    && (!input.dominantFirstName?.trim() || !input.dominantLastName?.trim() || !input.dominantPhone?.trim())
+    && (!firstName || !lastName || !input.dominantPhone?.trim())
   ) {
     errors.dominant = dominantRequired
-      ? 'Principal member first name, last name and phone are required for patients 18 years or younger.'
-      : 'Principal member first name, last name and phone are required when patient is not the principal policyholder.'
+      ? 'Principal member full name and phone are required for patients 18 years or younger.'
+      : 'Principal member full name and phone are required when patient is not the principal policyholder.'
   }
 
   return errors
@@ -82,11 +94,19 @@ export function useSavePatientInsurance() {
       return { status: 'VALIDATION_ERROR' as const, fieldErrors }
     }
 
+    const resolved = input.dominantName
+      ? splitFullName(input.dominantName)
+      : {
+          firstName: input.dominantFirstName || '',
+          lastName: input.dominantLastName || '',
+        }
+
     const dominantMember =
-      !input.isSelf && (input.dominantFirstName || input.dominantLastName || input.dominantPhone)
+      !input.isSelf && (input.dominantName || input.dominantFirstName || input.dominantLastName || input.dominantPhone)
         ? {
-            firstName: input.dominantFirstName || '',
-            lastName: input.dominantLastName || '',
+            name: input.dominantName || [resolved.firstName, resolved.lastName].filter(Boolean).join(' ') || undefined,
+            firstName: resolved.firstName || '',
+            lastName: resolved.lastName || '',
             phone: input.dominantPhone || '',
           }
         : undefined

@@ -5,7 +5,7 @@ import type { Worker } from "@/lib/api-types"
 import { LogOut, Moon, Sun, UserCog, BarChart3, Monitor, Home, ArrowLeft } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
 import { useRouter, usePathname } from "next/navigation"
-import { useState, useRef, useEffect } from "react"
+import { useState } from "react"
 import { hasAdminAccess } from "@/lib/role-utils"
 import { getClinicDisplayName, getClinicLogoUrl } from "@/lib/clinic-profile"
 import { cn } from "@/lib/utils"
@@ -21,7 +21,6 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
   const { preference, setThemePreference } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [showClinicName, setShowClinicName] = useState(false)
-  const hoverTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
   const canAccessAdmin = hasAdminAccess(roles)
@@ -42,29 +41,12 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
   }
 
   const handleMouseEnter = () => {
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current)
-    }
-    hoverTimerRef.current = setTimeout(() => {
-      setShowClinicName(true)
-    }, 5000)
+    setShowClinicName(true)
   }
 
   const handleMouseLeave = () => {
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current)
-      hoverTimerRef.current = null
-    }
     setShowClinicName(false)
   }
-
-  useEffect(() => {
-    return () => {
-      if (hoverTimerRef.current) {
-        clearTimeout(hoverTimerRef.current)
-      }
-    }
-  }, [])
 
   return (
     <>
@@ -80,8 +62,8 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
               "h-10 sm:h-11 rounded-full bg-card/85 dark:bg-slate-900/85 backdrop-blur-xl border border-border/60 shadow-md hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center cursor-pointer ring-2 ring-background/60 group select-none overflow-hidden",
               showClinicName ? "px-3 gap-2" : "w-10 sm:w-11 px-0"
             )}
-            title={showClinicName ? clinicName : "Clinic Logo"}
-            aria-label={showClinicName ? clinicName : "Clinic Logo"}
+            title={clinicName}
+            aria-label={clinicName}
           >
             <img
               src={clinicLogoUrl}

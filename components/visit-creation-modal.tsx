@@ -214,6 +214,11 @@ export default function VisitCreationModal({
         ? resolvePatientSearchFilter(searchQuery, searchFilterType)
         : {};
 
+      const isIdSearch = Boolean(
+        searchFilter.name &&
+        searchFilter.name.replace(/\D/g, "").length > 12
+      );
+
       const filter: PatientFilterInput = {
         ...searchFilter,
       };
@@ -222,26 +227,29 @@ export default function VisitCreationModal({
         filter.insuranceProviderId = selectedInsuranceProviderId;
       }
 
-      if (genderFilter && genderFilter !== "all") {
-        filter.gender = genderFilter;
-      }
-
-      if (ageRange === "pediatric") {
-        filter.minAge = 0;
-        filter.maxAge = 17;
-      } else if (ageRange === "adult") {
-        filter.minAge = 18;
-        filter.maxAge = 64;
-      } else if (ageRange === "senior") {
-        filter.minAge = 65;
-      } else if (ageRange === "exact" && exactAge.trim() && !isNaN(Number(exactAge))) {
-        filter.age = Number(exactAge);
-      } else if (ageRange === "custom") {
-        if (customAgeMin.trim() && !isNaN(Number(customAgeMin))) {
-          filter.minAge = Number(customAgeMin);
+      // If ID search is active, do not constrain by age or gender filters because ID already codes that
+      if (!isIdSearch) {
+        if (genderFilter && genderFilter !== "all") {
+          filter.gender = genderFilter;
         }
-        if (customAgeMax.trim() && !isNaN(Number(customAgeMax))) {
-          filter.maxAge = Number(customAgeMax);
+
+        if (ageRange === "pediatric") {
+          filter.minAge = 0;
+          filter.maxAge = 17;
+        } else if (ageRange === "adult") {
+          filter.minAge = 18;
+          filter.maxAge = 64;
+        } else if (ageRange === "senior") {
+          filter.minAge = 65;
+        } else if (ageRange === "exact" && exactAge.trim() && !isNaN(Number(exactAge))) {
+          filter.age = Number(exactAge);
+        } else if (ageRange === "custom") {
+          if (customAgeMin.trim() && !isNaN(Number(customAgeMin))) {
+            filter.minAge = Number(customAgeMin);
+          }
+          if (customAgeMax.trim() && !isNaN(Number(customAgeMax))) {
+            filter.maxAge = Number(customAgeMax);
+          }
         }
       }
 

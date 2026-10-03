@@ -182,6 +182,20 @@ describe("productFormSchema", () => {
       }).success,
     ).toBe(false);
   });
+  it("accepts and cleans comma-formatted prices on parse", () => {
+    const res = productFormSchema.safeParse({
+      name: "Paracetamol",
+      description: "",
+      type: "DRUG",
+      privatePrice: "5,000",
+      clinicPrice: "3,500",
+    });
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.privatePrice).toBe("5000");
+      expect(res.data.clinicPrice).toBe("3500");
+    }
+  });
 });
 
 describe("createUserFormSchema", () => {
@@ -293,7 +307,7 @@ describe("createPatientInsuranceFormSchema", () => {
     }
   });
 
-  it("accepts complete dominant-member info", () => {
+  it("accepts complete dominant-member info with dominantFirstName/dominantLastName", () => {
     const result = createPatientInsuranceFormSchema({
       dominantRequired: true,
     }).safeParse({
@@ -305,13 +319,24 @@ describe("createPatientInsuranceFormSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts complete dominant-member info with single dominantName field", () => {
+    const result = createPatientInsuranceFormSchema({
+      dominantRequired: true,
+    }).safeParse({
+      insuranceCardNumber: "CARD-1",
+      providingCompanyOrEmployer: "Acme Ltd",
+      dominantName: "Jane Doe",
+      dominantPhone: "0712345678",
+    });
+    expect(result.success).toBe(true);
+  });
+
   it("accepts international phone format", () => {
     const result = createPatientInsuranceFormSchema({
       dominantRequired: true,
     }).safeParse({
       ...base,
-      dominantFirstName: "Jane",
-      dominantLastName: "Doe",
+      dominantName: "Jane Doe",
       dominantPhone: "+256701234567",
     });
     expect(result.success).toBe(true);
@@ -322,8 +347,7 @@ describe("createPatientInsuranceFormSchema", () => {
       dominantRequired: true,
     }).safeParse({
       ...base,
-      dominantFirstName: "Jane",
-      dominantLastName: "Doe",
+      dominantName: "Jane Doe",
       dominantPhone: "1234567",
     });
     expect(result.success).toBe(true);

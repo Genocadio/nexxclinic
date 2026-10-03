@@ -57,6 +57,11 @@ describe("resolvePatientSearchFilter", () => {
         name: nationalId,
       });
 
+      // Formatted with spaces
+      expect(resolvePatientSearchFilter("1 1998 8 0012345 0 23")).toEqual({
+        name: "1 1998 8 0012345 0 23",
+      });
+
       // 13-digit ID
       const longId = "1234567890123";
       expect(resolvePatientSearchFilter(longId)).toEqual({

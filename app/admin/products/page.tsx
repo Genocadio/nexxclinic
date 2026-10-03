@@ -85,6 +85,7 @@ import {
   productFormSchema,
   type ProductFormValues,
 } from "@/lib/form-schemas";
+import { sanitizePriceInput } from "@/lib/validation-utils";
 import type {
   InsuranceProvider,
   Product,
@@ -378,6 +379,11 @@ export default function ManageProductsPage() {
   const handleCreateProduct = async (values: ProductFormValues) => {
     setSaving(true);
     try {
+      const cleanPrivatePrice = sanitizePriceInput(values.privatePrice);
+      const cleanClinicPrice = values.clinicPrice
+        ? sanitizePriceInput(values.clinicPrice)
+        : undefined;
+
       const createdResp = await createProduct({
         name: values.name,
         code:
@@ -388,9 +394,9 @@ export default function ManageProductsPage() {
         description: values.description || values.name,
         type: values.type as ProductTypeOption,
         unit: "PCS",
-        privateRhicPrice: Number(values.privatePrice),
-        clinicPrice: values.clinicPrice
-          ? Number(values.clinicPrice)
+        privateRhicPrice: Number(cleanPrivatePrice),
+        clinicPrice: cleanClinicPrice
+          ? Number(cleanClinicPrice)
           : undefined,
         quantifiable: values.quantifiable !== false,
         insuranceCoverages: [],
@@ -423,11 +429,13 @@ export default function ManageProductsPage() {
       toast.error("Product name is required");
       return;
     }
-    const privPriceNum = Number(settingsPrivatePrice);
-    if (isNaN(privPriceNum) || privPriceNum < 0) {
+    const cleanPrivatePrice = sanitizePriceInput(settingsPrivatePrice);
+    const privPriceNum = Number(cleanPrivatePrice);
+    if (isNaN(privPriceNum) || privPriceNum < 0 || !cleanPrivatePrice) {
       toast.error("Private price must be a valid non-negative number");
       return;
     }
+    const cleanClinicPrice = sanitizePriceInput(settingsClinicPrice);
 
     setSaving(true);
     try {
@@ -443,8 +451,8 @@ export default function ManageProductsPage() {
         type: settingsType,
         unit: selectedProduct.unit || "PCS",
         privateRhicPrice: privPriceNum,
-        clinicPrice: settingsClinicPrice
-          ? Number(settingsClinicPrice)
+        clinicPrice: cleanClinicPrice
+          ? Number(cleanClinicPrice)
           : undefined,
         quantifiable: settingsQuantifiable,
       });
@@ -454,19 +462,25 @@ export default function ManageProductsPage() {
           updatedResp.message || "Product updated successfully!",
         );
         const updatedData = updatedResp.data;
-        setSelectedProduct({
-          ...selectedProduct,
-          ...(updatedData || {}),
-          name: settingsName.trim(),
-          code: settingsCode.trim() || selectedProduct.code,
-          description: settingsDescription.trim(),
-          type: settingsType as ProductType,
-          privateRhicPrice: privPriceNum,
-          clinicPrice: settingsClinicPrice
-            ? Number(settingsClinicPrice)
-            : undefined,
-          quantifiable: settingsQuantifiable,
-        });
+        setSelectedProduct((prev) =>
+          prev
+            ? {
+                ...prev,
+                ...(updatedData || {}),
+                name: settingsName.trim(),
+                code: settingsCode.trim() || prev.code,
+                description: settingsDescription.trim(),
+                type: settingsType as ProductType,
+                privateRhicPrice: privPriceNum,
+                clinicPrice: cleanClinicPrice
+                  ? Number(cleanClinicPrice)
+                  : undefined,
+                quantifiable: settingsQuantifiable,
+                insuranceCoverages:
+                  updatedData?.insuranceCoverages || prev.insuranceCoverages,
+              }
+            : null,
+        );
       } else {
         toast.error(updatedResp?.message || "Failed to update product");
       }
@@ -481,8 +495,9 @@ export default function ManageProductsPage() {
   const handleAddCoverage = async () => {
     if (!selectedProduct || !newCoverageInsuranceId || !newCoveragePrice)
       return;
-    const priceNum = Number(newCoveragePrice);
-    if (isNaN(priceNum) || priceNum < 0) {
+    const cleanPrice = sanitizePriceInput(newCoveragePrice);
+    const priceNum = Number(cleanPrice);
+    if (isNaN(priceNum) || priceNum < 0 || !cleanPrice) {
       toast.error("Please enter a valid price");
       return;
     }
@@ -494,14 +509,42 @@ export default function ManageProductsPage() {
         newCoverageInsuranceId,
         priceNum,
       );
-      await refresh();
       if (resultResp?.status === "SUCCESS") {
         toast.success(
           resultResp.message || "Insurance coverage added successfully!",
         );
+        const addedCovData = resultResp.data;
+        const matchedProvider = insurances.find(
+          (ins: InsuranceProvider) =>
+            String(ins.id) === String(newCoverageInsuranceId),
+        );
+        const completeCoverage: ProductInsuranceCoverage = {
+          ...(addedCovData || {}),
+          id: addedCovData?.id || `cov-${Date.now()}`,
+          cost: priceNum,
+          covered: true,
+          insuranceProvider:
+            addedCovData?.insuranceProvider || matchedProvider,
+        };
+
+        setSelectedProduct((prev) => {
+          if (!prev) return null;
+          const currentCoverages = prev.insuranceCoverages || [];
+          const filtered = currentCoverages.filter(
+            (cov) =>
+              String(cov.id) !== String(completeCoverage.id) &&
+              String(cov.insuranceProvider?.id) !==
+                String(newCoverageInsuranceId),
+          );
+          return {
+            ...prev,
+            insuranceCoverages: [...filtered, completeCoverage],
+          };
+        });
+
         setNewCoverageInsuranceId("");
         setNewCoveragePrice("");
-        if (resultResp.data) setSelectedProduct(resultResp.data);
+        await refresh();
       } else {
         toast.error(resultResp?.message || "Failed to add coverage");
       }
@@ -526,20 +569,24 @@ export default function ManageProductsPage() {
         return;
       }
       const resp = await removeCoverage(targetCov.id);
-      await refresh();
       if (resp?.status === "SUCCESS") {
         toast.success(
           resp.message || "Insurance coverage removed successfully!",
         );
-        setSelectedProduct({
-          ...selectedProduct,
-          insuranceCoverages: (
-            selectedProduct.insuranceCoverages || []
-          ).filter(
-            (cov: ProductInsuranceCoverage) =>
-              String(cov.insuranceProvider?.id) !== String(insuranceId),
-          ),
-        });
+        setSelectedProduct((prev) =>
+          prev
+            ? {
+                ...prev,
+                insuranceCoverages: (
+                  prev.insuranceCoverages || []
+                ).filter(
+                  (cov: ProductInsuranceCoverage) =>
+                    String(cov.insuranceProvider?.id) !== String(insuranceId),
+                ),
+              }
+            : null,
+        );
+        await refresh();
       } else {
         toast.error(resp?.message || "Failed to remove coverage");
       }
@@ -1107,12 +1154,17 @@ export default function ManageProductsPage() {
                           Private RHIC Price (RWF) *
                         </Label>
                         <Input
-                          type="number"
-                          step="any"
+                          type="text"
+                          inputMode="decimal"
                           value={settingsPrivatePrice}
                           onChange={(e) =>
-                            setSettingsPrivatePrice(e.target.value)
+                            setSettingsPrivatePrice(sanitizePriceInput(e.target.value))
                           }
+                          onPaste={(e) => {
+                            e.preventDefault();
+                            const pasted = e.clipboardData.getData("text");
+                            setSettingsPrivatePrice(sanitizePriceInput(pasted));
+                          }}
                           placeholder="e.g. 5000"
                           className="rounded-xl"
                         />
@@ -1124,12 +1176,17 @@ export default function ManageProductsPage() {
                           Clinic Internal Price (RWF, Optional)
                         </Label>
                         <Input
-                          type="number"
-                          step="any"
+                          type="text"
+                          inputMode="decimal"
                           value={settingsClinicPrice}
                           onChange={(e) =>
-                            setSettingsClinicPrice(e.target.value)
+                            setSettingsClinicPrice(sanitizePriceInput(e.target.value))
                           }
+                          onPaste={(e) => {
+                            e.preventDefault();
+                            const pasted = e.clipboardData.getData("text");
+                            setSettingsClinicPrice(sanitizePriceInput(pasted));
+                          }}
                           placeholder="e.g. 3000"
                           className="rounded-xl"
                         />
@@ -1327,11 +1384,16 @@ export default function ManageProductsPage() {
                             Agreed Tariff (RWF) *
                           </Label>
                           <Input
-                            type="number"
-                            step="any"
+                            type="text"
+                            inputMode="decimal"
                             placeholder="Enter coverage price"
                             value={newCoveragePrice}
-                            onChange={(e) => setNewCoveragePrice(e.target.value)}
+                            onChange={(e) => setNewCoveragePrice(sanitizePriceInput(e.target.value))}
+                            onPaste={(e) => {
+                              e.preventDefault();
+                              const pasted = e.clipboardData.getData("text");
+                              setNewCoveragePrice(sanitizePriceInput(pasted));
+                            }}
                             className="rounded-xl"
                           />
                         </div>
@@ -1576,10 +1638,21 @@ export default function ManageProductsPage() {
                       Private RHIC Price (RWF) *
                     </Label>
                     <Input
-                      type="number"
-                      step="any"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="e.g. 5000"
-                      {...registerCreate("privatePrice")}
+                      {...registerCreate("privatePrice", {
+                        onChange: (e) => {
+                          const sanitized = sanitizePriceInput(e.target.value);
+                          setCreateValue("privatePrice", sanitized, { shouldValidate: true });
+                        },
+                      })}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const pasted = e.clipboardData.getData("text");
+                        const sanitized = sanitizePriceInput(pasted);
+                        setCreateValue("privatePrice", sanitized, { shouldValidate: true });
+                      }}
                       className={`rounded-xl bg-white dark:bg-slate-950 ${createErrors.privatePrice ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                     />
                     <FieldError message={createErrors.privatePrice?.message} />
@@ -1590,10 +1663,21 @@ export default function ManageProductsPage() {
                       Clinic Internal Price (RWF, Optional)
                     </Label>
                     <Input
-                      type="number"
-                      step="any"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="e.g. 3500"
-                      {...registerCreate("clinicPrice")}
+                      {...registerCreate("clinicPrice", {
+                        onChange: (e) => {
+                          const sanitized = sanitizePriceInput(e.target.value);
+                          setCreateValue("clinicPrice", sanitized, { shouldValidate: true });
+                        },
+                      })}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const pasted = e.clipboardData.getData("text");
+                        const sanitized = sanitizePriceInput(pasted);
+                        setCreateValue("clinicPrice", sanitized, { shouldValidate: true });
+                      }}
                       className="rounded-xl bg-white dark:bg-slate-950"
                     />
                   </div>

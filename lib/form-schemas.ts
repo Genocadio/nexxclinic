@@ -235,12 +235,20 @@ export const productFormSchema = z.object({
   privatePrice: z
     .string()
     .trim()
-    .min(1, "Private price is required")
+    .transform((val) => val.replace(/,/g, "").trim())
     .refine((value) => {
       const n = Number(value);
-      return !Number.isNaN(n) && n >= 0;
+      return !Number.isNaN(n) && n >= 0 && value.length > 0;
     }, "Private price must be a positive number"),
-  clinicPrice: z.string().trim(),
+  clinicPrice: z
+    .string()
+    .trim()
+    .transform((val) => (val ? val.replace(/,/g, "").trim() : ""))
+    .refine((value) => {
+      if (!value) return true;
+      const n = Number(value);
+      return !Number.isNaN(n) && n >= 0;
+    }, "Clinic price must be a valid non-negative number"),
   quantifiable: z.boolean().default(true),
 });
 export type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -351,6 +359,7 @@ export function createPatientInsuranceFormSchema(options: {
         "Providing company or employer is required",
       ),
       isSelf: z.boolean().optional(),
+      dominantName: z.string().trim().optional(),
       dominantFirstName: z.string().trim().optional(),
       dominantLastName: z.string().trim().optional(),
       dominantPhone: z.string().trim().optional(),
@@ -375,7 +384,7 @@ export function createPatientInsuranceFormSchema(options: {
       }
 
       // ── Format validation (runs if phone is supplied) ──
-      if (data.dominantPhone && !PHONE_NUMBER_REGEX.test(data.dominantPhone)) {
+      if (data.dominantPhone && !PHONE_NUMBER_REGEX.test(data.dominantPhone.replace(/\s+/g, ""))) {
         ctx.addIssue({
           code: "custom",
           path: ["dominantPhone"],
@@ -385,25 +394,46 @@ export function createPatientInsuranceFormSchema(options: {
 
       // ── Dominant-member rules ──
       // Required if patient is <=18, OR isSelf is explicitly false, OR any dominant field is typed
+      const hasAnyDominant = Boolean(
+        data.dominantName ||
+        data.dominantFirstName ||
+        data.dominantLastName ||
+        data.dominantPhone
+      );
       const mustFillDominant =
         options.dominantRequired ||
         data.isSelf === false ||
-        Boolean(data.dominantFirstName || data.dominantLastName || data.dominantPhone);
+        hasAnyDominant;
 
       if (mustFillDominant) {
-        if (!data.dominantFirstName) {
-          ctx.addIssue({
-            code: "custom",
-            path: ["dominantFirstName"],
-            message: "Dominant member first name is required",
-          });
-        }
-        if (!data.dominantLastName) {
-          ctx.addIssue({
-            code: "custom",
-            path: ["dominantLastName"],
-            message: "Dominant member last name is required",
-          });
+        const hasName = Boolean(
+          data.dominantName?.trim() ||
+          (data.dominantFirstName?.trim() && data.dominantLastName?.trim())
+        );
+
+        if (!hasName) {
+          if (data.dominantFirstName !== undefined || data.dominantLastName !== undefined) {
+            if (!data.dominantFirstName?.trim()) {
+              ctx.addIssue({
+                code: "custom",
+                path: ["dominantFirstName"],
+                message: "Dominant member first name is required",
+              });
+            }
+            if (!data.dominantLastName?.trim()) {
+              ctx.addIssue({
+                code: "custom",
+                path: ["dominantLastName"],
+                message: "Dominant member last name is required",
+              });
+            }
+          } else {
+            ctx.addIssue({
+              code: "custom",
+              path: ["dominantName"],
+              message: "Principal member full name is required",
+            });
+          }
         }
         if (!data.dominantPhone) {
           ctx.addIssue({

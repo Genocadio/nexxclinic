@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import type { InsuranceProvider } from "@/lib/api-types"
 import type { RegisterPatientInput } from "@/hooks/patients/hooks"
 import { Input } from "@/components/ui/input"
@@ -29,12 +29,14 @@ import { Button } from "@/components/ui/button"
 import { FieldError } from "@/components/ui/field-error"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { sanitizePhoneInput } from "@/lib/validation-utils"
 import {
+  sanitizePhoneInput,
   calculateAge,
   isDominantMemberRequired,
   validateDateOfBirth,
   canAddNewInsurance,
+  parseRwandaNationalId,
+  checkRwandaNationalIdMismatch,
 } from "@/lib/validation-utils"
 import { DatePickerGrid } from "@/components/ui/date-picker-grid"
 import {
@@ -42,6 +44,10 @@ import {
   RWANDA_PROVINCES,
   getRwandaDistricts,
   getRwandaSectors,
+  getDistrictsForSelection,
+  getSectorsForSelection,
+  getCellsForSelection,
+  getVillagesForSelection,
   isRwandaSelected,
 } from "@/lib/location-data"
 
@@ -50,8 +56,10 @@ export interface PatientFormFieldsProps {
   onFieldChange: (field: string, value: string) => void
   onCountryChange: (country: string) => void
   onProvinceChange: (province: string) => void
-  onDistrictChange: (district: string) => void
-  onSectorChange: (sector: string) => void
+  onDistrictChange: (district: string, province?: string) => void
+  onSectorChange: (sector: string, district?: string, province?: string) => void
+  onCellChange?: (cell: string, sector?: string, district?: string, province?: string) => void
+  onVillageChange?: (village: string, cell?: string, sector?: string, district?: string, province?: string) => void
   onAddInsurance: () => void
   onUpdateInsurance: (index: number, field: string, value: string | number | boolean) => void
   onRemoveInsurance: (index: number) => void
@@ -71,6 +79,8 @@ export default function PatientFormFields({
   onProvinceChange,
   onDistrictChange,
   onSectorChange,
+  onCellChange,
+  onVillageChange,
   onAddInsurance,
   onUpdateInsurance,
   onRemoveInsurance,
@@ -86,6 +96,69 @@ export default function PatientFormFields({
   const [provincePopoverOpen, setProvincePopoverOpen] = useState(false)
   const [districtPopoverOpen, setDistrictPopoverOpen] = useState(false)
   const [sectorPopoverOpen, setSectorPopoverOpen] = useState(false)
+  const [cellPopoverOpen, setCellPopoverOpen] = useState(false)
+  const [villagePopoverOpen, setVillagePopoverOpen] = useState(false)
+
+  const [countrySearch, setCountrySearch] = useState("")
+  const [provinceSearch, setProvinceSearch] = useState("")
+  const [districtSearch, setDistrictSearch] = useState("")
+  const [sectorSearch, setSectorSearch] = useState("")
+  const [cellSearch, setCellSearch] = useState("")
+  const [villageSearch, setVillageSearch] = useState("")
+
+  const prov = formData.contactInfo?.address?.province
+  const dist = formData.contactInfo?.address?.district
+  const sect = formData.contactInfo?.address?.sector
+  const cell = formData.contactInfo?.address?.cell
+
+  const rawDistricts = useMemo(() => getDistrictsForSelection(prov), [prov])
+  const rawSectors = useMemo(() => getSectorsForSelection(prov, dist), [prov, dist])
+  const rawCells = useMemo(() => getCellsForSelection(prov, dist, sect), [prov, dist, sect])
+  const rawVillages = useMemo(() => getVillagesForSelection(prov, dist, sect, cell), [prov, dist, sect, cell])
+
+  const filteredCountries = useMemo(() => {
+    const q = countrySearch.trim().toLowerCase()
+    if (!q) return COUNTRIES.slice(0, 50)
+    return COUNTRIES.filter((c) => c.toLowerCase().includes(q)).slice(0, 50)
+  }, [countrySearch])
+
+  const filteredProvinces = useMemo(() => {
+    const q = provinceSearch.trim().toLowerCase()
+    if (!q) return RWANDA_PROVINCES
+    return RWANDA_PROVINCES.filter((p) => p.toLowerCase().includes(q))
+  }, [provinceSearch])
+
+  const filteredDistricts = useMemo(() => {
+    const q = districtSearch.trim().toLowerCase()
+    if (!q) return rawDistricts.slice(0, 50)
+    return rawDistricts.filter(
+      (item) => item.district.toLowerCase().includes(q) || item.province.toLowerCase().includes(q)
+    ).slice(0, 50)
+  }, [rawDistricts, districtSearch])
+
+  const filteredSectors = useMemo(() => {
+    const q = sectorSearch.trim().toLowerCase()
+    if (!q) return rawSectors.slice(0, 50)
+    return rawSectors.filter(
+      (item) => item.sector.toLowerCase().includes(q) || item.district.toLowerCase().includes(q) || item.province.toLowerCase().includes(q)
+    ).slice(0, 50)
+  }, [rawSectors, sectorSearch])
+
+  const filteredCells = useMemo(() => {
+    const q = cellSearch.trim().toLowerCase()
+    if (!q) return rawCells.slice(0, 50)
+    return rawCells.filter(
+      (item) => item.cell.toLowerCase().includes(q) || item.sector.toLowerCase().includes(q) || item.district.toLowerCase().includes(q)
+    ).slice(0, 50)
+  }, [rawCells, cellSearch])
+
+  const filteredVillages = useMemo(() => {
+    const q = villageSearch.trim().toLowerCase()
+    if (!q) return rawVillages.slice(0, 50)
+    return rawVillages.filter(
+      (item) => item.village.toLowerCase().includes(q) || item.cell.toLowerCase().includes(q) || item.sector.toLowerCase().includes(q)
+    ).slice(0, 50)
+  }, [rawVillages, villageSearch])
 
   const solidFieldClass = "w-full bg-white dark:bg-gray-900 border-border/70"
   const solidPanelClass =
@@ -109,6 +182,13 @@ export default function PatientFormFields({
 
   const canAddInsurance = canAddNewInsurance(
     formData.insurances,
+    formData.dateOfBirth,
+  )
+
+  const nidInfo = parseRwandaNationalId(formData.nationalIdNumber)
+  const nidMismatch = checkRwandaNationalIdMismatch(
+    formData.nationalIdNumber,
+    formData.gender,
     formData.dateOfBirth,
   )
 
@@ -178,86 +258,113 @@ export default function PatientFormFields({
           <FieldError message={fieldErrors["gender"]} />
         </div>
         <div>
-          <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-            National ID
-          </label>
+          <div className="flex items-center justify-between gap-1 mb-1 sm:mb-1.5">
+            <label className="block text-xs sm:text-sm font-medium text-foreground">
+              National ID / Passport Number
+            </label>
+            {nidInfo.valid && !nidMismatch.hasMismatch && (
+              <span className="text-[10px] sm:text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                🇷🇼 NID: {nidInfo.genderLabel}, {nidInfo.yearOfBirth}
+              </span>
+            )}
+          </div>
           <Input
             type="text"
             value={fieldValue(formData.nationalIdNumber)}
             onChange={(e) => onFieldChange("nationalIdNumber", e.target.value)}
-            placeholder="Enter national ID"
+            onBlur={() => onFieldBlur?.("nationalIdNumber", formData.nationalIdNumber || "")}
+            placeholder="Enter 16-digit national ID or passport"
+            className={cn(
+              solidFieldClass,
+              nidMismatch.hasMismatch && "border-amber-500/80 focus-visible:ring-amber-500/30"
+            )}
+          />
+          {nidMismatch.hasMismatch && nidMismatch.warning && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium mt-1 flex items-center gap-1">
+              <span>⚠️</span>
+              <span>{nidMismatch.warning}</span>
+            </p>
+          )}
+        </div>
+        <div>
+          <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
+            Phone Number
+          </label>
+          <Input
+            type="tel"
+            value={fieldValue(formData.contactInfo?.phone)}
+            onChange={(e) =>
+              onFieldChange("contactInfo.phone", sanitizePhoneInput(e.target.value))
+            }
+            onBlur={() => onFieldBlur?.("contactInfo.phone", formData.contactInfo?.phone || "")}
+            placeholder="e.g. 0788 123 456 or +250 788 123 456"
             className={solidFieldClass}
           />
         </div>
       </div>
 
-      {/* Contact Information */}
+      {/* Address */}
       <div
         className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}
       >
-        <h4 className="text-sm sm:text-md font-medium mb-2 sm:mb-3">
-          Contact Information
+        <h4 className="text-sm sm:text-md font-medium text-foreground mb-2 sm:mb-3">
+          Address
         </h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
-          <div>
-            <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-              Phone
-            </label>
-            <Input
-              type="tel"
-              value={fieldValue(formData.contactInfo?.phone)}
-              onChange={(e) =>
-                onFieldChange("contactInfo.phone", e.target.value)
-              }
-              placeholder="Enter phone number"
-              className={solidFieldClass}
-            />
-          </div>
 
-          {/* Country inline with phone */}
+        <div className="space-y-2 sm:space-y-4">
           <div>
             <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
               Country
             </label>
             <Popover
               open={countryPopoverOpen}
-              onOpenChange={setCountryPopoverOpen}
+              onOpenChange={(open) => {
+                setCountryPopoverOpen(open)
+                if (!open) setCountrySearch("")
+              }}
             >
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   role="combobox"
                   aria-expanded={countryPopoverOpen}
-                  className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
+                  className="w-full justify-between bg-background dark:bg-gray-900 border-border/70 text-left font-normal"
                 >
-                  {formData.contactInfo?.address?.country ||
-                    "Select country..."}
+                  <span className="truncate">
+                    {formData.contactInfo?.address?.country || "Select country..."}
+                  </span>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-full p-0 bg-background dark:bg-gray-900 border-border/70"
+                className="w-[var(--radix-popover-trigger-width)] min-w-[240px] p-0 bg-white dark:bg-slate-900 text-foreground border-border/80 shadow-2xl opacity-100 z-[160] backdrop-blur-none"
                 align="start"
               >
-                <Command>
-                  <CommandInput placeholder="Search country..." />
-                  <CommandList>
-                    <CommandEmpty>No country found.</CommandEmpty>
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    placeholder="Search country..."
+                    value={countrySearch}
+                    onValueChange={setCountrySearch}
+                  />
+                  <CommandList className="max-h-60 overflow-y-auto">
+                    {filteredCountries.length === 0 && (
+                      <CommandEmpty>No country found.</CommandEmpty>
+                    )}
                     <CommandGroup>
-                      {COUNTRIES.map((country) => (
+                      {filteredCountries.map((country) => (
                         <CommandItem
                           key={country}
                           value={country}
                           onSelect={() => {
                             onCountryChange(country)
                             setCountryPopoverOpen(false)
+                            setCountrySearch("")
                           }}
                         >
                           <Check
                             className={cn(
-                              "mr-2 h-4 w-4",
-                              formData.contactInfo?.address?.country ===
-                                country
+                              "mr-2 h-4 w-4 shrink-0",
+                              formData.contactInfo?.address?.country === country
                                 ? "opacity-100"
                                 : "opacity-0",
                             )}
@@ -271,61 +378,65 @@ export default function PatientFormFields({
               </PopoverContent>
             </Popover>
           </div>
-        </div>
 
-        {/* Address */}
-        <div className="mt-2 sm:mt-4">
-          <h4 className="text-sm sm:text-md font-medium mb-2 sm:mb-2">
-            Address
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
-
-            {/* Rwanda cascading dropdowns */}
-            {isRwandaSelected(formData.contactInfo?.address?.country) ? (
-              <>
+          {/* Rwanda cascading / smart direct dropdowns */}
+          {isRwandaSelected(formData.contactInfo?.address?.country) ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+                {/* Province */}
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                     Province
                   </label>
                   <Popover
                     open={provincePopoverOpen}
-                    onOpenChange={setProvincePopoverOpen}
+                    onOpenChange={(open) => {
+                      setProvincePopoverOpen(open)
+                      if (!open) setProvinceSearch("")
+                    }}
                   >
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         role="combobox"
                         aria-expanded={provincePopoverOpen}
-                        className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
+                        className="w-full justify-between bg-background dark:bg-gray-900 border-border/70 text-left font-normal"
                       >
-                        {formData.contactInfo?.address?.province ||
-                          "Select province..."}
+                        <span className="truncate">
+                          {formData.contactInfo?.address?.province || "Select province..."}
+                        </span>
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent
-                      className="w-full p-0 bg-background dark:bg-gray-900 border-border/70"
+                      className="w-[var(--radix-popover-trigger-width)] min-w-[220px] p-0 bg-white dark:bg-slate-900 text-foreground border-border/80 shadow-2xl opacity-100 z-[160] backdrop-blur-none"
                       align="start"
                     >
-                      <Command>
-                        <CommandInput placeholder="Search province..." />
-                        <CommandList>
-                          <CommandEmpty>No province found.</CommandEmpty>
+                      <Command shouldFilter={false}>
+                        <CommandInput
+                          placeholder="Search province..."
+                          value={provinceSearch}
+                          onValueChange={setProvinceSearch}
+                        />
+                        <CommandList className="max-h-60 overflow-y-auto">
+                          {filteredProvinces.length === 0 && (
+                            <CommandEmpty>No province found.</CommandEmpty>
+                          )}
                           <CommandGroup>
-                            {RWANDA_PROVINCES.map((province) => (
+                            {filteredProvinces.map((province) => (
                               <CommandItem
                                 key={province}
                                 value={province}
                                 onSelect={() => {
                                   onProvinceChange(province)
                                   setProvincePopoverOpen(false)
+                                  setProvinceSearch("")
                                 }}
                               >
                                 <Check
                                   className={cn(
-                                    "mr-2 h-4 w-4",
-                                    formData.contactInfo?.address?.province ===
-                                      province
+                                    "mr-2 h-4 w-4 shrink-0",
+                                    formData.contactInfo?.address?.province === province
                                       ? "opacity-100"
                                       : "opacity-0",
                                   )}
@@ -340,57 +451,68 @@ export default function PatientFormFields({
                   </Popover>
                 </div>
 
+                {/* District (smart selector with province sublabel) */}
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                     District
                   </label>
                   <Popover
                     open={districtPopoverOpen}
-                    onOpenChange={setDistrictPopoverOpen}
+                    onOpenChange={(open) => {
+                      setDistrictPopoverOpen(open)
+                      if (!open) setDistrictSearch("")
+                    }}
                   >
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         role="combobox"
                         aria-expanded={districtPopoverOpen}
-                        className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
-                        disabled={!formData.contactInfo?.address?.province}
+                        className="w-full justify-between bg-background dark:bg-gray-900 border-border/70 text-left font-normal"
                       >
-                        {formData.contactInfo?.address?.district ||
-                          "Select district..."}
+                        <span className="truncate">
+                          {formData.contactInfo?.address?.district || "Select district..."}
+                        </span>
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent
-                      className="w-full p-0 bg-background dark:bg-gray-900 border-border/70"
+                      className="w-[var(--radix-popover-trigger-width)] min-w-[240px] p-0 bg-white dark:bg-slate-900 text-foreground border-border/80 shadow-2xl opacity-100 z-[160] backdrop-blur-none"
                       align="start"
                     >
-                      <Command>
-                        <CommandInput placeholder="Search district..." />
-                        <CommandList>
-                          <CommandEmpty>No district found.</CommandEmpty>
+                      <Command shouldFilter={false}>
+                        <CommandInput
+                          placeholder="Search district..."
+                          value={districtSearch}
+                          onValueChange={setDistrictSearch}
+                        />
+                        <CommandList className="max-h-60 overflow-y-auto">
+                          {filteredDistricts.length === 0 && (
+                            <CommandEmpty>No district found.</CommandEmpty>
+                          )}
                           <CommandGroup>
-                            {getRwandaDistricts(
-                              formData.contactInfo?.address?.province || "",
-                            ).map((district) => (
+                            {filteredDistricts.map((item) => (
                               <CommandItem
-                                key={district}
-                                value={district}
+                                key={`${item.province}-${item.district}`}
+                                value={`${item.district} ${item.province}`}
                                 onSelect={() => {
-                                  onDistrictChange(district)
+                                  onDistrictChange(item.district, item.province)
                                   setDistrictPopoverOpen(false)
+                                  setDistrictSearch("")
                                 }}
                               >
                                 <Check
                                   className={cn(
-                                    "mr-2 h-4 w-4",
-                                    formData.contactInfo?.address?.district ===
-                                      district
+                                    "mr-2 h-4 w-4 shrink-0",
+                                    formData.contactInfo?.address?.district === item.district
                                       ? "opacity-100"
                                       : "opacity-0",
                                   )}
                                 />
-                                {district}
+                                <div className="flex flex-col min-w-0">
+                                  <span className="font-medium text-foreground text-xs sm:text-sm">{item.district}</span>
+                                  <span className="text-[10px] sm:text-[11px] text-muted-foreground">{item.province}</span>
+                                </div>
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -400,60 +522,159 @@ export default function PatientFormFields({
                   </Popover>
                 </div>
 
+                {/* Sector (smart direct selector with district and province sublabel) */}
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                     Sector
                   </label>
                   <Popover
                     open={sectorPopoverOpen}
-                    onOpenChange={setSectorPopoverOpen}
+                    onOpenChange={(open) => {
+                      setSectorPopoverOpen(open)
+                      if (!open) setSectorSearch("")
+                    }}
                   >
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         role="combobox"
                         aria-expanded={sectorPopoverOpen}
-                        className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
-                        disabled={!formData.contactInfo?.address?.district}
+                        className="w-full justify-between bg-background dark:bg-gray-900 border-border/70 text-left font-normal"
                       >
-                        {formData.contactInfo?.address?.sector ||
-                          "Select sector..."}
+                        <span className="truncate">
+                          {formData.contactInfo?.address?.sector || "Select sector..."}
+                        </span>
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent
-                      className="w-full p-0 bg-background dark:bg-gray-900 border-border/70"
+                      className="w-[var(--radix-popover-trigger-width)] min-w-[260px] p-0 bg-white dark:bg-slate-900 text-foreground border-border/80 shadow-2xl opacity-100 z-[160] backdrop-blur-none"
                       align="start"
                     >
-                      <Command>
-                        <CommandInput placeholder="Search sector..." />
-                        <CommandList>
-                          <CommandEmpty>No sector found.</CommandEmpty>
+                      <Command shouldFilter={false}>
+                        <CommandInput
+                          placeholder="Search any sector..."
+                          value={sectorSearch}
+                          onValueChange={setSectorSearch}
+                        />
+                        <CommandList className="max-h-60 overflow-y-auto">
+                          {filteredSectors.length === 0 && (
+                            <CommandEmpty>No sector found.</CommandEmpty>
+                          )}
                           <CommandGroup>
-                            {getRwandaSectors(
-                              formData.contactInfo?.address?.province || "",
-                              formData.contactInfo?.address?.district || "",
-                            ).map((sector) => (
-                              <CommandItem
-                                key={sector}
-                                value={sector}
-                                onSelect={() => {
-                                  onSectorChange(sector)
-                                  setSectorPopoverOpen(false)
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    formData.contactInfo?.address?.sector ===
-                                      sector
-                                      ? "opacity-100"
-                                      : "opacity-0",
-                                  )}
-                                />
-                                {sector}
-                              </CommandItem>
-                            ))}
+                            {filteredSectors.map((item) => {
+                              const isSelected =
+                                formData.contactInfo?.address?.sector === item.sector &&
+                                (!formData.contactInfo?.address?.district ||
+                                  formData.contactInfo?.address?.district === item.district)
+                              return (
+                                <CommandItem
+                                  key={`${item.province}-${item.district}-${item.sector}`}
+                                  value={`${item.sector} ${item.district} ${item.province}`}
+                                  onSelect={() => {
+                                    onSectorChange(item.sector, item.district, item.province)
+                                    setSectorPopoverOpen(false)
+                                    setSectorSearch("")
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4 shrink-0",
+                                      isSelected ? "opacity-100" : "opacity-0",
+                                    )}
+                                  />
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="font-medium text-foreground text-xs sm:text-sm">{item.sector}</span>
+                                    <span className="text-[10px] sm:text-[11px] text-muted-foreground">
+                                      {item.district}, {item.province}
+                                    </span>
+                                  </div>
+                                </CommandItem>
+                              )
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+                {/* Cell (smart selector with sector, district sublabel) */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
+                    Cell
+                  </label>
+                  <Popover
+                    open={cellPopoverOpen}
+                    onOpenChange={(open) => {
+                      setCellPopoverOpen(open)
+                      if (!open) setCellSearch("")
+                    }}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={cellPopoverOpen}
+                        className="w-full justify-between bg-background dark:bg-gray-900 border-border/70 text-left font-normal"
+                      >
+                        <span className="truncate">
+                          {formData.contactInfo?.address?.cell || "Select cell..."}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-[var(--radix-popover-trigger-width)] min-w-[260px] p-0 bg-white dark:bg-slate-900 text-foreground border-border/80 shadow-2xl opacity-100 z-[160] backdrop-blur-none"
+                      align="start"
+                    >
+                      <Command shouldFilter={false}>
+                        <CommandInput
+                          placeholder="Search any cell..."
+                          value={cellSearch}
+                          onValueChange={setCellSearch}
+                        />
+                        <CommandList className="max-h-60 overflow-y-auto">
+                          {filteredCells.length === 0 && (
+                            <CommandEmpty>No cell found.</CommandEmpty>
+                          )}
+                          <CommandGroup>
+                            {filteredCells.map((item) => {
+                              const isSelected =
+                                formData.contactInfo?.address?.cell === item.cell &&
+                                (!formData.contactInfo?.address?.sector ||
+                                  formData.contactInfo?.address?.sector === item.sector)
+                              return (
+                                <CommandItem
+                                  key={`${item.province}-${item.district}-${item.sector}-${item.cell}`}
+                                  value={`${item.cell} ${item.sector} ${item.district}`}
+                                  onSelect={() => {
+                                    if (onCellChange) {
+                                      onCellChange(item.cell, item.sector, item.district, item.province)
+                                    } else {
+                                      onFieldChange("contactInfo.address.cell", item.cell)
+                                    }
+                                    setCellPopoverOpen(false)
+                                    setCellSearch("")
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4 shrink-0",
+                                      isSelected ? "opacity-100" : "opacity-0",
+                                    )}
+                                  />
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="font-medium text-foreground text-xs sm:text-sm">{item.cell}</span>
+                                    <span className="text-[10px] sm:text-[11px] text-muted-foreground">
+                                      {item.sector}, {item.district}
+                                    </span>
+                                  </div>
+                                </CommandItem>
+                              )
+                            })}
                           </CommandGroup>
                         </CommandList>
                       </Command>
@@ -461,116 +682,167 @@ export default function PatientFormFields({
                   </Popover>
                 </div>
 
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                    Cell
-                  </label>
-                  <Input
-                    type="text"
-                    value={fieldValue(formData.contactInfo?.address?.cell)}
-                    onChange={(e) =>
-                      onFieldChange("contactInfo.address.cell", e.target.value)
-                    }
-                    placeholder="Cell"
-                    className={solidFieldClass}
-                  />
-                </div>
-
+                {/* Village (smart selector with cell, sector, district sublabel) */}
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
                     Village
                   </label>
-                  <Input
-                    type="text"
-                    value={fieldValue(formData.contactInfo?.address?.village)}
-                    onChange={(e) =>
-                      onFieldChange("contactInfo.address.village", e.target.value)
-                    }
-                    placeholder="Village"
-                    className={solidFieldClass}
-                  />
+                  <Popover
+                    open={villagePopoverOpen}
+                    onOpenChange={(open) => {
+                      setVillagePopoverOpen(open)
+                      if (!open) setVillageSearch("")
+                    }}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={villagePopoverOpen}
+                        className="w-full justify-between bg-background dark:bg-gray-900 border-border/70 text-left font-normal"
+                      >
+                        <span className="truncate">
+                          {formData.contactInfo?.address?.village || "Select village..."}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-[var(--radix-popover-trigger-width)] min-w-[280px] p-0 bg-white dark:bg-slate-900 text-foreground border-border/80 shadow-2xl opacity-100 z-[160] backdrop-blur-none"
+                      align="start"
+                    >
+                      <Command shouldFilter={false}>
+                        <CommandInput
+                          placeholder="Search any village..."
+                          value={villageSearch}
+                          onValueChange={setVillageSearch}
+                        />
+                        <CommandList className="max-h-60 overflow-y-auto">
+                          {filteredVillages.length === 0 && (
+                            <CommandEmpty>No village found.</CommandEmpty>
+                          )}
+                          <CommandGroup>
+                            {filteredVillages.map((item) => {
+                              const isSelected =
+                                formData.contactInfo?.address?.village === item.village &&
+                                (!formData.contactInfo?.address?.cell ||
+                                  formData.contactInfo?.address?.cell === item.cell)
+                              return (
+                                <CommandItem
+                                  key={`${item.province}-${item.district}-${item.sector}-${item.cell}-${item.village}`}
+                                  value={`${item.village} ${item.cell} ${item.sector} ${item.district}`}
+                                  onSelect={() => {
+                                    if (onVillageChange) {
+                                      onVillageChange(item.village, item.cell, item.sector, item.district, item.province)
+                                    } else {
+                                      onFieldChange("contactInfo.address.village", item.village)
+                                    }
+                                    setVillagePopoverOpen(false)
+                                    setVillageSearch("")
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4 shrink-0",
+                                      isSelected ? "opacity-100" : "opacity-0",
+                                    )}
+                                  />
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="font-medium text-foreground text-xs sm:text-sm">{item.village}</span>
+                                    <span className="text-[10px] sm:text-[11px] text-muted-foreground">
+                                      {item.cell}, {item.sector}, {item.district}
+                                    </span>
+                                  </div>
+                                </CommandItem>
+                              )
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
-              </>
-            ) : formData.contactInfo?.address?.country ? (
-              <>
-                <Input
-                  type="text"
-                  value={fieldValue(formData.contactInfo?.address?.province)}
-                  onChange={(e) =>
-                    onFieldChange(
-                      "contactInfo.address.province",
-                      e.target.value,
-                    )
-                  }
-                  placeholder="Province / State"
-                  className={solidFieldClass}
-                />
-                <Input
-                  type="text"
-                  value={fieldValue(formData.contactInfo?.address?.district)}
-                  onChange={(e) =>
-                    onFieldChange(
-                      "contactInfo.address.district",
-                      e.target.value,
-                    )
-                  }
-                  placeholder="District"
-                  className={solidFieldClass}
-                />
-                <Input
-                  type="text"
-                  value={fieldValue(formData.contactInfo?.address?.sector)}
-                  onChange={(e) =>
-                    onFieldChange("contactInfo.address.sector", e.target.value)
-                  }
-                  placeholder="Sector / City"
-                  className={solidFieldClass}
-                />
-                <Input
-                  type="text"
-                  value={fieldValue(formData.contactInfo?.address?.cell)}
-                  onChange={(e) =>
-                    onFieldChange("contactInfo.address.cell", e.target.value)
-                  }
-                  placeholder="Cell"
-                  className={solidFieldClass}
-                />
-                <Input
-                  type="text"
-                  value={fieldValue(formData.contactInfo?.address?.village)}
-                  onChange={(e) =>
-                    onFieldChange(
-                      "contactInfo.address.village",
-                      e.target.value,
-                    )
-                  }
-                  placeholder="Village"
-                  className={solidFieldClass}
-                />
-              </>
-            ) : null}
-
-            {/* Street - manual input, optional, full width */}
-            {formData.contactInfo?.address?.country && (
-              <div className="md:col-span-2">
-                <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
-                  Street
-                </label>
-                <Input
-                  type="text"
-                  value={fieldValue(formData.contactInfo?.address?.address)}
-                  onChange={(e) =>
-                    onFieldChange(
-                      "contactInfo.address.address",
-                      e.target.value,
-                    )
-                  }
-                  placeholder="Street (optional)"
-                  className={solidFieldClass}
-                />
               </div>
-            )}
-          </div>
+            </>
+          ) : formData.contactInfo?.address?.country ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
+              <Input
+                type="text"
+                value={fieldValue(formData.contactInfo?.address?.province)}
+                onChange={(e) =>
+                  onFieldChange(
+                    "contactInfo.address.province",
+                    e.target.value,
+                  )
+                }
+                placeholder="Province / State"
+                className={solidFieldClass}
+              />
+              <Input
+                type="text"
+                value={fieldValue(formData.contactInfo?.address?.district)}
+                onChange={(e) =>
+                  onFieldChange(
+                    "contactInfo.address.district",
+                    e.target.value,
+                  )
+                }
+                placeholder="District"
+                className={solidFieldClass}
+              />
+              <Input
+                type="text"
+                value={fieldValue(formData.contactInfo?.address?.sector)}
+                onChange={(e) =>
+                  onFieldChange("contactInfo.address.sector", e.target.value)
+                }
+                placeholder="Sector / City"
+                className={solidFieldClass}
+              />
+              <Input
+                type="text"
+                value={fieldValue(formData.contactInfo?.address?.cell)}
+                onChange={(e) =>
+                  onFieldChange("contactInfo.address.cell", e.target.value)
+                }
+                placeholder="Cell"
+                className={solidFieldClass}
+              />
+              <Input
+                type="text"
+                value={fieldValue(formData.contactInfo?.address?.village)}
+                onChange={(e) =>
+                  onFieldChange(
+                    "contactInfo.address.village",
+                    e.target.value,
+                  )
+                }
+                placeholder="Village"
+                className={solidFieldClass}
+              />
+            </div>
+          ) : null}
+
+          {/* Street - manual input, optional */}
+          {formData.contactInfo?.address?.country && (
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
+                Street / Additional Address (optional)
+              </label>
+              <Input
+                type="text"
+                value={fieldValue(formData.contactInfo?.address?.address)}
+                onChange={(e) =>
+                  onFieldChange(
+                    "contactInfo.address.address",
+                    e.target.value,
+                  )
+                }
+                placeholder="Street (optional)"
+                className={solidFieldClass}
+              />
+            </div>
+          )}
         </div>
       </div>
 

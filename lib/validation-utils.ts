@@ -5,22 +5,88 @@ export function sanitizeEmailInput(input: string): string {
     .replace(/[^a-zA-Z0-9@._%+-]/g, "")
 }
 
-export function sanitizePhoneInput(input: string): string {
-  const noSpacesOrSeparators = input.replace(/\s+/g, "").replace(/[;,]/g, "")
-  let result = ""
+/**
+ * Automatically removes commas, spaces, currency indicators (e.g. RWF, $),
+ * and non-numeric characters from price input or pasted text, ensuring clean numeric values.
+ */
+export function sanitizePriceInput(input: string): string {
+  if (!input) return ""
+  // Remove commas, whitespace, and currency labels
+  const cleaned = input.replace(/,/g, "").replace(/[^\d.]/g, "")
+  // Ensure at most one decimal point
+  const parts = cleaned.split(".")
+  if (parts.length > 2) {
+    return `${parts[0]}.${parts.slice(1).join("")}`
+  }
+  return cleaned
+}
 
-  for (let i = 0; i < noSpacesOrSeparators.length; i++) {
-    const char = noSpacesOrSeparators[i]
-    if (i === 0 && char === "+") {
-      result += char
-      continue
-    }
-    if (/\d/.test(char)) {
-      result += char
-    }
+/**
+ * Instant Phone Number Formatter:
+ * - Automatically handles Rwandan local formats (078..., 079..., 073..., 072..., 077..., or any 07...)
+ *   and converts/displays them cleanly as "+250 788 123 456".
+ * - If user enters "788...", "79...", "73...", "72...", "77...": auto-prefixes "+250 ".
+ * - If user enters "25078...": auto-prefixes "+250 ".
+ * - Preserves any international format with leading "+" (e.g. +256, +254, +1, +44).
+ */
+export function formatPhoneNumber(input: string): string {
+  if (!input) return ""
+
+  const isInternational = input.trim().startsWith("+")
+  const digits = input.replace(/\D/g, "")
+
+  if (!digits) {
+    return isInternational ? "+" : ""
   }
 
-  return result
+  // Check if starts with "07" or "0" + Rwandan mobile prefix (078, 079, 073, 072, 077, etc.)
+  if (input.trim().startsWith("0") && digits.startsWith("07")) {
+    return formatRwandaDigits(digits.slice(1))
+  }
+
+  // Check if user entered "250"
+  if (digits.startsWith("250")) {
+    return formatRwandaDigits(digits.slice(3))
+  }
+
+  // Check if user entered "78...", "79...", "73...", "72...", "77..." (9 digits without leading 0)
+  if (/^7[23789]/.test(digits) && !isInternational) {
+    return formatRwandaDigits(digits)
+  }
+
+  // If international with other country code
+  if (isInternational) {
+    if (digits.length <= 3) return `+${digits}`
+    if (digits.length <= 6) return `+${digits.slice(0, 3)} ${digits.slice(3)}`
+    if (digits.length <= 9) return `+${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`
+    return `+${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 9)} ${digits.slice(9)}`
+  }
+
+  // Other local digits without recognized prefix
+  if (digits.length <= 4) return digits
+  if (digits.length <= 7) return `${digits.slice(0, 4)} ${digits.slice(4)}`
+  return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`
+}
+
+function formatRwandaDigits(rwaDigits: string): string {
+  const d = rwaDigits.slice(0, 9)
+  if (d.length === 0) return "+250 "
+  if (d.length <= 3) return `+250 ${d}`
+  if (d.length <= 6) return `+250 ${d.slice(0, 3)} ${d.slice(3)}`
+  return `+250 ${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6)}`
+}
+
+/**
+ * Normalizes phone number into clean compact E.164 without spaces (e.g. "+250788123456").
+ */
+export function normalizePhoneNumber(input: string): string {
+  if (!input) return ""
+  const formatted = formatPhoneNumber(input)
+  return formatted.replace(/\s+/g, "")
+}
+
+export function sanitizePhoneInput(input: string): string {
+  return formatPhoneNumber(input)
 }
 
 export function sanitizeEmailOrPhoneInput(input: string): string {
@@ -32,7 +98,7 @@ export function sanitizeEmailOrPhoneInput(input: string): string {
 
   const looksLikePhone = compact.startsWith("+") || compact.startsWith("07") || /^\d+$/.test(compact)
   if (looksLikePhone) {
-    return sanitizePhoneInput(compact)
+    return formatPhoneNumber(input)
   }
 
   return sanitizeEmailInput(compact)
@@ -59,10 +125,9 @@ export function isDominantMemberRequired(dateOfBirth: string, hasInsurance: bool
 }
 
 /**
- * Validates email or phone number format
+ * Validates email or phone number format without friction:
  * - Email: standard email format
- * - Local phone: starts with 07, followed by 10 total digits
- * - International phone: starts with +, followed by 12 total digits
+ * - Phone: local or international format (7 to 15 digits)
  */
 export function validateEmailOrPhone(input: string): { valid: boolean; error?: string } {
   const trimmed = input.trim()
@@ -71,20 +136,19 @@ export function validateEmailOrPhone(input: string): { valid: boolean; error?: s
     return { valid: false, error: "Email or phone number is required" }
   }
 
-  // International phone format: +XXXXXXXXXXXX (+ followed by 12 digits)
-  if (trimmed.startsWith("+")) {
-    const digitsOnly = trimmed.slice(1)
-    if (!/^\d{12}$/.test(digitsOnly)) {
-      return { valid: false, error: "International phone must be + followed by 12 digits (e.g., +256701234567)" }
+  const compact = trimmed.replace(/[\s\-().,;]/g, "")
+
+  // International phone format: + followed by 7-15 digits
+  if (compact.startsWith("+")) {
+    const digitsOnly = compact.slice(1)
+    if (/^\d{7,15}$/.test(digitsOnly)) {
+      return { valid: true }
     }
-    return { valid: true }
+    return { valid: false, error: "Phone number must be between 7 and 15 digits" }
   }
 
-  // Local phone format: 07XXXXXXXXXX (10 total digits starting with 07)
-  if (trimmed.startsWith("07")) {
-    if (!/^\d{10}$/.test(trimmed)) {
-      return { valid: false, error: "Local phone must be 10 digits starting with 07 (e.g., 0712345678)" }
-    }
+  // Local phone format: starts with 07, 7, etc. (7 to 15 digits)
+  if (/^\d{7,15}$/.test(compact)) {
     return { valid: true }
   }
 
@@ -94,7 +158,7 @@ export function validateEmailOrPhone(input: string): { valid: boolean; error?: s
     return { valid: true }
   }
 
-  return { valid: false, error: "Enter a valid email (user@domain.com) or phone (+256701234567 or 0712345678)" }
+  return { valid: false, error: "Enter a valid email address or phone number" }
 }
 
 /**
@@ -107,7 +171,11 @@ export function getInputType(input: string): "email" | "phone_local" | "phone_in
     return "phone_international"
   }
 
-  if (trimmed.startsWith("07")) {
+  if (trimmed.startsWith("07") || trimmed.startsWith("0")) {
+    return "phone_local"
+  }
+
+  if (/^\d+$/.test(trimmed.replace(/\s+/g, ""))) {
     return "phone_local"
   }
 
@@ -240,4 +308,120 @@ export function canAddNewInsurance(
   if (!insurances || insurances.length === 0) return true
   return insurances.every((ins) => isInsuranceEntryComplete(ins, dateOfBirth))
 }
+
+/**
+ * Clean and sanitize a National ID or Passport input string.
+ * Strips whitespace, hyphens, and keeps clean characters.
+ */
+export function sanitizeNationalIdInput(input: string): string {
+  if (!input) return ""
+  return input.replace(/[\s\-_]/g, "").trim()
+}
+
+export interface RwandaNationalIdInfo {
+  valid: boolean
+  rawDigits: string
+  statusDigit?: string // '1' citizen, '2' foreigner, '3' refugee
+  yearOfBirth?: number
+  gender?: "M" | "F"
+  genderLabel?: "Male" | "Female"
+  formatted?: string // "1 1998 8 0012345 0 23"
+}
+
+/**
+ * Parses a 16-digit Rwandan National ID number.
+ * Structure:
+ * - Digit 1: Citizen (1), Foreigner/Resident (2), Refugee (3)
+ * - Digits 2-5: Year of Birth (e.g. 1998)
+ * - Digit 6: Gender indicator (8 = Male, 7 = Female)
+ * - Digits 7-13: Serial / unique registration number
+ * - Digit 14: Verification / repetition digit
+ * - Digits 15-16: Location / control digits
+ */
+export function parseRwandaNationalId(input?: string | null): RwandaNationalIdInfo {
+  if (!input) return { valid: false, rawDigits: "" }
+  const digits = input.replace(/\D/g, "")
+  if (digits.length !== 16) {
+    return { valid: false, rawDigits: digits }
+  }
+
+  const statusDigit = digits[0]
+  const currentYear = new Date().getFullYear()
+  const yearStr = digits.slice(1, 5)
+  const yearOfBirth = parseInt(yearStr, 10)
+  const isYearValid = yearOfBirth >= 1900 && yearOfBirth <= currentYear
+
+  const genderDigit = digits[5]
+  let gender: "M" | "F" | undefined
+  let genderLabel: "Male" | "Female" | undefined
+
+  if (genderDigit === "8") {
+    gender = "M"
+    genderLabel = "Male"
+  } else if (genderDigit === "7") {
+    gender = "F"
+    genderLabel = "Female"
+  }
+
+  const valid = isYearValid && gender !== undefined
+  const formatted = `${digits[0]} ${digits.slice(1, 5)} ${digits[5]} ${digits.slice(6, 13)} ${digits[13]} ${digits.slice(14)}`
+
+  return {
+    valid,
+    rawDigits: digits,
+    statusDigit,
+    yearOfBirth: isYearValid ? yearOfBirth : undefined,
+    gender,
+    genderLabel,
+    formatted,
+  }
+}
+
+/**
+ * Validates whether the entered 16-digit Rwandan National ID matches the selected gender and date of birth.
+ * Returns mismatch warning messages if any conflict exists.
+ */
+export function checkRwandaNationalIdMismatch(
+  nid?: string | null,
+  selectedGender?: string | null,
+  selectedDob?: string | null,
+): { hasMismatch: boolean; warning?: string; info?: RwandaNationalIdInfo } {
+  const info = parseRwandaNationalId(nid)
+  if (!info.valid) {
+    return { hasMismatch: false, info }
+  }
+
+  const warnings: string[] = []
+
+  // Check gender mismatch
+  if (selectedGender && info.gender) {
+    const normGender = selectedGender.toUpperCase().startsWith("M")
+      ? "M"
+      : selectedGender.toUpperCase().startsWith("F")
+        ? "F"
+        : ""
+    if (normGender && normGender !== info.gender) {
+      warnings.push(
+        `ID specifies ${info.genderLabel} (digit '${info.rawDigits[5]}'), but ${normGender === "M" ? "Male" : "Female"} is selected.`
+      )
+    }
+  }
+
+  // Check year of birth mismatch
+  if (selectedDob && info.yearOfBirth) {
+    const dobYear = parseInt(selectedDob.split("-")[0], 10)
+    if (!isNaN(dobYear) && dobYear !== info.yearOfBirth) {
+      warnings.push(
+        `ID specifies birth year ${info.yearOfBirth}, but Date of Birth is ${dobYear}.`
+      )
+    }
+  }
+
+  return {
+    hasMismatch: warnings.length > 0,
+    warning: warnings.length > 0 ? warnings.join(" ") : undefined,
+    info,
+  }
+}
+
 

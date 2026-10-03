@@ -18,6 +18,7 @@ import {
   Eye,
   FileText,
   Ban,
+  RotateCcw,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
@@ -195,6 +196,9 @@ export function VisitSettingsPanel({
   const hasAdminRole = hasRole(roles, "ADMIN")
   const hasManagerRole = hasRole(roles, "MANAGER")
   const hasFinanceRole = hasRole(roles, "FINANCE")
+  const hasReceptionistRole = hasRole(roles, "RECEPTION")
+  const hasNurseRole = hasRole(roles, "NURSE")
+  const hasClinicianRole = hasRole(roles, "CLINICIAN") || hasRole(roles, "DOCTOR")
   const isAdminOrManager = hasAdminRole || hasManagerRole || hasFinanceRole
 
   const [isRendered, setIsRendered] = useState(open)
@@ -203,7 +207,7 @@ export function VisitSettingsPanel({
   )
   // Confirmation dialog state
   const [deleteTarget, setDeleteTarget] = useState<
-    { type: "visit" | "cancel-visit" | "department" | "finalise" | "cancel-department" | "discharge"; id: string; name: string } | null
+    { type: "visit" | "cancel-visit" | "department" | "finalise" | "cancel-department" | "discharge" | "re-enable-department"; id: string; name: string } | null
   >(null)
   // Pending date changes per department (encounter date & billing date)
   const [pendingDepartmentEncounterDate, setPendingDepartmentEncounterDate] = useState<{
@@ -310,6 +314,26 @@ export function VisitSettingsPanel({
       },
       onError: (error) => {
         toast.error(error.message || "Failed to remove department")
+      },
+    },
+  )
+
+  const [reEnableDepartmentMutation, { loading: reEnablingDept }] = useMutation(
+    UPDATE_VISIT_DEPARTMENT_STATUS_MUTATION,
+    {
+      ...refetchConfig,
+      onCompleted: (data) => {
+        handleResponse(data?.updateVisitDepartmentStatus, {
+          successMessage: "Department re-enabled successfully",
+          onSuccess: () => {
+            onVisitUpdated?.()
+            void fetchBilling({ variables: { visitId: visit.id } })
+            void fetchProfiles({ variables: { visitId: visit.id } })
+          },
+        })
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to re-enable department")
       },
     },
   )
@@ -909,6 +933,11 @@ export function VisitSettingsPanel({
     setDeleteTarget({ type: "cancel-department", id: departmentId, name: dept?.department?.name || 'this department' })
   }
 
+  const handleReEnableDepartment = (departmentId: string) => {
+    const dept = visit.departments?.find((d) => d.id === departmentId)
+    setDeleteTarget({ type: "re-enable-department", id: departmentId, name: dept?.department?.name || 'this department' })
+  }
+
   const handleFinaliseDepartment = (departmentId: string) => {
     const dept = visit.departments?.find((d) => d.id === departmentId)
     setDeleteTarget({ type: "finalise", id: departmentId, name: dept?.department?.name || 'this department' })
@@ -932,6 +961,15 @@ export function VisitSettingsPanel({
           input: {
             visitDepartmentId: deleteTarget.id,
             status: "CANCELLED",
+          },
+        },
+      })
+    } else if (deleteTarget.type === "re-enable-department") {
+      await reEnableDepartmentMutation({
+        variables: {
+          input: {
+            visitDepartmentId: deleteTarget.id,
+            status: "PENDING",
           },
         },
       })
@@ -964,7 +1002,9 @@ export function VisitSettingsPanel({
             ? `Finalise "${deleteTarget?.name || ''}"?`
             : deleteTarget?.type === "cancel-department"
               ? `Cancel "${deleteTarget?.name || ''}"?`
-              : `Remove "${deleteTarget?.name || ''}"?`;
+              : deleteTarget?.type === "re-enable-department"
+                ? `Re-enable "${deleteTarget?.name || ''}"?`
+                : `Remove "${deleteTarget?.name || ''}"?`;
 
   const deleteDialogDeps =
     deleteTarget?.type === "department"
@@ -1361,10 +1401,33 @@ export function VisitSettingsPanel({
                                       !hasProducts || isAssignedProcessor || isAdminOrManager;
                                   }
                                 }
+                                const isVisitActive =
+                                  currentVisit.status !== "CANCELLED" &&
+                                  currentVisit.status !== "COMPLETED" &&
+                                  currentVisit.status !== "FINALISED";
+                                const canReEnableDept =
+                                  dept.status === "CANCELLED" &&
+                                  isVisitActive &&
+                                  (isAdminOrManager || hasReceptionistRole || hasNurseRole || hasClinicianRole);
                                 const canDeleteDept = (hasAdminRole || hasManagerRole) && dept.status !== "FINALISED";
 
                                 return (
                                   <>
+                                    {canReEnableDept && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleReEnableDepartment(dept.id)}
+                                        disabled={reEnablingDept}
+                                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                      >
+                                        {reEnablingDept ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <RotateCcw className="h-3 w-3" />
+                                        )}
+                                        Re-enable
+                                      </button>
+                                    )}
                                     {canCancelDept && (
                                       <button
                                         type="button"
@@ -1795,7 +1858,9 @@ export function VisitSettingsPanel({
                 ? "Finalise"
                 : deleteTarget?.type === "cancel-department"
                   ? "Cancel Department"
-                  : "Remove Department"
+                  : deleteTarget?.type === "re-enable-department"
+                    ? "Re-enable Department"
+                    : "Remove Department"
         }
         busy={cancelling || deleting || removingDept || finalisingDept || cancellingDept}
         onConfirm={() => void handleConfirmDelete()}

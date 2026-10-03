@@ -15,12 +15,22 @@ import { toast } from "react-toastify"
 import {
   sanitizeEmailOrPhoneInput,
   sanitizePhoneInput,
+  sanitizeNationalIdInput,
+  parseRwandaNationalId,
   isDominantMemberRequired,
   calculateAge,
   validateDateOfBirth,
   isInsuranceEntryComplete,
 } from "@/lib/validation-utils"
 import { splitFullName, splitWorkerName } from "@/lib/patient-display-utils"
+import {
+  getRwandaDistricts,
+  getRwandaSectors,
+  getAllRwandaDistricts,
+  getAllRwandaSectors,
+  findRwandaCellInfo,
+  findRwandaVillageInfo,
+} from "@/lib/location-data"
 import PatientFormFields from "@/components/patient/patient-form-fields"
 
 interface PatientFormDialogProps {
@@ -55,7 +65,7 @@ const flatToNested = (flat: UpdatePatientInput): RegisterPatientInput => {
       phone: flat.primaryPhoneNumber || "",
       email: flat.alternativePhone || "",
       address: {
-        country: flat.postalAddress || "",
+        country: flat.postalAddress || "Rwanda",
         province: "",
         district: flat.district || "",
         sector: flat.city || "",
@@ -115,7 +125,7 @@ const EMPTY_FORM: RegisterPatientInput = {
     phone: "",
     email: "",
     address: {
-      country: "",
+      country: "Rwanda",
       province: "",
       district: "",
       sector: "",
@@ -166,7 +176,8 @@ export default function PatientFormDialog({
       .filter((pi) => !pi.deactivated)
       .map((pi) => {
         const isPrincipal = pi.principalMember
-        const nameParts = pi.principalMemberName?.trim().split(/\s+/) || []
+        const fullName = pi.principalMemberName?.trim() || ""
+        const nameParts = fullName ? fullName.split(/\s+/) : []
         return {
           id: pi.id,
           insuranceId: pi.insuranceProvider.id,
@@ -174,8 +185,9 @@ export default function PatientFormDialog({
           providingCompanyOrEmployer: pi.providingCompanyOrEmployer || "",
           isSelf: isPrincipal,
           dominantMember: isPrincipal
-            ? { firstName: "", lastName: "", phone: "" }
+            ? { name: "", firstName: "", lastName: "", phone: "" }
             : {
+                name: fullName,
                 firstName: nameParts[0] || "",
                 lastName: nameParts.slice(1).join(" ") || "",
                 phone: pi.principalMemberPhoneNumber || "",
@@ -231,7 +243,9 @@ export default function PatientFormDialog({
         ? sanitizeEmailOrPhoneInput(value)
         : field === "contactInfo.phone" || field === "emergencyContact.phone"
           ? sanitizePhoneInput(value)
-          : value
+          : field === "nationalIdNumber"
+            ? sanitizeNationalIdInput(value)
+            : value
 
     setFormData((prev) => {
       const keys = field.split(".")
@@ -249,6 +263,24 @@ export default function PatientFormDialog({
         updated.firstName = parts.firstName
         updated.middleName = parts.middleName || ""
         updated.lastName = parts.lastName || ""
+      }
+
+      // Auto-populate Gender & Year of Birth from Rwandan 16-digit National ID
+      if (field === "nationalIdNumber") {
+        const nidInfo = parseRwandaNationalId(sanitizedValue)
+        if (nidInfo.valid) {
+          if (nidInfo.gender) {
+            updated.gender = nidInfo.gender
+          }
+          if (nidInfo.yearOfBirth) {
+            if (prev.dateOfBirth && /^\d{4}-\d{2}-\d{2}$/.test(prev.dateOfBirth)) {
+              const [, mm, dd] = prev.dateOfBirth.split("-")
+              updated.dateOfBirth = `${nidInfo.yearOfBirth}-${mm}-${dd}`
+            } else {
+              updated.dateOfBirth = `${nidInfo.yearOfBirth}-01-01`
+            }
+          }
+        }
       }
       return updated
     })
@@ -342,8 +374,8 @@ export default function PatientFormDialog({
               ...insurance,
               isSelf,
               dominantMember: isSelf
-                ? { firstName: "", lastName: "", phone: "" }
-                : insurance.dominantMember || { firstName: "", lastName: "", phone: "" },
+                ? { name: "", firstName: "", lastName: "", phone: "" }
+                : insurance.dominantMember || { name: "", firstName: "", lastName: "", phone: "" },
             }
           }
           return { ...insurance, [field]: value }
@@ -385,16 +417,20 @@ export default function PatientFormDialog({
         const isAdult = calculateAge(formData.dateOfBirth) >= 18
         const isSelf = isAdult ? (ins.isSelf !== false) : false
         const dominantRequired = isDominantMemberRequired(formData.dateOfBirth, true)
-        const hasAnyDominant = Boolean(
-          ins.dominantMember?.firstName?.trim() ||
-          ins.dominantMember?.lastName?.trim() ||
-          ins.dominantMember?.phone?.trim()
+        const dmResolved = ins.dominantMember?.name
+          ? splitFullName(ins.dominantMember.name)
+          : {
+              firstName: ins.dominantMember?.firstName?.trim() || "",
+              lastName: ins.dominantMember?.lastName?.trim() || "",
+            }
+        const hasDmName = Boolean(
+          ins.dominantMember?.name?.trim() ||
+          (dmResolved.firstName && dmResolved.lastName)
         )
         const dominantValid = isSelf
           ? true
           : Boolean(
-              ins.dominantMember?.firstName?.trim() &&
-              ins.dominantMember?.lastName?.trim() &&
+              hasDmName &&
               ins.dominantMember?.phone?.trim() &&
               /^\+?\d{7,15}$/.test(ins.dominantMember.phone.trim())
             )
@@ -410,8 +446,9 @@ export default function PatientFormDialog({
             insuranceCardNumber: ins.insuranceCardNumber,
             providingCompanyOrEmployer: ins.providingCompanyOrEmployer,
             isSelf,
-            dominantFirstName: isSelf ? undefined : (ins.dominantMember?.firstName || undefined),
-            dominantLastName: isSelf ? undefined : (ins.dominantMember?.lastName || undefined),
+            dominantName: ins.dominantMember?.name || undefined,
+            dominantFirstName: isSelf ? undefined : (dmResolved.firstName || undefined),
+            dominantLastName: isSelf ? undefined : (dmResolved.lastName || undefined),
             dominantPhone: isSelf ? undefined : (ins.dominantMember?.phone || undefined),
             existingPatientInsurances: patient.patientInsurances,
           })
@@ -456,53 +493,185 @@ export default function PatientFormDialog({
 
   const handleProvinceChange = (province: string) => {
     hasInteractedRef.current = true
-    setFormData((prev) => ({
-      ...prev,
-      contactInfo: {
-        ...prev.contactInfo,
-        email: prev.contactInfo?.email,
-        phone: prev.contactInfo?.phone,
-        address: {
-          ...prev.contactInfo?.address,
-          province,
-          district: "",
-          sector: "",
+    setFormData((prev) => {
+      const validDistricts = getRwandaDistricts(province)
+      const currentDistrict = prev.contactInfo?.address?.district || ""
+      const keepDistrict = validDistricts.includes(currentDistrict)
+      return {
+        ...prev,
+        contactInfo: {
+          ...prev.contactInfo,
+          email: prev.contactInfo?.email,
+          phone: prev.contactInfo?.phone,
+          address: {
+            ...prev.contactInfo?.address,
+            country: "Rwanda",
+            province,
+            district: keepDistrict ? currentDistrict : "",
+            sector: keepDistrict ? prev.contactInfo?.address?.sector || "" : "",
+          },
         },
-      },
-    }))
+      }
+    })
   }
 
-  const handleDistrictChange = (district: string) => {
+  const handleDistrictChange = (district: string, province?: string) => {
     hasInteractedRef.current = true
-    setFormData((prev) => ({
-      ...prev,
-      contactInfo: {
-        ...prev.contactInfo,
-        email: prev.contactInfo?.email,
-        phone: prev.contactInfo?.phone,
-        address: {
-          ...prev.contactInfo?.address,
-          district,
-          sector: "",
+    setFormData((prev) => {
+      let resolvedProvince = province || prev.contactInfo?.address?.province || ""
+      if (!resolvedProvince) {
+        const allDistricts = getAllRwandaDistricts()
+        const found = allDistricts.find((d) => d.district.toLowerCase() === district.toLowerCase())
+        if (found) resolvedProvince = found.province
+      }
+      const validSectors = resolvedProvince ? getRwandaSectors(resolvedProvince, district) : []
+      const keepSector = validSectors.includes(prev.contactInfo?.address?.sector || "")
+
+      return {
+        ...prev,
+        contactInfo: {
+          ...prev.contactInfo,
+          email: prev.contactInfo?.email,
+          phone: prev.contactInfo?.phone,
+          address: {
+            ...prev.contactInfo?.address,
+            country: "Rwanda",
+            province: resolvedProvince,
+            district,
+            sector: keepSector ? prev.contactInfo?.address?.sector || "" : "",
+          },
         },
-      },
-    }))
+      }
+    })
   }
 
-  const handleSectorChange = (sector: string) => {
+  const handleSectorChange = (sector: string, district?: string, province?: string) => {
     hasInteractedRef.current = true
-    setFormData((prev) => ({
-      ...prev,
-      contactInfo: {
-        ...prev.contactInfo,
-        email: prev.contactInfo?.email,
-        phone: prev.contactInfo?.phone,
-        address: {
-          ...prev.contactInfo?.address,
-          sector,
+    setFormData((prev) => {
+      let resolvedDistrict = district || prev.contactInfo?.address?.district || ""
+      let resolvedProvince = province || prev.contactInfo?.address?.province || ""
+
+      if (!resolvedDistrict || !resolvedProvince) {
+        const allSectors = getAllRwandaSectors()
+        const match = allSectors.find(
+          (s) =>
+            s.sector.toLowerCase() === sector.toLowerCase() &&
+            (!district || s.district.toLowerCase() === district.toLowerCase()) &&
+            (!province || s.province.toLowerCase() === province.toLowerCase()),
+        )
+        if (match) {
+          resolvedDistrict = match.district
+          resolvedProvince = match.province
+        }
+      }
+
+      return {
+        ...prev,
+        contactInfo: {
+          ...prev.contactInfo,
+          email: prev.contactInfo?.email,
+          phone: prev.contactInfo?.phone,
+          address: {
+            ...prev.contactInfo?.address,
+            country: "Rwanda",
+            province: resolvedProvince,
+            district: resolvedDistrict,
+            sector,
+            cell: prev.contactInfo?.address?.cell || "",
+            village: prev.contactInfo?.address?.village || "",
+          },
         },
-      },
-    }))
+      }
+    })
+  }
+
+  const handleCellChange = (
+    cell: string,
+    sector?: string,
+    district?: string,
+    province?: string,
+  ) => {
+    hasInteractedRef.current = true
+    setFormData((prev) => {
+      let resolvedSector = sector || prev.contactInfo?.address?.sector || ""
+      let resolvedDistrict = district || prev.contactInfo?.address?.district || ""
+      let resolvedProvince = province || prev.contactInfo?.address?.province || ""
+
+      if (!resolvedSector || !resolvedDistrict || !resolvedProvince) {
+        const found =
+          findRwandaCellInfo(cell, resolvedSector, resolvedDistrict, resolvedProvince) ||
+          findRwandaCellInfo(cell)
+        if (found) {
+          resolvedSector = found.sector
+          resolvedDistrict = found.district
+          resolvedProvince = found.province
+        }
+      }
+
+      return {
+        ...prev,
+        contactInfo: {
+          ...prev.contactInfo,
+          email: prev.contactInfo?.email,
+          phone: prev.contactInfo?.phone,
+          address: {
+            ...prev.contactInfo?.address,
+            country: "Rwanda",
+            province: resolvedProvince,
+            district: resolvedDistrict,
+            sector: resolvedSector,
+            cell,
+            village: prev.contactInfo?.address?.village || "",
+          },
+        },
+      }
+    })
+  }
+
+  const handleVillageChange = (
+    village: string,
+    cell?: string,
+    sector?: string,
+    district?: string,
+    province?: string,
+  ) => {
+    hasInteractedRef.current = true
+    setFormData((prev) => {
+      let resolvedCell = cell || prev.contactInfo?.address?.cell || ""
+      let resolvedSector = sector || prev.contactInfo?.address?.sector || ""
+      let resolvedDistrict = district || prev.contactInfo?.address?.district || ""
+      let resolvedProvince = province || prev.contactInfo?.address?.province || ""
+
+      if (!resolvedCell || !resolvedSector || !resolvedDistrict || !resolvedProvince) {
+        const found =
+          findRwandaVillageInfo(village, resolvedCell, resolvedSector, resolvedDistrict, resolvedProvince) ||
+          findRwandaVillageInfo(village)
+        if (found) {
+          resolvedCell = found.cell
+          resolvedSector = found.sector
+          resolvedDistrict = found.district
+          resolvedProvince = found.province
+        }
+      }
+
+      return {
+        ...prev,
+        contactInfo: {
+          ...prev.contactInfo,
+          email: prev.contactInfo?.email,
+          phone: prev.contactInfo?.phone,
+          address: {
+            ...prev.contactInfo?.address,
+            country: "Rwanda",
+            province: resolvedProvince,
+            district: resolvedDistrict,
+            sector: resolvedSector,
+            cell: resolvedCell,
+            village,
+          },
+        },
+      }
+    })
   }
 
   // ── Notify parent of ALL form data changes (duplicate detection) ─────────
@@ -598,14 +767,20 @@ export default function PatientFormDialog({
             insuranceErrors[`${prefix}.dominant`] =
               "Enter a valid phone number (7-15 digits, optional leading +)"
           }
-          if (
-            missing(insurance.dominantMember?.firstName) ||
-            missing(insurance.dominantMember?.lastName) ||
-            missing(insurance.dominantMember?.phone)
-          ) {
+          const dmResolved = insurance.dominantMember?.name
+            ? splitFullName(insurance.dominantMember.name)
+            : {
+                firstName: insurance.dominantMember?.firstName?.trim() || "",
+                lastName: insurance.dominantMember?.lastName?.trim() || "",
+              }
+          const hasDmName = Boolean(
+            insurance.dominantMember?.name?.trim() ||
+            (dmResolved.firstName && dmResolved.lastName)
+          )
+          if (!hasDmName || missing(insurance.dominantMember?.phone)) {
             insuranceErrors[`${prefix}.dominant`] = isAdult
-              ? "Principal member first name, last name, and phone are required when patient is not the principal policyholder"
-              : "Principal member first name, last name, and phone are required for patients 18 years or younger"
+              ? "Principal member full name and phone are required when patient is not the principal policyholder"
+              : "Principal member full name and phone are required for patients 18 years or younger"
           }
         }
       }
@@ -663,6 +838,8 @@ export default function PatientFormDialog({
           onProvinceChange={handleProvinceChange}
           onDistrictChange={handleDistrictChange}
           onSectorChange={handleSectorChange}
+          onCellChange={handleCellChange}
+          onVillageChange={handleVillageChange}
           onAddInsurance={addInsurance}
           onUpdateInsurance={updateInsurance}
           onRemoveInsurance={removeInsurance}

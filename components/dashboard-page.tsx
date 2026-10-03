@@ -644,6 +644,11 @@ export default function DashboardPage() {
     dept: any
   } | null>(null)
   const [cancelingDept, setCancelingDept] = useState(false)
+  const [departmentToUncancel, setDepartmentToUncancel] = useState<{
+    visit: Visit
+    dept: any
+  } | null>(null)
+  const [uncancelingDept, setUncancelingDept] = useState(false)
   const [visitToCancel, setVisitToCancel] = useState<Visit | null>(null)
   const [cancelingVisit, setCancelingVisit] = useState(false)
 
@@ -661,6 +666,25 @@ export default function DashboardPage() {
       if (dept.billingSnapshot && dept.billingSnapshot.status === "BILLED") return false
     }
     return true
+  }
+
+  const canUserUncancelDepartment = (visit: Visit, dept: any) => {
+    if (!dept || !dept.id || !visit || !visit.id) return false
+    const visitStatus = String(visit.status || "").toUpperCase()
+    if (visitStatus === "COMPLETED" || visitStatus === "FINALISED" || visitStatus === "CANCELLED") {
+      return false
+    }
+    const deptStatus = String(dept.status || "").toUpperCase()
+    if (deptStatus !== "CANCELLED") return false
+
+    const canRoleUncancel =
+      hasReceptionistRole ||
+      hasFinanceRole ||
+      hasManagerRole ||
+      hasAdminRole ||
+      hasNurseRole ||
+      hasClinicianOrDoctorRole
+    return canRoleUncancel
   }
 
   const canUserCancelWholeVisit = (visit: Visit) => {
@@ -701,6 +725,26 @@ export default function DashboardPage() {
     } finally {
       setCancelingDept(false)
       setDepartmentToCancel(null)
+    }
+  }
+
+  const handleConfirmUncancelDepartment = async () => {
+    if (!departmentToUncancel || uncancelingDept) return
+    setUncancelingDept(true)
+    try {
+      const res = await updateDepartmentStatus(departmentToUncancel.dept.id, "PENDING")
+      if (res?.status === "SUCCESS") {
+        toast.success(`${departmentToUncancel.dept.department?.name || "Department"} re-enabled successfully`)
+        await refetchVisits()
+      } else {
+        toast.error(res?.message || "Failed to re-enable department")
+      }
+    } catch (err: any) {
+      console.error("Re-enable department error:", err)
+      toast.error(err?.message || "Failed to re-enable department")
+    } finally {
+      setUncancelingDept(false)
+      setDepartmentToUncancel(null)
     }
   }
 
@@ -2279,14 +2323,31 @@ export default function DashboardPage() {
                                       hasNurseRole ||
                                       hasReceptionistRole
 
+                                    const canUncancelActivePill = Boolean(
+                                      activeDeptInfo.activeDept &&
+                                      canUserUncancelDepartment(visit, activeDeptInfo.activeDept)
+                                    )
+
                                     const pillButton = (
                                       <button
                                         type="button"
                                         onClick={(e) =>
                                           e.stopPropagation()
                                         }
-                                        className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary/15 hover:bg-secondary/25 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-foreground border border-border/60 hover:border-border transition-all shadow-2xs cursor-pointer select-none"
-                                        title="Click to view department timeline & details"
+                                        onDoubleClick={(e) => {
+                                          if (canUncancelActivePill && activeDeptInfo.activeDept) {
+                                            e.stopPropagation()
+                                            setDepartmentToUncancel({ visit, dept: activeDeptInfo.activeDept })
+                                          }
+                                        }}
+                                        className={`group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary/15 hover:bg-secondary/25 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-foreground border border-border/60 hover:border-border transition-all shadow-2xs cursor-pointer select-none ${
+                                          canUncancelActivePill ? "hover:border-rose-400" : ""
+                                        }`}
+                                        title={
+                                          canUncancelActivePill
+                                            ? "Double-click to re-enable this cancelled department, or click to view details"
+                                            : "Click to view department timeline & details"
+                                        }
                                         aria-label={`View department timeline for ${visit.patient.firstName} ${visit.patient.lastName}`}
                                       >
                                         <span className="relative flex h-2 w-2 flex-shrink-0">
@@ -2435,6 +2496,8 @@ export default function DashboardPage() {
                                                       const canSeeThisDeptTimes =
                                                         canViewAllDeptTimes ||
                                                         Boolean(isThisUserDept)
+                                                      const canUncancelThisDept =
+                                                        canUserUncancelDepartment(visit, dept)
 
                                                       return (
                                                         <div
@@ -2454,7 +2517,17 @@ export default function DashboardPage() {
                                                             }`}
                                                           />
                                                           <div
+                                                            onDoubleClick={(e) => {
+                                                              e.stopPropagation()
+                                                              if (canUncancelThisDept) {
+                                                                setDepartmentToUncancel({ visit, dept })
+                                                              }
+                                                            }}
                                                             className={`p-3 rounded-xl border transition-colors ${
+                                                              canUncancelThisDept
+                                                                ? "cursor-pointer hover:border-rose-400/80 dark:hover:border-rose-500/80 hover:ring-1 hover:ring-rose-400/50"
+                                                                : ""
+                                                            } ${
                                                               isActive
                                                                 ? "bg-blue-50/50 dark:bg-blue-950/20 border-blue-200/60 dark:border-blue-800/40"
                                                                 : isCompleted
@@ -2514,7 +2587,9 @@ export default function DashboardPage() {
                                                                     : isCompleted
                                                                       ? "Completed"
                                                                       : isCancelled
-                                                                        ? "Cancelled"
+                                                                        ? canUncancelThisDept
+                                                                          ? "Cancelled (Double-click to restore)"
+                                                                          : "Cancelled"
                                                                         : "In Progress"}
                                                                 </span>
                                                                 {canUserCancelDepartment(dept) && (
@@ -3348,6 +3423,32 @@ export default function DashboardPage() {
         onConfirm={() => {
           if (!dischargeConfirmVisit || discharging) return
           void handleDischargeVisit(dischargeConfirmVisit)
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!departmentToUncancel}
+        onOpenChange={(open) => !open && setDepartmentToUncancel(null)}
+        title="Re-enable Department"
+        description={
+          departmentToUncancel ? (
+            <span>
+              Are you sure you want to re-enable{" "}
+              <strong className="text-foreground">
+                {departmentToUncancel.dept?.department?.name || "this department"}
+              </strong>{" "}
+              for patient{" "}
+              <strong className="text-foreground">
+                {departmentToUncancel.visit.patient.firstName} {departmentToUncancel.visit.patient.lastName}
+              </strong>? This department will be restored to active status on this visit.
+            </span>
+          ) : null
+        }
+        confirmLabel="Re-enable Department"
+        cancelLabel="Cancel"
+        busy={uncancelingDept}
+        onConfirm={() => {
+          void handleConfirmUncancelDepartment()
         }}
       />
 

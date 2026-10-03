@@ -78,9 +78,12 @@ export function AddDepartmentModal({
     }
   }, [isOpen, visit.status, onClose]);
 
-  // Filter out departments already in the visit
+  // Filter out non-cancelled departments already in the visit
   const existingDepartmentIds = useMemo(
-    () => visit.departments?.map((d) => String(d.department?.id)) || [],
+    () =>
+      visit.departments
+        ?.filter((d) => d.status !== "CANCELLED")
+        .map((d) => String(d.department?.id)) || [],
     [visit.departments],
   );
 

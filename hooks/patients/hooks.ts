@@ -127,16 +127,24 @@ const getDominantMemberPayload = (
     };
   }
 
-  const firstName = dominantMember?.firstName?.trim() || "";
-  const lastName = dominantMember?.lastName?.trim() || "";
+  const rawName = dominantMember?.name?.trim();
+  const resolvedNames = rawName
+    ? splitFullName(rawName)
+    : {
+        firstName: dominantMember?.firstName?.trim() || "",
+        lastName: dominantMember?.lastName?.trim() || "",
+      };
+
+  const firstName = resolvedNames.firstName || dominantMember?.firstName?.trim() || "";
+  const lastName = resolvedNames.lastName || dominantMember?.lastName?.trim() || "";
   const phone = dominantMember?.phone?.trim() || "";
-  const hasDominantMemberData = Boolean(firstName || lastName || phone);
+  const hasDominantMemberData = Boolean(rawName || firstName || lastName || phone);
+
+  const fullName = rawName || ([firstName, lastName].filter(Boolean).join(" ") || null);
 
   return {
     principalMember: !hasDominantMemberData,
-    principalMemberName: hasDominantMemberData
-      ? [firstName, lastName].filter(Boolean).join(" ") || null
-      : null,
+    principalMemberName: hasDominantMemberData ? fullName : null,
     principalMemberPhoneNumber: hasDominantMemberData ? phone || null : null,
   };
 };
