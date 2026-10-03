@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useSetInitialPassword } from "@/hooks/auth-hooks"
-import { Eye, EyeOff, Lock, CheckCircle } from "lucide-react"
+import { Eye, EyeOff, Lock, CheckCircle, AlertCircle } from "lucide-react"
 import { toast } from "react-toastify"
 import { handleResponse } from "@/lib/response-handler"
 import { FieldError } from "@/components/ui/field-error"
@@ -25,6 +25,7 @@ export default function SetupPasswordPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+  const [serverError, setServerError] = useState<string | null>(null)
 
   // Get user identifier from URL params (passed from login)
   const identifier = searchParams.get("identifier") || ""
@@ -33,6 +34,8 @@ export default function SetupPasswordPage() {
     register,
     handleSubmit,
     watch,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<SetupPasswordFormValues>({
     resolver: zodResolver(setupPasswordFormSchema),
@@ -44,6 +47,7 @@ export default function SetupPasswordPage() {
   const confirmPassword = watch("confirmPassword")
 
   const handleSubmitForm = async (values: SetupPasswordFormValues) => {
+    setServerError(null)
     if (!identifier) {
       toast.error("User identifier not found. Please try logging in again.")
       router.push("/login")
@@ -52,28 +56,34 @@ export default function SetupPasswordPage() {
 
     // Ensure both identifier and password are non-empty strings to avoid GraphQL null value error
     if (!identifier.trim() || !values.password.trim()) {
-      await handleResponse({ status: "ERROR", message: "Invalid input: identifier and password cannot be empty" }, { successMessage: false })
+      const msg = "Invalid input: identifier and password cannot be empty"
+      setServerError(msg)
+      await handleResponse({ status: "ERROR", message: msg }, { successMessage: false })
       return
     }
 
     try {
       const result = await setInitialPassword(identifier.trim(), values.password.trim())
 
-      const succeeded = await handleResponse(result, {
-        successMessage: "Password set successfully! Redirecting to login...",
-        errorMessage: true,
-      })
-
-      if (succeeded) {
+      if (result?.status === "SUCCESS") {
         setIsSuccess(true)
+        toast.success("Password set successfully! Redirecting to login...")
 
         // Redirect to login after 2 seconds
         setTimeout(() => {
           router.push("/login")
         }, 2000)
+      } else {
+        const errorMsg = result?.message || result?.messages?.[0]?.text || "An error occurred while setting password"
+        setServerError(errorMsg)
+        setError("password", { message: errorMsg })
+        toast.error(errorMsg)
       }
-    } catch {
-      await handleResponse({ status: "ERROR", message: "An error occurred while setting password" }, { successMessage: false })
+    } catch (err: any) {
+      const errorMsg = err?.message || "An error occurred while setting password"
+      setServerError(errorMsg)
+      setError("password", { message: errorMsg })
+      toast.error(errorMsg)
     }
   }
 
@@ -113,6 +123,13 @@ export default function SetupPasswordPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(handleSubmitForm)} className="space-y-4" noValidate>
+            {serverError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2.5 text-sm text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-300">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
+                <span className="flex-1 font-medium leading-relaxed">{serverError}</span>
+              </div>
+            )}
+
             <div className="space-y-2">
               <label htmlFor="password" className="text-sm font-medium text-gray-700">
                 Password
@@ -122,7 +139,11 @@ export default function SetupPasswordPage() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
-                  {...register("password")}
+                  {...register("password", {
+                    onChange: () => {
+                      if (serverError) setServerError(null)
+                    },
+                  })}
                   className={`pr-10 ${errors.password ? "border-red-500 focus-visible:ring-red-300" : ""}`}
                 />
                 <button

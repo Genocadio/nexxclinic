@@ -29,16 +29,25 @@ export function InvoiceViewerDialog() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const blobUrlRef = useRef<string | null>(null);
 
   useEffect(() => subscribeInvoiceViewer(setViewer), []);
 
   const url = viewer.url;
 
   useEffect(() => {
-    if (!viewer.open || !url) return;
+    if (!viewer.open || !url) {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+      setObjectUrl(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
 
     let cancelled = false;
-    let createdUrl: string | null = null;
 
     const load = async () => {
       if (url.startsWith("data:") || url.startsWith("blob:")) {
@@ -58,7 +67,11 @@ export function InvoiceViewerDialog() {
         }
         const blob = await res.blob();
         if (cancelled) return;
-        createdUrl = URL.createObjectURL(blob);
+        if (blobUrlRef.current) {
+          URL.revokeObjectURL(blobUrlRef.current);
+        }
+        const createdUrl = URL.createObjectURL(blob);
+        blobUrlRef.current = createdUrl;
         setObjectUrl(createdUrl);
         setLoading(false);
       } catch (err: unknown) {
@@ -74,9 +87,23 @@ export function InvoiceViewerDialog() {
 
     return () => {
       cancelled = true;
-      if (createdUrl) URL.revokeObjectURL(createdUrl);
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
     };
   }, [viewer.open, url]);
+
+  const handleClose = () => {
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+    setObjectUrl(null);
+    setLoading(false);
+    setError(null);
+    closeInvoiceViewer();
+  };
 
   const handlePrint = () => {
     const frame = iframeRef.current;
@@ -100,7 +127,7 @@ export function InvoiceViewerDialog() {
     <Dialog
       open={viewer.open}
       onOpenChange={(open) => {
-        if (!open) closeInvoiceViewer();
+        if (!open) handleClose();
       }}
       modal={false}
     >
@@ -128,7 +155,7 @@ export function InvoiceViewerDialog() {
               <AlertTriangle className="h-4 w-4" />
               {error}
             </div>
-          ) : objectUrl ? (
+          ) : viewer.open && objectUrl ? (
             <iframe
               ref={iframeRef}
               src={objectUrl}

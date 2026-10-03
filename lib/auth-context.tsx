@@ -19,6 +19,8 @@ import {
   normalizeClinicProfile,
   setStoredClinicProfile,
 } from "@/lib/clinic-profile"
+import { initAuthSessionManager } from "@/lib/auth-session-manager"
+import { resetApolloCache } from "@/lib/apollo-client"
 interface AuthContextType {
   doctor: Worker | null
   clinicProfile: ClinicProfile | null
@@ -99,6 +101,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Persist tokens & user
         localStorage.removeItem("pendingResetIdentifier")
         localStorage.setItem("authToken", token)
+        if (response.data.refreshToken) {
+          localStorage.setItem("refreshToken", response.data.refreshToken)
+        }
         localStorage.setItem("doctor", JSON.stringify(user))
         // Store clinic profile if it came back in the login payload
         const clinicProfileFromLogin = normalizeClinicProfile(
@@ -109,7 +114,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setClinicProfileState(clinicProfileFromLogin)
         }
 
-
         setDoctor(user)
         return { success: true }
       } else if (
@@ -118,6 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         response.data?.needsPasswordSetup
       ) {
         localStorage.removeItem("authToken")
+        localStorage.removeItem("refreshToken")
         localStorage.removeItem("doctor")
         localStorage.setItem("pendingResetIdentifier", email)
         setDoctor(null)
@@ -165,9 +170,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
   const logout = () => {
     localStorage.removeItem("authToken")
+    localStorage.removeItem("refreshToken")
     localStorage.removeItem("doctor")
     localStorage.removeItem("dashboard_viewMode")
     localStorage.removeItem("dashboard_showMetrics")
+    void resetApolloCache()
     setDoctor(null)
   }
   /* ------------------------------------------------------------------- */
@@ -182,19 +189,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [] // stable – no internal deps
   )
   /* ------------------------------------------------------------------- */
-  /* Listen for global logout / user‑update events                       */
+  /* Listen for global logout / user‑update events & session manager     */
   /* ------------------------------------------------------------------- */
   useEffect(() => {
     const handleExternalLogout = () => logout()
     const handleExternalProfileUpdate = () => setDoctor(getStoredDoctor())
+    const handleTokenRefreshed = (e: Event) => {
+      const customEvent = e as CustomEvent<{ user?: Worker }>
+      if (customEvent?.detail?.user) {
+        setDoctor(customEvent.detail.user)
+      } else {
+        setDoctor(getStoredDoctor())
+      }
+    }
+
+    // Initialize session activity monitoring and automatic silent refresh
+    const cleanupSessionManager = initAuthSessionManager()
+
     if (typeof window !== "undefined") {
       window.addEventListener("auth-logout", handleExternalLogout as EventListener)
       window.addEventListener("auth-user-updated", handleExternalProfileUpdate as EventListener)
+      window.addEventListener("auth-token-refreshed", handleTokenRefreshed as EventListener)
     }
     return () => {
+      cleanupSessionManager()
       if (typeof window !== "undefined") {
         window.removeEventListener("auth-logout", handleExternalLogout as EventListener)
         window.removeEventListener("auth-user-updated", handleExternalProfileUpdate as EventListener)
+        window.removeEventListener("auth-token-refreshed", handleTokenRefreshed as EventListener)
       }
     }
   }, [])

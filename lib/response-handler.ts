@@ -5,6 +5,7 @@
 
 import { toast } from 'react-toastify'
 import type { ApiResponse } from '@/hooks/types'
+import { resetApolloCache } from '@/lib/apollo-client'
 
 const TOAST_STYLES = {
   SUCCESS: { background: '#16a34a', color: '#ffffff' },
@@ -70,7 +71,9 @@ export function handleUnauthenticatedSession(message?: string) {
 
   try {
     localStorage.removeItem('authToken')
+    localStorage.removeItem('refreshToken')
     localStorage.removeItem('doctor')
+    void resetApolloCache()
     window.dispatchEvent(new Event('auth-logout'))
     if (window.location.pathname !== '/auth') {
       window.location.replace('/auth')

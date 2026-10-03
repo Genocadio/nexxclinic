@@ -748,6 +748,8 @@ export interface DepartmentInsuranceBilling {
   outstandingType?: string | null;
   outstandingReason?: string | null;
   items: VisitBillingItem[];
+  billingDate?: string | null;
+  invoiceUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }

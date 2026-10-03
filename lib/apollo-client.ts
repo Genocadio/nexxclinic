@@ -211,10 +211,10 @@ export function getApolloClient(): ApolloClient<NormalizedCacheObject> {
         typePolicies: {
           Query: {
             fields: {
-              // Merge paginated lists so refetches update the cache properly
+              // Merge paginated lists and list queries so refetches update the cache properly
               visitBillings: {
                 keyArgs: ["visitId"],
-                merge(existing, incoming) {
+                merge(_existing, incoming) {
                   return incoming
                 },
               },
@@ -231,14 +231,50 @@ export function getApolloClient(): ApolloClient<NormalizedCacheObject> {
                   return incoming
                 },
               },
-              listProducts: {
+              visits: {
+                keyArgs: ["input"],
+                merge(_existing, incoming) {
+                  return incoming
+                },
+              },
+              products: {
+                keyArgs: ["input"],
+                merge(_existing, incoming) {
+                  return incoming
+                },
+              },
+              product: {
+                keyArgs: ["id"],
+                merge(_existing, incoming) {
+                  return incoming
+                },
+              },
+              patients: {
+                keyArgs: ["input"],
+                merge(_existing, incoming) {
+                  return incoming
+                },
+              },
+              patient: {
+                keyArgs: ["id"],
+                merge(_existing, incoming) {
+                  return incoming
+                },
+              },
+              workers: {
+                keyArgs: ["input"],
+                merge(_existing, incoming) {
+                  return incoming
+                },
+              },
+              departments: {
                 keyArgs: false,
                 merge(_existing, incoming) {
                   return incoming
                 },
               },
-              listPatients: {
-                keyArgs: false,
+              insurances: {
+                keyArgs: ["input"],
                 merge(_existing, incoming) {
                   return incoming
                 },
@@ -289,6 +325,20 @@ export function pruneApolloCache(): void {
       client.cache.gc()
     } catch {
       // noop
+    }
+  }
+}
+
+export async function resetApolloCache(): Promise<void> {
+  if (client) {
+    try {
+      await client.clearStore()
+    } catch {
+      try {
+        client.cache.reset()
+      } catch {
+        // noop
+      }
     }
   }
 }

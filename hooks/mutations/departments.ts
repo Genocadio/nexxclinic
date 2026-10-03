@@ -49,6 +49,7 @@ const DEPARTMENT_PROFILE_PRODUCT_FRAGMENT = gql`
 `
 
 const DEPARTMENT_PROFILE_FRAGMENT = gql`
+  ${DEPARTMENT_PROFILE_PRODUCT_FRAGMENT}
   fragment DepartmentProfileFields on DepartmentProfile {
     id
     name

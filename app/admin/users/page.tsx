@@ -668,11 +668,11 @@ export default function ManageUsersPage() {
         await refetchUsers();
       } else {
         toast.error(
-          resp?.messages?.[0]?.text || "Could not require password setup",
+          resp?.message || resp?.messages?.[0]?.text || "Could not require password setup",
         );
       }
-    } catch {
-      toast.error("Could not require password setup");
+    } catch (err: any) {
+      toast.error(err?.message || "Could not require password setup");
     } finally {
       setSaving(false);
     }

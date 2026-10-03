@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Camera, Pencil, Loader2 } from "lucide-react"
+import { ArrowLeft, Camera, Pencil, Loader2, AlertCircle } from "lucide-react"
 import { toast } from "react-toastify"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -34,6 +34,7 @@ export default function AccountPage() {
   const [profilePhotoUrl, setProfilePhotoUrl] = useState("")
   // In-flight profile photo upload — disables the photo picker while uploading.
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [passwordServerError, setPasswordServerError] = useState<string | null>(null)
 
   const initial = useRef({} as Record<string, string>)
 
@@ -157,6 +158,7 @@ export default function AccountPage() {
   }
 
   const handleChangePassword = async (values: ChangePasswordFormValues) => {
+    setPasswordServerError(null)
     try {
       const response = await changePassword(values.currentPassword, values.newPassword)
       if (response?.status === "SUCCESS") {
@@ -165,9 +167,19 @@ export default function AccountPage() {
         return
       }
 
-      toast.error(response?.messages?.[0]?.text || "Could not change password")
-    } catch {
-      toast.error("Could not change password")
+      const errorMsg = response?.message || response?.messages?.[0]?.text || "Could not change password"
+      setPasswordServerError(errorMsg)
+      if (errorMsg.toLowerCase().includes("current")) {
+        passwordForm.setError("currentPassword", { message: errorMsg })
+      } else {
+        passwordForm.setError("newPassword", { message: errorMsg })
+      }
+      toast.error(errorMsg)
+    } catch (err: any) {
+      const errorMsg = err?.message || "Could not change password"
+      setPasswordServerError(errorMsg)
+      passwordForm.setError("newPassword", { message: errorMsg })
+      toast.error(errorMsg)
     }
   }
 
@@ -292,13 +304,23 @@ export default function AccountPage() {
 
         <section className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
           <h2 className="text-lg font-semibold text-foreground">Change Password</h2>
+          {passwordServerError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2.5 text-sm text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-300">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
+              <span className="flex-1 font-medium leading-relaxed">{passwordServerError}</span>
+            </div>
+          )}
           <form onSubmit={passwordForm.handleSubmit(handleChangePassword)} className="space-y-4" noValidate>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <Input
                   type="password"
                   placeholder="Current password"
-                  {...passwordForm.register("currentPassword")}
+                  {...passwordForm.register("currentPassword", {
+                    onChange: () => {
+                      if (passwordServerError) setPasswordServerError(null)
+                    },
+                  })}
                   className={passwordErrors.currentPassword ? errorInputClass : ""}
                 />
                 <FieldError message={passwordErrors.currentPassword?.message} />
@@ -307,7 +329,11 @@ export default function AccountPage() {
                 <Input
                   type="password"
                   placeholder="New password"
-                  {...passwordForm.register("newPassword")}
+                  {...passwordForm.register("newPassword", {
+                    onChange: () => {
+                      if (passwordServerError) setPasswordServerError(null)
+                    },
+                  })}
                   className={passwordErrors.newPassword ? errorInputClass : ""}
                 />
                 <FieldError message={passwordErrors.newPassword?.message} />
@@ -316,7 +342,11 @@ export default function AccountPage() {
                 <Input
                   type="password"
                   placeholder="Confirm new password"
-                  {...passwordForm.register("confirmPassword")}
+                  {...passwordForm.register("confirmPassword", {
+                    onChange: () => {
+                      if (passwordServerError) setPasswordServerError(null)
+                    },
+                  })}
                   className={passwordErrors.confirmPassword ? errorInputClass : ""}
                 />
                 <FieldError message={passwordErrors.confirmPassword?.message} />

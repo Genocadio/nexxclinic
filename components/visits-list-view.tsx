@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   useDepartments,
   useGenerateInvoice,
@@ -35,10 +35,13 @@ import {
   Loader2,
   Ban,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
 import { useAuth } from "@/lib/auth-context"
 import { hasRole } from "@/lib/role-utils"
+import { Button } from "@/components/ui/button"
 import dynamic from "next/dynamic"
 
 const AddDepartmentModal = dynamic(
@@ -87,6 +90,21 @@ export default function VisitsListView({
   // so a double click can't fire generateInvoice twice.
   const [printingInvoice, setPrintingInvoice] = useState(false)
   const [navigatingVisitId, setNavigatingVisitId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 25
+
+  // Reset page when search query or visit count changes significantly
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery])
+
+  const totalPages = Math.max(1, Math.ceil(visits.length / pageSize))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+
+  const paginatedVisits = useMemo<Visit[]>(() => {
+    const start = (safeCurrentPage - 1) * pageSize
+    return visits.slice(start, start + pageSize)
+  }, [visits, safeCurrentPage, pageSize])
 
   // Safety guard: auto-clear navigating state after 3.5s or on window focus
   useEffect(() => {
@@ -336,7 +354,7 @@ export default function VisitsListView({
             <p>No visits found</p>
           </div>
         ) : (
-          visits.map((visit) => (
+          paginatedVisits.map((visit) => (
             <div
               key={visit.id}
               onClick={() => onVisitSelect(visit)}
@@ -609,6 +627,40 @@ export default function VisitsListView({
           ))
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="p-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm text-muted-foreground">
+          <span>
+            Showing {(safeCurrentPage - 1) * pageSize + 1}–{Math.min(safeCurrentPage * pageSize, visits.length)} of {visits.length} visits
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={safeCurrentPage <= 1}
+              className="h-8 px-2.5"
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Previous
+            </Button>
+            <span className="font-medium text-foreground px-1">
+              Page {safeCurrentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safeCurrentPage >= totalPages}
+              className="h-8 px-2.5"
+            >
+              Next
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Add Department Modal */}
       {selectedVisitForDepartment && (

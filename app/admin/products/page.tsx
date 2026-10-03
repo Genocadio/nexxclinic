@@ -599,28 +599,9 @@ export default function ManageProductsPage() {
 
   // Handle Delete Product
   const handleDeleteProduct = async () => {
-    const targetId = deleteTargetId || selectedProduct?.id;
-    if (!targetId) return;
-
-    setSaving(true);
-    try {
-      const resp = await deleteProduct(targetId);
-      await refresh();
-      if (resp?.status === "SUCCESS") {
-        toast.success(resp.message || "Product deleted successfully!");
-        if (selectedProduct && selectedProduct.id === targetId) {
-          setSelectedProduct(null);
-        }
-      } else {
-        toast.error(resp?.message || "Failed to delete product");
-      }
-    } catch {
-      toast.error("Failed to delete product");
-    } finally {
-      setSaving(false);
-      setDeleteConfirmOpen(false);
-      setDeleteTargetId(null);
-    }
+    toast.info("Clinical catalog products cannot be deleted to preserve historical billing and audit integrity.");
+    setDeleteConfirmOpen(false);
+    setDeleteTargetId(null);
   };
 
   // Coverage statistics for Tab 3 Overview

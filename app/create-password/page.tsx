@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, AlertCircle } from "lucide-react"
 import { toast } from "react-toastify"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -20,6 +20,7 @@ function CreatePasswordPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { createPassword, loading } = useCreatePassword()
+  const [serverError, setServerError] = useState<string | null>(null)
 
   const initialIdentifier = useMemo(() => {
     const fromQuery = searchParams.get("identifier")?.trim()
@@ -38,6 +39,8 @@ function CreatePasswordPageContent() {
   const {
     register,
     handleSubmit,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<CreatePasswordFormValues>({
     resolver: zodResolver(createPasswordFormSchema),
@@ -46,6 +49,7 @@ function CreatePasswordPageContent() {
   })
 
   const handleCreatePassword = async (values: CreatePasswordFormValues) => {
+    setServerError(null)
     try {
       const response = await createPassword(values.identifier, values.password)
       if (response?.status === "SUCCESS") {
@@ -55,9 +59,15 @@ function CreatePasswordPageContent() {
         return
       }
 
-      toast.error(response?.messages?.[0]?.text || "Unable to create password")
-    } catch {
-      toast.error("Unable to create password")
+      const errorMsg = response?.message || response?.messages?.[0]?.text || "Unable to create password"
+      setServerError(errorMsg)
+      setError("password", { message: errorMsg })
+      toast.error(errorMsg)
+    } catch (err: any) {
+      const errorMsg = err?.message || "Unable to create password"
+      setServerError(errorMsg)
+      setError("password", { message: errorMsg })
+      toast.error(errorMsg)
     }
   }
 
@@ -68,6 +78,13 @@ function CreatePasswordPageContent() {
           <h1 className="text-2xl font-bold text-foreground">Create Password</h1>
           <p className="text-sm text-muted-foreground">Set your password to activate your account access.</p>
         </div>
+
+        {serverError && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2.5 text-sm text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-300">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
+            <span className="flex-1 font-medium leading-relaxed">{serverError}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit(handleCreatePassword)} className="space-y-4" noValidate>
           <div>
@@ -86,7 +103,11 @@ function CreatePasswordPageContent() {
             <div className="relative">
               <Input
                 type={showPassword ? "text" : "password"}
-                {...register("password")}
+                {...register("password", {
+                  onChange: () => {
+                    if (serverError) setServerError(null)
+                  },
+                })}
                 placeholder="Enter new password"
                 className={`pr-10 ${errors.password ? "border-red-500 focus-visible:ring-red-300" : ""}`}
               />

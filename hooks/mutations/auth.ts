@@ -148,9 +148,6 @@ export const UPDATE_MY_PROFILE_MUTATION = gql`
         email
         phoneNumber
         username
-        dateOfBirth
-        gender
-        profilePhotoUrl
         accountStatus
         roles
         departments {

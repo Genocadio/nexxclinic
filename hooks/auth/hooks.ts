@@ -484,7 +484,12 @@ export function useChangePassword() {
       } as UserResponse
     } catch (err) {
       console.error('Change password error:', err)
-      throw err
+      const errorMessage = getErrorMessage(err) || 'Unable to change password'
+      return {
+        status: 'ERROR',
+        message: errorMessage,
+        messages: [{ text: errorMessage, type: 'ERROR' }],
+      } as UserResponse
     }
   }
 
@@ -497,10 +502,20 @@ export function useCreatePassword() {
   const createPassword = async (identifier: string, password: string) => {
     try {
       const result = await mutation({ variables: { input: { identifier, newPassword: password } } })
-      return result.data?.setInitialPassword as UserResponse
+      const payload = result.data?.setInitialPassword
+      return {
+        status: payload?.status || 'ERROR',
+        message: payload?.message,
+        messages: payload?.message ? [{ text: payload.message, type: payload.status || 'ERROR' }] : undefined,
+      } as UserResponse
     } catch (err) {
       console.error('Create password error:', err)
-      throw err
+      const errorMessage = getErrorMessage(err) || 'Unable to create password'
+      return {
+        status: 'ERROR',
+        message: errorMessage,
+        messages: [{ text: errorMessage, type: 'ERROR' }],
+      } as UserResponse
     }
   }
 
@@ -513,10 +528,20 @@ export function useDeleteUserPassword() {
   const deleteUserPassword = async (userId: string) => {
     try {
       const result = await mutation({ variables: { input: { userId, revokeSessions: true } } })
-      return result.data?.adminTriggerPasswordReset as UserResponse
+      const payload = result.data?.adminTriggerPasswordReset
+      return {
+        status: payload?.status || 'ERROR',
+        message: payload?.message,
+        messages: payload?.message ? [{ text: payload.message, type: payload.status || 'ERROR' }] : undefined,
+      } as UserResponse
     } catch (err) {
       console.error('Delete user password error:', err)
-      throw err
+      const errorMessage = getErrorMessage(err) || 'Unable to require password reset'
+      return {
+        status: 'ERROR',
+        message: errorMessage,
+        messages: [{ text: errorMessage, type: 'ERROR' }],
+      } as UserResponse
     }
   }
 
