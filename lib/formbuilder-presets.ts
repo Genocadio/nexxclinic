@@ -70,7 +70,7 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = [
   {
     type: "consultation",
     label: "Consultation Note",
-    description: "History, examination, diagnosis and management plan.",
+    description: "History, examination, procedures, diagnosis and management plan.",
     emoji: "🩺",
     color:
       "border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/30",
@@ -80,19 +80,6 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = [
         align: "center",
         bold: true,
       }),
-      b("divider"),
-      paf(
-        "Patient: [[1]]   ·   DOB: [[2]]   ·   ID: [[3]]",
-        { type: "text", hint: "Patient name", w: "md", req: true },
-        { type: "date", hint: "Date of birth", w: "sm" },
-        { type: "text", hint: "Patient ID", w: "sm" },
-      ),
-      paf(
-        "Clinician: [[1]]   ·   [[2]]   ·   Date: [[3]]",
-        { type: "text", hint: "Clinician name", w: "md" },
-        { type: "text", hint: "Department", w: "md" },
-        { type: "date", hint: "Visit date", w: "sm" },
-      ),
       b("divider"),
       b("heading2", { content: "Chief Complaint" }),
       b("textarea_input", {
@@ -123,6 +110,11 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = [
       b("textarea_input", {
         label: "Physical Examination",
         placeholder: "Describe examination findings systematically…",
+      }),
+      b("heading2", { content: "Procedures / Products" }),
+      b("product_listener", {
+        label: "Add Procedure / Product",
+        productListenerCenter: false,
       }),
       b("heading2", { content: "Diagnosis" }),
       b("diagnostic_record", {
@@ -172,25 +164,519 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = [
           },
         ],
       }),
-      b("heading2", { content: "Procedures / Products" }),
-      b("product_listener", {
-        label: "Add Procedure / Product",
-        productListenerCenter: false,
-      }),
       b("heading2", { content: "Additional Notes" }),
       b("textarea_input", {
         label: "Notes",
         placeholder: "Any additional observations or instructions…",
       }),
+    ],
+  },
+
+  // ──────────────────────── OPHTHALMOLOGY ────────────────────────
+  {
+    type: "ophthalmology",
+    label: "Ophthalmology Consultation",
+    description:
+      "Eye-focused examination with RE/LE VA, refraction, IOP, ocular compartments, procedures and Rx.",
+    emoji: "👁️",
+    color:
+      "border-cyan-300 bg-cyan-50 dark:border-cyan-700 dark:bg-cyan-950/30",
+    blocks: () => [
+      b("heading1", {
+        content: "Ophthalmology Consultation Note",
+        align: "center",
+        bold: true,
+      }),
       b("divider"),
+
+      // ── Chief Complaint & History ──
+      b("heading2", { content: "Chief Complaint" }),
+      b("textarea_input", {
+        label: "Chief Complaint",
+        placeholder:
+          "Ocular symptoms (decreased vision, pain, redness, discharge, flashes/floaters, diplopia, foreign body sensation), laterality (RE/LE/Both), duration…",
+        required: true,
+      }),
+      b("heading2", { content: "History of Present Illness" }),
+      b("textarea_input", {
+        label: "History of Present Illness",
+        placeholder:
+          "Onset, progression, aggravating/relieving factors, visual disturbance details…",
+      }),
+      b("heading2", { content: "Ocular & Medical History" }),
+      b("textarea_input", {
+        label: "Past Ocular History",
+        placeholder:
+          "Previous eye surgeries, laser treatment, ocular trauma, amblyopia, glaucoma, contact lens wear, previous glasses history…",
+      }),
+      b("textarea_input", {
+        label: "Systemic Medical History & Allergies",
+        placeholder:
+          "Diabetes mellitus, hypertension, thyroid disorders, autoimmune disease, current systemic medications, known drug/eye-drop allergies…",
+      }),
+      b("divider"),
+
+      // ── Visual Acuity Records ──
+      b("heading2", { content: "Visual Acuity (VA) Records" }),
       paf(
-        "[[1]]   ·   [[2]]   ·   License: [[3]]",
-        { type: "text", hint: "Clinician name", w: "md" },
-        { type: "text", hint: "Title", w: "sm" },
-        { type: "text", hint: "License #", w: "sm" },
+        "Presenting VA (Unaided):   RE (OD): [[1]]   ·   LE (OS): [[2]]",
+        { type: "text", hint: "e.g. 6/18 or 20/60", w: "md" },
+        { type: "text", hint: "e.g. 6/12 or 20/40", w: "md" },
       ),
-      b("signature", { label: "Clinician Signature" }),
-      paf("Date: [[1]]", { type: "date", hint: "Date", w: "sm" }),
+      paf(
+        "Pinhole VA (PH):           RE (OD): [[1]]   ·   LE (OS): [[2]]",
+        { type: "text", hint: "e.g. 6/6 or NI", w: "md" },
+        { type: "text", hint: "e.g. 6/6 or NI", w: "md" },
+      ),
+      b("spacer", { height: 12 }),
+
+      // ── Existing Glasses Table ──
+      b("heading2", { content: "Existing Glasses / Habitual Correction" }),
+      b("table", {
+        tableRows: 3,
+        tableCols: 6,
+        tableHeaders: [
+          "Eye",
+          "Sphere (Sph)",
+          "Cylinder (Cyl)",
+          "Axis",
+          "Near Add",
+          "VA with Glasses",
+        ],
+        tableCells: [
+          [
+            { content: "Eye", bold: true, align: "center" },
+            { content: "Sphere (Sph)", bold: true, align: "center" },
+            { content: "Cylinder (Cyl)", bold: true, align: "center" },
+            { content: "Axis (°)", bold: true, align: "center" },
+            { content: "Near Add", bold: true, align: "center" },
+            { content: "VA with Glasses", bold: true, align: "center" },
+          ],
+          [
+            { content: "RE (OD)", bold: true, align: "center" },
+            {
+              content: "[[ans1]]",
+              inlineFields: [
+                {
+                  id: "ans1",
+                  fieldType: "text",
+                  placeholder: "+/- D",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans2]]",
+              inlineFields: [
+                {
+                  id: "ans2",
+                  fieldType: "text",
+                  placeholder: "Cyl D",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans3]]",
+              inlineFields: [
+                {
+                  id: "ans3",
+                  fieldType: "text",
+                  placeholder: "0 - 180°",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans4]]",
+              inlineFields: [
+                {
+                  id: "ans4",
+                  fieldType: "text",
+                  placeholder: "+ Add",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans5]]",
+              inlineFields: [
+                {
+                  id: "ans5",
+                  fieldType: "text",
+                  placeholder: "e.g. 6/6",
+                  width: "xs",
+                },
+              ],
+            },
+          ],
+          [
+            { content: "LE (OS)", bold: true, align: "center" },
+            {
+              content: "[[ans6]]",
+              inlineFields: [
+                {
+                  id: "ans6",
+                  fieldType: "text",
+                  placeholder: "+/- D",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans7]]",
+              inlineFields: [
+                {
+                  id: "ans7",
+                  fieldType: "text",
+                  placeholder: "Cyl D",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans8]]",
+              inlineFields: [
+                {
+                  id: "ans8",
+                  fieldType: "text",
+                  placeholder: "0 - 180°",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans9]]",
+              inlineFields: [
+                {
+                  id: "ans9",
+                  fieldType: "text",
+                  placeholder: "+ Add",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans10]]",
+              inlineFields: [
+                {
+                  id: "ans10",
+                  fieldType: "text",
+                  placeholder: "e.g. 6/6",
+                  width: "xs",
+                },
+              ],
+            },
+          ],
+        ],
+      }),
+      b("spacer", { height: 12 }),
+
+      // ── Subjective Refraction / Best Corrected Visual Acuity (BCVA) ──
+      b("heading2", {
+        content: "Refraction & Best Corrected Visual Acuity (BCVA)",
+      }),
+      b("table", {
+        tableRows: 3,
+        tableCols: 6,
+        tableHeaders: [
+          "Eye",
+          "Sphere (Sph)",
+          "Cylinder (Cyl)",
+          "Axis",
+          "Near Add",
+          "BCVA",
+        ],
+        tableCells: [
+          [
+            { content: "Eye", bold: true, align: "center" },
+            { content: "Sphere (Sph)", bold: true, align: "center" },
+            { content: "Cylinder (Cyl)", bold: true, align: "center" },
+            { content: "Axis (°)", bold: true, align: "center" },
+            { content: "Near Add", bold: true, align: "center" },
+            { content: "BCVA", bold: true, align: "center" },
+          ],
+          [
+            { content: "RE (OD)", bold: true, align: "center" },
+            {
+              content: "[[ans1]]",
+              inlineFields: [
+                {
+                  id: "ans1",
+                  fieldType: "text",
+                  placeholder: "+/- D",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans2]]",
+              inlineFields: [
+                {
+                  id: "ans2",
+                  fieldType: "text",
+                  placeholder: "Cyl D",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans3]]",
+              inlineFields: [
+                {
+                  id: "ans3",
+                  fieldType: "text",
+                  placeholder: "0 - 180°",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans4]]",
+              inlineFields: [
+                {
+                  id: "ans4",
+                  fieldType: "text",
+                  placeholder: "+ Add",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans5]]",
+              inlineFields: [
+                {
+                  id: "ans5",
+                  fieldType: "text",
+                  placeholder: "e.g. 6/6",
+                  width: "xs",
+                },
+              ],
+            },
+          ],
+          [
+            { content: "LE (OS)", bold: true, align: "center" },
+            {
+              content: "[[ans6]]",
+              inlineFields: [
+                {
+                  id: "ans6",
+                  fieldType: "text",
+                  placeholder: "+/- D",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans7]]",
+              inlineFields: [
+                {
+                  id: "ans7",
+                  fieldType: "text",
+                  placeholder: "Cyl D",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans8]]",
+              inlineFields: [
+                {
+                  id: "ans8",
+                  fieldType: "text",
+                  placeholder: "0 - 180°",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans9]]",
+              inlineFields: [
+                {
+                  id: "ans9",
+                  fieldType: "text",
+                  placeholder: "+ Add",
+                  width: "xs",
+                },
+              ],
+            },
+            {
+              content: "[[ans10]]",
+              inlineFields: [
+                {
+                  id: "ans10",
+                  fieldType: "text",
+                  placeholder: "e.g. 6/6",
+                  width: "xs",
+                },
+              ],
+            },
+          ],
+        ],
+      }),
+      b("divider"),
+
+      // ── Intraocular Pressure (IOP) ──
+      b("heading2", { content: "Intraocular Pressure (IOP)" }),
+      paf(
+        "IOP:   RE (OD): [[1]] mmHg   ·   LE (OS): [[2]] mmHg   ·   Method: [[3]]   ·   Time: [[4]]",
+        { type: "text", hint: "RE IOP (mmHg)", w: "xs" },
+        { type: "text", hint: "LE IOP (mmHg)", w: "xs" },
+        { type: "text", hint: "Goldmann / NCT / Tonopen", w: "md" },
+        { type: "text", hint: "e.g. 10:30 AM", w: "xs" },
+      ),
+      b("divider"),
+
+      // ── Major Ocular Compartments (Slit Lamp & Posterior Segment) ──
+      b("heading2", { content: "Slit Lamp & Ocular Examination Findings" }),
+      paf(
+        "Lids & Adnexa:   RE (OD): [[1]]   ·   LE (OS): [[2]]",
+        { type: "text", hint: "Lids, lashes, lacrimal, ptosis…", w: "lg" },
+        { type: "text", hint: "Lids, lashes, lacrimal, ptosis…", w: "lg" },
+      ),
+      paf(
+        "Conjunctiva & Sclera:   RE (OD): [[1]]   ·   LE (OS): [[2]]",
+        {
+          type: "text",
+          hint: "Clear / injected / discharge / pinguecula…",
+          w: "lg",
+        },
+        {
+          type: "text",
+          hint: "Clear / injected / discharge / pinguecula…",
+          w: "lg",
+        },
+      ),
+      paf(
+        "Cornea:   RE (OD): [[1]]   ·   LE (OS): [[2]]",
+        {
+          type: "text",
+          hint: "Clear / epithelial defect / infiltrates / edema…",
+          w: "lg",
+        },
+        {
+          type: "text",
+          hint: "Clear / epithelial defect / infiltrates / edema…",
+          w: "lg",
+        },
+      ),
+      paf(
+        "Anterior Chamber:   RE (OD): [[1]]   ·   LE (OS): [[2]]",
+        {
+          type: "text",
+          hint: "Deep & quiet / cells & flare / hyphema…",
+          w: "lg",
+        },
+        {
+          type: "text",
+          hint: "Deep & quiet / cells & flare / hyphema…",
+          w: "lg",
+        },
+      ),
+      paf(
+        "Iris & Pupil:   RE (OD): [[1]]   ·   LE (OS): [[2]]",
+        {
+          type: "text",
+          hint: "Round, regular, reactive to light, no RAPD…",
+          w: "lg",
+        },
+        {
+          type: "text",
+          hint: "Round, regular, reactive to light, no RAPD…",
+          w: "lg",
+        },
+      ),
+      paf(
+        "Lens:   RE (OD): [[1]]   ·   LE (OS): [[2]]",
+        {
+          type: "text",
+          hint: "Clear / nuclear sclerosis / cortical / PCIOL…",
+          w: "lg",
+        },
+        {
+          type: "text",
+          hint: "Clear / nuclear sclerosis / cortical / PCIOL…",
+          w: "lg",
+        },
+      ),
+      paf(
+        "Vitreous:   RE (OD): [[1]]   ·   LE (OS): [[2]]",
+        {
+          type: "text",
+          hint: "Clear / PVD / vitreous hemorrhage / cells…",
+          w: "lg",
+        },
+        {
+          type: "text",
+          hint: "Clear / PVD / vitreous hemorrhage / cells…",
+          w: "lg",
+        },
+      ),
+      paf(
+        "Fundus / Retina / Optic Disc / Macula:   RE (OD): [[1]]   ·   LE (OS): [[2]]",
+        {
+          type: "text",
+          hint: "Disc pink, sharp margins, C/D ratio, macula flat, vessels normal…",
+          w: "lg",
+        },
+        {
+          type: "text",
+          hint: "Disc pink, sharp margins, C/D ratio, macula flat, vessels normal…",
+          w: "lg",
+        },
+      ),
+      b("textarea_input", {
+        label: "Detailed Examination Notes & Drawings / Diagrams",
+        placeholder:
+          "Additional findings, gonioscopy, dilated fundus exam, OCT / visual field notes…",
+      }),
+      b("divider"),
+
+      // ── Procedures / Products ──
+      b("heading2", { content: "Procedures & Diagnostics Performed" }),
+      b("product_listener", {
+        label: "Add Ophthalmic Procedure / Service",
+        productListenerCenter: false,
+      }),
+
+      // ── Diagnostics ──
+      b("heading2", { content: "Diagnosis" }),
+      b("diagnostic_record", {
+        label: "Ophthalmic Diagnoses",
+        placeholder:
+          "Enter eye diagnosis (e.g. Cataract, Glaucoma, Refractive Error, Conjunctivitis)…",
+        required: true,
+      }),
+      b("divider"),
+
+      // ── Prescriptions & Management ──
+      b("heading2", { content: "Optical / Spectacle Prescription" }),
+      paf(
+        "Spectacle Rx:   RE: Sph [[1]] Cyl [[2]] Axis [[3]] Add [[4]]   ·   LE: Sph [[5]] Cyl [[6]] Axis [[7]] Add [[8]]   ·   PD: [[9]] mm",
+        { type: "text", hint: "Sph", w: "xs" },
+        { type: "text", hint: "Cyl", w: "xs" },
+        { type: "text", hint: "Axis", w: "xs" },
+        { type: "text", hint: "Add", w: "xs" },
+        { type: "text", hint: "Sph", w: "xs" },
+        { type: "text", hint: "Cyl", w: "xs" },
+        { type: "text", hint: "Axis", w: "xs" },
+        { type: "text", hint: "Add", w: "xs" },
+        { type: "text", hint: "PD mm", w: "xs" },
+      ),
+      b("heading2", {
+        content: "Medications Prescribed (Eye Drops & Systemic)",
+      }),
+      b("medication_full", {
+        label: "Prescribed Eye Medications",
+        placeholder: "Medication name (drops, ointments, systemic)…",
+      }),
+      b("heading2", { content: "Management & Follow-up Plan" }),
+      b("textarea_input", {
+        label: "Treatment Plan & Follow-up Instructions",
+        placeholder:
+          "Eye care instructions, medication schedule, danger signs (sudden vision loss, severe pain), follow-up interval…",
+        required: true,
+      }),
     ],
   },
 

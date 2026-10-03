@@ -182,6 +182,7 @@ export interface TableCell {
 
 export type FormTemplateType =
   | "consultation"
+  | "ophthalmology"
   | "consent"
   | "referral"
   | "discharge"

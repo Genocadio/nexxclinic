@@ -53,6 +53,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const TYPE_LABELS: Record<FormTemplateType, string> = {
   consultation: "Consultation",
+  ophthalmology: "Ophthalmology",
   consent: "Consent",
   referral: "Referral",
   discharge: "Discharge",
@@ -63,6 +64,8 @@ const TYPE_LABELS: Record<FormTemplateType, string> = {
 const TYPE_COLORS: Record<FormTemplateType, string> = {
   consultation:
     "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  ophthalmology:
+    "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300",
   consent: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
   referral:
     "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
@@ -76,6 +79,7 @@ const TYPE_COLORS: Record<FormTemplateType, string> = {
 const CATEGORIES: { label: string; value: FormTemplateType | "all" }[] = [
   { label: "All Forms", value: "all" },
   { label: "Consultation", value: "consultation" },
+  { label: "Ophthalmology", value: "ophthalmology" },
   { label: "Consent", value: "consent" },
   { label: "Referral", value: "referral" },
   { label: "Discharge", value: "discharge" },
