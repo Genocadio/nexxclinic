@@ -430,13 +430,11 @@ export function calculateUserReports(
   const workerName = worker ? `${worker.firstName || ""} ${worker.lastName || ""}`.trim() || worker.username || "User" : "User"
   const rawRoles = (worker?.roles || []) as RoleName[]
 
-  const isAdminOrManager = rawRoles.some((r) =>
-    ["ADMIN", "MANAGER", "CLINIC_ADMIN"].includes(String(r)),
-  )
-  const hasReception = isAdminOrManager || rawRoles.some((r) => String(r) === "RECEPTION")
-  const hasClinician = isAdminOrManager || rawRoles.some((r) => String(r) === "CLINICIAN")
-  const hasNurse = isAdminOrManager || rawRoles.some((r) => String(r) === "NURSE")
-  const hasFinance = isAdminOrManager || rawRoles.some((r) => String(r) === "FINANCE")
+  const isAdminOrManager = false
+  const hasReception = rawRoles.some((r) => String(r) === "RECEPTION")
+  const hasClinician = rawRoles.some((r) => String(r) === "CLINICIAN")
+  const hasNurse = rawRoles.some((r) => String(r) === "NURSE")
+  const hasFinance = rawRoles.some((r) => String(r) === "FINANCE")
 
   const allowedTabs: Array<"reception" | "clinician" | "nurse" | "finance"> = []
   if (hasClinician) allowedTabs.push("clinician")

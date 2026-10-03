@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Building2, Package, ShieldCheck, Users, BadgeInfo } from 'lucide-react'
+import { LayoutDashboard, Building2, Package, ShieldCheck, Users, BadgeInfo, Settings } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
@@ -15,6 +15,7 @@ const adminDockItems = [
   { label: 'Products', path: '/admin/products', icon: Package },
   { label: 'Insurances', path: '/admin/insurances', icon: ShieldCheck },
   { label: 'Users', path: '/admin/users', icon: Users },
+  { label: 'Settings', path: '/admin/settings', icon: Settings },
 ]
 
 export default function AdminBottomDock() {

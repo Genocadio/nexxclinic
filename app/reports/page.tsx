@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react"
 import dynamic from "next/dynamic"
+import Link from "next/link"
 import Header from "@/components/header"
 import { useAuth } from "@/lib/auth-context"
 import { useUserReports } from "@/hooks/reports"
@@ -62,6 +63,7 @@ import {
   Loader2,
   Wallet,
   Activity,
+  ShieldAlert,
 } from "lucide-react"
 
 import { ReportsPeriodSelector } from "@/components/reports/reports-period-selector"
@@ -273,6 +275,29 @@ export default function ReportsPage() {
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
+      </div>
+    )
+  }
+
+  // If the user has no allowed operational report tabs
+  if (!reportsLoading && (!reportData.allowedTabs || reportData.allowedTabs.length === 0)) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header doctor={doctor} />
+        <main className="container mx-auto px-4 sm:px-6 max-w-md py-20 flex-1 flex flex-col items-center justify-center text-center">
+          <div className="p-4 rounded-full bg-muted/60 mb-4 border border-border/50 text-muted-foreground">
+            <ShieldAlert className="h-10 w-10 text-amber-500" />
+          </div>
+          <h2 className="text-xl font-bold tracking-tight mb-2">Reports Access Restricted</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Activity and performance reports are only available for staff with operational clinical, nursing, finance, or reception roles.
+          </p>
+          <Link href="/">
+            <Button className="rounded-xl px-5 h-9">
+              Return to Dashboard
+            </Button>
+          </Link>
+        </main>
       </div>
     )
   }

@@ -26,6 +26,9 @@ export default function Header({ doctor }: HeaderProps) {
   const clinicName = getClinicDisplayName(clinicProfile)
   const clinicLogoUrl = getClinicLogoUrl(clinicProfile)
 
+  const OPERATIONAL_REPORT_ROLES = ["CLINICIAN", "NURSE", "FINANCE", "RECEPTION"]
+  const canAccessReports = roles.some((r) => OPERATIONAL_REPORT_ROLES.includes(String(r)))
+
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/)
     if (parts.length >= 2) {
@@ -104,16 +107,18 @@ export default function Header({ doctor }: HeaderProps) {
                     <UserCog className="w-4 h-4 text-muted-foreground" />
                     <span className="text-sm font-medium">My Account</span>
                   </button>
-                  <button
-                    onClick={() => {
-                      router.push('/reports')
-                      setDropdownOpen(false)
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-all duration-200 text-left text-foreground"
-                  >
-                    <BarChart3 className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium">My Reports & Activity</span>
-                  </button>
+                  {canAccessReports && (
+                    <button
+                      onClick={() => {
+                        router.push('/reports')
+                        setDropdownOpen(false)
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-all duration-200 text-left text-foreground"
+                    >
+                      <BarChart3 className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium">My Reports & Activity</span>
+                    </button>
+                  )}
                   
                   {/* Horizontal 3-way Theme Switcher */}
                   <div className="px-3 py-2.5 border-t border-border/30">

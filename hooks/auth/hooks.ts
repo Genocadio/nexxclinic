@@ -233,8 +233,14 @@ export function useUpsertClinicProfile() {
     contacts?: ClinicContact[] | null
     tinNumber?: string
     logoUrl?: string
-    metadata?: { [key: string]: string } | null
+    metadata?: { [key: string]: string | undefined | null } | { key: string; value?: string | null }[] | null
   }) => {
+    const formattedMetadata = Array.isArray(input.metadata)
+      ? input.metadata.map((item) => ({ key: item.key, value: item.value ?? null }))
+      : input.metadata && typeof input.metadata === 'object'
+        ? Object.entries(input.metadata).map(([key, value]) => ({ key, value: value ?? null }))
+        : input.metadata
+
     const { data } = await mutate({
       variables: {
         input: {
@@ -244,7 +250,7 @@ export function useUpsertClinicProfile() {
           contacts: input.contacts,
           tinNumber: input.tinNumber,
           logoUrl: input.logoUrl,
-          metadata: input.metadata,
+          metadata: formattedMetadata,
         },
       },
     })

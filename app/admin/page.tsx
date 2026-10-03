@@ -3,12 +3,13 @@
 import Header from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
-import { Package, ShieldCheck, Building2, Users, BadgeInfo, FileText } from "lucide-react"
+import { Package, ShieldCheck, Building2, Users, BadgeInfo, FileText, Settings } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 
 const adminActions = [
   { label: "Clinic Profile", icon: BadgeInfo, path: "/admin/clinic-profile" },
+  { label: "Settings", icon: Settings, path: "/admin/settings" },
   { label: "Manage Insurances", icon: ShieldCheck, path: "/admin/insurances" },
   { label: "Manage Products", icon: Package, path: "/admin/products" },
   { label: "Manage Departments", icon: Building2, path: "/admin/departments" },
@@ -51,6 +52,7 @@ export default function AdminDashboardPage() {
                   <p className="text-base font-semibold text-foreground">{label}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {label === "Clinic Profile" ? "Read and update clinic branding and details" :
+                      label === "Settings" ? "Invoice paper sizes, printing & system config" :
                       label === "Manage Insurances" ? "Create, edit, and delete insurances" :
                       label === "Manage Products" ? "Create, edit, and delete products" :
                       label === "Manage Departments" ? "Organize hospital departments" :
