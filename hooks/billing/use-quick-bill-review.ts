@@ -119,7 +119,7 @@ export function useQuickBillReview(options?: {
         const t = computeBillingTotals(unbilled, cov);
         // Default: the patient pays everything they owe (reducible).
         setAmountPaid(t.totalAmount);
-        setPaymentMethod("MOBILE_MONEY");
+        setPaymentMethod(t.totalAmount === 0 ? "NONE" : "MOBILE_MONEY");
         setOutstandingType("loan");
         setOutstandingReason("");
         setBillingNote("");
@@ -157,8 +157,15 @@ export function useQuickBillReview(options?: {
       notesByDepartment[id] = billingNote;
     }
 
+    const effectivePaymentMethod =
+      amountPaid === 0
+        ? "NONE"
+        : paymentMethod === "NONE"
+          ? "MOBILE_MONEY"
+          : paymentMethod;
+
     const input: CreateBillInput = buildCreateBillInput(
-      { ...billingData, amountPaid, paymentMethod, outstandingType, outstandingReason },
+      { ...billingData, amountPaid, paymentMethod: effectivePaymentMethod, outstandingType, outstandingReason },
       unbilledItems,
       coverageForItem,
       insuranceOptions,

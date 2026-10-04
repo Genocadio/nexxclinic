@@ -342,6 +342,28 @@ describe("createPatientInsuranceFormSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts formatted international phone with spaces (+250 784 505 290)", () => {
+    const result = createPatientInsuranceFormSchema({
+      dominantRequired: true,
+    }).safeParse({
+      ...base,
+      dominantName: "Jane Doe",
+      dominantPhone: "+250 784 505 290",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts formatted local phone with spaces (0784 505 290)", () => {
+    const result = createPatientInsuranceFormSchema({
+      dominantRequired: true,
+    }).safeParse({
+      ...base,
+      dominantName: "Jane Doe",
+      dominantPhone: "0784 505 290",
+    });
+    expect(result.success).toBe(true);
+  });
+
   it("accepts short phone (7 digits)", () => {
     const result = createPatientInsuranceFormSchema({
       dominantRequired: true,

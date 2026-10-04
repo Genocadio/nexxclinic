@@ -261,7 +261,12 @@ export function mapVisitToBillingData(
       coveragePercentage: getBasePatientSharePercentage(ins.insuranceProvider),
     })),
     items,
-    paymentMethod: "MOBILE_MONEY",
+    paymentMethod:
+      (options?.editMode
+        ? 0
+        : Number(billingTotals?.paidAmount ?? fromCents(patientContributionCents))) === 0
+        ? "NONE"
+        : "MOBILE_MONEY",
     // Default amount paid to existing paid amount for carried-forward versions
     // (incremental billing), or the patient contribution for first-time billing.
     // In EDIT mode the edit is a fully independent new snapshot — it does NOT

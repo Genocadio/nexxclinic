@@ -26,7 +26,8 @@ type PaymentMethod =
   | "CARD"
   | "BANK_TRANSFER"
   | "CHEQUE"
-  | "MIXED";
+  | "MIXED"
+  | "NONE";
 import { formatRWF } from "@/lib/utils";
 
 type BillingConfirmSheetProps = {
@@ -346,28 +347,6 @@ export function BillingConfirmSheet({
 
             <div>
               <label className="text-xs text-muted-foreground">
-                Payment method
-              </label>
-              <Select
-                value={paymentMethod || "MOBILE_MONEY"}
-                onValueChange={(v) => onPaymentMethodChange(v as PaymentMethod)}
-              >
-                <SelectTrigger className="mt-1 h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CASH">Cash</SelectItem>
-                  <SelectItem value="MOBILE_MONEY">Mobile Money</SelectItem>
-                  <SelectItem value="CARD">Card</SelectItem>
-                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                  <SelectItem value="CHEQUE">Cheque</SelectItem>
-                  <SelectItem value="MIXED">Mixed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-xs text-muted-foreground">
                 Amount paid
               </label>
               <Input
@@ -375,14 +354,18 @@ export function BillingConfirmSheet({
                 min={0}
                 max={totals.totalAmount}
                 value={amountPaid}
-                onChange={(e) =>
-                  onAmountPaidChange(
-                    Math.min(
-                      totals.totalAmount,
-                      Math.max(0, Number(e.target.value || 0)),
-                    ),
-                  )
-                }
+                onChange={(e) => {
+                  const val = Math.min(
+                    totals.totalAmount,
+                    Math.max(0, Number(e.target.value || 0)),
+                  );
+                  onAmountPaidChange(val);
+                  if (val === 0) {
+                    onPaymentMethodChange("NONE");
+                  } else if (paymentMethod === "NONE" || !paymentMethod) {
+                    onPaymentMethodChange("MOBILE_MONEY");
+                  }
+                }}
                 className="mt-1 h-9 tabular-nums"
               />
               {amountPaid > totals.totalAmount ? (
@@ -391,6 +374,43 @@ export function BillingConfirmSheet({
                   capped at {formatRWF(totals.totalAmount)}.
                 </p>
               ) : null}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-muted-foreground">
+                  Payment method
+                </label>
+                {(amountPaid === 0 || totals.totalAmount === 0) && (
+                  <span className="text-[10px] text-muted-foreground italic">
+                    (No payment required / 0 paid)
+                  </span>
+                )}
+              </div>
+              <Select
+                value={
+                  amountPaid === 0 || totals.totalAmount === 0
+                    ? "NONE"
+                    : paymentMethod && paymentMethod !== "NONE"
+                      ? paymentMethod
+                      : "MOBILE_MONEY"
+                }
+                onValueChange={(v) => onPaymentMethodChange(v as PaymentMethod)}
+                disabled={amountPaid === 0 || totals.totalAmount === 0}
+              >
+                <SelectTrigger className="mt-1 h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NONE">None</SelectItem>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="MOBILE_MONEY">Mobile Money</SelectItem>
+                  <SelectItem value="CARD">Card</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
+                  <SelectItem value="MIXED">Mixed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {hasOutstanding && (

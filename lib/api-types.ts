@@ -260,6 +260,7 @@ export enum PaymentMethod {
   BANK_TRANSFER = "BANK_TRANSFER",
   CHEQUE = "CHEQUE",
   MIXED = "MIXED",
+  NONE = "NONE",
 }
 
 /**

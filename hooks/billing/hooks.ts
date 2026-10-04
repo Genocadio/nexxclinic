@@ -75,7 +75,8 @@ export type BillingPaymentMethod =
   | "CARD"
   | "BANK_TRANSFER"
   | "CHEQUE"
-  | "MIXED";
+  | "MIXED"
+  | "NONE";
 
 export interface CreateBillDepartmentInput {
   visitDepartmentId: string;

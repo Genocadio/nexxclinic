@@ -203,9 +203,17 @@ export function useBillingPageState() {
       );
       const maxAllowed = totalValue > 0 ? totalValue * 2 : 1_000_000_000;
       const cappedAmount = Math.min(safeAmount, maxAllowed);
+      const updatedPaymentMethod =
+        cappedAmount === 0
+          ? "NONE"
+          : prev.paymentMethod === "NONE" || !prev.paymentMethod
+            ? "MOBILE_MONEY"
+            : prev.paymentMethod;
+
       return {
         ...prev,
         amountPaid: cappedAmount,
+        paymentMethod: updatedPaymentMethod,
         updatedAt: new Date().toISOString(),
       };
     });

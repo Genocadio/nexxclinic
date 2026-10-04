@@ -94,7 +94,8 @@ export interface BillingData {
     | "CARD"
     | "BANK_TRANSFER"
     | "CHEQUE"
-    | "MIXED";
+    | "MIXED"
+    | "NONE";
   amountPaid?: number; // Track amount patient paid
   paymentStatus?: "unpaid" | "partial" | "full"; // Track payment status
   notes?: string;

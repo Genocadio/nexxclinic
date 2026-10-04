@@ -432,7 +432,7 @@ export default function PatientFormDialog({
           : Boolean(
               hasDmName &&
               ins.dominantMember?.phone?.trim() &&
-              /^\+?\d{7,15}$/.test(ins.dominantMember.phone.trim())
+              /^\+?\d{7,15}$/.test(ins.dominantMember.phone.trim().replace(/\s+/g, ""))
             )
 
         if (dominantValid) {
@@ -763,7 +763,7 @@ export default function PatientFormDialog({
 
         if (!isSelf) {
           const phone = insurance.dominantMember?.phone?.trim()
-          if (phone && !/^\+?\d{7,15}$/.test(phone)) {
+          if (phone && !/^\+?\d{7,15}$/.test(phone.replace(/\s+/g, ""))) {
             insuranceErrors[`${prefix}.dominant`] =
               "Enter a valid phone number (7-15 digits, optional leading +)"
           }
