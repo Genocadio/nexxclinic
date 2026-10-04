@@ -1262,6 +1262,7 @@ export function BillingPageContent() {
             }}
             onPreview={() => void handlePreviewBilling()}
             onPrint={() => void handlePrintBillingInvoice()}
+            onPrintInvoice={handleDownloadInvoice}
             canCompleteVisit={canCompleteVisit}
             completingVisit={completingVisit}
             onCompleteVisit={() => {

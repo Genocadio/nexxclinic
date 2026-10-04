@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
-import { Plus, Pencil, Layers, Trash2, Check, Ban, MoreVertical } from "lucide-react";
+import { useState } from "react";
+import { Plus, Pencil, Layers, Check } from "lucide-react";
 import type { ComponentProps } from "react";
 import { BillingItemsList } from "@/components/BillingItemsList";
 import { Button } from "@/components/ui/button";
@@ -13,12 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
 import type { BillingItem } from "@/lib/billing-utils";
 import type { VisitDepartment } from "@/lib/api-types";
 
@@ -87,68 +81,6 @@ export function BillingItemsWorkspace({
   onRemoveDepartment,
   editedItemChanges,
 }: BillingItemsWorkspaceProps) {
-  const getDepartmentPermissions = useCallback(
-    (serviceName: string) => {
-      const visitDeptId = serviceDepartmentIds[serviceName];
-      if (!visitDeptId) return null;
-
-      const dept = departments.find(
-        (d) => d.id === visitDeptId || d.department?.name === serviceName
-      );
-      const isTerminal =
-        dept?.status === "COMPLETED" ||
-        dept?.status === "FINALISED" ||
-        dept?.status === "CANCELLED";
-
-      const deptItems = allItems.filter((item) => item.departmentName === serviceName);
-      const hasProducts =
-        deptItems.length > 0 || (dept?.products && dept.products.length > 0);
-
-      const normalizedRoles = userRoles.map((r) => r.toUpperCase());
-      const isAdminOrManager = normalizedRoles.some((r) =>
-        ["ADMIN", "CLINIC_ADMIN", "MANAGER", "FINANCE"].includes(r)
-      );
-      const isAssignedProcessor = Boolean(
-        currentUserId &&
-          dept?.processors?.some((p) => String(p.id) === String(currentUserId))
-      );
-
-      // Permission matrix:
-      // 1. Terminal states cannot be cancelled
-      // 2. If ACTIVE: assigned processor OR admin/manager can cancel
-      // 3. If PENDING (or not ACTIVE):
-      //    - If has products: assigned processor OR admin/manager can cancel
-      //    - If no products: reception, nurse, clinician, manager, admin can cancel
-      let canCancel = false;
-      if (!isTerminal && onCancelDepartment) {
-        if (dept?.status === "ACTIVE") {
-          canCancel = isAssignedProcessor || isAdminOrManager;
-        } else {
-          canCancel = !hasProducts || isAssignedProcessor || isAdminOrManager;
-        }
-      }
-
-      // Admin or Manager can delete
-      const canDelete = Boolean(isAdminOrManager && onRemoveDepartment);
-
-      if (!canCancel && !canDelete) return null;
-
-      return {
-        visitDepartmentId: visitDeptId,
-        canCancel,
-        canDelete,
-      };
-    },
-    [
-      serviceDepartmentIds,
-      departments,
-      allItems,
-      userRoles,
-      currentUserId,
-      onCancelDepartment,
-      onRemoveDepartment,
-    ]
-  );
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-6">
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full min-w-0 mx-auto px-2 sm:px-4 md:px-[1cm] lg:px-[2cm]">          <div className="flex items-center justify-between gap-3 mb-2 flex-shrink-0">
@@ -219,13 +151,12 @@ export function BillingItemsWorkspace({
             <TabsList className="h-8">
               {allServiceNames.map((dept) => {
                 const isBilled = billedDepartmentNames.has(dept);
-                const menuPerms = getDepartmentPermissions(dept);
 
                 return (
                   <TabsTrigger
                     key={dept}
                     value={dept}
-                    className={`rounded-full pl-3 pr-1.5 text-xs h-7 gap-1 transition-colors ${
+                    className={`rounded-full px-3 text-xs h-7 gap-1 transition-colors ${
                       isBilled
                         ? "bg-green-100/90 text-green-800 border border-green-300/80 hover:bg-green-200/90 data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=active]:border-green-600 dark:bg-green-950/50 dark:text-green-300 dark:border-green-800 dark:data-[state=active]:bg-green-600 dark:data-[state=active]:text-white"
                         : ""
@@ -238,55 +169,6 @@ export function BillingItemsWorkspace({
                       />
                     )}
                     <span>{dept}</span>
-                    {menuPerms && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            className="inline-flex items-center justify-center h-4 w-4 ml-0.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.stopPropagation();
-                              }
-                            }}
-                            title="Department options"
-                          >
-                            <MoreVertical className="h-3 w-3" />
-                          </span>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="min-w-[160px]">
-                          {menuPerms.canCancel && (
-                            <DropdownMenuItem
-                              className="text-amber-600 dark:text-amber-400 focus:text-amber-600 focus:bg-amber-50 dark:focus:bg-amber-950/30 cursor-pointer text-xs flex items-center gap-2"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onCancelDepartment?.(menuPerms.visitDepartmentId);
-                              }}
-                            >
-                              <Ban className="h-3.5 w-3.5" />
-                              Cancel Department
-                            </DropdownMenuItem>
-                          )}
-                          {menuPerms.canDelete && (
-                            <DropdownMenuItem
-                              variant="destructive"
-                              className="text-red-600 dark:text-red-400 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer text-xs flex items-center gap-2"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onRemoveDepartment?.(menuPerms.visitDepartmentId);
-                              }}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              Delete Department
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
                   </TabsTrigger>
                 );
               })}

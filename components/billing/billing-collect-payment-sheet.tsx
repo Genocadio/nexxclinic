@@ -71,14 +71,17 @@ export function CollectPaymentSheet({
         const dept = visitBilling.departments.find((d) =>
           (d.insuranceBillings || []).some((item) => item.id === ib.id),
         );
+        const insName =
+          ib.patientInsurance?.insuranceProvider?.insuranceName ||
+          ib.patientInsurance?.insuranceProvider?.name ||
+          ib.patientInsurance?.insuranceProvider?.acronym ||
+          "";
+        const hasIns = Boolean(ib.patientInsurance != null);
         return {
           departmentInsuranceBillingId: ib.id,
           departmentName:
             dept?.visitDepartment?.department?.name || "Department",
-          insuranceLabel:
-            ib.patientInsurance?.insuranceProvider?.insuranceName ||
-            ib.patientInsurance?.insuranceProvider?.name ||
-            "Private",
+          insuranceLabel: insName || (hasIns ? "Insurance" : "Private"),
           // Outstanding is the patient's residual only (patient payable minus
           // paid) so it never shows insurance-contributed money, and a stale
           // backend outstandingAmount doesn't keep buckets (and the Collect

@@ -560,13 +560,23 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         toast.warn("Please read the unread notes before generating an invoice.");
         return;
       }
-      const firstDeptBilling = existingVisitBilling.departments?.[0];
-      const firstInsuranceBilling = firstDeptBilling?.insuranceBillings?.[0];
-      if (firstInsuranceBilling?.id) {
+      const allDepts = existingVisitBilling.departments || [];
+      const allIb = allDepts.flatMap((d) => d.insuranceBillings || []);
+      if (allIb.length === 0) {
+        toast.warn("No invoice available for this billing yet.");
+        return;
+      }
+
+      // If only 1 private invoice exists (no insurance), generate and open directly
+      const hasInsurance = allIb.some(
+        (ib) => Boolean(ib.patientInsurance != null),
+      );
+      if (allIb.length === 1 && !hasInsurance && allIb[0].id) {
         try {
           const invoiceUrl = await resolveInvoiceUrl(
-            firstInsuranceBilling.id,
+            allIb[0].id,
             generateInvoice,
+            "PATIENT",
           );
           openInvoicePreview(invoiceUrl);
         } catch (err: unknown) {
@@ -574,9 +584,11 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
             err instanceof Error ? err.message : "Failed to generate invoice";
           toast.error(message);
         }
-      } else {
-        toast.warn("No invoice available for this billing yet.");
+        return;
       }
+
+      // Otherwise open the preview sheet where the user can choose the exact invoice copy
+      await handlePreviewBilling();
       return;
     }
 

@@ -22,6 +22,7 @@ type InvoicePreviewGroup = {
   status: string;
   label?: string;
   insuranceLabel?: string;
+  hasInsurance?: boolean;
   totalAmount: number;
   insuranceCoveredAmount: number;
   patientPayableAmount: number;
@@ -207,14 +208,19 @@ export function BillingPreviewSheet({
             };
           });
 
+          const insName =
+            ib.patientInsurance?.insuranceProvider?.insuranceName ||
+            ib.patientInsurance?.insuranceProvider?.name ||
+            ib.patientInsurance?.insuranceProvider?.acronym ||
+            "";
+          const hasIns = Boolean(ib.patientInsurance != null);
+
           groups.push({
             id: ib.id,
             status: ib.status,
             label: ib.status ? `${ib.status}` : "Invoice",
-            insuranceLabel:
-              ib.patientInsurance?.insuranceProvider?.insuranceName ||
-              ib.patientInsurance?.insuranceProvider?.name ||
-              "Private",
+            insuranceLabel: insName || (hasIns ? "Insurance" : "Private"),
+            hasInsurance: hasIns,
             totalAmount: Number(ib.totalAmount || 0),
             insuranceCoveredAmount: Number(ib.insuranceCoveredAmount || 0),
             patientPayableAmount: Number(ib.patientPayableAmount || 0),
@@ -231,6 +237,11 @@ export function BillingPreviewSheet({
     if (!billingData) return [];
 
     let draftWaivedTotal = 0;
+    let draftInsuranceCoveredTotal = 0;
+    let draftPatientPayableTotal = 0;
+    let detectedInsuranceName: string | null = null;
+    let hasDraftInsurance = false;
+
     const items = billingData.items
       .filter((item) => {
         const itemRootId = String(
@@ -248,6 +259,27 @@ export function BillingPreviewSheet({
         const split = getItemInsuranceSplit(it, coveragePct);
         const lineWaived = isExempted ? split.waivedAmount : 0;
         draftWaivedTotal += lineWaived;
+        if (!isExempted || exemptionType === "patient-share") {
+          draftInsuranceCoveredTotal += split.insuranceAmount;
+        }
+        if (!isExempted) {
+          draftPatientPayableTotal += split.patientAmount;
+        }
+        if (it.selectedInsuranceId) {
+          hasDraftInsurance = true;
+          if (!detectedInsuranceName && visit?.patient?.patientInsurances) {
+            const pi = visit.patient.patientInsurances.find(
+              (p) => String(p.id) === String(it.selectedInsuranceId),
+            );
+            if (pi?.insuranceProvider) {
+              detectedInsuranceName =
+                pi.insuranceProvider.insuranceName ||
+                pi.insuranceProvider.name ||
+                pi.insuranceProvider.acronym ||
+                null;
+            }
+          }
+        }
         return {
           id: it.id,
           name: it.name,
@@ -274,13 +306,16 @@ export function BillingPreviewSheet({
             {
               id: "draft-invoice",
               label: "Invoice",
-              insuranceLabel: "Private",
+              insuranceLabel:
+                detectedInsuranceName ||
+                (hasDraftInsurance ? "Insurance" : "Private"),
+              hasInsurance: hasDraftInsurance,
               status: "",
               totalAmount: computedTotal,
-              insuranceCoveredAmount: 0,
-              patientPayableAmount: computedTotal,
+              insuranceCoveredAmount: draftInsuranceCoveredTotal,
+              patientPayableAmount: draftPatientPayableTotal,
               paidAmount: 0,
-              outstandingAmount: computedTotal,
+              outstandingAmount: draftPatientPayableTotal,
               waivedAmount: draftWaivedTotal,
               items: items.map(
                 ({ groupLabel: _groupLabel, ...item }) => item,
@@ -289,7 +324,7 @@ export function BillingPreviewSheet({
           ]
         : [];
     return draftGroups;
-  }, [billingData, activeDepartment, visitBilling]);
+  }, [billingData, activeDepartment, visitBilling, getCoveragePercentage, visit]);
 
   const departmentTotal = sumMoney(invoiceGroups.map((g) => g.totalAmount));
   const departmentPaid = sumMoney(invoiceGroups.map((g) => g.paidAmount));
@@ -459,8 +494,7 @@ export function BillingPreviewSheet({
                         </button>
                       )}
                       {visitBilling && printableInvoiceGroups.length > 0 && !isEditMode &&
-                        (printableInvoiceGroups.length === 1 &&
-                        !(printableInvoiceGroups[0].insuranceCoveredAmount > 0 || printableInvoiceGroups[0].insuranceLabel) ? (
+                        (printableInvoiceGroups.length === 1 && !printableInvoiceGroups[0].hasInsurance ? (
                           <button
                             type="button"
                             onClick={() => void handlePrintInvoice(printableInvoiceGroups[0].id, "PATIENT")}
@@ -495,9 +529,7 @@ export function BillingPreviewSheet({
                               className="w-80 z-[100]"
                             >
                               {printableInvoiceGroups.map((group) => {
-                                const hasIns = Boolean(
-                                  group.insuranceCoveredAmount > 0 || group.insuranceLabel,
-                                );
+                                const hasIns = Boolean(group.hasInsurance);
                                 return (
                                   <div key={group.id} className="p-1 border-b last:border-b-0 border-border/50">
                                     {hasIns ? (

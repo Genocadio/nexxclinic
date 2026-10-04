@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Printer, Pencil, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,6 +9,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { VisitBilling } from "@/lib/api-types";
 import { getVisitBillingTotals } from "@/lib/visit-billing-utils";
 import { formatRWF } from "@/lib/utils";
@@ -41,6 +48,7 @@ type BillingStickySummaryProps = {
   onCompleteBill: () => void;
   onPreview: () => void;
   onPrint: () => void;
+  onPrintInvoice?: (departmentInsuranceBillingId: string, copyType?: string) => Promise<void> | void;
   onEditBilling: () => void;
   onDoneEditing: () => void;
   onCompleteVisit?: () => void;
@@ -65,6 +73,7 @@ export function BillingStickySummary({
   loadingDoneEditing = false,
   onCompleteBill,
   onPrint,
+  onPrintInvoice,
   onEditBilling,
   onDoneEditing,
   onCompleteVisit,
@@ -75,6 +84,41 @@ export function BillingStickySummary({
   const billingTotals = existingVisitBilling
     ? getVisitBillingTotals(existingVisitBilling)
     : null;
+
+  const printableOptions = useMemo(() => {
+    if (!existingVisitBilling?.departments) return [];
+    const options: Array<{
+      id: string;
+      title: string;
+      insuranceLabel: string;
+      hasInsurance: boolean;
+      totalAmount: number;
+      insuranceCoveredAmount: number;
+      patientPayableAmount: number;
+    }> = [];
+
+    for (const d of existingVisitBilling.departments) {
+      const deptName = d.visitDepartment?.department?.name || "";
+      for (const ib of d.insuranceBillings || []) {
+        const insName =
+          ib.patientInsurance?.insuranceProvider?.insuranceName ||
+          ib.patientInsurance?.insuranceProvider?.name ||
+          ib.patientInsurance?.insuranceProvider?.acronym ||
+          "";
+        const hasIns = Boolean(ib.patientInsurance != null);
+        options.push({
+          id: ib.id,
+          title: deptName ? `${deptName}` : "Invoice",
+          insuranceLabel: insName || (hasIns ? "Insurance" : "Private"),
+          hasInsurance: hasIns,
+          totalAmount: Number(ib.totalAmount || 0),
+          insuranceCoveredAmount: Number(ib.insuranceCoveredAmount || 0),
+          patientPayableAmount: Number(ib.patientPayableAmount || 0),
+        });
+      }
+    }
+    return options;
+  }, [existingVisitBilling]);
 
   if (!showActions && !existingVisitBilling) return null;
 
@@ -229,14 +273,95 @@ export function BillingStickySummary({
 
                 {existingVisitBilling && !isEditingBill && (
                   <>
-                    <ActionButton
-                      icon={Printer}
-                      label={
-                        generatingInvoice ? "Loading PDF…" : "Print invoice"
-                      }
-                      onClick={onPrint}
-                      disabled={generatingInvoice}
-                    />
+                    {printableOptions.length === 1 && !printableOptions[0].hasInsurance ? (
+                      <ActionButton
+                        icon={Printer}
+                        label={
+                          generatingInvoice ? "Loading PDF…" : "Print invoice"
+                        }
+                        onClick={() => {
+                          if (onPrintInvoice) {
+                            void onPrintInvoice(printableOptions[0].id, "PATIENT");
+                          } else {
+                            onPrint();
+                          }
+                        }}
+                        disabled={generatingInvoice}
+                      />
+                    ) : printableOptions.length > 0 ? (
+                      <DropdownMenu>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 rounded-full relative"
+                                disabled={generatingInvoice}
+                                aria-label="Print invoice"
+                              >
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                          </TooltipTrigger>
+                          <TooltipContent>{generatingInvoice ? "Loading PDF…" : "Print invoice"}</TooltipContent>
+                        </Tooltip>
+                        <DropdownMenuContent align="end" className="w-80 z-[100]">
+                          {printableOptions.map((opt) => (
+                            <div key={opt.id} className="p-1 border-b last:border-b-0 border-border/50">
+                              <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                                <span>{opt.insuranceLabel}</span>
+                                {opt.title && <span className="font-normal lowercase text-[10px] text-muted-foreground/70">{opt.title}</span>}
+                              </div>
+                              {opt.hasInsurance ? (
+                                <>
+                                  <DropdownMenuItem
+                                    disabled={generatingInvoice}
+                                    onSelect={() => onPrintInvoice?.(opt.id, "INSURANCE")}
+                                    className="cursor-pointer"
+                                  >
+                                    <span className="truncate">📄 Insurer Copy (Claim)</span>
+                                    <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">
+                                      {formatRWF(opt.insuranceCoveredAmount)}
+                                    </span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={generatingInvoice}
+                                    onSelect={() => onPrintInvoice?.(opt.id, "PATIENT")}
+                                    className="cursor-pointer"
+                                  >
+                                    <span className="truncate">🧾 Patient Receipt & Statement</span>
+                                    <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">
+                                      {formatRWF(opt.patientPayableAmount)}
+                                    </span>
+                                  </DropdownMenuItem>
+                                </>
+                              ) : (
+                                <DropdownMenuItem
+                                  disabled={generatingInvoice}
+                                  onSelect={() => onPrintInvoice?.(opt.id, "PATIENT")}
+                                  className="cursor-pointer"
+                                >
+                                  <span className="truncate">🧾 Patient Receipt</span>
+                                  <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">
+                                    {formatRWF(opt.totalAmount)}
+                                  </span>
+                                </DropdownMenuItem>
+                              )}
+                            </div>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <ActionButton
+                        icon={Printer}
+                        label={
+                          generatingInvoice ? "Loading PDF…" : "Print invoice"
+                        }
+                        onClick={onPrint}
+                        disabled={generatingInvoice}
+                      />
+                    )}
                   </>
                 )}
 
