@@ -13,8 +13,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { VisitPresenceBadge } from "@/components/visit-presence-badge";
 
 interface ConsultationBottomDockProps {
+  visitId?: string;
   onComplete: () => void;
   onTransfer?: () => void;
   saveIndicator?: SaveIndicatorState;
@@ -23,6 +25,7 @@ interface ConsultationBottomDockProps {
 }
 
 export function ConsultationBottomDock({
+  visitId,
   onComplete,
   onTransfer,
   saveIndicator,
@@ -32,6 +35,12 @@ export function ConsultationBottomDock({
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
       <div className="glass-gray rounded-full shadow-xl px-3 py-2 flex items-center gap-2">
+        {visitId && (
+          <VisitPresenceBadge
+            visitId={visitId}
+            className="bg-white/10 text-white/95 border-white/20 text-xs py-1"
+          />
+        )}
         <TooltipProvider>
           <div className="flex items-center gap-2">
             {saveIndicator?.visible ? (

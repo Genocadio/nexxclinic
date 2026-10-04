@@ -14,8 +14,10 @@ import {
   isInsuranceActive,
   insuranceStatusLabel,
 } from "@/lib/insurance-utils";
+import { VisitPresenceBadge } from "@/components/visit-presence-badge";
 
 type BillingPatientBarProps = {
+  visitId?: string;
   patientName: string;
   patientAge: number;
   gender: string;
@@ -34,6 +36,7 @@ type BillingPatientBarProps = {
 };
 
 export function BillingPatientBar({
+  visitId,
   patientName,
   patientAge,
   gender,
@@ -66,6 +69,7 @@ export function BillingPatientBar({
               <h1 className="text-sm font-semibold text-foreground truncate">
                 {patientName}
               </h1>
+              {visitId && <VisitPresenceBadge visitId={visitId} />}
               <Separator
                 orientation="vertical"
                 className="h-4 hidden sm:block"

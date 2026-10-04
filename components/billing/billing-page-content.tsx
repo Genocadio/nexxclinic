@@ -1147,6 +1147,7 @@ export function BillingPageContent() {
       <Header doctor={doctor} />
 
       <BillingPatientBar
+        visitId={visit.id || visitId || undefined}
         patientName={billingData.patientName}
         patientAge={billingData.patientAge}
         gender={billingData.gender}

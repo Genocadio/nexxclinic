@@ -905,6 +905,7 @@ export function StandaloneConsultationView({
 
       {!patientHistoryOpen && !isFinalisedAnswer && (
         <ConsultationBottomDock
+          visitId={visit?.id}
           onComplete={() => {
             if (unreadNotesCount > 0) {
               toast.warn(

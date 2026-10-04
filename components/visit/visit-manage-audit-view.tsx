@@ -54,6 +54,7 @@ import { VisitSettingsPanel } from "@/components/manager/visit-settings-panel"
 import { ConsultationSidePanels } from "@/components/consultation/consultation-side-panels"
 import PatientHistorySidePane from "@/components/patient-history-side-pane"
 import DepartmentNotesFloating from "@/components/department-notes-floating"
+import { VisitPresenceBadge } from "@/components/visit-presence-badge"
 import {
   ArrowLeft,
   RefreshCw,
@@ -664,6 +665,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                 <span className="text-sm font-normal text-slate-500 dark:text-slate-400">
                   ({patient?.patientIdentifier || "No ID"})
                 </span>
+                <VisitPresenceBadge visitId={visit?.id || visitId} />
               </h1>
             </div>
           </div>

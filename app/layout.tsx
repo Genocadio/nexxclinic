@@ -8,6 +8,7 @@ import { AuthGate } from "@/components/auth-gate"
 import { ThemeProvider } from "@/lib/theme-context"
 import { InvoiceViewerDialog } from "@/components/ui/invoice-viewer-dialog"
 import { Providers } from "@/components/providers"
+import { ClinicSseProvider } from "@/components/clinic-sse-provider"
 import { ToastContainer } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import "./globals.css"
@@ -87,7 +88,9 @@ export default function RootLayout({
           <Providers>
             <ApolloWrapper>
               <AuthProvider>
-                <AuthGate>{children}</AuthGate>
+                <ClinicSseProvider>
+                  <AuthGate>{children}</AuthGate>
+                </ClinicSseProvider>
               </AuthProvider>
             </ApolloWrapper>
           </Providers>
