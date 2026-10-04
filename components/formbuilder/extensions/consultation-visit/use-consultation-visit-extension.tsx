@@ -328,26 +328,46 @@ export function useConsultationVisitExtension(
     [visitProducts],
   );
 
+  const isVisitOrDeptFinalised = useMemo(() => {
+    const vStatus = String(visitStatus || "").toUpperCase();
+    const dStatus = String(visitDepartmentStatus || "").toUpperCase();
+    return (
+      vStatus === "FINALISED" ||
+      vStatus === "CANCELLED" ||
+      dStatus === "FINALISED" ||
+      dStatus === "CANCELLED"
+    );
+  }, [visitStatus, visitDepartmentStatus]);
+
   const getBlockHandlers = useCallback(
     (
       block: import("@/lib/formbuilder-storage").FormBlock,
     ): MedicalBlockHandlers | null => {
-      if (!edit) return { productsLocked: true, productActions: visitProducts, diagnostics: visitDiagnostics, medicationsFull: visitMedicationsFull, medicationsMini: visitMedicationsMini };
+      const canEditClinical = !isVisitOrDeptFinalised;
 
       switch (block.type) {
         case "product_listener":
           return {
             productActions: visitProducts,
-            onOpenProductPicker: () => {
-              setActiveProductBlockId(block.id);
-              setProductModalOpen(true);
-            },
-            onRemoveProduct: (actionId) => {
-              void handleRemoveProduct(actionId);
-            },
-            onUpdateProductQuantity: (actionId, qty) => {
-              void handleUpdateProductQuantity(actionId, qty);
-            },
+            onOpenProductPicker:
+              !productsLocked && edit
+                ? () => {
+                    setActiveProductBlockId(block.id);
+                    setProductModalOpen(true);
+                  }
+                : undefined,
+            onRemoveProduct:
+              !productsLocked && edit
+                ? (actionId) => {
+                    void handleRemoveProduct(actionId);
+                  }
+                : undefined,
+            onUpdateProductQuantity:
+              !productsLocked && edit
+                ? (actionId, qty) => {
+                    void handleUpdateProductQuantity(actionId, qty);
+                  }
+                : undefined,
             productsLocked,
             visitId,
             departmentId,
@@ -355,20 +375,24 @@ export function useConsultationVisitExtension(
         case "diagnostic_record":
           return {
             diagnostics: visitDiagnostics,
-            onAddDiagnosis: (diagnosis, description) =>
-              handleAddDiagnosis(diagnosis, description),
+            onAddDiagnosis: canEditClinical
+              ? (diagnosis, description) =>
+                  handleAddDiagnosis(diagnosis, description)
+              : undefined,
           };
         case "medication_full":
           return {
             medicationsFull: visitMedicationsFull,
-            onAddMedicationFull: (entry) =>
-              handleAddMedicationFull(entry),
+            onAddMedicationFull: canEditClinical
+              ? (entry) => handleAddMedicationFull(entry)
+              : undefined,
           };
         case "medication_mini":
           return {
             medicationsMini: visitMedicationsMini,
-            onAddMedicationMini: (name, notes) =>
-              handleAddMedicationMini(name, notes),
+            onAddMedicationMini: canEditClinical
+              ? (name, notes) => handleAddMedicationMini(name, notes)
+              : undefined,
           };
         default:
           return null;
@@ -376,11 +400,12 @@ export function useConsultationVisitExtension(
     },
     [
       edit,
+      isVisitOrDeptFinalised,
+      productsLocked,
       visitProducts,
       visitDiagnostics,
       visitMedicationsFull,
       visitMedicationsMini,
-      productsLocked,
       visitId,
       departmentId,
       handleRemoveProduct,

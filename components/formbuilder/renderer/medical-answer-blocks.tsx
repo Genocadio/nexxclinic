@@ -64,6 +64,8 @@ export function DiagnosticAnswerBlock({
     onChange(value.filter((e) => e.id !== id));
   };
 
+  const canAdd = handlers ? Boolean(handlers.onAddDiagnosis) : edit;
+
   return (
     <div className="my-3">
       <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
@@ -78,7 +80,7 @@ export function DiagnosticAnswerBlock({
             : "border-emerald-200/80 dark:border-emerald-800/70 bg-emerald-50/50 dark:bg-emerald-950/30"
         }`}
       >
-        {edit && (
+        {canAdd && (
           <DiagnosticDraft
             onAdd={add}
             placeholder={block.placeholder || "Enter diagnosis name…"}
@@ -195,6 +197,8 @@ export function MedFullAnswerBlock({
       },
     ]);
   };
+  const canAdd = handlers ? Boolean(handlers.onAddMedicationFull) : edit;
+
   return (
     <div className="my-3">
       <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
@@ -209,7 +213,7 @@ export function MedFullAnswerBlock({
             : "border-blue-200/80 dark:border-blue-800/70 bg-blue-50/50 dark:bg-blue-950/30"
         }`}
       >
-        {edit && (
+        {canAdd && (
           <MedFullDraft
             onAdd={addEntry}
             placeholder={block.placeholder || "Medication name…"}
@@ -357,6 +361,8 @@ export function MedMiniAnswerBlock({
       },
     ]);
   };
+  const canAdd = handlers ? Boolean(handlers.onAddMedicationMini) : edit;
+
   return (
     <div className="my-3">
       <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
@@ -371,7 +377,7 @@ export function MedMiniAnswerBlock({
             : "border-indigo-200/80 dark:border-indigo-800/70 bg-indigo-50/50 dark:bg-indigo-950/30"
         }`}
       >
-        {edit && (
+        {canAdd && (
           <MedMiniDraft
             onAdd={addEntry}
             placeholder={block.placeholder || "Medication name…"}
