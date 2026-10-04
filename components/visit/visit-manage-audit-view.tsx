@@ -56,6 +56,12 @@ import PatientHistorySidePane from "@/components/patient-history-side-pane"
 import DepartmentNotesFloating from "@/components/department-notes-floating"
 import { VisitPresenceBadge } from "@/components/visit-presence-badge"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   ArrowLeft,
   RefreshCw,
   Clock,
@@ -78,6 +84,8 @@ import {
   FileCheck2,
   CornerDownRight,
   ChevronRight,
+  ChevronDown,
+  FileSpreadsheet,
   Layers,
   CalendarClock,
   Loader2,
@@ -402,7 +410,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
   }, [refetch, refetchNotes])
 
   // Handle Preview Invoice
-  const handlePreviewInvoice = useCallback(async () => {
+  const handlePreviewInvoice = useCallback(async (copyType?: string) => {
     const billingDepartments = visitBillingData?.visitBilling?.data?.departments || []
 
     let targetInsuranceBillingId: string | null = null
@@ -429,7 +437,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
     }
 
     try {
-      const invoiceUrl = await resolveInvoiceUrl(targetInsuranceBillingId, generateInvoice)
+      const invoiceUrl = await resolveInvoiceUrl(targetInsuranceBillingId, generateInvoice, copyType)
       openInvoicePreview(invoiceUrl)
     } catch (err: any) {
       toast.error(err.message || "Failed to generate invoice preview")
@@ -717,21 +725,64 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
               </Select>
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handlePreviewInvoice()}
-              disabled={generatingInvoice}
-              className="h-9 rounded-xl shadow-sm text-xs bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 font-medium text-slate-800 dark:text-slate-200"
-              title="Preview Invoice"
-            >
-              {generatingInvoice ? (
-                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin text-purple-600 dark:text-purple-400" />
-              ) : (
-                <ReceiptText className="w-3.5 h-3.5 mr-1.5 text-purple-600 dark:text-purple-400" />
-              )}
-              Preview Invoice
-            </Button>
+            {Boolean(visit.linkedInsurances && visit.linkedInsurances.length > 0) ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={generatingInvoice}
+                    className="h-9 rounded-xl shadow-sm text-xs bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 font-medium text-slate-800 dark:text-slate-200"
+                  >
+                    {generatingInvoice ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin text-purple-600 dark:text-purple-400" />
+                    ) : (
+                      <ReceiptText className="w-3.5 h-3.5 mr-1.5 text-purple-600 dark:text-purple-400" />
+                    )}
+                    Invoice Options
+                    <ChevronDown className="w-3 h-3 ml-1 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem
+                    onClick={() => void handlePreviewInvoice("INSURANCE")}
+                    className="text-xs cursor-pointer gap-2 py-2"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-blue-600" />
+                    <div>
+                      <div className="font-medium">Insurer Claim</div>
+                      <div className="text-[10px] text-muted-foreground">Contracted tariff split</div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => void handlePreviewInvoice("PATIENT")}
+                    className="text-xs cursor-pointer gap-2 py-2"
+                  >
+                    <ReceiptText className="w-4 h-4 text-emerald-600" />
+                    <div>
+                      <div className="font-medium">Patient Receipt</div>
+                      <div className="text-[10px] text-muted-foreground">Actual payable & statement</div>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handlePreviewInvoice()}
+                disabled={generatingInvoice}
+                className="h-9 rounded-xl shadow-sm text-xs bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 font-medium text-slate-800 dark:text-slate-200"
+                title="Preview Invoice"
+              >
+                {generatingInvoice ? (
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin text-purple-600 dark:text-purple-400" />
+                ) : (
+                  <ReceiptText className="w-3.5 h-3.5 mr-1.5 text-purple-600 dark:text-purple-400" />
+                )}
+                Preview Invoice
+              </Button>
+            )}
 
             {canDischargeVisit(visit) && (
               <Button

@@ -833,11 +833,15 @@ export function VisitSettingsPanel({
     }
   }
 
-  const handlePreviewInvoice = async (departmentInsuranceBillingId: string) => {
+  const handlePreviewInvoice = async (
+    departmentInsuranceBillingId: string,
+    copyType?: string,
+  ) => {
     try {
       const invoiceUrl = await resolveInvoiceUrl(
         departmentInsuranceBillingId,
         generateInvoice,
+        copyType,
       )
       openInvoicePreview(invoiceUrl)
     } catch (err: any) {
@@ -1809,20 +1813,73 @@ export function VisitSettingsPanel({
                               const firstInsuranceBilling =
                                 deptBilling?.insuranceBillings?.[0]
                               if (firstInsuranceBilling) {
+                                const isInsured = Boolean(
+                                  firstInsuranceBilling.insuranceCoveredAmount > 0 ||
+                                    firstInsuranceBilling.patientInsurance,
+                                )
                                 return (
-                                  <button
-                                    type="button"
-                                    onClick={() => handlePreviewInvoice(firstInsuranceBilling.id)}
-                                    disabled={generatingInvoice}
-                                    className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-purple-200"
-                                  >
-                                    {generatingInvoice ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                  <div className="flex items-center gap-1.5">
+                                    {isInsured ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handlePreviewInvoice(
+                                              firstInsuranceBilling.id,
+                                              "INSURANCE",
+                                            )
+                                          }
+                                          disabled={generatingInvoice}
+                                          className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-blue-200 disabled:opacity-50"
+                                          title="Insurer Claim (Tariff)"
+                                        >
+                                          {generatingInvoice ? (
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                          ) : (
+                                            <Eye className="h-3 w-3" />
+                                          )}
+                                          Insurer Claim
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handlePreviewInvoice(
+                                              firstInsuranceBilling.id,
+                                              "PATIENT",
+                                            )
+                                          }
+                                          disabled={generatingInvoice}
+                                          className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-emerald-200 disabled:opacity-50"
+                                          title="Patient Receipt"
+                                        >
+                                          {generatingInvoice ? (
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                          ) : (
+                                            <Eye className="h-3 w-3" />
+                                          )}
+                                          Patient Receipt
+                                        </button>
+                                      </>
                                     ) : (
-                                      <Eye className="h-3 w-3" />
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handlePreviewInvoice(
+                                            firstInsuranceBilling.id,
+                                          )
+                                        }
+                                        disabled={generatingInvoice}
+                                        className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-purple-200 disabled:opacity-50"
+                                      >
+                                        {generatingInvoice ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <Eye className="h-3 w-3" />
+                                        )}
+                                        Preview Invoice
+                                      </button>
                                     )}
-                                    Preview Invoice
-                                  </button>
+                                  </div>
                                 )
                               }
                               return null

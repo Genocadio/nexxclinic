@@ -121,6 +121,7 @@ export default function VisitsListView({
   }, [navigatingVisitId])
   const handleDownloadInvoice = async (
     departmentInsuranceBillingId: string,
+    copyType?: string,
   ) => {
     if (printingInvoice) return
     setPrintingInvoice(true)
@@ -128,6 +129,7 @@ export default function VisitsListView({
       const invoiceUrl = await resolveInvoiceUrl(
         departmentInsuranceBillingId,
         generateInvoice,
+        copyType,
       )
       openInvoicePreview(invoiceUrl)
     } finally {

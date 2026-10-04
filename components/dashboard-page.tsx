@@ -1738,12 +1738,14 @@ export default function DashboardPage() {
   }
   const handleDownloadInvoice = async (
     departmentInsuranceBillingId: string,
+    copyType?: string,
   ) => {
     setDownloadingInvoiceId(departmentInsuranceBillingId)
     try {
       const invoiceUrl = await resolveInvoiceUrl(
         departmentInsuranceBillingId,
         generateInvoice,
+        copyType,
       )
       openInvoicePreview(invoiceUrl)
     } catch (err: unknown) {
