@@ -90,24 +90,37 @@ export function AddPatientInsuranceModal({
   const [selectedInsuranceId, setSelectedInsuranceId] = useState('')
   const [selectedInsuranceName, setSelectedInsuranceName] = useState('')
 
+  const selectableInsurances = useMemo(
+    () => availableInsurances || [],
+    [availableInsurances],
+  )
+
+  const selectedProvider = useMemo(
+    () => selectableInsurances.find((ins) => String(ins.id) === selectedInsuranceId),
+    [selectableInsurances, selectedInsuranceId],
+  )
+
   const { rules: selectedProviderRules, loading: rulesLoading } = useInsuranceCoverages(
     selectedInsuranceId ? { insuranceProviderId: selectedInsuranceId } : undefined,
   )
 
-  /** Distinct patient share percentages available from this provider's coverage rules. */
-  const availablePercentages = useMemo(() => {
-    const pcts = selectedProviderRules
-      .map((r) => r.patientSharePercentage)
-      .filter((v): v is number => v != null)
-    return [...new Set(pcts)].sort((a, b) => a - b)
-  }, [selectedProviderRules])
+  /** Coverage tiers available for this provider from backend coverage rules / provider entity. */
+  const coverages = useMemo(() => {
+    if (selectedProviderRules && selectedProviderRules.length > 0) {
+      return selectedProviderRules.filter((r) => r.patientSharePercentage != null)
+    }
+    return (selectedProvider?.coverages || []).filter((r) => r.patientSharePercentage != null)
+  }, [selectedProviderRules, selectedProvider])
 
-  /** Coverage tiers available for this provider — used to send coverageId (UUID) instead of raw number. */
-  const availableCoverages = useMemo(() => {
-    return selectedProviderRules
-      .filter((r) => r.patientSharePercentage != null)
-      .sort((a, b) => (a.patientSharePercentage ?? 0) - (b.patientSharePercentage ?? 0))
-  }, [selectedProviderRules])
+  const getCoverageLabel = (cov: { departmentName?: string | null; encounterType?: string | null; patientSharePercentage?: number | null }) => {
+    if (cov.departmentName) return `${cov.departmentName} (${cov.patientSharePercentage}%)`
+    if (cov.encounterType) {
+      const typeName = cov.encounterType.replace(/_/g, ' ').toLowerCase()
+      const formatted = typeName.charAt(0).toUpperCase() + typeName.slice(1)
+      return `${formatted} (${cov.patientSharePercentage}%)`
+    }
+    return `Base / General (${cov.patientSharePercentage}%)`
+  }
 
   const isAdult = calculateAge(patientDateOfBirth) >= 18
   const dominantRequired = isDominantMemberRequired(patientDateOfBirth, true)
@@ -145,11 +158,6 @@ export function AddPatientInsuranceModal({
 
   useDebouncedValidation({ control, trigger })
 
-  const selectableInsurances = useMemo(
-    () => availableInsurances || [],
-    [availableInsurances],
-  )
-
   const alreadyAddedInsuranceIds = useMemo(
     () => new Set(patientInsurances.map((pIns) => String(pIns.insuranceProvider.id))),
     [patientInsurances],
@@ -169,9 +177,38 @@ export function AddPatientInsuranceModal({
   const handleProviderSelect = (id: string, name: string) => {
     setSelectedInsuranceId(id)
     setSelectedInsuranceName(name)
+    const prov = selectableInsurances.find((ins) => String(ins.id) === id)
+    const covs = (prov?.coverages || []).filter((r) => r.patientSharePercentage != null)
+    if (covs.length === 1 && covs[0]) {
+      setValue('patientShareCoverageId', covs[0].id, { shouldValidate: true })
+      setValue('patientSharePercentage', String(covs[0].patientSharePercentage), { shouldValidate: true })
+    } else if (covs.length > 1) {
+      const base = covs.find((c) => !c.departmentId && !c.encounterType) || covs[0]
+      if (base) {
+        setValue('patientShareCoverageId', base.id, { shouldValidate: true })
+        setValue('patientSharePercentage', String(base.patientSharePercentage), { shouldValidate: true })
+      }
+    } else {
+      setValue('patientShareCoverageId', null)
+      setValue('patientSharePercentage', '')
+    }
     setPopoverOpen(false)
     setStep('card')
   }
+
+  useEffect(() => {
+    if (!selectedInsuranceId || getValues('patientShareCoverageId')) return
+    if (coverages.length === 1 && coverages[0]) {
+      setValue('patientShareCoverageId', coverages[0].id, { shouldValidate: true })
+      setValue('patientSharePercentage', String(coverages[0].patientSharePercentage), { shouldValidate: true })
+    } else if (coverages.length > 1) {
+      const base = coverages.find((c) => !c.departmentId && !c.encounterType) || coverages[0]
+      if (base) {
+        setValue('patientShareCoverageId', base.id, { shouldValidate: true })
+        setValue('patientSharePercentage', String(base.patientSharePercentage), { shouldValidate: true })
+      }
+    }
+  }, [coverages, selectedInsuranceId, getValues, setValue])
 
   const handleProceedToDetails = () => {
     setStep('details')
@@ -222,11 +259,6 @@ export function AddPatientInsuranceModal({
     const errorMsg = result.response?.messages?.[0]?.text || 'Failed to add insurance'
     toast.error(errorMsg)
   }
-
-  const selectedProvider = useMemo(
-    () => selectableInsurances.find((ins) => String(ins.id) === selectedInsuranceId),
-    [selectableInsurances, selectedInsuranceId],
-  )
 
   return (
     <Dialog
@@ -399,17 +431,22 @@ export function AddPatientInsuranceModal({
                 <FieldError message={formErrors.providingCompanyOrEmployer?.message} />
               </div>
 
-              {availablePercentages.length > 1 ? (
-                <div className="space-y-1">
+              {coverages.length > 1 ? (
+                <div className="space-y-1.5 p-3 rounded-xl border border-border/60 bg-muted/20">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-foreground">
+                      Default Patient Share / Coverage Tier
+                    </p>
+                    <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60">
+                      {coverages.length} tiers available
+                    </span>
+                  </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Patient Share % (optional)
+                    This insurance has multiple coverage conditions. Select the default tier for this patient:
                   </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    This provider has multiple coverage tiers. Pick the default for this patient, or leave empty to use rules/provider default.
-                  </p>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {availableCoverages.map((cov) => {
-                      const currentCoverageId = getValues('patientShareCoverageId')
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {coverages.map((cov) => {
+                      const currentCoverageId = watch('patientShareCoverageId')
                       const isSelected = currentCoverageId === cov.id
                       return (
                         <button
@@ -424,13 +461,13 @@ export function AddPatientInsuranceModal({
                               setValue('patientSharePercentage', String(cov.patientSharePercentage), { shouldValidate: true })
                             }
                           }}
-                          className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all ${
+                          className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
                             isSelected
-                              ? 'bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white border-transparent'
-                              : 'bg-white dark:bg-slate-950 border-border/40 hover:border-[#5F77E8]/40'
+                              ? 'bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white border-transparent shadow-sm'
+                              : 'bg-white dark:bg-slate-900 border-border/60 hover:border-primary/50 text-foreground'
                           }`}
                         >
-                          {cov.patientSharePercentage}%
+                          {getCoverageLabel(cov)}
                         </button>
                       )
                     })}
@@ -438,43 +475,19 @@ export function AddPatientInsuranceModal({
                   <input type="hidden" {...register('patientShareCoverageId')} />
                   <input type="hidden" {...register('patientSharePercentage')} />
                 </div>
-              ) : availablePercentages.length === 1 ? (
-                <div className="space-y-1">
-                  <p className="text-[11px] text-muted-foreground">
-                    Patient Share % (optional)
-                  </p>
-                  <Input
-                    {...register('patientSharePercentage')}
-                    type="number"
-                    min="0"
-                    max="100"
-                    placeholder={`Default: ${availablePercentages[0]}%`}
-                    className={formErrors.patientSharePercentage ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                  />
-                  <p className="text-[10px] text-muted-foreground">
-                    This provider has one coverage tier ({availablePercentages[0]}%). You can override it for this patient, or leave empty.
-                  </p>
-                  <FieldError message={formErrors.patientSharePercentage?.message} />
+              ) : coverages.length === 1 && coverages[0] ? (
+                <div className="p-2.5 rounded-xl border border-border/40 bg-muted/20 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-medium text-foreground">Default Coverage: </span>
+                    <span className="text-muted-foreground">{getCoverageLabel(coverages[0])}</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold text-[11px]">
+                    {coverages[0].patientSharePercentage}% Patient Share
+                  </span>
+                  <input type="hidden" {...register('patientShareCoverageId')} />
+                  <input type="hidden" {...register('patientSharePercentage')} />
                 </div>
-              ) : (
-                <div className="space-y-1">
-                  <p className="text-[11px] text-muted-foreground">
-                    Patient Share % (optional)
-                  </p>
-                  <Input
-                    {...register('patientSharePercentage')}
-                    type="number"
-                    min="0"
-                    max="100"
-                    placeholder="Default patient share % (0-100)"
-                    className={formErrors.patientSharePercentage ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                  />
-                  <p className="text-[10px] text-muted-foreground">
-                    Override the provider default for this patient. Leave empty to use rules/provider default.
-                  </p>
-                  <FieldError message={formErrors.patientSharePercentage?.message} />
-                </div>
-              )}
+              ) : null}
 
               {isAdult ? (
                 <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-3">
