@@ -3,8 +3,8 @@ FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
-# Copy dependency lockfile first to maximize layer caching
-COPY package.json bun.lock ./
+# Copy dependency descriptors (wildcard ensures it matches bun.lock or bun.lockb if present)
+COPY package.json bun.lock* ./
 
 # Install all dependencies with frozen lockfile
 RUN bun install --frozen-lockfile
