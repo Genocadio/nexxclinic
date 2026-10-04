@@ -981,8 +981,7 @@ export function VisitSettingsPanel({
     setDeleteTarget(null)
   }
 
-  const canCancelVisit =
-    currentVisit.status !== "CANCELLED" && currentVisit.status !== "COMPLETED"
+  const canCancelVisit = currentVisit.status !== "CANCELLED"
   const hasDeptEditing = (currentVisit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING")
   const canDeleteVisit = !hasDeptEditing
   const hasDepartments = currentVisit.departments && currentVisit.departments.length > 0

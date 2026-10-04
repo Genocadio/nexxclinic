@@ -5,6 +5,7 @@ import {
   CREATE_PATIENT_INSURANCE_MUTATION,
   UPDATE_PATIENT_INSURANCE_MUTATION,
   UPDATE_PATIENT_MUTATION,
+  DELETE_PATIENT_INSURANCE_MUTATION,
 } from "../mutations";
 import React from "react";
 import type {
@@ -332,6 +333,43 @@ export function useUpdatePatientInsurance() {
   };
 
   return { updatePatientInsurance, loading, error };
+}
+
+export function useDeletePatientInsurance() {
+  const [deletePatientInsuranceMutation, { loading, error }] = useMutation(
+    DELETE_PATIENT_INSURANCE_MUTATION,
+  );
+
+  const deletePatientInsurance = async (
+    patientInsuranceId: string | number,
+  ): Promise<ApiResponse<boolean>> => {
+    try {
+      const result = await deletePatientInsuranceMutation({
+        variables: {
+          patientInsuranceId: String(patientInsuranceId),
+        },
+      });
+
+      const response = result.data?.deletePatientInsurance;
+      return {
+        status: response?.status || "SUCCESS",
+        message: response?.message,
+        messages: response?.message
+          ? [{ text: response.message, type: response.status || "SUCCESS" }]
+          : undefined,
+        data: Boolean(response?.data),
+      };
+    } catch (err: any) {
+      console.error("Delete patient insurance error:", err);
+      return {
+        status: "ERROR",
+        message: err?.message || "Failed to delete patient insurance",
+        data: false,
+      };
+    }
+  };
+
+  return { deletePatientInsurance, loading, error };
 }
 
 export function usePatients(

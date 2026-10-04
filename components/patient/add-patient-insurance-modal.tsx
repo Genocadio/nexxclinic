@@ -50,6 +50,7 @@ type AddPatientInsuranceModalProps = {
   patientId: string
   patientDateOfBirth: string
   patientInsurances?: PatientInsurance[]
+  editingInsurance?: PatientInsurance | null
   onSuccess?: () => void | Promise<void>
   /** Billing copy explains visit linking; reception copy is shorter */
   context?: 'billing' | 'reception'
@@ -78,6 +79,7 @@ export function AddPatientInsuranceModal({
   patientId,
   patientDateOfBirth,
   patientInsurances = [],
+  editingInsurance,
   onSuccess,
   context = 'billing',
   disabled = false,
@@ -159,8 +161,13 @@ export function AddPatientInsuranceModal({
   useDebouncedValidation({ control, trigger })
 
   const alreadyAddedInsuranceIds = useMemo(
-    () => new Set(patientInsurances.map((pIns) => String(pIns.insuranceProvider.id))),
-    [patientInsurances],
+    () =>
+      new Set(
+        patientInsurances
+          .filter((pIns) => !editingInsurance || String(pIns.id) !== String(editingInsurance.id))
+          .map((pIns) => String(pIns.insuranceProvider.id)),
+      ),
+    [patientInsurances, editingInsurance],
   )
 
   const resetForm = () => {
@@ -171,8 +178,35 @@ export function AddPatientInsuranceModal({
   }
 
   useEffect(() => {
-    if (!open) resetForm()
-  }, [open])
+    if (!open) {
+      resetForm()
+      return
+    }
+    if (editingInsurance) {
+      const provId = String(editingInsurance.insuranceProvider.id)
+      setSelectedInsuranceId(provId)
+      setSelectedInsuranceName(
+        editingInsurance.insuranceProvider.insuranceName ||
+          editingInsurance.insuranceProvider.acronym ||
+          'Insurance',
+      )
+      setStep('card')
+      setValue('insuranceCardNumber', editingInsurance.insuranceCardNumber || '')
+      setValue(
+        'providingCompanyOrEmployer',
+        editingInsurance.providingCompanyOrEmployer || '',
+      )
+      setValue('isSelf', editingInsurance.principalMember ?? isAdult)
+      setValue('dominantName', editingInsurance.principalMemberName || '')
+      setValue('dominantPhone', editingInsurance.principalMemberPhoneNumber || '')
+      setValue(
+        'patientSharePercentage',
+        editingInsurance.patientSharePercentage != null
+          ? String(editingInsurance.patientSharePercentage)
+          : '',
+      )
+    }
+  }, [open, editingInsurance, isAdult, setValue])
 
   const handleProviderSelect = (id: string, name: string) => {
     setSelectedInsuranceId(id)
@@ -281,7 +315,13 @@ export function AddPatientInsuranceModal({
               </button>
             )}
             <DialogTitle className="text-base">
-              {step === 'select' ? 'Select insurance provider' : step === 'card' ? 'Enter card number' : 'Insurance details'}
+              {editingInsurance
+                ? 'Update patient insurance'
+                : step === 'select'
+                  ? 'Select insurance provider'
+                  : step === 'card'
+                    ? 'Enter card number'
+                    : 'Insurance details'}
             </DialogTitle>
           </div>
           {/* Step indicator */}
@@ -621,7 +661,7 @@ export function AddPatientInsuranceModal({
                 }}
                 disabled={!selectedInsuranceId || loading || disabled}
               >
-                Save to patient record
+                {editingInsurance ? 'Update insurance' : 'Save to patient record'}
               </Button>
             </>
           )}

@@ -1539,7 +1539,7 @@ export default function DashboardPage() {
     const searchedList = applyGeneralFilters(combinedVisitsList)
 
     const counts: Record<string, number> = {
-      all: searchedList.length,
+      all: searchedList.filter((visit) => visit.status !== "CANCELLED").length,
       IN_PROGRESS: isSingleRoleClinician
         ? searchedList.filter(isClinicianInProgress).length
         : isSingleRoleFinance
@@ -1617,7 +1617,7 @@ export default function DashboardPage() {
       }
     }
 
-    return filtered
+    return filtered.filter((visit) => visit.status !== "CANCELLED")
   }, [
     combinedVisitsList,
     searchQuery,

@@ -394,6 +394,7 @@ export function StandaloneConsultationView({
 
       const savedAnswerId =
         result?.answer?.id || result?.visitDepartment?.answerId;
+      const isFirstCreation = !localAnswerIdRef.current && Boolean(savedAnswerId);
       if (savedAnswerId) {
         localAnswerIdRef.current = String(savedAnswerId);
       }
@@ -402,8 +403,10 @@ export function StandaloneConsultationView({
       setSaveStatus("saved");
       hydratedRef.current = true;
 
-      if (status === "FINAL") {
-        setLocallyFinalised(true);
+      if (status === "FINAL" || isFirstCreation) {
+        if (status === "FINAL") {
+          setLocallyFinalised(true);
+        }
         onVisitRefetch?.();
       }
 
@@ -429,8 +432,11 @@ export function StandaloneConsultationView({
     // never tear down the mounted form or swap the loader source.
     if (catalogDepartmentId === loaderDepartmentRef.current) {
       if (!hydratedRef.current) {
-        // Initial mount: adopt the prop's answer id (if any) for the loader.
+        // Initial mount or prop update before hydration: adopt the prop's answer id for the loader.
         localAnswerIdRef.current = nextAnswerId;
+        if (nextAnswerId !== loaderAnswerId) {
+          setLoaderAnswerId(nextAnswerId);
+        }
         return;
       }
       // Already hydrated: keep the form stable. If the prop reports an answer
@@ -454,7 +460,7 @@ export function StandaloneConsultationView({
     setInitialAnswers({});
     setAnswers({});
     setSaveStatus("saved");
-  }, [answerId, catalogDepartmentId]);
+  }, [answerId, catalogDepartmentId, loaderAnswerId]);
 
   useEffect(() => {
     if (loading || hydratedRef.current) return;
@@ -473,11 +479,12 @@ export function StandaloneConsultationView({
         return;
       }
 
-      const mapped = mapStandaloneAnswerToSavedForm(answer);
+      const mapped = mapStandaloneAnswerToSavedForm(answer, defaultForm);
       const parsed = parseStandaloneAnswers(answer.answers) as FormAnswers;
-      if (mapped && answer.formVersion?.id) {
+      const targetVersionId = answer.formVersion?.id || defaultForm?.activeVersion?.id;
+      if (mapped && targetVersionId) {
         setRendererForm(mapped);
-        setFormVersionId(answer.formVersion.id);
+        setFormVersionId(targetVersionId);
         setInitialAnswers(parsed);
         setAnswers(parsed);
         localAnswerIdRef.current = String(answer.id);
@@ -508,12 +515,13 @@ export function StandaloneConsultationView({
 
       const mapped = mapStandaloneFormToSavedForm(defaultForm);
       if (!mapped) return;
+      const parsed = answer ? (parseStandaloneAnswers(answer.answers) as FormAnswers) : {};
       setRendererForm(mapped);
       setFormVersionId(defaultForm.activeVersion.id);
-      setInitialAnswers({});
-      setAnswers({});
+      setInitialAnswers(parsed);
+      setAnswers(parsed);
       loadedAnswerSignatureRef.current = signature;
-      lastSavedSnapshotRef.current = buildAnswersSnapshot({});
+      lastSavedSnapshotRef.current = buildAnswersSnapshot(parsed);
       hydratedRef.current = true;
       setSaveStatus("saved");
     }

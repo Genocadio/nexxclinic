@@ -8,6 +8,7 @@ import {
   useCreateVisit,
   usePatient,
   useInsurances,
+  useDeletePatientInsurance,
 } from "@/hooks/auth-hooks";
 import { type Patient, getBasePatientSharePercentage } from "@/lib/api-types";
 import type { PatientFilterInput } from "@/hooks/patients/hooks";
@@ -20,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -44,6 +46,8 @@ import {
   RotateCcw,
   Calendar,
   Shield,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { getMediaUrl } from "@/lib/media-url";
 import { isInsuranceActive, insuranceStatusLabel } from "@/lib/insurance-utils";
@@ -178,7 +182,12 @@ export default function VisitCreationModal({
   const [addInsurancePatientId, setAddInsurancePatientId] = useState<
     string | null
   >(null);
+  const [editingInsurance, setEditingInsurance] = useState<any | null>(null);
+  const [insuranceToDelete, setInsuranceToDelete] = useState<any | null>(null);
+  const [isDeletingInsurance, setIsDeletingInsurance] = useState(false);
   const [hoveredPatientId, setHoveredPatientId] = useState<string | null>(null);
+
+  const { deletePatientInsurance } = useDeletePatientInsurance();
 
   // Only fetch patients when search is triggered
   const {
@@ -192,11 +201,37 @@ export default function VisitCreationModal({
     refetch: refetchInsuranceTargetPatient,
   } = usePatient(showAddInsuranceModal ? addInsurancePatientId : null);
 
+  const effectiveSelectedPatient =
+    preSelectedPatientData || selectedPatientDetails || selectedPatient;
+
+  const expiredInsurances = (effectiveSelectedPatient?.patientInsurances || []).filter(
+    (ins: any) => !isInsuranceActive(ins)
+  );
+
   const handleInsuranceSaved = async () => {
     await refetchPatients();
     await refetchInsuranceTargetPatient();
     if (selectedPatientId) await refetchSelectedPatientDetails();
     if (preSelectedPatientId) await refetchPreSelectedPatient();
+  };
+
+  const handleDeleteInsurance = async (insurance: any) => {
+    try {
+      setIsDeletingInsurance(true);
+      const res = await deletePatientInsurance(insurance.id);
+      if (res.status === "SUCCESS") {
+        toast.success("Insurance removed from patient record");
+        setSelectedInsuranceIds((prev) => prev.filter((id) => id !== insurance.id));
+        setInsuranceToDelete(null);
+        await handleInsuranceSaved();
+      } else {
+        toast.error(res.message || "Failed to remove insurance");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to remove insurance");
+    } finally {
+      setIsDeletingInsurance(false);
+    }
   };
 
   const triageSelected = selectedServiceId === TRIAGE_SERVICE_ID;
@@ -303,8 +338,11 @@ export default function VisitCreationModal({
     const patient = preSelectedPatientData || selectedPatientDetails;
 
     if (patient && patient.patientInsurances) {
-      if (patient.patientInsurances.length === 1) {
-        setSelectedInsuranceIds([String(patient.patientInsurances[0].id)]);
+      const activeInsurances = patient.patientInsurances.filter((ins: any) =>
+        isInsuranceActive(ins)
+      );
+      if (activeInsurances.length === 1) {
+        setSelectedInsuranceIds([String(activeInsurances[0].id)]);
       } else {
         setSelectedInsuranceIds([]);
       }
@@ -1120,6 +1158,95 @@ export default function VisitCreationModal({
                   </div>
                 </div>
 
+                {/* Expired Insurance Warning Banner */}
+                {expiredInsurances.length > 0 && (
+                  <div className="rounded-2xl border border-amber-300 dark:border-amber-700/80 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent p-3.5 sm:p-4 text-amber-950 dark:text-amber-100 shadow-xs space-y-3">
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <AlertTriangle className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <h4 className="font-bold text-xs sm:text-sm text-amber-900 dark:text-amber-100 flex items-center gap-1.5">
+                            Expired Insurance Policy Detected
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 h-4.5 border-amber-400/60 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold"
+                            >
+                              {expiredInsurances.length} Expired
+                            </Badge>
+                          </h4>
+                        </div>
+                        <p className="text-xs text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
+                          This patient has expired insurance recorded. Since the patient is present at reception, please update their card/validity details or remove the policy if it is no longer used.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Action rows for each expired insurance */}
+                    <div className="space-y-2 pt-1 border-t border-amber-200/70 dark:border-amber-800/50">
+                      {expiredInsurances.map((expIns: any) => {
+                        const acronym =
+                          expIns.insuranceProvider?.acronym ||
+                          expIns.insuranceProvider?.insuranceName ||
+                          "INS";
+                        const name =
+                          expIns.insuranceProvider?.insuranceName || acronym;
+                        const statusText = insuranceStatusLabel(expIns);
+                        return (
+                          <div
+                            key={expIns.id}
+                            className="flex items-center justify-between gap-2 bg-white/80 dark:bg-slate-950/80 p-2 sm:p-2.5 rounded-xl border border-amber-200/80 dark:border-amber-800/40 shadow-xs"
+                          >
+                            <div className="min-w-0 flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center text-[10px] font-bold shrink-0">
+                                {acronym.slice(0, 3)}
+                              </div>
+                              <div className="min-w-0 text-xs">
+                                <div className="font-semibold text-foreground truncate">
+                                  {name}{" "}
+                                  {expIns.insuranceCardNumber
+                                    ? `(${expIns.insuranceCardNumber})`
+                                    : ""}
+                                </div>
+                                <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium truncate">
+                                  {statusText}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingInsurance(expIns);
+                                  setAddInsurancePatientId(selectedPatient.id);
+                                  setShowAddInsuranceModal(true);
+                                }}
+                                className="h-7 px-2.5 text-xs rounded-lg border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-800 dark:text-amber-200"
+                              >
+                                <Edit className="w-3 h-3 mr-1" />
+                                Update / Renew
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setInsuranceToDelete(expIns)}
+                                className="h-7 px-2 text-xs rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-700"
+                                title="Delete insurance"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Insurance Selection - Cards Grid */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
@@ -1167,7 +1294,12 @@ export default function VisitCreationModal({
                           <div
                             key={insurance.id}
                             onClick={() => {
-                              if (!active) return;
+                              if (!active) {
+                                toast.warn(
+                                  `This ${acronym} insurance has expired. Please update it before selecting it for a visit.`
+                                );
+                                return;
+                              }
                               setSelectedInsuranceIds((prev) =>
                                 prev.includes(insurance.id)
                                   ? prev.filter((id) => id !== insurance.id)
@@ -1175,10 +1307,10 @@ export default function VisitCreationModal({
                               );
                             }}
                             className={cn(
-                              "relative p-3 rounded-2xl border transition-all duration-200 flex flex-col justify-between select-none min-h-[105px]",
+                              "group/card relative p-3 rounded-2xl border transition-all duration-200 flex flex-col justify-between select-none min-h-[110px]",
                               active
                                 ? "cursor-pointer"
-                                : "opacity-60 cursor-not-allowed bg-muted/10 border-amber-300 dark:border-amber-800",
+                                : "bg-amber-50/40 dark:bg-amber-950/10 border-amber-300 dark:border-amber-800/80",
                               active && isSelected
                                 ? "border-primary bg-primary/5 dark:bg-primary/10 ring-2 ring-primary/25 shadow-sm"
                                 : active
@@ -1228,6 +1360,14 @@ export default function VisitCreationModal({
                                     {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                                   </div>
                                 )}
+                                {!active && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[9px] px-1.5 py-0 h-4.5 rounded-md font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700"
+                                  >
+                                    Expired
+                                  </Badge>
+                                )}
                               </div>
                             </div>
 
@@ -1245,13 +1385,48 @@ export default function VisitCreationModal({
                               </div>
                             </div>
 
-                            {/* Inactive Status Warning */}
-                            {!active && (
-                              <div className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
-                                <ShieldAlert className="w-3 h-3 shrink-0" />
-                                <span className="truncate">{insuranceStatusLabel(insurance)}</span>
+                            {/* Status Warning or Direct Card Actions */}
+                            {!active ? (
+                              <div className="pt-1.5 border-t border-amber-200/70 dark:border-amber-800/40 flex items-center justify-between gap-1 mt-1">
+                                <span
+                                  className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 truncate"
+                                  title={insuranceStatusLabel(insurance)}
+                                >
+                                  {insuranceStatusLabel(insurance)}
+                                </span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingInsurance(insurance);
+                                      setAddInsurancePatientId(selectedPatient.id);
+                                      setShowAddInsuranceModal(true);
+                                    }}
+                                    className="h-6 px-1.5 text-[10px] rounded-md border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                                    title="Update card details and validity"
+                                  >
+                                    <Edit className="w-2.5 h-2.5 mr-1" />
+                                    Update
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setInsuranceToDelete(insurance);
+                                    }}
+                                    className="h-6 w-6 p-0 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-700"
+                                    title="Delete insurance"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
                               </div>
-                            )}
+                            ) : null}
                           </div>
                         );
                       })}
@@ -1260,10 +1435,11 @@ export default function VisitCreationModal({
                     <button
                       type="button"
                       onClick={() => {
+                        setEditingInsurance(null);
                         setAddInsurancePatientId(selectedPatient.id);
                         setShowAddInsuranceModal(true);
                       }}
-                      className="flex flex-col items-center justify-center p-3 rounded-2xl border border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all text-primary text-xs font-semibold gap-1.5 min-h-[105px] group cursor-pointer bg-white/40 dark:bg-slate-950/40"
+                      className="flex flex-col items-center justify-center p-3 rounded-2xl border border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all text-primary text-xs font-semibold gap-1.5 min-h-[110px] group cursor-pointer bg-white/40 dark:bg-slate-950/40"
                     >
                       <div className="w-7 h-7 rounded-full bg-primary/10 group-hover:bg-primary group-hover:text-white text-primary flex items-center justify-center transition-all">
                         <Plus className="w-4 h-4" />
@@ -1346,15 +1522,73 @@ export default function VisitCreationModal({
           open={showAddInsuranceModal}
           onOpenChange={(open) => {
             setShowAddInsuranceModal(open);
-            if (!open) setAddInsurancePatientId(null);
+            if (!open) {
+              setAddInsurancePatientId(null);
+              setEditingInsurance(null);
+            }
           }}
           patientId={insuranceTargetPatient.id}
           patientDateOfBirth={insuranceTargetPatient.dateOfBirth}
           patientInsurances={insuranceTargetPatient.patientInsurances || []}
-          onSuccess={handleInsuranceSaved}
+          editingInsurance={editingInsurance}
+          onSuccess={async () => {
+            await handleInsuranceSaved();
+            setEditingInsurance(null);
+          }}
           context="reception"
         />
       )}
+
+      {/* Delete Insurance Confirmation Modal */}
+      <Dialog
+        open={Boolean(insuranceToDelete)}
+        onOpenChange={(open) => !open && setInsuranceToDelete(null)}
+      >
+        <DialogContent className="sm:max-w-[440px] rounded-2xl p-5">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600 text-base font-bold">
+              <Trash2 className="w-5 h-5" />
+              Remove Insurance Policy
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm text-muted-foreground pt-2">
+              Are you sure you want to remove the{" "}
+              <span className="font-semibold text-foreground">
+                {insuranceToDelete?.insuranceProvider?.insuranceName ||
+                  insuranceToDelete?.insuranceProvider?.acronym ||
+                  "selected"}
+              </span>{" "}
+              insurance policy
+              {insuranceToDelete?.insuranceCardNumber
+                ? ` (Card: ${insuranceToDelete.insuranceCardNumber})`
+                : ""}{" "}
+              from {effectiveSelectedPatient?.firstName}{" "}
+              {effectiveSelectedPatient?.lastName}?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setInsuranceToDelete(null)}
+              disabled={isDeletingInsurance}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() =>
+                insuranceToDelete && handleDeleteInsurance(insuranceToDelete)
+              }
+              disabled={isDeletingInsurance}
+              className="rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-sm"
+            >
+              {isDeletingInsurance ? "Removing..." : "Remove Insurance"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <PatientEditModal
         isOpen={editPatientModal}

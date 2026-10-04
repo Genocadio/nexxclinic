@@ -1,9 +1,11 @@
 "use client"
 
-import type React from "react"
+import React, { useMemo } from "react"
 import type { Patient } from "@/lib/api-types"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import PatientFormDialog from "@/components/patient/patient-form-dialog"
+import { usePatient } from "@/hooks/patients/hooks"
+import { Loader2 } from "lucide-react"
 
 interface PatientEditModalProps {
   isOpen: boolean
@@ -18,6 +20,23 @@ export default function PatientEditModal({
   patient,
   onPatientUpdated,
 }: PatientEditModalProps) {
+  const patientId = isOpen && patient?.id ? String(patient.id) : null
+  const { patient: loadedPatient, loading } = usePatient(patientId)
+
+  // Merge loaded patient (which has complete patientInsurances) with initial prop
+  const effectivePatient = useMemo(() => {
+    if (!patient) return null
+    if (!loadedPatient) return patient
+    return {
+      ...patient,
+      ...loadedPatient,
+      patientInsurances:
+        loadedPatient.patientInsurances && loadedPatient.patientInsurances.length > 0
+          ? loadedPatient.patientInsurances
+          : patient.patientInsurances || [],
+    }
+  }, [patient, loadedPatient])
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
@@ -26,12 +45,15 @@ export default function PatientEditModal({
       >
         <DialogTitle className="sr-only">Edit Patient</DialogTitle>
         <div className="mx-auto w-full max-w-[760px] pr-2 pb-20 rounded-2xl border border-border/50 bg-[#FBF2ED] dark:bg-slate-900 shadow-lg p-2 sm:p-4">
-          <h2 className="text-lg font-bold mb-4">Edit Patient</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold">Edit Patient</h2>
+            {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+          </div>
           <PatientFormDialog
             isOpen={isOpen}
             onClose={onClose}
             mode="edit"
-            patient={patient}
+            patient={effectivePatient}
             onPatientSaved={(_id, _insurances, _proceed, _visit, updatedPatient) => {
               if (updatedPatient && onPatientUpdated) {
                 onPatientUpdated(updatedPatient)

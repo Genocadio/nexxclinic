@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, Trash2, Pencil, X } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   BillingItem,
@@ -110,6 +110,7 @@ export function BillingItemRow({
   onCancelEditQty,
   onSetEditQty,
 }: BillingItemRowProps) {
+  const [isEditingTier, setIsEditingTier] = React.useState(false);
   const isPaidLocked = !editMode && item.paymentStatus === "paid";
   const itemTotal = calculateItemTotal(item);
   const exemptionType = item.exemptionType || (item.exempted ? "full" : "none");
@@ -322,16 +323,9 @@ export function BillingItemRow({
               visitInsuranceId,
               providerId,
             );
-            if (selectedOpt) {
-              const best = findBestMatchingCoverage(
-                selectedOpt.coverages,
-                item.departmentId,
-                item.encounterType,
-              );
-              updated = { ...updated, selectedCoverageId: best?.coverageId };
-            } else {
-              updated = { ...updated, selectedCoverageId: undefined };
-            }
+            // Default to patient insurance % without setting an artificial override
+            updated = { ...updated, selectedCoverageId: undefined };
+            setIsEditingTier(false);
             onItemChange(updated);
           }}
           disabled={availableInsurances.length === 0 || isPaidLocked}
@@ -389,7 +383,7 @@ export function BillingItemRow({
             Not covered
           </p>
         )}
-        {/* Coverage tier pills */}
+        {/* Coverage Percentage & Tier Editor */}
         {item.selectedInsuranceId &&
           (() => {
             const selectedIns = availableInsurances.find(
@@ -428,69 +422,103 @@ export function BillingItemRow({
                   ]
                 : []),
             ];
-            if (allDisplayTiers.length <= 1) return null;
+
+            const hasMultipleTiers = allDisplayTiers.length > 1;
             const activeId = item.selectedCoverageId || "";
             const noExplicitOverride = !item.selectedCoverageId;
+
             return (
-              <div className="flex flex-wrap gap-1 mt-1">
-                {allDisplayTiers.map((tier) => {
-                  const isPatientTier =
-                    tier.coverageId.startsWith("__patient_");
-                  const isActive =
-                    (isPatientTier && noExplicitOverride) ||
-                    (!isPatientTier && tier.coverageId === activeId);
-                  const isBase =
-                    !tier.departmentId &&
-                    !tier.encounterType &&
-                    !isPatientTier;
-                  const isMatch =
-                    !isBase &&
-                    !isPatientTier &&
-                    tier.departmentId === item.departmentId &&
-                    tier.encounterType === item.encounterType;
-                  const label = isPatientTier
-                    ? `Patient ${tier.patientSharePercentage}%`
-                    : isBase
-                      ? `Base ${tier.patientSharePercentage}%`
-                      : tier.patientSharePercentage + "%";
-                  const tooltip = isPatientTier
-                    ? `Patient-specific: ${tier.patientSharePercentage}%`
-                    : isBase
-                      ? `Base: ${tier.patientSharePercentage}% (all depts)`
-                      : `${tier.patientSharePercentage}% — ${tier.departmentName || "All depts"} / ${tier.encounterType || "All types"}`;
-                  return (
-                    <button
-                      key={tier.coverageId}
-                      type="button"
-                      disabled={isPaidLocked}
-                      onClick={() => {
-                        if (isPatientTier) {
-                          onItemChange({
-                            ...item,
-                            selectedCoverageId: undefined,
-                          });
-                        } else {
-                          onItemChange({
-                            ...item,
-                            selectedCoverageId: tier.coverageId,
-                          });
-                        }
-                      }}
-                      className={`text-[9px] px-1.5 py-0.5 rounded-full border transition-colors ${
-                        isActive
-                          ? "bg-primary/15 text-primary border-primary/40 font-medium"
-                          : isPatientTier
-                            ? "bg-violet-50 text-violet-700 border-violet-300 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-700"
-                            : isMatch
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700"
-                              : "bg-muted/50 text-muted-foreground border-border/50 hover:bg-muted"
-                      }`}
-                      title={tooltip}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
+              <div className="mt-1">
+                {!isEditingTier ? (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-foreground border border-border/60 font-medium">
+                      {coveragePct}% copay
+                    </span>
+                    {hasMultipleTiers && !isPaidLocked && (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingTier(true)}
+                        className="p-0.5 text-muted-foreground hover:text-primary transition-colors rounded hover:bg-muted"
+                        title="Change insurance copay percentage tier"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1 p-1.5 rounded-lg bg-muted/40 border border-border/60 mt-1">
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="text-[10px] font-semibold text-muted-foreground">Select percentage tier:</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingTier(false)}
+                        className="text-muted-foreground hover:text-foreground p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {allDisplayTiers.map((tier) => {
+                        const isPatientTier = tier.coverageId.startsWith("__patient_");
+                        const isActive =
+                          (isPatientTier && noExplicitOverride) ||
+                          (!isPatientTier && tier.coverageId === activeId);
+                        const isBase =
+                          !tier.departmentId &&
+                          !tier.encounterType &&
+                          !isPatientTier;
+                        const isMatch =
+                          !isBase &&
+                          !isPatientTier &&
+                          tier.departmentId === item.departmentId &&
+                          tier.encounterType === item.encounterType;
+                        const label = isPatientTier
+                          ? `Patient ${tier.patientSharePercentage}%`
+                          : isBase
+                            ? `Base ${tier.patientSharePercentage}%`
+                            : tier.patientSharePercentage + "%";
+                        const tooltip = isPatientTier
+                          ? `Patient-specific: ${tier.patientSharePercentage}%`
+                          : isBase
+                            ? `Base: ${tier.patientSharePercentage}% (all depts)`
+                            : `${tier.patientSharePercentage}% — ${tier.departmentName || "All depts"} / ${tier.encounterType || "All types"}`;
+                        return (
+                          <button
+                            key={tier.coverageId}
+                            type="button"
+                            disabled={isPaidLocked}
+                            onClick={() => {
+                              if (isPatientTier) {
+                                onItemChange({
+                                  ...item,
+                                  selectedCoverageId: undefined,
+                                });
+                              } else {
+                                onItemChange({
+                                  ...item,
+                                  selectedCoverageId: tier.coverageId,
+                                });
+                              }
+                              setIsEditingTier(false);
+                            }}
+                            className={`text-[9px] px-1.5 py-0.5 rounded-full border transition-colors ${
+                              isActive
+                                ? "bg-primary/15 text-primary border-primary/40 font-medium ring-1 ring-primary/30"
+                                : isPatientTier
+                                  ? "bg-violet-50 text-violet-700 border-violet-300 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-700"
+                                  : isMatch
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700"
+                                    : "bg-muted/50 text-muted-foreground border-border/50 hover:bg-muted"
+                            }`}
+                            title={tooltip}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}

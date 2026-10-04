@@ -132,3 +132,14 @@ export const UPDATE_PATIENT_MUTATION = gql`
   }
 `
 
+export const DELETE_PATIENT_INSURANCE_MUTATION = gql`
+  mutation DeletePatientInsurance($patientInsuranceId: ID!) {
+    deletePatientInsurance(patientInsuranceId: $patientInsuranceId) {
+      status
+      message
+      data
+    }
+  }
+`
+
+

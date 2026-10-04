@@ -324,10 +324,45 @@ export const VISITS_QUERY = gql`
           dateOfBirth
           age
           primaryPhoneNumber
-          district
-          cell
+          alternativePhone
           village
+          cell
+          city
+          district
+          postalAddress
           nationalIdNumber
+          passportNumber
+          emergencyContactName
+          emergencyContactRelationship
+          emergencyContactPhoneNumber
+          patientInsurances {
+            id
+            insuranceCardNumber
+            providingCompanyOrEmployer
+            patientSharePercentage
+            patientShareCoverageId
+            deactivated
+            principalMember
+            principalMemberName
+            principalMemberPhoneNumber
+            insuranceProvider {
+              id
+              insuranceName
+              acronym
+              iconUrl
+              coverages {
+                id
+                insuranceProviderId
+                insuranceProviderName
+                departmentId
+                departmentName
+                encounterType
+                patientSharePercentage
+                createdAt
+                updatedAt
+              }
+            }
+          }
         }
         linkedInsurances {
           id

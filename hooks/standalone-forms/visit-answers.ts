@@ -91,6 +91,24 @@ export function useSaveVisitStandaloneAnswer() {
         status: input.status,
         score: input.score,
       },
+      update(cache, { data: mutationData }) {
+        const savedAnswerId =
+          mutationData?.saveVisitStandaloneAnswer?.data?.answer?.id ||
+          mutationData?.saveVisitStandaloneAnswer?.data?.visitDepartment?.answerId;
+        if (savedAnswerId) {
+          cache.modify({
+            id: cache.identify({
+              __typename: "VisitDepartment",
+              id: input.visitDepartmentId,
+            }),
+            fields: {
+              answerId() {
+                return savedAnswerId;
+              },
+            },
+          });
+        }
+      },
     });
     if (data?.saveVisitStandaloneAnswer?.status === "ERROR") {
       throw new Error(
