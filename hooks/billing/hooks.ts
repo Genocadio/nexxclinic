@@ -295,16 +295,23 @@ export function useGenerateInvoice() {
 
   const generateInvoice = async (
     targetId: string,
-    options?: { isVisitDepartmentId?: boolean; visitDepartmentId?: string; departmentInsuranceBillingId?: string }
+    options?: {
+      isVisitDepartmentId?: boolean;
+      visitDepartmentId?: string;
+      departmentInsuranceBillingId?: string;
+      copyType?: string;
+    }
   ) => {
     try {
       const isVisitDept = options?.isVisitDepartmentId ?? false;
       const visitDepartmentId = options?.visitDepartmentId ?? (isVisitDept ? targetId : undefined);
       const departmentInsuranceBillingId = options?.departmentInsuranceBillingId ?? (!isVisitDept ? targetId : undefined);
+      const copyType = options?.copyType;
       const result = await generateInvoiceMutation({
         variables: {
           visitDepartmentId,
           departmentInsuranceBillingId,
+          copyType,
         },
       });
       return result?.data?.generateInvoice;

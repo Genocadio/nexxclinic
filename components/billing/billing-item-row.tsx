@@ -110,9 +110,7 @@ export function BillingItemRow({
   onCancelEditQty,
   onSetEditQty,
 }: BillingItemRowProps) {
-  const isPaidLocked =
-    !editMode &&
-    (item.paymentStatus === "paid" || item.paymentStatus === "exempted");
+  const isPaidLocked = !editMode && item.paymentStatus === "paid";
   const itemTotal = calculateItemTotal(item);
   const exemptionType = item.exemptionType || (item.exempted ? "full" : "none");
   const isExempted = exemptionType !== "none";

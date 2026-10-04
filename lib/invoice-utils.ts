@@ -59,9 +59,18 @@ function buildFullUrl(path: string): string {
 /** Always generate (or retrieve) invoice via backend generateInvoice — never getInvoice first. */
 export async function resolveInvoiceUrl(
   billId: string,
-  generateInvoice: (billId: string) => Promise<InvoiceMutationResult>,
+  generateInvoice: (
+    billId: string,
+    options?: {
+      isVisitDepartmentId?: boolean;
+      visitDepartmentId?: string;
+      departmentInsuranceBillingId?: string;
+      copyType?: string;
+    },
+  ) => Promise<InvoiceMutationResult>,
+  copyType?: string,
 ): Promise<string> {
-  const response = await generateInvoice(billId);
+  const response = await generateInvoice(billId, { copyType });
   const signedUrl = response?.data?.signedUrl;
   if (response?.status === "SUCCESS" && signedUrl) {
     return buildFullUrl(signedUrl);

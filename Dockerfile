@@ -1,41 +1,42 @@
-# Dockerfile for Bun + Next.js (without standalone)
+# Multi-stage Dockerfile for Bun + Next.js Standalone
 FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
-# Copy package.json only
-COPY package.json ./
+# Copy dependency lockfile first to maximize layer caching
+COPY package.json bun.lock ./
 
-# Install dependencies
-RUN bun install
+# Install all dependencies with frozen lockfile
+RUN bun install --frozen-lockfile
 
-# Copy source code
+# Copy application source code
 COPY . .
 
-# Build the application
+# Run check and build the application in standalone mode
 RUN bun run build
 
-# Production stage
+# ── Production Runtime Stage ──
 FROM oven/bun:1-alpine AS runner
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-# Install dumb-init for signal handling
+# Install dumb-init for proper PID 1 signal forwarding
 RUN apk add --no-cache dumb-init
 
-# Use existing bun user
+# Run as non-root bun user
 USER bun
 
-# Copy built files (no standalone needed)
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/node_modules ./node_modules
+# Copy only the standalone output, public folder, and static chunks
+COPY --from=builder --chown=bun:bun /app/public ./public
+COPY --from=builder --chown=bun:bun /app/.next/standalone ./
+COPY --from=builder --chown=bun:bun /app/.next/static ./.next/static
 
 EXPOSE 3000
 
-# Run exactly like you do locally
-CMD ["bun", "run", "start"]
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["bun", "server.js"]

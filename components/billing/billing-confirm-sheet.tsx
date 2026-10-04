@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { BillingItem, BillingTotals, calculateItemTotal } from "@/lib/billing-utils";
+import { BillingItem, BillingTotals, calculateItemTotal, getItemInsuranceSplit } from "@/lib/billing-utils";
 import { useEffect, useState } from "react";
 type PaymentMethod =
   | "CASH"
@@ -35,6 +35,7 @@ type BillingConfirmSheetProps = {
   onOpenChange: (open: boolean) => void;
   items: BillingItem[];
   totals: BillingTotals;
+  getCoveragePercentage?: (item: BillingItem) => number;
   amountPaid: number;
   paymentMethod: PaymentMethod;
   creatingBill: boolean;
@@ -106,6 +107,7 @@ export function BillingConfirmSheet({
   onOpenChange,
   items,
   totals,
+  getCoveragePercentage,
   amountPaid,
   paymentMethod,
   creatingBill,
@@ -242,6 +244,8 @@ export function BillingConfirmSheet({
                   const changeType = editedItemChanges?.get(item.id);
                   const exemptionType = item.exemptionType || (item.exempted ? "full" : "none");
                   const isExempted = exemptionType !== "none";
+                  const coveragePct = getCoveragePercentage ? getCoveragePercentage(item) : 0;
+                  const split = getItemInsuranceSplit(item, coveragePct);
                   return (
                     <li
                       key={item.id}
@@ -285,17 +289,26 @@ export function BillingConfirmSheet({
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
                           {item.quantity} × {formatRWF(item.price)}
-                          {item.selectedInsuranceId ? " • Insurance" : " • Private"}
+                          {item.selectedInsuranceId ? (split.insuranceAmount > 0 ? ` • Ins: ${formatRWF(split.insuranceAmount)}` : " • Insurance") : " • Private"}
                           {isExempted ? " • Waived in billing" : ""}
                         </p>
                       </div>
                       {isExempted ? (
                         <div className="flex flex-col items-end shrink-0">
                           <span className="line-through text-muted-foreground text-[11px] tabular-nums">
-                            {formatRWF(lineTotal)}
+                            {formatRWF(exemptionType === "full" ? split.rawItemTotal : split.rawPatientAmount)}
                           </span>
                           <span className="font-semibold text-purple-700 dark:text-purple-300 text-xs tabular-nums">
                             0 RWF (Waived)
+                          </span>
+                        </div>
+                      ) : split.insuranceAmount > 0 ? (
+                        <div className="flex flex-col items-end shrink-0">
+                          <span className="font-semibold tabular-nums text-xs">
+                            {formatRWF(split.patientAmount)}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground tabular-nums">
+                            Ins: {formatRWF(split.insuranceAmount)}
                           </span>
                         </div>
                       ) : (
@@ -429,7 +442,9 @@ export function BillingConfirmSheet({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="NONE">None</SelectItem>
+                  {(amountPaid === 0 || totals.totalAmount === 0) && (
+                    <SelectItem value="NONE">None</SelectItem>
+                  )}
                   <SelectItem value="CASH">Cash</SelectItem>
                   <SelectItem value="MOBILE_MONEY">Mobile Money</SelectItem>
                   <SelectItem value="CARD">Card</SelectItem>

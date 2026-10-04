@@ -141,10 +141,12 @@ export const GENERATE_INVOICE_MUTATION = gql`
   mutation GenerateInvoice(
     $visitDepartmentId: ID
     $departmentInsuranceBillingId: ID
+    $copyType: String
   ) {
     generateInvoice(
       visitDepartmentId: $visitDepartmentId
       departmentInsuranceBillingId: $departmentInsuranceBillingId
+      copyType: $copyType
     ) {
       status
       message

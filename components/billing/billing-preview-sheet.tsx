@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "react-toastify";
 import type { Visit, VisitBilling, VisitDepartment } from "@/lib/api-types";
-import type { BillingData } from "@/lib/billing-utils";
+import { BillingData, BillingItem, getItemInsuranceSplit } from "@/lib/billing-utils";
 import { getVisitBillingTotals } from "@/lib/visit-billing-utils";
 import { formatRWF } from "@/lib/utils";
 import { roundMoney, sumMoney } from "@/lib/money";
@@ -48,10 +48,11 @@ interface BillingPreviewSheetProps {
   billingData?: BillingData | null;
   visitBilling?: VisitBilling | null;
   selectedDepartmentId?: string | null;
+  getCoveragePercentage?: (item: BillingItem) => number;
   onDepartmentSelect?: (departmentId: string) => void;
   previewStartedAt?: number | null;
-  onPrintInvoice?: (departmentInsuranceBillingId: string) => Promise<void>;
-  onDownloadInvoice?: (departmentInsuranceBillingId: string) => Promise<void>;
+  onPrintInvoice?: (departmentInsuranceBillingId: string, copyType?: string) => Promise<void>;
+  onDownloadInvoice?: (departmentInsuranceBillingId: string, copyType?: string) => Promise<void>;
   onViewMore?: () => void;
   canViewMore?: boolean;
   printingInvoice?: boolean;
@@ -66,6 +67,7 @@ export function BillingPreviewSheet({
   billingData,
   visitBilling,
   selectedDepartmentId,
+  getCoveragePercentage,
   onDepartmentSelect,
   onPrintInvoice,
   onDownloadInvoice,
@@ -242,7 +244,9 @@ export function BillingPreviewSheet({
         const unitPrice = it.price ?? it.basePrice ?? 0;
         const qty = it.quantity ?? 1;
         const rawTotal = roundMoney(unitPrice * qty);
-        const lineWaived = isExempted ? rawTotal : 0;
+        const coveragePct = getCoveragePercentage ? getCoveragePercentage(it) : 0;
+        const split = getItemInsuranceSplit(it, coveragePct);
+        const lineWaived = isExempted ? split.waivedAmount : 0;
         draftWaivedTotal += lineWaived;
         return {
           id: it.id,
@@ -324,7 +328,7 @@ export function BillingPreviewSheet({
     [invoiceGroups],
   );
 
-  const handlePrintInvoice = async (groupId?: string) => {
+  const handlePrintInvoice = async (groupId?: string, copyType?: string) => {
     const target = groupId
       ? printableInvoiceGroups.find((group) => group.id === groupId)
       : printableInvoiceGroups[0];
@@ -338,7 +342,10 @@ export function BillingPreviewSheet({
 
     try {
       if (onPrintInvoice) {
-        await onPrintInvoice(target.id);
+        await onPrintInvoice(target.id, copyType);
+        return;
+      } else if (onDownloadInvoice) {
+        await onDownloadInvoice(target.id, copyType);
         return;
       }
 
@@ -452,10 +459,11 @@ export function BillingPreviewSheet({
                         </button>
                       )}
                       {visitBilling && printableInvoiceGroups.length > 0 && !isEditMode &&
-                        (printableInvoiceGroups.length === 1 ? (
+                        (printableInvoiceGroups.length === 1 &&
+                        !(printableInvoiceGroups[0].insuranceCoveredAmount > 0 || printableInvoiceGroups[0].insuranceLabel) ? (
                           <button
                             type="button"
-                            onClick={() => void handlePrintInvoice()}
+                            onClick={() => void handlePrintInvoice(printableInvoiceGroups[0].id, "PATIENT")}
                             disabled={printingInvoice}
                             className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground disabled:opacity-60 disabled:cursor-not-allowed"
                           >
@@ -484,27 +492,61 @@ export function BillingPreviewSheet({
                                 render behind the panel and be unclickable. */}
                             <DropdownMenuContent
                               align="end"
-                              className="w-72 z-[100]"
+                              className="w-80 z-[100]"
                             >
-                              {printableInvoiceGroups.map((group) => (
-                                <DropdownMenuItem
-                                  key={group.id}
-                                  disabled={printingInvoice}
-                                  onSelect={() =>
-                                    void handlePrintInvoice(group.id)
-                                  }
-                                >
-                                  <span className="truncate">
-                                    {group.insuranceLabel || "Invoice"}
-                                    {group.status
-                                      ? ` • ${group.status}`
-                                      : ""}
-                                  </span>
-                                  <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">
-                                    {formatRWF(group.totalAmount)}
-                                  </span>
-                                </DropdownMenuItem>
-                              ))}
+                              {printableInvoiceGroups.map((group) => {
+                                const hasIns = Boolean(
+                                  group.insuranceCoveredAmount > 0 || group.insuranceLabel,
+                                );
+                                return (
+                                  <div key={group.id} className="p-1 border-b last:border-b-0 border-border/50">
+                                    {hasIns ? (
+                                      <>
+                                        <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                                          {group.insuranceLabel || "Insurance"}
+                                        </div>
+                                        <DropdownMenuItem
+                                          disabled={printingInvoice}
+                                          onSelect={() =>
+                                            void handlePrintInvoice(group.id, "INSURANCE")
+                                          }
+                                          className="cursor-pointer"
+                                        >
+                                          <span className="truncate">📄 Insurer Copy (Claim)</span>
+                                          <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">
+                                            {formatRWF(group.insuranceCoveredAmount)}
+                                          </span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          disabled={printingInvoice}
+                                          onSelect={() =>
+                                            void handlePrintInvoice(group.id, "PATIENT")
+                                          }
+                                          className="cursor-pointer"
+                                        >
+                                          <span className="truncate">🧾 Patient Receipt & Statement</span>
+                                          <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">
+                                            {formatRWF(group.patientPayableAmount)}
+                                          </span>
+                                        </DropdownMenuItem>
+                                      </>
+                                    ) : (
+                                      <DropdownMenuItem
+                                        disabled={printingInvoice}
+                                        onSelect={() =>
+                                          void handlePrintInvoice(group.id, "PATIENT")
+                                        }
+                                        className="cursor-pointer"
+                                      >
+                                        <span className="truncate">🧾 {group.label || "Invoice"}</span>
+                                        <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">
+                                          {formatRWF(group.totalAmount)}
+                                        </span>
+                                      </DropdownMenuItem>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         ))}
@@ -565,18 +607,57 @@ export function BillingPreviewSheet({
                                       : ""}
                                   </div>
                                   {group.id && !isEditMode ? (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        void (
-                                          onDownloadInvoice || onPrintInvoice
-                                        )?.(group.id!)
-                                      }
-                                      disabled={printingInvoice}
-                                      className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                                    >
-                                      Download invoice
-                                    </button>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      {Boolean(
+                                        group.insuranceCoveredAmount > 0 ||
+                                          group.insuranceLabel,
+                                      ) ? (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              void (
+                                                onDownloadInvoice ||
+                                                onPrintInvoice
+                                              )?.(group.id!, "INSURANCE")
+                                            }
+                                            disabled={printingInvoice}
+                                            className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                                            title="Download contracted insurer claim copy"
+                                          >
+                                            Insurer Claim
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              void (
+                                                onDownloadInvoice ||
+                                                onPrintInvoice
+                                              )?.(group.id!, "PATIENT")
+                                            }
+                                            disabled={printingInvoice}
+                                            className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                                            title="Download patient receipt and billing statement"
+                                          >
+                                            Patient Receipt
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            void (
+                                              onDownloadInvoice ||
+                                              onPrintInvoice
+                                            )?.(group.id!, "PATIENT")
+                                          }
+                                          disabled={printingInvoice}
+                                          className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                                        >
+                                          Download invoice
+                                        </button>
+                                      )}
+                                    </div>
                                   ) : null}
                                 </div>
                               </div>
@@ -623,7 +704,11 @@ export function BillingPreviewSheet({
                                         {item.isExempted ? (
                                           <div>
                                             <span className="line-through text-muted-foreground text-xs block">
-                                              {formatRWF(item.rawAmount || roundMoney(item.price * item.quantity))}
+                                              {formatRWF(
+                                                item.waivedAmount !== undefined && item.waivedAmount > 0
+                                                  ? item.waivedAmount
+                                                  : item.rawAmount || roundMoney(item.price * item.quantity),
+                                              )}
                                             </span>
                                             <span className="text-purple-700 dark:text-purple-400 text-xs font-semibold">
                                               0 RWF (Waived)

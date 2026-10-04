@@ -81,6 +81,22 @@ describe("resolveInvoiceUrl", () => {
       "/storage/sign/data/invoices/Igisubizo_Mc/invoice-x.pdf?token=abc",
     );
   });
+
+  it("forwards copyType to generateInvoice function", async () => {
+    let capturedOptions: { copyType?: string } | undefined;
+    const generateInvoice = async (_billId: string, options?: { copyType?: string }) => {
+      capturedOptions = options;
+      return {
+        status: "SUCCESS",
+        data: {
+          signedUrl: "https://cdn.example.com/invoice-insurance.pdf",
+        },
+      };
+    };
+    const url = await resolveInvoiceUrl("bill-1", generateInvoice, "INSURANCE");
+    expect(url).toBe("https://cdn.example.com/invoice-insurance.pdf");
+    expect(capturedOptions?.copyType).toBe("INSURANCE");
+  });
 });
 
 describe("buildInvoiceHtml", () => {

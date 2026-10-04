@@ -434,3 +434,28 @@ describe("resolvePatientSharePercentage", () => {
   });
 });
 
+describe("billing item lock status rules", () => {
+  it("locks only finalized paid items in non-edit mode, keeping draft waivers editable", () => {
+    const isLocked = (item: BillingItem, editMode: boolean) =>
+      !editMode && item.paymentStatus === "paid";
+
+    const draftExemptItem = makeItem({
+      paymentStatus: "exempted",
+      exemptionType: "patient-share",
+      exempted: true,
+    });
+    const draftPendingItem = makeItem({ paymentStatus: "pending" });
+    const billedPaidItem = makeItem({ paymentStatus: "paid" });
+
+    // In draft billing mode (!editMode)
+    expect(isLocked(draftPendingItem, false)).toBe(false);
+    expect(isLocked(draftExemptItem, false)).toBe(false);
+    expect(isLocked(billedPaidItem, false)).toBe(true);
+
+    // In edit mode (editMode = true)
+    expect(isLocked(billedPaidItem, true)).toBe(false);
+    expect(isLocked(draftExemptItem, true)).toBe(false);
+  });
+});
+
+

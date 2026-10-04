@@ -178,15 +178,18 @@ export function useBillingPageState() {
   };
 
   const handlePaymentMethodChange = (method: BillingPaymentMethod) => {
-    setBillingData((prev) =>
-      prev
-        ? {
-            ...prev,
-            paymentMethod: method,
-            updatedAt: new Date().toISOString(),
-          }
-        : prev,
-    );
+    setBillingData((prev) => {
+      if (!prev) return prev;
+      const effectiveMethod =
+        (prev.amountPaid && prev.amountPaid > 0 && method === "NONE")
+          ? (prev.paymentMethod && prev.paymentMethod !== "NONE" ? prev.paymentMethod : "MOBILE_MONEY")
+          : method;
+      return {
+        ...prev,
+        paymentMethod: effectiveMethod,
+        updatedAt: new Date().toISOString(),
+      };
+    });
   };
 
   const handleAmountPaidChange = (amount: number) => {

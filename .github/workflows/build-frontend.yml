@@ -52,7 +52,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64
@@ -60,3 +60,5 @@ jobs:
           tags: |
             genoyves/nexclinic-front:latest
             genoyves/nexclinic-front:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -179,6 +179,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
 
   const handleDownloadInvoice = async (
     departmentInsuranceBillingId: string,
+    copyType?: string,
   ) => {
     if (unreadBillingNotesCount > 0) {
       toast.warn("Please read the unread notes before generating an invoice.");
@@ -187,6 +188,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     const invoiceUrl = await resolveInvoiceUrl(
       departmentInsuranceBillingId,
       generateInvoice,
+      copyType,
     );
     openInvoicePreview(invoiceUrl);
   };

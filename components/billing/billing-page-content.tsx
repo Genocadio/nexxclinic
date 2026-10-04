@@ -395,10 +395,7 @@ export function BillingPageContent() {
     if (!billingData) return new Set<string>();
     const ids = new Set<string>();
     for (const item of billingData.items) {
-      if (
-        item.selectedInsuranceId &&
-        (item.paymentStatus === "paid" || item.paymentStatus === "exempted")
-      ) {
+      if (item.selectedInsuranceId && item.paymentStatus === "paid") {
         ids.add(item.selectedInsuranceId);
       }
     }
@@ -416,7 +413,7 @@ export function BillingPageContent() {
         const dept = item.departmentName || "General";
         const entry = deptMap.get(dept) || { total: 0, billed: 0 };
         entry.total++;
-        if (item.paymentStatus === "paid" || item.paymentStatus === "exempted") {
+        if (item.paymentStatus === "paid") {
           entry.billed++;
         }
         deptMap.set(dept, entry);
@@ -451,12 +448,7 @@ export function BillingPageContent() {
 
         if (
           allProducts.length > 0 &&
-          allProducts.every(
-            (p) =>
-              p.status === "BILLED" ||
-              p.status === "EXEMPTED" ||
-              p.status === "PATIENT_SHARE_EXEMPTED",
-          )
+          allProducts.every((p) => p.status === "BILLED")
         ) {
           billed.add(deptName);
         }
@@ -1395,6 +1387,9 @@ export function BillingPageContent() {
         onOpenChange={setShowCompleteBillConfirm}
         items={billingData.items}
         totals={confirmTotals}
+        getCoveragePercentage={(item) =>
+          getCoveragePercentageForBillingItem(item, activeVisitInsurances)
+        }
         amountPaid={billingData.amountPaid || 0}
         paymentMethod={billingData.paymentMethod || "MOBILE_MONEY"}
         creatingBill={creatingBill || editingBill}
@@ -1447,6 +1442,9 @@ export function BillingPageContent() {
         }}
         visit={visit}
         billingData={billingData}
+        getCoveragePercentage={(item) =>
+          getCoveragePercentageForBillingItem(item, activeVisitInsurances)
+        }
         // While editing, preview the pending edits (draft path); otherwise the
         // billed visit previews its actual invoice.
         visitBilling={isEditMode ? null : existingVisitBilling}

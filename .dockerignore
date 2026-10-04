@@ -4,8 +4,6 @@ node_modules
 .yarn
 .yarnrc
 .pnpm-store
-bun.lockb
-bun.lock
 yarn.lock
 pnpm-lock.yaml
 package-lock.json
