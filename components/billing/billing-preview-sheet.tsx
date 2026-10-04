@@ -27,12 +27,17 @@ type InvoicePreviewGroup = {
   patientPayableAmount: number;
   paidAmount: number;
   outstandingAmount: number;
+  waivedAmount?: number;
   items: {
     id: string;
     name: string;
     quantity: number;
     price: number;
     departmentName: string;
+    isExempted?: boolean;
+    exemptionType?: string;
+    rawAmount?: number;
+    waivedAmount?: number;
   }[];
 };
 
@@ -176,6 +181,30 @@ export function BillingPreviewSheet({
       for (const d of depts) {
         const insuranceBillings = d.insuranceBillings || [];
         for (const ib of insuranceBillings) {
+          let groupWaivedAmount = 0;
+          const mappedItems = (ib.items || []).map((it, idx) => {
+            const isExempted = it.patientShareSource === "EXEMPTED";
+            const unitPrice = Number(it.unitPriceSnapshot || 0);
+            const qty = Number(it.quantitySnapshot || 1);
+            const rawTotal = roundMoney(unitPrice * qty);
+            const insCovered = Number(it.insuranceCoveredAmount || 0);
+            const lineWaived = isExempted ? Math.max(0, rawTotal - insCovered) : 0;
+            groupWaivedAmount += lineWaived;
+            return {
+              id: it.id || `item-${d.id}-${idx}`,
+              name: it.productName || "Item",
+              quantity: qty,
+              price: unitPrice,
+              rawAmount: rawTotal,
+              isExempted,
+              waivedAmount: lineWaived,
+              departmentName:
+                d.visitDepartment.department?.name ||
+                activeDepartment?.department?.name ||
+                "Department",
+            };
+          });
+
           groups.push({
             id: ib.id,
             status: ib.status,
@@ -189,16 +218,8 @@ export function BillingPreviewSheet({
             patientPayableAmount: Number(ib.patientPayableAmount || 0),
             paidAmount: Number(ib.paidAmount || 0),
             outstandingAmount: Number(ib.outstandingAmount || 0),
-            items: (ib.items || []).map((it, idx) => ({
-              id: it.id || `item-${d.id}-${idx}`,
-              name: it.productName || "Item",
-              quantity: it.quantitySnapshot || 1,
-              price: it.unitPriceSnapshot || 0,
-              departmentName:
-                d.visitDepartment.department?.name ||
-                activeDepartment?.department?.name ||
-                "Department",
-            })),
+            waivedAmount: groupWaivedAmount,
+            items: mappedItems,
           });
         }
       }
@@ -207,6 +228,7 @@ export function BillingPreviewSheet({
 
     if (!billingData) return [];
 
+    let draftWaivedTotal = 0;
     const items = billingData.items
       .filter((item) => {
         const itemRootId = String(
@@ -214,18 +236,33 @@ export function BillingPreviewSheet({
         );
         return deptIds.includes(itemRootId);
       })
-      .map((it) => ({
-        id: it.id,
-        name: it.name,
-        quantity: it.quantity,
-        price: it.price,
-        departmentName: activeDepartment.department?.name || ("" as string),
-        groupLabel: "Invoice",
-      }));
+      .map((it) => {
+        const exemptionType = it.exemptionType || (it.exempted ? "full" : "none");
+        const isExempted = exemptionType !== "none";
+        const unitPrice = it.price ?? it.basePrice ?? 0;
+        const qty = it.quantity ?? 1;
+        const rawTotal = roundMoney(unitPrice * qty);
+        const lineWaived = isExempted ? rawTotal : 0;
+        draftWaivedTotal += lineWaived;
+        return {
+          id: it.id,
+          name: it.name,
+          quantity: qty,
+          price: unitPrice,
+          rawAmount: rawTotal,
+          isExempted,
+          exemptionType,
+          waivedAmount: lineWaived,
+          departmentName: activeDepartment.department?.name || ("" as string),
+          groupLabel: "Invoice",
+        };
+      });
     const computedTotal = sumMoney(
-      items.map((it: { price: number; quantity: number }) =>
-        roundMoney(it.price * it.quantity),
-      ),
+      items
+        .filter((it) => !it.isExempted)
+        .map((it: { price: number; quantity: number }) =>
+          roundMoney(it.price * it.quantity),
+        ),
     );
     const draftGroups: InvoicePreviewGroup[] =
       items.length > 0
@@ -240,6 +277,7 @@ export function BillingPreviewSheet({
               patientPayableAmount: computedTotal,
               paidAmount: 0,
               outstandingAmount: computedTotal,
+              waivedAmount: draftWaivedTotal,
               items: items.map(
                 ({ groupLabel: _groupLabel, ...item }) => item,
               ),
@@ -563,10 +601,17 @@ export function BillingPreviewSheet({
                                   {group.items.map((item) => (
                                     <tr
                                       key={item.id}
-                                      className="even:bg-slate-50 dark:even:bg-slate-900/50"
+                                      className={`even:bg-slate-50 dark:even:bg-slate-900/50 ${item.isExempted ? "bg-purple-50/40 dark:bg-purple-950/20" : ""}`}
                                     >
                                       <td className="border-b border-border px-3 py-2 text-sm text-foreground">
-                                        {item.name}
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span>{item.name}</span>
+                                          {item.isExempted && (
+                                            <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/50 px-1.5 py-0.2 rounded border border-purple-200 dark:border-purple-800">
+                                              Waived
+                                            </span>
+                                          )}
+                                        </div>
                                       </td>
                                       <td className="border-b border-border px-3 py-2 text-right text-sm text-foreground">
                                         {item.quantity}
@@ -575,29 +620,58 @@ export function BillingPreviewSheet({
                                         {formatRWF(item.price)}
                                       </td>
                                       <td className="border-b border-border px-3 py-2 text-right text-sm font-semibold text-foreground">
-                                        {formatRWF(
-                                          roundMoney(
-                                            item.price * item.quantity,
-                                          ),
+                                        {item.isExempted ? (
+                                          <div>
+                                            <span className="line-through text-muted-foreground text-xs block">
+                                              {formatRWF(item.rawAmount || roundMoney(item.price * item.quantity))}
+                                            </span>
+                                            <span className="text-purple-700 dark:text-purple-400 text-xs font-semibold">
+                                              0 RWF (Waived)
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          formatRWF(
+                                            roundMoney(
+                                              item.price * item.quantity,
+                                            ),
+                                          )
                                         )}
                                       </td>
                                     </tr>
                                   ))}
                                 </tbody>
                               </table>
-                              <div className="grid gap-2 sm:grid-cols-2 p-3">
+                              <div className="grid gap-2 sm:grid-cols-2 p-3 text-sm">
                                 <div className="py-1">
                                   <strong>Total billed:</strong>{" "}
                                   {formatRWF(group.totalAmount)}
+                                </div>
+                                {group.insuranceCoveredAmount > 0 && (
+                                  <div className="py-1 text-emerald-700 dark:text-emerald-400">
+                                    <strong>Insurance:</strong>{" "}
+                                    {formatRWF(group.insuranceCoveredAmount)}
+                                  </div>
+                                )}
+                                {Boolean(group.waivedAmount && group.waivedAmount > 0) && (
+                                  <div className="py-1 text-purple-700 dark:text-purple-400">
+                                    <strong>Waived:</strong>{" "}
+                                    −{formatRWF(group.waivedAmount!)}
+                                  </div>
+                                )}
+                                <div className="py-1">
+                                  <strong>Patient payable:</strong>{" "}
+                                  {formatRWF(group.patientPayableAmount)}
                                 </div>
                                 <div className="py-1">
                                   <strong>Paid:</strong>{" "}
                                   {formatRWF(group.paidAmount)}
                                 </div>
-                                <div className="py-1">
-                                  <strong>Outstanding:</strong>{" "}
-                                  {formatRWF(group.outstandingAmount)}
-                                </div>
+                                {group.outstandingAmount > 0 && (
+                                  <div className="py-1 text-orange-600 dark:text-orange-400">
+                                    <strong>Outstanding:</strong>{" "}
+                                    {formatRWF(group.outstandingAmount)}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -639,6 +713,28 @@ export function BillingPreviewSheet({
                           <strong>Total billed:</strong>{" "}
                           <span className="float-right">
                             {formatRWF(visitBillingTotals.totalAmount)}
+                          </span>
+                        </div>
+                        {visitBillingTotals.insuranceCoveredAmount > 0 && (
+                          <div className="py-1 border-b border-border text-emerald-600 dark:text-emerald-400">
+                            <strong>Insurance:</strong>{" "}
+                            <span className="float-right">
+                              {formatRWF(visitBillingTotals.insuranceCoveredAmount)}
+                            </span>
+                          </div>
+                        )}
+                        {Boolean(visitBillingTotals.waivedAmount && visitBillingTotals.waivedAmount > 0) && (
+                          <div className="py-1 border-b border-border text-purple-600 dark:text-purple-400 font-medium">
+                            <strong>Waived:</strong>{" "}
+                            <span className="float-right">
+                              −{formatRWF(visitBillingTotals.waivedAmount!)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="py-1 border-b border-border">
+                          <strong>Patient payable:</strong>{" "}
+                          <span className="float-right">
+                            {formatRWF(visitBillingTotals.patientPayableAmount)}
                           </span>
                         </div>
                         <div className="py-1 border-b border-border">

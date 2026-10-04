@@ -43,22 +43,24 @@ export function computeGroupTotals(
   let subtotal = 0;
   let insuranceCoverage = 0;
   let patientResponsibility = 0;
+  let waivedTotal = 0;
 
   deptItems.forEach((item) => {
     const selectedInsurance = availableInsurances.find(
       (ins) => ins.id === item.selectedInsuranceId,
     );
     const coveragePct = resolveEffectiveCoveragePct(item, selectedInsurance);
-    const { itemTotal, insuranceAmount, patientAmount, skip } =
+    const { itemTotal, insuranceAmount, patientAmount, waivedAmount, skip } =
       getItemInsuranceSplit(item, coveragePct);
 
+    waivedTotal += waivedAmount;
     if (skip) return;
     subtotal += itemTotal;
     insuranceCoverage += insuranceAmount;
     patientResponsibility += patientAmount;
   });
 
-  return { subtotal, insuranceCoverage, patientResponsibility };
+  return { subtotal, insuranceCoverage, patientResponsibility, waivedTotal };
 }
 
 export function BillingDepartmentGroup({
@@ -183,7 +185,14 @@ export function BillingDepartmentGroup({
             {formatRWF(groupTotals.insuranceCoverage)}
           </td>
           <td className="py-2 px-3 text-right font-bold text-foreground">
-            {formatRWF(groupTotals.patientResponsibility)}
+            <div>
+              {formatRWF(groupTotals.patientResponsibility)}
+              {groupTotals.waivedTotal > 0 && (
+                <span className="block text-[10px] font-normal text-purple-600 dark:text-purple-400">
+                  (Waived: {formatRWF(groupTotals.waivedTotal)})
+                </span>
+              )}
+            </div>
           </td>
           <td className="py-2 px-3 text-right font-bold text-foreground">
             {formatRWF(groupTotals.subtotal)}

@@ -529,9 +529,11 @@ export default function VisitsListView({
                             </span>
                           </button>
                         )}
-                        {/* Preview Invoice: only for FINANCE role if billed */}
+                        {/* Preview Invoice: only for FINANCE role if billed or completed/finalised */}
                         {hasFinanceRole &&
-                          getDerivedVisitBillingStatus(visit) === "BILLED" && (
+                          (getDerivedVisitBillingStatus(visit) === "BILLED" ||
+                            visit.status === "COMPLETED" ||
+                            visit.status === "FINALISED") && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()

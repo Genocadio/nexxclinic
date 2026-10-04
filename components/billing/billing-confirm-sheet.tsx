@@ -240,15 +240,19 @@ export function BillingConfirmSheet({
                 {itemsToBill.map((item) => {
                   const lineTotal = calculateItemTotal(item);
                   const changeType = editedItemChanges?.get(item.id);
+                  const exemptionType = item.exemptionType || (item.exempted ? "full" : "none");
+                  const isExempted = exemptionType !== "none";
                   return (
                     <li
                       key={item.id}
                       className={`flex items-center justify-between gap-3 text-xs px-3 py-2.5 transition-colors ${
-                        changeType === "added"
-                          ? "bg-emerald-50/50 dark:bg-emerald-950/20"
-                          : changeType === "modified"
-                            ? "bg-amber-50/50 dark:bg-amber-950/20"
-                            : ""
+                        isExempted
+                          ? "bg-purple-50/50 dark:bg-purple-950/20"
+                          : changeType === "added"
+                            ? "bg-emerald-50/50 dark:bg-emerald-950/20"
+                            : changeType === "modified"
+                              ? "bg-amber-50/50 dark:bg-amber-950/20"
+                              : ""
                       }`}
                     >
                       <div className="min-w-0 flex-1">
@@ -256,6 +260,11 @@ export function BillingConfirmSheet({
                           <p className="font-medium truncate text-foreground">
                             {item.name}
                           </p>
+                          {isExempted && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded-full">
+                              {exemptionType === "full" ? "100% EXEMPTED" : "SHARE WAIVED"}
+                            </span>
+                          )}
                           {changeType === "added" && (
                             <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
                               <span className="w-1 h-1 rounded-full bg-emerald-500" />
@@ -277,11 +286,23 @@ export function BillingConfirmSheet({
                         <p className="text-[10px] text-muted-foreground mt-0.5">
                           {item.quantity} × {formatRWF(item.price)}
                           {item.selectedInsuranceId ? " • Insurance" : " • Private"}
+                          {isExempted ? " • Waived in billing" : ""}
                         </p>
                       </div>
-                      <span className="font-semibold tabular-nums shrink-0">
-                        {formatRWF(lineTotal)}
-                      </span>
+                      {isExempted ? (
+                        <div className="flex flex-col items-end shrink-0">
+                          <span className="line-through text-muted-foreground text-[11px] tabular-nums">
+                            {formatRWF(lineTotal)}
+                          </span>
+                          <span className="font-semibold text-purple-700 dark:text-purple-300 text-xs tabular-nums">
+                            0 RWF (Waived)
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="font-semibold tabular-nums shrink-0">
+                          {formatRWF(lineTotal)}
+                        </span>
+                      )}
                     </li>
                   );
                 })}
@@ -328,6 +349,12 @@ export function BillingConfirmSheet({
                 value={-totals.insuranceCoverage}
                 variant="credit"
               />
+            )}
+            {Boolean(totals.waivedTotal && totals.waivedTotal > 0) && (
+              <div className="flex justify-between text-purple-700 dark:text-purple-400 font-medium">
+                <span>Waived / Exempted</span>
+                <span className="tabular-nums">−{formatRWF(totals.waivedTotal!)}</span>
+              </div>
             )}
             <Row
               label="Patient responsibility"

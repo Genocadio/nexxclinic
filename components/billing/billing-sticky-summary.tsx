@@ -17,6 +17,7 @@ type BillingTotals = {
   insuranceCoverage: number;
   patientResponsibility: number;
   totalAmount: number;
+  waivedTotal?: number;
 };
 
 type BillingStickySummaryProps = {
@@ -98,6 +99,13 @@ export function BillingStickySummary({
                       className="text-emerald-600 dark:text-emerald-400"
                     />
                   )}
+                  {Boolean(billingTotals.waivedAmount && billingTotals.waivedAmount > 0) && (
+                    <SummaryLine
+                      label="Waived"
+                      value={formatRWF(billingTotals.waivedAmount!)}
+                      className="text-purple-600 dark:text-purple-400 font-medium"
+                    />
+                  )}
                   <SummaryLine
                     label="Patient"
                     value={formatRWF(billingTotals.patientPayableAmount)}
@@ -115,6 +123,13 @@ export function BillingStickySummary({
                       label="Insurance"
                       value={`−${formatRWF(totals.insuranceCoverage)}`}
                       className="text-emerald-600 dark:text-emerald-400"
+                    />
+                  )}
+                  {Boolean(totals.waivedTotal && totals.waivedTotal > 0) && (
+                    <SummaryLine
+                      label="Waived"
+                      value={`−${formatRWF(totals.waivedTotal!)}`}
+                      className="text-purple-600 dark:text-purple-400 font-medium"
                     />
                   )}
                   <SummaryLine

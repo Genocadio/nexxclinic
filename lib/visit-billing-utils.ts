@@ -22,6 +22,7 @@ export type VisitBillingTotals = {
   patientPayableAmount: number;
   paidAmount: number;
   outstandingAmount: number;
+  waivedAmount?: number;
 };
 
 const EMPTY_TS = "";
@@ -312,6 +313,17 @@ export function getVisitBillingTotals(
     0,
   );
 
+  let waivedAmount = 0;
+  for (const ib of insuranceBillings) {
+    for (const it of ib.items || []) {
+      if (it.patientShareSource === "EXEMPTED") {
+        const lineTotal = Number(it.unitPriceSnapshot || 0) * Number(it.quantitySnapshot || 1);
+        const insAmount = Number(it.insuranceCoveredAmount || 0);
+        waivedAmount += Math.max(0, lineTotal - insAmount);
+      }
+    }
+  }
+
   return {
     totalAmount,
     insuranceCoveredAmount,
@@ -323,6 +335,7 @@ export function getVisitBillingTotals(
     // patient payable rather than the service total.
     outstandingAmount:
       outstandingAmount || Math.max(0, patientPayableAmount - paidAmount),
+    waivedAmount,
   };
 }
 

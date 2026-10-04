@@ -215,6 +215,7 @@ describe("getVisitBillingTotals", () => {
       patientPayableAmount: 0,
       paidAmount: 0,
       outstandingAmount: 0,
+      waivedAmount: 0,
     });
   });
 });

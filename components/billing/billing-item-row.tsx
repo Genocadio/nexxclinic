@@ -121,10 +121,14 @@ export function BillingItemRow({
     (ins) => ins.id === item.selectedInsuranceId,
   );
   const coveragePct = resolveEffectiveCoveragePct(item, selectedInsurance);
-  const { insuranceAmount, patientAmount } = getItemInsuranceSplit(
-    item,
-    coveragePct,
-  );
+  const {
+    insuranceAmount,
+    patientAmount,
+    rawItemTotal,
+    rawInsuranceAmount,
+    rawPatientAmount,
+    waivedAmount,
+  } = getItemInsuranceSplit(item, coveragePct);
   const statusLabel =
     exemptionType === "full"
       ? "Exempted"
@@ -498,30 +502,72 @@ export function BillingItemRow({
           <span className="text-amber-600 dark:text-amber-400 text-[11px]">
             Not covered
           </span>
-        ) : item.selectedInsuranceId && insuranceAmount > 0 ? (
-          <span className="text-emerald-700 dark:text-emerald-400 font-medium">
-            {formatRWF(insuranceAmount)}
-          </span>
+        ) : item.selectedInsuranceId && (insuranceAmount > 0 || (isExempted && rawInsuranceAmount > 0)) ? (
+          exemptionType === "full" ? (
+            <div className="flex flex-col items-end">
+              <span className="line-through text-muted-foreground text-xs">
+                {formatRWF(rawInsuranceAmount)}
+              </span>
+              <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">
+                Waived
+              </span>
+            </div>
+          ) : (
+            <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+              {formatRWF(insuranceAmount)}
+            </span>
+          )
         ) : (
           <span className="text-muted-foreground text-xs">—</span>
         )}
       </td>
       <td className="py-2 px-3 text-right tabular-nums text-sm">
-        <div className="flex flex-col items-end gap-0.5">
-          <span className="font-semibold text-foreground">
-            {formatRWF(patientAmount)}
-          </span>
-          {item.selectedInsuranceId && !item.insuranceNotCovered && (
-            <span className="text-[10px] text-muted-foreground">
-              {coveragePct}% share
+        {isExempted ? (
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="line-through text-muted-foreground text-xs">
+              {formatRWF(rawPatientAmount)}
             </span>
-          )}
-        </div>
+            <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">
+              0 RWF (Waived)
+            </span>
+            {item.selectedInsuranceId && !item.insuranceNotCovered ? (
+              <span className="text-[10px] text-purple-600/80">
+                {coveragePct}% share waived
+              </span>
+            ) : (
+              <span className="text-[10px] text-purple-600/80">
+                Waived {formatRWF(rawPatientAmount)}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="font-semibold text-foreground">
+              {formatRWF(patientAmount)}
+            </span>
+            {item.selectedInsuranceId && !item.insuranceNotCovered && (
+              <span className="text-[10px] text-muted-foreground">
+                {coveragePct}% share
+              </span>
+            )}
+          </div>
+        )}
       </td>
       <td className="py-2 px-3 text-right tabular-nums text-sm">
-        <span className="font-bold text-foreground">
-          {formatRWF(itemTotal)}
-        </span>
+        {exemptionType === "full" ? (
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="line-through text-muted-foreground text-xs">
+              {formatRWF(rawItemTotal)}
+            </span>
+            <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
+              0 RWF (Waived)
+            </span>
+          </div>
+        ) : (
+          <span className="font-bold text-foreground">
+            {formatRWF(itemTotal)}
+          </span>
+        )}
       </td>
       <td className="py-2 px-3 text-center">
         <Badge

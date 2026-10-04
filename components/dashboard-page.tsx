@@ -825,10 +825,12 @@ export default function DashboardPage() {
     return count === 1 ? "1 product billed" : `${count} products billed`
   }
   const canPreviewVisitInvoice = (visit: Visit) => {
+    const isTerminal = visit.status === "COMPLETED" || visit.status === "FINALISED"
+    if (isTerminal) return true
     const hasDeptEditing = (visit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING")
     if (hasDeptEditing) return false
     if (hasNoBillables(visit)) return false
-    return countUnbilledProducts(visit) === 0 && countBilledProducts(visit) > 0
+    return countUnbilledProducts(visit) === 0 && (countBilledProducts(visit) > 0 || visitProductsFullySettled(visit))
   }
   const getBillingDisplayStatus = (visit: Visit) => {
     const hasDeptEditing = (visit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING")

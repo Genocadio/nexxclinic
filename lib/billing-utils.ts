@@ -384,36 +384,62 @@ export function getItemInsuranceSplit(
 ) {
   const exemptionType = item.exemptionType || (item.exempted ? "full" : "none");
 
-  if (exemptionType === "full") {
-    return { itemTotal: 0, insuranceAmount: 0, patientAmount: 0, skip: true };
-  }
-
   // Exact line total in integer cents — mirrors backend toMoney(unitPrice × quantity).
   const unitPrice = item.price ?? item.basePrice ?? 0;
   const lineTotalCents = lineTotalToCents(unitPrice, item.quantity ?? 1);
-  const itemTotal = fromCents(lineTotalCents);
+  const rawItemTotal = fromCents(lineTotalCents);
+
+  if (exemptionType === "full") {
+    const coveredCents =
+      !item.selectedInsuranceId || item.insuranceNotCovered
+        ? 0
+        : Math.min(
+            insuranceShareCents(lineTotalCents, coveragePercentage),
+            lineTotalCents,
+          );
+    return {
+      itemTotal: 0,
+      insuranceAmount: 0,
+      patientAmount: 0,
+      rawItemTotal,
+      rawInsuranceAmount: fromCents(coveredCents),
+      rawPatientAmount: fromCents(lineTotalCents - coveredCents),
+      waivedAmount: rawItemTotal,
+      skip: true,
+    };
+  }
 
   // PATIENT_SHARE exemption: the patient's share is waived; insurance still
   // covers its normal amount. This must be checked before the no-insurance
-  // early return because the exemption zero patientAmount regardless.
+  // early return because the exemption zeros patientAmount regardless.
   if (exemptionType === "patient-share") {
     const coveredCents = Math.min(
       insuranceShareCents(lineTotalCents, coveragePercentage),
       lineTotalCents,
     );
+    const insuranceAmount = fromCents(coveredCents);
+    const rawPatientAmount = fromCents(lineTotalCents - coveredCents);
     return {
-      itemTotal,
-      insuranceAmount: fromCents(coveredCents),
+      itemTotal: rawItemTotal,
+      insuranceAmount,
       patientAmount: 0,
+      rawItemTotal,
+      rawInsuranceAmount: insuranceAmount,
+      rawPatientAmount,
+      waivedAmount: rawPatientAmount,
       skip: false,
     };
   }
 
   if (!item.selectedInsuranceId || item.insuranceNotCovered) {
     return {
-      itemTotal,
+      itemTotal: rawItemTotal,
       insuranceAmount: 0,
-      patientAmount: itemTotal,
+      patientAmount: rawItemTotal,
+      rawItemTotal,
+      rawInsuranceAmount: 0,
+      rawPatientAmount: rawItemTotal,
+      waivedAmount: 0,
       skip: false,
     };
   }
@@ -429,9 +455,13 @@ export function getItemInsuranceSplit(
   const patientCents = lineTotalCents - coveredCents;
 
   return {
-    itemTotal,
+    itemTotal: rawItemTotal,
     insuranceAmount: fromCents(coveredCents),
     patientAmount: fromCents(patientCents),
+    rawItemTotal,
+    rawInsuranceAmount: fromCents(coveredCents),
+    rawPatientAmount: fromCents(patientCents),
+    waivedAmount: 0,
     skip: false,
   };
 }
@@ -655,6 +685,7 @@ export interface BillingTotals {
   insuranceCoverage: number;
   patientResponsibility: number;
   totalAmount: number;
+  waivedTotal?: number;
 }
 
 /**
@@ -669,11 +700,14 @@ export function computeBillingTotals(
   let subtotalCents = 0;
   let insuranceCoverageCents = 0;
   let patientResponsibilityCents = 0;
+  let waivedTotalCents = 0;
 
   items.forEach((item) => {
     const coveragePct = getCoveragePercentage(item);
-    const { itemTotal, insuranceAmount, patientAmount, skip } =
+    const { itemTotal, insuranceAmount, patientAmount, waivedAmount, skip } =
       getItemInsuranceSplit(item, coveragePct);
+
+    waivedTotalCents += toCents(waivedAmount);
 
     if (skip) return;
     subtotalCents += toCents(itemTotal);
@@ -686,5 +720,6 @@ export function computeBillingTotals(
     insuranceCoverage: fromCents(insuranceCoverageCents),
     patientResponsibility: fromCents(patientResponsibilityCents),
     totalAmount: fromCents(patientResponsibilityCents),
+    waivedTotal: fromCents(waivedTotalCents),
   };
 }

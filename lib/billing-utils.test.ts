@@ -137,6 +137,44 @@ describe("getItemInsuranceSplit", () => {
     expect(split.insuranceAmount).toBe(5000);
     // Patient share is waived
     expect(split.patientAmount).toBe(0);
+    expect(split.rawItemTotal).toBe(5000);
+    expect(split.waivedAmount).toBe(0);
+  });
+
+  it("calculates raw pre-exemption amounts and waivedAmount on exempted lines", () => {
+    // Full exemption on a 10,000 item
+    const fullExemptItem = makeItem({
+      exempted: true,
+      exemptionType: "full",
+      price: 10000,
+      quantity: 1,
+    });
+    const fullSplit = getItemInsuranceSplit(fullExemptItem, 0);
+    expect(fullSplit.skip).toBe(true);
+    expect(fullSplit.itemTotal).toBe(0);
+    expect(fullSplit.patientAmount).toBe(0);
+    expect(fullSplit.rawItemTotal).toBe(10000);
+    expect(fullSplit.rawPatientAmount).toBe(10000);
+    expect(fullSplit.waivedAmount).toBe(10000);
+
+    // Patient share exemption on a 10,000 item with 15% patient share
+    const shareExemptItem = makeItem({
+      exempted: true,
+      exemptionType: "patient-share",
+      selectedInsuranceId: "ins-1",
+      insuranceNotCovered: false,
+      price: 10000,
+      quantity: 1,
+    });
+    const shareSplit = getItemInsuranceSplit(shareExemptItem, 15);
+    expect(shareSplit.skip).toBe(false);
+    expect(shareSplit.itemTotal).toBe(10000);
+    expect(shareSplit.insuranceAmount).toBe(8500);
+    expect(shareSplit.patientAmount).toBe(0);
+    expect(shareSplit.rawItemTotal).toBe(10000);
+    expect(shareSplit.rawInsuranceAmount).toBe(8500);
+    expect(shareSplit.rawPatientAmount).toBe(1500);
+    expect(shareSplit.waivedAmount).toBe(1500);
   });
 });
 
