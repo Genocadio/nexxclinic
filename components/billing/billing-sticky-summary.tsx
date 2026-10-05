@@ -153,6 +153,15 @@ export function BillingStickySummary({
                   <SummaryLine
                     label="Patient"
                     value={formatRWF(billingTotals.patientPayableAmount)}
+                    hint={
+                      billingTotals.waivedAmount && billingTotals.waivedAmount > 0
+                        ? `Expected ${formatRWF(
+                            billingTotals.patientPayableAmount +
+                              billingTotals.waivedAmount,
+                          )}`
+                        : undefined
+                    }
+                    hintTitle="Patient share before waiver (patient + waived)"
                   />
                 </div>
               ) : (
@@ -411,15 +420,27 @@ function SummaryLine({
   label,
   value,
   className = "",
+  hint,
+  hintTitle,
 }: {
   label: string;
   value: string;
   className?: string;
+  hint?: string;
+  hintTitle?: string;
 }) {
   return (
     <div className="shrink-0">
       <p className="text-[11px] text-muted-foreground">{label}</p>
       <p className={`font-semibold tabular-nums ${className}`}>{value}</p>
+      {hint && (
+        <p
+          className="text-[10px] leading-tight text-muted-foreground tabular-nums"
+          title={hintTitle}
+        >
+          {hint}
+        </p>
+      )}
     </div>
   );
 }

@@ -115,6 +115,19 @@ export function BillingItemRow({
   const itemTotal = calculateItemTotal(item);
   const exemptionType = item.exemptionType || (item.exempted ? "full" : "none");
   const isExempted = exemptionType !== "none";
+  // Insurance pays part of this line → only the patient share may be waived.
+  const isInsurancePaid = Boolean(
+    item.selectedInsuranceId && !item.insuranceNotCovered,
+  );
+  // Keep the waiver valid after an insurance change: insured lines can only
+  // waive the patient share; private lines use full exemption instead.
+  const normalizeWaiver = (next: typeof item): typeof item => {
+    const insured = Boolean(next.selectedInsuranceId && !next.insuranceNotCovered);
+    const type = next.exemptionType || (next.exempted ? "full" : "none");
+    if (insured && type === "full") return { ...next, exemptionType: "patient-share" };
+    if (!insured && type === "patient-share") return { ...next, exemptionType: "full" };
+    return next;
+  };
 
   const selectedInsurance = availableInsurances.find(
     (ins) => ins.id === item.selectedInsuranceId,
@@ -314,7 +327,9 @@ export function BillingItemRow({
               !item.insuranceCoverageMeta?.[providerId]?.covered
             ) {
               onItemChange(
-                applyInsuranceSelectionToItem(item, undefined, undefined),
+                normalizeWaiver(
+                  applyInsuranceSelectionToItem(item, undefined, undefined),
+                ),
               );
               return;
             }
@@ -326,7 +341,7 @@ export function BillingItemRow({
             // Default to patient insurance % without setting an artificial override
             updated = { ...updated, selectedCoverageId: undefined };
             setIsEditingTier(false);
-            onItemChange(updated);
+            onItemChange(normalizeWaiver(updated));
           }}
           disabled={availableInsurances.length === 0 || isPaidLocked}
         >
@@ -643,20 +658,28 @@ export function BillingItemRow({
                   ? "Profile product"
                   : "No exemption"}
               </SelectItem>
-              {availableInsurances.length > 0 && (
+              {isInsurancePaid ? (
                 <SelectItem
                   value="patient-share"
                   disabled={!editMode && item.source === "PROFILE"}
                 >
                   Waive patient share
                 </SelectItem>
+              ) : (
+                <SelectItem
+                  value="full"
+                  disabled={!editMode && item.source === "PROFILE"}
+                >
+                  Full exemption
+                </SelectItem>
               )}
-              <SelectItem
-                value="full"
-                disabled={!editMode && item.source === "PROFILE"}
-              >
-                Full exemption
-              </SelectItem>
+              {/* Legacy rows: insured item previously fully exempted — keep the
+                  value visible but not selectable so it can be changed. */}
+              {isInsurancePaid && exemptionType === "full" && (
+                <SelectItem value="full" disabled>
+                  Full exemption (not allowed with insurance)
+                </SelectItem>
+              )}
             </SelectContent>
           </Select>
           {canEdit && (
