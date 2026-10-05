@@ -257,7 +257,7 @@ export function FieldShell({
   return (
     <div className="my-3">
       {label && (
-        <label className="text-sm font-medium block mb-1">
+        <label className="text-sm leading-5 font-medium block mb-1.5">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -304,7 +304,7 @@ export function ChoiceGroup({
   return (
     <div className="my-3">
       {block.label && (
-        <label className="text-sm font-medium block mb-1.5 text-foreground">
+        <label className="text-sm leading-5 font-medium block mb-1.5 text-foreground">
           {block.label}
           {block.required && <span className="text-red-500 ml-1">*</span>}
         </label>

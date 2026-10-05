@@ -68,7 +68,7 @@ export function DiagnosticAnswerBlock({
 
   return (
     <div className="my-3">
-      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
+      <label className="text-sm leading-5 font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
         <Stethoscope className="h-3.5 w-3.5 text-emerald-600" />
         {block.label || "Diagnoses"}
         {block.required && <span className="text-red-500">*</span>}
@@ -201,7 +201,7 @@ export function MedFullAnswerBlock({
 
   return (
     <div className="my-3">
-      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
+      <label className="text-sm leading-5 font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
         <Pill className="h-3.5 w-3.5 text-blue-600" />
         {block.label || "Medications"}
         {block.required && <span className="text-red-500">*</span>}
@@ -365,7 +365,7 @@ export function MedMiniAnswerBlock({
 
   return (
     <div className="my-3">
-      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
+      <label className="text-sm leading-5 font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
         <Pill className="h-3.5 w-3.5 text-indigo-600" />
         {block.label || "Medications"}
         {block.required && <span className="text-red-500">*</span>}
@@ -499,7 +499,7 @@ export function LabAnswerBlock({
     onChange({ ...value, [rowId]: { ...value[rowId], [key]: val } });
   return (
     <div className="my-3">
-      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
+      <label className="text-sm leading-5 font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
         <FlaskConical className="h-3.5 w-3.5 text-purple-600" />
         {block.label || "Lab Results"}
         {block.required && <span className="text-red-500">*</span>}
@@ -632,7 +632,10 @@ export function ProductListenerAnswerBlock({
   edit: boolean;
   handlers?: MedicalBlockHandlers | null;
 }) {
-  if (handlers?.onOpenProductPicker) {
+  // Any consultation/visit context (handlers present) must use the visit-synced
+  // listener — even when the picker is unavailable (locked / read-only) — so we
+  // never fall back to the local manual-entry draft which doesn't hit the visit.
+  if (handlers && (handlers.onOpenProductPicker || handlers.productActions)) {
     return (
       <ProductListenerWithVisitSync
         block={block}
@@ -651,7 +654,7 @@ export function ProductListenerAnswerBlock({
     onChange(value.filter((item) => item.id !== id));
   return (
     <div className="my-3">
-      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
+      <label className="text-sm leading-5 font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
         <Package className="h-3.5 w-3.5 text-orange-600" />
         {block.label || "Products / Procedures"}
         {block.required && <span className="text-red-500">*</span>}
@@ -664,11 +667,22 @@ export function ProductListenerAnswerBlock({
         }`}
       >
         {edit && (
-          <ProductDraft
-            onAdd={(item) => onChange([...value, item])}
-            centered={block.productListenerCenter ?? false}
-            btnLabel={block.label || "Add Product"}
-          />
+          <div
+            className={
+              block.productListenerCenter ? "flex justify-center" : "flex"
+            }
+          >
+            <Button
+              type="button"
+              variant="outline"
+              disabled
+              title="Products are picked from the catalog during a consultation"
+              className="inline-flex h-9 px-4 rounded-xl gap-2 border-orange-200/80 dark:border-orange-800/60 bg-white dark:bg-slate-900 text-foreground text-sm font-medium shadow-xs"
+            >
+              <Plus className="h-4 w-4 text-orange-600" />
+              {block.label || "Add Product"}
+            </Button>
+          </div>
         )}
         <EntryList
           emptyLabel="No products selected"
@@ -691,82 +705,6 @@ export function ProductListenerAnswerBlock({
           )}
           onRemove={edit ? remove : undefined}
         />
-      </div>
-    </div>
-  );
-}
-
-function ProductDraft({
-  onAdd,
-  centered,
-  btnLabel,
-}: {
-  onAdd: (item: AddedProduct) => void;
-  centered: boolean;
-  btnLabel: string;
-}) {
-  const [name, setName] = React.useState("");
-  const [type, setType] = React.useState("MEDICAL_ACT");
-  const [price, setPrice] = React.useState("");
-  const submit = () => {
-    if (!name.trim()) return;
-    onAdd({
-      id: `prod${uid()}`,
-      name: name.trim(),
-      type,
-      qty: 1,
-      price: parseFloat(price) || 0,
-    });
-    setName("");
-    setPrice("");
-  };
-  return (
-    <div className="space-y-2">
-      <div className={centered ? "flex justify-center" : "flex"}>
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-xl border border-orange-200/80 dark:border-orange-800/60 bg-white dark:bg-slate-900 hover:bg-orange-50 dark:hover:bg-slate-850 text-foreground text-sm font-medium shadow-xs transition-colors"
-        >
-          <Plus className="h-4 w-4 text-orange-600" />
-          {btnLabel}
-        </button>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_160px_120px_auto] gap-2">
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Product / procedure name"
-          className="h-8 text-sm bg-white dark:bg-slate-900 border-orange-200/90 dark:border-orange-800/80 shadow-xs focus:bg-white dark:focus:bg-slate-950"
-        />
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-          className="h-8 rounded-md border border-orange-200/90 dark:border-orange-800/80 bg-white dark:bg-slate-900 px-3 text-sm text-foreground shadow-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
-        >
-          {Object.entries(PTYPE_LABEL).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <Input
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          placeholder="Price"
-          className="h-8 text-sm bg-white dark:bg-slate-900 border-orange-200/90 dark:border-orange-800/80 shadow-xs focus:bg-white dark:focus:bg-slate-950"
-          type="number"
-          step="any"
-        />
-        <Button
-          type="button"
-          size="sm"
-          onClick={submit}
-          disabled={!name.trim()}
-          className="h-8 gap-1 bg-orange-600 hover:bg-orange-700 text-white shadow-xs"
-        >
-          <Plus className="h-3 w-3" />
-          Add
-        </Button>
       </div>
     </div>
   );

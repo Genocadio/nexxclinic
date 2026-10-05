@@ -207,7 +207,11 @@ export function LayoutAnswerBlock({
     >
       {columns.map((col) => (
         <div key={col.id} className="min-w-0 overflow-x-auto rounded-lg">
-          <div className="min-w-0 space-y-0 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+          {/* Child blocks carry their own my-* margins (designed for the
+              single-column flow). Inside columns those margins made columns
+              start at different heights (Tailwind v4 space-y only zeroes
+              non-last children), so neutralise them and space with gap. */}
+          <div className="min-w-0 flex flex-col gap-3 [&>*]:my-0!">
             {col.blocks.map((b) => (
               <AnswerBlock
                 key={b.id}

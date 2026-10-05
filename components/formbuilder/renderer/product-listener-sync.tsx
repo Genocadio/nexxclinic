@@ -34,7 +34,7 @@ export function ProductListenerWithVisitSync({
 
   return (
     <div className="my-3">
-      <label className="text-sm font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
+      <label className="text-sm leading-5 font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
         <Package className="h-3.5 w-3.5 text-orange-600" />
         {block.label || "Products / Procedures"}
         {block.required && <span className="text-red-500">*</span>}

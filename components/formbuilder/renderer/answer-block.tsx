@@ -267,8 +267,8 @@ export function AnswerBlock({
       );
     case "signature":
       return (
-        <div className="my-6">
-          <p className="text-sm font-medium mb-2">
+        <div className="my-3">
+          <p className="text-sm leading-5 font-medium mb-1.5">
             {block.label ?? "Signature"}
             {block.required && <span className="text-red-500 ml-1">*</span>}
           </p>
