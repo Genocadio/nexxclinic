@@ -197,7 +197,7 @@ export function LayoutAnswerBlock({
 
   return (
     <div
-      className="my-3 grid gap-4"
+      className="my-3 grid gap-4 items-start"
       style={{
         gridTemplateColumns:
           numCols <= 1
@@ -207,7 +207,7 @@ export function LayoutAnswerBlock({
     >
       {columns.map((col) => (
         <div key={col.id} className="min-w-0 overflow-x-auto rounded-lg">
-          <div className="min-w-0 space-y-0">
+          <div className="min-w-0 space-y-0 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
             {col.blocks.map((b) => (
               <AnswerBlock
                 key={b.id}

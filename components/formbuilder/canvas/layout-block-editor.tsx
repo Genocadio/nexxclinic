@@ -124,7 +124,7 @@ export function LayoutBlockEditor({
 
       {/* Columns grid */}
       <div
-        className="grid gap-3"
+        className="grid gap-3 items-start"
         style={{
           gridTemplateColumns:
             numCols <= 1

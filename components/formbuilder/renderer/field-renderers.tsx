@@ -256,10 +256,12 @@ export function FieldShell({
 }) {
   return (
     <div className="my-3">
-      <label className="text-sm font-medium block mb-1">
-        {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </label>
+      {label && (
+        <label className="text-sm font-medium block mb-1">
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+      )}
       {children}
       {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>
@@ -301,10 +303,12 @@ export function ChoiceGroup({
   };
   return (
     <div className="my-3">
-      <label className="text-sm font-medium block mb-1.5 text-foreground">
-        {block.label}
-        {block.required && <span className="text-red-500 ml-1">*</span>}
-      </label>
+      {block.label && (
+        <label className="text-sm font-medium block mb-1.5 text-foreground">
+          {block.label}
+          {block.required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+      )}
       <div
         className={`space-y-1.5 ${isError ? "rounded-lg p-2 -m-2 ring-2 ring-red-400/30 bg-red-50/40 dark:bg-red-950/20" : ""}`}
       >

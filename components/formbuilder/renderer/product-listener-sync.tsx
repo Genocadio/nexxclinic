@@ -111,8 +111,8 @@ export function ProductListenerWithVisitSync({
                     {PTYPE_LABEL[item.type] ?? item.type}
                   </span>
                 )}
-                <span className="text-muted-foreground shrink-0">
-                  {item.price > 0 ? `${item.price.toLocaleString()} RWF` : "—"}
+                <span className="text-xs font-semibold tabular-nums text-muted-foreground bg-muted/60 rounded-full px-2 py-0.5 leading-none shrink-0">
+                  ×{item.qty ?? 1}
                 </span>
               </div>
             )}
