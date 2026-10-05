@@ -21,6 +21,8 @@ import { useConfirmVisitDepartmentProduct } from "@/hooks/billing/hooks";
 import type { Patient, Visit, VisitDepartment } from "@/lib/api-types";
 import type { FormAction } from "@/lib/form-storage";
 import type { SavedForm } from "@/lib/formbuilder-storage";
+import { formatRWF } from "@/lib/utils";
+import { getInsuranceAwarePricing } from "@/lib/insurance-utils";
 import { ConsultationFormRenderer } from "@/components/formbuilder/form-renderer";
 import type { FormAnswers } from "@/components/formbuilder/form-renderer";
 import { ConsultationBottomDock } from "@/components/consultation/consultation-bottom-dock";
@@ -221,6 +223,13 @@ export function StandaloneConsultationView({
   const [debouncedProductSearchQuery, setDebouncedProductSearchQuery] =
     useState("");
   const [productSearchFocused, setProductSearchFocused] = useState(false);
+  const visitInsurances = useMemo(() => {
+    if (visit?.linkedInsurances && visit.linkedInsurances.length > 0) {
+      return visit.linkedInsurances;
+    }
+    return visit?.patient?.patientInsurances || [];
+  }, [visit?.linkedInsurances, visit?.patient?.patientInsurances]);
+
   const [pendingRequestProducts, setPendingRequestProducts] = useState<
     Array<{
       id: string;
@@ -229,6 +238,9 @@ export function StandaloneConsultationView({
       code?: string;
       quantifiable?: boolean;
       quantity: number;
+      clinicPrice?: number | null;
+      privateRhicPrice?: number | null;
+      insuranceCoverages?: any[];
     }>
   >([]);
   const [
@@ -700,6 +712,9 @@ export function StandaloneConsultationView({
     type?: string;
     code?: string;
     quantifiable?: boolean;
+    clinicPrice?: number | null;
+    privateRhicPrice?: number | null;
+    insuranceCoverages?: any[];
   }) => {
     setPendingRequestProducts((prev) => {
       if (prev.some((item) => item.id === product.id)) return prev;
@@ -865,7 +880,7 @@ export function StandaloneConsultationView({
       <ConsultationSidePanels
         patient={patient as any}
         vitals={visit?.vitalSigns || []}
-        visitInsurances={visit?.patient?.patientInsurances || []}
+        visitInsurances={visitInsurances}
         idPanel={idPanel}
         vitalsPanel={vitalsPanel}
         historyPanel={historyPanel}
@@ -908,6 +923,7 @@ export function StandaloneConsultationView({
         visitStatus={visit.status}
         visitDepartmentStatus={visitDepartment.status}
         existingProducts={existingProducts}
+        linkedInsurances={visitInsurances}
         onVisitRefetch={onVisitRefetch}
       />
 
@@ -1269,6 +1285,7 @@ export function StandaloneConsultationView({
                               const alreadyAdded = pendingRequestProducts.some(
                                 (item) => item.id === String(product.id),
                               );
+                              const pricing = getInsuranceAwarePricing(product, visitInsurances);
                               return (
                                 <li key={product.id}>
                                   <button
@@ -1283,18 +1300,55 @@ export function StandaloneConsultationView({
                                         name: product.name,
                                         type: product.type,
                                         code: product.code,
+                                        quantifiable: product.quantifiable,
+                                        clinicPrice: product.clinicPrice,
+                                        privateRhicPrice: product.privateRhicPrice,
+                                        insuranceCoverages: product.insuranceCoverages,
                                       })
                                     }
-                                    className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 gap-2"
                                   >
-                                    <span className="font-medium">
-                                      {product.name}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {product.type || "Product"} •{" "}
-                                      {product.code || "No code"}
-                                      {alreadyAdded ? " • Added" : ""}
-                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <span className="font-medium block truncate">
+                                        {product.name}
+                                      </span>
+                                      <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
+                                        <span>{product.type || "Product"}</span>
+                                        {product.code && <span>• {product.code}</span>}
+                                        {alreadyAdded && <span className="text-amber-600 font-semibold">• Added</span>}
+                                      </div>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      {pricing.coverageDetails.length > 0 ? (
+                                        pricing.coverageDetails.map((coverage: any, idx: number) => {
+                                          const isZeroPaying = Number(coverage.cost) <= 0 || coverage.covered === false;
+                                          return (
+                                            <div key={idx} className="flex items-center justify-end gap-1.5">
+                                              <span className={`text-xs font-semibold ${isZeroPaying ? "text-muted-foreground line-through" : "text-primary"}`}>
+                                                {formatRWF(Number(coverage.cost))}
+                                              </span>
+                                              <span className="text-[10px] text-muted-foreground">
+                                                {coverage.insuranceProvider?.acronym || coverage.insuranceProvider?.insuranceName}
+                                              </span>
+                                              {isZeroPaying && (
+                                                <span className="text-[9px] bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 px-1 py-0.5 rounded font-medium">
+                                                  Not Covered
+                                                </span>
+                                              )}
+                                            </div>
+                                          );
+                                        })
+                                      ) : (
+                                        <div className="flex items-center justify-end gap-1.5 text-xs text-muted-foreground">
+                                          <span>{formatRWF(pricing.price)}</span>
+                                          {visitInsurances.length > 0 && (
+                                            <span className="text-[9px] bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-1 py-0.5 rounded font-medium">
+                                              Private
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
                                   </button>
                                 </li>
                               );
@@ -1318,20 +1372,38 @@ export function StandaloneConsultationView({
                       Added products
                     </div>
                     <ul className="space-y-2">
-                      {pendingRequestProducts.map((product) => (
-                        <li
-                          key={product.id}
-                          className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate">
-                              {product.name}
+                      {pendingRequestProducts.map((product) => {
+                        const pricing = getInsuranceAwarePricing(product as any, visitInsurances);
+                        return (
+                          <li
+                            key={product.id}
+                            className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate">
+                                {product.name}
+                              </div>
+                              <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5">
+                                <span>{product.type || "Product"}</span>
+                                {product.code && <span>• {product.code}</span>}
+                                <span>•</span>
+                                {pricing.coverageDetails.length > 0 ? (
+                                  pricing.coverageDetails.map((cov: any, idx: number) => {
+                                    const isZero = Number(cov.cost) <= 0 || cov.covered === false;
+                                    return (
+                                      <span key={idx} className={isZero ? "text-muted-foreground line-through" : "text-primary font-medium"}>
+                                        {formatRWF(Number(cov.cost))} ({cov.insuranceProvider?.acronym || cov.insuranceProvider?.insuranceName})
+                                      </span>
+                                    );
+                                  })
+                                ) : (
+                                  <span>
+                                    {formatRWF(pricing.price)}{" "}
+                                    {visitInsurances.length > 0 ? "(Private)" : ""}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {product.type || "Product"} •{" "}
-                              {product.code || "No code"}
-                            </div>
-                          </div>
                           {product.quantifiable !== false && (
                             <div className="flex shrink-0 items-center gap-1">
                               <Button
@@ -1404,7 +1476,8 @@ export function StandaloneConsultationView({
                             <XIcon className="h-4 w-4" />
                           </button>
                         </li>
-                      ))}
+                      );
+                    })}
                     </ul>
                   </div>
                 )}

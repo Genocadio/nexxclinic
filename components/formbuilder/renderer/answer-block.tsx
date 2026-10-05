@@ -110,14 +110,19 @@ export function AnswerBlock({
           required={block.required}
           error={errorMessage}
         >
-          <input
-            type="text"
-            className={inputBase}
-            placeholder={block.placeholder || ""}
-            value={(val as string) ?? ""}
-            onChange={(e) => onAnswerChange(block.id, e.target.value)}
-            readOnly={!edit}
-          />
+          {edit ? (
+            <input
+              type="text"
+              className={inputBase}
+              placeholder={block.placeholder || ""}
+              value={(val as string) ?? ""}
+              onChange={(e) => onAnswerChange(block.id, e.target.value)}
+            />
+          ) : (
+            <div className={`${inputBase} min-h-9 flex items-center`}>
+              {(val as string) || "—"}
+            </div>
+          )}
         </FieldShell>
       );
     case "textarea_input":
@@ -127,14 +132,19 @@ export function AnswerBlock({
           required={block.required}
           error={errorMessage}
         >
-          <textarea
-            rows={4}
-            className={`${inputBase} resize-y min-h-[4.5rem]`}
-            placeholder={block.placeholder || ""}
-            value={(val as string) ?? ""}
-            onChange={(e) => onAnswerChange(block.id, e.target.value)}
-            readOnly={!edit}
-          />
+          {edit ? (
+            <textarea
+              rows={4}
+              className={`${inputBase} resize-y min-h-[4.5rem]`}
+              placeholder={block.placeholder || ""}
+              value={(val as string) ?? ""}
+              onChange={(e) => onAnswerChange(block.id, e.target.value)}
+            />
+          ) : (
+            <div className={`${inputBase} min-h-[4.5rem] whitespace-pre-wrap`}>
+              {(val as string) || "—"}
+            </div>
+          )}
         </FieldShell>
       );
     case "number_input":
@@ -144,14 +154,19 @@ export function AnswerBlock({
           required={block.required}
           error={errorMessage}
         >
-          <input
-            type="number"
-            className={`${inputBase} w-36`}
-            placeholder={block.placeholder || "0"}
-            value={(val as string) ?? ""}
-            onChange={(e) => onAnswerChange(block.id, e.target.value)}
-            readOnly={!edit}
-          />
+          {edit ? (
+            <input
+              type="number"
+              className={`${inputBase} w-36`}
+              placeholder={block.placeholder || "0"}
+              value={(val as string) ?? ""}
+              onChange={(e) => onAnswerChange(block.id, e.target.value)}
+            />
+          ) : (
+            <div className={`${inputBase} w-36`}>
+              {(val as string) || "—"}
+            </div>
+          )}
         </FieldShell>
       );
     case "date_input":

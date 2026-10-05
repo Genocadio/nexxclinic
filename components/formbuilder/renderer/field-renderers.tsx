@@ -173,7 +173,7 @@ export function AnswerInlineField({
   const base = `${w} h-7 px-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-400/30 transition-colors ${errorClass}`;
 
   if (!edit) {
-    return <ReadonlyValue value={value} emptyLabel={field.placeholder || "—"} />;
+    return <ReadonlyValue value={value} emptyLabel="—" />;
   }
 
   if (field.fieldType === "number") {
@@ -227,7 +227,7 @@ export function AnswerInlineField({
       />
     ) : (
       <span className="inline-block min-w-32 px-2.5 py-1 text-sm rounded-md border border-slate-200 dark:border-slate-700/80 bg-slate-100/80 dark:bg-slate-800/80 whitespace-pre-wrap shadow-xs">
-        {value || field.placeholder || "—"}
+        {value || "—"}
       </span>
     );
   }

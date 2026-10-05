@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Search, X, Pill, Filter } from "lucide-react"
 import { useProductSearch } from "@/hooks/products"
 import { formatRWF } from "@/lib/utils"
+import { getInsuranceAwarePricing } from "@/lib/insurance-utils"
 
 type ProductTypeFilter = 'ALL' | 'DRUG' | 'MEDICAL_ACT' | 'BIOLOGICAL_ACT' | 'CONSUMABLE_DEVICE'
 
@@ -100,54 +101,8 @@ export default function AddActionConsumableModal({
   const activeVisitDepartmentId = departments.find((d) => d.id === selectedDepartmentId)?.visitDepartmentId || visitDepartmentId
 
   // Helper to get insurance-aware pricing
-  const getInsuranceAwarePricing = (item: ActionOrConsumable) => {
-    const privatePrice = Number(item.clinicPrice ?? item.privateRhicPrice ?? 0)
-    if (!linkedInsurances || linkedInsurances.length === 0) {
-      // No insurance - show clinic price or private price
-      return {
-        price: privatePrice,
-        coverage: null,
-        isCovered: false,
-        coverageDetails: [],
-        hasZeroPayingCoverages: false,
-        allCoveragesZeroOrNotCovered: false,
-      }
-    }
-
-    // Get matching insurance coverages
-    const insuranceProviderIds = new Set(linkedInsurances.map(ins => ins.insuranceProvider.id))
-    const matchingCoverages = (item.insuranceCoverages || []).filter(cov =>
-      insuranceProviderIds.has(cov.insuranceProvider.id)
-    )
-
-    const validCoverages = matchingCoverages.filter(
-      (c) => c.covered !== false && !Boolean((c as any).notPaid) && Number(c.cost) > 0,
-    )
-    const firstCovered = validCoverages[0]
-
-    if (matchingCoverages.length === 0) {
-      // Insurance linked but no coverage for this product
-      return {
-        price: privatePrice,
-        coverage: null,
-        isCovered: false,
-        coverageDetails: [],
-        hasZeroPayingCoverages: false,
-        allCoveragesZeroOrNotCovered: false,
-      }
-    }
-
-    // Return all matching coverages for display
-    return {
-      price: firstCovered ? Number(firstCovered.cost) : privatePrice,
-      coverage: firstCovered || null,
-      isCovered: Boolean(firstCovered),
-      coverageDetails: matchingCoverages,
-      hasZeroPayingCoverages: matchingCoverages.some(
-        (c) => Number(c.cost) <= 0 || c.covered === false || Boolean((c as any).notPaid),
-      ),
-      allCoveragesZeroOrNotCovered: validCoverages.length === 0,
-    }
+  const resolveItemPricing = (item: ActionOrConsumable) => {
+    return getInsuranceAwarePricing(item, linkedInsurances)
   }
   const {
     products: searchedProducts,
@@ -388,7 +343,7 @@ export default function AddActionConsumableModal({
                           <div className="flex-1">
                             <div className="font-medium">{item.name}</div>
                             {(() => {
-                              const pricing = getInsuranceAwarePricing(item)
+                              const pricing = resolveItemPricing(item)
                               return (
                                 <div className="text-sm mt-1 space-y-1">
                                   {pricing.coverageDetails.length > 0 ? (
@@ -469,7 +424,7 @@ export default function AddActionConsumableModal({
                     })()}</div>
                   
                   {(() => {
-                    const pricing = getInsuranceAwarePricing(selectedItem)
+                    const pricing = resolveItemPricing(selectedItem)
                     return (
                       <div className="space-y-1.5">
                         {pricing.coverageDetails.length > 0 ? (
@@ -535,7 +490,7 @@ export default function AddActionConsumableModal({
                     className="h-10"
                   />
                   {(() => {
-                    const pricing = getInsuranceAwarePricing(selectedItem)
+                    const pricing = resolveItemPricing(selectedItem)
                     const qtyNum = parseInt(quantity, 10) || 1
                     return (
                       <div className="flex justify-between text-xs text-muted-foreground">

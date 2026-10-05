@@ -19,6 +19,8 @@ export interface ClinicSseEvent {
     | "VISIT_INSURANCE_CHANGED"
     | "VISIT_VITALS_CHANGED"
     | "VISIT_PRESENCE_CHANGED"
+    | "USER_CREATED"
+    | "USER_UPDATED"
     | "PING"
   timestamp: string
   visitId?: string
@@ -89,34 +91,44 @@ export function useClinicSse() {
             )
 
             // Silent Apollo Cache Refetch
-            const queriesToRefetch = ["Visits"]
-            if (
-              eventType === "BILLING_COMPLETED" ||
-              eventType === "VISIT_DEPARTMENT_STATE_CHANGED" ||
-              eventType === "VISIT_PRODUCT_CHANGED" ||
-              eventType === "VISIT_INSURANCE_CHANGED"
-            ) {
-              queriesToRefetch.push("GetVisitBilling")
-              queriesToRefetch.push("GetVisit")
-            }
-            if (eventType === "VISIT_NOTE_ADDED") {
-              queriesToRefetch.push("GetVisitDepartmentNotes")
-              queriesToRefetch.push("GetVisit")
-            }
-            if (eventType === "VISIT_VITALS_CHANGED") {
-              queriesToRefetch.push("GetVisit")
-            }
-            if (
-              eventType === "VISIT_DISCHARGED" ||
-              eventType === "VISIT_CANCELLED" ||
-              eventType === "VISIT_REOPENED"
-            ) {
-              queriesToRefetch.push("GetVisit")
+            const queriesToRefetch: string[] = []
+
+            if (eventType === "USER_CREATED" || eventType === "USER_UPDATED") {
+              queriesToRefetch.push("SearchWorkers", "GetUsers", "Me")
+            } else {
+              queriesToRefetch.push("GetVisits", "DashboardStats")
+
+              if (eventType === "VISIT_CREATED") {
+                queriesToRefetch.push("SearchPatients")
+              }
+              if (
+                eventType === "BILLING_COMPLETED" ||
+                eventType === "VISIT_DEPARTMENT_STATE_CHANGED" ||
+                eventType === "VISIT_PRODUCT_CHANGED" ||
+                eventType === "VISIT_INSURANCE_CHANGED"
+              ) {
+                queriesToRefetch.push("GetVisitBilling", "GetVisitDepartmentBilling", "GetVisit")
+              }
+              if (eventType === "VISIT_NOTE_ADDED") {
+                queriesToRefetch.push("GetVisitDepartmentNotes", "GetVisit")
+              }
+              if (eventType === "VISIT_VITALS_CHANGED") {
+                queriesToRefetch.push("GetVisit")
+              }
+              if (
+                eventType === "VISIT_DISCHARGED" ||
+                eventType === "VISIT_CANCELLED" ||
+                eventType === "VISIT_REOPENED"
+              ) {
+                queriesToRefetch.push("GetVisit")
+              }
             }
 
-            apolloClient.refetchQueries({
-              include: Array.from(new Set(queriesToRefetch)),
-            })
+            if (queriesToRefetch.length > 0) {
+              apolloClient.refetchQueries({
+                include: Array.from(new Set(queriesToRefetch)),
+              })
+            }
           } catch {
             // Ignore parse errors (e.g. keep-alive pings)
           }
@@ -135,6 +147,8 @@ export function useClinicSse() {
           "VISIT_INSURANCE_CHANGED",
           "VISIT_VITALS_CHANGED",
           "VISIT_PRESENCE_CHANGED",
+          "USER_CREATED",
+          "USER_UPDATED",
         ]
 
         eventTypes.forEach((type) => {

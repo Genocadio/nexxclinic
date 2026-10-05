@@ -20,6 +20,8 @@ type ConsultationFormRendererProps = Omit<
   visitDepartmentStatus?: string;
   existingProducts?: FormAction[];
   onVisitRefetch?: () => void;
+  linkedInsurances?: any[];
+  visitInsurances?: any[];
   /** When provided, parent owns answer state (used by consultation view auto-save). */
   controlledAnswers?: FormAnswers;
   onControlledAnswersChange?: (answers: FormAnswers) => void;
@@ -43,6 +45,8 @@ export const ConsultationFormRenderer = forwardRef<
     visitDepartmentStatus,
     existingProducts,
     onVisitRefetch,
+    linkedInsurances,
+    visitInsurances,
     initialAnswers = {},
     onChange,
     form,
@@ -69,6 +73,11 @@ export const ConsultationFormRenderer = forwardRef<
       }
     : setInternalAnswers;
 
+  const resolvedLinkedInsurances = useMemo(
+    () => linkedInsurances || visitInsurances || [],
+    [linkedInsurances, visitInsurances],
+  );
+
   const extensionOptions = useMemo(
     (): Omit<
       ConsultationVisitExtensionOptions,
@@ -82,6 +91,7 @@ export const ConsultationFormRenderer = forwardRef<
       visitDepartmentStatus,
       existingProducts,
       onVisitRefetch,
+      linkedInsurances: resolvedLinkedInsurances,
     }),
     [
       visitId,
@@ -92,6 +102,7 @@ export const ConsultationFormRenderer = forwardRef<
       visitDepartmentStatus,
       existingProducts,
       onVisitRefetch,
+      resolvedLinkedInsurances,
     ],
   );
 

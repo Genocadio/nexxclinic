@@ -81,3 +81,78 @@ export function getInsuranceDisplayName(
   return "Insurance"
 }
 
+export interface ProductInsurancePricingResult {
+  price: number
+  coverage: any | null
+  isCovered: boolean
+  coverageDetails: any[]
+  hasZeroPayingCoverages: boolean
+  allCoveragesZeroOrNotCovered: boolean
+}
+
+export function getInsuranceAwarePricing(
+  item: {
+    clinicPrice?: number | null
+    privateRhicPrice?: number | null
+    insuranceCoverages?: any[]
+  },
+  linkedInsurances?: any[]
+): ProductInsurancePricingResult {
+  const privatePrice = Number(item?.clinicPrice ?? item?.privateRhicPrice ?? 0)
+  if (!linkedInsurances || linkedInsurances.length === 0) {
+    return {
+      price: privatePrice,
+      coverage: null,
+      isCovered: false,
+      coverageDetails: [],
+      hasZeroPayingCoverages: false,
+      allCoveragesZeroOrNotCovered: false,
+    }
+  }
+
+  const insuranceProviderIds = new Set(
+    linkedInsurances
+      .map((ins) => ins?.insuranceProvider?.id || (ins as any)?.insuranceProviderId)
+      .filter(Boolean)
+  )
+
+  const matchingCoverages = (item?.insuranceCoverages || []).filter((cov: any) => {
+    const providerId = cov?.insuranceProvider?.id || cov?.insuranceProviderId
+    return providerId && insuranceProviderIds.has(providerId)
+  })
+
+  const validCoverages = matchingCoverages.filter(
+    (c: any) =>
+      c.covered !== false &&
+      !Boolean(c.notPaid) &&
+      Number(c.cost) > 0
+  )
+  const firstCovered = validCoverages[0]
+
+  if (matchingCoverages.length === 0) {
+    return {
+      price: privatePrice,
+      coverage: null,
+      isCovered: false,
+      coverageDetails: [],
+      hasZeroPayingCoverages: false,
+      allCoveragesZeroOrNotCovered: false,
+    }
+  }
+
+  return {
+    price: firstCovered ? Number(firstCovered.cost) : privatePrice,
+    coverage: firstCovered || null,
+    isCovered: Boolean(firstCovered),
+    coverageDetails: matchingCoverages,
+    hasZeroPayingCoverages: matchingCoverages.some(
+      (c: any) =>
+        Number(c.cost) <= 0 ||
+        c.covered === false ||
+        Boolean(c.notPaid)
+    ),
+    allCoveragesZeroOrNotCovered: validCoverages.length === 0,
+  }
+}
+
+

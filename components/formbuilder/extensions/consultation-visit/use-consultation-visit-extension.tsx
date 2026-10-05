@@ -42,6 +42,7 @@ export interface ConsultationVisitExtensionOptions {
   ) => void;
   edit?: boolean;
   onVisitRefetch?: () => void;
+  linkedInsurances?: any[];
 }
 
 function resolveVisitDepartment(
@@ -87,6 +88,7 @@ export function useConsultationVisitExtension(
     existingProducts = [],
     edit = true,
     onVisitRefetch,
+    linkedInsurances = [],
   } = options;
 
   const { doctor } = useAuth();
@@ -430,6 +432,7 @@ export function useConsultationVisitExtension(
         viewMode="service"
         onAdd={handleAddProduct}
         existingProductReferenceIds={existingProductReferenceIds}
+        linkedInsurances={linkedInsurances}
       />
     ),
     [
@@ -439,6 +442,7 @@ export function useConsultationVisitExtension(
       departmentId,
       handleAddProduct,
       existingProductReferenceIds,
+      linkedInsurances,
     ],
   );
 
