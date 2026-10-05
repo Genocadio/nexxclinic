@@ -637,7 +637,7 @@ export default function ManageInsurancesPage() {
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[11px] text-muted-foreground">Department (optional)</label>
+                    <label className="text-[12px] text-muted-foreground">Department (optional)</label>
                     <Select value={ruleDeptId || "__all__"} onValueChange={(v) => setRuleDeptId(v === "__all__" ? "" : v)}>
                       <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950">
                         <SelectValue placeholder="All departments" />
@@ -653,7 +653,7 @@ export default function ManageInsurancesPage() {
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] text-muted-foreground">Encounter Type (optional)</label>
+                    <label className="text-[12px] text-muted-foreground">Encounter Type (optional)</label>
                     <Select value={ruleEncounterType || "__all__"} onValueChange={(v) => setRuleEncounterType(v === "__all__" ? "" : v)}>
                       <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950">
                         <SelectValue placeholder="All types" />
@@ -669,7 +669,7 @@ export default function ManageInsurancesPage() {
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] text-muted-foreground">Patient Share % *</label>
+                    <label className="text-[12px] text-muted-foreground">Patient Share % *</label>
                     <Input
                       type="number"
                       min="0"

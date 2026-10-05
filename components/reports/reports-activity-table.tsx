@@ -278,7 +278,7 @@ export function ReportsActivityTable({
                   <td className="py-3 px-4">
                     <div className="font-medium text-foreground">{item.patientName}</div>
                     {item.patientIdentifier && (
-                      <div className="text-[11px] text-muted-foreground font-mono">
+                      <div className="text-[12px] text-muted-foreground font-mono">
                         {item.patientIdentifier}
                       </div>
                     )}
@@ -294,7 +294,7 @@ export function ReportsActivityTable({
                     {item.status ? (
                       <Badge
                         variant="outline"
-                        className="text-[10px] uppercase tracking-wider py-0 px-1.5 border-border/80 text-muted-foreground"
+                        className="text-[11px] uppercase tracking-wider py-0 px-1.5 border-border/80 text-muted-foreground"
                       >
                         {item.status}
                       </Badge>

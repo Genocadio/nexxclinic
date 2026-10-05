@@ -94,7 +94,7 @@ export function BlockCanvas({ blocks, onChange }: BlockCanvasProps) {
       {/* ── Left sidebar — blocks only ── */}
       <aside className="w-56 shrink-0 flex flex-col border-r border-border bg-muted/20 overflow-hidden">
         <div className="px-3 py-2 border-b border-border shrink-0">
-          <p className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">
+          <p className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground">
             Blocks
           </p>
         </div>

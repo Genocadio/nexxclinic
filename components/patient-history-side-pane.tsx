@@ -18,6 +18,12 @@ interface PatientHistorySidePaneProps {
     answerId: string;
     departmentName: string;
     patientName: string;
+    /**
+     * The department as loaded by the history query, including its products,
+     * diagnostics and medications. The preview renders those blocks from live
+     * visit-department data, so handing it over avoids a second fetch.
+     */
+    visitDepartment: VisitDepartment;
   }) => void;
   onClose: () => void;
 }
@@ -313,6 +319,7 @@ export default function PatientHistorySidePane({
             ? `${visit.patient.firstName || ""} ${visit.patient.lastName || ""}`.trim() ||
               "Unknown patient"
             : "Unknown patient",
+          visitDepartment: dept,
         });
         return;
       }

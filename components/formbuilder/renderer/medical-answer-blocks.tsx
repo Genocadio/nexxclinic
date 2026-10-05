@@ -693,7 +693,7 @@ export function ProductListenerAnswerBlock({
               <span className="flex-1 font-medium truncate">{item.name}</span>
               {item.type && (
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${PTYPE_COLOR[item.type] ?? "bg-muted text-muted-foreground"}`}
+                  className={`text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 ${PTYPE_COLOR[item.type] ?? "bg-muted text-muted-foreground"}`}
                 >
                   {PTYPE_LABEL[item.type] ?? item.type}
                 </span>

@@ -458,7 +458,7 @@ export default function ClinicProfilePage() {
                       className="grid grid-cols-1 md:grid-cols-12 gap-3 rounded-2xl border border-border/50 bg-background/60 p-4"
                     >
                       <div className="md:col-span-3 space-y-2">
-                        <label className="text-[11px] font-semibold text-muted-foreground">
+                        <label className="text-[12px] font-semibold text-muted-foreground">
                           Type
                         </label>
                         <select
@@ -476,7 +476,7 @@ export default function ClinicProfilePage() {
                         </select>
                       </div>
                       <div className="md:col-span-4 space-y-2">
-                        <label className="text-[11px] font-semibold text-muted-foreground">
+                        <label className="text-[12px] font-semibold text-muted-foreground">
                           Value
                         </label>
                         <Input
@@ -490,7 +490,7 @@ export default function ClinicProfilePage() {
                         />
                       </div>
                       <div className="md:col-span-4 space-y-2">
-                        <label className="text-[11px] font-semibold text-muted-foreground">
+                        <label className="text-[12px] font-semibold text-muted-foreground">
                           Description
                         </label>
                         <Input

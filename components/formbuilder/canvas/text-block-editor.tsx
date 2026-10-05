@@ -174,7 +174,7 @@ export function TextBlockEditor({
                             e.preventDefault();
                             addParagraphInlineField(btn.type as any);
                           }}
-                          className="px-1.5 py-1 rounded text-[10px] font-bold text-teal-600 hover:bg-teal-50 transition-colors"
+                          className="px-1.5 py-1 rounded text-[11px] font-bold text-teal-600 hover:bg-teal-50 transition-colors"
                         >
                           {btn.icon}
                         </button>
@@ -215,7 +215,7 @@ export function TextBlockEditor({
         {/* Inline field config (when active) */}
         {isActive && isParagraphBlock && activeParagraphInlineFields.length > 0 && (
           <div className="mt-4 p-3 rounded-xl border border-teal-100 bg-teal-50/30 space-y-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-teal-600/60 mb-1">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-teal-600/60 mb-1">
               Inline Answer Fields
             </p>
             {activeParagraphInlineFields.map((field) => (
@@ -223,7 +223,7 @@ export function TextBlockEditor({
                 key={field.id}
                 className="flex items-center gap-3 bg-background/80 p-2 rounded-lg border border-teal-100/50 shadow-sm"
               >
-                <div className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-md bg-teal-100 text-teal-700 font-bold text-[10px]">
+                <div className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-md bg-teal-100 text-teal-700 font-bold text-[11px]">
                   <PenLine className="h-2.5 w-2.5" />
                   {field.id}
                 </div>
@@ -257,7 +257,7 @@ export function TextBlockEditor({
                     }}
                   />
                 )}
-                <label className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0 cursor-pointer select-none">
+                <label className="flex items-center gap-1 text-[12px] text-muted-foreground shrink-0 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={!!field.required}
@@ -284,7 +284,7 @@ export function TextBlockEditor({
                         minChars: isNaN(val) || val <= 0 ? undefined : val,
                       });
                     }}
-                    className="h-6 w-11 text-[11px] rounded border border-border px-1 text-center bg-background font-mono"
+                    className="h-6 w-11 text-[12px] rounded border border-border px-1 text-center bg-background font-mono"
                   />
                 )}
                 <button

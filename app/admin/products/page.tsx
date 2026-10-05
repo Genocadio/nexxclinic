@@ -848,7 +848,7 @@ export default function ManageProductsPage() {
                           <div className="flex flex-wrap gap-1.5 pt-1">
                             <Badge
                               variant="secondary"
-                              className={cn("text-[11px] gap-1", typeConfig.badgeClass)}
+                              className={cn("text-[12px] gap-1", typeConfig.badgeClass)}
                             >
                               <TypeIcon className="h-3 w-3" />
                               {typeConfig.shortLabel}
@@ -857,7 +857,7 @@ export default function ManageProductsPage() {
                             <Badge
                               variant="secondary"
                               className={cn(
-                                "text-[11px] gap-1",
+                                "text-[12px] gap-1",
                                 isQuantifiable
                                   ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20"
                                   : "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20",
@@ -869,7 +869,7 @@ export default function ManageProductsPage() {
                             {insuranceCount > 0 ? (
                               <Badge
                                 variant="secondary"
-                                className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20 text-[11px] gap-1"
+                                className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20 text-[12px] gap-1"
                               >
                                 <Shield className="h-3 w-3" />
                                 {insuranceCount} insurance{insuranceCount > 1 ? "s" : ""}
@@ -877,7 +877,7 @@ export default function ManageProductsPage() {
                             ) : (
                               <Badge
                                 variant="outline"
-                                className="text-[11px] text-muted-foreground gap-1"
+                                className="text-[12px] text-muted-foreground gap-1"
                               >
                                 No insurance
                               </Badge>
@@ -1041,7 +1041,7 @@ export default function ManageProductsPage() {
                   {(selectedProduct.insuranceCoverages || []).length > 0 && (
                     <Badge
                       variant="secondary"
-                      className="ml-1 text-[10px] px-1.5 py-0 h-4"
+                      className="ml-1 text-[11px] px-1.5 py-0 h-4"
                     >
                       {(selectedProduct.insuranceCoverages || []).length}
                     </Badge>
@@ -1268,7 +1268,7 @@ export default function ManageProductsPage() {
                                       {provider?.acronym && (
                                         <Badge
                                           variant="secondary"
-                                          className="text-[10px]"
+                                          className="text-[11px]"
                                         >
                                           {provider.acronym}
                                         </Badge>

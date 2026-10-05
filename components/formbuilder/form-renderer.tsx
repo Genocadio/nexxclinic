@@ -14,6 +14,7 @@
 
 import React, {
   useCallback,
+  useEffect,
   useMemo,
   useState,
   useRef,
@@ -106,6 +107,23 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
     const [showErrors, setShowErrors] = useState(false);
     const [currentStep, setCurrentStep] = useState(0);
 
+    // Inline answers render from local state seeded once at mount. When the
+    // caller swaps in a different answer set without remounting (consultation
+    // preview switching answers) that state goes stale, so re-seed it. Gated on
+    // a content signature so live edits are never clobbered and a fresh
+    // `initialAnswers` object literal on every render is a no-op.
+    const incomingInlineSignature = useMemo(
+      () => JSON.stringify(initial.inlineAnswers),
+      [initial.inlineAnswers],
+    );
+    useEffect(() => {
+      setInlineAnswers((prev) =>
+        JSON.stringify(prev) === incomingInlineSignature
+          ? prev
+          : initial.inlineAnswers,
+      );
+    }, [incomingInlineSignature, initial.inlineAnswers]);
+
     const { doctor, clinicProfile } = useAuth();
     const context = useMemo(
       () => ({ doctor, clinicProfile }),
@@ -145,8 +163,16 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
           notifyChange(answers, next);
           return next;
         });
+        // Table/paragraph inline answers live in `inlineAnswers`, outside the
+        // answer map. Controlled consumers (consultation auto-save) only watch
+        // `answers`, so mirror the value there as well — otherwise the edit
+        // never triggers a save and is lost on reload. Hydration splits these
+        // `__` keys back out into `inlineAnswers`, so rendering is unaffected.
+        setAnswers((prev) =>
+          prev[key] === value ? prev : { ...prev, [key]: value },
+        );
       },
-      [answers, edit, notifyChange],
+      [answers, edit, notifyChange, setAnswers],
     );
 
     const sections = useMemo(() => {
@@ -412,13 +438,13 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
                       <button
                         key={v.id}
                         onClick={() => scrollToBlock(v.id)}
-                        className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors truncate max-w-30"
+                        className="text-[11px] px-2 py-0.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors truncate max-w-30"
                       >
                         {v.label || "Required Field"}
                       </button>
                     ))}
                     {violations.length > 5 && (
-                      <span className="text-[10px] opacity-70">
+                      <span className="text-[11px] opacity-70">
                         +{violations.length - 5} more
                       </span>
                     )}

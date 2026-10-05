@@ -534,7 +534,7 @@ export function BillingPreviewSheet({
                                   <div key={group.id} className="p-1 border-b last:border-b-0 border-border/50">
                                     {hasIns ? (
                                       <>
-                                        <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                                        <div className="px-2 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                                           {group.insuranceLabel || "Insurance"}
                                         </div>
                                         <DropdownMenuItem
@@ -720,7 +720,7 @@ export function BillingPreviewSheet({
                                         <div className="flex items-center gap-1.5 flex-wrap">
                                           <span>{item.name}</span>
                                           {item.isExempted && (
-                                            <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/50 px-1.5 py-0.2 rounded border border-purple-200 dark:border-purple-800">
+                                            <span className="text-[10px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/50 px-1.5 py-0.2 rounded border border-purple-200 dark:border-purple-800">
                                               Waived
                                             </span>
                                           )}

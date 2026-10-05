@@ -358,7 +358,7 @@ export default function AddActionConsumableModal({
                                             {coverage.insuranceProvider.acronym || coverage.insuranceProvider.insuranceName}
                                           </span>
                                           {isZeroPaying && (
-                                            <span className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded font-medium">
+                                            <span className="text-[11px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded font-medium">
                                               {Number(coverage.cost) === 0 ? "Pays 0 RWF (Not Covered)" : "Not Covered"}
                                             </span>
                                           )}
@@ -369,7 +369,7 @@ export default function AddActionConsumableModal({
                                     <div className="text-muted-foreground flex items-center gap-2">
                                       <span>{formatRWF(pricing.price)}</span>
                                       {linkedInsurances.length > 0 && (
-                                        <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded font-medium">
+                                        <span className="text-[11px] bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded font-medium">
                                           Private (No Insurance Coverage)
                                         </span>
                                       )}
@@ -385,7 +385,7 @@ export default function AddActionConsumableModal({
                             )}
                           </div>
                           {alreadyAdded && (
-                            <span className="rounded-full bg-amber-100 text-amber-800 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em]">
+                            <span className="rounded-full bg-amber-100 text-amber-800 px-2 py-1 text-[12px] font-semibold uppercase tracking-[0.08em]">
                               Already added
                             </span>
                           )}
@@ -416,7 +416,7 @@ export default function AddActionConsumableModal({
                       const proc = processors.find(p => p.id === selectedProcessorId)
                       if (!proc) return null
                       return (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           {proc.firstName} {proc.lastName || ''}
                         </span>
@@ -437,7 +437,7 @@ export default function AddActionConsumableModal({
                                     Unit Price ({coverage.insuranceProvider.acronym || coverage.insuranceProvider.insuranceName}):
                                   </span>
                                   {isZeroPaying && (
-                                    <span className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded font-medium">
+                                    <span className="text-[11px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded font-medium">
                                       {Number(coverage.cost) === 0 ? "Pays 0 RWF (Not Covered)" : "Not Covered"}
                                     </span>
                                   )}
@@ -453,7 +453,7 @@ export default function AddActionConsumableModal({
                             <div className="flex items-center gap-2">
                               <span className="text-muted-foreground">Private Price:</span>
                               {linkedInsurances.length > 0 && (
-                                <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded font-medium">
+                                <span className="text-[11px] bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded font-medium">
                                   Not Covered by Insurance
                                 </span>
                               )}

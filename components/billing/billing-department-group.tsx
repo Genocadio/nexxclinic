@@ -97,10 +97,10 @@ export function BillingDepartmentGroup({
               <span className="text-xs font-bold text-foreground">
                 {deptName}
               </span>
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                 <Badge
                   variant="outline"
-                  className="text-[10px] px-1.5 py-0 h-5 rounded-full"
+                  className="text-[11px] px-1.5 py-0 h-5 rounded-full"
                 >
                   {completedTime ? "Completed" : "In progress"}
                 </Badge>
@@ -140,7 +140,7 @@ export function BillingDepartmentGroup({
               <tr className="bg-muted/30 border-b border-border/70">
                 <td
                   colSpan={colCount}
-                  className="py-1.5 px-3 text-[11px] text-muted-foreground"
+                  className="py-1.5 px-3 text-[12px] text-muted-foreground"
                 >
                   {deptName} / {childGroup}
                 </td>
@@ -188,7 +188,7 @@ export function BillingDepartmentGroup({
             <div>
               {formatRWF(groupTotals.patientResponsibility)}
               {groupTotals.waivedTotal > 0 && (
-                <span className="block text-[10px] font-normal text-purple-600 dark:text-purple-400">
+                <span className="block text-[11px] font-normal text-purple-600 dark:text-purple-400">
                   (Waived: {formatRWF(groupTotals.waivedTotal)})
                 </span>
               )}

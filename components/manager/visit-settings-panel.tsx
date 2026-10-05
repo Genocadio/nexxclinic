@@ -227,6 +227,8 @@ export function VisitSettingsPanel({
     answerId: string | null
     departmentName: string
     patientName: string
+    visitId: string
+    visitDepartmentId: string
     visitDepartment: Visit["departments"][number] | null
   } | null>(null)
 
@@ -858,6 +860,8 @@ export function VisitSettingsPanel({
       answerId: dept.answerId,
       departmentName: dept.department?.name || "Department",
       patientName: `${visit.patient.firstName} ${visit.patient.lastName}`.trim(),
+      visitId: String(visit.id),
+      visitDepartmentId: String(dept.id),
       visitDepartment: dept,
     })
     setConsultationPreviewOpen(true)
@@ -1295,7 +1299,7 @@ export function VisitSettingsPanel({
                               <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                                 Status: <span className="font-semibold text-foreground">{dept.status}</span>
                                 {dept.status === "DEPARTMENT_EDITING" && (
-                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300">
+                                  <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300">
                                     Editing Active
                                   </span>
                                 )}
@@ -1539,7 +1543,7 @@ export function VisitSettingsPanel({
                                   </button>
                                 </div>
                               )}
-                              <p className="text-[11px] text-muted-foreground mt-1">
+                              <p className="text-[12px] text-muted-foreground mt-1">
                                 Sets the encounter timestamp for this department
                               </p>
                             </div>
@@ -1631,7 +1635,7 @@ export function VisitSettingsPanel({
                                             </button>
                                           </div>
                                         )}
-                                        <p className="text-[10px] text-muted-foreground">
+                                        <p className="text-[11px] text-muted-foreground">
                                           Must be at least 5 minutes after this department&apos;s encounter date
                                         </p>
                                       </div>
@@ -1712,11 +1716,11 @@ export function VisitSettingsPanel({
                                       <p className="text-sm font-medium text-foreground truncate">
                                         {assigned.name}
                                       </p>
-                                      <p className="text-[11px] text-muted-foreground truncate">
+                                      <p className="text-[12px] text-muted-foreground truncate">
                                         {assigned.encounterType || profileDept?.encounterType || "No encounter type"}
                                       </p>
                                     </div>
-                                    <span className="shrink-0 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                                    <span className="shrink-0 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
                                       Active
                                     </span>
                                   </div>
@@ -1766,7 +1770,7 @@ export function VisitSettingsPanel({
                                         type="button"
                                         onClick={() => handleRemoveDepartmentProfile(dept.id)}
                                         disabled={removingProfile || changingProfile}
-                                        className="mt-1.5 px-2 py-1 text-[11px] font-medium text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                        className="mt-1.5 px-2 py-1 text-[12px] font-medium text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                                       >
                                         {removingProfile ? "Removing..." : "Remove profile"}
                                       </button>
@@ -1774,18 +1778,18 @@ export function VisitSettingsPanel({
                                   </>
                                 )}
                                 {canManageProfile && !loading && (dept.status === "COMPLETED" || dept.status === "FINALISED") && (
-                                  <p className="text-[11px] text-muted-foreground mt-1">
+                                  <p className="text-[12px] text-muted-foreground mt-1">
                                     Profile is locked on {dept.status.toLowerCase()} departments. Use
                                     &quot;Edit Billing&quot; on the billing page to enter edit mode first.
                                   </p>
                                 )}
                                 {canManageProfile && !loading && dept.status === "BILLING" && (
-                                  <p className="text-[11px] text-muted-foreground mt-1">
+                                  <p className="text-[12px] text-muted-foreground mt-1">
                                     Profile is locked while the department is in billing.
                                   </p>
                                 )}
                                 {canManageProfile && !loading && dept.status === "DEPARTMENT_EDITING" && (
-                                  <p className="text-[11px] text-muted-foreground mt-1">
+                                  <p className="text-[12px] text-muted-foreground mt-1">
                                     Department is in billing edit mode.
                                   </p>
                                 )}
@@ -1928,6 +1932,8 @@ export function VisitSettingsPanel({
         answerId={consultationPreviewContext?.answerId ?? null}
         departmentName={consultationPreviewContext?.departmentName}
         patientName={consultationPreviewContext?.patientName}
+        visitId={consultationPreviewContext?.visitId}
+        visitDepartmentId={consultationPreviewContext?.visitDepartmentId}
         visitDepartment={consultationPreviewContext?.visitDepartment ?? null}
       />
     </>

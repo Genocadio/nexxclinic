@@ -78,7 +78,7 @@ export function DashboardFilterCardContent({
           <SlidersHorizontal className="w-4 h-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">Filter Visits</span>
           {activeFilterCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold">
+            <span className="px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[11px] font-bold">
               {activeFilterCount} active
             </span>
           )}
@@ -319,7 +319,7 @@ export function DashboardFilterCardContent({
               <button
                 type="button"
                 onClick={() => setDobFilter("")}
-                className="px-2 py-1.5 text-[11px] text-muted-foreground hover:text-foreground border border-border/60 rounded-lg transition-colors cursor-pointer"
+                className="px-2 py-1.5 text-[12px] text-muted-foreground hover:text-foreground border border-border/60 rounded-lg transition-colors cursor-pointer"
               >
                 Clear
               </button>
@@ -346,7 +346,7 @@ export function DashboardFilterCardContent({
                   <Loader2 className="w-3 h-3 animate-spin text-primary ml-auto" />
                 )}
               </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+              <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug">
                 Query complete historical backend records beyond the 7-day operational window.
               </p>
             </div>
@@ -356,7 +356,7 @@ export function DashboardFilterCardContent({
 
       {/* Popover Footer */}
       <div className="flex items-center justify-between pt-2 border-t border-border/40">
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-[12px] text-muted-foreground">
           {typeof matchCount === "number" ? `${matchCount} visits match` : ""}
         </span>
         {onClose && (
@@ -392,7 +392,7 @@ export function DashboardFilterPopover(props: DashboardFilterCardProps) {
         >
           <SlidersHorizontal className="w-4 h-4" />
           {props.activeFilterCount > 0 && (
-            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold shadow-xs ring-2 ring-background">
+            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold shadow-xs ring-2 ring-background">
               {props.activeFilterCount}
             </span>
           )}

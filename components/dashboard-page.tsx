@@ -660,6 +660,8 @@ export default function DashboardPage() {
     answerId: string | null
     departmentName: string
     patientName: string
+    visitId: string | null
+    visitDepartmentId: string | null
     visitDepartment: Visit["departments"][number] | null
     previewStartedAt: number
   } | null>(null)
@@ -898,7 +900,7 @@ export default function DashboardPage() {
               <p className="font-semibold text-blue-600 dark:text-blue-400">
                 Patient is in billing
               </p>
-              <p className="text-muted-foreground text-[11px] mt-0.5">
+              <p className="text-muted-foreground text-[12px] mt-0.5">
                 {hasDeptEditing
                   ? "Finance is currently editing invoice."
                   : isReady
@@ -911,7 +913,7 @@ export default function DashboardPage() {
               <p className="font-semibold text-emerald-600 dark:text-emerald-400">
                 Billing completed
               </p>
-              <p className="text-muted-foreground text-[11px] mt-0.5">
+              <p className="text-muted-foreground text-[12px] mt-0.5">
                 All services have been billed.
               </p>
             </div>
@@ -992,12 +994,12 @@ export default function DashboardPage() {
           <p className="font-semibold text-foreground text-xs truncate">
             {dept.department?.name || "Department"} Products
           </p>
-          <span className="text-[10px] text-muted-foreground font-mono bg-muted/60 px-1.5 py-0.5 rounded border border-border/40">
+          <span className="text-[11px] text-muted-foreground font-mono bg-muted/60 px-1.5 py-0.5 rounded border border-border/40">
             {allProducts.length} {allProducts.length === 1 ? "item" : "items"}
           </span>
         </div>
         {allProducts.length === 0 ? (
-          <p className="text-muted-foreground text-[11px] italic py-0.5">No products added</p>
+          <p className="text-muted-foreground text-[12px] italic py-0.5">No products added</p>
         ) : (
           <div className="max-h-48 overflow-y-auto space-y-1.5 pr-0.5">
             {allProducts.map((p: any, idx: number) => {
@@ -1010,7 +1012,7 @@ export default function DashboardPage() {
               return (
                 <div
                   key={p.id || idx}
-                  className="flex items-center justify-between gap-2 text-[11px] py-1 px-1.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                  className="flex items-center justify-between gap-2 text-[12px] py-1 px-1.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
                 >
                   <span
                     className="text-foreground font-medium truncate flex-1"
@@ -1020,12 +1022,12 @@ export default function DashboardPage() {
                   </span>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {p.quantity && (
-                      <span className="text-muted-foreground font-mono text-[10px]">
+                      <span className="text-muted-foreground font-mono text-[11px]">
                         x{p.quantity}
                       </span>
                     )}
                     <span
-                      className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
                         isBilled
                           ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
                           : isUnpaid
@@ -1066,7 +1068,7 @@ export default function DashboardPage() {
               {fullName}
             </h4>
             {patient.patientIdentifier && (
-              <span className="font-mono text-[10px] bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-md border border-primary/20 shrink-0">
+              <span className="font-mono text-[11px] bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-md border border-primary/20 shrink-0">
                 {patient.patientIdentifier}
               </span>
             )}
@@ -1075,10 +1077,10 @@ export default function DashboardPage() {
 
         {/* Demographics Details */}
         <div className="space-y-1.5 bg-muted/30 rounded-xl p-2.5 border border-border/40">
-          <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
+          <p className="text-[11px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
             Demographics
           </p>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px]">
             <div>
               <span className="text-muted-foreground">Age / DOB:</span>{" "}
               <span className="font-medium text-foreground">
@@ -1121,11 +1123,11 @@ export default function DashboardPage() {
         {/* Insurance Applied to this Visit */}
         <div className="space-y-1.5 bg-muted/30 rounded-xl p-2.5 border border-border/40">
           <div className="flex items-center justify-between gap-1 mb-1">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+            <div className="flex items-center gap-1.5 text-[11px] uppercase font-bold text-muted-foreground tracking-wider">
               <Shield className="w-3.5 h-3.5 text-primary" />
               <span>Applied Insurance</span>
             </div>
-            <span className="text-[10px] font-medium text-muted-foreground">
+            <span className="text-[11px] font-medium text-muted-foreground">
               {linkedInsurances.length > 0 ? `${linkedInsurances.length} linked` : "Self-pay"}
             </span>
           </div>
@@ -1138,23 +1140,23 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={ins.id || idx}
-                    className="p-2 rounded-lg bg-card/80 border border-border/60 shadow-2xs space-y-1 text-[11px]"
+                    className="p-2 rounded-lg bg-card/80 border border-border/60 shadow-2xs space-y-1 text-[12px]"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-foreground">
                         {providerName} {acronym ? `(${acronym})` : ""}
                       </span>
-                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
                         {ins.principalMember ? "Principal" : "Beneficiary"}
                       </span>
                     </div>
                     {ins.insuranceCardNumber && (
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-[11px] text-muted-foreground">
                         Card No: <span className="font-mono font-medium text-foreground">{ins.insuranceCardNumber}</span>
                       </p>
                     )}
                     {ins.providingCompanyOrEmployer && (
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-[11px] text-muted-foreground">
                         Employer: <span className="font-medium text-foreground">{ins.providingCompanyOrEmployer}</span>
                       </p>
                     )}
@@ -1163,11 +1165,11 @@ export default function DashboardPage() {
               })}
             </div>
           ) : (
-            <div className="p-2 rounded-lg bg-card/60 border border-border/40 text-[11px] text-muted-foreground space-y-0.5">
+            <div className="p-2 rounded-lg bg-card/60 border border-border/40 text-[12px] text-muted-foreground space-y-0.5">
               <p className="font-semibold text-foreground">
                 Private / Self-paying
               </p>
-              <p className="text-[10px]">
+              <p className="text-[11px]">
                 No insurance applied to this visit (Patient settles directly).
               </p>
             </div>
@@ -1308,6 +1310,10 @@ export default function DashboardPage() {
       departmentName,
       patientName:
         `${visit.patient.firstName} ${visit.patient.lastName}`.trim(),
+      visitId: String(visit.id),
+      visitDepartmentId: matchedClosedDepartment?.id
+        ? String(matchedClosedDepartment.id)
+        : null,
       visitDepartment: matchedClosedDepartment || null,
       previewStartedAt,
     })
@@ -1807,6 +1813,8 @@ export default function DashboardPage() {
       answerId,
       departmentName,
       patientName: `${visit.patient.firstName} ${visit.patient.lastName}`.trim(),
+      visitId: String(visit.id),
+      visitDepartmentId: completedDept?.id ? String(completedDept.id) : null,
       visitDepartment: completedDept || null,
       previewStartedAt: Date.now(),
     })
@@ -2284,7 +2292,7 @@ export default function DashboardPage() {
                                     </>
                                   )}
                                   {totalNewNotes > 0 && (
-                                    <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full">
+                                    <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full">
                                       {totalNewNotes}
                                     </span>
                                   )}
@@ -2418,18 +2426,18 @@ export default function DashboardPage() {
                                         {isPillActive &&
                                           activeDeptInfo.duration &&
                                           canSeeActivePillDuration && (
-                                            <span className="text-[10px] text-muted-foreground font-normal">
+                                            <span className="text-[11px] text-muted-foreground font-normal">
                                               • {activeDeptInfo.duration}
                                             </span>
                                           )}
                                         {isPillPending && (
-                                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                          <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
                                             (Pending)
                                           </span>
                                         )}
                                         {activeDeptInfo.allDepts.length >
                                           1 && (
-                                          <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.2 rounded-full">
+                                          <span className="text-[11px] bg-primary/10 text-primary font-bold px-1.5 py-0.2 rounded-full">
                                             {
                                               activeDeptInfo.allDepts
                                                 .length
@@ -2456,7 +2464,7 @@ export default function DashboardPage() {
                                                 <h4 className="font-semibold text-xs text-foreground">
                                                   Visit Departments
                                                 </h4>
-                                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                                                   {
                                                     activeDeptInfo.allDepts
                                                       .length
@@ -2480,19 +2488,19 @@ export default function DashboardPage() {
                                                       <span className="font-semibold text-xs text-foreground">
                                                         Triage / Check-in
                                                       </span>
-                                                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                                      <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                                                         In Progress
                                                       </span>
                                                     </div>
                                                     {canSeeTriageTimes && (
                                                       <>
-                                                        <p className="text-[11px] text-muted-foreground">
+                                                        <p className="text-[12px] text-muted-foreground">
                                                           Checked in:{" "}
                                                           {formatDepartmentTime(
                                                             visit.visitDate,
                                                           )}
                                                         </p>
-                                                        <p className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
+                                                        <p className="text-[12px] font-medium text-blue-600 dark:text-blue-400">
                                                           Time in triage:{" "}
                                                           {formatDepartmentDuration(
                                                             visit.visitDate,
@@ -2580,7 +2588,7 @@ export default function DashboardPage() {
                                                                 {canUserSeeDeptAnswerStatus(dept) && (
                                                                   dept.hasFinalizedConsultationAnswers ? (
                                                                     <span
-                                                                      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                                                      className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                                                                       title="Consultation answers finalised"
                                                                     >
                                                                       <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
@@ -2588,7 +2596,7 @@ export default function DashboardPage() {
                                                                     </span>
                                                                   ) : dept.answerId ? (
                                                                     <span
-                                                                      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                                                      className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
                                                                       title="Consultation answers in draft"
                                                                     >
                                                                       <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
@@ -2596,7 +2604,7 @@ export default function DashboardPage() {
                                                                     </span>
                                                                   ) : (
                                                                     <span
-                                                                      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full text-muted-foreground bg-muted/40 border border-border/40"
+                                                                      className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full text-muted-foreground bg-muted/40 border border-border/40"
                                                                       title="No consultation answers recorded"
                                                                     >
                                                                       <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
@@ -2605,7 +2613,7 @@ export default function DashboardPage() {
                                                                   )
                                                                 )}
                                                                 <span
-                                                                  className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                                                  className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
                                                                     isActive
                                                                       ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/20"
                                                                       : isCompleted
@@ -2643,12 +2651,12 @@ export default function DashboardPage() {
                                                             </div>
 
                                                             {canSeeThisDeptTimes && (
-                                                              <div className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
+                                                              <div className="mt-1.5 space-y-0.5 text-[12px] text-muted-foreground">
                                                                 <div className="flex items-center justify-between">
                                                                   <span>
                                                                     Created:
                                                                   </span>
-                                                                  <span className="font-mono text-[10px]">
+                                                                  <span className="font-mono text-[11px]">
                                                                     {formatDepartmentTime(
                                                                       dept.createdAt,
                                                                       visit.visitDate,
@@ -2662,7 +2670,7 @@ export default function DashboardPage() {
                                                                       <span>
                                                                         Completed:
                                                                       </span>
-                                                                      <span className="font-mono text-[10px]">
+                                                                      <span className="font-mono text-[11px]">
                                                                         {formatDepartmentTime(
                                                                           dept.completedAt,
                                                                         )}
@@ -2714,7 +2722,7 @@ export default function DashboardPage() {
 
                                                             {!canSeeThisDeptTimes &&
                                                               isPending && (
-                                                                <div className="mt-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                                                                <div className="mt-1.5 text-[12px] text-amber-600 dark:text-amber-400 font-medium">
                                                                   Status:
                                                                   Pending (Not
                                                                   yet started)
@@ -2725,7 +2733,7 @@ export default function DashboardPage() {
                                                               dept.notes
                                                                 .newNotes >
                                                                 0 && (
-                                                                <div className="mt-1.5 pt-1.5 border-t border-border/30 text-[10px] text-rose-600 dark:text-rose-400 font-medium">
+                                                                <div className="mt-1.5 pt-1.5 border-t border-border/30 text-[11px] text-rose-600 dark:text-rose-400 font-medium">
                                                                   {
                                                                     dept.notes
                                                                       .newNotes
@@ -2745,7 +2753,7 @@ export default function DashboardPage() {
                                                                 <div className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between">
                                                                   <Tooltip>
                                                                     <TooltipTrigger asChild>
-                                                                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/15 hover:bg-secondary/30 text-[11px] text-foreground font-medium cursor-help transition-all border border-border/50 shadow-2xs hover:border-border">
+                                                                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/15 hover:bg-secondary/30 text-[12px] text-foreground font-medium cursor-help transition-all border border-border/50 shadow-2xs hover:border-border">
                                                                         <Package className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                                                                         <span>
                                                                           {allDeptProducts.length} product{allDeptProducts.length === 1 ? "" : "s"}
@@ -3074,7 +3082,7 @@ export default function DashboardPage() {
                                           className="h-9 w-9 sm:h-10 sm:w-10 bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center relative"
                                         >
                                           <ReceiptText className="w-4 h-4 flex-shrink-0" />
-                                          <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center border border-white">
+                                          <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-amber-500 text-white text-[11px] font-bold flex items-center justify-center border border-white">
                                             ✎
                                           </span>
                                         </button>
@@ -3102,7 +3110,7 @@ export default function DashboardPage() {
                                           <ReceiptText
                                             className={`w-4 h-4 flex-shrink-0 ${printingVisitId === visit.id ? "animate-spin" : ""}`}
                                           />
-                                          <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center border border-white">
+                                          <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-emerald-500 text-white text-[11px] font-bold flex items-center justify-center border border-white">
                                             ✓
                                           </span>
                                         </button>
@@ -3355,12 +3363,17 @@ export default function DashboardPage() {
             answerId,
             departmentName,
             patientName,
+            visitId,
+            visitDepartmentId,
+            visitDepartment,
           }) => {
             setPreviewConsultationContext({
               answerId,
               departmentName,
               patientName,
-              visitDepartment: null,
+              visitId: visitId || null,
+              visitDepartmentId: visitDepartmentId || null,
+              visitDepartment: visitDepartment || null,
               previewStartedAt: Date.now(),
             })
             setPreviewConsultationOpen(true)
@@ -3413,6 +3426,8 @@ export default function DashboardPage() {
         answerId={previewConsultationContext?.answerId || null}
         departmentName={previewConsultationContext?.departmentName}
         patientName={previewConsultationContext?.patientName}
+        visitId={previewConsultationContext?.visitId}
+        visitDepartmentId={previewConsultationContext?.visitDepartmentId}
         visitDepartment={previewConsultationContext?.visitDepartment || null}
         previewStartedAt={previewConsultationContext?.previewStartedAt || null}
       />

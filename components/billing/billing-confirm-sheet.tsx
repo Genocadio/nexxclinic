@@ -212,24 +212,24 @@ export function BillingConfirmSheet({
             <div className="space-y-2">
               {hasAnyDiffs && (
                 <div className="flex items-center justify-between gap-2 px-1 py-1 rounded-lg bg-muted/40 border border-border">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1">
+                  <span className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide px-1">
                     Pending Edits
                   </span>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {addedCount > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         +{addedCount} Added
                       </span>
                     )}
                     {modifiedCount > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                         ~{modifiedCount} Modified
                       </span>
                     )}
                     {removedCount > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/40 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/40 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded-full">
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                         −{removedCount} Removed
                       </span>
@@ -265,29 +265,29 @@ export function BillingConfirmSheet({
                             {item.name}
                           </p>
                           {isExempted && (
-                            <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded-full">
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded-full">
                               {exemptionType === "full" ? "100% EXEMPTED" : "SHARE WAIVED"}
                             </span>
                           )}
                           {changeType === "added" && (
-                            <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
                               <span className="w-1 h-1 rounded-full bg-emerald-500" />
                               ADDED
                             </span>
                           )}
                           {changeType === "modified" && (
-                            <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full">
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full">
                               <span className="w-1 h-1 rounded-full bg-amber-500" />
                               MODIFIED
                             </span>
                           )}
                           {item.processorName && (
-                            <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
                               {item.processorName}
                             </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
                           {item.quantity} × {formatRWF(item.price)}
                           {item.selectedInsuranceId ? (split.insuranceAmount > 0 ? ` • Ins: ${formatRWF(split.insuranceAmount)}` : " • Insurance") : " • Private"}
                           {isExempted ? " • Waived in billing" : ""}
@@ -295,7 +295,7 @@ export function BillingConfirmSheet({
                       </div>
                       {isExempted ? (
                         <div className="flex flex-col items-end shrink-0">
-                          <span className="line-through text-muted-foreground text-[11px] tabular-nums">
+                          <span className="line-through text-muted-foreground text-[12px] tabular-nums">
                             {formatRWF(exemptionType === "full" ? split.rawItemTotal : split.rawPatientAmount)}
                           </span>
                           <span className="font-semibold text-purple-700 dark:text-purple-300 text-xs tabular-nums">
@@ -307,7 +307,7 @@ export function BillingConfirmSheet({
                           <span className="font-semibold tabular-nums text-xs">
                             {formatRWF(split.patientAmount)}
                           </span>
-                          <span className="text-[10px] text-muted-foreground tabular-nums">
+                          <span className="text-[11px] text-muted-foreground tabular-nums">
                             Ins: {formatRWF(split.insuranceAmount)}
                           </span>
                         </div>
@@ -335,12 +335,12 @@ export function BillingConfirmSheet({
                             <p className="font-medium truncate text-muted-foreground line-through">
                               {item.name}
                             </p>
-                            <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/40 border border-rose-200 dark:border-rose-800 px-1.5 py-0.5 rounded-full">
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/40 border border-rose-200 dark:border-rose-800 px-1.5 py-0.5 rounded-full">
                               <span className="w-1 h-1 rounded-full bg-rose-500" />
                               REMOVED
                             </span>
                           </div>
-                          <p className="text-[10px] text-muted-foreground line-through mt-0.5">
+                          <p className="text-[11px] text-muted-foreground line-through mt-0.5">
                             {item.quantity} × {formatRWF(item.price)}
                           </p>
                         </div>
@@ -409,7 +409,7 @@ export function BillingConfirmSheet({
                 className="mt-1 h-9 tabular-nums"
               />
               {amountPaid > totals.totalAmount ? (
-                <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                <p className="text-[12px] text-amber-600 dark:text-amber-400 mt-1">
                   Amount paid cannot exceed the total amount due — it has been
                   capped at {formatRWF(totals.totalAmount)}.
                 </p>
@@ -422,7 +422,7 @@ export function BillingConfirmSheet({
                   Payment method
                 </label>
                 {(amountPaid === 0 || totals.totalAmount === 0) && (
-                  <span className="text-[10px] text-muted-foreground italic">
+                  <span className="text-[11px] text-muted-foreground italic">
                     (No payment required / 0 paid)
                   </span>
                 )}
@@ -460,7 +460,7 @@ export function BillingConfirmSheet({
                 <p className="text-xs font-medium text-foreground mb-2">
                   Outstanding balance
                 </p>
-                <p className="text-[11px] text-muted-foreground mb-2">
+                <p className="text-[12px] text-muted-foreground mb-2">
                   {formatRWF(outstanding)} unpaid — classify as:
                 </p>
                 <div className="flex gap-2">
@@ -494,7 +494,7 @@ export function BillingConfirmSheet({
                     Billing note
                   </span>
                   {noteRequired && (
-                    <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                    <p className="text-[12px] text-amber-600 dark:text-amber-400 mt-1">
                       {hasExemptions
                         ? "Required — an item is exempted"
                         : "Required — payment does not cover the full amount"}

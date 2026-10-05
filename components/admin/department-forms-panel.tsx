@@ -115,7 +115,7 @@ export function DepartmentFormsPanel({
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium truncate">{form.name}</span>
                   {isDefault && (
-                    <Badge variant="secondary" className="text-[10px] gap-1">
+                    <Badge variant="secondary" className="text-[11px] gap-1">
                       <Star className="h-3 w-3" /> Default
                     </Badge>
                   )}

@@ -192,7 +192,7 @@ export function ReportsPeriodSelector({
           <div className="flex items-center gap-1.5">
             <Badge
               variant="outline"
-              className="text-[10px] py-0 px-1.5 uppercase font-mono"
+              className="text-[11px] py-0 px-1.5 uppercase font-mono"
             >
               {period}
             </Badge>
@@ -256,7 +256,7 @@ export function ReportsPeriodSelector({
                   ))}
                 </select>
                 {navYear === currentYear && (
-                  <span className="text-[9px] font-bold text-primary bg-primary/15 px-1.5 py-0.5 rounded-md">
+                  <span className="text-[10px] font-bold text-primary bg-primary/15 px-1.5 py-0.5 rounded-md">
                     Current
                   </span>
                 )}
@@ -333,7 +333,7 @@ export function ReportsPeriodSelector({
                   setIsOpen(false)
                 }}
                 className={cn(
-                  "flex-1 py-1.5 px-2 rounded-xl text-[11px] font-medium transition-all text-center cursor-pointer border",
+                  "flex-1 py-1.5 px-2 rounded-xl text-[12px] font-medium transition-all text-center cursor-pointer border",
                   period === "today"
                     ? "bg-primary text-primary-foreground font-semibold border-primary shadow-xs"
                     : "bg-muted/30 hover:bg-muted text-foreground border-border/40"
@@ -348,7 +348,7 @@ export function ReportsPeriodSelector({
                   setIsOpen(false)
                 }}
                 className={cn(
-                  "flex-1 py-1.5 px-2 rounded-xl text-[11px] font-medium transition-all text-center cursor-pointer border",
+                  "flex-1 py-1.5 px-2 rounded-xl text-[12px] font-medium transition-all text-center cursor-pointer border",
                   period === "week"
                     ? "bg-primary text-primary-foreground font-semibold border-primary shadow-xs"
                     : "bg-muted/30 hover:bg-muted text-foreground border-border/40"
@@ -363,7 +363,7 @@ export function ReportsPeriodSelector({
           <div className="space-y-3 py-1">
             {/* Quick Preset Buttons Above (This Week, Previous Week, Today, Yesterday) */}
             <div>
-              <span className="text-[10px] font-semibold text-muted-foreground mb-1.5 block">
+              <span className="text-[11px] font-semibold text-muted-foreground mb-1.5 block">
                 Quick Presets
               </span>
               <div className="grid grid-cols-2 gap-1.5">
@@ -440,12 +440,12 @@ export function ReportsPeriodSelector({
 
             {/* Custom From/To Date Inputs (max clamped to today) */}
             <div className="pt-2.5 border-t border-border/50 space-y-2">
-              <span className="text-[10px] font-semibold text-muted-foreground block">
+              <span className="text-[11px] font-semibold text-muted-foreground block">
                 Custom Range
               </span>
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] font-medium text-muted-foreground mb-1 block">
+                  <label className="text-[11px] font-medium text-muted-foreground mb-1 block">
                     From
                   </label>
                   <Input
@@ -462,7 +462,7 @@ export function ReportsPeriodSelector({
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-medium text-muted-foreground mb-1 block">
+                  <label className="text-[11px] font-medium text-muted-foreground mb-1 block">
                     To
                   </label>
                   <Input

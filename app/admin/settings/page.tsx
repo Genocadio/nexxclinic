@@ -221,7 +221,7 @@ export default function AdminSettingsPage() {
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                   System Settings
                 </h1>
-                <Badge variant="outline" className="text-[11px] bg-primary/5 text-primary border-primary/20">
+                <Badge variant="outline" className="text-[12px] bg-primary/5 text-primary border-primary/20">
                   Admin Configuration
                 </Badge>
               </div>
@@ -326,7 +326,7 @@ export default function AdminSettingsPage() {
                               {option.badge && (
                                 <Badge
                                   variant="secondary"
-                                  className={`text-[10px] px-1.5 py-0 ${
+                                  className={`text-[11px] px-1.5 py-0 ${
                                     option.key === "a4p"
                                       ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                                       : option.key === "a4l"
@@ -349,7 +349,7 @@ export default function AdminSettingsPage() {
                         {isCurrentSaved && (
                           <Badge
                             variant="outline"
-                            className="text-[10px] px-2 py-0.5 bg-background border-border text-muted-foreground"
+                            className="text-[11px] px-2 py-0.5 bg-background border-border text-muted-foreground"
                           >
                             Current Default
                           </Badge>
@@ -362,7 +362,7 @@ export default function AdminSettingsPage() {
                           {option.bestFor}
                         </p>
 
-                        <div className="grid grid-cols-2 gap-2 text-[11px] pt-2 border-t border-border/40 text-muted-foreground">
+                        <div className="grid grid-cols-2 gap-2 text-[12px] pt-2 border-t border-border/40 text-muted-foreground">
                           <div>
                             <span className="font-semibold text-foreground/70">Dimensions: </span>
                             {option.dimensions}
@@ -384,7 +384,7 @@ export default function AdminSettingsPage() {
 
                       {/* Bottom actions: Preview sample */}
                       <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-[12px] text-muted-foreground">
                           {option.dimensionsInches}
                         </span>
 

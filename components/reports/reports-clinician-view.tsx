@@ -498,7 +498,7 @@ export function ReportsClinicianView({
             Encounters & Demographics
             <Badge
               variant="secondary"
-              className={`text-[10px] py-0 px-1.5 ml-1 ${
+              className={`text-[11px] py-0 px-1.5 ml-1 ${
                 activeTab === "encounters"
                   ? "bg-primary-foreground/20 text-primary-foreground"
                   : "bg-muted text-muted-foreground"
@@ -525,7 +525,7 @@ export function ReportsClinicianView({
             Finance & Turnover
             <Badge
               variant="secondary"
-              className={`text-[10px] py-0 px-1.5 ml-1 ${
+              className={`text-[11px] py-0 px-1.5 ml-1 ${
                 activeTab === "finance"
                   ? "bg-primary-foreground/20 text-primary-foreground"
                   : "bg-muted text-muted-foreground"
@@ -582,7 +582,7 @@ export function ReportsClinicianView({
                 </div>
               </div>
               <p className="text-2xl font-bold text-foreground mt-2">{currentDemographics.totalPatients}</p>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-[12px] text-muted-foreground mt-1">
                 {currentDemographics.totalEncounters} total consultations
               </p>
             </div>
@@ -604,7 +604,7 @@ export function ReportsClinicianView({
                   {currentDemographics.femaleCount}F
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground">
+              <div className="flex items-center gap-1.5 mt-1 text-[12px] text-muted-foreground">
                 <span>
                   {currentDemographics.totalEncounters > 0
                     ? `${Math.round((currentDemographics.maleCount / currentDemographics.totalEncounters) * 100)}% Male`
@@ -630,7 +630,7 @@ export function ReportsClinicianView({
               <p className="text-2xl font-bold text-foreground mt-2">
                 {currentDemographics.averageAge != null ? `${currentDemographics.averageAge} yrs` : "N/A"}
               </p>
-              <div className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground truncate">
+              <div className="flex items-center gap-1 mt-1 text-[12px] text-muted-foreground truncate">
                 <span>&lt;18: {currentDemographics.ageBrackets.under18}</span>
                 <span>•</span>
                 <span>18-50: {currentDemographics.ageBrackets.adults18to50}</span>
@@ -654,7 +654,7 @@ export function ReportsClinicianView({
                   ? "N/A"
                   : "—"}
               </p>
-              <p className="text-[11px] text-muted-foreground mt-1">Consultation duration</p>
+              <p className="text-[12px] text-muted-foreground mt-1">Consultation duration</p>
             </div>
 
             {/* 5. High Activity / Peak Time */}
@@ -668,7 +668,7 @@ export function ReportsClinicianView({
               <p className="text-base sm:text-lg font-bold text-foreground mt-2 truncate">
                 {currentDemographics.peakActivityHour}
               </p>
-              <p className="text-[11px] text-muted-foreground mt-1">Peak consultation volume</p>
+              <p className="text-[12px] text-muted-foreground mt-1">Peak consultation volume</p>
             </div>
           </div>
 
@@ -739,11 +739,11 @@ export function ReportsClinicianView({
               {/* Total Generated */}
               <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <span className="text-[11px] font-medium text-muted-foreground block truncate">Total Generated</span>
+                  <span className="text-[12px] font-medium text-muted-foreground block truncate">Total Generated</span>
                   <p className="text-base sm:text-lg font-bold text-foreground truncate mt-0.5">
                     {formatRWF(currentFinanceStats.totalGross)}
                   </p>
-                  <p className="text-[10px] text-muted-foreground truncate">
+                  <p className="text-[11px] text-muted-foreground truncate">
                     {selectedDepartment === "ALL" ? "Across all departments" : selectedDepartment}
                   </p>
                 </div>
@@ -755,11 +755,11 @@ export function ReportsClinicianView({
               {/* Insurance Covered */}
               <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <span className="text-[11px] font-medium text-muted-foreground block truncate">Insurance Covered</span>
+                  <span className="text-[12px] font-medium text-muted-foreground block truncate">Insurance Covered</span>
                   <p className="text-base sm:text-lg font-bold text-foreground truncate mt-0.5">
                     {formatRWF(currentFinanceStats.insuranceCovered)}
                   </p>
-                  <p className="text-[10px] text-muted-foreground truncate">
+                  <p className="text-[11px] text-muted-foreground truncate">
                     {currentFinanceStats.totalGross > 0
                       ? `${Math.round((currentFinanceStats.insuranceCovered / currentFinanceStats.totalGross) * 100)}% covered by insurers`
                       : "Covered by insurance"}
@@ -773,11 +773,11 @@ export function ReportsClinicianView({
               {/* Patient Share / Cash */}
               <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <span className="text-[11px] font-medium text-muted-foreground block truncate">Patient Share (Cash)</span>
+                  <span className="text-[12px] font-medium text-muted-foreground block truncate">Patient Share (Cash)</span>
                   <p className="text-base sm:text-lg font-bold text-foreground truncate mt-0.5">
                     {formatRWF(currentFinanceStats.patientCash)}
                   </p>
-                  <p className="text-[10px] text-muted-foreground truncate">Patient copays & private cash</p>
+                  <p className="text-[11px] text-muted-foreground truncate">Patient copays & private cash</p>
                 </div>
                 <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                   <CreditCard className="h-4 w-4" />
@@ -787,11 +787,11 @@ export function ReportsClinicianView({
               {/* Giveaways & Waived */}
               <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <span className="text-[11px] font-medium text-muted-foreground block truncate">Giveaways & Waived</span>
+                  <span className="text-[12px] font-medium text-muted-foreground block truncate">Giveaways & Waived</span>
                   <p className="text-base sm:text-lg font-bold text-foreground truncate mt-0.5">
                     {formatRWF(currentFinanceStats.giveawayAmount)}
                   </p>
-                  <p className="text-[10px] text-muted-foreground truncate">Waived copays & exemptions</p>
+                  <p className="text-[11px] text-muted-foreground truncate">Waived copays & exemptions</p>
                 </div>
                 <div className="h-8 w-8 rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center shrink-0">
                   <Gift className="h-4 w-4" />
@@ -809,7 +809,7 @@ export function ReportsClinicianView({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm sm:text-base font-semibold text-foreground">Turnover & Prescriptions Breakdown</h3>
-                  <Badge variant="outline" className="text-[11px] bg-muted/40 font-mono">
+                  <Badge variant="outline" className="text-[12px] bg-muted/40 font-mono">
                     {financeViewMode === "grouped"
                       ? `${searchFilteredEncounters.length} Encounters`
                       : `${searchFilteredDetailedProducts.length} Items`}
@@ -946,7 +946,7 @@ export function ReportsClinicianView({
                             <td className="py-2.5 px-3.5">
                               <div className="font-semibold text-foreground">{enc.patientName}</div>
                               {enc.patientIdentifier && (
-                                <div className="text-[10px] text-muted-foreground font-mono">
+                                <div className="text-[11px] text-muted-foreground font-mono">
                                   {enc.patientIdentifier}
                                 </div>
                               )}
@@ -959,7 +959,7 @@ export function ReportsClinicianView({
                             {/* Products list in the same cell */}
                             <td className="py-2.5 px-3.5">
                               {enc.products.length === 0 ? (
-                                <span className="text-muted-foreground italic text-[11px]">
+                                <span className="text-muted-foreground italic text-[12px]">
                                   No prescribed line items
                                 </span>
                               ) : (
@@ -967,13 +967,13 @@ export function ReportsClinicianView({
                                   {enc.products.map((prod, idx) => (
                                     <div
                                       key={idx}
-                                      className="flex items-center justify-between gap-2 p-1 rounded-md bg-muted/40 border border-border/40 text-[11px]"
+                                      className="flex items-center justify-between gap-2 p-1 rounded-md bg-muted/40 border border-border/40 text-[12px]"
                                     >
                                       <div className="flex items-center gap-1.5 truncate">
                                         <span className="font-bold text-primary shrink-0">{prod.quantity}x</span>
                                         <span className="text-foreground truncate">{prod.name}</span>
                                         {prod.code && (
-                                          <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+                                          <span className="text-[11px] text-muted-foreground font-mono shrink-0">
                                             ({prod.code})
                                           </span>
                                         )}
@@ -990,7 +990,7 @@ export function ReportsClinicianView({
                             <td className="py-2.5 px-3.5 whitespace-nowrap">
                               <Badge
                                 variant="outline"
-                                className="text-[10px] py-0 px-1.5 bg-muted/40 border-border/80 font-medium"
+                                className="text-[11px] py-0 px-1.5 bg-muted/40 border-border/80 font-medium"
                               >
                                 {enc.insuranceName}
                               </Badge>
@@ -1007,7 +1007,7 @@ export function ReportsClinicianView({
                             <td className="py-2.5 px-3.5 text-right whitespace-nowrap">
                               <Badge
                                 variant="outline"
-                                className={`text-[10px] uppercase tracking-wider py-0 px-1.5 ${
+                                className={`text-[11px] uppercase tracking-wider py-0 px-1.5 ${
                                   enc.status === "BILLED" || enc.status === "COMPLETED"
                                     ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-semibold"
                                     : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
@@ -1094,7 +1094,7 @@ export function ReportsClinicianView({
                           Scroll or Click to Load More ({searchFilteredEncounters.length - visibleEncounters.length} remaining)
                         </Button>
                       ) : (
-                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 gap-1">
+                        <Badge variant="outline" className="text-[11px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 gap-1">
                           <Check className="h-3 w-3" />
                           All {searchFilteredEncounters.length} encounters loaded
                         </Badge>
@@ -1153,7 +1153,7 @@ export function ReportsClinicianView({
                             <td className="py-2.5 px-3.5 font-semibold text-foreground">
                               {item.productName}
                               {item.productCode && (
-                                <span className="block text-[10px] text-muted-foreground font-mono font-normal">
+                                <span className="block text-[11px] text-muted-foreground font-mono font-normal">
                                   Code: {item.productCode}
                                 </span>
                               )}
@@ -1161,7 +1161,7 @@ export function ReportsClinicianView({
                             <td className="py-2.5 px-3.5">
                               <div className="font-medium text-foreground">{item.patientName}</div>
                               {item.patientIdentifier && (
-                                <div className="text-[10px] text-muted-foreground font-mono">
+                                <div className="text-[11px] text-muted-foreground font-mono">
                                   {item.patientIdentifier}
                                 </div>
                               )}
@@ -1176,7 +1176,7 @@ export function ReportsClinicianView({
                             <td className="py-2.5 px-3.5 whitespace-nowrap">
                               <Badge
                                 variant="outline"
-                                className="text-[10px] py-0 px-1.5 bg-muted/40 border-border/80"
+                                className="text-[11px] py-0 px-1.5 bg-muted/40 border-border/80"
                               >
                                 {item.insuranceName || "Private / Cash"}
                               </Badge>
@@ -1193,7 +1193,7 @@ export function ReportsClinicianView({
                             <td className="py-2.5 px-3.5 text-right whitespace-nowrap">
                               <Badge
                                 variant="outline"
-                                className={`text-[10px] uppercase tracking-wider py-0 px-1.5 ${
+                                className={`text-[11px] uppercase tracking-wider py-0 px-1.5 ${
                                   item.status === "BILLED"
                                     ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-semibold"
                                     : item.status === "EXEMPTED" || item.status === "PATIENT_SHARE_EXEMPTED"
@@ -1285,7 +1285,7 @@ export function ReportsClinicianView({
                           Scroll or Click to Load More ({searchFilteredDetailedProducts.length - visibleDetailedProducts.length} remaining)
                         </Button>
                       ) : (
-                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 gap-1">
+                        <Badge variant="outline" className="text-[11px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 gap-1">
                           <Check className="h-3 w-3" />
                           All {searchFilteredDetailedProducts.length} items loaded
                         </Badge>

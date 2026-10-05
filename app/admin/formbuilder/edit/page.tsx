@@ -307,7 +307,7 @@ function FormEditor() {
 
           {preset && (
             <Badge
-              className={`text-[10px] px-1.5 py-0 shrink-0 ${TYPE_COLORS[backendForm.type] ?? ""}`}
+              className={`text-[11px] px-1.5 py-0 shrink-0 ${TYPE_COLORS[backendForm.type] ?? ""}`}
             >
               {preset.emoji} {preset.label}
             </Badge>
@@ -320,7 +320,7 @@ function FormEditor() {
         </span>
 
         {/* Save status */}
-        <div className="shrink-0 hidden lg:flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-[80px]">
+        <div className="shrink-0 hidden lg:flex items-center gap-1.5 text-[11px] text-muted-foreground min-w-[80px]">
           {saving ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" /> Saving…
@@ -345,7 +345,7 @@ function FormEditor() {
             size="sm"
             variant="ghost"
             className={cn(
-              "h-7 px-2 text-[10px] gap-1.5 uppercase tracking-wider font-bold",
+              "h-7 px-2 text-[11px] gap-1.5 uppercase tracking-wider font-bold",
               viewMode === "edit" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
             onClick={() => setViewMode("edit")}
@@ -357,7 +357,7 @@ function FormEditor() {
             size="sm"
             variant="ghost"
             className={cn(
-              "h-7 px-2 text-[10px] gap-1.5 uppercase tracking-wider font-bold",
+              "h-7 px-2 text-[11px] gap-1.5 uppercase tracking-wider font-bold",
               viewMode === "split" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
             onClick={() => setViewMode("split")}
@@ -369,7 +369,7 @@ function FormEditor() {
             size="sm"
             variant="ghost"
             className={cn(
-              "h-7 px-2 text-[10px] gap-1.5 uppercase tracking-wider font-bold",
+              "h-7 px-2 text-[11px] gap-1.5 uppercase tracking-wider font-bold",
               viewMode === "preview" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
             onClick={() => setViewMode("preview")}

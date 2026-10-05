@@ -148,31 +148,31 @@ export function BillingItemRow({
             {item.name}
           </p>
           {editedItemChanges?.get(item.id) === "added" && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               NEW
             </span>
           )}
           {editedItemChanges?.get(item.id) === "modified" && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full">
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
               CHANGED
             </span>
           )}
           {item.processorName && (
-            <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full whitespace-nowrap">
               <span className="w-1 h-1 rounded-full bg-emerald-500" />
               {item.processorName}
             </span>
           )}
           {item.billingConfirmationStatus === "PENDING_OPERATOR_CONFIRMATION" && (
-            <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded-full whitespace-nowrap" title="Added from billing, awaiting clinician confirmation">
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded-full whitespace-nowrap" title="Added from billing, awaiting clinician confirmation">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
               Pending Doctor Confirmation
             </span>
           )}
           {item.confirmedByName && (
-            <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full whitespace-nowrap" title={`Confirmed by ${item.confirmedByName}`}>
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full whitespace-nowrap" title={`Confirmed by ${item.confirmedByName}`}>
               <span className="w-1 h-1 rounded-full bg-emerald-500" />
               Confirmed
             </span>
@@ -182,24 +182,24 @@ export function BillingItemRow({
           <p className="mt-0.5">
             <Badge
               variant="outline"
-              className="text-[9px] px-1.5 py-0 h-4 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800"
+              className="text-[10px] px-1.5 py-0 h-4 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800"
             >
               From profile
             </Badge>
           </p>
         )}
         {item.childDepartmentName && (
-          <p className="text-[10px] text-muted-foreground mt-0.5">
+          <p className="text-[11px] text-muted-foreground mt-0.5">
             Service: {item.childDepartmentName}
           </p>
         )}
-        <p className="text-[10px] text-muted-foreground mt-0.5">
+        <p className="text-[11px] text-muted-foreground mt-0.5">
           {item.doneBy.name}
         </p>
         {item.basePrice !== undefined &&
           item.price !== item.basePrice &&
           !item.insuranceNotCovered && (
-            <p className="text-[10px] text-muted-foreground mt-0.5">
+            <p className="text-[11px] text-muted-foreground mt-0.5">
               Private: {formatRWF(item.basePrice)}
             </p>
           )}
@@ -208,7 +208,7 @@ export function BillingItemRow({
         <td className="py-2 px-3 text-center">
           <Badge
             variant="outline"
-            className="text-[10px] px-1.5 py-0 h-5 rounded-full"
+            className="text-[11px] px-1.5 py-0 h-5 rounded-full"
           >
             Product
           </Badge>
@@ -292,9 +292,9 @@ export function BillingItemRow({
         <div className="flex flex-col items-end gap-0.5">
           <span className="tabular-nums text-sm">{formatRWF(item.price)}</span>
           {!item.selectedInsuranceId ? (
-            <span className="text-[10px] text-muted-foreground">Private</span>
+            <span className="text-[11px] text-muted-foreground">Private</span>
           ) : (
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-[11px] text-muted-foreground">
               Coverage price
             </span>
           )}
@@ -330,7 +330,7 @@ export function BillingItemRow({
           }}
           disabled={availableInsurances.length === 0 || isPaidLocked}
         >
-          <SelectTrigger className="h-7 text-[11px] border-0 bg-transparent shadow-none px-1">
+          <SelectTrigger className="h-7 text-[12px] border-0 bg-transparent shadow-none px-1">
             <SelectValue
               placeholder={
                 availableInsurances.length === 0
@@ -363,7 +363,7 @@ export function BillingItemRow({
                   <span className="flex items-center justify-between w-full gap-2">
                     <span>{insurance.acronym || insurance.name}</span>
                     {!isCovered && (
-                      <span className="text-[10px] text-muted-foreground ml-1">
+                      <span className="text-[11px] text-muted-foreground ml-1">
                         {Number.isFinite(cost) && cost === 0 ? "(Pays 0)" : "(Not covered)"}
                       </span>
                     )}
@@ -374,12 +374,12 @@ export function BillingItemRow({
           </SelectContent>
         </Select>
         {availableInsurances.length === 0 && !item.selectedInsuranceId && (
-          <p className="text-[10px] text-muted-foreground mt-0.5">
+          <p className="text-[11px] text-muted-foreground mt-0.5">
             Check patient insurances above
           </p>
         )}
         {item.selectedInsuranceId && item.insuranceNotCovered && (
-          <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5">
+          <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
             Not covered
           </p>
         )}
@@ -431,7 +431,7 @@ export function BillingItemRow({
               <div className="mt-1">
                 {!isEditingTier ? (
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-foreground border border-border/60 font-medium">
+                    <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-muted text-foreground border border-border/60 font-medium">
                       {coveragePct}% copay
                     </span>
                     {hasMultipleTiers && !isPaidLocked && (
@@ -448,7 +448,7 @@ export function BillingItemRow({
                 ) : (
                   <div className="space-y-1 p-1.5 rounded-lg bg-muted/40 border border-border/60 mt-1">
                     <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="text-[10px] font-semibold text-muted-foreground">Select percentage tier:</span>
+                      <span className="text-[11px] font-semibold text-muted-foreground">Select percentage tier:</span>
                       <button
                         type="button"
                         onClick={() => setIsEditingTier(false)}
@@ -501,7 +501,7 @@ export function BillingItemRow({
                               }
                               setIsEditingTier(false);
                             }}
-                            className={`text-[9px] px-1.5 py-0.5 rounded-full border transition-colors ${
+                            className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-colors ${
                               isActive
                                 ? "bg-primary/15 text-primary border-primary/40 font-medium ring-1 ring-primary/30"
                                 : isPatientTier
@@ -525,7 +525,7 @@ export function BillingItemRow({
       </td>
       <td className="py-2 px-3 text-right tabular-nums text-sm">
         {item.selectedInsuranceId && item.insuranceNotCovered ? (
-          <span className="text-amber-600 dark:text-amber-400 text-[11px]">
+          <span className="text-amber-600 dark:text-amber-400 text-[12px]">
             Not covered
           </span>
         ) : item.selectedInsuranceId && (insuranceAmount > 0 || (isExempted && rawInsuranceAmount > 0)) ? (
@@ -534,7 +534,7 @@ export function BillingItemRow({
               <span className="line-through text-muted-foreground text-xs">
                 {formatRWF(rawInsuranceAmount)}
               </span>
-              <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">
+              <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">
                 Waived
               </span>
             </div>
@@ -557,11 +557,11 @@ export function BillingItemRow({
               0 RWF (Waived)
             </span>
             {item.selectedInsuranceId && !item.insuranceNotCovered ? (
-              <span className="text-[10px] text-purple-600/80">
+              <span className="text-[11px] text-purple-600/80">
                 {coveragePct}% share waived
               </span>
             ) : (
-              <span className="text-[10px] text-purple-600/80">
+              <span className="text-[11px] text-purple-600/80">
                 Waived {formatRWF(rawPatientAmount)}
               </span>
             )}
@@ -572,7 +572,7 @@ export function BillingItemRow({
               {formatRWF(patientAmount)}
             </span>
             {item.selectedInsuranceId && !item.insuranceNotCovered && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[11px] text-muted-foreground">
                 {coveragePct}% share
               </span>
             )}
@@ -598,7 +598,7 @@ export function BillingItemRow({
       <td className="py-2 px-3 text-center">
         <Badge
           variant="outline"
-          className={`capitalize text-[10px] px-1.5 py-0 h-5 rounded-full ${getPaymentStatusColor(
+          className={`capitalize text-[11px] px-1.5 py-0 h-5 rounded-full ${getPaymentStatusColor(
             isExempted ? "exempted" : item.paymentStatus,
           )}`}
         >
@@ -634,7 +634,7 @@ export function BillingItemRow({
             }}
             disabled={isPaidLocked || (!editMode && item.source === "PROFILE")}
           >
-            <SelectTrigger className="h-7 text-[10px] w-[7.5rem]">
+            <SelectTrigger className="h-7 text-[11px] w-[7.5rem]">
               <SelectValue placeholder="Exemption" />
             </SelectTrigger>
             <SelectContent>

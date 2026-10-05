@@ -18,6 +18,9 @@ type EncounterPreviewInput = {
   answerId: string;
   departmentName: string;
   patientName: string;
+  visitId: string;
+  visitDepartmentId: string;
+  visitDepartment: VisitDepartment;
 };
 
 type Props = {
@@ -69,20 +72,20 @@ function SummaryChips({ label, items }: { label: string; items: string[] }) {
   if (!items.length) return null;
   return (
     <div className="space-y-1">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
       <div className="flex flex-wrap gap-1.5">
         {items.slice(0, 4).map((item) => (
           <span
             key={`${label}-${item}`}
-            className="inline-flex items-center rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px] text-foreground"
+            className="inline-flex items-center rounded-full border border-border/70 bg-background px-2 py-0.5 text-[12px] text-foreground"
           >
             {item}
           </span>
         ))}
         {items.length > 4 && (
-          <span className="inline-flex items-center rounded-full border border-dashed border-border/70 px-2 py-0.5 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center rounded-full border border-dashed border-border/70 px-2 py-0.5 text-[12px] text-muted-foreground">
             +{items.length - 4} more
           </span>
         )}
@@ -93,11 +96,13 @@ function SummaryChips({ label, items }: { label: string; items: string[] }) {
 
 function DepartmentRow({
   department,
+  visitId,
   patientName,
   onPreviewAnswerAction,
   highlighted,
 }: {
   department: VisitDepartment;
+  visitId: string;
   patientName: string;
   onPreviewAnswerAction: (input: EncounterPreviewInput) => void;
   highlighted?: boolean;
@@ -116,7 +121,7 @@ function DepartmentRow({
               {department.department?.name || "Department"}
             </p>
             {highlighted && (
-              <span className="text-[10px] font-medium text-primary/80">
+              <span className="text-[11px] font-medium text-primary/80">
                 Previous in current department
               </span>
             )}
@@ -134,6 +139,9 @@ function DepartmentRow({
                 answerId: String(department.answerId),
                 departmentName: department.department?.name || "Department",
                 patientName,
+                visitId,
+                visitDepartmentId: String(department.id || ""),
+                visitDepartment: department,
               })
             }
             className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground hover:bg-muted"
@@ -305,6 +313,7 @@ export function ConsultationPreviousEncounters({
                 <DepartmentRow
                   key={department.id}
                   department={department}
+                  visitId={String(lastVisit?.id || "")}
                   patientName={patientName}
                   onPreviewAnswerAction={onPreviewAnswerAction}
                   highlighted={
@@ -361,6 +370,7 @@ export function ConsultationPreviousEncounters({
             </div>
             <DepartmentRow
               department={lastDepartmentVisit.visitDepartment}
+              visitId={String(lastDepartmentVisit.visitId || "")}
               patientName={patientName}
               onPreviewAnswerAction={onPreviewAnswerAction}
               highlighted

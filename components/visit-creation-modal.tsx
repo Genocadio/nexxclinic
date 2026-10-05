@@ -601,7 +601,7 @@ export default function VisitCreationModal({
                           <SlidersHorizontal className="w-3.5 h-3.5" />
                           <span>Filters</span>
                           {activeFilterCount > 0 && (
-                            <span className="w-4 h-4 rounded-full bg-primary text-white text-[10px] flex items-center justify-center font-bold">
+                            <span className="w-4 h-4 rounded-full bg-primary text-white text-[11px] flex items-center justify-center font-bold">
                               {activeFilterCount}
                             </span>
                           )}
@@ -620,7 +620,7 @@ export default function VisitCreationModal({
                             <SlidersHorizontal className="w-4 h-4 text-primary" />
                             <span className="text-sm font-semibold text-foreground">Filter Patients</span>
                             {activeFilterCount > 0 && (
-                              <span className="px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold">
+                              <span className="px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[11px] font-bold">
                                 {activeFilterCount} active
                               </span>
                             )}
@@ -920,7 +920,7 @@ export default function VisitCreationModal({
                       <span className="font-semibold text-foreground">
                         Found {displayedPatients.length} matching patient{displayedPatients.length > 1 ? "s" : ""}
                       </span>
-                      <span className="text-[11px] text-muted-foreground">Click a card to select</span>
+                      <span className="text-[12px] text-muted-foreground">Click a card to select</span>
                     </div>
                     <div className={cn("grid gap-3 max-h-[460px] overflow-y-auto pr-1 scrollbar-thin", gridColsClass)}>
                       {displayedPatients.map((patient: Patient) => (
@@ -1020,7 +1020,7 @@ export default function VisitCreationModal({
                                       <Badge
                                         variant="outline"
                                         className={cn(
-                                          "text-[10px] px-1.5 py-0.5 h-5 rounded-md font-medium cursor-help transition-all flex items-center gap-1",
+                                          "text-[11px] px-1.5 py-0.5 h-5 rounded-md font-medium cursor-help transition-all flex items-center gap-1",
                                           active
                                             ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
                                             : "border-amber-300 dark:border-amber-700 bg-amber-500/10 text-amber-600 dark:text-amber-400 opacity-70"
@@ -1040,12 +1040,12 @@ export default function VisitCreationModal({
 
                                       {/* Hover Tooltip Popup */}
                                       <div className="absolute bottom-full left-0 mb-2 opacity-0 invisible group-hover/ins:opacity-100 group-hover/ins:visible transition-all duration-150 z-[150] pointer-events-none w-56">
-                                        <div className="bg-slate-900 dark:bg-slate-800 text-white text-[11px] rounded-xl p-2.5 shadow-2xl border border-slate-700/60 backdrop-blur-md space-y-1">
+                                        <div className="bg-slate-900 dark:bg-slate-800 text-white text-[12px] rounded-xl p-2.5 shadow-2xl border border-slate-700/60 backdrop-blur-md space-y-1">
                                           <div className="flex items-center justify-between gap-1 border-b border-slate-700 pb-1">
                                             <span className="font-bold text-xs text-white truncate">{name}</span>
                                             <span
                                               className={cn(
-                                                "text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0",
+                                                "text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0",
                                                 active
                                                   ? "bg-emerald-500/20 text-emerald-300"
                                                   : "bg-amber-500/20 text-amber-300"
@@ -1079,7 +1079,7 @@ export default function VisitCreationModal({
                                   );
                                 })
                               ) : (
-                                <span className="text-[10px] text-muted-foreground italic">Private / Self-pay</span>
+                                <span className="text-[11px] text-muted-foreground italic">Private / Self-pay</span>
                               )}
                             </div>
 
@@ -1171,7 +1171,7 @@ export default function VisitCreationModal({
                             Expired Insurance Policy Detected
                             <Badge
                               variant="outline"
-                              className="text-[10px] px-1.5 py-0 h-4.5 border-amber-400/60 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold"
+                              className="text-[11px] px-1.5 py-0 h-4.5 border-amber-400/60 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold"
                             >
                               {expiredInsurances.length} Expired
                             </Badge>
@@ -1199,7 +1199,7 @@ export default function VisitCreationModal({
                             className="flex items-center justify-between gap-2 bg-white/80 dark:bg-slate-950/80 p-2 sm:p-2.5 rounded-xl border border-amber-200/80 dark:border-amber-800/40 shadow-xs"
                           >
                             <div className="min-w-0 flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center text-[10px] font-bold shrink-0">
+                              <div className="w-6 h-6 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center text-[11px] font-bold shrink-0">
                                 {acronym.slice(0, 3)}
                               </div>
                               <div className="min-w-0 text-xs">
@@ -1209,7 +1209,7 @@ export default function VisitCreationModal({
                                     ? `(${expIns.insuranceCardNumber})`
                                     : ""}
                                 </div>
-                                <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium truncate">
+                                <div className="text-[12px] text-amber-600 dark:text-amber-400 font-medium truncate">
                                   {statusText}
                                 </div>
                               </div>
@@ -1343,7 +1343,7 @@ export default function VisitCreationModal({
                                 {patientSharePct !== null && patientSharePct !== undefined && (
                                   <Badge
                                     variant="outline"
-                                    className="text-[10px] px-1.5 py-0 h-4.5 rounded-md font-semibold bg-primary/10 text-primary border-primary/25"
+                                    className="text-[11px] px-1.5 py-0 h-4.5 rounded-md font-semibold bg-primary/10 text-primary border-primary/25"
                                   >
                                     {patientSharePct}% share
                                   </Badge>
@@ -1363,7 +1363,7 @@ export default function VisitCreationModal({
                                 {!active && (
                                   <Badge
                                     variant="outline"
-                                    className="text-[9px] px-1.5 py-0 h-4.5 rounded-md font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700"
+                                    className="text-[10px] px-1.5 py-0 h-4.5 rounded-md font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700"
                                   >
                                     Expired
                                   </Badge>
@@ -1372,7 +1372,7 @@ export default function VisitCreationModal({
                             </div>
 
                             {/* Details: Card Number & Principal Member */}
-                            <div className="space-y-0.5 text-[11px] text-muted-foreground my-1">
+                            <div className="space-y-0.5 text-[12px] text-muted-foreground my-1">
                               {insurance.insuranceCardNumber && (
                                 <div className="flex items-center gap-1 truncate font-mono text-foreground font-medium">
                                   <CreditCard className="w-3 h-3 text-muted-foreground shrink-0" />
@@ -1389,7 +1389,7 @@ export default function VisitCreationModal({
                             {!active ? (
                               <div className="pt-1.5 border-t border-amber-200/70 dark:border-amber-800/40 flex items-center justify-between gap-1 mt-1">
                                 <span
-                                  className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 truncate"
+                                  className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 truncate"
                                   title={insuranceStatusLabel(insurance)}
                                 >
                                   {insuranceStatusLabel(insurance)}
@@ -1405,7 +1405,7 @@ export default function VisitCreationModal({
                                       setAddInsurancePatientId(selectedPatient.id);
                                       setShowAddInsuranceModal(true);
                                     }}
-                                    className="h-6 px-1.5 text-[10px] rounded-md border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                                    className="h-6 px-1.5 text-[11px] rounded-md border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/30"
                                     title="Update card details and validity"
                                   >
                                     <Edit className="w-2.5 h-2.5 mr-1" />
@@ -1450,7 +1450,7 @@ export default function VisitCreationModal({
 
                   {(!selectedPatient.patientInsurances ||
                     selectedPatient.patientInsurances.length === 0) && (
-                    <p className="text-[11px] text-muted-foreground italic px-0.5">
+                    <p className="text-[12px] text-muted-foreground italic px-0.5">
                       No insurance recorded for this patient. Click &quot;Add Insurance&quot; above to link a card or continue as Private.
                     </p>
                   )}

@@ -37,7 +37,7 @@ export function ConditionalConfig({
     return (
       <div className="mt-1.5 flex items-center gap-1.5 px-2 py-1 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
         <GitBranch className="h-2.5 w-2.5 text-amber-500 shrink-0" />
-        <p className="text-[10px] text-amber-700 dark:text-amber-400 leading-tight truncate">
+        <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-tight truncate">
           <span className="font-semibold">Show if:</span>{' '}
           {getConditionSummary(value, allBlocks)}
         </p>
@@ -73,7 +73,7 @@ export function ConditionalConfig({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <GitBranch className="h-3 w-3 text-amber-500" />
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
             Conditional
           </span>
           {value && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />}
@@ -81,7 +81,7 @@ export function ConditionalConfig({
         {value && (
           <button
             onClick={() => onChange(undefined)}
-            className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-0.5 transition-colors"
+            className="text-[11px] text-muted-foreground hover:text-destructive flex items-center gap-0.5 transition-colors"
           >
             <X className="h-2.5 w-2.5" />
             Remove
@@ -92,7 +92,7 @@ export function ConditionalConfig({
       {/* No condition set */}
       {!value ? (
         eligible.length === 0 ? (
-          <p className="text-[10px] text-muted-foreground italic">
+          <p className="text-[11px] text-muted-foreground italic">
             Add other fillable fields above this block to enable conditional display.
           </p>
         ) : (
@@ -105,7 +105,7 @@ export function ConditionalConfig({
                 condition: conds[0]?.condition ?? 'notEmpty',
               })
             }}
-            className="w-full py-1.5 text-[11px] text-muted-foreground border border-dashed border-border rounded hover:bg-muted/30 transition-colors flex items-center justify-center gap-1.5"
+            className="w-full py-1.5 text-[12px] text-muted-foreground border border-dashed border-border rounded hover:bg-muted/30 transition-colors flex items-center justify-center gap-1.5"
           >
             <GitBranch className="h-3 w-3" />
             Add condition
@@ -115,7 +115,7 @@ export function ConditionalConfig({
         <div className="space-y-2 text-xs">
           {/* 1 · Parent block picker */}
           <div>
-            <label className="text-[10px] text-muted-foreground">Show when</label>
+            <label className="text-[11px] text-muted-foreground">Show when</label>
             <select
               value={value.dependsOn}
               onChange={e => handleParentChange(e.target.value)}
@@ -137,7 +137,7 @@ export function ConditionalConfig({
           {/* 2 · Condition picker (only when parent supports multiple) */}
           {condOptions.length > 1 && (
             <div>
-              <label className="text-[10px] text-muted-foreground">Condition</label>
+              <label className="text-[11px] text-muted-foreground">Condition</label>
               <select
                 value={value.condition}
                 onChange={e => handleConditionChange(e.target.value as ConditionalConditionType)}
@@ -155,7 +155,7 @@ export function ConditionalConfig({
           {/* 3 · Value picker (for 'equals' / 'includes') */}
           {activeCond?.needsValue && (
             <div>
-              <label className="text-[10px] text-muted-foreground">
+              <label className="text-[11px] text-muted-foreground">
                 {value.condition === 'includes' ? 'Option to include' : 'Value to match'}
               </label>
               {parentOptions.length > 0 ? (
@@ -192,7 +192,7 @@ export function ConditionalConfig({
           {activeCond?.needsItemControls && (
             <>
               <div>
-                <label className="text-[10px] text-muted-foreground">
+                <label className="text-[11px] text-muted-foreground">
                   Product type filter
                 </label>
                 <select
@@ -214,7 +214,7 @@ export function ConditionalConfig({
                 </select>
               </div>
               <div>
-                <label className="text-[10px] text-muted-foreground">
+                <label className="text-[11px] text-muted-foreground">
                   Required product{' '}
                   <span className="font-normal">(select by name to match ID, or leave blank for any)</span>
                 </label>
@@ -239,7 +239,7 @@ export function ConditionalConfig({
 
           {/* 5 · Live summary */}
           <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 rounded px-2.5 py-2">
-            <p className="text-[10px] text-amber-700 dark:text-amber-400 leading-snug">
+            <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-snug">
               <span className="font-semibold">⤷ Show if:</span>{' '}
               {getConditionSummary(value, allBlocks)}
             </p>

@@ -97,7 +97,7 @@ export function ProfileSelectDialog({
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium truncate">{profile.name}</p>
                       {profile.isDefault && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
                           Default
                         </span>
                       )}
@@ -106,7 +106,7 @@ export function ProfileSelectDialog({
                       {ENCOUNTER_LABELS[et] || et}
                     </p>
                     {profile.products && profile.products.length > 0 && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
                         {profile.products.length} product{profile.products.length !== 1 ? "s" : ""}
                       </p>
                     )}

@@ -644,6 +644,12 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
             }
             quantity
             status
+            billingConfirmationStatus
+            confirmedBy {
+              id
+              firstName
+              lastName
+            }
             createdAt
           }
           createdAt

@@ -89,7 +89,7 @@ export function BillingItemsWorkspace({
               Items to Bill
             </h2>
             {editMode && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 border border-amber-300 dark:border-amber-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 border border-amber-300 dark:border-amber-700 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide">
                 <Pencil className="h-2.5 w-2.5" />
                 Edit Mode
               </span>
@@ -107,7 +107,7 @@ export function BillingItemsWorkspace({
                       onChangeProfile?.(value === "none" ? null : value)
                     }
                   >
-                    <SelectTrigger className="h-7 rounded-full border-border text-[11px] gap-1 px-2.5">
+                    <SelectTrigger className="h-7 rounded-full border-border text-[12px] gap-1 px-2.5">
                       <SelectValue placeholder="Profile" />
                     </SelectTrigger>
                     <SelectContent>
@@ -121,7 +121,7 @@ export function BillingItemsWorkspace({
                   </Select>
                 </div>
               ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted border border-border px-2.5 h-7 text-[11px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted border border-border px-2.5 h-7 text-[12px] text-muted-foreground">
                   <Layers className="h-3.5 w-3.5" />
                   Profile:{" "}
                   <span className="font-medium text-foreground">

@@ -138,12 +138,12 @@ export function SignatureCanvas({
         )}
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-muted-foreground/60">Sign above</span>
+        <span className="text-[11px] text-muted-foreground/60">Sign above</span>
         {value && (
           <button
             type="button"
             onClick={clear}
-            className="text-[10px] text-muted-foreground hover:text-destructive transition-colors font-medium"
+            className="text-[11px] text-muted-foreground hover:text-destructive transition-colors font-medium"
           >
             Clear
           </button>

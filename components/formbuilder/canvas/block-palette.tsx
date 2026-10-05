@@ -87,19 +87,19 @@ export function BlockPalette({ onAdd }: { onAdd: (type: BlockType) => void }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search blocks…"
-            className="pl-7 h-7 text-[11px] bg-background/50"
+            className="pl-7 h-7 text-[12px] bg-background/50"
           />
         </div>
       </div>
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
         {filteredGroups.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-[10px] text-muted-foreground">No blocks found</p>
+            <p className="text-[11px] text-muted-foreground">No blocks found</p>
           </div>
         ) : (
           filteredGroups.map((group) => (
             <div key={group.label}>
-              <p className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground px-1 mb-1.5">
+              <p className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground px-1 mb-1.5">
                 {group.label}
               </p>
               <div className="space-y-0.5">

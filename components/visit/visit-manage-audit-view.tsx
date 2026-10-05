@@ -356,6 +356,10 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
 
   // Sheets & Panels
   const [previewConsultationAnswerId, setPreviewConsultationAnswerId] = useState<string | null>(null)
+  const [previewConsultationDepartmentId, setPreviewConsultationDepartmentId] =
+    useState<string | null>(null)
+  const [previewConsultationDepartment, setPreviewConsultationDepartment] =
+    useState<Visit["departments"][number] | null>(null)
   const [showSettingsPanel, setShowSettingsPanel] = useState(false)
   const [dischargeConfirmOpen, setDischargeConfirmOpen] = useState(false)
 
@@ -690,7 +694,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                     <div className="flex items-center gap-2">
                       <CalendarClock className="w-4 h-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                       <span>Visit View (Overview)</span>
-                      <span className="text-[10px] text-slate-400 ml-auto font-normal">
+                      <span className="text-[11px] text-slate-400 ml-auto font-normal">
                         {flattenedDepartments.length} depts
                       </span>
                     </div>
@@ -701,7 +705,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                         {isChild ? (
                           <CornerDownRight className="w-3.5 h-3.5 text-slate-400 ml-2 flex-shrink-0" />
                         ) : (
-                          <span className="w-4 h-4 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-bold flex items-center justify-center text-slate-600 dark:text-slate-300 flex-shrink-0">
+                          <span className="w-4 h-4 rounded-full bg-slate-100 dark:bg-slate-800 text-[11px] font-bold flex items-center justify-center text-slate-600 dark:text-slate-300 flex-shrink-0">
                             {index}
                           </span>
                         )}
@@ -710,7 +714,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                           {isChild && parentName ? ` (${parentName})` : ""}
                         </span>
                         <span
-                          className={`text-[9px] font-semibold px-1.5 py-0.2 rounded ml-auto flex-shrink-0 ${
+                          className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ml-auto flex-shrink-0 ${
                             dept.status === "COMPLETED" || dept.status === "FINALISED"
                               ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                               : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
@@ -751,7 +755,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                     <FileSpreadsheet className="w-4 h-4 text-blue-600" />
                     <div>
                       <div className="font-medium">Insurer Claim</div>
-                      <div className="text-[10px] text-muted-foreground">Contracted tariff split</div>
+                      <div className="text-[11px] text-muted-foreground">Contracted tariff split</div>
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -761,7 +765,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                     <ReceiptText className="w-4 h-4 text-emerald-600" />
                     <div>
                       <div className="font-medium">Patient Receipt</div>
-                      <div className="text-[10px] text-muted-foreground">Actual payable & statement</div>
+                      <div className="text-[11px] text-muted-foreground">Actual payable & statement</div>
                     </div>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -805,7 +809,12 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setPreviewConsultationAnswerId(consultationDeptWithAnswer.answerId || null)}
+                onClick={() => {
+                  setPreviewConsultationAnswerId(consultationDeptWithAnswer.answerId || null)
+                  setPreviewConsultationDepartmentId(
+                    String(consultationDeptWithAnswer.id || ""),
+                  )
+                }}
                 className="h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs"
               >
                 <Eye className="w-3.5 h-3.5 mr-1.5 text-slate-600 dark:text-slate-400" />
@@ -862,7 +871,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                         <span className="text-sm font-bold text-slate-900 dark:text-white">
                           Visit Created
                         </span>
-                        <Badge variant="default" className="text-[10px]">
+                        <Badge variant="default" className="text-[11px]">
                           Created
                         </Badge>
                       </div>
@@ -933,7 +942,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                               {dept.department?.name || "Department"}
                             </span>
                             {isChild && (
-                              <Badge variant="secondary" className="text-[10px]">
+                              <Badge variant="secondary" className="text-[11px]">
                                 Sub-Department of {parentName}
                               </Badge>
                             )}
@@ -943,7 +952,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                                   ? "default"
                                   : "secondary"
                               }
-                              className="text-[10px]"
+                              className="text-[11px]"
                             >
                               {dept.status}
                             </Badge>
@@ -975,33 +984,33 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                         {/* Timings & Routing Info */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
                           <div className="bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-800">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Department Added</span>
+                            <span className="text-[11px] uppercase font-bold text-slate-400 block">Department Added</span>
                             <span className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 block">
                               {formatFullDateTime(deptCreated)}
                             </span>
-                            <span className="text-[11px] text-slate-500 truncate block mt-0.5">
+                            <span className="text-[12px] text-slate-500 truncate block mt-0.5">
                               By: {addedByName || "Staff / System"}
                             </span>
                           </div>
 
                           <div className="bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-800">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Consultation Started</span>
+                            <span className="text-[11px] uppercase font-bold text-slate-400 block">Consultation Started</span>
                             <span className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 block">
                               {deptStarted ? formatFullDateTime(deptStarted) : "Awaiting Consultation"}
                             </span>
-                            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium block mt-0.5">
+                            <span className="text-[12px] text-amber-600 dark:text-amber-400 font-medium block mt-0.5">
                               {deptStarted ? `Wait in Queue: ${queueWaitStr}` : "Waiting in queue"}
                             </span>
                           </div>
 
                           <div className="bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-800">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                            <span className="text-[11px] uppercase font-bold text-slate-400 block">
                               {deptCompleted ? "Completed / Finalised" : "Status & Time"}
                             </span>
                             <span className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 block">
                               {deptCompleted ? formatFullDateTime(deptCompleted) : (deptStarted ? "Consultation In Progress" : "Queued in clinic")}
                             </span>
-                            <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium block mt-0.5 truncate">
+                            <span className="text-[12px] text-emerald-700 dark:text-emerald-400 font-medium block mt-0.5 truncate">
                               {deptCompleted
                                 ? `Completed By: ${dept.completedBy ? getWorkerName(dept.completedBy) : "Staff / System"}`
                                 : (deptStarted ? `Consulting: ${formatDuration(deptStarted, new Date())}` : "Not yet started")}
@@ -1009,11 +1018,11 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                           </div>
 
                           <div className="bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-800">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Assigned Processors</span>
+                            <span className="text-[11px] uppercase font-bold text-slate-400 block">Assigned Processors</span>
                             <span className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 block truncate">
                               {processorNames || "Unassigned"}
                             </span>
-                            <span className="text-[11px] text-slate-500 truncate block mt-0.5">
+                            <span className="text-[12px] text-slate-500 truncate block mt-0.5">
                               {(dept.processors || []).length} assigned clinician(s)
                             </span>
                           </div>
@@ -1128,12 +1137,12 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                             ? "default"
                             : "secondary"
                         }
-                        className="text-[11px]"
+                        className="text-[12px]"
                       >
                         {activeDepartmentMeta.dept.status}
                       </Badge>
                       {activeDepartmentMeta.isChild && (
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="text-[11px]">
                           Sub-Dept of {activeDepartmentMeta.parentName}
                         </Badge>
                       )}
@@ -1158,7 +1167,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100/80 dark:bg-purple-950/40 dark:hover:bg-purple-950/70 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 cursor-pointer transition-colors shadow-xs">
                                   <ShieldCheck className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                                   <span className="font-bold text-xs">{applied.displayName}</span>
-                                  <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-950 px-1 py-0.2 rounded">
+                                  <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-950 px-1 py-0.2 rounded">
                                     {applied.coveragePct}%
                                   </span>
                                 </div>
@@ -1170,16 +1179,16 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                                     <span>{ins.insuranceProvider?.insuranceName || applied.displayName}</span>
                                   </div>
                                   {applied.isPolicyActive ? (
-                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                                       Active
                                     </span>
                                   ) : (
-                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                                       Inactive
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-[11px] space-y-1 text-slate-600 dark:text-slate-300">
+                                <div className="text-[12px] space-y-1 text-slate-600 dark:text-slate-300">
                                   <div className="flex justify-between">
                                     <span className="text-slate-400">Card No:</span>
                                     <span className="font-mono font-semibold">{ins.insuranceCardNumber || "—"}</span>
@@ -1212,21 +1221,21 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                   {/* Financial Overview Chips */}
                   <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-xs">
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Billed</span>
+                      <span className="text-[11px] uppercase font-bold text-slate-400 block">Total Billed</span>
                       <span className="font-bold text-slate-900 dark:text-white">
                         {formatRWF(departmentFinancialTotals.totalAmount)}
                       </span>
                     </div>
                     <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Insurer Pay</span>
+                      <span className="text-[11px] uppercase font-bold text-slate-400 block">Insurer Pay</span>
                       <span className="font-bold text-purple-600 dark:text-purple-400">
                         {formatRWF(departmentFinancialTotals.insuranceAmount)}
                       </span>
                     </div>
                     <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Patient Pay</span>
+                      <span className="text-[11px] uppercase font-bold text-slate-400 block">Patient Pay</span>
                       <span className="font-bold text-indigo-600 dark:text-indigo-400">
                         {formatRWF(departmentFinancialTotals.patientAmount)}
                       </span>
@@ -1238,23 +1247,23 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
               {/* Department Meta Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Intake &amp; Queue Entry</span>
+                  <span className="text-[11px] text-slate-400 uppercase font-bold block">Intake &amp; Queue Entry</span>
                   <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
                     Added: {formatFullDateTime(parseTimestamp(activeDepartmentMeta.dept.createdAt))}
                   </p>
-                  <p className="text-slate-500 text-[11px] truncate">
+                  <p className="text-slate-500 text-[12px] truncate">
                     By: {activeDepartmentMeta.dept.addedBy ? getWorkerName(activeDepartmentMeta.dept.addedBy) : "Staff / System"}
                   </p>
                 </div>
 
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Consultation Started</span>
+                  <span className="text-[11px] text-slate-400 uppercase font-bold block">Consultation Started</span>
                   <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
                     {activeDepartmentMeta.dept.startedAt
                       ? `Started: ${formatFullDateTime(parseTimestamp(activeDepartmentMeta.dept.startedAt))}`
                       : "Awaiting Consultation"}
                   </p>
-                  <p className="text-amber-600 dark:text-amber-400 font-medium text-[11px]">
+                  <p className="text-amber-600 dark:text-amber-400 font-medium text-[12px]">
                     {activeDepartmentMeta.dept.startedAt
                       ? `Queue Wait: ${formatDuration(parseTimestamp(activeDepartmentMeta.dept.createdAt), parseTimestamp(activeDepartmentMeta.dept.startedAt))}`
                       : "Waiting in department queue"}
@@ -1262,13 +1271,13 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                 </div>
 
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Completion &amp; Durations</span>
+                  <span className="text-[11px] text-slate-400 uppercase font-bold block">Completion &amp; Durations</span>
                   <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
                     {activeDepartmentMeta.dept.completedAt
                       ? `Ended: ${formatFullDateTime(parseTimestamp(activeDepartmentMeta.dept.completedAt))}`
                       : (activeDepartmentMeta.dept.startedAt ? "Consultation In Progress" : "Queued in clinic")}
                   </p>
-                  <p className="text-emerald-700 dark:text-emerald-400 font-medium text-[11px] truncate">
+                  <p className="text-emerald-700 dark:text-emerald-400 font-medium text-[12px] truncate">
                     {activeDepartmentMeta.dept.completedAt
                       ? `By: ${activeDepartmentMeta.dept.completedBy ? getWorkerName(activeDepartmentMeta.dept.completedBy) : "Staff / Clinician"}`
                       : (activeDepartmentMeta.dept.startedAt
@@ -1278,11 +1287,11 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                 </div>
 
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Processors &amp; Items</span>
+                  <span className="text-[11px] text-slate-400 uppercase font-bold block">Processors &amp; Items</span>
                   <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 truncate">
                     {(activeDepartmentMeta.dept.processors || []).map(getWorkerName).join(", ") || "Unassigned"}
                   </p>
-                  <p className="text-slate-500 text-[11px]">
+                  <p className="text-slate-500 text-[12px]">
                     {activeDepartmentMeta.dept.products?.length || 0} Acts • {activeDepartmentMeta.dept.medications?.length || 0} Meds • {activeDepartmentMeta.dept.diagnostics?.length || 0} Diags
                   </p>
                 </div>
@@ -1390,16 +1399,16 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                               <div>
                                 <span className="font-semibold">{p.product?.name}</span>
                                 {p.product?.code && (
-                                  <span className="text-[10px] text-slate-400 ml-1.5 font-mono">
+                                  <span className="text-[11px] text-slate-400 ml-1.5 font-mono">
                                     ({p.product.code})
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                              <div className="flex items-center gap-1.5 mt-0.5 text-[12px] text-slate-500 dark:text-slate-400">
                                 <span>{p.product?.type || "Product"}</span>
                                 {p.product?.unit && <span>• {p.product.unit}</span>}
                                 {p.source && p.source !== "USER" && (
-                                  <Badge variant="outline" className="text-[9px] px-1 py-0 border-indigo-200 bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0 border-indigo-200 bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
                                     {p.source}
                                   </Badge>
                                 )}
@@ -1409,7 +1418,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                             {/* 2. Qty & Unit Price */}
                             <td className="p-3 text-center">
                               <span className="font-bold text-slate-900 dark:text-white text-sm">{p.quantity}</span>
-                              <span className="text-[11px] text-slate-500 block">
+                              <span className="text-[12px] text-slate-500 block">
                                 @ {formatRWF(billingSummary.unitPrice)}
                               </span>
                             </td>
@@ -1420,15 +1429,15 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                                 {formatRWF(billingSummary.lineTotal)}
                               </span>
                               {p.status === "EXEMPTED" ? (
-                                <span className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold block">
+                                <span className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold block">
                                   100% Exempted
                                 </span>
                               ) : billingSummary.isInsured ? (
-                                <span className="text-[10px] text-slate-500 block font-medium">
+                                <span className="text-[11px] text-slate-500 block font-medium">
                                   Pt: {formatRWF(billingSummary.patientAmount)}
                                 </span>
                               ) : (
-                                <span className="text-[10px] text-slate-400 block">
+                                <span className="text-[11px] text-slate-400 block">
                                   Cash Line
                                 </span>
                               )}
@@ -1440,7 +1449,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <Badge
                                     variant={billingSummary.isInsured ? "default" : "secondary"}
-                                    className={`text-[10px] font-semibold px-2 py-0 ${
+                                    className={`text-[11px] font-semibold px-2 py-0 ${
                                       billingSummary.isInsured
                                         ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
                                         : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
@@ -1450,20 +1459,20 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                                   </Badge>
 
                                   {billingSummary.isInsured && (
-                                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-200 dark:border-emerald-800">
+                                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-200 dark:border-emerald-800">
                                       {billingSummary.coveragePct}% Covered
                                     </span>
                                   )}
                                 </div>
 
                                 {billingSummary.isInsured ? (
-                                  <div className="text-[10px] text-slate-500 dark:text-slate-400 space-x-1 font-mono">
+                                  <div className="text-[11px] text-slate-500 dark:text-slate-400 space-x-1 font-mono">
                                     <span>Insurer: <strong className="text-purple-700 dark:text-purple-300">{formatRWF(billingSummary.insuranceAmount)}</strong></span>
                                     <span>•</span>
                                     <span>Patient: <strong className="text-slate-700 dark:text-slate-300">{formatRWF(billingSummary.patientAmount)} ({billingSummary.patientSharePct}%)</strong></span>
                                   </div>
                                 ) : (
-                                  <span className="text-[10px] text-slate-400 block">
+                                  <span className="text-[11px] text-slate-400 block">
                                     0% Insurance • 100% Patient Pay
                                   </span>
                                 )}
@@ -1474,7 +1483,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                             <td className="p-3">
                               <div className="space-y-1">
                                 <span
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block ${
+                                  className={`text-[11px] font-bold px-2 py-0.5 rounded-full inline-block ${
                                     p.status === "BILLED"
                                       ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
                                       : p.status === "PENDING"
@@ -1488,7 +1497,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                                 </span>
 
                                 {!isAddedByProcessor ? (
-                                  <div className="text-[10px]">
+                                  <div className="text-[11px]">
                                     {approvedByName ? (
                                       <span className="text-emerald-700 dark:text-emerald-400 font-medium block">
                                         Approved: {approvedByName}
@@ -1500,7 +1509,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="text-[10px] text-slate-400 block italic">
+                                  <span className="text-[11px] text-slate-400 block italic">
                                     Treating Processor
                                   </span>
                                 )}
@@ -1515,13 +1524,13 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                                   {!isAddedByProcessor && (
                                     <Badge
                                       variant="outline"
-                                      className="text-[9px] px-1 py-0 border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300"
+                                      className="text-[10px] px-1 py-0 border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300"
                                     >
                                       Outside Dept
                                     </Badge>
                                   )}
                                 </div>
-                                <span className="text-[11px] text-slate-500 font-mono block">
+                                <span className="text-[12px] text-slate-500 font-mono block">
                                   {formatFullDateTime(addTime)}
                                 </span>
                               </div>
@@ -1535,12 +1544,12 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                                     <span className="font-semibold text-slate-800 dark:text-slate-200 block">
                                       {billedByName}
                                     </span>
-                                    <span className="text-[11px] text-slate-500 font-mono block">
+                                    <span className="text-[12px] text-slate-500 font-mono block">
                                       {formatFullDateTime(billingTime)}
                                     </span>
                                   </>
                                 ) : (
-                                  <span className="text-slate-400 italic text-[11px]">Not yet billed</span>
+                                  <span className="text-slate-400 italic text-[12px]">Not yet billed</span>
                                 )}
                               </div>
                             </td>
@@ -1569,7 +1578,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                       <div key={med.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 text-xs">
                         <p className="font-bold text-slate-900 dark:text-white">{med.medicationName}</p>
                         <p className="text-slate-600 dark:text-slate-400 mt-0.5">{med.instructions || "As directed"}</p>
-                        <p className="text-[10px] text-slate-400 mt-1 font-mono">
+                        <p className="text-[11px] text-slate-400 mt-1 font-mono">
                           Prescribed: {formatFullDateTime(parseTimestamp(med.createdAt))}
                         </p>
                       </div>
@@ -1592,11 +1601,11 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                       <div key={diag.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 text-xs">
                         <p className="font-bold text-slate-900 dark:text-white">{diag.diagnosisName}</p>
                         {diag.icd11Code && (
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 inline-block mt-1">
+                          <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 inline-block mt-1">
                             ICD-11: {diag.icd11Code}
                           </span>
                         )}
-                        <p className="text-[10px] text-slate-400 mt-1 font-mono">
+                        <p className="text-[11px] text-slate-400 mt-1 font-mono">
                           Logged: {formatFullDateTime(parseTimestamp(diag.createdAt))}
                         </p>
                       </div>
@@ -1614,10 +1623,16 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
         <ConsultationPreviewSheet
           open={Boolean(previewConsultationAnswerId)}
           onOpenChange={(open) => {
-            if (!open) setPreviewConsultationAnswerId(null)
+            if (!open) {
+              setPreviewConsultationAnswerId(null)
+              setPreviewConsultationDepartmentId(null)
+            }
           }}
           answerId={previewConsultationAnswerId}
           patientName={patientFullName}
+          visitId={visit.id}
+          visitDepartmentId={previewConsultationDepartmentId}
+          visitDepartment={previewConsultationDepartment}
         />
       )}
 
@@ -1663,8 +1678,16 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
           patientId={patient.id}
           currentVisitId={visit.id}
           currentVisitDepartmentId={activeDepartmentMeta?.dept?.id || null}
-          onPreviewDepartmentAnswers={({ answerId }) => {
-            if (answerId) setPreviewConsultationAnswerId(answerId)
+          onPreviewDepartmentAnswers={({
+            answerId,
+            visitDepartmentId,
+            visitDepartment,
+          }) => {
+            if (answerId) {
+              setPreviewConsultationAnswerId(answerId)
+              setPreviewConsultationDepartmentId(visitDepartmentId)
+              setPreviewConsultationDepartment(visitDepartment)
+            }
           }}
           onClose={() => setPatientHistoryOpen(false)}
         />

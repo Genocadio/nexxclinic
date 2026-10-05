@@ -891,7 +891,7 @@ export default function ManageUsersPage() {
                                 {selfUser && (
                                   <Badge
                                     variant="outline"
-                                    className="text-[10px] px-1.5 py-0 h-4 border-primary/40 text-primary font-bold"
+                                    className="text-[11px] px-1.5 py-0 h-4 border-primary/40 text-primary font-bold"
                                   >
                                     You
                                   </Badge>
@@ -977,7 +977,7 @@ export default function ManageUsersPage() {
                           <Badge
                             variant="secondary"
                             className={cn(
-                              "text-[11px] gap-1",
+                              "text-[12px] gap-1",
                               isActive
                                 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20"
                                 : isPending
@@ -1003,7 +1003,7 @@ export default function ManageUsersPage() {
                               key={role}
                               variant="secondary"
                               className={cn(
-                                "text-[11px]",
+                                "text-[12px]",
                                 getRoleBadgeConfig(role).badgeClass,
                               )}
                             >
@@ -1011,7 +1011,7 @@ export default function ManageUsersPage() {
                             </Badge>
                           ))}
                           {userRoles.length > 2 && (
-                            <Badge variant="outline" className="text-[11px]">
+                            <Badge variant="outline" className="text-[12px]">
                               +{userRoles.length - 2} more
                             </Badge>
                           )}
@@ -1138,7 +1138,7 @@ export default function ManageUsersPage() {
                   {(selectedUser.roles || []).length > 0 && (
                     <Badge
                       variant="secondary"
-                      className="ml-1 text-[10px] px-1.5 py-0 h-4"
+                      className="ml-1 text-[11px] px-1.5 py-0 h-4"
                     >
                       {(selectedUser.roles || []).length}
                     </Badge>
@@ -1153,7 +1153,7 @@ export default function ManageUsersPage() {
                   {(selectedUser.departments || []).length > 0 && (
                     <Badge
                       variant="secondary"
-                      className="ml-1 text-[10px] px-1.5 py-0 h-4"
+                      className="ml-1 text-[11px] px-1.5 py-0 h-4"
                     >
                       {(selectedUser.departments || []).length}
                     </Badge>

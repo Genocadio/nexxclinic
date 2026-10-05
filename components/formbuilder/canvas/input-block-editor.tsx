@@ -87,7 +87,7 @@ export function InputBlockEditor({
           </label>
           {block.required && <span className="text-red-500 text-sm">*</span>}
           {block.minChars && block.minChars > 0 && (
-            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">
+            <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">
               min {block.minChars} {block.type === "number_input" ? "digits" : "chars"}
             </span>
           )}

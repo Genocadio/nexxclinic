@@ -447,7 +447,7 @@ export function FormFieldRenderer({
           <span>{rows} x {columns}</span>
           {cfg.mode === 'DYNAMIC' && <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => updateShape(rows + 1, columns)}>+ Row</Button>}
           {cfg.mode === 'DYNAMIC' && <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => updateShape(rows, columns + 1)}>+ Col</Button>}
-          {cfg.headerPlacement !== 'none' && <span className="text-[10px] text-muted-foreground">headers: {cfg.headerPlacement}</span>}
+          {cfg.headerPlacement !== 'none' && <span className="text-[11px] text-muted-foreground">headers: {cfg.headerPlacement}</span>}
         </div>
         <div className="overflow-auto border border-border/70 rounded-md bg-background/50">
           <table className="min-w-full border-collapse text-sm">

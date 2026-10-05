@@ -84,7 +84,7 @@ export function BillingItemsList({
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[820px] text-sm border-separate border-spacing-0">
-        <thead className="sticky top-0 z-10 bg-muted dark:bg-muted/90 text-muted-foreground text-[11px] font-semibold uppercase tracking-wide border-b-2 border-border">
+        <thead className="sticky top-0 z-10 bg-muted dark:bg-muted/90 text-muted-foreground text-[12px] font-semibold uppercase tracking-wide border-b-2 border-border">
           <tr>
             <th className="py-2.5 px-3 text-left">Item</th>
             {!hideTypeColumn && (

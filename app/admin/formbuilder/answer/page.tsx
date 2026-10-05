@@ -145,7 +145,7 @@ function FormAnswerPageInner() {
                 )}
                 {preset && (
                   <Badge
-                    className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[backendForm.type] ?? ""}`}
+                    className={`text-[11px] px-1.5 py-0 ${TYPE_COLORS[backendForm.type] ?? ""}`}
                   >
                     {preset.emoji} {preset.label}
                   </Badge>
@@ -241,7 +241,7 @@ function FormAnswerPageInner() {
                         <Badge variant="outline" className="uppercase">
                           {item.status}
                         </Badge>
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-[12px] text-muted-foreground">
                           {item.formVersion?.versionLabel ||
                             `v${item.formVersion?.majorVersion ?? 1}`}
                         </span>

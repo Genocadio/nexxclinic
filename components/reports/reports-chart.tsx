@@ -109,7 +109,7 @@ export function ReportsChart({ data, activeTab }: ReportsChartProps) {
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-foreground">Activity Timeline</h3>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
               {scaleBadge}
             </span>
           </div>

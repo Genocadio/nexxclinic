@@ -21,7 +21,7 @@ import type { UploadResult } from "@/lib/storage-service";
 function CfgSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mt-3 pt-3 border-t border-border/50 space-y-2.5">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+      <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         {title}
       </p>
       {children}
@@ -239,7 +239,7 @@ export function FileUploadBlockItem({
         </p>
         <p className="text-xs text-muted-foreground">{MODE_HINTS[mode]}</p>
         {block.uploadMultiple && (
-          <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[10px] text-muted-foreground">
+          <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
             Multiple files
           </span>
         )}

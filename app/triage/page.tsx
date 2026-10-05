@@ -621,7 +621,7 @@ function TriagePageInner() {
                     <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/70 bg-muted/40">
                       <div className="flex items-center gap-2 min-w-0">
                         {isLatest && (
-                          <span className="text-[10px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/40 shadow-xs">
+                          <span className="text-[11px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/40 shadow-xs">
                             Latest
                           </span>
                         )}
@@ -784,7 +784,7 @@ function TriagePageInner() {
                             <span className="font-bold max-w-[160px] truncate">
                               {deptName}
                             </span>
-                            <span className="text-[10px] uppercase font-bold opacity-80">
+                            <span className="text-[11px] uppercase font-bold opacity-80">
                               {dept.status || "PENDING"}
                             </span>
                             {canReEnable && (
@@ -826,7 +826,7 @@ function TriagePageInner() {
                           <span className="font-bold max-w-[160px] truncate">
                             {deptName}
                           </span>
-                          <span className="text-[10px] uppercase font-bold opacity-80">
+                          <span className="text-[11px] uppercase font-bold opacity-80">
                             {dept.status || "PENDING"}
                           </span>
                           {canReEnable && (
@@ -985,7 +985,7 @@ function TriagePageInner() {
                           <span className="text-xs font-semibold text-foreground/80 truncate">
                             {row.measurementName}
                           </span>
-                          <span className="text-[10px] font-bold text-muted-foreground bg-muted/70 px-1.5 py-0.5 rounded-md">
+                          <span className="text-[11px] font-bold text-muted-foreground bg-muted/70 px-1.5 py-0.5 rounded-md">
                             {row.unit}
                           </span>
                         </div>
@@ -1012,7 +1012,7 @@ function TriagePageInner() {
                           className="h-8 text-lg font-bold text-indigo-700 dark:text-indigo-300 placeholder:text-muted-foreground/30 border-0 bg-transparent px-0 focus-visible:ring-0 shadow-none"
                         />
                         {hasError && (
-                          <p className="text-[10px] font-medium text-red-600 dark:text-red-400 truncate">
+                          <p className="text-[11px] font-medium text-red-600 dark:text-red-400 truncate">
                             {vitalRowErrors[row.id]}
                           </p>
                         )}
@@ -1053,7 +1053,7 @@ function TriagePageInner() {
                               }`}
                             />
                             {vitalRowErrors[`${row.id}:name`] && (
-                              <p className="text-[10px] text-red-600 dark:text-red-400 mt-0.5">
+                              <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5">
                                 {vitalRowErrors[`${row.id}:name`]}
                               </p>
                             )}
@@ -1070,7 +1070,7 @@ function TriagePageInner() {
                               }`}
                             />
                             {vitalRowErrors[row.id] && (
-                              <p className="text-[10px] text-red-600 dark:text-red-400 mt-0.5">
+                              <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5">
                                 {vitalRowErrors[row.id]}
                               </p>
                             )}
@@ -1089,7 +1089,7 @@ function TriagePageInner() {
                               }`}
                             />
                             {vitalRowErrors[`${row.id}:unit`] && (
-                              <p className="text-[10px] text-red-600 dark:text-red-400 mt-0.5">
+                              <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5">
                                 {vitalRowErrors[`${row.id}:unit`]}
                               </p>
                             )}

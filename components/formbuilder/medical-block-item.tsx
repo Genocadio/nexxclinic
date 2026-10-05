@@ -30,7 +30,7 @@ function ConfigSection({
 }) {
   return (
     <div className="mt-3 pt-3 border-t border-border/50 space-y-2.5">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+      <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         {title}
       </p>
       {children}
@@ -132,7 +132,7 @@ function DiagnosticRecordBlock({
           </span>
           {block.required && <span className="text-red-500 text-xs">*</span>}
           {!isActive && (
-            <span className="ml-auto text-[10px] text-muted-foreground/50 font-normal normal-case tracking-normal">
+            <span className="ml-auto text-[11px] text-muted-foreground/50 font-normal normal-case tracking-normal">
               click header to configure
             </span>
           )}
@@ -299,7 +299,7 @@ function MedicationFullBlock({
           </span>
           {block.required && <span className="text-red-500 text-xs">*</span>}
           {!isActive && (
-            <span className="ml-auto text-[10px] text-muted-foreground/50 font-normal normal-case tracking-normal">
+            <span className="ml-auto text-[11px] text-muted-foreground/50 font-normal normal-case tracking-normal">
               click header to configure
             </span>
           )}
@@ -459,7 +459,7 @@ function MedicationMiniBlock({
           </span>
           {block.required && <span className="text-red-500 text-xs">*</span>}
           {!isActive && (
-            <span className="ml-auto text-[10px] text-muted-foreground/50 font-normal normal-case tracking-normal">
+            <span className="ml-auto text-[11px] text-muted-foreground/50 font-normal normal-case tracking-normal">
               click header to configure
             </span>
           )}
@@ -579,7 +579,7 @@ function LabRowEditor({
       </div>
       {layout === "valueUnit" && (
         <div>
-          <p className="text-[10px] text-muted-foreground mb-0.5">
+          <p className="text-[11px] text-muted-foreground mb-0.5">
             Units (comma-separated)
           </p>
           <Input
@@ -602,7 +602,7 @@ function LabRowEditor({
       )}
       {layout === "result" && (
         <div>
-          <p className="text-[10px] text-muted-foreground mb-0.5">
+          <p className="text-[11px] text-muted-foreground mb-0.5">
             Result options (comma-separated)
           </p>
           <Input
@@ -677,7 +677,7 @@ function LabRecordBlock({
           </span>
           {block.required && <span className="text-red-500 text-xs">*</span>}
           {!isActive && (
-            <span className="ml-auto text-[10px] text-muted-foreground/50 font-normal normal-case tracking-normal">
+            <span className="ml-auto text-[11px] text-muted-foreground/50 font-normal normal-case tracking-normal">
               click header to configure
             </span>
           )}
@@ -925,7 +925,7 @@ function ProductListenerBlock({
             Product / Procedure Listener
           </span>
           {!isActive && (
-            <span className="ml-auto text-[10px] text-muted-foreground/50 font-normal normal-case tracking-normal">
+            <span className="ml-auto text-[11px] text-muted-foreground/50 font-normal normal-case tracking-normal">
               click header to configure
             </span>
           )}
@@ -1002,7 +1002,7 @@ function ProductListenerBlock({
                     <div className="flex items-center gap-2 shrink-0">
                       {p.type && (
                         <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${PTYPE_COLOR[p.type] ?? "bg-muted text-muted-foreground"}`}
+                          className={`text-[11px] px-1.5 py-0.5 rounded font-medium ${PTYPE_COLOR[p.type] ?? "bg-muted text-muted-foreground"}`}
                         >
                           {PTYPE_LABEL[p.type] ?? p.type}
                         </span>
@@ -1032,7 +1032,7 @@ function ProductListenerBlock({
                 <span className="flex-1 font-medium truncate">{item.name}</span>
                 {item.type && (
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${PTYPE_COLOR[item.type] ?? "bg-muted text-muted-foreground"}`}
+                    className={`text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 ${PTYPE_COLOR[item.type] ?? "bg-muted text-muted-foreground"}`}
                   >
                     {PTYPE_LABEL[item.type] ?? item.type}
                   </span>
@@ -1053,7 +1053,7 @@ function ProductListenerBlock({
           </div>
         )}
 
-        <p className="text-[10px] text-muted-foreground/70 italic pt-1 border-t border-orange-200/60 dark:border-orange-800/40">
+        <p className="text-[11px] text-muted-foreground/70 italic pt-1 border-t border-orange-200/60 dark:border-orange-800/40">
           Links to the product / procedure catalog. Products added during
           consultation are automatically tracked for billing.
         </p>

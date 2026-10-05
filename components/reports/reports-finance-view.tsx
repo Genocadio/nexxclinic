@@ -99,7 +99,7 @@ export function ReportsFinanceView({
           <div>
             <h2 className="text-base font-bold text-foreground flex items-center gap-2">
               Money & Settlement Report
-              <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20">
+              <Badge variant="outline" className="text-[11px] bg-primary/5 text-primary border-primary/20">
                 Finance & Billing
               </Badge>
             </h2>
@@ -212,12 +212,12 @@ export function ReportsFinanceView({
                 <Smartphone className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                 Mobile Money (MoMo)
               </span>
-              <Badge variant="outline" className="text-[10px] bg-card border-amber-500/30 text-amber-600 dark:text-amber-400">
+              <Badge variant="outline" className="text-[11px] bg-card border-amber-500/30 text-amber-600 dark:text-amber-400">
                 MoMo / Airtel
               </Badge>
             </div>
             <p className="text-xl font-bold text-foreground">{formatRWF(money.momoCollected)}</p>
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-amber-500/20">
+            <div className="flex items-center justify-between text-[12px] text-muted-foreground pt-1 border-t border-amber-500/20">
               <span>
                 {money.patientCashCollected > 0
                   ? `${Math.round((money.momoCollected / money.patientCashCollected) * 100)}% of collections`
@@ -234,12 +234,12 @@ export function ReportsFinanceView({
                 <Banknote className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 Cash in Hand
               </span>
-              <Badge variant="outline" className="text-[10px] bg-card border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+              <Badge variant="outline" className="text-[11px] bg-card border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
                 Physical Cash
               </Badge>
             </div>
             <p className="text-xl font-bold text-foreground">{formatRWF(money.cashCollected)}</p>
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-emerald-500/20">
+            <div className="flex items-center justify-between text-[12px] text-muted-foreground pt-1 border-t border-emerald-500/20">
               <span>
                 {money.patientCashCollected > 0
                   ? `${Math.round((money.cashCollected / money.patientCashCollected) * 100)}% of collections`
@@ -256,12 +256,12 @@ export function ReportsFinanceView({
                 <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                 Patient Loans / Credit
               </span>
-              <Badge variant="outline" className="text-[10px] bg-card border-orange-500/30 text-orange-600 dark:text-orange-400">
+              <Badge variant="outline" className="text-[11px] bg-card border-orange-500/30 text-orange-600 dark:text-orange-400">
                 Outstanding Debt
               </Badge>
             </div>
             <p className="text-xl font-bold text-foreground">{formatRWF(money.patientLoanAmount)}</p>
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-orange-500/20">
+            <div className="flex items-center justify-between text-[12px] text-muted-foreground pt-1 border-t border-orange-500/20">
               <span>
                 {money.totalGrossBilled > 0
                   ? `${Math.round((money.patientLoanAmount / money.totalGrossBilled) * 100)}% of gross billed`
@@ -278,12 +278,12 @@ export function ReportsFinanceView({
                 <Gift className="h-4 w-4 text-pink-600 dark:text-pink-400" />
                 Giveaways / Waived
               </span>
-              <Badge variant="outline" className="text-[10px] bg-card border-pink-500/30 text-pink-600 dark:text-pink-400">
+              <Badge variant="outline" className="text-[11px] bg-card border-pink-500/30 text-pink-600 dark:text-pink-400">
                 Social Exemption
               </Badge>
             </div>
             <p className="text-xl font-bold text-foreground">{formatRWF(money.giveawayAmount)}</p>
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-pink-500/20">
+            <div className="flex items-center justify-between text-[12px] text-muted-foreground pt-1 border-t border-pink-500/20">
               <span>
                 {money.totalGrossBilled > 0
                   ? `${Math.round((money.giveawayAmount / money.totalGrossBilled) * 100)}% of gross billed`
@@ -305,7 +305,7 @@ export function ReportsFinanceView({
               </span>
               <p className="text-sm font-bold text-foreground">{formatRWF(money.cardCollected)}</p>
             </div>
-            <Badge variant="outline" className="text-[10px] bg-card">
+            <Badge variant="outline" className="text-[11px] bg-card">
               {money.paymentModesBreakdown["CARD"]?.count || 0} txn
             </Badge>
           </div>
@@ -319,7 +319,7 @@ export function ReportsFinanceView({
               </span>
               <p className="text-sm font-bold text-foreground">{formatRWF(money.bankTransferCollected)}</p>
             </div>
-            <Badge variant="outline" className="text-[10px] bg-card">
+            <Badge variant="outline" className="text-[11px] bg-card">
               {money.paymentModesBreakdown["BANK_TRANSFER"]?.count || 0} txn
             </Badge>
           </div>
@@ -333,7 +333,7 @@ export function ReportsFinanceView({
               </span>
               <p className="text-sm font-bold text-foreground">{formatRWF(money.insuranceCoveredAmount)}</p>
             </div>
-            <Badge variant="outline" className="text-[10px] bg-card text-blue-600 dark:text-blue-400">
+            <Badge variant="outline" className="text-[11px] bg-card text-blue-600 dark:text-blue-400">
               Receivables
             </Badge>
           </div>
@@ -347,7 +347,7 @@ export function ReportsFinanceView({
               </span>
               <p className="text-sm font-bold text-foreground">{formatRWF(money.totalGrossBilled)}</p>
             </div>
-            <Badge variant="default" className="text-[10px] bg-primary text-primary-foreground">
+            <Badge variant="default" className="text-[11px] bg-primary text-primary-foreground">
               100% Total
             </Badge>
           </div>
@@ -401,7 +401,7 @@ export function ReportsFinanceView({
           <div>
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-base font-semibold text-foreground">Settlement Summary</h3>
-              <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+              <Badge variant="outline" className="text-[11px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
                 {money.settlementRatePct}% Settled
               </Badge>
             </div>
@@ -437,7 +437,7 @@ export function ReportsFinanceView({
                 <div className="text-right">
                   <span className="font-bold text-foreground">{formatRWF(money.patientLoanAmount)}</span>
                   {money.loanCount > 0 && (
-                    <span className="block text-[10px] text-muted-foreground">({money.loanCount} encounters)</span>
+                    <span className="block text-[11px] text-muted-foreground">({money.loanCount} encounters)</span>
                   )}
                 </div>
               </div>
@@ -451,7 +451,7 @@ export function ReportsFinanceView({
                 <div className="text-right">
                   <span className="font-bold text-foreground">{formatRWF(money.giveawayAmount)}</span>
                   {money.giveawayCount > 0 && (
-                    <span className="block text-[10px] text-muted-foreground">({money.giveawayCount} items)</span>
+                    <span className="block text-[11px] text-muted-foreground">({money.giveawayCount} items)</span>
                   )}
                 </div>
               </div>

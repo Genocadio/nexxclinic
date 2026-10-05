@@ -284,7 +284,7 @@ export default function PatientRegistrationModal({
                                     <span
                                       key={idx}
                                       title={active ? name : insuranceStatusLabel(insurance)}
-                                      className={`relative group/ins inline-flex items-center justify-center h-5 min-w-[20px] rounded-full border text-[10px] font-semibold px-1.5 cursor-default ${
+                                      className={`relative group/ins inline-flex items-center justify-center h-5 min-w-[20px] rounded-full border text-[11px] font-semibold px-1.5 cursor-default ${
                                         active
                                           ? "border-primary/30 bg-primary/10 text-primary"
                                           : "border-gray-300 bg-gray-100 text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500 opacity-50"
@@ -303,7 +303,7 @@ export default function PatientRegistrationModal({
                                         </>
                                       )}
                                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 opacity-0 invisible group-hover/ins:opacity-100 group-hover/ins:visible transition-all duration-150 z-[150] pointer-events-none">
-                                        <div className="bg-slate-900 dark:bg-slate-700 text-white text-[11px] rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-lg">
+                                        <div className="bg-slate-900 dark:bg-slate-700 text-white text-[12px] rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-lg">
                                           <div className="font-semibold">{name}</div>
                                           {!active && (
                                             <div className="text-orange-300 font-medium">{insuranceStatusLabel(insurance)}</div>

@@ -260,7 +260,7 @@ export default function VisitNotesFloating({
           >
             <StickyNote className="h-5 w-5" />
             {!isOpen && unreadNotesCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-bounce">
+              <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[12px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-bounce">
                 {unreadNotesCount}
               </span>
             )}
@@ -290,10 +290,10 @@ export default function VisitNotesFloating({
                   }
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {note.noteType || "PUBLIC"}
                       {!note.viewed && (
-                        <span className="ml-1 text-[9px] bg-primary text-primary-foreground px-1 rounded-full animate-pulse">
+                        <span className="ml-1 text-[10px] bg-primary text-primary-foreground px-1 rounded-full animate-pulse">
                           NEW
                         </span>
                       )}
@@ -303,14 +303,14 @@ export default function VisitNotesFloating({
                       const createdBy = note.createdBy;
                       if (!createdBy)
                         return (
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-[11px] text-muted-foreground">
                             Unknown
                           </span>
                         );
 
                       if (doctor && createdBy.id === doctor.id) {
                         return (
-                          <span className="text-[10px] text-muted-foreground italic">
+                          <span className="text-[11px] text-muted-foreground italic">
                             You
                           </span>
                         );
@@ -326,7 +326,7 @@ export default function VisitNotesFloating({
                         .filter(Boolean)
                         .join(" ");
                       return fullName ? (
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-[11px] text-muted-foreground">
                           {fullName}
                         </span>
                       ) : null;
@@ -344,7 +344,7 @@ export default function VisitNotesFloating({
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-7 rounded-full px-3 text-[11px]"
+                  className="h-7 rounded-full px-3 text-[12px]"
                   onClick={addBulletPrefix}
                 >
                   • List
@@ -352,7 +352,7 @@ export default function VisitNotesFloating({
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-7 rounded-full px-3 text-[11px]"
+                  className="h-7 rounded-full px-3 text-[12px]"
                   onClick={addNumberPrefix}
                 >
                   1. Numbered
@@ -360,7 +360,7 @@ export default function VisitNotesFloating({
 
                 {noteTypes.length > 1 ? (
                   <Select value={selectedType} onValueChange={setSelectedType}>
-                    <SelectTrigger className="h-7 min-h-0 w-auto rounded-full border-border bg-muted px-3 py-0 text-[11px] font-semibold text-foreground leading-none [&>svg]:hidden">
+                    <SelectTrigger className="h-7 min-h-0 w-auto rounded-full border-border bg-muted px-3 py-0 text-[12px] font-semibold text-foreground leading-none [&>svg]:hidden">
                       <SelectValue placeholder="Type" />
                     </SelectTrigger>
                     <SelectContent className="min-w-30 rounded-xl p-1">
@@ -368,7 +368,7 @@ export default function VisitNotesFloating({
                         <SelectItem
                           key={type}
                           value={type}
-                          className="h-7 text-[11px] leading-none px-2"
+                          className="h-7 text-[12px] leading-none px-2"
                         >
                           {type}
                         </SelectItem>
@@ -376,7 +376,7 @@ export default function VisitNotesFloating({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <div className="inline-flex rounded-full border border-border/70 px-3 py-1 text-[11px] font-semibold text-muted-foreground">
+                  <div className="inline-flex rounded-full border border-border/70 px-3 py-1 text-[12px] font-semibold text-muted-foreground">
                     {selectedType}
                   </div>
                 )}

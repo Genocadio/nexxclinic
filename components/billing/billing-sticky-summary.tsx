@@ -188,24 +188,24 @@ export function BillingStickySummary({
               {isEditingBill ? (
                 /* DEPARTMENT_EDITING mode — show editing status */
                 <div className="shrink-0">
-                  <p className="text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400 font-medium">
+                  <p className="text-[11px] uppercase tracking-wide text-amber-600 dark:text-amber-400 font-medium">
                     Editing billing
                   </p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-[12px] text-muted-foreground">
                     {hasEditChanges ? "Changes detected — click Complete Edit to save" : "No changes yet — modify items to enable Complete Edit"}
                   </p>
                 </div>
               ) : existingVisitBilling && billingTotals ? (
                 /* Already billed — show paid + outstanding */
                 <div className="shrink-0">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
                     Billed {existingVisitBilling.id.slice(0, 8)}…
                   </p>
-                  <p className="text-[11px] text-green-600 dark:text-green-400 tabular-nums">
+                  <p className="text-[12px] text-green-600 dark:text-green-400 tabular-nums">
                     Paid {formatRWF(billingTotals.paidAmount)}
                   </p>
                   {billingTotals.outstandingAmount > 0 && (
-                    <p className="text-[11px] text-orange-600 dark:text-orange-400 tabular-nums">
+                    <p className="text-[12px] text-orange-600 dark:text-orange-400 tabular-nums">
                       Outstanding {formatRWF(billingTotals.outstandingAmount)}
                     </p>
                   )}
@@ -213,11 +213,11 @@ export function BillingStickySummary({
               ) : (
                 /* Pre-billing — show amount due */
                 <div className="shrink-0">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
                     {activeService ? `${activeService} · Due` : "Amount Due"}
                   </p>
                   {selectedCount > 0 && (
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground">
                       {selectedCount} item{selectedCount !== 1 ? "s" : ""}
                     </p>
                   )}
@@ -225,7 +225,7 @@ export function BillingStickySummary({
                     {formatRWF(totals.totalAmount)}
                   </p>
                   {amountPaid > 0 && (
-                    <p className="text-[10px] text-muted-foreground tabular-nums">
+                    <p className="text-[11px] text-muted-foreground tabular-nums">
                       Paid {formatRWF(amountPaid)} · Remaining {formatRWF(remaining)}
                     </p>
                   )}
@@ -309,9 +309,9 @@ export function BillingStickySummary({
                         <DropdownMenuContent align="end" className="w-80 z-[100]">
                           {printableOptions.map((opt) => (
                             <div key={opt.id} className="p-1 border-b last:border-b-0 border-border/50">
-                              <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                              <div className="px-2 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                 <span>{opt.insuranceLabel}</span>
-                                {opt.title && <span className="font-normal lowercase text-[10px] text-muted-foreground/70">{opt.title}</span>}
+                                {opt.title && <span className="font-normal lowercase text-[11px] text-muted-foreground/70">{opt.title}</span>}
                               </div>
                               {opt.hasInsurance ? (
                                 <>
@@ -418,7 +418,7 @@ function SummaryLine({
 }) {
   return (
     <div className="shrink-0">
-      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
       <p className={`font-semibold tabular-nums ${className}`}>{value}</p>
     </div>
   );
@@ -452,7 +452,7 @@ function ActionButton({
         >
           <Icon className="h-4 w-4" />
           {badge !== undefined && badge > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-0.5 bg-destructive rounded-full text-destructive-foreground text-[9px] flex items-center justify-center font-bold">
+            <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-0.5 bg-destructive rounded-full text-destructive-foreground text-[10px] flex items-center justify-center font-bold">
               {badge}
             </span>
           )}

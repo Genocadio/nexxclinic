@@ -394,7 +394,7 @@ export function DepartmentProfilesPanel({
                 );
               })}
               {newProfileProductIds.length === 0 && (
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[12px] text-muted-foreground">
                   No products selected yet.
                 </p>
               )}
@@ -481,12 +481,12 @@ export function DepartmentProfilesPanel({
                     {profile.isDefault && (
                       <Badge
                         variant="secondary"
-                        className="text-[10px] gap-1 shrink-0"
+                        className="text-[11px] gap-1 shrink-0"
                       >
                         <Star className="h-3 w-3" /> Default
                       </Badge>
                     )}
-                    <span className="text-[10px] text-muted-foreground shrink-0">
+                    <span className="text-[11px] text-muted-foreground shrink-0">
                       {profile.products.length} product
                       {profile.products.length !== 1 ? "s" : ""}
                     </span>
@@ -559,7 +559,7 @@ export function DepartmentProfilesPanel({
                   </div>
                 ))}
                 {profile.products.length === 0 && (
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-[12px] text-muted-foreground">
                     No products in this profile.
                   </p>
                 )}
@@ -612,7 +612,7 @@ export function DepartmentProfilesPanel({
       </div>
 
       {defaultProfile && profiles.length > 1 && (
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-[12px] text-muted-foreground">
           Default profile: <span className="font-medium">{defaultProfile.name}</span>.
         </p>
       )}

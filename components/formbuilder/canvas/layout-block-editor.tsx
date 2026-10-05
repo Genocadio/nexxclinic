@@ -147,7 +147,7 @@ export function LayoutBlockEditor({
           >
             {/* Column label */}
             {isActive && (
-              <span className="px-2 pt-1.5 pb-0.5 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/40 select-none">
+              <span className="px-2 pt-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40 select-none">
                 Column {colIdx + 1}
               </span>
             )}
@@ -155,7 +155,7 @@ export function LayoutBlockEditor({
             {/* Nested blocks */}
             <div className="flex-1 px-1 pb-1 space-y-0.5">
               {col.blocks.length === 0 && isActive && (
-                <div className="h-8 flex items-center justify-center text-[11px] text-muted-foreground/30 italic select-none">
+                <div className="h-8 flex items-center justify-center text-[12px] text-muted-foreground/30 italic select-none">
                   Empty
                 </div>
               )}
@@ -252,7 +252,7 @@ function ColumnBlockAdder({ onAdd }: { onAdd: (type: BlockType) => void }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="w-full flex items-center justify-center gap-1 py-1.5 rounded text-[11px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/30 border border-dashed border-transparent hover:border-border/40 transition-colors"
+        className="w-full flex items-center justify-center gap-1 py-1.5 rounded text-[12px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/30 border border-dashed border-transparent hover:border-border/40 transition-colors"
       >
         <Plus className="h-3 w-3" />
         Add block
@@ -274,7 +274,7 @@ function ColumnBlockAdder({ onAdd }: { onAdd: (type: BlockType) => void }) {
             className="flex flex-col items-center gap-0.5 px-1 py-1.5 rounded hover:bg-muted transition-colors text-center"
           >
             <span className="text-sm leading-none">{item.icon}</span>
-            <span className="text-[9px] text-muted-foreground leading-tight">
+            <span className="text-[10px] text-muted-foreground leading-tight">
               {item.label}
             </span>
           </button>
@@ -282,7 +282,7 @@ function ColumnBlockAdder({ onAdd }: { onAdd: (type: BlockType) => void }) {
       </div>
       <button
         onClick={() => setOpen(false)}
-        className="w-full mt-1.5 text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+        className="w-full mt-1.5 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
       >
         Cancel
       </button>

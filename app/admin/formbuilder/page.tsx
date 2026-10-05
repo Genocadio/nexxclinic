@@ -421,7 +421,7 @@ export default function FormBuilderListPage() {
         <div className="flex flex-col md:flex-row gap-8">
           {/* Sidebar */}
           <aside className="w-full md:w-56 shrink-0 space-y-1">
-            <h2 className="text-[10px] font-bold text-muted-foreground px-3 mb-2 uppercase tracking-widest">
+            <h2 className="text-[11px] font-bold text-muted-foreground px-3 mb-2 uppercase tracking-widest">
               Categories
             </h2>
             {CATEGORIES.map((cat) => (
@@ -438,7 +438,7 @@ export default function FormBuilderListPage() {
                 {cat.label}
                 <span
                   className={cn(
-                    "text-[10px] px-1.5 py-0.5 rounded-full",
+                    "text-[11px] px-1.5 py-0.5 rounded-full",
                     category === cat.value
                       ? "bg-primary-foreground/20"
                       : "bg-muted-foreground/10",
@@ -568,13 +568,13 @@ export default function FormBuilderListPage() {
                               {preset?.emoji ?? "📄"}
                             </span>
                             {form.isTemplate && (
-                              <Badge variant="outline" className="text-[9px]">
+                              <Badge variant="outline" className="text-[10px]">
                                 Template
                               </Badge>
                             )}
                           </div>
                           <Badge
-                            className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[form.type as FormTemplateType] ?? ""}`}
+                            className={`text-[11px] px-1.5 py-0 ${TYPE_COLORS[form.type as FormTemplateType] ?? ""}`}
                           >
                             {TYPE_LABELS[form.type as FormTemplateType] ??
                               form.type}
@@ -593,7 +593,7 @@ export default function FormBuilderListPage() {
                             {blockCount} block{blockCount !== 1 ? "s" : ""}
                           </p>
                         </div>
-                        <div className="flex items-center justify-between text-[10px] text-muted-foreground border-t border-border/50 pt-2">
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground border-t border-border/50 pt-2">
                           <span className="flex items-center gap-1">
                             <Clock className="h-2.5 w-2.5" />{" "}
                             {timeAgo(form.updatedAt)}
@@ -613,7 +613,7 @@ export default function FormBuilderListPage() {
                                   `/admin/formbuilder/answer?id=${form.id}`,
                                 );
                               }}
-                              className="h-7 gap-1.5 px-2 text-[11px]"
+                              className="h-7 gap-1.5 px-2 text-[12px]"
                             >
                               <ClipboardPenLine className="h-3 w-3" />
                               View answers
@@ -708,7 +708,7 @@ export default function FormBuilderListPage() {
                             {form.name}
                           </p>
                           {form.isTemplate && (
-                            <Badge variant="outline" className="text-[9px]">
+                            <Badge variant="outline" className="text-[10px]">
                               Template
                             </Badge>
                           )}
@@ -719,7 +719,7 @@ export default function FormBuilderListPage() {
                         </p>
                       </div>
                       <Badge
-                        className={`text-[10px] px-1.5 py-0 shrink-0 ${TYPE_COLORS[form.type as FormTemplateType] ?? ""}`}
+                        className={`text-[11px] px-1.5 py-0 shrink-0 ${TYPE_COLORS[form.type as FormTemplateType] ?? ""}`}
                       >
                         {TYPE_LABELS[form.type as FormTemplateType] ??
                           form.type}
@@ -739,7 +739,7 @@ export default function FormBuilderListPage() {
                             );
                           }}
                           title="View answers"
-                          className="h-7 gap-1.5 px-2 text-[11px]"
+                          className="h-7 gap-1.5 px-2 text-[12px]"
                         >
                           <ClipboardPenLine className="h-3.5 w-3.5" />
                           View answers

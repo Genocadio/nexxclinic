@@ -1006,7 +1006,7 @@ export default function FormsPage() {
             </Button>
           )}
           {cfg.headerPlacement !== "none" && (
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-[11px] text-muted-foreground">
               headers: {cfg.headerPlacement}
             </span>
           )}
@@ -2907,7 +2907,7 @@ export default function FormsPage() {
                                                             <p className="text-xs font-medium">
                                                               {f.label}
                                                             </p>
-                                                            <p className="text-[10px] text-muted-foreground">
+                                                            <p className="text-[11px] text-muted-foreground">
                                                               ({f.type})
                                                             </p>
                                                           </div>

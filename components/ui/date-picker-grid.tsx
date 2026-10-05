@@ -208,7 +208,7 @@ export function DatePickerGrid({ value = "", onChange, className }: DatePickerGr
                   setDay("")
                   commitDate("", month, year)
                 }}
-                className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1"
               >
                 <X className="w-3 h-3" />
                 Clear
@@ -275,7 +275,7 @@ export function DatePickerGrid({ value = "", onChange, className }: DatePickerGr
                   setMonth("")
                   commitDate(day, "", year)
                 }}
-                className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1"
               >
                 <X className="w-3 h-3" />
                 Clear
@@ -338,7 +338,7 @@ export function DatePickerGrid({ value = "", onChange, className }: DatePickerGr
                   setYear("")
                   commitDate(day, month, "")
                 }}
-                className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1"
               >
                 <X className="w-3 h-3" />
                 Clear

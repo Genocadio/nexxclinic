@@ -133,14 +133,14 @@ export default function FormActionsDisplay({
             </p>
             {item.billingConfirmationStatus === "PENDING_OPERATOR_CONFIRMATION" &&
               !confirmedIds.has(item.id) && (
-                <span className="shrink-0 text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-medium">
+                <span className="shrink-0 text-[11px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-medium">
                   Added in Billing
                 </span>
               )}
             {(confirmedIds.has(item.id) ||
               item.billingConfirmationStatus === "CONFIRMED" ||
               item.confirmedByName) && (
-              <span className="shrink-0 text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-1.5 py-0.5 rounded-full font-medium">
+              <span className="shrink-0 text-[11px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-1.5 py-0.5 rounded-full font-medium">
                 {item.confirmedByName
                   ? `Confirmed by ${item.confirmedByName}`
                   : "Confirmed"}
@@ -159,7 +159,7 @@ export default function FormActionsDisplay({
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-6 text-[11px] px-2 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 gap-1 font-medium"
+                  className="h-6 text-[12px] px-2 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 gap-1 font-medium"
                   disabled={busyId === item.id}
                   onClick={async (e) => {
                     e.stopPropagation()
@@ -291,7 +291,7 @@ export default function FormActionsDisplay({
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="h-6 px-2 text-[11px]"
+                    className="h-6 px-2 text-[12px]"
                     onClick={() => onRestore(item.id)}
                   >
                     Restore

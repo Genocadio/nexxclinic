@@ -240,10 +240,10 @@ function DeptNotesPanel({
               }
             >
               <div className="flex items-center justify-between gap-2 mb-1">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   {note.noteType || "PUBLIC"}
                   {!note.viewed && (
-                    <span className="ml-1 text-[9px] bg-primary text-primary-foreground px-1 rounded-full animate-pulse">
+                    <span className="ml-1 text-[10px] bg-primary text-primary-foreground px-1 rounded-full animate-pulse">
                       NEW
                     </span>
                   )}
@@ -252,13 +252,13 @@ function DeptNotesPanel({
                   const cb = note.createdBy;
                   if (!cb)
                     return (
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-[11px] text-muted-foreground">
                         Unknown
                       </span>
                     );
                   if (doctor && cb.id === doctor.id)
                     return (
-                      <span className="text-[10px] text-muted-foreground italic">
+                      <span className="text-[11px] text-muted-foreground italic">
                         You
                       </span>
                     );
@@ -266,7 +266,7 @@ function DeptNotesPanel({
                     .filter(Boolean)
                     .join(" ");
                   return name ? (
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[11px] text-muted-foreground">
                       {name}
                     </span>
                   ) : null;
@@ -284,7 +284,7 @@ function DeptNotesPanel({
           <Button
             type="button"
             variant="outline"
-            className="h-7 rounded-full px-3 text-[11px]"
+            className="h-7 rounded-full px-3 text-[12px]"
             onClick={addBulletPrefix}
           >
             • List
@@ -292,14 +292,14 @@ function DeptNotesPanel({
           <Button
             type="button"
             variant="outline"
-            className="h-7 rounded-full px-3 text-[11px]"
+            className="h-7 rounded-full px-3 text-[12px]"
             onClick={addNumberPrefix}
           >
             1. Numbered
           </Button>
           {noteTypes.length > 1 ? (
             <Select value={selectedType} onValueChange={setSelectedType}>
-              <SelectTrigger className="h-7 min-h-0 w-auto rounded-full border-border/70 bg-background/80 px-3 py-0 text-[11px] font-semibold text-muted-foreground leading-none [&>svg]:hidden">
+              <SelectTrigger className="h-7 min-h-0 w-auto rounded-full border-border/70 bg-background/80 px-3 py-0 text-[12px] font-semibold text-muted-foreground leading-none [&>svg]:hidden">
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent className="min-w-30 rounded-xl p-1">
@@ -307,7 +307,7 @@ function DeptNotesPanel({
                   <SelectItem
                     key={t}
                     value={t}
-                    className="h-7 text-[11px] leading-none px-2"
+                    className="h-7 text-[12px] leading-none px-2"
                   >
                     {t}
                   </SelectItem>
@@ -315,7 +315,7 @@ function DeptNotesPanel({
               </SelectContent>
             </Select>
           ) : (
-            <div className="inline-flex rounded-full border border-border/70 px-3 py-1 text-[11px] font-semibold text-muted-foreground">
+            <div className="inline-flex rounded-full border border-border/70 px-3 py-1 text-[12px] font-semibold text-muted-foreground">
               {selectedType}
             </div>
           )}
@@ -454,7 +454,7 @@ export default function DepartmentNotesFloating({
             <path d="M15 3v6h6" />
           </svg>
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-5 min-w-5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-sm animate-pulse">
+            <span className="absolute -top-1 -right-1 h-5 min-w-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center border-2 border-white shadow-sm animate-pulse">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
@@ -470,7 +470,7 @@ export default function DepartmentNotesFloating({
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <span>Department Notes</span>
                 {unreadCount > 0 && (
-                  <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
+                  <span className="text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
                     {unreadCount} new
                   </span>
                 )}
@@ -517,7 +517,7 @@ export default function DepartmentNotesFloating({
                     type="button"
                     onClick={() => setActiveTabId(dept.id)}
                     className={[
-                      "h-7 rounded-full px-3 text-[11px] font-semibold transition-colors border flex items-center gap-1.5",
+                      "h-7 rounded-full px-3 text-[12px] font-semibold transition-colors border flex items-center gap-1.5",
                       isActive
                         ? "bg-primary text-primary-foreground border-primary shadow-sm"
                         : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground",
@@ -525,7 +525,7 @@ export default function DepartmentNotesFloating({
                   >
                     <span>{label}</span>
                     {deptUnread > 0 && (
-                      <span className="h-4 min-w-4 px-1 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center">
+                      <span className="h-4 min-w-4 px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">
                         {deptUnread}
                       </span>
                     )}
@@ -537,7 +537,7 @@ export default function DepartmentNotesFloating({
 
           {/* Single-department label */}
           {depts.length === 1 && (
-            <div className="inline-flex rounded-full border border-border/70 px-3 py-1 text-[11px] font-semibold text-muted-foreground self-start">
+            <div className="inline-flex rounded-full border border-border/70 px-3 py-1 text-[12px] font-semibold text-muted-foreground self-start">
               {depts[0].department?.name || "Department"}
             </div>
           )}

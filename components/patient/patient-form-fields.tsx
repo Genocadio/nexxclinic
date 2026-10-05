@@ -263,7 +263,7 @@ export default function PatientFormFields({
               National ID / Passport Number
             </label>
             {nidInfo.valid && !nidMismatch.hasMismatch && (
-              <span className="text-[10px] sm:text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+              <span className="text-[11px] sm:text-[12px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
                 🇷🇼 NID: {nidInfo.genderLabel}, {nidInfo.yearOfBirth}
               </span>
             )}
@@ -280,7 +280,7 @@ export default function PatientFormFields({
             )}
           />
           {nidMismatch.hasMismatch && nidMismatch.warning && (
-            <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium mt-1 flex items-center gap-1">
+            <p className="text-[12px] text-amber-600 dark:text-amber-400 font-medium mt-1 flex items-center gap-1">
               <span>⚠️</span>
               <span>{nidMismatch.warning}</span>
             </p>
@@ -511,7 +511,7 @@ export default function PatientFormFields({
                                 />
                                 <div className="flex flex-col min-w-0">
                                   <span className="font-medium text-foreground text-xs sm:text-sm">{item.district}</span>
-                                  <span className="text-[10px] sm:text-[11px] text-muted-foreground">{item.province}</span>
+                                  <span className="text-[11px] sm:text-[12px] text-muted-foreground">{item.province}</span>
                                 </div>
                               </CommandItem>
                             ))}
@@ -585,7 +585,7 @@ export default function PatientFormFields({
                                   />
                                   <div className="flex flex-col min-w-0">
                                     <span className="font-medium text-foreground text-xs sm:text-sm">{item.sector}</span>
-                                    <span className="text-[10px] sm:text-[11px] text-muted-foreground">
+                                    <span className="text-[11px] sm:text-[12px] text-muted-foreground">
                                       {item.district}, {item.province}
                                     </span>
                                   </div>
@@ -668,7 +668,7 @@ export default function PatientFormFields({
                                   />
                                   <div className="flex flex-col min-w-0">
                                     <span className="font-medium text-foreground text-xs sm:text-sm">{item.cell}</span>
-                                    <span className="text-[10px] sm:text-[11px] text-muted-foreground">
+                                    <span className="text-[11px] sm:text-[12px] text-muted-foreground">
                                       {item.sector}, {item.district}
                                     </span>
                                   </div>
@@ -749,7 +749,7 @@ export default function PatientFormFields({
                                   />
                                   <div className="flex flex-col min-w-0">
                                     <span className="font-medium text-foreground text-xs sm:text-sm">{item.village}</span>
-                                    <span className="text-[10px] sm:text-[11px] text-muted-foreground">
+                                    <span className="text-[11px] sm:text-[12px] text-muted-foreground">
                                       {item.cell}, {item.sector}, {item.district}
                                     </span>
                                   </div>
@@ -854,7 +854,7 @@ export default function PatientFormFields({
           <div>
             <h3 className="text-sm sm:text-lg font-semibold">Insurance</h3>
             {!canAddInsurance && (formData.insurances?.length ?? 0) > 0 && (
-              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+              <p className="text-[12px] text-amber-600 dark:text-amber-400 mt-0.5">
                 Complete existing insurance details to add another
               </p>
             )}
@@ -1051,11 +1051,11 @@ export default function PatientFormFields({
                         <label className="block text-xs sm:text-sm font-medium text-foreground">
                           Default Patient Share / Coverage Tier
                         </label>
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-[12px] text-muted-foreground">
                           {coverages.length} tiers available
                         </span>
                       </div>
-                      <p className="text-[11px] text-muted-foreground mb-2">
+                      <p className="text-[12px] text-muted-foreground mb-2">
                         This insurance has multiple coverage conditions. Select the default tier for this patient:
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -1097,7 +1097,7 @@ export default function PatientFormFields({
                         <span className="font-medium text-foreground">Default Coverage: </span>
                         <span className="text-muted-foreground">{getCoverageLabel(singleCov)}</span>
                       </div>
-                      <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold text-[11px]">
+                      <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold text-[12px]">
                         {singleCov.patientSharePercentage}% Patient Share
                       </span>
                     </div>
@@ -1193,7 +1193,7 @@ export default function PatientFormFields({
                       <h5 className="text-xs sm:text-sm font-medium text-foreground">
                         Principal Member Information <span className="text-red-500">*</span>
                       </h5>
-                      <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60">
+                      <span className="text-[12px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60">
                         Required for patients &lt;18 years
                       </span>
                     </div>

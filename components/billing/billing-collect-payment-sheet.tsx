@@ -208,7 +208,7 @@ export function CollectPaymentSheet({
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground">
                       Outstanding
                     </p>
                     <p className="text-sm font-bold tabular-nums">

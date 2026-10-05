@@ -272,7 +272,7 @@ export function TableBlockEditor({
                           e.preventDefault();
                           addCellInlineField(btn.type as any);
                         }}
-                        className="px-1 py-1 rounded text-[10px] font-bold text-teal-600 hover:bg-teal-50"
+                        className="px-1 py-1 rounded text-[11px] font-bold text-teal-600 hover:bg-teal-50"
                       >
                         {btn.icon}
                       </button>
@@ -339,7 +339,7 @@ export function TableBlockEditor({
       {/* Active cell field config */}
       {isActive && activeCell && activeCellFields.length > 0 && (
         <div className="mt-4 p-2 rounded-lg border border-teal-100 bg-teal-50/20 space-y-2">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-teal-600/50">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-teal-600/50">
             Cell Answer Fields ({activeCell.ri + 1}, {activeCell.ci + 1})
           </p>
           {activeCellFields.map((field) => (
@@ -347,11 +347,11 @@ export function TableBlockEditor({
               key={field.id}
               className="flex items-center gap-2 bg-background p-1.5 rounded border border-teal-100/50 shadow-sm"
             >
-              <div className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 font-bold text-[9px]">
+              <div className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 font-bold text-[10px]">
                 {field.id}
               </div>
               <Input
-                className="h-6 text-[10px] flex-1"
+                className="h-6 text-[11px] flex-1"
                 value={field.placeholder ?? ""}
                 placeholder="Placeholder…"
                 onChange={(e) =>
@@ -365,7 +365,7 @@ export function TableBlockEditor({
               />
               {field.fieldType === "select" && (
                 <Input
-                  className="h-6 text-[10px] flex-1"
+                  className="h-6 text-[11px] flex-1"
                   value={field.options?.join(", ") ?? ""}
                   placeholder="Options (comma separated)…"
                   onChange={(e) =>
@@ -383,7 +383,7 @@ export function TableBlockEditor({
                   }
                 />
               )}
-              <label className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0 cursor-pointer select-none">
+              <label className="flex items-center gap-1 text-[12px] text-muted-foreground shrink-0 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={!!field.required}
@@ -417,7 +417,7 @@ export function TableBlockEditor({
       )}
 
       {isActive && !activeCell && (
-        <p className="mt-2 text-[11px] text-muted-foreground/50 italic text-center">
+        <p className="mt-2 text-[12px] text-muted-foreground/50 italic text-center">
           Click a cell to edit its content, format it, or add an answer field.
         </p>
       )}

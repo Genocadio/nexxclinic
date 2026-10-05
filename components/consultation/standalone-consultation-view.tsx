@@ -207,6 +207,9 @@ export function StandaloneConsultationView({
     answerId: string;
     departmentName: string;
     patientName: string;
+    visitId: string;
+    visitDepartmentId: string;
+    visitDepartment: Visit["departments"][number] | null;
     previewStartedAt: number;
   } | null>(null);
   const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
@@ -853,7 +856,7 @@ export function StandaloneConsultationView({
           >
             <FlaskConical className="h-5 w-5" />
             {!requestProductsOpen && hasUnreadChildRequestNotes && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-bounce">
+              <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[12px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-bounce">
                 {childRequestUnreadNotesCount}
               </span>
             )}
@@ -870,7 +873,7 @@ export function StandaloneConsultationView({
         >
           <StickyNote className="h-5 w-5" />
           {!notesOpen && unreadNotesCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-bounce">
+            <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[12px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-bounce">
               {unreadNotesCount}
             </span>
           )}
@@ -895,11 +898,21 @@ export function StandaloneConsultationView({
         patientName={patientLabel}
         currentDepartmentId={catalogDepartmentId}
         hasAnsweredCurrentForm={hasAnyAnswerContent}
-        onPreviewAnswerAction={({ answerId, departmentName, patientName }) => {
+        onPreviewAnswerAction={({
+          answerId,
+          departmentName,
+          patientName,
+          visitId,
+          visitDepartmentId,
+          visitDepartment,
+        }) => {
           setPreviewConsultationContext({
             answerId,
             departmentName,
             patientName,
+            visitId,
+            visitDepartmentId,
+            visitDepartment,
             previewStartedAt: Date.now(),
           });
           setPreviewConsultationOpen(true);
@@ -1065,7 +1078,7 @@ export function StandaloneConsultationView({
                                       </span>
                                       <span className="text-muted-foreground">× {line.quantity}</span>
                                       {isPendingConfirm && (
-                                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
                                           Added in Billing
                                         </span>
                                       )}
@@ -1076,7 +1089,7 @@ export function StandaloneConsultationView({
                                         size="sm"
                                         variant="outline"
                                         disabled={isConfirmingThis}
-                                        className="h-6 px-2 text-[11px] font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-300 dark:border-emerald-800 shrink-0"
+                                        className="h-6 px-2 text-[12px] font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-300 dark:border-emerald-800 shrink-0"
                                         onClick={async () => {
                                           try {
                                             setConfirmingChildProductId(line.id);
@@ -1123,7 +1136,7 @@ export function StandaloneConsultationView({
                               <MessageSquarePlus className="mr-2 h-4 w-4" />
                               Add consultation note
                               {(childDept.notes?.newNotes || 0) > 0 && (
-                                <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground animate-bounce">
+                                <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground animate-bounce">
                                   {childDept.notes?.newNotes || 0}
                                 </span>
                               )}
@@ -1327,11 +1340,11 @@ export function StandaloneConsultationView({
                                               <span className={`text-xs font-semibold ${isZeroPaying ? "text-muted-foreground line-through" : "text-primary"}`}>
                                                 {formatRWF(Number(coverage.cost))}
                                               </span>
-                                              <span className="text-[10px] text-muted-foreground">
+                                              <span className="text-[11px] text-muted-foreground">
                                                 {coverage.insuranceProvider?.acronym || coverage.insuranceProvider?.insuranceName}
                                               </span>
                                               {isZeroPaying && (
-                                                <span className="text-[9px] bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 px-1 py-0.5 rounded font-medium">
+                                                <span className="text-[10px] bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 px-1 py-0.5 rounded font-medium">
                                                   Not Covered
                                                 </span>
                                               )}
@@ -1342,7 +1355,7 @@ export function StandaloneConsultationView({
                                         <div className="flex items-center justify-end gap-1.5 text-xs text-muted-foreground">
                                           <span>{formatRWF(pricing.price)}</span>
                                           {visitInsurances.length > 0 && (
-                                            <span className="text-[9px] bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-1 py-0.5 rounded font-medium">
+                                            <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-1 py-0.5 rounded font-medium">
                                               Private
                                             </span>
                                           )}
@@ -1528,15 +1541,15 @@ export function StandaloneConsultationView({
                         }}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                             {note.noteType || "CONSULTATION"}
                             {!note.viewed && (
-                              <span className="ml-1 rounded-full bg-primary px-1 text-[9px] text-primary-foreground animate-pulse">
+                              <span className="ml-1 rounded-full bg-primary px-1 text-[10px] text-primary-foreground animate-pulse">
                                 NEW
                               </span>
                             )}
                           </p>
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-[11px] text-muted-foreground">
                             {note.createdAt
                               ? new Date(note.createdAt).toLocaleString()
                               : ""}
@@ -1558,7 +1571,7 @@ export function StandaloneConsultationView({
                     className="min-h-24 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[12px] text-muted-foreground">
                       Saved as consultation notes on this child visit
                       department.
                     </p>
@@ -1690,11 +1703,17 @@ export function StandaloneConsultationView({
             answerId,
             departmentName,
             patientName,
+            visitId,
+            visitDepartmentId,
+            visitDepartment,
           }) => {
             setPreviewConsultationContext({
               answerId,
               departmentName,
               patientName,
+              visitId,
+              visitDepartmentId,
+              visitDepartment,
               previewStartedAt: Date.now(),
             });
             setPreviewConsultationOpen(true);
@@ -1714,6 +1733,9 @@ export function StandaloneConsultationView({
         answerId={previewConsultationContext?.answerId || null}
         departmentName={previewConsultationContext?.departmentName}
         patientName={previewConsultationContext?.patientName}
+        visitId={previewConsultationContext?.visitId}
+        visitDepartmentId={previewConsultationContext?.visitDepartmentId}
+        visitDepartment={previewConsultationContext?.visitDepartment ?? null}
         previewStartedAt={previewConsultationContext?.previewStartedAt || null}
       />
     </div>

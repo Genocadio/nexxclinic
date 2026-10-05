@@ -128,7 +128,7 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
                       }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-all duration-200 text-left text-foreground cursor-pointer"
                     >
-                      <span className="w-5 h-5 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[11px] font-semibold">
+                      <span className="w-5 h-5 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[12px] font-semibold">
                         M
                       </span>
                       <span className="text-sm font-medium">Medical Dashboard</span>
@@ -143,7 +143,7 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
                         }}
                         className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-all duration-200 text-left text-foreground cursor-pointer"
                       >
-                        <span className="w-5 h-5 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[11px] font-semibold">
+                        <span className="w-5 h-5 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[12px] font-semibold">
                           A
                         </span>
                         <span className="text-sm font-medium">Admin Dashboard</span>
@@ -191,7 +191,7 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
                         aria-label="Light Theme"
                       >
                         <Sun className="w-3.5 h-3.5" />
-                        <span className="text-[11px]">Light</span>
+                        <span className="text-[12px]">Light</span>
                       </button>
 
                       <button
@@ -207,7 +207,7 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
                         aria-label="System Theme"
                       >
                         <Monitor className="w-3.5 h-3.5" />
-                        <span className="text-[11px]">System</span>
+                        <span className="text-[12px]">System</span>
                       </button>
 
                       <button
@@ -223,7 +223,7 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
                         aria-label="Dark Theme"
                       >
                         <Moon className="w-3.5 h-3.5" />
-                        <span className="text-[11px]">Dark</span>
+                        <span className="text-[12px]">Dark</span>
                       </button>
                     </div>
                   </div>

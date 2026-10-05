@@ -581,20 +581,20 @@ export default function DepartmentsPage() {
                         {/* Capabilities & Operational Badges */}
                         <div className="flex flex-wrap gap-1.5 pt-1">
                           {isNursing && (
-                            <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/20 text-[11px] gap-1">
+                            <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/20 text-[12px] gap-1">
                               <HeartPulse className="h-3 w-3" /> Nursing Station
                             </Badge>
                           )}
                           {isFulfiller ? (
-                            <Badge variant="secondary" className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/20 text-[11px] gap-1">
+                            <Badge variant="secondary" className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/20 text-[12px] gap-1">
                               <FlaskConical className="h-3 w-3" /> Fulfills Requests
                             </Badge>
                           ) : (
-                            <Badge variant="secondary" className="bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/20 text-[11px] gap-1">
+                            <Badge variant="secondary" className="bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/20 text-[12px] gap-1">
                               <Stethoscope className="h-3 w-3" /> Orders Products
                             </Badge>
                           )}
-                          <Badge variant="outline" className="text-[11px]">
+                          <Badge variant="outline" className="text-[12px]">
                             {dept.insurancePolicyMode === 'ALL'
                               ? 'All Insurances'
                               : dept.insurancePolicyMode === 'ONLY'
@@ -690,7 +690,7 @@ export default function DepartmentsPage() {
                   <ShieldCheck className="h-4 w-4" />
                   Insurances
                   {(selectedDepartment.insurancePolicies || []).length > 0 && (
-                    <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0 h-4">
+                    <Badge variant="secondary" className="ml-1 text-[11px] px-1.5 py-0 h-4">
                       {(selectedDepartment.insurancePolicies || []).length}
                     </Badge>
                   )}
@@ -702,7 +702,7 @@ export default function DepartmentsPage() {
                   <Layers className="h-4 w-4" />
                   Profiles
                   {(selectedDepartment.profiles || []).length > 0 && (
-                    <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0 h-4">
+                    <Badge variant="secondary" className="ml-1 text-[11px] px-1.5 py-0 h-4">
                       {(selectedDepartment.profiles || []).length}
                     </Badge>
                   )}
@@ -1228,7 +1228,7 @@ export default function DepartmentsPage() {
                 <div className="space-y-3 rounded-xl border border-border/60 bg-white dark:bg-slate-950 p-4 shadow-sm">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground">Initial Profile (Optional)</label>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[12px] text-muted-foreground">
                       Create an initial product package profile for this department.
                     </p>
                   </div>

@@ -319,7 +319,7 @@ export function AddDepartmentModal({
                                 {fullName || "Unnamed"}
                               </div>
                               {isFullyAlreadyAdded ? (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                                <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
                                   Already added
                                 </span>
                               ) : isSelected ? (
@@ -448,7 +448,7 @@ export function AddDepartmentModal({
                                       className="w-full flex items-center justify-between px-3 py-2 text-sm border-b last:border-b-0 border-border/60 opacity-50 cursor-not-allowed bg-muted/20"
                                     >
                                       <span>{d.name}</span>
-                                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
                                         Already added
                                       </span>
                                     </button>
@@ -530,7 +530,7 @@ export function AddDepartmentModal({
                               <span>{dept.name}</span>
                             </div>
                             {isAlreadyAdded ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
                                 Already added
                               </span>
                             ) : isSelected ? (

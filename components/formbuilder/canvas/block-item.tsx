@@ -110,7 +110,7 @@ export function BlockItem(props: BlockItemProps) {
           <div className="h-px w-full bg-border/30" />
           {isActive && (
             <div className="absolute inset-y-0 right-0 flex items-center pr-2 bg-background/80 backdrop-blur-sm">
-              <span className="text-[10px] text-muted-foreground mr-2 font-mono uppercase tracking-widest">
+              <span className="text-[11px] text-muted-foreground mr-2 font-mono uppercase tracking-widest">
                 Spacer: {block.height}px
               </span>
               <input
@@ -157,7 +157,7 @@ export function BlockItem(props: BlockItemProps) {
           <div className="py-2 cursor-pointer" onClick={onActivate}>
             <p className="text-xs text-muted-foreground mb-2">{block.label ?? "Signature"}</p>
             <div className="h-12 border-b-2 border-dashed border-slate-400 dark:border-slate-600 relative">
-              <span className="absolute bottom-1 left-0 text-[10px] text-muted-foreground/50">Sign here</span>
+              <span className="absolute bottom-1 left-0 text-[11px] text-muted-foreground/50">Sign here</span>
             </div>
           </div>
         )}

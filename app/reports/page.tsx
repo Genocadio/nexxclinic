@@ -334,7 +334,7 @@ export default function ReportsPage() {
                   {reportData.clinician.activities.length > 0 && (
                     <Badge
                       variant="secondary"
-                      className="ml-1 py-0 px-1.5 text-[10px] bg-secondary/80 text-secondary-foreground"
+                      className="ml-1 py-0 px-1.5 text-[11px] bg-secondary/80 text-secondary-foreground"
                     >
                       {reportData.clinician.activities.length}
                     </Badge>
@@ -354,7 +354,7 @@ export default function ReportsPage() {
                   {reportData.nurse.activities.length > 0 && (
                     <Badge
                       variant="secondary"
-                      className="ml-1 py-0 px-1.5 text-[10px] bg-secondary/80 text-secondary-foreground"
+                      className="ml-1 py-0 px-1.5 text-[11px] bg-secondary/80 text-secondary-foreground"
                     >
                       {reportData.nurse.activities.length}
                     </Badge>
@@ -374,7 +374,7 @@ export default function ReportsPage() {
                   {reportData.finance.activities.length > 0 && (
                     <Badge
                       variant="secondary"
-                      className="ml-1 py-0 px-1.5 text-[10px] bg-secondary/80 text-secondary-foreground"
+                      className="ml-1 py-0 px-1.5 text-[11px] bg-secondary/80 text-secondary-foreground"
                     >
                       {reportData.finance.activities.length}
                     </Badge>
@@ -394,7 +394,7 @@ export default function ReportsPage() {
                   {reportData.reception.activities.length > 0 && (
                     <Badge
                       variant="secondary"
-                      className="ml-1 py-0 px-1.5 text-[10px] bg-secondary/80 text-secondary-foreground"
+                      className="ml-1 py-0 px-1.5 text-[11px] bg-secondary/80 text-secondary-foreground"
                     >
                       {reportData.reception.activities.length}
                     </Badge>

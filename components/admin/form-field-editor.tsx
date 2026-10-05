@@ -523,7 +523,7 @@ export function FieldEditor({
                         !isActionListener
                       ) {
                         return (
-                          <p className="text-[11px] text-orange-600">
+                          <p className="text-[12px] text-orange-600">
                             Select an action listener field to enable this
                             condition.
                           </p>
@@ -578,7 +578,7 @@ export function FieldEditor({
                               </div>
                             )}
                             {itemLoading && (
-                              <p className="text-[11px] text-muted-foreground">
+                              <p className="text-[12px] text-muted-foreground">
                                 Searching products…
                               </p>
                             )}
@@ -625,7 +625,7 @@ export function FieldEditor({
                   />
                 </div>
               ) : (
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[12px] text-muted-foreground">
                   This field type does not use a placeholder.
                 </p>
               )}
@@ -634,7 +634,7 @@ export function FieldEditor({
               <div className="space-y-3 border border-dashed rounded-lg p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold">Table Settings</span>
-                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                     <span>Static preset:</span>
                     <Select
                       value={`${tableMode === "STATIC" ? tableRows : 0}x${tableMode === "STATIC" ? tableColumns : 0}`}
@@ -752,7 +752,7 @@ export function FieldEditor({
                         );
                       })}
                     </div>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[12px] text-muted-foreground">
                       {tableHeaderPlacement === "none"
                         ? "No headers selected."
                         : `Headers: ${tableHeaderPlacement.replaceAll("-", " + ")}`}
@@ -813,7 +813,7 @@ export function FieldEditor({
                     No headers configured. Table will display as a plain grid.
                   </p>
                 )}
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[12px] text-muted-foreground">
                   Only one axis can be variable at a time; headers are
                   configurable here and locked in the live preview.
                 </p>
@@ -1044,7 +1044,7 @@ export function FieldEditor({
                     ),
                   )}
                 </div>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[12px] text-muted-foreground">
                   Use fixed names for the row labels. The value or result is
                   captured as the answer for each row.
                 </p>

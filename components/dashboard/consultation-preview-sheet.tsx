@@ -1,10 +1,12 @@
 "use client"
 import { useEffect, useMemo, useState } from "react"
+import { useQuery } from "@apollo/client"
 import { createPortal } from "react-dom"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { FormRenderer } from "@/components/formbuilder/form-renderer"
+import { ConsultationFormRenderer } from "@/components/formbuilder/consultation-form-renderer"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useStandaloneAnswer } from "@/hooks/standalone-forms/visit-answers"
+import { GET_VISIT_QUERY } from "@/hooks/queries/visits"
 import {
   mapStandaloneAnswerToSavedForm,
   parseStandaloneAnswers,
@@ -17,6 +19,11 @@ interface ConsultationPreviewSheetProps {
   departmentName?: string
   patientName?: string
   visitDepartment?: VisitDepartment | null
+  /** Visit the department belongs to. Used to load the department's
+   *  products/diagnostics/medications when they were not passed in. */
+  visitId?: string | null
+  /** Department to render clinical data for, when it differs from visitDepartment. */
+  visitDepartmentId?: string | null
   previewStartedAt?: number | null
 }
 
@@ -27,12 +34,37 @@ export function ConsultationPreviewSheet({
   departmentName,
   patientName,
   visitDepartment,
+  visitId,
+  visitDepartmentId,
 }: ConsultationPreviewSheetProps) {
   const [previewReadyLogged, setPreviewReadyLogged] = useState(false)
   const [isRendered, setIsRendered] = useState(open)
   const { answer, loading, error } = useStandaloneAnswer(answerId, {
     skip: !open || !answerId,
   })
+
+  // The answer form's product / diagnosis / medication blocks are rendered from
+  // live visit-department data through the consultation extension, never from
+  // the stored answer payload (those keys are stripped on save). So the visit
+  // has to be in scope here, otherwise the blocks come up empty.
+  const needsVisitFetch =
+    open && Boolean(visitId) && !visitDepartment && Boolean(visitDepartmentId)
+  const { data: visitData, loading: visitLoading } = useQuery(GET_VISIT_QUERY, {
+    variables: { id: visitId },
+    skip: !needsVisitFetch,
+  })
+
+  const visitDepartments: VisitDepartment[] =
+    visitData?.data?.departments || []
+  const resolvedVisitDepartment: VisitDepartment | null = useMemo(() => {
+    if (visitDepartment) return visitDepartment
+    const targetId = String(visitDepartmentId || "")
+    if (!targetId) return null
+    return (
+      visitDepartments.find((dept) => String(dept.id) === targetId) || null
+    )
+  }, [visitDepartment, visitDepartmentId, visitDepartments])
+
   const previewForm = useMemo(
     () => (answer ? mapStandaloneAnswerToSavedForm(answer) : null),
     [answer],
@@ -42,6 +74,7 @@ export function ConsultationPreviewSheet({
     [answer?.answers],
   )
   const answerStatus = answer?.status || null
+  const clinicalLoading = needsVisitFetch && visitLoading && !visitData
   useEffect(() => {
     if (open) {
       setIsRendered(true)
@@ -97,7 +130,7 @@ export function ConsultationPreviewSheet({
                   </h2>
                   {answerStatus && (
                     <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${answerStatus === "FINAL" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-wide uppercase ${answerStatus === "FINAL" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
                     >
                       {answerStatus.toLowerCase()}
                     </span>
@@ -140,7 +173,7 @@ export function ConsultationPreviewSheet({
                 </div>
               )}
 
-              {!loading && !answerId && visitDepartment && (
+              {!loading && !answerId && resolvedVisitDepartment && (
                 <div className="mx-auto w-full max-w-3xl rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
                   <div>
                     <h3 className="text-base font-semibold text-foreground">
@@ -157,9 +190,9 @@ export function ConsultationPreviewSheet({
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                         Diagnoses
                       </p>
-                      {visitDepartment.diagnostics?.length ? (
+                      {resolvedVisitDepartment.diagnostics?.length ? (
                         <ul className="space-y-1 text-sm text-foreground list-disc pl-5">
-                          {visitDepartment.diagnostics.map((item) => (
+                          {resolvedVisitDepartment.diagnostics.map((item) => (
                             <li key={item.id}>{item.diagnosisName}</li>
                           ))}
                         </ul>
@@ -174,9 +207,9 @@ export function ConsultationPreviewSheet({
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                         Medications
                       </p>
-                      {visitDepartment.medications?.length ? (
+                      {resolvedVisitDepartment.medications?.length ? (
                         <ul className="space-y-1 text-sm text-foreground list-disc pl-5">
-                          {visitDepartment.medications.map((item) => (
+                          {resolvedVisitDepartment.medications.map((item) => (
                             <li key={item.id}>{item.medicationName}</li>
                           ))}
                         </ul>
@@ -191,9 +224,9 @@ export function ConsultationPreviewSheet({
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                         Products
                       </p>
-                      {visitDepartment.products?.length ? (
+                      {resolvedVisitDepartment.products?.length ? (
                         <ul className="space-y-1 text-sm text-foreground list-disc pl-5">
-                          {visitDepartment.products.map((item) => (
+                          {resolvedVisitDepartment.products.map((item) => (
                             <li key={item.id} className="flex items-center justify-between py-0.5">
                               <span>
                                 {item.product?.name || "Product"}
@@ -205,7 +238,7 @@ export function ConsultationPreviewSheet({
                               </span>
                               {item.billingConfirmationStatus ===
                                 "PENDING_OPERATOR_CONFIRMATION" && (
-                                <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-medium ml-2">
+                                <span className="text-[11px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-medium ml-2">
                                   Pending Doctor Confirmation
                                 </span>
                               )}
@@ -222,7 +255,7 @@ export function ConsultationPreviewSheet({
                 </div>
               )}
 
-              {!loading && !answerId && !visitDepartment && (
+              {!loading && !answerId && !resolvedVisitDepartment && (
                 <p className="text-sm text-muted-foreground">
                   No saved consultation answer is available for this department.
                 </p>
@@ -241,9 +274,10 @@ export function ConsultationPreviewSheet({
                 </p>
               )}
 
-              {!loading && previewForm && !error && (
+              {!loading && !clinicalLoading && previewForm && !error && (
                 <div className="mx-auto w-full max-w-3xl rounded-2xl border border-border bg-card p-6 shadow-sm">
-                  <FormRenderer
+                  <ConsultationFormRenderer
+                    key={`${answerId || "none"}:${resolvedVisitDepartment?.id || visitDepartmentId || ""}`}
                     form={previewForm}
                     showTitle={true}
                     edit={false}
@@ -251,6 +285,20 @@ export function ConsultationPreviewSheet({
                     hideSubmit={true}
                     initialAnswers={previewAnswers}
                     className="mx-auto"
+                    visitId={String(visitId || "")}
+                    visitDepartmentId={String(
+                      resolvedVisitDepartment?.id || visitDepartmentId || "",
+                    )}
+                    departmentId={String(
+                      resolvedVisitDepartment?.department?.id || "",
+                    )}
+                    visitDepartments={
+                      resolvedVisitDepartment
+                        ? [resolvedVisitDepartment]
+                        : visitDepartments
+                    }
+                    visitStatus={visitData?.data?.status}
+                    visitDepartmentStatus={resolvedVisitDepartment?.status}
                   />
                 </div>
               )}
