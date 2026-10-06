@@ -173,8 +173,8 @@ export default function PatientFormFields({
       (ins) => String(ins.id) === String(insuranceId),
     )
     return insurance
-      ? `${insurance.insuranceName} (${insurance.acronym || ""})`
-      : "Select insurance..."
+      ? `${insurance.acronym || insurance.insuranceName || insurance.name || 'Insurance'}`
+      : 'Select insurance...'
   }
 
   const dobValidation = formData.dateOfBirth
@@ -185,6 +185,8 @@ export default function PatientFormFields({
     formData.insurances,
     formData.dateOfBirth,
   )
+
+  const hasInsurances = Boolean(formData.insurances?.length)
 
   const hasEmergencyData = Boolean(
     formData.emergencyContact?.name?.trim() ||
@@ -859,10 +861,10 @@ export default function PatientFormFields({
         className={`${solidPanelClass} border-t p-2 sm:p-3`}
       >
         <div className="mb-1 sm:mb-2">
-          <h3 className="text-sm sm:text-lg font-semibold">Insurance</h3>
+          <h3 className="text-sm sm:text-lg font-semibold">Insurance: Private</h3>
           {!canAddInsurance && (formData.insurances?.length ?? 0) > 0 && (
             <p className="text-[12px] text-amber-600 dark:text-amber-400 mt-0.5">
-              Complete existing insurance details to add another
+              Complete existing insurance details before adding another
             </p>
           )}
         </div>
@@ -912,7 +914,7 @@ export default function PatientFormFields({
                         aria-expanded={insurancePopoverOpen[index]}
                         className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
                       >
-                        {getInsuranceName(insurance.insuranceId ?? "")}
+                        {getInsuranceName(insurance.insuranceId ?? "") || insurance.insuranceId}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
@@ -927,8 +929,7 @@ export default function PatientFormFields({
                           <CommandGroup>
                             {availableInsurances.map((ins) => (
                               <CommandItem
-                                key={ins.id}
-                                value={`${ins.name} ${ins.acronym}`}
+                                key={ins.id}                                value={ins.acronym || ins.name || ins.id} 
                                 onSelect={() => {
                                   onUpdateInsurance(index, "insuranceId", ins.id)
                                   const covs = ins.coverages || []
@@ -957,7 +958,7 @@ export default function PatientFormFields({
                                       : "opacity-0",
                                   )}
                                 />
-                                {ins.name} ({ins.acronym})
+                                {ins.acronym || ins.name || 'Insurance'}
                               </CommandItem>
                             ))}
                           </CommandGroup>

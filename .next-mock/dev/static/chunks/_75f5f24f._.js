@@ -2609,10 +2609,11 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
     const getInsuranceName = (insuranceId)=>{
         if (!insuranceId || String(insuranceId) === "0") return "Select insurance...";
         const insurance = availableInsurances.find((ins)=>String(ins.id) === String(insuranceId));
-        return insurance ? `${insurance.insuranceName} (${insurance.acronym || ""})` : "Select insurance...";
+        return insurance ? `${insurance.acronym || insurance.insuranceName || insurance.name || 'Insurance'}` : 'Select insurance...';
     };
     const dobValidation = formData.dateOfBirth ? (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$validation$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["validateDateOfBirth"])(formData.dateOfBirth) : null;
     const canAddInsurance = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$validation$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["canAddNewInsurance"])(formData.insurances, formData.dateOfBirth);
+    const hasInsurances = Boolean(formData.insurances?.length);
     const hasEmergencyData = Boolean(formData.emergencyContact?.name?.trim() || formData.emergencyContact?.relation?.trim() || formData.emergencyContact?.phone?.trim());
     const showEmergency = emergencyOpen || hasEmergencyData;
     const nidInfo = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$validation$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["parseRwandaNationalId"])(formData.nationalIdNumber);
@@ -2631,7 +2632,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 children: "Full Name *"
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 210,
+                                lineNumber: 212,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -2648,20 +2649,20 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 required: true
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 213,
+                                lineNumber: 215,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$field$2d$error$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["FieldError"], {
                                 message: fieldErrors["name"] || fieldErrors["firstName"]
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 222,
+                                lineNumber: 224,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                        lineNumber: 209,
+                        lineNumber: 211,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2671,7 +2672,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 children: "Date of Birth *"
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 225,
+                                lineNumber: 227,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$date$2d$picker$2d$grid$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DatePickerGrid"], {
@@ -2679,7 +2680,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 onChange: (date)=>onFieldChange("dateOfBirth", date)
                             }, formData.dateOfBirth || "empty", false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 228,
+                                lineNumber: 230,
                                 columnNumber: 11
                             }, this),
                             formData.dateOfBirth && dobValidation?.valid && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2691,7 +2692,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 234,
+                                lineNumber: 236,
                                 columnNumber: 13
                             }, this),
                             dateError && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2699,13 +2700,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 children: dateError
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 239,
+                                lineNumber: 241,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                        lineNumber: 224,
+                        lineNumber: 226,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2715,7 +2716,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 children: "Gender"
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 243,
+                                lineNumber: 245,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2729,14 +2730,14 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                 onCheckedChange: (checked)=>onFieldChange("gender", checked ? "M" : "")
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 248,
+                                                lineNumber: 250,
                                                 columnNumber: 15
                                             }, this),
                                             "Male"
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 247,
+                                        lineNumber: 249,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
@@ -2747,33 +2748,33 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                 onCheckedChange: (checked)=>onFieldChange("gender", checked ? "F" : "")
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 257,
+                                                lineNumber: 259,
                                                 columnNumber: 15
                                             }, this),
                                             "Female"
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 256,
+                                        lineNumber: 258,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 246,
+                                lineNumber: 248,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$field$2d$error$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["FieldError"], {
                                 message: fieldErrors["gender"]
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 266,
+                                lineNumber: 268,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                        lineNumber: 242,
+                        lineNumber: 244,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2787,7 +2788,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                         children: "National ID / Passport Number"
                                     }, void 0, false, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 270,
+                                        lineNumber: 272,
                                         columnNumber: 13
                                     }, this),
                                     nidInfo.valid && !nidMismatch.hasMismatch && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2800,13 +2801,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 274,
+                                        lineNumber: 276,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 269,
+                                lineNumber: 271,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -2818,7 +2819,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])(solidFieldClass, nidMismatch.hasMismatch && "border-amber-500/80 focus-visible:ring-amber-500/30")
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 279,
+                                lineNumber: 281,
                                 columnNumber: 11
                             }, this),
                             nidMismatch.hasMismatch && nidMismatch.warning && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2828,26 +2829,26 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                         children: "⚠️"
                                     }, void 0, false, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 292,
+                                        lineNumber: 294,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                         children: nidMismatch.warning
                                     }, void 0, false, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 293,
+                                        lineNumber: 295,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 291,
+                                lineNumber: 293,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                        lineNumber: 268,
+                        lineNumber: 270,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2858,7 +2859,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 children: "Phone Number"
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 298,
+                                lineNumber: 300,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -2870,19 +2871,19 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 className: solidFieldClass
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 301,
+                                lineNumber: 303,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                        lineNumber: 297,
+                        lineNumber: 299,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                lineNumber: 206,
+                lineNumber: 208,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2893,7 +2894,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                         children: "Address"
                     }, void 0, false, {
                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                        lineNumber: 318,
+                        lineNumber: 320,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2906,7 +2907,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                         children: "Country"
                                     }, void 0, false, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 324,
+                                        lineNumber: 326,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Popover"], {
@@ -2929,25 +2930,25 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                             children: formData.contactInfo?.address?.country || "Select country..."
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 341,
+                                                            lineNumber: 343,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevrons$2d$up$2d$down$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronsUpDown$3e$__["ChevronsUpDown"], {
                                                             className: "ml-2 h-4 w-4 shrink-0 opacity-50"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 344,
+                                                            lineNumber: 346,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 335,
+                                                    lineNumber: 337,
                                                     columnNumber: 17
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 334,
+                                                lineNumber: 336,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["PopoverContent"], {
@@ -2962,7 +2963,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                             onValueChange: setCountrySearch
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 352,
+                                                            lineNumber: 354,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandList"], {
@@ -2972,7 +2973,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                     children: "No country found."
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 359,
+                                                                    lineNumber: 361,
                                                                     columnNumber: 23
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandGroup"], {
@@ -2988,48 +2989,48 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                     className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("mr-2 h-4 w-4 shrink-0", formData.contactInfo?.address?.country === country ? "opacity-100" : "opacity-0")
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                    lineNumber: 372,
+                                                                                    lineNumber: 374,
                                                                                     columnNumber: 27
                                                                                 }, this),
                                                                                 country
                                                                             ]
                                                                         }, country, true, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 363,
+                                                                            lineNumber: 365,
                                                                             columnNumber: 25
                                                                         }, this))
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 361,
+                                                                    lineNumber: 363,
                                                                     columnNumber: 21
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 357,
+                                                            lineNumber: 359,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 351,
+                                                    lineNumber: 353,
                                                     columnNumber: 17
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 347,
+                                                lineNumber: 349,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 327,
+                                        lineNumber: 329,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 323,
+                                lineNumber: 325,
                                 columnNumber: 11
                             }, this),
                             (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$location$2d$data$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["isRwandaSelected"])(formData.contactInfo?.address?.country) ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
@@ -3044,7 +3045,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                         children: "Province"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                        lineNumber: 396,
+                                                        lineNumber: 398,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Popover"], {
@@ -3067,25 +3068,25 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                             children: formData.contactInfo?.address?.province || "Select province..."
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 413,
+                                                                            lineNumber: 415,
                                                                             columnNumber: 25
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevrons$2d$up$2d$down$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronsUpDown$3e$__["ChevronsUpDown"], {
                                                                             className: "ml-2 h-4 w-4 shrink-0 opacity-50"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 416,
+                                                                            lineNumber: 418,
                                                                             columnNumber: 25
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 407,
+                                                                    lineNumber: 409,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 406,
+                                                                lineNumber: 408,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["PopoverContent"], {
@@ -3100,7 +3101,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                             onValueChange: setProvinceSearch
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 424,
+                                                                            lineNumber: 426,
                                                                             columnNumber: 25
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandList"], {
@@ -3110,7 +3111,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                     children: "No province found."
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                    lineNumber: 431,
+                                                                                    lineNumber: 433,
                                                                                     columnNumber: 29
                                                                                 }, this),
                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandGroup"], {
@@ -3126,48 +3127,48 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                                     className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("mr-2 h-4 w-4 shrink-0", formData.contactInfo?.address?.province === province ? "opacity-100" : "opacity-0")
                                                                                                 }, void 0, false, {
                                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                    lineNumber: 444,
+                                                                                                    lineNumber: 446,
                                                                                                     columnNumber: 33
                                                                                                 }, this),
                                                                                                 province
                                                                                             ]
                                                                                         }, province, true, {
                                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                            lineNumber: 435,
+                                                                                            lineNumber: 437,
                                                                                             columnNumber: 31
                                                                                         }, this))
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                    lineNumber: 433,
+                                                                                    lineNumber: 435,
                                                                                     columnNumber: 27
                                                                                 }, this)
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 429,
+                                                                            lineNumber: 431,
                                                                             columnNumber: 25
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 423,
+                                                                    lineNumber: 425,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 419,
+                                                                lineNumber: 421,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                        lineNumber: 399,
+                                                        lineNumber: 401,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 395,
+                                                lineNumber: 397,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3177,7 +3178,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                         children: "District"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                        lineNumber: 464,
+                                                        lineNumber: 466,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Popover"], {
@@ -3200,25 +3201,25 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                             children: formData.contactInfo?.address?.district || "Select district..."
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 481,
+                                                                            lineNumber: 483,
                                                                             columnNumber: 25
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevrons$2d$up$2d$down$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronsUpDown$3e$__["ChevronsUpDown"], {
                                                                             className: "ml-2 h-4 w-4 shrink-0 opacity-50"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 484,
+                                                                            lineNumber: 486,
                                                                             columnNumber: 25
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 475,
+                                                                    lineNumber: 477,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 474,
+                                                                lineNumber: 476,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["PopoverContent"], {
@@ -3233,7 +3234,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                             onValueChange: setDistrictSearch
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 492,
+                                                                            lineNumber: 494,
                                                                             columnNumber: 25
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandList"], {
@@ -3243,7 +3244,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                     children: "No district found."
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                    lineNumber: 499,
+                                                                                    lineNumber: 501,
                                                                                     columnNumber: 29
                                                                                 }, this),
                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandGroup"], {
@@ -3259,7 +3260,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                                     className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("mr-2 h-4 w-4 shrink-0", formData.contactInfo?.address?.district === item.district ? "opacity-100" : "opacity-0")
                                                                                                 }, void 0, false, {
                                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                    lineNumber: 512,
+                                                                                                    lineNumber: 514,
                                                                                                     columnNumber: 33
                                                                                                 }, this),
                                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3270,7 +3271,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                                             children: item.district
                                                                                                         }, void 0, false, {
                                                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                            lineNumber: 521,
+                                                                                                            lineNumber: 523,
                                                                                                             columnNumber: 35
                                                                                                         }, this),
                                                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3278,53 +3279,53 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                                             children: item.province
                                                                                                         }, void 0, false, {
                                                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                            lineNumber: 522,
+                                                                                                            lineNumber: 524,
                                                                                                             columnNumber: 35
                                                                                                         }, this)
                                                                                                     ]
                                                                                                 }, void 0, true, {
                                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                    lineNumber: 520,
+                                                                                                    lineNumber: 522,
                                                                                                     columnNumber: 33
                                                                                                 }, this)
                                                                                             ]
                                                                                         }, `${item.province}-${item.district}`, true, {
                                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                            lineNumber: 503,
+                                                                                            lineNumber: 505,
                                                                                             columnNumber: 31
                                                                                         }, this))
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                    lineNumber: 501,
+                                                                                    lineNumber: 503,
                                                                                     columnNumber: 27
                                                                                 }, this)
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 497,
+                                                                            lineNumber: 499,
                                                                             columnNumber: 25
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 491,
+                                                                    lineNumber: 493,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 487,
+                                                                lineNumber: 489,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                        lineNumber: 467,
+                                                        lineNumber: 469,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 463,
+                                                lineNumber: 465,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3334,7 +3335,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                         children: "Sector"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                        lineNumber: 535,
+                                                        lineNumber: 537,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Popover"], {
@@ -3357,25 +3358,25 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                             children: formData.contactInfo?.address?.sector || "Select sector..."
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 552,
+                                                                            lineNumber: 554,
                                                                             columnNumber: 25
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevrons$2d$up$2d$down$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronsUpDown$3e$__["ChevronsUpDown"], {
                                                                             className: "ml-2 h-4 w-4 shrink-0 opacity-50"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 555,
+                                                                            lineNumber: 557,
                                                                             columnNumber: 25
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 546,
+                                                                    lineNumber: 548,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 545,
+                                                                lineNumber: 547,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["PopoverContent"], {
@@ -3390,7 +3391,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                             onValueChange: setSectorSearch
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 563,
+                                                                            lineNumber: 565,
                                                                             columnNumber: 25
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandList"], {
@@ -3400,7 +3401,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                     children: "No sector found."
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                    lineNumber: 570,
+                                                                                    lineNumber: 572,
                                                                                     columnNumber: 29
                                                                                 }, this),
                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandGroup"], {
@@ -3418,7 +3419,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                                     className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("mr-2 h-4 w-4 shrink-0", isSelected ? "opacity-100" : "opacity-0")
                                                                                                 }, void 0, false, {
                                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                    lineNumber: 588,
+                                                                                                    lineNumber: 590,
                                                                                                     columnNumber: 35
                                                                                                 }, this),
                                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3429,7 +3430,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                                             children: item.sector
                                                                                                         }, void 0, false, {
                                                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                            lineNumber: 595,
+                                                                                                            lineNumber: 597,
                                                                                                             columnNumber: 37
                                                                                                         }, this),
                                                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3441,60 +3442,60 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                                             ]
                                                                                                         }, void 0, true, {
                                                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                            lineNumber: 596,
+                                                                                                            lineNumber: 598,
                                                                                                             columnNumber: 37
                                                                                                         }, this)
                                                                                                     ]
                                                                                                 }, void 0, true, {
                                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                    lineNumber: 594,
+                                                                                                    lineNumber: 596,
                                                                                                     columnNumber: 35
                                                                                                 }, this)
                                                                                             ]
                                                                                         }, `${item.province}-${item.district}-${item.sector}`, true, {
                                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                            lineNumber: 579,
+                                                                                            lineNumber: 581,
                                                                                             columnNumber: 33
                                                                                         }, this);
                                                                                     })
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                    lineNumber: 572,
+                                                                                    lineNumber: 574,
                                                                                     columnNumber: 27
                                                                                 }, this)
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 568,
+                                                                            lineNumber: 570,
                                                                             columnNumber: 25
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 562,
+                                                                    lineNumber: 564,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 558,
+                                                                lineNumber: 560,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                        lineNumber: 538,
+                                                        lineNumber: 540,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 534,
+                                                lineNumber: 536,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 393,
+                                        lineNumber: 395,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3507,7 +3508,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                         children: "Cell"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                        lineNumber: 614,
+                                                        lineNumber: 616,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Popover"], {
@@ -3530,25 +3531,25 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                             children: formData.contactInfo?.address?.cell || "Select cell..."
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 631,
+                                                                            lineNumber: 633,
                                                                             columnNumber: 25
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevrons$2d$up$2d$down$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronsUpDown$3e$__["ChevronsUpDown"], {
                                                                             className: "ml-2 h-4 w-4 shrink-0 opacity-50"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 634,
+                                                                            lineNumber: 636,
                                                                             columnNumber: 25
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 625,
+                                                                    lineNumber: 627,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 624,
+                                                                lineNumber: 626,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["PopoverContent"], {
@@ -3563,7 +3564,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                             onValueChange: setCellSearch
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 642,
+                                                                            lineNumber: 644,
                                                                             columnNumber: 25
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandList"], {
@@ -3573,7 +3574,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                     children: "No cell found."
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                    lineNumber: 649,
+                                                                                    lineNumber: 651,
                                                                                     columnNumber: 29
                                                                                 }, this),
                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandGroup"], {
@@ -3595,7 +3596,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                                     className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("mr-2 h-4 w-4 shrink-0", isSelected ? "opacity-100" : "opacity-0")
                                                                                                 }, void 0, false, {
                                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                    lineNumber: 671,
+                                                                                                    lineNumber: 673,
                                                                                                     columnNumber: 35
                                                                                                 }, this),
                                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3606,7 +3607,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                                             children: item.cell
                                                                                                         }, void 0, false, {
                                                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                            lineNumber: 678,
+                                                                                                            lineNumber: 680,
                                                                                                             columnNumber: 37
                                                                                                         }, this),
                                                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3618,54 +3619,54 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                                             ]
                                                                                                         }, void 0, true, {
                                                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                            lineNumber: 679,
+                                                                                                            lineNumber: 681,
                                                                                                             columnNumber: 37
                                                                                                         }, this)
                                                                                                     ]
                                                                                                 }, void 0, true, {
                                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                    lineNumber: 677,
+                                                                                                    lineNumber: 679,
                                                                                                     columnNumber: 35
                                                                                                 }, this)
                                                                                             ]
                                                                                         }, `${item.province}-${item.district}-${item.sector}-${item.cell}`, true, {
                                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                            lineNumber: 658,
+                                                                                            lineNumber: 660,
                                                                                             columnNumber: 33
                                                                                         }, this);
                                                                                     })
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                    lineNumber: 651,
+                                                                                    lineNumber: 653,
                                                                                     columnNumber: 27
                                                                                 }, this)
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 647,
+                                                                            lineNumber: 649,
                                                                             columnNumber: 25
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 641,
+                                                                    lineNumber: 643,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 637,
+                                                                lineNumber: 639,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                        lineNumber: 617,
+                                                        lineNumber: 619,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 613,
+                                                lineNumber: 615,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3675,7 +3676,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                         children: "Village"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                        lineNumber: 695,
+                                                        lineNumber: 697,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Popover"], {
@@ -3698,25 +3699,25 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                             children: formData.contactInfo?.address?.village || "Select village..."
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 712,
+                                                                            lineNumber: 714,
                                                                             columnNumber: 25
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevrons$2d$up$2d$down$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronsUpDown$3e$__["ChevronsUpDown"], {
                                                                             className: "ml-2 h-4 w-4 shrink-0 opacity-50"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 715,
+                                                                            lineNumber: 717,
                                                                             columnNumber: 25
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 706,
+                                                                    lineNumber: 708,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 705,
+                                                                lineNumber: 707,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["PopoverContent"], {
@@ -3731,7 +3732,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                             onValueChange: setVillageSearch
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 723,
+                                                                            lineNumber: 725,
                                                                             columnNumber: 25
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandList"], {
@@ -3741,7 +3742,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                     children: "No village found."
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                    lineNumber: 730,
+                                                                                    lineNumber: 732,
                                                                                     columnNumber: 29
                                                                                 }, this),
                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandGroup"], {
@@ -3763,7 +3764,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                                     className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("mr-2 h-4 w-4 shrink-0", isSelected ? "opacity-100" : "opacity-0")
                                                                                                 }, void 0, false, {
                                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                    lineNumber: 752,
+                                                                                                    lineNumber: 754,
                                                                                                     columnNumber: 35
                                                                                                 }, this),
                                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3774,7 +3775,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                                             children: item.village
                                                                                                         }, void 0, false, {
                                                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                            lineNumber: 759,
+                                                                                                            lineNumber: 761,
                                                                                                             columnNumber: 37
                                                                                                         }, this),
                                                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3788,60 +3789,60 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                                             ]
                                                                                                         }, void 0, true, {
                                                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                            lineNumber: 760,
+                                                                                                            lineNumber: 762,
                                                                                                             columnNumber: 37
                                                                                                         }, this)
                                                                                                     ]
                                                                                                 }, void 0, true, {
                                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                    lineNumber: 758,
+                                                                                                    lineNumber: 760,
                                                                                                     columnNumber: 35
                                                                                                 }, this)
                                                                                             ]
                                                                                         }, `${item.province}-${item.district}-${item.sector}-${item.cell}-${item.village}`, true, {
                                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                            lineNumber: 739,
+                                                                                            lineNumber: 741,
                                                                                             columnNumber: 33
                                                                                         }, this);
                                                                                     })
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                    lineNumber: 732,
+                                                                                    lineNumber: 734,
                                                                                     columnNumber: 27
                                                                                 }, this)
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 728,
+                                                                            lineNumber: 730,
                                                                             columnNumber: 25
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 722,
+                                                                    lineNumber: 724,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 718,
+                                                                lineNumber: 720,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                        lineNumber: 698,
+                                                        lineNumber: 700,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 694,
+                                                lineNumber: 696,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 611,
+                                        lineNumber: 613,
                                         columnNumber: 15
                                     }, this)
                                 ]
@@ -3856,7 +3857,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                         className: solidFieldClass
                                     }, void 0, false, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 777,
+                                        lineNumber: 779,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -3867,7 +3868,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                         className: solidFieldClass
                                     }, void 0, false, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 789,
+                                        lineNumber: 791,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -3878,7 +3879,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                         className: solidFieldClass
                                     }, void 0, false, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 801,
+                                        lineNumber: 803,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -3889,7 +3890,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                         className: solidFieldClass
                                     }, void 0, false, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 810,
+                                        lineNumber: 812,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -3900,13 +3901,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                         className: solidFieldClass
                                     }, void 0, false, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 819,
+                                        lineNumber: 821,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 776,
+                                lineNumber: 778,
                                 columnNumber: 13
                             }, this) : null,
                             formData.contactInfo?.address?.country && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3916,7 +3917,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                         children: "Street / Additional Address (optional)"
                                     }, void 0, false, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 837,
+                                        lineNumber: 839,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -3927,25 +3928,25 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                         className: solidFieldClass
                                     }, void 0, false, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 840,
+                                        lineNumber: 842,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 836,
+                                lineNumber: 838,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                        lineNumber: 322,
+                        lineNumber: 324,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                lineNumber: 315,
+                lineNumber: 317,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3956,24 +3957,24 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                         children: [
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
                                 className: "text-sm sm:text-lg font-semibold",
-                                children: "Insurance"
+                                children: "Insurance: Private"
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 862,
+                                lineNumber: 864,
                                 columnNumber: 11
                             }, this),
                             !canAddInsurance && (formData.insurances?.length ?? 0) > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                 className: "text-[12px] text-amber-600 dark:text-amber-400 mt-0.5",
-                                children: "Complete existing insurance details to add another"
+                                children: "Complete existing insurance details before adding another"
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 864,
+                                lineNumber: 866,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                        lineNumber: 861,
+                        lineNumber: 863,
                         columnNumber: 9
                     }, this),
                     formData.insurances?.map((insurance, index)=>{
@@ -3992,7 +3993,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                            lineNumber: 881,
+                                            lineNumber: 883,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -4002,13 +4003,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                             children: "Remove"
                                         }, void 0, false, {
                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                            lineNumber: 884,
+                                            lineNumber: 886,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                    lineNumber: 880,
+                                    lineNumber: 882,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4021,14 +4022,14 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                     children: "Insurance Provider"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 895,
+                                                    lineNumber: 897,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$field$2d$error$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["FieldError"], {
                                                     message: fieldErrors[`insurance.${index}.provider`]
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 898,
+                                                    lineNumber: 900,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Popover"], {
@@ -4046,23 +4047,23 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                 "aria-expanded": insurancePopoverOpen[index],
                                                                 className: "w-full justify-between bg-background dark:bg-gray-900 border-border/70",
                                                                 children: [
-                                                                    getInsuranceName(insurance.insuranceId ?? ""),
+                                                                    getInsuranceName(insurance.insuranceId ?? "") || insurance.insuranceId,
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevrons$2d$up$2d$down$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronsUpDown$3e$__["ChevronsUpDown"], {
                                                                         className: "ml-2 h-4 w-4 shrink-0 opacity-50"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                        lineNumber: 916,
+                                                                        lineNumber: 918,
                                                                         columnNumber: 25
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 909,
+                                                                lineNumber: 911,
                                                                 columnNumber: 23
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 908,
+                                                            lineNumber: 910,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["PopoverContent"], {
@@ -4074,7 +4075,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                         placeholder: "Search insurance..."
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                        lineNumber: 924,
+                                                                        lineNumber: 926,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandList"], {
@@ -4083,12 +4084,12 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                 children: "No insurance found."
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                lineNumber: 926,
+                                                                                lineNumber: 928,
                                                                                 columnNumber: 27
                                                                             }, this),
                                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandGroup"], {
                                                                                 children: availableInsurances.map((ins)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$command$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CommandItem"], {
-                                                                                        value: `${ins.name} ${ins.acronym}`,
+                                                                                        value: ins.acronym || ins.name || ins.id,
                                                                                         onSelect: ()=>{
                                                                                             onUpdateInsurance(index, "insuranceId", ins.id);
                                                                                             const covs = ins.coverages || [];
@@ -4112,51 +4113,48 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                                 className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("mr-2 h-4 w-4", String(insurance.insuranceId) === String(ins.id) ? "opacity-100" : "opacity-0")
                                                                                             }, void 0, false, {
                                                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                                lineNumber: 951,
+                                                                                                lineNumber: 952,
                                                                                                 columnNumber: 33
                                                                                             }, this),
-                                                                                            ins.name,
-                                                                                            " (",
-                                                                                            ins.acronym,
-                                                                                            ")"
+                                                                                            ins.acronym || ins.name || 'Insurance'
                                                                                         ]
                                                                                     }, ins.id, true, {
                                                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                        lineNumber: 929,
+                                                                                        lineNumber: 931,
                                                                                         columnNumber: 31
                                                                                     }, this))
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                lineNumber: 927,
+                                                                                lineNumber: 929,
                                                                                 columnNumber: 27
                                                                             }, this)
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                        lineNumber: 925,
+                                                                        lineNumber: 927,
                                                                         columnNumber: 25
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 923,
+                                                                lineNumber: 925,
                                                                 columnNumber: 23
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 919,
+                                                            lineNumber: 921,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 899,
+                                                    lineNumber: 901,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                            lineNumber: 894,
+                                            lineNumber: 896,
                                             columnNumber: 17
                                         }, this),
                                         hasProvider && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4166,7 +4164,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                     children: "Card Number *"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 972,
+                                                    lineNumber: 973,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -4178,26 +4176,26 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                     required: true
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 975,
+                                                    lineNumber: 976,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$field$2d$error$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["FieldError"], {
                                                     message: fieldErrors[`insurance.${index}.card`]
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 989,
+                                                    lineNumber: 990,
                                                     columnNumber: 21
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                            lineNumber: 971,
+                                            lineNumber: 972,
                                             columnNumber: 19
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                    lineNumber: 893,
+                                    lineNumber: 895,
                                     columnNumber: 15
                                 }, this),
                                 hasProvider && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4209,7 +4207,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                 children: "Providing Company / Employer *"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 997,
+                                                lineNumber: 998,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -4221,25 +4219,25 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                 required: true
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 1000,
+                                                lineNumber: 1001,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$field$2d$error$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["FieldError"], {
                                                 message: fieldErrors[`insurance.${index}.employer`]
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 1014,
+                                                lineNumber: 1015,
                                                 columnNumber: 21
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 996,
+                                        lineNumber: 997,
                                         columnNumber: 19
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                    lineNumber: 995,
+                                    lineNumber: 996,
                                     columnNumber: 17
                                 }, this),
                                 hasProvider && (()=>{
@@ -4266,7 +4264,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                             children: "Default Patient Share / Coverage Tier"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 1039,
+                                                            lineNumber: 1040,
                                                             columnNumber: 25
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -4277,13 +4275,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 1042,
+                                                            lineNumber: 1043,
                                                             columnNumber: 25
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 1038,
+                                                    lineNumber: 1039,
                                                     columnNumber: 23
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -4291,7 +4289,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                     children: "This insurance has multiple coverage conditions. Select the default tier for this patient:"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 1046,
+                                                    lineNumber: 1047,
                                                     columnNumber: 23
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4313,19 +4311,19 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                             children: getCoverageLabel(cov)
                                                         }, cov.id, false, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 1053,
+                                                            lineNumber: 1054,
                                                             columnNumber: 29
                                                         }, this);
                                                     })
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 1049,
+                                                    lineNumber: 1050,
                                                     columnNumber: 23
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                            lineNumber: 1037,
+                                            lineNumber: 1038,
                                             columnNumber: 21
                                         }, this);
                                     }
@@ -4341,7 +4339,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                             children: "Default Coverage: "
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 1085,
+                                                            lineNumber: 1086,
                                                             columnNumber: 25
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -4349,13 +4347,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                             children: getCoverageLabel(singleCov)
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 1086,
+                                                            lineNumber: 1087,
                                                             columnNumber: 25
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 1084,
+                                                    lineNumber: 1085,
                                                     columnNumber: 23
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -4366,13 +4364,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 1088,
+                                                    lineNumber: 1089,
                                                     columnNumber: 23
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                            lineNumber: 1083,
+                                            lineNumber: 1084,
                                             columnNumber: 21
                                         }, this);
                                     }
@@ -4401,7 +4399,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                             }
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 1106,
+                                                            lineNumber: 1107,
                                                             columnNumber: 25
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
@@ -4410,13 +4408,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                             children: "Self (Patient is the principal policyholder)"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 1118,
+                                                            lineNumber: 1119,
                                                             columnNumber: 25
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 1105,
+                                                    lineNumber: 1106,
                                                     columnNumber: 23
                                                 }, this),
                                                 !isSelf && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4431,13 +4429,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                     children: "*"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 1129,
+                                                                    lineNumber: 1130,
                                                                     columnNumber: 58
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 1128,
+                                                            lineNumber: 1129,
                                                             columnNumber: 27
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4455,13 +4453,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                     children: "*"
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                    lineNumber: 1134,
+                                                                                    lineNumber: 1135,
                                                                                     columnNumber: 60
                                                                                 }, this)
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 1133,
+                                                                            lineNumber: 1134,
                                                                             columnNumber: 31
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -4476,13 +4474,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                             required: true
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 1136,
+                                                                            lineNumber: 1137,
                                                                             columnNumber: 31
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 1132,
+                                                                    lineNumber: 1133,
                                                                     columnNumber: 29
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4496,13 +4494,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                                     children: "*"
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                                    lineNumber: 1153,
+                                                                                    lineNumber: 1154,
                                                                                     columnNumber: 39
                                                                                 }, this)
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 1152,
+                                                                            lineNumber: 1153,
                                                                             columnNumber: 31
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -4514,38 +4512,38 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                             required: true
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                            lineNumber: 1155,
+                                                                            lineNumber: 1156,
                                                                             columnNumber: 31
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                    lineNumber: 1151,
+                                                                    lineNumber: 1152,
                                                                     columnNumber: 29
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 1131,
+                                                            lineNumber: 1132,
                                                             columnNumber: 27
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$field$2d$error$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["FieldError"], {
                                                             message: fieldErrors[`insurance.${index}.dominant`]
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                            lineNumber: 1171,
+                                                            lineNumber: 1172,
                                                             columnNumber: 27
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                    lineNumber: 1127,
+                                                    lineNumber: 1128,
                                                     columnNumber: 25
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                            lineNumber: 1104,
+                                            lineNumber: 1105,
                                             columnNumber: 21
                                         }, this);
                                     }
@@ -4564,13 +4562,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                 children: "*"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 1182,
+                                                                lineNumber: 1183,
                                                                 columnNumber: 54
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                        lineNumber: 1181,
+                                                        lineNumber: 1182,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -4578,13 +4576,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                         children: "Required for patients <18 years"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                        lineNumber: 1184,
+                                                        lineNumber: 1185,
                                                         columnNumber: 23
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 1180,
+                                                lineNumber: 1181,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4602,13 +4600,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                         children: "*"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                        lineNumber: 1191,
+                                                                        lineNumber: 1192,
                                                                         columnNumber: 54
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 1190,
+                                                                lineNumber: 1191,
                                                                 columnNumber: 25
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -4623,13 +4621,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                 required: true
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 1193,
+                                                                lineNumber: 1194,
                                                                 columnNumber: 25
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                        lineNumber: 1189,
+                                                        lineNumber: 1190,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4643,13 +4641,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                         children: "*"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                        lineNumber: 1210,
+                                                                        lineNumber: 1211,
                                                                         columnNumber: 33
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 1209,
+                                                                lineNumber: 1210,
                                                                 columnNumber: 25
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -4661,46 +4659,46 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                                 required: true
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                                lineNumber: 1212,
+                                                                lineNumber: 1213,
                                                                 columnNumber: 25
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                        lineNumber: 1208,
+                                                        lineNumber: 1209,
                                                         columnNumber: 23
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 1188,
+                                                lineNumber: 1189,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$field$2d$error$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["FieldError"], {
                                                 message: fieldErrors[`insurance.${index}.dominant`]
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 1228,
+                                                lineNumber: 1229,
                                                 columnNumber: 21
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 1179,
+                                        lineNumber: 1180,
                                         columnNumber: 19
                                     }, this);
                                 })()
                             ]
                         }, index, true, {
                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                            lineNumber: 876,
+                            lineNumber: 878,
                             columnNumber: 13
                         }, this);
                     })
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                lineNumber: 858,
+                lineNumber: 860,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4714,7 +4712,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 children: "Emergency Contact"
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 1243,
+                                lineNumber: 1244,
                                 columnNumber: 11
                             }, this),
                             showEmergency && !hasEmergencyData ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -4724,7 +4722,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 children: "Hide"
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 1245,
+                                lineNumber: 1246,
                                 columnNumber: 13
                             }, this) : !showEmergency ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                 type: "button",
@@ -4733,13 +4731,13 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 children: "+ Add emergency contact"
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 1253,
+                                lineNumber: 1254,
                                 columnNumber: 13
                             }, this) : null
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                        lineNumber: 1242,
+                        lineNumber: 1243,
                         columnNumber: 9
                     }, this),
                     showEmergency && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4753,7 +4751,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 className: solidFieldClass
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 1264,
+                                lineNumber: 1265,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Select"], {
@@ -4766,12 +4764,12 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                             placeholder: "Relation"
                                         }, void 0, false, {
                                             fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                            lineNumber: 1280,
+                                            lineNumber: 1281,
                                             columnNumber: 15
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 1279,
+                                        lineNumber: 1280,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectContent"], {
@@ -4781,7 +4779,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                 children: "Spouse"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 1283,
+                                                lineNumber: 1284,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -4789,7 +4787,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                 children: "Parent"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 1284,
+                                                lineNumber: 1285,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -4797,7 +4795,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                 children: "Child"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 1285,
+                                                lineNumber: 1286,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -4805,7 +4803,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                 children: "Sibling"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 1286,
+                                                lineNumber: 1287,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -4813,7 +4811,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                 children: "Relative"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 1287,
+                                                lineNumber: 1288,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -4821,7 +4819,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                 children: "Friend"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 1288,
+                                                lineNumber: 1289,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -4829,7 +4827,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                 children: "Neighbor"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 1289,
+                                                lineNumber: 1290,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -4837,7 +4835,7 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                 children: "Colleague"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 1290,
+                                                lineNumber: 1291,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
@@ -4845,19 +4843,19 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                                 children: "Other"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                                lineNumber: 1291,
+                                                lineNumber: 1292,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                        lineNumber: 1282,
+                                        lineNumber: 1283,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 1273,
+                                lineNumber: 1274,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -4868,25 +4866,25 @@ function PatientFormFields({ formData, onFieldChange, onCountryChange, onProvinc
                                 className: solidFieldClass
                             }, void 0, false, {
                                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                                lineNumber: 1294,
+                                lineNumber: 1295,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/patient/patient-form-fields.tsx",
-                        lineNumber: 1263,
+                        lineNumber: 1264,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/patient/patient-form-fields.tsx",
-                lineNumber: 1239,
+                lineNumber: 1240,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/patient/patient-form-fields.tsx",
-        lineNumber: 204,
+        lineNumber: 206,
         columnNumber: 5
     }, this);
 }

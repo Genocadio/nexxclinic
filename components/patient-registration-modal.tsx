@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { usePatients } from "@/hooks/auth-hooks"
 import type { Patient, Visit } from "@/lib/api-types"
 import type { SearchPatientsInput } from "@/lib/api-input-types"
+import type { RegisterPatientInput } from "@/hooks/patients/hooks"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Edit, ShieldAlert } from "lucide-react"
@@ -45,6 +46,7 @@ export default function PatientRegistrationModal({
   const [searchFilters, setSearchFilters] = useState<SearchPatientsInput>({})
   const searchActiveRef = useRef(false)
   const formDataRef = useRef<any>(null)
+  const dataRef = useRef<any>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /** Build SearchPatientsInput from the full registration form data. */
@@ -139,41 +141,23 @@ export default function PatientRegistrationModal({
               <PatientFormDialog
                 isOpen={isOpen}
                 onClose={onClose}
-                mode="create"
-                onFieldBlur={(field) => {
-                  const blurTriggerFields = [
-                    'name',
-                    'firstName',
-                    'lastName',
-                    'middleName',
-                    'nationalIdNumber',
-                    'contactInfo.phone',
-                  ]
-                  if (blurTriggerFields.includes(field)) {
-                    searchActiveRef.current = true
-                    // Fire immediately with current form data (no debounce on blur)
-                    if (formDataRef.current) {
-                      setSearchFilters(buildFilters(formDataRef.current))
-                    }
-                  }
-                }}
-                onFormChange={(data) => {
+                mode="create"                onFormChange={(data: RegisterPatientInput) => {
+                  dataRef.current = data
                   formDataRef.current = data
-                  if (!searchActiveRef.current) {
-                  const hasMeaningfulInput =
-                    (data.nationalIdNumber && data.nationalIdNumber.trim().length >= 8) ||
-                    (data.contactInfo?.phone && data.contactInfo.phone.replace(/\D/g, '').length >= 9) ||
-                    // Duplicate suggestions start as soon as any name is typed
-                    // and keep refining as gender / DOB / phone are filled in.
-                    (data.name && data.name.trim().length > 0) ||
-                    (data.firstName && data.firstName.trim().length > 0)
-                    if (hasMeaningfulInput) {
-                      searchActiveRef.current = true
-                    } else {
-                      return
-                    }
-                  }
-                  // Debounce: build filters from full form data after 300ms idle
+
+                  // The duplicate search starts as soon as the NAME has content and
+                  // then keeps running while we edit other fields (DOB, gender,
+                  // phone, national ID) — it does not depend on the name field being
+                  // focused or edited at that moment. Clearing the name stops it.
+                  const nameParts = [data?.firstName, data?.middleName, data?.lastName]
+                    .map((s) => (s || "").trim())
+                    .filter(Boolean)
+                  const fullName = (data?.name || nameParts.join(" ")).trim()
+                  searchActiveRef.current = fullName.length > 0
+
+                  // Debounce: rebuild the search filters from the latest form data
+                  // after 300ms of idle typing, so edits on other fields (date, sex,
+                  // phone, national ID) refine the already-running search.
                   if (debounceRef.current) clearTimeout(debounceRef.current)
                   debounceRef.current = setTimeout(() => {
                     setSearchFilters(buildFilters(data))
