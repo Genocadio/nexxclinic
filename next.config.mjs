@@ -14,7 +14,8 @@ const nextConfig = {
   // port doesn't collide on the shared .next/dev lock.
   distDir: process.env.NEXT_DIST_DIR || '.next',
   async rewrites() {
-    const API_BASE_URL = process.env.API_BASE_URL || 'http://backend:8080'
+    const configuredApiBaseUrl = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'
+    const API_BASE_URL = configuredApiBaseUrl.replace(/\/graphql\/?$/, '').replace(/\/+$/, '')
     const SUPABASE_INTERNAL_URL = process.env.SUPABASE_INTERNAL_URL || 'http://host.docker.internal:55321'
 
     return [

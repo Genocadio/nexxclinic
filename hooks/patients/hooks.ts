@@ -36,7 +36,7 @@ export type PatientFilterInput = SearchPatientsInput & {
 };
 
 interface LocalGqlPatient extends GqlPatient {
-  // lastVisit was removed from API schema; keep optional legacy type to avoid wide refactors.
+  /** Most-recent visit summary, returned by searchPatients. */
   lastVisit?: {
     id: string;
     status: string;
@@ -152,10 +152,14 @@ const getDominantMemberPayload = (
 
 const attachLastVisit = (
   patient: Patient,
-  _lastVisit?: LocalGqlPatient["lastVisit"],
+  lastVisit?: LocalGqlPatient["lastVisit"],
 ): Patient => {
-  // API no longer returns lastVisit; do nothing.
-  return patient;
+  if (!lastVisit) return patient;
+  // Attach the lightweight summary from searchPatients so the visit-creation
+  // modal can show the last-visit status pill and block duplicate-visit creation.
+  // Only id, status, and visitDate are present (not a full Visit), but the
+  // Patient.lastVisit field is typed as Visit | null, so we cast it.
+  return { ...patient, lastVisit: lastVisit as unknown as Patient["lastVisit"] };
 };
 
 const mapInsuranceMutationResult = (

@@ -76,6 +76,7 @@ export function useClinicSse() {
 
       const streamUrl = new URL("/api/v1/events/stream", window.location.origin)
       streamUrl.searchParams.set("token", token)
+      console.debug("[Clinic SSE] connecting", streamUrl.pathname)
 
       // Close previous connection if any
       if (eventSourceRef.current) {
@@ -88,6 +89,7 @@ export function useClinicSse() {
         eventSourceRef.current = es
 
         es.onopen = () => {
+          console.debug("[Clinic SSE] connected")
           reconnectAttemptsRef.current = 0
           reconnectTimeoutRef.current = null
           void apolloClient
@@ -100,6 +102,7 @@ export function useClinicSse() {
 
           try {
             const data: ClinicSseEvent = JSON.parse(e.data)
+            console.debug("[Clinic SSE] received", eventType)
             
             // Dispatch browser custom event for fine-grained local listeners
             window.dispatchEvent(
@@ -176,6 +179,7 @@ export function useClinicSse() {
         })
 
         es.onerror = () => {
+          console.warn("[Clinic SSE] connection error; reconnecting", { readyState: es.readyState })
           es.close()
           eventSourceRef.current = null
 

@@ -69,6 +69,7 @@ import {
   resolvePatientSearchFilter,
   type SearchFilterType,
 } from "@/lib/patient-search-utils";
+import { useRouter } from "next/navigation";
 
 const TRIAGE_SERVICE_ID = "__TRIAGE__";
 
@@ -99,8 +100,19 @@ function PatientCardSkeleton() {
 interface VisitCreationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onVisitCreated?: () => void;
+  onVisitCreated?: (newVisitId?: string) => void;
   preSelectedPatientId?: string;
+}
+
+const ACTIVE_VISIT_STATUSES = new Set(["CREATED", "IN_PROGRESS"]);
+
+function fmtLastVisitDate(dateStr: string | undefined | null): string {
+  if (!dateStr) return "";
+  try {
+    return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return dateStr;
+  }
 }
 
 type ModalStep = "patient-selection" | "visit-details";
@@ -113,6 +125,7 @@ export default function VisitCreationModal({
   onVisitCreated,
   preSelectedPatientId,
 }: VisitCreationModalProps) {
+  const router = useRouter();
   const [currentStep, setCurrentStep] =
     useState<ModalStep>("patient-selection");
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(
@@ -389,19 +402,23 @@ export default function VisitCreationModal({
     }
   }, [isOpen, handleResetFilters, preSelectedPatientId]);
 
-  const canCreateNewVisit = useCallback((_patient: any) => {
-    // Patient.lastVisit was removed from API schema.
-    // Allow creation; backend should enforce any "already has open visit" rule.
-    return true;
+  const hasActiveVisit = useCallback((patient: any): boolean => {
+    const status = patient?.lastVisit?.status;
+    return Boolean(status && ACTIVE_VISIT_STATUSES.has(status));
   }, []);
+
+  const canCreateNewVisit = useCallback((patient: any) => {
+    return !hasActiveVisit(patient);
+  }, [hasActiveVisit]);
 
   const handlePatientSelect = useCallback(
     (patient: any) => {
+      if (hasActiveVisit(patient)) return;
       setSelectedPatientId(patient.id);
       setSelectedPatient(patient);
       setCurrentStep("visit-details");
     },
-    [canCreateNewVisit],
+    [hasActiveVisit],
   );
 
   const handleCreateVisit = async () => {
@@ -429,10 +446,13 @@ export default function VisitCreationModal({
 
       if (result.status === "SUCCESS") {
         toast.success(result.message || "Visit created successfully!");
-        if (onVisitCreated) {
-          onVisitCreated();
-        }
+        const newVisitId: string | undefined = (result as any).data?.id;
         handleClose();
+        if (onVisitCreated) {
+          onVisitCreated(newVisitId);
+        } else if (newVisitId) {
+          router.push(`/triage?visitId=${newVisitId}`);
+        }
       } else {
         const message =
           result.message ||
@@ -927,11 +947,12 @@ export default function VisitCreationModal({
                         <div
                           key={patient.id}
                           className={cn(
-                            "group relative p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer flex flex-col justify-between bg-white dark:bg-slate-950 shadow-sm",
-                            selectedPatientId === patient.id
-                              ? "border-primary ring-2 ring-primary/20 bg-primary/5 shadow-md"
-                              : "border-border/60 hover:border-primary/60 hover:shadow-md hover:-translate-y-0.5",
-                            !canCreateNewVisit(patient) && "opacity-60 cursor-not-allowed"
+                            "group relative p-3.5 rounded-2xl border transition-all duration-200 flex flex-col justify-between bg-white dark:bg-slate-950 shadow-sm",
+                            hasActiveVisit(patient)
+                              ? "border-amber-300 dark:border-amber-700 cursor-default"
+                              : selectedPatientId === patient.id
+                                ? "border-primary ring-2 ring-primary/20 bg-primary/5 shadow-md cursor-pointer"
+                                : "border-border/60 hover:border-primary/60 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
                           )}
                           onClick={() => handlePatientSelect(patient)}
                           onMouseEnter={() => setHoveredPatientId(patient.id)}
@@ -1004,11 +1025,45 @@ export default function VisitCreationModal({
                               <span className="text-muted-foreground">National ID:</span>
                               <span className="font-medium text-foreground truncate max-w-[120px]">{patient.nationalIdNumber || "—"}</span>
                             </div>
+                            {/* Last visit summary */}
+                            {patient.lastVisit && (
+                              <div className="flex items-center justify-between gap-1 pt-1 border-t border-border/30 mt-1">
+                                <span className="text-muted-foreground">Last visit:</span>
+                                <span className={cn(
+                                  "font-semibold text-[11px] px-1.5 py-0.5 rounded-full",
+                                  ACTIVE_VISIT_STATUSES.has(patient.lastVisit.status)
+                                    ? "bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300"
+                                    : "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
+                                )}>
+                                  {patient.lastVisit.status} · {fmtLastVisitDate(patient.lastVisit.visitDate)}
+                                </span>
+                              </div>
+                            )}
                           </div>
 
-                          {/* Insurances & Select CTA */}
-                          <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2 mt-auto">
-                            <div className="flex flex-wrap gap-1.5 min-w-0 max-w-[70%]">
+                          {/* Active visit guard */}
+                          {hasActiveVisit(patient) && (
+                            <div
+                              className="mb-2 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700 text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between gap-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <span className="font-medium">Active visit in progress</span>
+                              <button
+                                type="button"
+                                className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-semibold rounded-lg transition-colors cursor-pointer shrink-0"
+                                onClick={() => {
+                                  const visitId = patient.lastVisit?.id;
+                                  if (visitId) router.push(`/triage?visitId=${visitId}`);
+                                }}
+                              >
+                                Open Visit
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Insurances */}
+                          <div className="pt-2 border-t border-border/40 mt-auto">
+                            <div className="flex flex-wrap gap-1.5 min-w-0">
                               {patient.patientInsurances && patient.patientInsurances.length > 0 ? (
                                 patient.patientInsurances.map((ins: any, idx: number) => {
                                   const active = isInsuranceActive(ins);
@@ -1083,9 +1138,7 @@ export default function VisitCreationModal({
                               )}
                             </div>
 
-                            <span className="text-xs font-semibold text-primary flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0">
-                              Select <ArrowLeft className="w-3.5 h-3.5 rotate-180" />
-                            </span>
+
                           </div>
                         </div>
                       ))}

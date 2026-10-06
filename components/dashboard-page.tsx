@@ -1871,9 +1871,12 @@ export default function DashboardPage() {
       setShowVisitCreationModal(true)
     }
   }
-  const handleVisitCreated = () => {
-    // Refetch visits data without full page reload
+  const handleVisitCreated = (newVisitId?: string) => {
     refetchVisits()
+    if (newVisitId) {
+      closeVisitCreationModal()
+      router.push(`/triage?visitId=${newVisitId}`)
+    }
   }
   return (
     <div className="h-screen bg-background overflow-hidden flex flex-col">

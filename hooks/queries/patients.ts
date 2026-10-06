@@ -52,6 +52,11 @@ export const GET_PATIENTS_QUERY = gql`
           }
         }
         createdAt
+        lastVisit {
+          id
+          status
+          visitDate
+        }
       }
       pagination {
         total

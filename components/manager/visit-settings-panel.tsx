@@ -1485,6 +1485,11 @@ export function VisitSettingsPanel({
                                 Encounter Date & Time
                               </span>
                             </div>
+                            {dept.status === "DEPARTMENT_EDITING" ? (
+                              <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-2">
+                                Encounter date editing is locked while billing edit mode is active for this department.
+                              </p>
+                            ) : (
                             <div>
                               <input
                                 type="datetime-local"
@@ -1547,6 +1552,7 @@ export function VisitSettingsPanel({
                                 Sets the encounter timestamp for this department
                               </p>
                             </div>
+                            )}
                           </div>
 
                           {/* Billing Date & Time for this department */}
@@ -1555,6 +1561,19 @@ export function VisitSettingsPanel({
                               (b: any) => b.visitDepartment?.id === dept.id,
                             )
                             const insBillings = deptBilling?.insuranceBillings || []
+                            if (dept.status === "DEPARTMENT_EDITING") {
+                              return (
+                                <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-3">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <ReceiptText className="h-3.5 w-3.5 text-amber-600" />
+                                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300">Billing Date</span>
+                                  </div>
+                                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                                    Billing date editing is locked while billing edit mode is active for this department.
+                                  </p>
+                                </div>
+                              )
+                            }
                             return (
                               <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
                                 <div className="flex items-center gap-1.5">

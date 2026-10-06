@@ -1,6 +1,9 @@
 # Multi-stage Dockerfile for Bun + Next.js Standalone
 FROM oven/bun:1-alpine AS builder
 
+ARG API_BASE_URL=http://backend:8080
+ENV API_BASE_URL=${API_BASE_URL}
+
 WORKDIR /app
 
 # Copy dependency descriptors (wildcard ensures it matches bun.lock or bun.lockb if present)
