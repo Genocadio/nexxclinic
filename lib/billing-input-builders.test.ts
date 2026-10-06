@@ -124,6 +124,34 @@ describe("buildCreateBillInput", () => {
     ]);
   });
 
+  it("maps outstandingType to the uppercase backend enum (LOAN/GIVEAWAY)", () => {
+    const item = makeItem({});
+    const input = buildCreateBillInput(
+      makeBillingData({
+        items: [item],
+        outstandingType: "loan",
+        outstandingReason: "pay next week",
+      }),
+      [item],
+      (i) => i.price,
+    );
+    const dept = input.departments[0];
+    // Backend OutstandingType is a case-sensitive Java enum: "loan" would
+    // fail with "Failed to convert argument value".
+    expect(dept.outstandingType).toBe("LOAN");
+    expect(dept.outstandingReason).toBe("pay next week");
+  });
+
+  it("omits outstandingType when none is selected", () => {
+    const item = makeItem({});
+    const input = buildCreateBillInput(
+      makeBillingData({ items: [item] }),
+      [item],
+      (i) => i.price,
+    );
+    expect(input.departments[0].outstandingType).toBeUndefined();
+  });
+
   it("allocates the paid amount across departments", () => {
     const item = makeItem({});
     const input = buildCreateBillInput(

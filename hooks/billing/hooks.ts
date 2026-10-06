@@ -103,7 +103,8 @@ export interface CreateBillDepartmentInput {
    * full patient payable amount. Optional otherwise.
    */
   note?: string;
-  outstandingType?: "loan" | "giveaway";
+  /** Wire format: GraphQL enum OutstandingType (case-sensitive on the backend). */
+  outstandingType?: "LOAN" | "GIVEAWAY";
   outstandingReason?: string;
 }
 
@@ -197,7 +198,8 @@ export interface EditBillInput {
       reference?: string;
     }[];
     note?: string;
-    outstandingType?: "loan" | "giveaway";
+    /** Wire format: GraphQL enum OutstandingType (case-sensitive on the backend). */
+    outstandingType?: "LOAN" | "GIVEAWAY";
     outstandingReason?: string;
   }[];
 }

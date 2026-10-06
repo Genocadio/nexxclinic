@@ -36,6 +36,20 @@ function resolveExemptionType(
 }
 
 /**
+ * Map the frontend 'loan' | 'giveaway' representation to the GraphQL enum
+ * LOAN | GIVEAWAY. The backend field is the Java enum OutstandingType and its
+ * String conversion is case-sensitive, so lowercase values are rejected with
+ * "Failed to convert argument value".
+ */
+function resolveOutstandingType(
+  type: "loan" | "giveaway" | undefined,
+): "LOAN" | "GIVEAWAY" | undefined {
+  if (type === "loan") return "LOAN";
+  if (type === "giveaway") return "GIVEAWAY";
+  return undefined;
+}
+
+/**
  * Builds the BillVisitInput for first-time billing (no existing bill).
  * Bills every pending item, allocating the paid amount across departments.
  */
@@ -133,7 +147,7 @@ export function buildCreateBillInput(
                 ]
               : undefined,
           note: notesByDepartment[department.visitDepartmentId]?.trim() || undefined,
-          outstandingType: billingData.outstandingType || undefined,
+          outstandingType: resolveOutstandingType(billingData.outstandingType),
           outstandingReason: billingData.outstandingReason || undefined,
         };
       },
@@ -292,7 +306,7 @@ export function buildEditBillInput(
               ]
               : undefined,
         note: notesByDepartment[dept.visitDepartmentId]?.trim() || undefined,
-        outstandingType: billingData.outstandingType || undefined,
+        outstandingType: resolveOutstandingType(billingData.outstandingType),
         outstandingReason: billingData.outstandingReason || undefined,
       };
     }),
