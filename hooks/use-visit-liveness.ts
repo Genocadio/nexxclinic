@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { getRuntimeConfig } from "@/lib/runtime-config"
 import type { ClinicSseEvent } from "./use-clinic-sse"
 
 export interface VisitViewer {
@@ -23,9 +22,7 @@ export function useVisitLiveness(visitId: string | null | undefined) {
       const token = localStorage.getItem("authToken")
       if (!token) return
 
-      const config = getRuntimeConfig()
-      const baseUrl = config.API_BASE_URL || ""
-      const url = `${baseUrl}/api/v1/events/presence?visitId=${encodeURIComponent(
+      const url = `/api/v1/events/presence?visitId=${encodeURIComponent(
         visitId
       )}&active=${active}`
 
@@ -48,9 +45,7 @@ export function useVisitLiveness(visitId: string | null | undefined) {
     const token = localStorage.getItem("authToken")
     if (!token) return
 
-    const config = getRuntimeConfig()
-    const baseUrl = config.API_BASE_URL || ""
-    const url = `${baseUrl}/api/v1/events/presence?visitId=${encodeURIComponent(visitId)}`
+    const url = `/api/v1/events/presence?visitId=${encodeURIComponent(visitId)}`
 
     try {
       const res = await fetch(url, {

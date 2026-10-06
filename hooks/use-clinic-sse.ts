@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react"
 import { useApolloClient } from "@apollo/client"
 import { useAuth } from "@/lib/auth-context"
-import { getRuntimeConfig } from "@/lib/runtime-config"
 
 export interface ClinicSseEvent {
   eventId: string
@@ -53,15 +52,30 @@ export function useClinicSse() {
 
     let isUnmounted = false
 
+    const scheduleReconnect = (minimumDelay?: number) => {
+      if (isUnmounted) return
+
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current)
+      }
+
+      const baseDelay = minimumDelay ?? Math.min(1000 * 2 ** reconnectAttemptsRef.current, 15000)
+      const jitter = Math.floor(Math.random() * Math.min(baseDelay * 0.2, 1000))
+      reconnectAttemptsRef.current += 1
+      reconnectTimeoutRef.current = setTimeout(connectSse, baseDelay + jitter)
+    }
+
     const connectSse = () => {
       if (isUnmounted) return
 
       const token = localStorage.getItem("authToken")
-      if (!token) return
+      if (!token) {
+        scheduleReconnect(1000)
+        return
+      }
 
-      const config = getRuntimeConfig()
-      const baseUrl = config.API_BASE_URL || ""
-      const streamUrl = `${baseUrl}/api/v1/events/stream?token=${encodeURIComponent(token)}`
+      const streamUrl = new URL("/api/v1/events/stream", window.location.origin)
+      streamUrl.searchParams.set("token", token)
 
       // Close previous connection if any
       if (eventSourceRef.current) {
@@ -75,6 +89,10 @@ export function useClinicSse() {
 
         es.onopen = () => {
           reconnectAttemptsRef.current = 0
+          reconnectTimeoutRef.current = null
+          void apolloClient
+            .refetchQueries({ include: ["GetVisits", "DashboardStats"] })
+            .catch((error) => console.warn("Failed to refresh clinic queues after SSE connect:", error))
         }
 
         const handleIncomingEvent = (e: MessageEvent, eventType: string) => {
@@ -125,9 +143,11 @@ export function useClinicSse() {
             }
 
             if (queriesToRefetch.length > 0) {
-              apolloClient.refetchQueries({
-                include: Array.from(new Set(queriesToRefetch)),
-              })
+              void apolloClient
+                .refetchQueries({
+                  include: Array.from(new Set(queriesToRefetch)),
+                })
+                .catch((error) => console.warn(`Failed to refresh clinic data for ${eventType}:`, error))
             }
           } catch {
             // Ignore parse errors (e.g. keep-alive pings)
@@ -159,18 +179,11 @@ export function useClinicSse() {
           es.close()
           eventSourceRef.current = null
 
-          if (!isUnmounted) {
-            // Exponential backoff: 1s, 2s, 4s, capped at 15s
-            const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 15000)
-            reconnectAttemptsRef.current += 1
-            reconnectTimeoutRef.current = setTimeout(connectSse, delay)
-          }
+          scheduleReconnect()
         }
       } catch {
         // Fallback: retry later
-        if (!isUnmounted) {
-          reconnectTimeoutRef.current = setTimeout(connectSse, 5000)
-        }
+        scheduleReconnect(5000)
       }
     }
 
