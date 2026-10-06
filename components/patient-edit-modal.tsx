@@ -41,14 +41,13 @@ export default function PatientEditModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
         showCloseButton={false}
-        className="sm:max-w-[780px] max-h-[90vh] overflow-y-auto scrollbar-hide backdrop-blur-2xl bg-card/95 dark:bg-card/95 text-card-foreground border border-border/80 rounded-3xl shadow-2xl p-2 sm:p-4"
+        className="max-w-full sm:max-w-[1180px] max-h-[calc(100dvh-2rem)] overflow-hidden backdrop-blur-2xl bg-card/95 dark:bg-card/95 text-card-foreground border border-border/80 rounded-3xl shadow-2xl p-2 sm:p-4"
       >
         <DialogTitle className="sr-only">Edit Patient</DialogTitle>
-        <div className="mx-auto w-full max-w-[760px] pr-2 pb-20 rounded-2xl border border-border/50 bg-[#FBF2ED] dark:bg-slate-900 shadow-lg p-2 sm:p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold">Edit Patient</h2>
-            {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-          </div>
+        {loading && (
+          <Loader2 className="pointer-events-none absolute right-4 top-4 z-10 h-4 w-4 animate-spin text-muted-foreground" />
+        )}
+        <div className="max-h-[calc(100dvh-4rem)] min-h-0 overflow-y-auto scrollbar-hide px-1">
           <PatientFormDialog
             isOpen={isOpen}
             onClose={onClose}

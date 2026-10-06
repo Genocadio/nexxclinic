@@ -287,9 +287,9 @@ export default function ManageInsurancesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="h-screen overflow-hidden bg-background text-foreground flex flex-col">
       <Header doctor={doctor} />
-      <main className="max-w-5xl mx-auto px-6 py-10 space-y-6">
+      <main className="max-w-5xl mx-auto w-full px-6 py-10 space-y-6 flex-1 min-h-0 min-w-0 overflow-y-auto">
         {/* Title Bar */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">

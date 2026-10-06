@@ -60,7 +60,6 @@ export interface PatientFormFieldsProps {
   onSectorChange: (sector: string, district?: string, province?: string) => void
   onCellChange?: (cell: string, sector?: string, district?: string, province?: string) => void
   onVillageChange?: (village: string, cell?: string, sector?: string, district?: string, province?: string) => void
-  onAddInsurance: () => void
   onUpdateInsurance: (index: number, field: string, value: string | number | boolean) => void
   onRemoveInsurance: (index: number) => void
   availableInsurances: InsuranceProvider[]
@@ -81,7 +80,6 @@ export default function PatientFormFields({
   onSectorChange,
   onCellChange,
   onVillageChange,
-  onAddInsurance,
   onUpdateInsurance,
   onRemoveInsurance,
   availableInsurances,
@@ -98,6 +96,9 @@ export default function PatientFormFields({
   const [sectorPopoverOpen, setSectorPopoverOpen] = useState(false)
   const [cellPopoverOpen, setCellPopoverOpen] = useState(false)
   const [villagePopoverOpen, setVillagePopoverOpen] = useState(false)
+  // Emergency contact stays behind a small button (desktop density); it opens
+  // automatically when editing a patient that already has one.
+  const [emergencyOpen, setEmergencyOpen] = useState(false)
 
   const [countrySearch, setCountrySearch] = useState("")
   const [provinceSearch, setProvinceSearch] = useState("")
@@ -185,6 +186,13 @@ export default function PatientFormFields({
     formData.dateOfBirth,
   )
 
+  const hasEmergencyData = Boolean(
+    formData.emergencyContact?.name?.trim() ||
+      formData.emergencyContact?.relation?.trim() ||
+      formData.emergencyContact?.phone?.trim(),
+  )
+  const showEmergency = emergencyOpen || hasEmergencyData
+
   const nidInfo = parseRwandaNationalId(formData.nationalIdNumber)
   const nidMismatch = checkRwandaNationalIdMismatch(
     formData.nationalIdNumber,
@@ -193,12 +201,12 @@ export default function PatientFormFields({
   )
 
   return (
-    <>
+    <div className="@container flex flex-col gap-2 sm:gap-3">
       {/* Basic Information */}
       <div
-        className={`${solidPanelClass} p-2 sm:p-4 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4`}
+        className={`${solidPanelClass} grid grid-cols-1 gap-2 p-2 sm:gap-3 sm:p-3 @md:grid-cols-2 @3xl:grid-cols-4`}
       >
-        <div className="col-span-1 md:col-span-2">
+        <div className="@md:col-span-2">
           <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
             Full Name *
           </label>
@@ -257,7 +265,7 @@ export default function PatientFormFields({
           </div>
           <FieldError message={fieldErrors["gender"]} />
         </div>
-        <div>
+        <div className="@3xl:col-span-2">
           <div className="flex items-center justify-between gap-1 mb-1 sm:mb-1.5">
             <label className="block text-xs sm:text-sm font-medium text-foreground">
               National ID / Passport Number
@@ -286,7 +294,7 @@ export default function PatientFormFields({
             </p>
           )}
         </div>
-        <div>
+        <div className="@3xl:col-span-2">
           <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
             Phone Number
           </label>
@@ -305,13 +313,13 @@ export default function PatientFormFields({
 
       {/* Address */}
       <div
-        className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}
+        className={`${solidPanelClass} border-t p-2 sm:p-3`}
       >
-        <h4 className="text-sm sm:text-md font-medium text-foreground mb-2 sm:mb-3">
+        <h4 className="mb-1 text-sm font-medium text-foreground sm:mb-2">
           Address
         </h4>
 
-        <div className="space-y-2 sm:space-y-4">
+        <div className="grid grid-cols-1 gap-2 @md:grid-cols-2 @2xl:grid-cols-3 @3xl:grid-cols-4">
           <div>
             <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
               Country
@@ -382,7 +390,7 @@ export default function PatientFormFields({
           {/* Rwanda cascading / smart direct dropdowns */}
           {isRwandaSelected(formData.contactInfo?.address?.country) ? (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+              <div className="contents">
                 {/* Province */}
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
@@ -510,8 +518,8 @@ export default function PatientFormFields({
                                   )}
                                 />
                                 <div className="flex flex-col min-w-0">
-                                  <span className="font-medium text-foreground text-xs sm:text-sm">{item.district}</span>
-                                  <span className="text-[11px] sm:text-[12px] text-muted-foreground">{item.province}</span>
+                                  <span className="font-medium text-foreground text-xs sm:text-sm [[data-selected=true]_&]:text-accent-foreground">{item.district}</span>
+                                  <span className="text-[11px] sm:text-[12px] text-muted-foreground [[data-selected=true]_&]:text-accent-foreground/80">{item.province}</span>
                                 </div>
                               </CommandItem>
                             ))}
@@ -584,8 +592,8 @@ export default function PatientFormFields({
                                     )}
                                   />
                                   <div className="flex flex-col min-w-0">
-                                    <span className="font-medium text-foreground text-xs sm:text-sm">{item.sector}</span>
-                                    <span className="text-[11px] sm:text-[12px] text-muted-foreground">
+                                    <span className="font-medium text-foreground text-xs sm:text-sm [[data-selected=true]_&]:text-accent-foreground">{item.sector}</span>
+                                    <span className="text-[11px] sm:text-[12px] text-muted-foreground [[data-selected=true]_&]:text-accent-foreground/80">
                                       {item.district}, {item.province}
                                     </span>
                                   </div>
@@ -600,7 +608,7 @@ export default function PatientFormFields({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+              <div className="contents">
                 {/* Cell (smart selector with sector, district sublabel) */}
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-1.5">
@@ -667,8 +675,8 @@ export default function PatientFormFields({
                                     )}
                                   />
                                   <div className="flex flex-col min-w-0">
-                                    <span className="font-medium text-foreground text-xs sm:text-sm">{item.cell}</span>
-                                    <span className="text-[11px] sm:text-[12px] text-muted-foreground">
+                                    <span className="font-medium text-foreground text-xs sm:text-sm [[data-selected=true]_&]:text-accent-foreground">{item.cell}</span>
+                                    <span className="text-[11px] sm:text-[12px] text-muted-foreground [[data-selected=true]_&]:text-accent-foreground/80">
                                       {item.sector}, {item.district}
                                     </span>
                                   </div>
@@ -748,8 +756,8 @@ export default function PatientFormFields({
                                     )}
                                   />
                                   <div className="flex flex-col min-w-0">
-                                    <span className="font-medium text-foreground text-xs sm:text-sm">{item.village}</span>
-                                    <span className="text-[11px] sm:text-[12px] text-muted-foreground">
+                                    <span className="font-medium text-foreground text-xs sm:text-sm [[data-selected=true]_&]:text-accent-foreground">{item.village}</span>
+                                    <span className="text-[11px] sm:text-[12px] text-muted-foreground [[data-selected=true]_&]:text-accent-foreground/80">
                                       {item.cell}, {item.sector}, {item.district}
                                     </span>
                                   </div>
@@ -765,7 +773,7 @@ export default function PatientFormFields({
               </div>
             </>
           ) : formData.contactInfo?.address?.country ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
+            <div className="contents">
               <Input
                 type="text"
                 value={fieldValue(formData.contactInfo?.address?.province)}
@@ -848,35 +856,15 @@ export default function PatientFormFields({
 
       {/* Insurance Information */}
       <div
-        className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}
+        className={`${solidPanelClass} border-t p-2 sm:p-3`}
       >
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-          <div>
-            <h3 className="text-sm sm:text-lg font-semibold">Insurance</h3>
-            {!canAddInsurance && (formData.insurances?.length ?? 0) > 0 && (
-              <p className="text-[12px] text-amber-600 dark:text-amber-400 mt-0.5">
-                Complete existing insurance details to add another
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onAddInsurance}
-            disabled={!canAddInsurance}
-            title={
-              !canAddInsurance
-                ? "Please complete all required fields on the current insurance first"
-                : undefined
-            }
-            className={cn(
-              "rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-base inline-block w-fit shadow-md transition-all",
-              canAddInsurance
-                ? "bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white cursor-pointer"
-                : "bg-muted text-muted-foreground cursor-not-allowed opacity-50 border border-border/60"
-            )}
-          >
-            + Add
-          </button>
+        <div className="mb-1 sm:mb-2">
+          <h3 className="text-sm sm:text-lg font-semibold">Insurance</h3>
+          {!canAddInsurance && (formData.insurances?.length ?? 0) > 0 && (
+            <p className="text-[12px] text-amber-600 dark:text-amber-400 mt-0.5">
+              Complete existing insurance details to add another
+            </p>
+          )}
         </div>
 
         {formData.insurances?.map((insurance, index) => {
@@ -1246,14 +1234,33 @@ export default function PatientFormFields({
         })}
       </div>
 
-      {/* Emergency Contact */}
+      {/* Emergency Contact — collapsed behind a small button so the base form
+          fits one page on desktop; opens on demand (or for existing data). */}
       <div
-        className={`${solidPanelClass} border-t pt-3 sm:pt-6 px-2 sm:px-4 pb-2 sm:pb-4`}
+        className={`${solidPanelClass} border-t p-2 sm:p-3`}
       >
-        <h3 className="text-sm sm:text-lg font-semibold mb-2 sm:mb-4">
-          Emergency Contact
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
+        <div className="mb-1 flex items-center justify-between gap-2 sm:mb-2">
+          <h3 className="text-sm font-semibold">Emergency Contact</h3>
+          {showEmergency && !hasEmergencyData ? (
+            <button
+              type="button"
+              onClick={() => setEmergencyOpen(false)}
+              className="rounded-full border border-border/60 px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-muted"
+            >
+              Hide
+            </button>
+          ) : !showEmergency ? (
+            <button
+              type="button"
+              onClick={() => setEmergencyOpen(true)}
+              className="rounded-full border border-border/70 bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-sm hover:bg-muted"
+            >
+              + Add emergency contact
+            </button>
+          ) : null}
+        </div>
+        {showEmergency && (
+          <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
           <Input
             type="text"
             value={fieldValue(formData.emergencyContact?.name)}
@@ -1293,8 +1300,9 @@ export default function PatientFormFields({
             placeholder="Phone number"
             className={solidFieldClass}
           />
-        </div>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   )
 }

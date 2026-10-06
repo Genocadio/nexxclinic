@@ -363,9 +363,9 @@ export default function FormBuilderListPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen overflow-hidden bg-background flex flex-col">
       <Header doctor={doctor} />
-      <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-6xl mx-auto w-full px-6 py-8 space-y-6 flex-1 min-h-0 min-w-0 overflow-y-auto">
         {/* Page header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, ChevronRight, ChevronDown, Printer } from "lucide-react";
+import { X, ChevronDown, Printer } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +16,19 @@ import { BillingData, BillingItem, getItemInsuranceSplit } from "@/lib/billing-u
 import { getVisitBillingTotals } from "@/lib/visit-billing-utils";
 import { formatRWF } from "@/lib/utils";
 import { roundMoney, sumMoney } from "@/lib/money";
+
+// Small color-coded dot per visit-department status (kept as an icon badge
+// instead of the old full status text line, which made the list huge).
+const STATUS_DOT_CLASS: Record<string, string> = {
+  COMPLETED: "bg-emerald-500",
+  DISCHARGED: "bg-emerald-500",
+  ACTIVE: "bg-sky-500",
+  BILLING: "bg-[#FF6900]",
+  PENDING: "bg-amber-500",
+  ON_HOLD: "bg-violet-500",
+  CANCELLED: "bg-rose-500",
+  CANCELED: "bg-rose-500",
+};
 
 type InvoicePreviewGroup = {
   id?: string;
@@ -409,81 +422,62 @@ export function BillingPreviewSheet({
         aria-label="Billing Invoice Preview"
         className={`absolute right-0 top-0 h-full w-[min(92vw,72rem)] border-l border-border bg-background dark:bg-slate-900 shadow-2xl transition-transform duration-200 ease-out pointer-events-auto ${open ? "translate-x-0" : "translate-x-full"}`}
       >
-        <div className="flex h-full flex-col">
-          <div className="border-b border-border/70 px-4 py-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div>
-                    <h2 className="text-lg font-semibold text-foreground">
-                      Invoice
-                    </h2>
-                    <span className="text-sm text-muted-foreground">
-                      {activeDepartment?.department?.name || "Department"}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {patientName} • {new Date(invoiceDate).toLocaleDateString()}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="Close preview"
-              >
-                <X className="h-4 w-4" />
-              </button>
+        <div className="relative flex h-full flex-col">
+          {/* Compact close — the old full header (title/department/patient/date)
+              was redundant with the invoice body and wasted panel space. */}
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Close preview"
+          >
+            <X className="h-4 w-4" />
+          </button>
+
+          {/* Departments as a horizontal, scrollable chip strip — replaces the
+              vertical sidebar list + "Departments" heading. */}
+          {canShowList && (
+            <div className="no-print flex shrink-0 items-center gap-2 overflow-x-auto border-b border-border/70 px-3 py-2">
+              {topLevelDepartments.map((department) => {
+                const isActive = department.id === activeDepartment?.id;
+                const dot =
+                  STATUS_DOT_CLASS[
+                    String(department.status || "").toUpperCase()
+                  ] || "bg-slate-400";
+                return (
+                  <button
+                    key={department.id}
+                    type="button"
+                    title={department.status || undefined}
+                    onClick={() => {
+                      setSelectedDepartmentIdState(department.id);
+                      onDepartmentSelect?.(department.id);
+                    }}
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                      isActive
+                        ? "bg-[#FF6900] text-white shadow-sm"
+                        : "border border-border bg-card text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${isActive ? "bg-white" : dot}`}
+                      aria-hidden="true"
+                    />
+                    {department.department?.name || "Department"}
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          )}
 
           <div className="flex flex-1 overflow-hidden">
             <style>{`@media print { .invoice-container { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: exact; } .no-print { display: none !important; } .invoice-container { box-shadow: none !important; border: none !important; } }`}</style>
 
-            <div className="invoice-container w-full">
-              {canShowList && (
-                <div className="w-72 min-w-[18rem] border-r border-border/70 bg-slate-50/80 dark:bg-slate-800/60">
-                  <div className="border-b border-border/70 px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                      Departments
-                    </p>
-                  </div>
-                  <ScrollArea className="h-full px-2 py-2">
-                    <div className="space-y-2">
-                      {topLevelDepartments.map((department) => {
-                        const isActive = department.id === activeDepartment?.id;
-                        return (
-                          <button
-                            key={department.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedDepartmentIdState(department.id);
-                              onDepartmentSelect?.(department.id);
-                            }}
-                            className={`flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition ${isActive ? "border-[#FF6900] bg-[#fff7ed]" : "border-transparent bg-white hover:border-border hover:bg-slate-50"}`}
-                          >
-                            <div>
-                              <p className="font-medium text-foreground">
-                                {department.department?.name || "Department"}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {department.status || "Status unknown"}
-                              </p>
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </ScrollArea>
-                </div>
-              )}
-
+            <div className="invoice-container flex w-full">
               <div className="flex-1 overflow-hidden">
                 <ScrollArea className="h-full px-4 py-4">
                   <div className="space-y-6 pr-4">
-                    <div className="flex items-center justify-end gap-2 no-print">
+                    <div className="flex items-center justify-end gap-2 pr-12 no-print">
                       {canViewMore && onViewMore && (
                         <button
                           type="button"

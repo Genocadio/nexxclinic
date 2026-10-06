@@ -99,9 +99,9 @@ export default function ConsultationPage() {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-background">
+            <div className="h-screen overflow-hidden bg-background flex flex-col">
                 <Header doctor={doctor} />
-                <div className="max-w-5xl mx-auto px-6 py-8">
+                <div className="max-w-5xl mx-auto px-6 py-8 flex-1 min-h-0 min-w-0 overflow-y-auto">
                     <InlineTryAgain onTryAgain={() => void refetch()} />
                 </div>
             </div>
@@ -117,19 +117,21 @@ export default function ConsultationPage() {
     );
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="h-screen overflow-hidden bg-background flex flex-col">
             <Header doctor={doctor} />
 
-            <StandaloneConsultationView
-                visit={visit}
-                visitDepartment={activeDepartment}
-                patient={visit.patient}
-                existingProducts={existingProducts}
-                onVisitRefetch={() => {
-                    void refetch();
-                }}
-                onBack={() => router.back()}
-            />
+            <div className="flex-1 min-h-0 min-w-0 overflow-y-auto">
+                <StandaloneConsultationView
+                    visit={visit}
+                    visitDepartment={activeDepartment}
+                    patient={visit.patient}
+                    existingProducts={existingProducts}
+                    onVisitRefetch={() => {
+                        void refetch();
+                    }}
+                    onBack={() => router.back()}
+                />
+            </div>
 
             <VisitNotesFloating
                 title="Consultation Notes"

@@ -21,7 +21,9 @@ import {
   calculateAge,
   validateDateOfBirth,
   isInsuranceEntryComplete,
+  canAddNewInsurance,
 } from "@/lib/validation-utils"
+import { cn } from "@/lib/utils"
 import { splitFullName, splitWorkerName } from "@/lib/patient-display-utils"
 import {
   getRwandaDistricts,
@@ -821,6 +823,12 @@ export default function PatientFormDialog({
     ? loading ? "Saving..." : "Save Changes"
     : loading ? "Registering..." : "Register"
 
+  // Add Insurance stays disabled while an existing entry is unfilled
+  const canAddInsurance = canAddNewInsurance(
+    formData.insurances,
+    formData.dateOfBirth,
+  )
+
   return (
     <>
       {error && (
@@ -829,7 +837,7 @@ export default function PatientFormDialog({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-6" noValidate>
+      <form onSubmit={handleSubmit} className="space-y-2" noValidate>
         <PatientFormFields
           formData={formData}
           onFieldChange={handleInputChange}
@@ -840,7 +848,6 @@ export default function PatientFormDialog({
           onSectorChange={handleSectorChange}
           onCellChange={handleCellChange}
           onVillageChange={handleVillageChange}
-          onAddInsurance={addInsurance}
           onUpdateInsurance={updateInsurance}
           onRemoveInsurance={removeInsurance}
           availableInsurances={insurances}
@@ -849,21 +856,44 @@ export default function PatientFormDialog({
           dateError={fieldErrors["dateOfBirth"]}
         />
 
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-8 pt-3 sm:pt-6 border-t border-border/30 -mx-2 sm:-mx-4 px-2 sm:px-4 pb-2 sm:pb-4">
+        {/* Pinned actions: sticky so Add Insurance / Cancel / Register stay
+            visible whenever the form scrolls (small heights); settles at the
+            end when it fits. */}
+        <div className="sticky bottom-0 z-10 -mx-1 flex flex-col gap-2 border-t border-border/30 bg-card/95 px-1 pt-2 backdrop-blur-sm dark:bg-card/95 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:pt-3">
           <button
             type="button"
-            onClick={onClose}
-            className="rounded-full px-4 py-2 sm:py-2.5 bg-background dark:bg-gray-900 border border-border/70 text-foreground hover:bg-muted/40 dark:hover:bg-muted/50 shadow-lg text-xs sm:text-base flex-1 sm:flex-initial"
+            onClick={addInsurance}
+            disabled={!canAddInsurance}
+            title={
+              !canAddInsurance
+                ? "Please complete all required fields on the current insurance first"
+                : undefined
+            }
+            className={cn(
+              "rounded-full px-4 py-2 text-sm font-medium shadow-md transition-all duration-200 flex-1 sm:flex-none",
+              canAddInsurance
+                ? "bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white hover:opacity-90 cursor-pointer"
+                : "bg-muted text-muted-foreground border border-border/60 opacity-60 cursor-not-allowed",
+            )}
           >
-            Cancel
+            + Add Insurance
           </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-full px-4 py-2 sm:py-2.5 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-lg hover:opacity-90 transition-all duration-200 text-xs sm:text-base flex-1 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {submitLabel}
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full px-5 py-2 bg-background dark:bg-gray-900 border border-border/70 text-foreground hover:bg-muted/40 dark:hover:bg-muted/50 shadow-lg text-sm flex-1 sm:flex-none"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-full px-8 py-2 bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white shadow-lg hover:opacity-90 transition-all duration-200 text-sm flex-1 sm:flex-none disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {submitLabel}
+            </button>
+          </div>
         </div>
       </form>
     </>

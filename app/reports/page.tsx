@@ -284,7 +284,7 @@ export default function ReportsPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header doctor={doctor} />
-        <main className="container mx-auto px-4 sm:px-6 max-w-md py-20 flex-1 flex flex-col items-center justify-center text-center">
+        <main className="container mx-auto w-full px-4 sm:px-6 max-w-md py-20 flex-1 flex flex-col items-center justify-center text-center">
           <div className="p-4 rounded-full bg-muted/60 mb-4 border border-border/50 text-muted-foreground">
             <ShieldAlert className="h-10 w-10 text-amber-500" />
           </div>
@@ -306,17 +306,14 @@ export default function ReportsPage() {
   const showTopBar = !isSingleRoleUser && !isClinicianTableExpanded
 
   return (
-    <div className={cn(
-      "bg-background text-foreground flex flex-col",
-      isClinicianTableExpanded ? "h-screen overflow-hidden" : "min-h-screen"
-    )}>
+    <div className="h-screen overflow-hidden bg-background text-foreground flex flex-col">
       <Header doctor={doctor} />
 
       <main className={cn(
-        "container mx-auto px-4 sm:px-6 max-w-7xl transition-all",
+        "container w-full mx-auto px-4 sm:px-6 max-w-7xl transition-all flex-1 min-h-0 min-w-0",
         isClinicianTableExpanded
-          ? "py-2.5 flex-1 flex flex-col min-h-0 overflow-hidden"
-          : "py-6 space-y-6 flex-1"
+          ? "py-2.5 flex flex-col overflow-hidden"
+          : "py-6 space-y-6 overflow-y-auto"
       )}>
         {/* Top Control Bar: Rendered only for multi-role users to switch report views */}
         {showTopBar && (

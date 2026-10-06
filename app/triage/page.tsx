@@ -458,9 +458,9 @@ function TriagePageInner() {
 
   if (error)
     return (
-      <div className="min-h-screen bg-background">
+      <div className="h-screen overflow-hidden flex flex-col bg-background">
         <Header doctor={doctor} />
-        <div className="max-w-5xl mx-auto px-6 py-8">
+        <div className="max-w-5xl mx-auto px-6 py-8 flex-1 min-h-0 min-w-0 overflow-y-auto">
           <InlineTryAgain
             onTryAgain={async () => {
               await refetch();
@@ -473,7 +473,7 @@ function TriagePageInner() {
   if (!visit) return <PageLoading variant="triage" />;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.18),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.16),_transparent_28%),linear-gradient(180deg,_rgba(248,250,252,1)_0%,_rgba(241,245,249,1)_100%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.18),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.16),_transparent_28%),linear-gradient(180deg,_rgba(15,23,42,1)_0%,_rgba(15,23,42,1)_100%)]">
+    <div className="h-screen overflow-hidden flex flex-col bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.18),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.16),_transparent_28%),linear-gradient(180deg,_rgba(248,250,252,1)_0%,_rgba(241,245,249,1)_100%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.18),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.16),_transparent_28%),linear-gradient(180deg,_rgba(15,23,42,1)_0%,_rgba(15,23,42,1)_100%)]">
       <Header doctor={doctor} />
 
       {/* Floating Left Identification Button */}
@@ -577,7 +577,7 @@ function TriagePageInner() {
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8 flex-1 min-h-0 min-w-0 overflow-y-auto">
         {/* Vital Signs Section (Centered Vertical Tables + Increased Height + Rightmost Circular Add Button) */}
         <div className="flex justify-center w-full my-4">
           <div className="w-full max-w-5xl space-y-4">
@@ -603,7 +603,7 @@ function TriagePageInner() {
               </div>
             </div>
 
-            <div className="flex justify-center items-stretch gap-6 overflow-x-auto pb-4 pt-1 scrollbar-thin">
+            <div className="flex [justify-content:safe_center] items-stretch gap-6 overflow-x-auto pb-4 pt-1 scrollbar-thin">
               {groupedEntries.map((group, index) => {
                 const isLatest = index === 0;
                 const canEdit = canEditGroup(group);

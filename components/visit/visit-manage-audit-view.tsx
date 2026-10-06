@@ -577,9 +577,9 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
   // If user is not Manager or Admin
   if (!isManagerOrAdmin) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+      <div className="h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 flex flex-col">
         <Header doctor={doctor} />
-        <main className="flex-1 flex items-center justify-center p-6">
+        <main className="flex-1 min-h-0 flex items-center justify-center p-6">
           <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center shadow-lg">
             <div className="w-16 h-16 rounded-full bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto mb-4">
               <ShieldCheck className="w-8 h-8" />
@@ -611,9 +611,9 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
   // Error / Not Found State
   if (error || !visit) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+      <div className="h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 flex flex-col">
         <Header doctor={doctor} />
-        <main className="flex-1 flex items-center justify-center p-6">
+        <main className="flex-1 min-h-0 flex items-center justify-center p-6">
           <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center shadow-lg">
             <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="w-8 h-8" />
@@ -655,10 +655,10 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
   const consultationDeptWithAnswer = (visit.departments || []).find((d) => d.answerId)
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col text-slate-900 dark:text-slate-100">
+    <div className="h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 flex flex-col text-slate-900 dark:text-slate-100">
       <Header doctor={doctor} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      <main className="flex-1 min-h-0 min-w-0 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
         {/* Top Navigation & Action Controls */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
           <div className="flex items-center gap-3">

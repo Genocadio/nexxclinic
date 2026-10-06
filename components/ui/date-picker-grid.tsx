@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef } from "react"
+import { useState, useMemo, useEffect, useRef, type KeyboardEvent } from "react"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { ChevronDown, X } from "lucide-react"
+import { ChevronDown, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const ALL_DAYS = Array.from({ length: 31 }, (_, i) =>
@@ -62,6 +62,8 @@ export function DatePickerGrid({ value = "", onChange, className }: DatePickerGr
   const [yearOpen, setYearOpen] = useState(false)
 
   const yearListRef = useRef<HTMLDivElement>(null)
+  const [yearSearch, setYearSearch] = useState("")
+  const yearSearchRef = useRef<HTMLInputElement>(null)
 
   // Sync state if external value changes
   useEffect(() => {
@@ -105,6 +107,13 @@ export function DatePickerGrid({ value = "", onChange, className }: DatePickerGr
     if (d <= 28) return allYears
     return allYears.filter((y) => isLeapYear(Number.parseInt(y, 10)))
   }, [day, month, allYears])
+
+  // Years filtered by the typed search query (digits only)
+  const displayYears = useMemo(() => {
+    const q = yearSearch.trim()
+    if (!q) return allYears
+    return allYears.filter((y) => y.includes(q))
+  }, [allYears, yearSearch])
 
   const commitDate = (d: string, m: string, y: string) => {
     if (d && m && y) {
@@ -162,15 +171,28 @@ export function DatePickerGrid({ value = "", onChange, className }: DatePickerGr
     setDay(nextDay)
     commitDate(nextDay, nextMonth, nextYear)
     setYearOpen(false)
+    setYearSearch("")
   }
 
-  // Auto-scroll selected year into view when year dropdown opens
+  // Enter picks the first enabled match, like the location search
+  const handleYearSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      const match = displayYears.find((y) => validYears.includes(y))
+      if (match) handleYearSelect(match)
+    }
+  }
+
+  // Auto-scroll selected year into view when year dropdown opens;
+  // also reset & focus the search box so typing filters immediately
   useEffect(() => {
     if (yearOpen && yearListRef.current) {
       const selectedEl = yearListRef.current.querySelector("[data-selected='true']")
       if (selectedEl) {
         selectedEl.scrollIntoView({ block: "center" })
       }
+      setYearSearch("")
+      requestAnimationFrame(() => yearSearchRef.current?.focus())
     }
   }, [yearOpen])
 
@@ -310,7 +332,13 @@ export function DatePickerGrid({ value = "", onChange, className }: DatePickerGr
       </Popover>
 
       {/* ── Year Dropdown (3x3 scrollable grid) ── */}
-      <Popover open={yearOpen} onOpenChange={setYearOpen}>
+      <Popover
+        open={yearOpen}
+        onOpenChange={(open) => {
+          setYearOpen(open)
+          if (!open) setYearSearch("")
+        }}
+      >
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -345,12 +373,32 @@ export function DatePickerGrid({ value = "", onChange, className }: DatePickerGr
               </button>
             )}
           </div>
+          {/* Type-to-search, like the location selectors */}
+          <div className="mb-2 flex items-center gap-2 border-b border-border/40 px-1 pb-2">
+            <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <input
+              ref={yearSearchRef}
+              type="text"
+              inputMode="numeric"
+              value={yearSearch}
+              onChange={(e) => setYearSearch(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={handleYearSearchKeyDown}
+              placeholder="Type to search year..."
+              aria-label="Search year"
+              className="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
+            />
+          </div>
           {/* 3x3 scrollable grid of years (scrolls smoothly from currentYear down to 1900 without pagination) */}
           <div
             ref={yearListRef}
             className="grid grid-cols-3 gap-1.5 max-h-[210px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-muted-foreground/20"
           >
-            {allYears.map((y) => {
+            {displayYears.length === 0 && (
+              <p className="col-span-3 py-6 text-center text-xs text-muted-foreground">
+                No year found.
+              </p>
+            )}
+            {displayYears.map((y) => {
               const disabled = !validYears.includes(y)
               const isSelected = year === y
               return (

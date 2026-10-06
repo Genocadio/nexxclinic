@@ -51,12 +51,12 @@ export function PageLoading({
   className,
 }: PageLoadingProps) {
   return (
-    <div className={cn("min-h-screen bg-background text-foreground flex flex-col", className)}>
+    <div className={cn("h-screen overflow-y-auto bg-background text-foreground flex flex-col", className)}>
       {showHeader && <TopNavSkeleton />}
 
       {/* Render variant layout */}
       {(variant === "default" || variant === "dashboard") && (
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+        <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
           {/* Header Title & Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="space-y-1.5">
@@ -171,7 +171,7 @@ export function PageLoading({
       )}
 
       {(variant === "table" || variant === "admin" || variant === "list") && (
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+        <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <Skeleton className="h-7 w-48 rounded-lg" />
@@ -212,7 +212,7 @@ export function PageLoading({
       )}
 
       {variant === "billing" && (
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+        <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
           <div className="flex items-center justify-between">
             <Skeleton className="h-7 w-44 rounded-lg" />
             <div className="flex gap-2">

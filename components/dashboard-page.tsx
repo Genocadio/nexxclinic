@@ -2457,7 +2457,7 @@ export default function DashboardPage() {
                                           <PopoverContent
                                             align="start"
                                             sideOffset={6}
-                                            className="w-80 sm:w-96 p-4 shadow-xl max-h-[80vh] overflow-y-auto z-[150] bg-popover/95 backdrop-blur-xl border border-border/80"
+                                            className="w-80 sm:w-96 p-4 shadow-xl z-[150] bg-popover/95 backdrop-blur-xl border border-border/80"
                                           >
                                             <div className="space-y-3">
                                               <div className="flex items-center justify-between pb-2 border-b border-border/40">

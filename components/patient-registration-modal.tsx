@@ -101,9 +101,9 @@ export default function PatientRegistrationModal({
 
   const showPotentialMatches =
     !hideSearchPanel && potentialMatches.length > 0
-  const dialogWidthClass = showPotentialMatches
-    ? "sm:max-w-[1180px]"
-    : "sm:max-w-[780px]"
+  // Desktop/tablet: use the available width instead of a narrow 780px card
+  // floating in blurred empty space.
+  const dialogWidthClass = "sm:max-w-[min(1360px,calc(100vw-3rem))]"
 
   // Reset search when modal opens
   useEffect(() => {
@@ -122,20 +122,20 @@ export default function PatientRegistrationModal({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent
           showCloseButton={false}
-          className={`max-w-full ${dialogWidthClass} max-h-[90vh] overflow-hidden backdrop-blur-2xl bg-card/95 dark:bg-card/95 text-card-foreground border border-border/80 rounded-3xl shadow-2xl p-2 sm:p-4`}
+          className={`max-w-full ${dialogWidthClass} max-h-[calc(100dvh-2rem)] overflow-hidden backdrop-blur-2xl bg-card/95 dark:bg-card/95 text-card-foreground border border-border/80 rounded-3xl shadow-2xl p-2 sm:p-4`}
         >
           <DialogTitle className="sr-only">Register New Patient</DialogTitle>
           <div
             className={
-              "grid grid-cols-1 gap-2 sm:gap-6 h-full max-h-[calc(90vh-180px)] overflow-hidden" +
+              "grid max-h-[calc(100dvh-4rem)] min-h-0 grid-cols-1 gap-2 overflow-hidden sm:gap-3" +
               (showPotentialMatches
-                ? " lg:grid-cols-[760px_minmax(340px,1fr)]"
+                ? " md:grid-cols-[minmax(0,1fr)_300px] lg:grid-cols-[minmax(0,1fr)_340px]"
                 : "")
             }
           >
-            {/* Registration Form */}
-            <div className="mx-auto w-full max-w-[760px] overflow-y-auto scrollbar-hide pr-2 pb-20 rounded-2xl border border-border/50 bg-[#FBF2ED] dark:bg-slate-900 shadow-lg p-2 sm:p-4">
-              <h2 className="text-lg font-bold mb-4">Register New Patient</h2>
+            {/* Registration Form — fills the dialog width; scrolls only as a
+                fallback (small devices / insurance entries added). */}
+            <div className="w-full min-h-0 overflow-y-auto scrollbar-hide px-1">
               <PatientFormDialog
                 isOpen={isOpen}
                 onClose={onClose}
@@ -160,11 +160,13 @@ export default function PatientRegistrationModal({
                 onFormChange={(data) => {
                   formDataRef.current = data
                   if (!searchActiveRef.current) {
-                    const hasMeaningfulInput =
-                      (data.nationalIdNumber && data.nationalIdNumber.trim().length >= 8) ||
-                      (data.contactInfo?.phone && data.contactInfo.phone.replace(/\D/g, '').length >= 9) ||
-                      (data.name && data.name.trim().length >= 3) ||
-                      (data.firstName && data.firstName.trim().length >= 3)
+                  const hasMeaningfulInput =
+                    (data.nationalIdNumber && data.nationalIdNumber.trim().length >= 8) ||
+                    (data.contactInfo?.phone && data.contactInfo.phone.replace(/\D/g, '').length >= 9) ||
+                    // Duplicate suggestions start as soon as any name is typed
+                    // and keep refining as gender / DOB / phone are filled in.
+                    (data.name && data.name.trim().length > 0) ||
+                    (data.firstName && data.firstName.trim().length > 0)
                     if (hasMeaningfulInput) {
                       searchActiveRef.current = true
                     } else {
@@ -197,7 +199,7 @@ export default function PatientRegistrationModal({
 
             {/* Potential Matches Panel (hidden on mobile) */}
             {showPotentialMatches && (
-              <div className="hidden md:block border-l border-border/50 overflow-y-auto scrollbar-hide pb-20 rounded-2xl bg-[#FBF2ED] dark:bg-slate-900 shadow-lg px-8 py-6">
+              <div className="hidden md:block min-h-0 border-l border-border/50 overflow-y-auto scrollbar-hide pb-4 rounded-2xl bg-[#FBF2ED] dark:bg-slate-900 shadow-lg px-4 py-4">
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground mb-2">
                     Found {potentialMatches.length} potential match

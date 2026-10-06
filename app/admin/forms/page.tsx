@@ -1998,9 +1998,9 @@ export default function FormsPage() {
   }, [departments, selectedDeptId, defaultDeptName]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen overflow-hidden bg-background flex flex-col">
       <Header doctor={doctor} />
-      <main className="max-w-7xl mx-auto px-6 py-10 space-y-6">
+      <main className="max-w-7xl mx-auto w-full px-6 py-10 space-y-6 flex-1 min-h-0 min-w-0 overflow-y-auto">
         <div className="flex items-center gap-4 mb-2">
           <Button
             variant="outline"

@@ -115,7 +115,7 @@ export default function WardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background overflow-hidden flex flex-col">
       <Header doctor={doctor} />
 
       {/* Floating Patient Card */}
@@ -162,21 +162,7 @@ export default function WardPage() {
         </div>
       </div>
 
-      <FloatingCarePlansButton
-        tasks={scheduledTasks}
-        carePlans={carePlans}
-        currentUserRole={currentUserRole}
-        onCreatePlan={handleCreateCarePlan}
-        onEditPlan={handleEditCarePlan}
-      />
-
-      <FloatingAlertsButton
-        alerts={patientAlerts}
-        currentUserRole={currentUserRole}
-        onCreateAlert={() => setAlertDialogOpen(true)}
-      />
-
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto w-full px-4 py-8 flex-1 min-h-0 min-w-0 overflow-y-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className={viewMode === "document" ? "lg:col-span-3" : "lg:col-span-2"}>
             <Card>

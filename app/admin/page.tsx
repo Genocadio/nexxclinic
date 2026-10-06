@@ -23,9 +23,9 @@ export default function AdminDashboardPage() {
   const visibleAdminActions = adminActions
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen overflow-hidden bg-background flex flex-col">
       <FloatingHeader doctor={doctor} />
-      <main className="w-[92%] max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8 flex flex-col justify-center items-center">
+      <main className="w-[92%] max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8 flex flex-col [justify-content:safe_center] items-center flex-1 min-h-0 min-w-0 overflow-y-auto">
         {/* Centered header aligned with dashboard-header */}
         <div className="text-center space-y-2 mb-2 w-full">
           <h1 className="text-3xl sm:text-4xl font-bold text-foreground block w-full">

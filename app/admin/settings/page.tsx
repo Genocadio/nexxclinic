@@ -192,9 +192,9 @@ export default function AdminSettingsPage() {
 
   if (!canAccess) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="h-screen overflow-hidden bg-background text-foreground flex flex-col">
         <Header doctor={doctor} />
-        <main className="max-w-3xl mx-auto px-6 py-16 text-center space-y-3">
+        <main className="max-w-3xl mx-auto w-full px-6 py-16 text-center space-y-3 flex-1 min-h-0 min-w-0 overflow-y-auto">
           <ShieldCheck className="w-12 h-12 mx-auto text-muted-foreground" />
           <h1 className="text-2xl font-bold">Access restricted</h1>
           <p className="text-muted-foreground">
@@ -209,10 +209,10 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-24">
+    <div className="h-screen overflow-hidden bg-background text-foreground pb-24 flex flex-col">
       <Header doctor={doctor} />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+      <main className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-8 space-y-8 flex-1 min-h-0 min-w-0 overflow-y-auto">
         {/* Top Action & Navigation Bar */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">

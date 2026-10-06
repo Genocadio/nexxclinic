@@ -679,10 +679,10 @@ export default function ManageUsersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen overflow-hidden bg-background flex flex-col">
       <Header doctor={doctor} />
 
-      <main className="max-w-7xl mx-auto px-6 py-10">
+      <main className="max-w-7xl mx-auto w-full px-6 py-10 flex-1 min-h-0 min-w-0 overflow-y-auto">
         {!selectedUser ? (
           /* ========================================================================= */
           /* VIEW A: USERS CATALOG & GRID VIEW                                        */

@@ -430,10 +430,10 @@ export default function DepartmentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen overflow-hidden bg-background flex flex-col">
       <Header doctor={doctor} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6 flex-1 min-h-0 min-w-0 overflow-y-auto">
         {/* ========================================================================= */}
         {/* VIEW A: CATALOG VIEW (WHEN NO DEPARTMENT IS SELECTED)                     */}
         {/* ========================================================================= */}

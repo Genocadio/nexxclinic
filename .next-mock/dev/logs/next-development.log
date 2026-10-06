@@ -1,0 +1,206 @@
+[00:00:00.890] Server  LOG      ✓ Ready in 554ms
+[00:00:31.389] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:31.478] Server  ERROR   (node:74907) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[00:00:32.861] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:00:32.861] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/auth","route":"/auth"}
+[00:00:32.861] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/auth color: rgb(120, 120, 120) color: inherit {"dp":"/auth","o":"http://localhost:3010/auth","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791251465824} /_vercel/insights/view
+[00:00:32.861] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791251465825} /_vercel/insights/view
+[00:00:41.510] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[00:49:26.964] Server  LOG      ✓ Compiled in 395ms
+[00:59:07.544] Server  LOG      ✓ Compiled in 390ms
+[00:59:25.799] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:59:26.510] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:59:26.510] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[00:59:26.510] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791254999485} /_vercel/insights/view
+[00:59:35.938] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[01:02:49.157] Server  LOG      ✓ Compiled in 324ms
+[01:26:29.783] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[01:26:30.355] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[01:26:30.355] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[01:26:30.355] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791256623335} /_vercel/insights/view
+[01:26:39.900] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[03:12:42.308] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[03:12:42.950] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[03:12:42.950] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[03:12:42.950] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791262995948} /_vercel/insights/view
+[03:12:52.461] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[03:14:05.198] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/billing?visitId=id-2jdz3&patientId=id-2jdz4 color: rgb(120, 120, 120) color: inherit {"dp":"/billing","o":"http://localhost:3010/billing?visitId=id-2jdz3&patientId=id-2jdz4","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791263078196} /_vercel/insights/view
+[03:14:33.231] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791263105554} /_vercel/insights/view
+[03:14:38.199] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[03:14:38.199] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[03:15:49.957] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[03:15:50.901] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[03:15:50.901] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[03:15:50.901] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791263183899} /_vercel/insights/view
+[03:16:00.048] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[03:17:12.390] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/billing?visitId=id-2jou3&patientId=id-2jou4 color: rgb(120, 120, 120) color: inherit {"dp":"/billing","o":"http://localhost:3010/billing?visitId=id-2jou3&patientId=id-2jou4","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791263265387} /_vercel/insights/view
+[03:17:30.711] Server  ERROR   Failed to proxy http://localhost:9999/graphql AggregateError
+[03:17:30.712] Server  ERROR   AggregateError
+[03:17:31.239] Browser ERROR   Start bill editing error: {"cause":{"name":"ServerError","response":{},"result":"Internal Server Error","statusCode":500},"clientErrors":[],"graphQLErrors":[],"message":"Response not successful: Received status code 500","name":"ApolloError","networkError":{"name":"ServerError","response":{},"result":"Internal Server Error","statusCode":500},"protocolErrors":[]}
+[03:17:31.239] Browser ERROR   unhandledRejection: ApolloError: Response not successful: Received status code 500
+[03:17:33.855] Server  ERROR   Failed to proxy http://localhost:9999/graphql AggregateError
+[03:17:33.856] Server  ERROR   AggregateError
+[03:17:34.316] Browser ERROR   Start bill editing error: {"cause":{"name":"ServerError","response":{},"result":"Internal Server Error","statusCode":500},"clientErrors":[],"graphQLErrors":[],"message":"Response not successful: Received status code 500","name":"ApolloError","networkError":{"name":"ServerError","response":{},"result":"Internal Server Error","statusCode":500},"protocolErrors":[]}
+[03:17:34.316] Browser ERROR   unhandledRejection: ApolloError: Response not successful: Received status code 500
+[03:17:41.897] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[03:17:42.967] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[03:17:42.967] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[03:17:42.967] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791263295966} /_vercel/insights/view
+[03:17:52.039] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[03:22:16.899] Server  LOG      ✓ Compiled in 337ms
+[03:22:48.514] Server  LOG      ✓ Compiled in 117ms
+[03:24:04.647] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/billing?visitId=id-1 color: rgb(120, 120, 120) color: inherit {"dp":"/billing","o":"http://localhost:3010/billing?visitId=id-1","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791263677646} /_vercel/insights/view
+[03:24:09.015] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791263681372} /_vercel/insights/view
+[03:28:33.340] Server  LOG      ✓ Compiled in 284ms
+[03:33:43.724] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[03:33:44.967] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[03:33:44.967] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/billing","route":"/billing"}
+[03:33:44.967] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/billing?visitId=id-bhb color: rgb(120, 120, 120) color: inherit {"dp":"/billing","o":"http://localhost:3010/billing?visitId=id-bhb","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791264257005} /_vercel/insights/view
+[03:33:53.851] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[03:40:07.633] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[03:40:08.350] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[03:40:08.350] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[03:40:08.350] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791264641351} /_vercel/insights/view
+[03:40:17.776] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[03:49:09.891] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[03:49:11.508] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[03:49:11.508] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/billing","route":"/billing"}
+[03:49:11.508] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/billing?visitId=id-bhb color: rgb(120, 120, 120) color: inherit {"dp":"/billing","o":"http://localhost:3010/billing?visitId=id-bhb","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791265184509} /_vercel/insights/view
+[03:49:20.026] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[03:52:29.864] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[03:52:30.213] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[03:52:30.213] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/admin/forms","route":"/admin/forms"}
+[03:52:30.213] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/admin/forms color: rgb(120, 120, 120) color: inherit {"dp":"/admin/forms","o":"http://localhost:3010/admin/forms","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791265383216} /_vercel/insights/view
+[03:52:40.008] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[03:58:08.148] Server  LOG      ✓ Compiled in 238ms
+[03:59:10.186] Server  LOG      ✓ Compiled in 148ms
+[04:00:27.860] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[04:00:28.630] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[04:00:28.630] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[04:00:28.630] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791265861635} /_vercel/insights/view
+[04:00:37.986] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[04:01:44.535] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[04:01:44.756] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[04:01:44.756] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/admin/forms","route":"/admin/forms"}
+[04:01:44.756] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/admin/forms color: rgb(120, 120, 120) color: inherit {"dp":"/admin/forms","o":"http://localhost:3010/admin/forms","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791265937755} /_vercel/insights/view
+[04:01:54.667] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[04:05:24.980] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[04:05:26.002] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[04:05:26.003] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/billing","route":"/billing"}
+[04:05:26.003] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/billing?visitId=id-bhb color: rgb(120, 120, 120) color: inherit {"dp":"/billing","o":"http://localhost:3010/billing?visitId=id-bhb","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791266158237} /_vercel/insights/view
+[04:05:35.129] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[04:23:43.595] Browser WARN    An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.1%22%2C%22message%22%3A43%2C%22args%22%3A%5B%22GetVisits%22%5D%7D
+[04:23:43.600] Browser WARN    An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.1%22%2C%22message%22%3A43%2C%22args%22%3A%5B%22GetVisitBilling%22%5D%7D
+[04:23:43.600] Browser WARN    An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.1%22%2C%22message%22%3A43%2C%22args%22%3A%5B%22GetVisitBillingForSettings%22%5D%7D
+[04:23:43.600] Browser WARN    An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.1%22%2C%22message%22%3A43%2C%22args%22%3A%5B%22GetVisitDepartmentProfiles%22%5D%7D
+[04:23:43.600] Browser WARN    An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.1%22%2C%22message%22%3A43%2C%22args%22%3A%5B%22GetBillByVisit%22%5D%7D
+[04:29:43.309] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[04:29:43.717] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[04:29:43.717] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/admin/departments","route":"/admin/departments"}
+[04:29:43.717] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/admin/departments color: rgb(120, 120, 120) color: inherit {"dp":"/admin/departments","o":"http://localhost:3010/admin/departments","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791267616641} /_vercel/insights/view
+[04:29:53.473] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[04:36:56.973] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[04:36:58.062] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[04:36:58.062] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[04:36:58.062] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791268051067} /_vercel/insights/view
+[04:37:07.130] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[04:47:51.797] Server  LOG      ✓ Compiled in 424ms
+[04:48:29.801] Server  LOG      ✓ Compiled in 224ms
+[04:48:52.318] Server  LOG      ✓ Compiled in 346ms
+[04:56:26.837] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[04:56:27.619] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[04:56:27.619] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[04:56:27.619] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791269220635} /_vercel/insights/view
+[04:56:37.000] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[04:57:10.641] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[04:57:10.641] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[04:57:25.346] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[04:57:25.346] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[05:00:58.656] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[05:00:58.656] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[05:29:57.173] Server  LOG      ✓ Compiled in 511ms
+[05:31:25.004] Server  LOG      ✓ Compiled in 773ms
+[05:35:16.835] Server  LOG      ✓ Compiled in 329ms
+[05:36:49.966] Server  LOG      ✓ Compiled in 297ms
+[05:37:17.918] Server  LOG      ✓ Compiled in 104ms
+[05:39:11.058] Server  LOG      ✓ Compiled in 312ms
+[05:40:09.084] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[05:40:10.082] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[05:40:10.082] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[05:40:10.082] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791271843111} /_vercel/insights/view
+[05:40:19.206] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[05:40:45.649] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[05:40:45.649] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[05:42:35.108] Server  LOG      ✓ Compiled in 264ms
+[05:45:33.310] Server  LOG      ✓ Compiled in 275ms
+[05:56:55.332] Server  LOG      ✓ Compiled in 173ms
+[06:04:47.445] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:04:47.446] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:10:24.448] Server  LOG      ✓ Compiled in 264ms
+[06:13:36.398] Server  LOG      ✓ Compiled in 460ms
+[06:23:40.067] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:23:40.067] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:25:35.766] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[06:25:36.726] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[06:25:36.726] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[06:25:36.726] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791274569763} /_vercel/insights/view
+[06:25:45.891] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[06:27:34.821] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:27:34.821] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:29:03.991] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:29:03.991] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:30:02.003] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[06:30:03.017] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[06:30:03.017] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[06:30:03.017] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791274836054} /_vercel/insights/view
+[06:30:12.451] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[06:30:12.768] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:30:12.768] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:34:44.727] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[06:34:44.866] Server  ERROR   Failed to proxy http://localhost:9999/graphql AggregateError
+[06:34:44.867] Server  ERROR   AggregateError
+[06:34:45.309] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[06:34:45.309] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[06:34:45.309] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791275118346} /_vercel/insights/view
+[06:34:54.869] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[06:37:04.810] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[06:37:05.695] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[06:37:05.695] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[06:37:05.695] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791275258734} /_vercel/insights/view
+[06:37:14.926] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[06:37:37.043] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:37:37.043] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:38:36.915] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:38:36.915] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:39:28.329] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:39:28.329] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:40:40.319] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[06:40:41.254] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[06:40:41.254] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[06:40:41.254] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791275474293} /_vercel/insights/view
+[06:40:50.466] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[06:42:29.863] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[06:42:30.787] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[06:42:30.787] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[06:42:30.787] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791275583826} /_vercel/insights/view
+[06:42:39.991] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[06:43:25.038] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:43:25.038] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[06:56:39.471] Server  LOG      ✓ Compiled in 520ms
+[06:58:16.367] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[06:58:17.386] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[06:58:17.386] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[06:58:17.386] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791276530425} /_vercel/insights/view
+[06:58:26.504] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+[07:00:02.919] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[07:00:02.919] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[07:18:35.535] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[07:18:35.536] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[07:23:27.188] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[07:23:27.188] Browser WARN    Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[07:26:27.091] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[07:26:27.988] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[07:26:27.988] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[07:26:27.988] Browser LOG     %c[Vercel Web Analytics]%c [view] http://localhost:3010/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3010/","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1791278221036} /_vercel/insights/view
+[07:26:37.230] Browser LOG     Download the Apollo DevTools for a better development experience: %s https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm

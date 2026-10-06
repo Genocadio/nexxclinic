@@ -344,7 +344,7 @@ export default function PatientHistorySidePane({
   );
 
   return (
-    <div className="fixed top-0 bottom-0 left-0 w-[420px] bg-background border-r border-border shadow-2xl z-[89] flex flex-col overflow-hidden">
+    <div className="fixed top-0 bottom-0 left-0 w-[min(420px,100vw)] bg-background border-r border-border shadow-2xl z-[89] flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
         <div>

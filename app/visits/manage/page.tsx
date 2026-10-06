@@ -20,7 +20,7 @@ export default function VisitManagePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+        <div className="h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 flex flex-col">
           <Header doctor={doctor} />
           <div className="max-w-7xl w-full mx-auto p-6 space-y-6">
             <Skeleton className="h-10 w-48 rounded-lg" />
