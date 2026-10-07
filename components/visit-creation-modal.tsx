@@ -1044,20 +1044,10 @@ export default function VisitCreationModal({
                           {/* Active visit guard */}
                           {hasActiveVisit(patient) && (
                             <div
-                              className="mb-2 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700 text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between gap-2"
+                              className="mb-2 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700 text-xs text-amber-800 dark:text-amber-200"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <span className="font-medium">Active visit in progress</span>
-                              <button
-                                type="button"
-                                className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-semibold rounded-lg transition-colors cursor-pointer shrink-0"
-                                onClick={() => {
-                                  const visitId = patient.lastVisit?.id;
-                                  if (visitId) router.push(`/triage?visitId=${visitId}`);
-                                }}
-                              >
-                                Open Visit
-                              </button>
+                              <span className="font-medium">Patient already has an active visit</span>
                             </div>
                           )}
 
