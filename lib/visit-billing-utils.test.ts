@@ -124,6 +124,92 @@ describe("getVisitBillingTotals", () => {
     expect(totals.outstandingAmount).toBe(8000);
   });
 
+  type GqlDept = NonNullable<GqlVisitBilling["departments"]>[number];
+  type GqlBucket = NonNullable<GqlDept["insuranceBillings"]>[number];
+
+  const makeBucket = (
+    id: string,
+    outstanding: number,
+    outstandingType?: string,
+    paid?: number,
+  ): GqlBucket => ({
+    id,
+    status: "UNPAID",
+    totalAmount: 12000,
+    insuranceCoveredAmount: 0,
+    patientPayableAmount: 12000,
+    paidAmount: paid ?? 12000 - outstanding,
+    outstandingAmount: outstanding,
+    outstandingType,
+    items: [],
+  });
+
+  const makeDept = (buckets: GqlBucket[]): GqlDept => ({
+    id: "vdb-split",
+    status: "PARTIALLY_PAID",
+    totalAmount: 12000,
+    insuranceCoveredAmount: 0,
+    patientPayableAmount: 12000,
+    paidAmount: 4000,
+    outstandingAmount: buckets.reduce(
+      (sum, b) => sum + b.outstandingAmount,
+      0,
+    ),
+    insuranceBillings: buckets,
+  });
+
+  it("books buckets without a declared type as loan (Outstanding)", () => {
+    const totals = getVisitBillingTotals(
+      mapGqlVisitBilling({
+        ...gqlBilling,
+        departments: [makeDept([makeBucket("dib-legacy", 8000)])],
+      }),
+    );
+    expect(totals.outstandingAmount).toBe(8000);
+    expect(totals.loanOutstandingAmount).toBe(8000);
+    expect(totals.giveawayOutstandingAmount).toBe(0);
+  });
+
+  it("splits outstanding into loan and giveaway by declared OutstandingType", () => {
+    const totals = getVisitBillingTotals(
+      mapGqlVisitBilling({
+        ...gqlBilling,
+        departments: [
+          makeDept([
+            makeBucket("dib-loan", 5000, "LOAN"),
+            makeBucket("dib-giveaway", 3000, "GIVEAWAY"),
+          ]),
+        ],
+      }),
+    );
+    expect(totals.outstandingAmount).toBe(8000);
+    expect(totals.loanOutstandingAmount).toBe(5000);
+    expect(totals.giveawayOutstandingAmount).toBe(3000);
+    expect(
+      totals.loanOutstandingAmount + totals.giveawayOutstandingAmount,
+    ).toBe(totals.outstandingAmount);
+  });
+
+  it("books the derived fallback residual as loan when no bucket reports one", () => {
+    const totals = getVisitBillingTotals(
+      mapGqlVisitBilling({
+        ...gqlBilling,
+        departments: [
+          makeDept([
+            // Backend-reported residual lags (0) while the patient still owes
+            // 12000 − 4000 — the fallback path must kick in.
+            makeBucket("dib-unreported", 0, "GIVEAWAY", 4000),
+          ]),
+        ],
+      }),
+    );
+    // Bucket reports no residual → outstanding is derived from patient payable
+    // (12000 − 4000). The unclassified fallback keeps the "Outstanding" wording.
+    expect(totals.outstandingAmount).toBe(8000);
+    expect(totals.loanOutstandingAmount).toBe(8000);
+    expect(totals.giveawayOutstandingAmount).toBe(0);
+  });
+
   it("shows zero outstanding when the patient is fully paid, even when insurance-covered money is unpaid", () => {
     const totals = getVisitBillingTotals(
       mapGqlVisitBilling({
@@ -215,6 +301,8 @@ describe("getVisitBillingTotals", () => {
       patientPayableAmount: 0,
       paidAmount: 0,
       outstandingAmount: 0,
+      loanOutstandingAmount: 0,
+      giveawayOutstandingAmount: 0,
       waivedAmount: 0,
     });
   });

@@ -41,6 +41,8 @@ type InvoicePreviewGroup = {
   patientPayableAmount: number;
   paidAmount: number;
   outstandingAmount: number;
+  /** Declared OutstandingType of the source bucket: LOAN (default) or GIVEAWAY. */
+  outstandingType?: string | null;
   waivedAmount?: number;
   items: {
     id: string;
@@ -239,6 +241,7 @@ export function BillingPreviewSheet({
             patientPayableAmount: Number(ib.patientPayableAmount || 0),
             paidAmount: Number(ib.paidAmount || 0),
             outstandingAmount: Number(ib.outstandingAmount || 0),
+            outstandingType: ib.outstandingType || null,
             waivedAmount: groupWaivedAmount,
             items: mappedItems,
           });
@@ -344,6 +347,12 @@ export function BillingPreviewSheet({
   const departmentOutstanding = sumMoney(
     invoiceGroups.map((g) => g.outstandingAmount),
   );
+  const departmentGiveaway = sumMoney(
+    invoiceGroups
+      .filter((g) => g.outstandingType === "GIVEAWAY")
+      .map((g) => g.outstandingAmount),
+  );
+  const departmentLoan = Math.max(0, departmentOutstanding - departmentGiveaway);
   const showOverallDepartmentTotals = invoiceGroups.length > 1;
   const visitBillingTotals = visitBilling
     ? getVisitBillingTotals(visitBilling)
@@ -778,8 +787,18 @@ export function BillingPreviewSheet({
                                   {formatRWF(group.paidAmount)}
                                 </div>
                                 {group.outstandingAmount > 0 && (
-                                  <div className="py-1 text-orange-600 dark:text-orange-400">
-                                    <strong>Outstanding:</strong>{" "}
+                                  <div
+                                    className={`py-1 ${
+                                      group.outstandingType === "GIVEAWAY"
+                                        ? "text-purple-600 dark:text-purple-400"
+                                        : "text-orange-600 dark:text-orange-400"
+                                    }`}
+                                  >
+                                    <strong>
+                                      {group.outstandingType === "GIVEAWAY"
+                                        ? "Giveaway:"
+                                        : "Outstanding:"}
+                                    </strong>{" "}
                                     {formatRWF(group.outstandingAmount)}
                                   </div>
                                 )}
@@ -808,12 +827,22 @@ export function BillingPreviewSheet({
                               {formatRWF(departmentPaid)}
                             </span>
                           </div>
-                          <div className="py-1 border-b border-border">
-                            <strong>Outstanding:</strong>{" "}
-                            <span className="float-right">
-                              {formatRWF(departmentOutstanding)}
-                            </span>
-                          </div>
+                          {(departmentLoan > 0 || departmentOutstanding === 0) && (
+                            <div className="py-1 border-b border-border">
+                              <strong>Outstanding:</strong>{" "}
+                              <span className="float-right">
+                                {formatRWF(departmentLoan)}
+                              </span>
+                            </div>
+                          )}
+                          {departmentGiveaway > 0 && (
+                            <div className="py-1 border-b border-border text-purple-600 dark:text-purple-400">
+                              <strong>Giveaway:</strong>{" "}
+                              <span className="float-right">
+                                {formatRWF(departmentGiveaway)}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -854,12 +883,23 @@ export function BillingPreviewSheet({
                             {formatRWF(visitBillingTotals.paidAmount)}
                           </span>
                         </div>
-                        <div className="py-1 border-b border-border">
-                          <strong>Outstanding:</strong>{" "}
-                          <span className="float-right">
-                            {formatRWF(visitBillingTotals.outstandingAmount)}
-                          </span>
-                        </div>
+                        {(visitBillingTotals.loanOutstandingAmount > 0 ||
+                          visitBillingTotals.outstandingAmount === 0) && (
+                          <div className="py-1 border-b border-border">
+                            <strong>Outstanding:</strong>{" "}
+                            <span className="float-right">
+                              {formatRWF(visitBillingTotals.loanOutstandingAmount)}
+                            </span>
+                          </div>
+                        )}
+                        {visitBillingTotals.giveawayOutstandingAmount > 0 && (
+                          <div className="py-1 border-b border-border text-purple-600 dark:text-purple-400">
+                            <strong>Giveaway:</strong>{" "}
+                            <span className="float-right">
+                              {formatRWF(visitBillingTotals.giveawayOutstandingAmount)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

@@ -299,6 +299,21 @@ export default function DashboardPage() {
     return userDepartmentIds.includes(String(deptId))
   }
 
+  // Unread note visibility on terminal visits (COMPLETED/FINALISED): finance and
+  // admin don't need the note count — only clinicians/doctors and nurses who are
+  // in the department's processors still see unread notes.
+  const isUserInDeptProcessors = (dept?: any) => {
+    if (!doctor?.id || !dept?.processors) return false
+    return (dept.processors as any[]).some((p) => String(p.id) === String(doctor.id))
+  }
+  const canSeeUnreadNotesForDept = (visit: Visit, dept: any) => {
+    const isTerminalVisit = visit.status === "COMPLETED" || visit.status === "FINALISED"
+    if (!isTerminalVisit) return true
+    return (
+      (hasClinicianOrDoctorRole || hasNurseRole) && isUserInDeptProcessors(dept)
+    )
+  }
+
   const hasNonClinicianNonFinanceRoles = roles.some((r) =>
     ["RECEPTION", "RECEPTIONIST", "NURSE", "NURSING", "MANAGER", "ADMIN", "CLINIC_ADMIN", "STAFF"].includes(r)
   )
@@ -1003,12 +1018,7 @@ export default function DashboardPage() {
         ) : (
           <div className="max-h-48 overflow-y-auto space-y-1.5 pr-0.5">
             {allProducts.map((p: any, idx: number) => {
-              const statusStr = String(p.status || "PENDING").toUpperCase()
-              const isBilled =
-                statusStr === "BILLED" ||
-                statusStr === "EXEMPTED" ||
-                statusStr === "PATIENT_SHARE_EXEMPTED"
-              const isUnpaid = statusStr === "UNPAID" || statusStr === "PENDING"
+              const billingStateStr = String(p.billingState || "UNBILLED").toUpperCase()
               return (
                 <div
                   key={p.id || idx}
@@ -1028,14 +1038,14 @@ export default function DashboardPage() {
                     )}
                     <span
                       className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                        isBilled
+                        billingStateStr === "BILLED"
                           ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
-                          : isUnpaid
-                            ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20"
-                            : "bg-muted text-muted-foreground border border-border/50"
+                          : billingStateStr === "CORRECTING"
+                            ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/20"
+                            : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20"
                       }`}
                     >
-                      {statusStr}
+                      {billingStateStr}
                     </span>
                   </div>
                 </div>
@@ -2205,10 +2215,12 @@ export default function DashboardPage() {
                         const billedProductNames = getBilledProductNames(visit)
                         const departmentsReadyForBilling =
                           getDepartmentsReadyForBilling(visit)
-                        const totalNewNotes = (visit.departments || []).reduce(
-                          (sum, dept) => sum + (dept.notes?.newNotes || 0),
-                          0,
-                        )
+                        const totalNewNotes = (visit.departments || [])
+                          .filter((dept) => canSeeUnreadNotesForDept(visit, dept))
+                          .reduce(
+                            (sum, dept) => sum + (dept.notes?.newNotes || 0),
+                            0,
+                          )
                         return (
                           <div
                             key={visit.id}
@@ -2735,7 +2747,11 @@ export default function DashboardPage() {
                                                             {dept.notes &&
                                                               dept.notes
                                                                 .newNotes >
-                                                                0 && (
+                                                                0 &&
+                                                              canSeeUnreadNotesForDept(
+                                                                visit,
+                                                                dept,
+                                                              ) && (
                                                                 <div className="mt-1.5 pt-1.5 border-t border-border/30 text-[11px] text-rose-600 dark:text-rose-400 font-medium">
                                                                   {
                                                                     dept.notes

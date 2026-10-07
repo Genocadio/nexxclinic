@@ -213,9 +213,20 @@ export function BillingStickySummary({
                   <p className="text-[12px] text-green-600 dark:text-green-400 tabular-nums">
                     Paid {formatRWF(billingTotals.paidAmount)}
                   </p>
-                  {billingTotals.outstandingAmount > 0 && (
-                    <p className="text-[12px] text-orange-600 dark:text-orange-400 tabular-nums">
-                      Outstanding {formatRWF(billingTotals.outstandingAmount)}
+                  {billingTotals.loanOutstandingAmount > 0 && (
+                    <p
+                      className="text-[12px] text-orange-600 dark:text-orange-400 tabular-nums"
+                      title="Outstanding declared as a loan — the patient still owes this amount"
+                    >
+                      Outstanding {formatRWF(billingTotals.loanOutstandingAmount)}
+                    </p>
+                  )}
+                  {billingTotals.giveawayOutstandingAmount > 0 && (
+                    <p
+                      className="text-[12px] text-purple-600 dark:text-purple-400 tabular-nums"
+                      title="Outstanding declared as a giveaway — the clinic absorbs this amount"
+                    >
+                      Giveaway {formatRWF(billingTotals.giveawayOutstandingAmount)}
                     </p>
                   )}
                 </div>

@@ -22,6 +22,10 @@ export type VisitBillingTotals = {
   patientPayableAmount: number;
   paidAmount: number;
   outstandingAmount: number;
+  /** Residual declared LOAN (patient still owes) — label this "Outstanding". */
+  loanOutstandingAmount: number;
+  /** Residual declared GIVEAWAY (clinic absorbs) — label this "Giveaway". */
+  giveawayOutstandingAmount: number;
   waivedAmount?: number;
 };
 
@@ -313,6 +317,22 @@ export function getVisitBillingTotals(
     0,
   );
 
+  // Classify each bucket's residual by its declared OutstandingType so the UI
+  // can say "Outstanding" for LOAN money and "Giveaway" for written-off money.
+  let loanOutstandingAmount = 0;
+  let giveawayOutstandingAmount = 0;
+  for (const ib of insuranceBillings) {
+    const residual = Number(ib.outstandingAmount || 0);
+    if (residual <= 0) continue;
+    if (ib.outstandingType === "GIVEAWAY") {
+      giveawayOutstandingAmount += residual;
+    } else {
+      // LOAN, or legacy rows with no declared type — default wording stays
+      // "Outstanding".
+      loanOutstandingAmount += residual;
+    }
+  }
+
   let waivedAmount = 0;
   for (const ib of insuranceBillings) {
     for (const it of ib.items || []) {
@@ -324,17 +344,28 @@ export function getVisitBillingTotals(
     }
   }
 
+  // Outstanding is the patient's residual only (patient payable minus paid).
+  // It must never include the insurance-contributed amount, so if the
+  // backend's reported outstanding is missing/zero, derive it from the
+  // patient payable rather than the service total.
+  const resolvedOutstanding =
+    outstandingAmount || Math.max(0, patientPayableAmount - paidAmount);
+  // Keep loan + giveaway exactly equal to the reported outstanding: any
+  // unclassified residual (legacy rows without a type, or the derived fallback
+  // above) is booked as LOAN so it keeps the default "Outstanding" wording.
+  const classified = loanOutstandingAmount + giveawayOutstandingAmount;
+  if (resolvedOutstanding > classified) {
+    loanOutstandingAmount += resolvedOutstanding - classified;
+  }
+
   return {
     totalAmount,
     insuranceCoveredAmount,
     patientPayableAmount,
     paidAmount,
-    // Outstanding is the patient's residual only (patient payable minus paid).
-    // It must never include the insurance-contributed amount, so if the
-    // backend's reported outstanding is missing/zero, derive it from the
-    // patient payable rather than the service total.
-    outstandingAmount:
-      outstandingAmount || Math.max(0, patientPayableAmount - paidAmount),
+    outstandingAmount: resolvedOutstanding,
+    loanOutstandingAmount,
+    giveawayOutstandingAmount,
     waivedAmount,
   };
 }

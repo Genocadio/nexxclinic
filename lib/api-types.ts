@@ -129,6 +129,18 @@ export enum VisitProductStatus {
   PENDING = "PENDING",
 }
 
+/**
+ * Billing lifecycle state of a product line, separated from the exemption mode.
+ * - UNBILLED: needs billing (legacy PENDING/UNPAID)
+ * - BILLED: billed; `exemptionMode` records how (NONE = normal charge)
+ * - CORRECTING: under an active billing correction (legacy CORRECTION_PENDING)
+ */
+export enum BillingState {
+  UNBILLED = "UNBILLED",
+  BILLED = "BILLED",
+  CORRECTING = "CORRECTING",
+}
+
 export enum VisitDepartmentProductSource {
   USER = "USER",
   PROFILE = "PROFILE",
@@ -596,6 +608,10 @@ export interface VisitDepartmentProduct {
   product: Product;
   quantity: number;
   status: VisitProductStatus;
+  /** Billing lifecycle state — preferred over `status` for billed checks. */
+  billingState?: BillingState | null;
+  /** Exemption mode — only meaningful when billingState is BILLED. */
+  exemptionMode?: ExemptionType | null;
   source?: VisitDepartmentProductSource | null;
   addedBy?: Worker | null;
   billedBy?: Worker | null;

@@ -1,5 +1,5 @@
 import type { Visit, VisitDepartment, VisitDepartmentProduct } from "@/lib/api-types"
-import { VisitProductStatus } from "@/lib/api-types"
+import { BillingState, ExemptionType, VisitProductStatus } from "@/lib/api-types"
 
 /** Flatten parent and child visit departments (depth-first). */
 export function flattenVisitDepartments(
@@ -26,6 +26,43 @@ export function normalizeVisitProductStatus(status?: string | VisitProductStatus
   return String(status || "").toUpperCase()
 }
 
+/**
+ * Billing lifecycle state of a product, preferring the dedicated `billingState`
+ * field when the query provides it, falling back to the legacy combined
+ * `status` string otherwise (mutation responses that do not select the field).
+ */
+export function getVisitProductBillingState(
+  product: Pick<VisitDepartmentProduct, "status"> &
+    Partial<Pick<VisitDepartmentProduct, "billingState">>,
+): BillingState {
+  if (product.billingState) return product.billingState
+  const status = normalizeVisitProductStatus(product.status)
+  if (status === VisitProductStatus.CORRECTION_PENDING) return BillingState.CORRECTING
+  if (
+    status === VisitProductStatus.BILLED ||
+    status === VisitProductStatus.EXEMPTED ||
+    status === VisitProductStatus.PATIENT_SHARE_EXEMPTED
+  ) {
+    return BillingState.BILLED
+  }
+  return BillingState.UNBILLED
+}
+
+/**
+ * Exemption mode recorded when the line was billed — only meaningful when the
+ * billing state is BILLED. Falls back to the legacy combined `status`.
+ */
+export function getVisitProductExemptionMode(
+  product: Pick<VisitDepartmentProduct, "status"> &
+    Partial<Pick<VisitDepartmentProduct, "exemptionMode">>,
+): ExemptionType {
+  if (product.exemptionMode) return product.exemptionMode
+  const status = normalizeVisitProductStatus(product.status)
+  if (status === VisitProductStatus.EXEMPTED) return ExemptionType.FULL
+  if (status === VisitProductStatus.PATIENT_SHARE_EXEMPTED) return ExemptionType.PATIENT_SHARE
+  return ExemptionType.NONE
+}
+
 export function isUnbilledVisitProductStatus(status?: string | VisitProductStatus): boolean {
   const normalized = normalizeVisitProductStatus(status)
   return (
@@ -39,8 +76,8 @@ export function isBilledVisitProductStatus(status?: string | VisitProductStatus)
 }
 
 export function visitHasUnbilledProducts(visit: Visit): boolean {
-  return getAllVisitDepartmentProducts(visit).some((product) =>
-    isUnbilledVisitProductStatus(product.status),
+  return getAllVisitDepartmentProducts(visit).some(
+    (product) => getVisitProductBillingState(product) === BillingState.UNBILLED,
   )
 }
 
@@ -51,14 +88,9 @@ export function visitHasBillableProducts(visit: Visit): boolean {
 export function visitProductsFullySettled(visit: Visit): boolean {
   const products = getAllVisitDepartmentProducts(visit)
   if (products.length === 0) return false
-  return products.every((product) => {
-    const status = normalizeVisitProductStatus(product.status)
-    return (
-      status === VisitProductStatus.BILLED ||
-      status === VisitProductStatus.EXEMPTED ||
-      status === VisitProductStatus.PATIENT_SHARE_EXEMPTED
-    )
-  })
+  return products.every(
+    (product) => getVisitProductBillingState(product) === BillingState.BILLED,
+  )
 }
 
 export function isPendingConfirmationVisitProduct(product: VisitDepartmentProduct): boolean {
@@ -70,26 +102,32 @@ export function countPendingOperatorConfirmations(visit: Visit): number {
 }
 
 export function countUnbilledVisitProducts(visit: Visit): number {
-  return getAllVisitDepartmentProducts(visit).filter((product) =>
-    isUnbilledVisitProductStatus(product.status),
+  return getAllVisitDepartmentProducts(visit).filter(
+    (product) => getVisitProductBillingState(product) === BillingState.UNBILLED,
   ).length
 }
 
 export function countBilledVisitProducts(visit: Visit): number {
-  return getAllVisitDepartmentProducts(visit).filter((product) =>
-    isBilledVisitProductStatus(product.status),
-  ).length
+  return getAllVisitDepartmentProducts(visit).filter(isBilledVisitProduct).length
+}
+
+/** Billed as a normal charge: state BILLED with no exemption mode. */
+export function isBilledVisitProduct(product: VisitDepartmentProduct): boolean {
+  return (
+    getVisitProductBillingState(product) === BillingState.BILLED &&
+    getVisitProductExemptionMode(product) === ExemptionType.NONE
+  )
 }
 
 export function getUnbilledVisitProductNames(visit: Visit): string[] {
   return getAllVisitDepartmentProducts(visit)
-    .filter((product) => isUnbilledVisitProductStatus(product.status))
+    .filter((product) => getVisitProductBillingState(product) === BillingState.UNBILLED)
     .map((product) => product.product?.name || "Product")
 }
 
 export function getBilledVisitProductNames(visit: Visit): string[] {
   return getAllVisitDepartmentProducts(visit)
-    .filter((product) => isBilledVisitProductStatus(product.status))
+    .filter(isBilledVisitProduct)
     .map((product) => product.product?.name || "Product")
 }
 
@@ -109,16 +147,11 @@ export function getVisitDepartmentBillingStatus(dept: VisitDepartment): string |
   }
   const products = dept.products || []
   if (products.length === 0) return null
-  const allBilled = products.every((p) => {
-    const s = normalizeVisitProductStatus(p.status)
-    return (
-      s === VisitProductStatus.BILLED ||
-      s === VisitProductStatus.EXEMPTED ||
-      s === VisitProductStatus.PATIENT_SHARE_EXEMPTED
-    )
-  })
+  const allBilled = products.every(
+    (p) => getVisitProductBillingState(p) === BillingState.BILLED,
+  )
   if (allBilled) return "BILLED"
-  const someBilled = products.some((p) => normalizeVisitProductStatus(p.status) === VisitProductStatus.BILLED)
+  const someBilled = products.some((p) => isBilledVisitProduct(p))
   if (someBilled) return "PARTIALLY_BILLED"
   return "UNBILLED"
 }

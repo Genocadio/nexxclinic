@@ -5,8 +5,10 @@
 
 import {
   AccountStatus,
+  type BillingState,
   DepartmentInsurancePolicyMode,
   EncounterType,
+  type ExemptionType,
   Gender,
   RoleName,
   type Department,
@@ -142,6 +144,8 @@ export type GqlVisitDepartmentProduct = {
   product?: GqlProduct | null;
   quantity: number;
   status: string;
+  billingState?: string | null;
+  exemptionMode?: string | null;
   source?: string | null;
   addedBy?: GqlWorkerRef | null;
   billedBy?: GqlWorkerRef | null;
@@ -494,6 +498,8 @@ export function mapGqlVisitDepartmentProduct(
     product,
     quantity: Number(item.quantity ?? 0),
     status: item.status as VisitProductStatus,
+    billingState: (item.billingState as BillingState | undefined) || null,
+    exemptionMode: (item.exemptionMode as ExemptionType | undefined) || null,
     source: (item.source as VisitDepartmentProduct["source"]) || null,
     addedBy: mapGqlWorkerRef(item.addedBy),
     billedBy: mapGqlWorkerRef(item.billedBy),

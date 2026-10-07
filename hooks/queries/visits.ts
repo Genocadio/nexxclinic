@@ -48,6 +48,8 @@ const visitDepartmentProductFields = `
   }
   quantity
   status
+  billingState
+  exemptionMode
   source
   addedBy {
     id
@@ -439,6 +441,8 @@ export const VISITS_QUERY = gql`
             }
             quantity
             status
+            billingState
+            exemptionMode
             source
             addedBy {
               id
@@ -537,6 +541,8 @@ export const VISITS_QUERY = gql`
               }
               quantity
               status
+              billingState
+              exemptionMode
               source
               addedBy {
                 id
@@ -644,6 +650,8 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
             }
             quantity
             status
+            billingState
+            exemptionMode
             billingConfirmationStatus
             confirmedBy {
               id
@@ -721,6 +729,8 @@ export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
               }
               quantity
               status
+              billingState
+              exemptionMode
               createdAt
             }            createdAt
             updatedAt
@@ -767,6 +777,8 @@ export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
               }
               quantity
               status
+              billingState
+              exemptionMode
               createdAt
             }
             createdAt
