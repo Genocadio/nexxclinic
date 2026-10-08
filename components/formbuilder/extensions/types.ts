@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { FormBlock, SavedForm } from "@/lib/formbuilder-storage";
 import type { FormAction } from "@/lib/form-storage";
+import type { PatientInsurance } from "@/lib/api-types";
 import type {
   AddedProduct,
   DiagEntry,
@@ -13,12 +14,23 @@ import type {
 export interface MedicalBlockHandlers {
   /** Product listener — visit-synced product list */
   productActions?: FormAction[];
-  onOpenProductPicker?: () => void;
+  onAddProduct?: (
+    type: "action" | "consumable",
+    item: {
+      id: string;
+      name: string;
+      privatePrice?: number;
+      isQuantifiable?: boolean;
+    },
+    quantity: number,
+  ) => Promise<boolean>;
   onRemoveProduct?: (actionId: string) => void;
   onUpdateProductQuantity?: (actionId: string, quantity: number) => void;
   onRestoreProduct?: (actionId: string) => void;
   productsLocked?: boolean;
   hideProductAddButton?: boolean;
+  visitDepartmentId?: string;
+  linkedInsurances?: PatientInsurance[];
 
   /** Diagnostic record — live list from visit & direct mutations */
   diagnostics?: DiagEntry[];

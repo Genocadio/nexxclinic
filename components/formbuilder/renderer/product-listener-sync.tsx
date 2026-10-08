@@ -1,14 +1,17 @@
 "use client";
 
-import { Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useMemo, useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Loader2, Package, Search } from "lucide-react";
+import { useProductSearch } from "@/hooks/products";
 import FormActionsDisplay from "@/components/form-actions-display";
-import { ProductLockedTooltip } from "@/components/consultation/product-locked-tooltip";
 import type { FormBlock } from "@/lib/formbuilder-storage";
+import type { Product } from "@/lib/api-types";
 import type { AddedProduct } from "./types";
 import type { MedicalBlockHandlers } from "../extensions/types";
 import { EntryList, PTYPE_COLOR, PTYPE_LABEL } from "./medical-shared";
-import { Package } from "lucide-react";
+import { getInsuranceAwarePricing, getInsuranceDisplayName } from "@/lib/insurance-utils";
+import { formatRWF } from "@/lib/utils";
 
 export function ProductListenerWithVisitSync({
   block,
@@ -31,6 +34,53 @@ export function ProductListenerWithVisitSync({
 }) {
   const locked = handlers.productsLocked ?? false;
   const actions = handlers.productActions ?? [];
+  const linkedInsurances = useMemo(() => {
+    const providers = new Map(
+      (handlers.linkedInsurances ?? []).map((insurance) => [
+        insurance.insuranceProvider.id,
+        insurance,
+      ]),
+    );
+    return Array.from(providers.values());
+  }, [handlers.linkedInsurances]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [addingProductId, setAddingProductId] = useState<string | null>(null);
+  const { products, loading, error } = useProductSearch(debouncedQuery, {
+    size: 10,
+    visitDepartmentId: handlers.visitDepartmentId,
+  });
+
+  useEffect(() => {
+    const timeout = window.setTimeout(
+      () => setDebouncedQuery(searchTerm.trim()),
+      250,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [searchTerm]);
+
+  const addProduct = async (product: Product) => {
+    if (!handlers.onAddProduct || addingProductId) return;
+    setAddingProductId(String(product.id));
+    try {
+      const added = await handlers.onAddProduct(
+        product.type === "CONSUMABLE_DEVICE" ? "consumable" : "action",
+        {
+          id: String(product.id),
+          name: product.name,
+          privatePrice: product.privateRhicPrice ?? product.clinicPrice ?? 0,
+          isQuantifiable: product.quantifiable !== false,
+        },
+        1,
+      );
+      if (added) {
+        setSearchTerm("");
+        setDebouncedQuery("");
+      }
+    } finally {
+      setAddingProductId(null);
+    }
+  };
 
   return (
     <div className="my-3">
@@ -46,24 +96,97 @@ export function ProductListenerWithVisitSync({
             : "border-orange-200/80 dark:border-orange-800/70 bg-orange-50/50 dark:bg-orange-950/30"
         }`}
       >
-        {edit && !handlers.hideProductAddButton && (
-          <div
-            className={
-              block.productListenerCenter ? "flex justify-center" : "flex"
-            }
-          >
-            <ProductLockedTooltip locked={locked} className="inline-flex">
-              <Button
-                type="button"
-                variant="outline"
+        {edit && !handlers.hideProductAddButton && handlers.onAddProduct && (
+          <div className="space-y-1.5">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
                 disabled={locked}
-                onClick={() => handlers.onOpenProductPicker?.()}
-                className="inline-flex h-9 px-4 rounded-xl gap-2 border-orange-200/80 dark:border-orange-800/60 bg-white dark:bg-slate-900 hover:bg-orange-50 dark:hover:bg-slate-850 text-foreground text-sm font-medium shadow-xs transition-colors"
+                placeholder="Search products and procedures…"
+                autoComplete="off"
+                aria-label="Search products and procedures"
+                className="h-9 pl-9 pr-9 rounded-xl bg-white dark:bg-slate-900"
+              />
+              {loading && (
+                <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+              )}
+            </div>
+            {searchTerm.trim().length >= 2 && (
+              <div
+                role="listbox"
+                aria-label="Product search results"
+                className="max-h-56 overflow-y-auto rounded-lg border border-border bg-background"
               >
-                <Search className="h-4 w-4 text-orange-600" />
-                Search products
-              </Button>
-            </ProductLockedTooltip>
+                {error ? (
+                  <p className="px-3 py-2 text-xs text-destructive">
+                    Product search is unavailable. Please try again.
+                  </p>
+                ) : searchTerm.trim() !== debouncedQuery.trim() || (loading && products.length === 0) ? (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">
+                    Searching products…
+                  </p>
+                ) : products.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">
+                    No products found.
+                  </p>
+                ) : (
+                  products.map((product: Product) => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      disabled={Boolean(addingProductId)}
+                      onClick={() => void addProduct(product)}
+                      className="flex w-full items-center gap-3 border-b border-border/50 px-3 py-2 text-left text-sm last:border-0 hover:bg-muted/60 disabled:opacity-50"
+                    >
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {product.name}
+                      </span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {PTYPE_LABEL[product.type] ?? product.type}
+                      </span>
+                      <span className="flex shrink-0 flex-wrap justify-end gap-x-2 text-xs font-medium text-foreground">
+                        {linkedInsurances.length === 1
+                          ? formatRWF(
+                              getInsuranceAwarePricing(product, linkedInsurances)
+                                .price,
+                            )
+                          : linkedInsurances.length > 1
+                            ? linkedInsurances.map((insurance) => (
+                                <span
+                                  key={insurance.id}
+                                  className="whitespace-nowrap"
+                                >
+                                  {getInsuranceDisplayName(
+                                    insurance.insuranceProvider,
+                                  )}
+                                  :{" "}
+                                  {formatRWF(
+                                    getInsuranceAwarePricing(product, [
+                                      insurance,
+                                    ]).price,
+                                  )}
+                                </span>
+                              ))
+                            : formatRWF(
+                                Number(
+                                  product.clinicPrice ??
+                                    product.privateRhicPrice ??
+                                    0,
+                                ),
+                              )}
+                      </span>
+                      {addingProductId === String(product.id) && (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         )}
 

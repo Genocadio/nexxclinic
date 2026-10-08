@@ -810,7 +810,7 @@ export function ProductListenerAnswerBlock({
   // Any consultation/visit context (handlers present) must use the visit-synced
   // listener — even when the picker is unavailable (locked / read-only) — so we
   // never fall back to the local manual-entry draft which doesn't hit the visit.
-  if (handlers && (handlers.onOpenProductPicker || handlers.productActions)) {
+  if (handlers && (handlers.onAddProduct || handlers.productActions)) {
     return (
       <ProductListenerWithVisitSync
         block={block}

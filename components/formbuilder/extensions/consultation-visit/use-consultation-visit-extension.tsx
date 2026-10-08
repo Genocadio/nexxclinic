@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "react-toastify";
 import type { VisitDepartment } from "@/hooks/types";
 import type { FormAction } from "@/lib/form-storage";
 import type { SavedForm } from "@/lib/formbuilder-storage";
+import type { PatientInsurance } from "@/lib/api-types";
 import { isVisitOrDepartmentClosedForProducts } from "@/lib/visit-product-lock";
 import {
   useAddActionToVisitDepartment,
@@ -17,7 +18,6 @@ import {
   useRemoveProductFromVisitDepartment,
   useUpdateProductQuantity,
 } from "@/hooks/visits";
-import AddVisitDepartmentProductModal from "@/components/visit/add-visit-department-product-modal";
 import type { DiagEntry, FormAnswers, MedFullEntry, MedMiniEntry } from "../../renderer/types";
 import type { FormRendererExtension, MedicalBlockHandlers } from "../types";
 import {
@@ -44,7 +44,7 @@ export interface ConsultationVisitExtensionOptions {
   ) => void;
   edit?: boolean;
   onVisitRefetch?: () => void;
-  linkedInsurances?: any[];
+  linkedInsurances?: PatientInsurance[];
 }
 
 function resolveVisitDepartment(
@@ -102,9 +102,6 @@ export function useConsultationVisitExtension(
   const { addConsumable } = useAddConsumableToVisitDepartment();
   const { removeProduct } = useRemoveProductFromVisitDepartment();
   const { updateQuantity } = useUpdateProductQuantity();
-
-  const [productModalOpen, setProductModalOpen] = useState(false);
-  const [, setActiveProductBlockId] = useState<string | null>(null);
 
   const activeDepartment = useMemo(
     () => resolveVisitDepartment(visitDepartments, visitDepartmentId),
@@ -172,7 +169,7 @@ export function useConsultationVisitExtension(
       },
       quantity: number,
     ) => {
-      if (productsLocked) return;
+      if (productsLocked) return false;
 
       const catalogId = String(item.id);
       const existingProduct = visitProducts.find((a) =>
@@ -183,13 +180,20 @@ export function useConsultationVisitExtension(
         const newQty = (existingProduct.quantity || 0) + quantity;
         if (existingProduct.backendId) {
           try {
-            await updateQuantity(existingProduct.backendId, newQty);
+            const result = await updateQuantity(existingProduct.backendId, newQty);
+            if (result?.status !== "SUCCESS") {
+              toast.error(result?.message || "Failed to update product quantity");
+              return false;
+            }
             onVisitRefetch?.();
+            return true;
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Failed to update quantity");
+            return false;
           }
         }
-        return;
+        toast.error("Could not update the existing product quantity. Refresh and try again.");
+        return false;
       }
 
       try {
@@ -200,11 +204,13 @@ export function useConsultationVisitExtension(
 
         if (result?.status !== "SUCCESS") {
           toast.error(result?.message || "Failed to add product");
-          return;
+          return false;
         }
         onVisitRefetch?.();
+        return true;
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to add product");
+        return false;
       }
     },
     [
@@ -393,13 +399,8 @@ export function useConsultationVisitExtension(
         case "product_listener":
           return {
             productActions: visitProducts,
-            onOpenProductPicker:
-              !productsLocked && edit
-                ? () => {
-                    setActiveProductBlockId(block.id);
-                    setProductModalOpen(true);
-                  }
-                : undefined,
+            onAddProduct:
+              !productsLocked && edit ? (type, item, quantity) => handleAddProduct(type, item, quantity) : undefined,
             onRemoveProduct:
               !productsLocked && edit
                 ? (actionId) => {
@@ -415,6 +416,8 @@ export function useConsultationVisitExtension(
             productsLocked,
             visitId,
             departmentId,
+            visitDepartmentId,
+            linkedInsurances,
           };
         case "diagnostic_record":
           return {
@@ -458,6 +461,9 @@ export function useConsultationVisitExtension(
       visitMedicationsMini,
       visitId,
       departmentId,
+      visitDepartmentId,
+      linkedInsurances,
+      handleAddProduct,
       handleRemoveProduct,
       handleUpdateProductQuantity,
       handleAddDiagnosis,
@@ -468,41 +474,11 @@ export function useConsultationVisitExtension(
     ],
   );
 
-  const renderOverlay = useCallback(
-    () => (
-      <AddVisitDepartmentProductModal
-        open={productModalOpen}
-        onClose={() => {
-          setProductModalOpen(false);
-          setActiveProductBlockId(null);
-        }}
-        visitDepartments={visitDepartments}
-        visitDepartmentId={visitDepartmentId}
-        currentCatalogDepartmentId={departmentId}
-        viewMode="service"
-        quickAddOnSelect
-        onAdd={handleAddProduct}
-        existingProductReferenceIds={existingProductReferenceIds}
-        linkedInsurances={linkedInsurances}
-      />
-    ),
-    [
-      productModalOpen,
-      visitDepartments,
-      visitDepartmentId,
-      departmentId,
-      handleAddProduct,
-      existingProductReferenceIds,
-      linkedInsurances,
-    ],
-  );
-
   return useMemo(
     () => ({
       id: "consultation-visit",
       getBlockHandlers,
-      renderOverlay,
     }),
-    [getBlockHandlers, renderOverlay],
+    [getBlockHandlers],
   );
 }
