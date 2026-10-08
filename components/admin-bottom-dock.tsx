@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter } from '@/lib/navigation'
 import { LayoutDashboard, Building2, Package, ShieldCheck, Users, BadgeInfo, Settings } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'

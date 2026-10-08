@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useApolloClient } from "@apollo/client";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/navigation";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";

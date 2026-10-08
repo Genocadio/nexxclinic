@@ -26,7 +26,7 @@ import {
 } from "@/lib/visit-product-utils";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "@/lib/navigation";
 import {
   useVisit,
   useCreateBill,

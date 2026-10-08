@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import Header from "@/components/header"
+import { AppLoadingState } from "@/components/ui/app-loading-state"
 import { useAuth } from "@/lib/auth-context"
 import { useUserReports } from "@/hooks/reports"
 import { calculateUserReports, type ReportPeriod, type UserReportsData } from "@/lib/user-reports-calculator"
@@ -269,14 +270,7 @@ export default function ReportsPage() {
   const [isClinicianTableExpanded, setIsClinicianTableExpanded] = useState(false)
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Header doctor={doctor} />
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </div>
-    )
+    return <AppLoadingState message="Loading your reports…" />
   }
 
   // If the user has no allowed operational report tabs

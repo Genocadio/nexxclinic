@@ -6,7 +6,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "@/lib/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "react-toastify";
 import { useForm } from "react-hook-form";
@@ -38,7 +38,6 @@ import {
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { FieldError } from "@/components/ui/field-error";
 import { ClinicLogoImage } from "@/components/clinic-logo-image";
 
@@ -51,7 +50,6 @@ export function AuthPageContent() {
   /* --------------------------------------------------------------------- */
   const {
     isAuthenticated,
-    isLoading,
     doctor,
     clinicProfile,            // <- real profile (may be null until set)
     login,
@@ -111,9 +109,6 @@ useEffect(() => {
   /* --------------------------------------------------------------------- */
   const clinicName = getClinicDisplayName(clinicProfile);
   const clinicLogoUrl = getClinicLogoUrl(clinicProfile);
-  // Show skeleton while either the auth context or the profile query
-  // is still loading. After first render `clinicLoading` will be true.
-  const showBrandSkeleton = isLoading || clinicLoading;
   const baseInputClass =
     "rounded-xl border-slate-300 bg-white/95 text-slate-900 placeholder:text-slate-500 shadow-sm focus-visible:border-slate-500 focus-visible:ring-slate-300/70 dark:border-input dark:bg-input/30 dark:text-foreground dark:placeholder:text-muted-foreground";
 
@@ -301,27 +296,14 @@ useEffect(() => {
         <div className="mb-8 text-center fly-in fly-in-1">
           {/* Logo */}
           <div className="flex items-center justify-center mb-4 fly-in fly-in-2">
-            {showBrandSkeleton ? (
-              <Skeleton className="h-16 w-16 rounded-2xl bg-white/70 dark:bg-slate-900/60 ring-1 ring-white/60 dark:ring-white/10" />
-            ) : (
-              <div className="relative h-16 w-16 rounded-2xl bg-white/70 dark:bg-slate-900/60 backdrop-blur-md shadow-lg ring-1 ring-white/60 dark:ring-white/10 overflow-hidden flex items-center justify-center">
-                <ClinicLogoImage src={clinicLogoUrl} alt={`${clinicName} logo`} className="h-16 w-16 object-contain" />
-              </div>
-            )}
+            <div className="relative h-16 w-16 rounded-2xl bg-white/70 dark:bg-slate-900/60 backdrop-blur-md shadow-lg ring-1 ring-white/60 dark:ring-white/10 overflow-hidden flex items-center justify-center">
+              <ClinicLogoImage src={clinicLogoUrl} alt={`${clinicName} logo`} className="h-16 w-16 object-contain" />
+            </div>
           </div>
 
           {/* Title */}
-          {showBrandSkeleton ? (
-            <div className="space-y-3 flex flex-col items-center fly-in fly-in-3">
-              <Skeleton className="h-8 w-44 rounded-xl bg-white/70 dark:bg-slate-900/60" />
-              <Skeleton className="h-4 w-28 rounded-xl bg-white/60 dark:bg-slate-900/50" />
-            </div>
-          ) : (
-            <>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-50 mb-2 fly-in fly-in-3">{clinicName}</h1>
-              <p className="text-slate-600 dark:text-slate-300 fly-in fly-in-4">Welcome back</p>
-            </>
-          )}
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-50 mb-2 fly-in fly-in-3">{clinicName}</h1>
+          <p className="text-slate-600 dark:text-slate-300 fly-in fly-in-4">Welcome back</p>
         </div>
 
         {/* Form card */}

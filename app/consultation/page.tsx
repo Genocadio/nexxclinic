@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "@/lib/navigation";
 import { useVisit } from "@/hooks/auth-hooks";
 import {
     useVisitDepartmentNotes,

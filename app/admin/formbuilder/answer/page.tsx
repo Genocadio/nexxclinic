@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "@/lib/navigation";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";

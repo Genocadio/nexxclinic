@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/auth-context";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormRendererHandle } from "@/components/formbuilder/form-renderer";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/navigation";
 import {
   AlertCircle,
   FlaskConical,

@@ -21,7 +21,7 @@ import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
 import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet"
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { useRouter } from "next/navigation"
+import { useRouter } from "@/lib/navigation"
 import {
   Search,
   Clock,

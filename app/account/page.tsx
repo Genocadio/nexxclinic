@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter } from "@/lib/navigation"
 import { ArrowLeft, Camera, Pencil, Loader2, AlertCircle } from "lucide-react"
 import { toast } from "react-toastify"
 import { useForm } from "react-hook-form"

@@ -3,10 +3,12 @@
 import type React from "react"
 
 import { useEffect } from "react"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname, useRouter } from "@/lib/navigation"
 
 import { useAuth } from "@/lib/auth-context"
 import { getPostLoginPath, hasAdminAccess } from "@/lib/role-utils"
+import { AppLoadingState } from "@/components/ui/app-loading-state"
+import { PageLoading } from "@/components/ui/page-loading"
 
 const publicRoutes = new Set(["/auth", "/create-password"])
 
@@ -45,8 +47,15 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     return <>{children}</>
   }
 
-  if (isLoading || !isAuthenticated) {
-    return null
+  if (isLoading) {
+    if (pathname === "/") {
+      return <PageLoading variant="dashboard" />
+    }
+    return <AppLoadingState />
+  }
+
+  if (!isAuthenticated) {
+    return <AppLoadingState message="Opening sign in…" />
   }
 
   return <>{children}</>

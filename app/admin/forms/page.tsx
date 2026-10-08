@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "@/lib/navigation";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
 import { useDepartments } from "@/hooks/auth-hooks";
@@ -3587,4 +3587,3 @@ export default function FormsPage() {
     </div>
   );
 }
-

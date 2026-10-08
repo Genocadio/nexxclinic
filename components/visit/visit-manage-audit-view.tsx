@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useMemo, useCallback, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter } from "@/lib/navigation"
 import { useQuery, useMutation } from "@apollo/client"
 import { useAuth } from "@/lib/auth-context"
 import { useVisit } from "@/hooks/auth-hooks"

@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 
@@ -42,17 +42,29 @@ function TopNavSkeleton() {
 }
 
 /**
- * Unified lightweight global page loading skeleton UI.
- * Consistent across full page loading states in the application.
+ * Page-specific skeleton for data loading after a route has mounted.
+ * Route transitions use the shared navigation status indicator instead.
  */
 export function PageLoading({
   variant = "default",
   showHeader = true,
   className,
 }: PageLoadingProps) {
+  const [isTakingLonger, setIsTakingLonger] = useState(false)
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setIsTakingLonger(true), 5000)
+    return () => window.clearTimeout(timeout)
+  }, [])
+
   return (
     <div className={cn("h-screen overflow-y-auto bg-background text-foreground flex flex-col", className)}>
       {showHeader && <TopNavSkeleton />}
+      {isTakingLonger && (
+        <p role="status" aria-live="polite" className="px-4 pt-3 text-center text-sm text-muted-foreground">
+          Taking longer than usual. Check your connection; you can keep waiting.
+        </p>
+      )}
 
       {/* Render variant layout */}
       {(variant === "default" || variant === "dashboard") && (

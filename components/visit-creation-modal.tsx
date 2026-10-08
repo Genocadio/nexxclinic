@@ -69,7 +69,7 @@ import {
   resolvePatientSearchFilter,
   type SearchFilterType,
 } from "@/lib/patient-search-utils";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/navigation";
 
 const TRIAGE_SERVICE_ID = "__TRIAGE__";
 

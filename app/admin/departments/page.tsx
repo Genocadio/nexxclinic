@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/lib/navigation'
 import Header from '@/components/header'
 import { useAuth } from '@/lib/auth-context'
 import {

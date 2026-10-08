@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useMemo, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "@/lib/navigation"
 import { Eye, EyeOff, AlertCircle } from "lucide-react"
 import { toast } from "react-toastify"
 import { useForm } from "react-hook-form"

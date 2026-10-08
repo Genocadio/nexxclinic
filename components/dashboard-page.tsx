@@ -1,6 +1,6 @@
 "use client"
 import { useState, useMemo, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { finishNavigationFeedback, notifyNavigationStart, useRouter } from "@/lib/navigation"
 import { useAuth } from "@/lib/auth-context"
 import {
   useVisits,
@@ -140,6 +140,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const { doctor } = useAuth()
   const { visits, loading, error, refetch: refetchVisits } = useVisits()
+  const [visitsTakingLonger, setVisitsTakingLonger] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid")
   const [showMetrics] = useState(false)
@@ -229,16 +230,22 @@ export default function DashboardPage() {
   const [editPatientModalOpen, setEditPatientModalOpen] = useState(false)
   const [selectedPatientForEdit, setSelectedPatientForEdit] = useState<Patient | null>(null)
 
-  // Safety guard: auto-clear navigating state after 3.5s or on window focus
+  useEffect(() => {
+    if (!loading) {
+      setVisitsTakingLonger(false)
+      return
+    }
+
+    const timeout = window.setTimeout(() => setVisitsTakingLonger(true), 5000)
+    return () => window.clearTimeout(timeout)
+  }, [loading])
+
+  // Clear a pending action if the user returns to this tab before navigation completes.
   useEffect(() => {
     if (!navigatingVisitId) return
-    const timer = setTimeout(() => {
-      setNavigatingVisitId(null)
-    }, 3500)
     const handleFocus = () => setNavigatingVisitId(null)
     window.addEventListener("focus", handleFocus)
     return () => {
-      clearTimeout(timer)
       window.removeEventListener("focus", handleFocus)
     }
   }, [navigatingVisitId])
@@ -1673,16 +1680,23 @@ export default function DashboardPage() {
       setProfileDialogProfiles(profiles)
       setProfileDialogOpen(true)
     } else {
+      notifyNavigationStart(
+        undefined,
+        "Starting consultation…",
+        "Consultation is taking longer than usual…",
+      )
       // Direct consultation or continue: call consultVisit mutation to mark ACTIVE & add processor
       if (matchingDept?.id) {
         try {
           const res = await consultVisit(matchingDept.id)
           if (res?.status !== "SUCCESS") {
+            finishNavigationFeedback()
             toast.error(res?.message || "Failed to start consultation")
             setNavigatingVisitId(null)
             return
           }
         } catch (err: any) {
+          finishNavigationFeedback()
           console.error("Failed to start consultation:", err)
           toast.error(err?.message || "Failed to start consultation")
           setNavigatingVisitId(null)
@@ -1696,6 +1710,11 @@ export default function DashboardPage() {
     const visit = profileDialogVisit
     if (!visit) return
     setProfileDialogLoading(true)
+    notifyNavigationStart(
+      undefined,
+      "Starting consultation…",
+      "Consultation is taking longer than usual…",
+    )
     let matchingDeptId: string | undefined
     try {
       const matchingDept = visit.departments?.find((d) => {
@@ -1708,6 +1727,7 @@ export default function DashboardPage() {
         // Single unified consultVisit mutation: applies profile, sets ACTIVE on 1st time, adds processor
         const res = await consultVisit(matchingDept.id, profile.id)
         if (res?.status !== "SUCCESS") {
+          finishNavigationFeedback()
           toast.error(res?.message || "Failed to start consultation")
           setProfileDialogLoading(false)
           return
@@ -1715,6 +1735,7 @@ export default function DashboardPage() {
       }
       refetchVisits()
     } catch (err: any) {
+      finishNavigationFeedback()
       console.error("Failed to apply profile and start consultation:", err)
       toast.error(err?.message || "Failed to apply profile and start consultation")
       setProfileDialogLoading(false)
@@ -2135,6 +2156,15 @@ export default function DashboardPage() {
                         : "space-y-2"
                     }
                   >
+                    {loading && visitsTakingLonger && (
+                      <p
+                        role="status"
+                        aria-live="polite"
+                        className={`px-2 py-1 text-sm text-muted-foreground ${viewMode === "grid" ? "col-span-full" : ""}`}
+                      >
+                        Visits are taking longer than usual to load. Check your connection; you can keep waiting.
+                      </p>
+                    )}
                     {loading ? (
                       viewMode === "grid" ? (
                         <div className="col-span-full grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -2876,8 +2906,16 @@ export default function DashboardPage() {
                                                   setNavigatingVisitId(visit.id)
                                                   handleConsultVisit(visit)
                                                 }}
-                                                title={consultButtonLabel}
-                                                aria-label={consultButtonLabel}
+                                                title={
+                                                  navigatingVisitId === visit.id
+                                                    ? "Starting consultation…"
+                                                    : consultButtonLabel
+                                                }
+                                                aria-label={
+                                                  navigatingVisitId === visit.id
+                                                    ? "Starting consultation"
+                                                    : consultButtonLabel
+                                                }
                                                 disabled={navigatingVisitId === visit.id}
                                                 className="h-9 w-9 sm:h-10 sm:w-10 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
                                               >
@@ -2889,7 +2927,11 @@ export default function DashboardPage() {
                                               </button>
                                             </TooltipTrigger>
                                             <TooltipContent>
-                                              <p>{consultButtonLabel}</p>
+                                              <p>
+                                                {navigatingVisitId === visit.id
+                                                  ? "Starting consultation…"
+                                                  : consultButtonLabel}
+                                              </p>
                                             </TooltipContent>
                                           </Tooltip>
                                         )}

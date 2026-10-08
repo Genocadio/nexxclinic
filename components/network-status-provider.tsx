@@ -1,6 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { notifyNavigationStart, usePathname, useSearchParams } from "@/lib/navigation"
+import { useApolloClient } from "@apollo/client"
+import { getNetworkConnectedSnapshot, reportNetworkStatus, subscribeToNetworkStatus } from "@/lib/network-connectivity"
 
 interface NetworkContextType {
   isConnected: boolean;
@@ -13,18 +16,29 @@ const NetworkContext = createContext<NetworkContextType>({
 });
 
 export function NetworkStatusProvider({ children }: { children: React.ReactNode }) {
-  const [isConnected, setIsConnected] = useState(true);
+  const client = useApolloClient()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const currentRoute = `${pathname}${searchParams.size ? `?${searchParams.toString()}` : ""}`
+  const isConnected = useSyncExternalStore(
+    subscribeToNetworkStatus,
+    getNetworkConnectedSnapshot,
+    () => true,
+  );
   const [isConnecting, setIsConnecting] = useState(false);
+  const [navigationPending, setNavigationPending] = useState(false)
+  const [navigationStartPath, setNavigationStartPath] = useState<string | null>(null)
+  const navigationTimeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
     // Listen to browser online/offline events
     const handleOnlineStatus = () => {
-      setIsConnected(true);
+      reportNetworkStatus(true);
       setIsConnecting(false);
     };
 
     const handleOfflineStatus = () => {
-      setIsConnected(false);
+      reportNetworkStatus(false);
       setIsConnecting(false);
     };
 
@@ -32,35 +46,129 @@ export function NetworkStatusProvider({ children }: { children: React.ReactNode 
     window.addEventListener("offline", handleOfflineStatus);
 
     // Listen to Apollo network errors (CORS, server down, etc.)
-    const handleApolloNetworkError = (event: any) => {
-      const { detail } = event;
-
+    const handleApolloNetworkError = () => {
       // If we get a network error, consider it disconnected
-      setIsConnected(false);
+      reportNetworkStatus(false);
       setIsConnecting(false);
-
-      // Do not surface raw network messages.
-      void detail;
     };
+    const handleApolloNetworkRecovered = () => {
+      reportNetworkStatus(true)
+      setIsConnecting(false)
+    }
 
     window.addEventListener("apollo-network-error", handleApolloNetworkError);
+    window.addEventListener("apollo-network-recovered", handleApolloNetworkRecovered)
+    const handleRetry = () => {
+      void client.reFetchObservableQueries().then(
+        (results) => {
+          reportNetworkStatus(results.every((result) => !result.error))
+          setIsConnecting(false)
+        },
+        () => {
+          reportNetworkStatus(false)
+          setIsConnecting(false)
+        },
+      )
+    }
+    window.addEventListener("app:retry-network", handleRetry)
 
     return () => {
       window.removeEventListener("online", handleOnlineStatus);
       window.removeEventListener("offline", handleOfflineStatus);
       window.removeEventListener("apollo-network-error", handleApolloNetworkError);
+      window.removeEventListener("apollo-network-recovered", handleApolloNetworkRecovered)
+      window.removeEventListener("app:retry-network", handleRetry)
     };
-  }, []);
+  }, [client]);
+
+  useEffect(() => {
+    const handleNavigationStart = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        fromPath?: string
+      }>
+      if (navigationTimeoutRef.current !== null) {
+        window.clearTimeout(navigationTimeoutRef.current)
+      }
+      setNavigationStartPath(customEvent.detail?.fromPath || window.location.pathname)
+      setNavigationPending(true)
+      navigationTimeoutRef.current = window.setTimeout(() => {
+        setNavigationPending(false)
+        setNavigationStartPath(null)
+      }, 12000)
+    }
+    const handleNavigationEnd = () => {
+      if (navigationTimeoutRef.current !== null) window.clearTimeout(navigationTimeoutRef.current)
+      setNavigationPending(false)
+      setNavigationStartPath(null)
+    }
+
+    window.addEventListener("app:navigation-start", handleNavigationStart)
+    window.addEventListener("app:navigation-end", handleNavigationEnd)
+    const handleInternalLinkClick = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return
+      }
+
+      const anchor = (event.target as Element | null)?.closest("a")
+      if (!anchor || anchor.target === "_blank" || anchor.hasAttribute("download")) return
+
+      const target = new URL(anchor.href, window.location.href)
+      if (
+        target.origin === window.location.origin &&
+        `${target.pathname}${target.search}` !== `${window.location.pathname}${window.location.search}`
+      ) {
+        notifyNavigationStart(target.href)
+      }
+    }
+    document.addEventListener("click", handleInternalLinkClick, true)
+    return () => {
+      window.removeEventListener("app:navigation-start", handleNavigationStart)
+      window.removeEventListener("app:navigation-end", handleNavigationEnd)
+      document.removeEventListener("click", handleInternalLinkClick, true)
+      if (navigationTimeoutRef.current !== null) window.clearTimeout(navigationTimeoutRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!navigationPending || !navigationStartPath || navigationStartPath === currentRoute) return
+    if (navigationTimeoutRef.current !== null) {
+      window.clearTimeout(navigationTimeoutRef.current)
+    }
+    const timeout = window.setTimeout(() => {
+      setNavigationPending(false)
+      setNavigationStartPath(null)
+    }, 450)
+    return () => window.clearTimeout(timeout)
+  }, [currentRoute, navigationPending, navigationStartPath])
 
   return (
     <NetworkContext.Provider value={{ isConnected, isConnecting }}>
       {children}
+      {navigationPending && (
+        <div className="pointer-events-none fixed left-0 right-0 top-3 z-[120] flex justify-center">
+          <div
+            role="status"
+            aria-label="Loading page"
+            className="flex w-40 flex-col gap-2 rounded-xl border border-border/70 bg-card/95 p-3 shadow-lg backdrop-blur"
+          >
+            <span className="h-2 w-3/4 animate-pulse rounded-full bg-muted" />
+            <span className="h-2 w-1/2 animate-pulse rounded-full bg-muted" />
+          </div>
+        </div>
+      )}
       <NetworkStatusIndicator
         isConnected={isConnected}
         isConnecting={isConnecting}
         onTryAgain={() => {
           setIsConnecting(true);
-          window.location.reload();
+          window.dispatchEvent(new Event("app:retry-network"))
         }}
       />
     </NetworkContext.Provider>

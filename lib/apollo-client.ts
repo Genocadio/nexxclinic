@@ -2,6 +2,7 @@ import { ApolloClient, InMemoryCache, HttpLink, ApolloLink, type NormalizedCache
 import { onError } from '@apollo/client/link/error'
 import { toastResponseStatus, handleUnauthenticatedSession } from '@/lib/response-handler'
 import { getRuntimeConfig } from '@/lib/runtime-config'
+import { reportNetworkStatus } from '@/lib/network-connectivity'
 
 function getUri() {
   if (typeof window !== 'undefined') {
@@ -112,9 +113,20 @@ const authMiddleware = new ApolloLink((operation, forward) => {
   return forward(operation)
 })
 
+const connectivityLink = new ApolloLink((operation, forward) => {
+  return forward(operation).map((result) => {
+    if (typeof window !== 'undefined') {
+      reportNetworkStatus(true)
+      window.dispatchEvent(new Event('apollo-network-recovered'))
+    }
+    return result
+  })
+})
+
 const errorLink = onError(({ graphQLErrors, networkError }) => {
   // Handle network errors (CORS, server down, offline, etc.)
   if (networkError) {
+    reportNetworkStatus(false)
     const ne: any = networkError
     const message = ne?.message || ''
     
@@ -206,7 +218,7 @@ let client: ApolloClient<NormalizedCacheObject> | null = null
 export function getApolloClient(): ApolloClient<NormalizedCacheObject> {
   if (!client) {
     client = new ApolloClient({
-      link: ApolloLink.from([errorLink, authMiddleware, statusLink, createHttpLink()]),
+      link: ApolloLink.from([errorLink, authMiddleware, connectivityLink, statusLink, createHttpLink()]),
       cache: new InMemoryCache({
         typePolicies: {
           Query: {

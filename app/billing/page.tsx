@@ -2,10 +2,10 @@
 
 import { Suspense } from 'react';
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/lib/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { canAccessBilling } from '@/lib/role-utils';
-import { Spinner } from '@/components/ui/spinner';
+import { AppLoadingState } from '@/components/ui/app-loading-state';
 import { BillingPageContent } from '@/components/billing/billing-page-content';
 
 function BillingPageGuard() {
@@ -28,11 +28,7 @@ function BillingPageGuard() {
   }, [doctor, isLoading, router]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Spinner />
-      </div>
-    );
+    return <AppLoadingState message="Checking billing access…" />;
   }
 
   if (!doctor) {
@@ -45,7 +41,7 @@ function BillingPageGuard() {
   }
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><Spinner /></div>}>
+    <Suspense fallback={<AppLoadingState message="Opening billing…" />}>
       <BillingPageContent />
     </Suspense>
   );

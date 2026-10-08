@@ -93,7 +93,7 @@ export function useClinicSse() {
           reconnectAttemptsRef.current = 0
           reconnectTimeoutRef.current = null
           void apolloClient
-            .refetchQueries({ include: ["GetVisits", "DashboardStats"] })
+            .refetchQueries({ include: ["GetVisits"] })
             .catch((error) => console.warn("Failed to refresh clinic queues after SSE connect:", error))
         }
 
@@ -117,7 +117,7 @@ export function useClinicSse() {
             if (eventType === "USER_CREATED" || eventType === "USER_UPDATED") {
               queriesToRefetch.push("SearchWorkers", "GetUsers", "Me")
             } else {
-              queriesToRefetch.push("GetVisits", "DashboardStats")
+              queriesToRefetch.push("GetVisits")
 
               if (eventType === "VISIT_CREATED") {
                 queriesToRefetch.push("SearchPatients")

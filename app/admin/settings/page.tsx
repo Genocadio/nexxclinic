@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter } from "@/lib/navigation"
 import { toast } from "react-toastify"
 import Header from "@/components/header"
 import { Button } from "@/components/ui/button"

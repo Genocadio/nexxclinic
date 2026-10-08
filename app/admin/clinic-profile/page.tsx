@@ -13,7 +13,7 @@ import { getClinicDisplayName, getClinicLogoUrl } from "@/lib/clinic-profile";
 import { useClinicProfile, useUpsertClinicProfile } from "@/hooks/auth-hooks";
 import { ArrowLeft, Save, ShieldCheck, Trash } from "lucide-react";
 import { MediaUploader } from "@/components/ui/media-uploader";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/navigation";
 import { canManageAdminUsers } from "@/lib/role-utils";
 import type { ClinicContactType } from "@/lib/api-types";
 import { FieldError } from "@/components/ui/field-error";

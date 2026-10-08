@@ -4,7 +4,7 @@ import FloatingHeader from "@/components/floating-header"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { Package, ShieldCheck, Building2, Users, BadgeInfo, FileText, Settings } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter } from "@/lib/navigation"
 
 
 const adminActions = [
