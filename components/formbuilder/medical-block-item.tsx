@@ -99,6 +99,7 @@ function DiagnosticRecordBlock({
   const [entries, setEntries] = useState<DiagEntry[]>([]);
   const [draftDiag, setDraftDiag] = useState("");
   const [draftDesc, setDraftDesc] = useState("");
+  const isHypothesis = block.type === "hypothesis_record";
 
   const add = () => {
     const name = draftDiag.trim();
@@ -108,7 +109,7 @@ function DiagnosticRecordBlock({
       {
         id: `d_${Date.now()}`,
         diagnosis: name,
-        description: draftDesc.trim() || undefined,
+        description: !isHypothesis ? draftDesc.trim() || undefined : undefined,
       },
     ]);
     setDraftDiag("");
@@ -128,7 +129,7 @@ function DiagnosticRecordBlock({
         >
           <Stethoscope className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
           <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
-            {block.label || "Diagnoses"}
+            {block.label || (isHypothesis ? "Hypotheses" : "Diagnoses")}
           </span>
           {block.required && <span className="text-red-500 text-xs">*</span>}
           {!isActive && (
@@ -143,16 +144,18 @@ function DiagnosticRecordBlock({
           value={draftDiag}
           onChange={(e) => setDraftDiag(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}
-          placeholder={block.placeholder || "Enter diagnosis name…"}
+          placeholder={block.placeholder || "Search disease or ICD-11 code…"}
           className="h-8 text-sm bg-background"
         />
-        <Textarea
-          value={draftDesc}
-          onChange={(e) => setDraftDesc(e.target.value)}
-          placeholder="Notes / description (optional)"
-          className="text-sm min-h-[52px] resize-none bg-background"
-          rows={2}
-        />
+        {!isHypothesis && (
+          <Textarea
+            value={draftDesc}
+            onChange={(e) => setDraftDesc(e.target.value)}
+            placeholder="Notes / description (optional)"
+            className="text-sm min-h-[52px] resize-none bg-background"
+            rows={2}
+          />
+        )}
         <div className="flex justify-end">
           <Button
             size="sm"
@@ -161,7 +164,7 @@ function DiagnosticRecordBlock({
             className="h-7 rounded-full gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
           >
             <Plus className="h-3 w-3" />
-            Add Diagnosis
+            Add {isHypothesis ? "Hypothesis" : "Diagnosis"}
           </Button>
         </div>
 
@@ -197,7 +200,7 @@ function DiagnosticRecordBlock({
       </div>
 
       {isActive && (
-        <ConfigSection title="Diagnosis block settings">
+        <ConfigSection title={`${isHypothesis ? "Hypothesis" : "Diagnosis"} block settings`}>
           <CfgField label="Label">
             <Input
               className="h-7 text-sm"
@@ -1100,6 +1103,7 @@ export interface MedBlockProps {
 export function MedicalBlockItem(props: MedBlockProps) {
   switch (props.block.type) {
     case "diagnostic_record":
+    case "hypothesis_record":
       return <DiagnosticRecordBlock {...props} />;
     case "medication_full":
       return <MedicationFullBlock {...props} />;

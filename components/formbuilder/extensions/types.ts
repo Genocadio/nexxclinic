@@ -37,6 +37,7 @@ export interface MedicalBlockHandlers {
   onAddDiagnosis?: (
     diagnosis: string,
     icd11Code?: string,
+    type?: "FINAL" | "HYPOTHESIS",
   ) => Promise<boolean>;
   onRemoveDiagnosis?: (diagnosisId: string) => Promise<boolean>;
   onUpdateDiagnosisNotes?: (diagnosisId: string, notes: string) => Promise<boolean>;

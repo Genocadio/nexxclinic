@@ -62,6 +62,7 @@ export function isBlockViolating(
     case "signature":
       return !v || String(v) === "";
     case "diagnostic_record":
+    case "hypothesis_record":
     case "medication_full":
     case "medication_mini":
     case "product_listener":
@@ -149,8 +150,11 @@ export function shouldRenderBlock(
         product: a.rawData?.product,
       }));
     }
-    if (handlers?.diagnostics && handlers.diagnostics.length > 0) {
-      effectiveAnswers[cr.dependsOn] = handlers.diagnostics;
+    if (handlers?.diagnostics) {
+      const diagnosisType = parentBlock.type === "hypothesis_record" ? "HYPOTHESIS" : "FINAL";
+      effectiveAnswers[cr.dependsOn] = handlers.diagnostics.filter(
+        (diagnosis) => (diagnosis.type ?? "FINAL") === diagnosisType,
+      );
     }
     if (handlers?.medicationsFull && handlers.medicationsFull.length > 0) {
       effectiveAnswers[cr.dependsOn] = handlers.medicationsFull;

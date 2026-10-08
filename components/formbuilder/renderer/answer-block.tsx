@@ -7,7 +7,7 @@ import {
   FieldShell,
   SignatureCanvas,
 } from "./field-renderers";
-import { DiagnosticAnswerBlock, LabAnswerBlock, MedFullAnswerBlock, MedMiniAnswerBlock, ProductListenerAnswerBlock } from "./medical-answer-blocks";
+import { DiagnosticAnswerBlock, HypothesisAnswerBlock, LabAnswerBlock, MedFullAnswerBlock, MedMiniAnswerBlock, ProductListenerAnswerBlock } from "./medical-answer-blocks";
 import { isBlockViolating, getBlockErrorMessage, shouldRenderBlock, replacePlaceholders } from "./utils";
 import { FileUploadAnswerBlock, type UploadedAnswerFile } from "./file-upload-block";
 import { getMediaUrl } from "@/lib/media-url";
@@ -301,6 +301,17 @@ export function AnswerBlock({
     case "diagnostic_record":
       return (
         <DiagnosticAnswerBlock
+          block={block}
+          value={Array.isArray(val) ? (val as any[]) : []}
+          onChange={(v: any) => onAnswerChange(block.id, v)}
+          isError={isError}
+          edit={edit}
+          handlers={blockHandlers}
+        />
+      );
+    case "hypothesis_record":
+      return (
+        <HypothesisAnswerBlock
           block={block}
           value={Array.isArray(val) ? (val as any[]) : []}
           onChange={(v: any) => onAnswerChange(block.id, v)}

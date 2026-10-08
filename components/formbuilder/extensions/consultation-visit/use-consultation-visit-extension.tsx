@@ -266,10 +266,14 @@ export function useConsultationVisitExtension(
   );
 
   const handleAddDiagnosis = useCallback(
-    async (diagnosis: string, description?: string) => {
+    async (
+      diagnosis: string,
+      icd11Code?: string,
+      type: "FINAL" | "HYPOTHESIS" = "FINAL",
+    ) => {
       if (!visitDepartmentId) return false;
       try {
-        const result = await addDiagnosis(visitDepartmentId, diagnosis.trim(), description?.trim());
+        const result = await addDiagnosis(visitDepartmentId, diagnosis.trim(), icd11Code?.trim(), type);
         if (result?.status !== "SUCCESS") {
           toast.error(result?.message || "Failed to add diagnosis");
           return false;
@@ -420,11 +424,12 @@ export function useConsultationVisitExtension(
             linkedInsurances,
           };
         case "diagnostic_record":
+        case "hypothesis_record":
           return {
             diagnostics: visitDiagnostics,
             onAddDiagnosis: canEditClinical
-              ? (diagnosis, icd11Code) =>
-                  handleAddDiagnosis(diagnosis, icd11Code)
+              ? (diagnosis, icd11Code, type) =>
+                  handleAddDiagnosis(diagnosis, icd11Code, type)
               : undefined,
             onRemoveDiagnosis: canEditClinical
               ? (diagnosisId) => handleRemoveDiagnosis(diagnosisId)

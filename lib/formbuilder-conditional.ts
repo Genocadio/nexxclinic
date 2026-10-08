@@ -15,7 +15,7 @@ const PARENT_CAPABLE = new Set<BlockType>([
   'checkbox_single', 'checkbox_group',
   'radio_group', 'select_input',
   'signature',
-  'diagnostic_record', 'medication_full', 'medication_mini', 'lab_record',
+  'diagnostic_record', 'hypothesis_record', 'medication_full', 'medication_mini', 'lab_record',
   'product_listener',
 ])
 
@@ -36,6 +36,7 @@ const TYPE_SHORT: Partial<Record<BlockType, string>> = {
   select_input:       'dropdown',
   signature:          'signature',
   diagnostic_record:  'diagnosis',
+  hypothesis_record:  'hypothesis',
   medication_full:    'medication',
   medication_mini:    'medication',
   lab_record:         'lab',
@@ -102,8 +103,9 @@ export function getAvailableConditions(parentType: BlockType): ConditionOption[]
       ]
 
     case 'diagnostic_record':
+    case 'hypothesis_record':
       return [
-        { condition: 'notEmpty', label: 'has any diagnosis', needsValue: false, needsItemControls: false },
+        { condition: 'notEmpty', label: parentType === 'hypothesis_record' ? 'has any hypothesis' : 'has any diagnosis', needsValue: false, needsItemControls: false },
       ]
 
     case 'medication_full':
@@ -143,6 +145,7 @@ export function getConditionSummary(
       const verb =
         parent?.type === 'signature'         ? 'is signed'           :
         parent?.type === 'diagnostic_record'  ? 'has a diagnosis'     :
+        parent?.type === 'hypothesis_record'  ? 'has a hypothesis'    :
         parent?.type === 'medication_full' ||
         parent?.type === 'medication_mini'    ? 'has a medication'    :
         parent?.type === 'lab_record'         ? 'has a result'        :

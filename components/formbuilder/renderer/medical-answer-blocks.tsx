@@ -43,8 +43,69 @@ export function DiagnosticAnswerBlock({
   edit: boolean;
   handlers?: MedicalBlockHandlers | null;
 }) {
+  return (
+    <DiagnosisAnswerBlock
+      block={block}
+      value={value}
+      onChange={onChange}
+      isError={isError}
+      edit={edit}
+      handlers={handlers}
+      diagnosisType="FINAL"
+    />
+  );
+}
+
+export function HypothesisAnswerBlock({
+  block,
+  value,
+  onChange,
+  isError,
+  edit,
+  handlers,
+}: {
+  block: FormBlock;
+  value: DiagEntry[];
+  onChange: (v: DiagEntry[]) => void;
+  isError?: boolean;
+  edit: boolean;
+  handlers?: MedicalBlockHandlers | null;
+}) {
+  return (
+    <DiagnosisAnswerBlock
+      block={block}
+      value={value}
+      onChange={onChange}
+      isError={isError}
+      edit={edit}
+      handlers={handlers}
+      diagnosisType="HYPOTHESIS"
+    />
+  );
+}
+
+function DiagnosisAnswerBlock({
+  block,
+  value,
+  onChange,
+  isError,
+  edit,
+  handlers,
+  diagnosisType,
+}: {
+  block: FormBlock;
+  value: DiagEntry[];
+  onChange: (v: DiagEntry[]) => void;
+  isError?: boolean;
+  edit: boolean;
+  handlers?: MedicalBlockHandlers | null;
+  diagnosisType: "FINAL" | "HYPOTHESIS";
+}) {
   const answerEntries = Array.isArray(value) ? value : [];
-  const items = handlers?.diagnostics ?? answerEntries;
+  const diagnosisItems = handlers?.diagnostics ?? answerEntries;
+  const items = diagnosisItems.filter((entry) => (entry.type ?? "FINAL") === diagnosisType);
+  const isHypothesis = diagnosisType === "HYPOTHESIS";
+  const entryLabel = isHypothesis ? "hypothesis" : "diagnosis";
   const add = async (
     diagnosis: string,
     icd11Code?: string,
@@ -52,7 +113,7 @@ export function DiagnosticAnswerBlock({
     const name = diagnosis.trim();
     if (!name) return false;
     if (handlers?.onAddDiagnosis) {
-      return handlers.onAddDiagnosis(name, icd11Code);
+      return handlers.onAddDiagnosis(name, icd11Code, diagnosisType);
     }
     onChange([
       ...answerEntries,
@@ -60,7 +121,7 @@ export function DiagnosticAnswerBlock({
         id: `d${uid()}`,
         diagnosis: name,
         icd11Code,
-        type: "FINAL",
+        type: diagnosisType,
         notes: "",
       },
     ]);
@@ -91,7 +152,7 @@ export function DiagnosticAnswerBlock({
     <div className="my-3">
       <label className="text-sm leading-5 font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
         <Stethoscope className="h-3.5 w-3.5 text-emerald-600" />
-        {block.label || "Diagnoses"}
+        {block.label || (isHypothesis ? "Hypotheses" : "Diagnoses")}
         {block.required && <span className="text-red-500">*</span>}
       </label>
       <div
@@ -105,10 +166,11 @@ export function DiagnosticAnswerBlock({
           <DiagnosticDraft
             onAdd={add}
             placeholder={block.placeholder || "Search disease or ICD-11 code…"}
+            entryLabel={entryLabel}
           />
         )}
         <EntryList
-          emptyLabel="No diagnoses"
+          emptyLabel={isHypothesis ? "No hypotheses" : "No final diagnoses"}
           items={items}
           render={(e) => (
             <div className="flex-1 min-w-0">
@@ -122,11 +184,13 @@ export function DiagnosticAnswerBlock({
                   </span>
                 )}
               </div>
-              <DiagnosisNotesEditor
-                notes={e.notes ?? ""}
-                canEdit={canEditNotes}
-                onSave={(notes) => updateNotes(e.id, notes)}
-              />
+              {!isHypothesis && (
+                <DiagnosisNotesEditor
+                  notes={e.notes ?? ""}
+                  canEdit={canEditNotes}
+                  onSave={(notes) => updateNotes(e.id, notes)}
+                />
+              )}
             </div>
           )}
           onRemove={canRemove ? remove : undefined}
@@ -139,9 +203,11 @@ export function DiagnosticAnswerBlock({
 function DiagnosticDraft({
   onAdd,
   placeholder,
+  entryLabel,
 }: {
   onAdd: (diagnosis: string, icd11Code?: string) => Promise<boolean>;
   placeholder: string;
+  entryLabel: "diagnosis" | "hypothesis";
 }) {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
@@ -247,7 +313,7 @@ function DiagnosticDraft({
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-emerald-700 hover:bg-muted/60 disabled:opacity-50 dark:text-emerald-300"
             >
               <Plus className="h-3.5 w-3.5" />
-              Add “{searchTerm.trim()}” as diagnosis
+              Add “{searchTerm.trim()}” as {entryLabel}
             </button>
           </div>
         )}

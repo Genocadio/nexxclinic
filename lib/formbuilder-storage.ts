@@ -19,6 +19,7 @@ export type BlockType =
   | "signature"
   | "table"
   | "diagnostic_record"
+  | "hypothesis_record"
   | "medication_full"
   | "medication_mini"
   | "lab_record"
@@ -395,6 +396,14 @@ export function fbMakeBlock(type: BlockType): FormBlock {
         id,
         type,
         label: "Diagnoses",
+        placeholder: "Search disease or ICD-11 code…",
+        required: false,
+      };
+    case "hypothesis_record":
+      return {
+        id,
+        type,
+        label: "Hypotheses",
         placeholder: "Search disease or ICD-11 code…",
         required: false,
       };

@@ -201,6 +201,7 @@ export function useAddDiagnosisToVisitDepartment() {
     visitDepartmentId: string,
     diagnosisName: string,
     icd11Code?: string,
+    type: "FINAL" | "HYPOTHESIS" = "FINAL",
   ): Promise<ApiResponse<any>> => {
     try {
       const result = await mutation({
@@ -209,6 +210,7 @@ export function useAddDiagnosisToVisitDepartment() {
             visitDepartmentId,
             diagnosisName,
             icd11Code: icd11Code || undefined,
+            type,
           },
         },
       });

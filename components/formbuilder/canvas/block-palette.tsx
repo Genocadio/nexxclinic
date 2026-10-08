@@ -60,6 +60,7 @@ export const PALETTE_GROUPS: {
     label: "Clinical",
     items: [
       { type: "diagnostic_record", label: "Diagnosis Block", icon: "🩻" },
+      { type: "hypothesis_record", label: "Hypothesis Block", icon: "💭" },
       { type: "medication_full", label: "Full Medication", icon: "💊" },
       { type: "medication_mini", label: "Quick Medication", icon: "💉" },
       { type: "lab_record", label: "Lab Record", icon: "🧪" },

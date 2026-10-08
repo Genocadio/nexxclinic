@@ -6,6 +6,7 @@ import { collectAnswerableBlocks } from "../../renderer/utils";
 export const CLINICAL_BLOCK_TYPES = new Set([
   "product_listener",
   "diagnostic_record",
+  "hypothesis_record",
   "medication_full",
   "medication_mini",
 ]);

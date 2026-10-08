@@ -117,9 +117,13 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = [
         productListenerCenter: false,
       }),
       b("heading2", { content: "Diagnosis" }),
+      b("hypothesis_record", {
+        label: "Hypotheses",
+        placeholder: "Search disease or ICD-11 code…",
+      }),
       b("diagnostic_record", {
         label: "Diagnoses",
-        placeholder: "Enter diagnosis name…",
+        placeholder: "Search disease or ICD-11 code…",
         required: true,
       }),
       b("heading2", { content: "Management Plan" }),
@@ -641,6 +645,10 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = [
 
       // ── Diagnostics ──
       b("heading2", { content: "Diagnosis" }),
+      b("hypothesis_record", {
+        label: "Working Diagnoses / Hypotheses",
+        placeholder: "Search disease or ICD-11 code…",
+      }),
       b("diagnostic_record", {
         label: "Ophthalmic Diagnoses",
         placeholder:
