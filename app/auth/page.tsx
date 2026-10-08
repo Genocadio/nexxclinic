@@ -40,6 +40,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FieldError } from "@/components/ui/field-error";
+import { ClinicLogoImage } from "@/components/clinic-logo-image";
 
 export function AuthPageContent() {
   const router = useRouter();
@@ -304,7 +305,7 @@ useEffect(() => {
               <Skeleton className="h-16 w-16 rounded-2xl bg-white/70 dark:bg-slate-900/60 ring-1 ring-white/60 dark:ring-white/10" />
             ) : (
               <div className="relative h-16 w-16 rounded-2xl bg-white/70 dark:bg-slate-900/60 backdrop-blur-md shadow-lg ring-1 ring-white/60 dark:ring-white/10 overflow-hidden flex items-center justify-center">
-                <img src={clinicLogoUrl} alt={`${clinicName} logo`} className="h-16 w-16 object-contain" />
+                <ClinicLogoImage src={clinicLogoUrl} alt={`${clinicName} logo`} className="h-16 w-16 object-contain" />
               </div>
             )}
           </div>

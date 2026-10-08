@@ -2314,9 +2314,8 @@ export default function DashboardPage() {
                                   <div className="flex items-center gap-1.5 min-w-0">
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <h3 className="font-medium text-foreground truncate cursor-help">
-                                          {visit.patient.firstName}{" "}
-                                          {visit.patient.lastName}
+                                        <h3 className="min-w-0 whitespace-normal break-words font-medium text-foreground cursor-help">
+                                          {getPatientDisplayName(visit.patient)}
                                         </h3>
                                       </TooltipTrigger>
                                       <TooltipContent className="max-w-sm p-3 z-[150]">
@@ -2332,7 +2331,7 @@ export default function DashboardPage() {
                                           setEditPatientModalOpen(true)
                                         }}
                                         className="text-muted-foreground hover:text-primary transition-colors p-0.5 rounded-md hover:bg-muted/60 shrink-0"
-                                        title={`Edit ${visit.patient.firstName} ${visit.patient.lastName}'s information`}
+                                        title={`Edit ${getPatientDisplayName(visit.patient)}'s information`}
                                         aria-label="Edit Patient Details"
                                       >
                                         <UserPen className="w-3.5 h-3.5" />
@@ -2404,7 +2403,7 @@ export default function DashboardPage() {
                                             ? "Double-click to re-enable this cancelled department, or click to view details"
                                             : "Click to view department timeline & details"
                                         }
-                                        aria-label={`View department timeline for ${visit.patient.firstName} ${visit.patient.lastName}`}
+                                        aria-label={`View department timeline for ${getPatientDisplayName(visit.patient)}`}
                                       >
                                         <span className="relative flex h-2 w-2 flex-shrink-0">
                                           {isPillActive ? (

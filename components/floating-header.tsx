@@ -9,6 +9,7 @@ import { useState } from "react"
 import { hasAdminAccess } from "@/lib/role-utils"
 import { getClinicDisplayName, getClinicLogoUrl } from "@/lib/clinic-profile"
 import { cn } from "@/lib/utils"
+import { ClinicLogoImage } from "@/components/clinic-logo-image"
 
 interface FloatingHeaderProps {
   doctor: Worker | null
@@ -65,7 +66,7 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
             title={clinicName}
             aria-label={clinicName}
           >
-            <img
+            <ClinicLogoImage
               src={clinicLogoUrl}
               alt={`${clinicName} logo`}
               className="h-6 w-6 sm:h-7 sm:w-7 object-contain rounded-full shrink-0"
