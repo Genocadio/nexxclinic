@@ -1,6 +1,7 @@
 "use client"
 
 import { Suspense, useMemo, useState } from "react"
+import { PageLoading } from "@/components/ui/page-loading"
 import { useRouter, useSearchParams } from "@/lib/navigation"
 import { Eye, EyeOff, AlertCircle } from "lucide-react"
 import { toast } from "react-toastify"
@@ -156,9 +157,5 @@ function CreatePasswordPageContent() {
 }
 
 export default function CreatePasswordPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-background" />}>
-      <CreatePasswordPageContent />
-    </Suspense>
-  )
+  return <Suspense fallback={<PageLoading />}><CreatePasswordPageContent /></Suspense>
 }

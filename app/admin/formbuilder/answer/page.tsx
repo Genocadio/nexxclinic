@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo } from "react";
+import { PageLoading } from "@/components/ui/page-loading";
 import { useRouter, useSearchParams } from "@/lib/navigation";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
@@ -323,15 +324,5 @@ function FormAnswerPageInner() {
 }
 
 export default function FormAnswerPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      }
-    >
-      <FormAnswerPageInner />
-    </Suspense>
-  );
+  return <Suspense fallback={<PageLoading />}><FormAnswerPageInner /></Suspense>;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { PageLoading } from "@/components/ui/page-loading";
 import { useRouter, useSearchParams } from "@/lib/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -544,15 +545,5 @@ function FormEditor() {
 // ─── Page export ──────────────────────────────────────────────────────────────
 
 export default function FormBuilderEditPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      }
-    >
-      <FormEditor />
-    </Suspense>
-  );
+  return <Suspense fallback={<PageLoading />}><FormEditor /></Suspense>;
 }

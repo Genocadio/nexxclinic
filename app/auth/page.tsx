@@ -5,6 +5,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { PageLoading } from "@/components/ui/page-loading";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "@/lib/navigation";
 import { Eye, EyeOff } from "lucide-react";
@@ -560,13 +561,5 @@ useEffect(() => {
 /* Page wrapper – provides suspense fallback                               */
 /* ------------------------------------------------------------------------ */
 export default function AuthPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-gradient-to-br from-slate-100 via-amber-50 to-orange-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" />
-      }
-    >
-      <AuthPageContent />
-    </Suspense>
-  );
+  return <Suspense fallback={<PageLoading />}><AuthPageContent /></Suspense>;
 }

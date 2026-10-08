@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useRef, useState, useSyncE
 import { notifyNavigationStart, usePathname, useSearchParams } from "@/lib/navigation"
 import { useApolloClient } from "@apollo/client"
 import { getNetworkConnectedSnapshot, reportNetworkStatus, subscribeToNetworkStatus } from "@/lib/network-connectivity"
+import { PageLoading } from "@/components/ui/page-loading"
 
 interface NetworkContextType {
   isConnected: boolean;
@@ -152,15 +153,8 @@ export function NetworkStatusProvider({ children }: { children: React.ReactNode 
     <NetworkContext.Provider value={{ isConnected, isConnecting }}>
       {children}
       {navigationPending && (
-        <div className="pointer-events-none fixed left-0 right-0 top-3 z-[120] flex justify-center">
-          <div
-            role="status"
-            aria-label="Loading page"
-            className="flex w-40 flex-col gap-2 rounded-xl border border-border/70 bg-card/95 p-3 shadow-lg backdrop-blur"
-          >
-            <span className="h-2 w-3/4 animate-pulse rounded-full bg-muted" />
-            <span className="h-2 w-1/2 animate-pulse rounded-full bg-muted" />
-          </div>
+        <div className="pointer-events-none fixed inset-0 z-[120]">
+          <PageLoading className="min-h-full" />
         </div>
       )}
       <NetworkStatusIndicator

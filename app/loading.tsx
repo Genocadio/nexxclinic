@@ -1,6 +1,7 @@
 "use client"
 
+import { PageLoading } from "@/components/ui/page-loading"
+
 export default function Loading() {
-  // Client route changes use the shared navigation indicator; data loaders render their own skeletons.
-  return null
+  return <PageLoading />
 }

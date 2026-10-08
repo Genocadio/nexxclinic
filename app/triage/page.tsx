@@ -1185,9 +1185,5 @@ function TriagePageInner() {
 }
 
 export default function TriagePage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>}>
-      <TriagePageInner />
-    </Suspense>
-  );
+  return <Suspense fallback={<PageLoading />}><TriagePageInner /></Suspense>;
 }
