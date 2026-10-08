@@ -22,6 +22,7 @@ import {
   type ProductUnit,
   type Visit,
   type VisitDepartment,
+  VisitDepartmentDiagnosisType,
   type VisitDepartmentProduct,
   type VisitProductStatus,
   type Worker,
@@ -188,6 +189,8 @@ export type GqlVisitDepartment = {
     id: string;
     diagnosisName: string;
     icd11Code?: string | null;
+    type?: VisitDepartmentDiagnosisType | null;
+    notes?: string | null;
     createdAt?: string | null;
   }> | null;
   medications?: Array<{
@@ -595,6 +598,8 @@ export function mapGqlVisitDepartment(
       id: String(diagnosis.id),
       diagnosisName: String(diagnosis.diagnosisName || ""),
       icd11Code: diagnosis.icd11Code,
+      type: diagnosis.type || VisitDepartmentDiagnosisType.FINAL,
+      notes: diagnosis.notes || "",
       createdAt: diagnosis.createdAt || EMPTY_TIMESTAMP,
     })),
     medications: (dept.medications || []).map((medication) => ({

@@ -302,7 +302,7 @@ export function AnswerBlock({
       return (
         <DiagnosticAnswerBlock
           block={block}
-          value={(val as any[]) ?? []}
+          value={Array.isArray(val) ? (val as any[]) : []}
           onChange={(v: any) => onAnswerChange(block.id, v)}
           isError={isError}
           edit={edit}

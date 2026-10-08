@@ -26,6 +26,9 @@ export interface DiagEntry {
   id: string;
   diagnosis: string;
   description?: string;
+  icd11Code?: string;
+  type?: "FINAL" | "HYPOTHESIS";
+  notes?: string;
 }
 
 export interface MedFullEntry {

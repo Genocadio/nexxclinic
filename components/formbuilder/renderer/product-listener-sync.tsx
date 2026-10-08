@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import FormActionsDisplay from "@/components/form-actions-display";
 import { ProductLockedTooltip } from "@/components/consultation/product-locked-tooltip";
@@ -60,8 +60,8 @@ export function ProductListenerWithVisitSync({
                 onClick={() => handlers.onOpenProductPicker?.()}
                 className="inline-flex h-9 px-4 rounded-xl gap-2 border-orange-200/80 dark:border-orange-800/60 bg-white dark:bg-slate-900 hover:bg-orange-50 dark:hover:bg-slate-850 text-foreground text-sm font-medium shadow-xs transition-colors"
               >
-                <Plus className="h-4 w-4 text-orange-600" />
-                {block.label || "Add Product"}
+                <Search className="h-4 w-4 text-orange-600" />
+                Search products
               </Button>
             </ProductLockedTooltip>
           </div>

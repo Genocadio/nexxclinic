@@ -54,6 +54,7 @@ type AddVisitDepartmentProductModalProps = {
   existingProductReferenceIds?: string[]
   isSubmitting?: boolean
   linkedInsurances?: PatientInsurance[]
+  quickAddOnSelect?: boolean
 }
 
 /**
@@ -72,6 +73,7 @@ export function AddVisitDepartmentProductModal({
   existingProductReferenceIds,
   isSubmitting = false,
   linkedInsurances = [],
+  quickAddOnSelect = false,
 }: AddVisitDepartmentProductModalProps) {
   const departmentOptions = useMemo(
     () => buildVisitDepartmentProductOptions(visitDepartments),
@@ -122,6 +124,7 @@ export function AddVisitDepartmentProductModal({
       existingProductReferenceIds={resolvedExistingIds}
       isSubmitting={isSubmitting}
       linkedInsurances={linkedInsurances}
+      quickAddOnSelect={quickAddOnSelect}
       processors={activeProcessors}
     />
   )

@@ -94,6 +94,8 @@ const childVisitDepartmentFields = `
     id
     diagnosisName
     icd11Code
+    type
+    notes
     createdAt
   }
   medications {
@@ -261,6 +263,8 @@ export const GET_VISIT_QUERY = gql`
             id
             diagnosisName
             icd11Code
+            type
+            notes
             createdAt
           }
           medications {
@@ -632,6 +636,8 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
             id
             diagnosisName
             icd11Code
+            type
+            notes
             createdAt
           }
           medications {
@@ -711,6 +717,8 @@ export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
               id
               diagnosisName
               icd11Code
+              type
+              notes
               createdAt
             }
             medications {
@@ -759,6 +767,8 @@ export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
               id
               diagnosisName
               icd11Code
+              type
+              notes
               createdAt
             }
             medications {

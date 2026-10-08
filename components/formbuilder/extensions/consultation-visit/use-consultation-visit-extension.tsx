@@ -12,6 +12,8 @@ import {
   useAddConsumableToVisitDepartment,
   useAddDiagnosisToVisitDepartment,
   useAddMedicationToVisitDepartment,
+  useRemoveDiagnosisFromVisitDepartment,
+  useUpdateDiagnosisNotes,
   useRemoveProductFromVisitDepartment,
   useUpdateProductQuantity,
 } from "@/hooks/visits";
@@ -93,6 +95,8 @@ export function useConsultationVisitExtension(
 
   const { doctor } = useAuth();
   const { addDiagnosis } = useAddDiagnosisToVisitDepartment();
+  const { removeDiagnosis } = useRemoveDiagnosisFromVisitDepartment();
+  const { updateDiagnosisNotes } = useUpdateDiagnosisNotes();
   const { addMedication } = useAddMedicationToVisitDepartment();
   const { addAction } = useAddActionToVisitDepartment();
   const { addConsumable } = useAddConsumableToVisitDepartment();
@@ -120,7 +124,9 @@ export function useConsultationVisitExtension(
     return activeDepartment.diagnostics.map((d) => ({
       id: String(d.id),
       diagnosis: String(d.diagnosisName || ""),
-      description: d.icd11Code || undefined,
+      icd11Code: d.icd11Code || undefined,
+      type: d.type,
+      notes: d.notes || "",
     }));
   }, [activeDepartment?.diagnostics]);
 
@@ -272,6 +278,42 @@ export function useConsultationVisitExtension(
     [visitDepartmentId, addDiagnosis, onVisitRefetch],
   );
 
+  const handleRemoveDiagnosis = useCallback(
+    async (diagnosisId: string) => {
+      try {
+        const result = await removeDiagnosis(diagnosisId);
+        if (result?.status !== "SUCCESS") {
+          toast.error(result?.message || "Failed to remove diagnosis");
+          return false;
+        }
+        onVisitRefetch?.();
+        return true;
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to remove diagnosis");
+        return false;
+      }
+    },
+    [removeDiagnosis, onVisitRefetch],
+  );
+
+  const handleUpdateDiagnosisNotes = useCallback(
+    async (diagnosisId: string, notes: string) => {
+      try {
+        const result = await updateDiagnosisNotes(diagnosisId, notes);
+        if (result?.status !== "SUCCESS") {
+          toast.error(result?.message || "Failed to save diagnosis notes");
+          return false;
+        }
+        onVisitRefetch?.();
+        return true;
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to save diagnosis notes");
+        return false;
+      }
+    },
+    [updateDiagnosisNotes, onVisitRefetch],
+  );
+
   const handleAddMedicationFull = useCallback(
     async (entry: Omit<MedFullEntry, "id">) => {
       if (!visitDepartmentId) return false;
@@ -378,8 +420,14 @@ export function useConsultationVisitExtension(
           return {
             diagnostics: visitDiagnostics,
             onAddDiagnosis: canEditClinical
-              ? (diagnosis, description) =>
-                  handleAddDiagnosis(diagnosis, description)
+              ? (diagnosis, icd11Code) =>
+                  handleAddDiagnosis(diagnosis, icd11Code)
+              : undefined,
+            onRemoveDiagnosis: canEditClinical
+              ? (diagnosisId) => handleRemoveDiagnosis(diagnosisId)
+              : undefined,
+            onUpdateDiagnosisNotes: canEditClinical
+              ? (diagnosisId, notes) => handleUpdateDiagnosisNotes(diagnosisId, notes)
               : undefined,
           };
         case "medication_full":
@@ -413,6 +461,8 @@ export function useConsultationVisitExtension(
       handleRemoveProduct,
       handleUpdateProductQuantity,
       handleAddDiagnosis,
+      handleRemoveDiagnosis,
+      handleUpdateDiagnosisNotes,
       handleAddMedicationFull,
       handleAddMedicationMini,
     ],
@@ -430,6 +480,7 @@ export function useConsultationVisitExtension(
         visitDepartmentId={visitDepartmentId}
         currentCatalogDepartmentId={departmentId}
         viewMode="service"
+        quickAddOnSelect
         onAdd={handleAddProduct}
         existingProductReferenceIds={existingProductReferenceIds}
         linkedInsurances={linkedInsurances}

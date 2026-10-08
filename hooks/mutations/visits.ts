@@ -219,9 +219,29 @@ export const ADD_DIAGNOSIS_MUTATION = gql`
           id
           diagnosisName
           icd11Code
+          type
+          notes
           createdAt
         }
       }
+    }
+  }
+`;
+
+export const REMOVE_DIAGNOSIS_MUTATION = gql`
+  mutation RemoveDiagnosis($diagnosisId: ID!) {
+    removeDiagnosis(diagnosisId: $diagnosisId) {
+      status
+      message
+    }
+  }
+`;
+
+export const UPDATE_DIAGNOSIS_NOTES_MUTATION = gql`
+  mutation UpdateDiagnosisNotes($diagnosisId: ID!, $notes: String!) {
+    updateDiagnosisNotes(diagnosisId: $diagnosisId, notes: $notes) {
+      status
+      message
     }
   }
 `;
@@ -597,6 +617,8 @@ export const CONSULT_VISIT_MUTATION = gql`
           id
           diagnosisName
           icd11Code
+          type
+          notes
           createdAt
         }
         medications {

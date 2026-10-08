@@ -24,9 +24,10 @@ export interface MedicalBlockHandlers {
   diagnostics?: DiagEntry[];
   onAddDiagnosis?: (
     diagnosis: string,
-    description?: string,
+    icd11Code?: string,
   ) => Promise<boolean>;
   onRemoveDiagnosis?: (diagnosisId: string) => Promise<boolean>;
+  onUpdateDiagnosisNotes?: (diagnosisId: string, notes: string) => Promise<boolean>;
 
   /** Medication blocks — live list from visit & direct mutations */
   medicationsFull?: MedFullEntry[];

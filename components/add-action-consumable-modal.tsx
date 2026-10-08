@@ -10,6 +10,7 @@ import { Search, X, Pill, Filter } from "lucide-react"
 import { useProductSearch } from "@/hooks/products"
 import { formatRWF } from "@/lib/utils"
 import { getInsuranceAwarePricing } from "@/lib/insurance-utils"
+import { toast } from "sonner"
 
 type ProductTypeFilter = 'ALL' | 'DRUG' | 'MEDICAL_ACT' | 'BIOLOGICAL_ACT' | 'CONSUMABLE_DEVICE'
 
@@ -60,10 +61,12 @@ interface AddActionConsumableModalProps {
   currentDepartmentId?: string
   visitDepartmentId?: string
   viewMode: 'all' | 'service'
-  onAdd: (type: 'action' | 'consumable', item: ActionOrConsumable, quantity: number, departmentId: string, processorId?: string) => void
+  onAdd: (type: 'action' | 'consumable', item: ActionOrConsumable, quantity: number, departmentId: string, processorId?: string) => void | Promise<void>
   existingProductReferenceIds?: string[]
   isSubmitting?: boolean
   linkedInsurances?: PatientInsurance[]
+  /** Add immediately when a result is selected instead of showing the confirmation step. */
+  quickAddOnSelect?: boolean
   /** Workers assigned as processors for the active visit department. */
   processors?: Processor[]
 }
@@ -79,6 +82,7 @@ export default function AddActionConsumableModal({
   existingProductReferenceIds = [],
   isSubmitting = false,
   linkedInsurances = [],
+  quickAddOnSelect = false,
   processors = [],
 }: AddActionConsumableModalProps) {
   const filterOptions: ProductTypeFilter[] = ['ALL', 'DRUG', 'MEDICAL_ACT', 'BIOLOGICAL_ACT', 'CONSUMABLE_DEVICE']
@@ -90,6 +94,7 @@ export default function AddActionConsumableModal({
   const [loadingMore, setLoadingMore] = useState(false)
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null)
   const [selectedItem, setSelectedItem] = useState<ActionOrConsumable | null>(null)
+  const [quickAdding, setQuickAdding] = useState(false)
   const [quantity, setQuantity] = useState('1')
   const [selectedDepartmentId, setSelectedDepartmentId] = useState(currentDepartmentId || '')
   const [selectedProcessorId, setSelectedProcessorId] = useState<string>('')
@@ -168,7 +173,31 @@ export default function AddActionConsumableModal({
     })
   }, [debouncedSearchQuery, searchedProducts, productType])
 
-  const handleSelectItem = (item: ActionOrConsumable) => {
+  const resetAndClose = () => {
+    setSelectedItem(null)
+    setQuantity('1')
+    setSearchQuery('')
+    setSuggestions([])
+    setSelectedProcessorId(processors.length === 1 ? processors[0].id : '')
+    onClose()
+  }
+
+  const handleSelectItem = async (item: ActionOrConsumable) => {
+    if (quickAdding || isSubmitting) return
+    if (quickAddOnSelect && selectedDepartmentId) {
+      setQuickAdding(true)
+      try {
+        const itemType = item.type === 'CONSUMABLE_DEVICE' ? 'consumable' : 'action'
+        await onAdd(itemType, item, 1, selectedDepartmentId, selectedProcessorId || undefined)
+        resetAndClose()
+      } catch (error) {
+        console.error('Quick add product error:', error)
+        toast.error(error instanceof Error ? error.message : 'Failed to add product')
+      } finally {
+        setQuickAdding(false)
+      }
+      return
+    }
     setSelectedItem(item)
   }
 
@@ -330,13 +359,13 @@ export default function AddActionConsumableModal({
                     return (
                       <div
                         key={item.id}
-                        onClick={() => handleSelectItem(item)}
+                        onClick={() => void handleSelectItem(item)}
                         onMouseEnter={() => setHoveredItemId(item.id)}
                         onMouseLeave={() => setHoveredItemId((prev) => (prev === item.id ? null : prev))}
                         className={
                           `p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 bg-background border-border/40 hover:border-primary/50 hover:shadow-sm hover:scale-[1.01] ${
                             alreadyAdded ? 'opacity-90 border-amber-300 bg-amber-50/50' : ''
-                          }`
+                          } ${quickAdding || isSubmitting ? 'pointer-events-none opacity-60' : ''}`
                         }
                       >
                         <div className="flex items-center justify-between gap-2">

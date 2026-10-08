@@ -5,13 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Check,
   FlaskConical,
+  Loader2,
   Package,
   Pill,
   Plus,
+  Search,
   Stethoscope,
 } from "lucide-react";
 import type { FormBlock } from "@/lib/formbuilder-storage";
+import { useIcd11DiseaseSearch } from "@/hooks/icd11";
 import type { MedicalBlockHandlers } from "../extensions/types";
 import { ProductListenerWithVisitSync } from "./product-listener-sync";
 import { EntryList, PTYPE_COLOR, PTYPE_LABEL } from "./medical-shared";
@@ -39,32 +43,49 @@ export function DiagnosticAnswerBlock({
   edit: boolean;
   handlers?: MedicalBlockHandlers | null;
 }) {
-  const items = handlers?.diagnostics ?? value ?? [];
-  const add = async (diagnosis: string, description?: string) => {
+  const answerEntries = Array.isArray(value) ? value : [];
+  const items = handlers?.diagnostics ?? answerEntries;
+  const add = async (
+    diagnosis: string,
+    icd11Code?: string,
+  ): Promise<boolean> => {
     const name = diagnosis.trim();
-    if (!name) return;
+    if (!name) return false;
     if (handlers?.onAddDiagnosis) {
-      await handlers.onAddDiagnosis(name, description);
-      return;
+      return handlers.onAddDiagnosis(name, icd11Code);
     }
     onChange([
-      ...value,
+      ...answerEntries,
       {
         id: `d${uid()}`,
         diagnosis: name,
-        description: description?.trim() || undefined,
+        icd11Code,
+        type: "FINAL",
+        notes: "",
       },
     ]);
+    return true;
   };
   const remove = async (id: string) => {
     if (handlers?.onRemoveDiagnosis) {
       await handlers.onRemoveDiagnosis(id);
       return;
     }
-    onChange(value.filter((e) => e.id !== id));
+    onChange(answerEntries.filter((e) => e.id !== id));
+  };
+  const updateNotes = async (id: string, notes: string): Promise<boolean> => {
+    if (handlers?.onUpdateDiagnosisNotes) {
+      return handlers.onUpdateDiagnosisNotes(id, notes);
+    }
+    onChange(answerEntries.map((entry) => (
+      entry.id === id ? { ...entry, notes } : entry
+    )));
+    return true;
   };
 
   const canAdd = handlers ? Boolean(handlers.onAddDiagnosis) : edit;
+  const canRemove = handlers ? Boolean(handlers.onRemoveDiagnosis) : edit;
+  const canEditNotes = handlers ? Boolean(handlers.onUpdateDiagnosisNotes) : edit;
 
   return (
     <div className="my-3">
@@ -83,7 +104,7 @@ export function DiagnosticAnswerBlock({
         {canAdd && (
           <DiagnosticDraft
             onAdd={add}
-            placeholder={block.placeholder || "Enter diagnosis name…"}
+            placeholder={block.placeholder || "Search disease or ICD-11 code…"}
           />
         )}
         <EntryList
@@ -91,17 +112,24 @@ export function DiagnosticAnswerBlock({
           items={items}
           render={(e) => (
             <div className="flex-1 min-w-0">
-              <p className="font-medium leading-snug break-words">
-                {e.diagnosis}
-              </p>
-              {e.description && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {e.description}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <p className="font-medium leading-snug break-words">
+                  {e.diagnosis}
                 </p>
-              )}
+                {e.icd11Code && (
+                  <span className="text-xs text-emerald-700 dark:text-emerald-300">
+                    ICD-11 {e.icd11Code}
+                  </span>
+                )}
+              </div>
+              <DiagnosisNotesEditor
+                notes={e.notes ?? ""}
+                canEdit={canEditNotes}
+                onSave={(notes) => updateNotes(e.id, notes)}
+              />
             </div>
           )}
-          onRemove={edit ? remove : undefined}
+          onRemove={canRemove ? remove : undefined}
         />
       </div>
     </div>
@@ -112,51 +140,198 @@ function DiagnosticDraft({
   onAdd,
   placeholder,
 }: {
-  onAdd: (diagnosis: string, description?: string) => void | Promise<void>;
+  onAdd: (diagnosis: string, icd11Code?: string) => Promise<boolean>;
   placeholder: string;
 }) {
-  const [draftDiag, setDraftDiag] = React.useState("");
-  const [draftDesc, setDraftDesc] = React.useState("");
+  const [searchTerm, setSearchTerm] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
-  const submit = async () => {
-    if (!draftDiag.trim() || submitting) return;
+  const [debouncedQuery, setDebouncedQuery] = React.useState("");
+  const { suggestions, loading, error } = useIcd11DiseaseSearch(debouncedQuery);
+
+  React.useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedQuery(searchTerm), 250);
+    return () => window.clearTimeout(timeout);
+  }, [searchTerm]);
+  const searchPending = searchTerm.trim() !== debouncedQuery.trim();
+
+  const addDiagnosis = async (
+    diagnosis: string,
+    icd11Code?: string,
+  ) => {
+    if (!diagnosis.trim() || submitting) return;
     setSubmitting(true);
     try {
-      await onAdd(draftDiag, draftDesc);
-      setDraftDiag("");
-      setDraftDesc("");
+      if (await onAdd(diagnosis, icd11Code)) {
+        setSearchTerm("");
+        setDebouncedQuery("");
+      }
     } finally {
       setSubmitting(false);
     }
   };
   return (
     <>
-      <Input
-        value={draftDiag}
-        onChange={(e) => setDraftDiag(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && submit()}
-        placeholder={placeholder}
-        className="h-8 text-sm bg-white dark:bg-slate-900 border-emerald-300/70 dark:border-emerald-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
-      />
-      <Textarea
-        value={draftDesc}
-        onChange={(e) => setDraftDesc(e.target.value)}
-        placeholder="Notes / description (optional)"
-        className="text-sm min-h-[52px] resize-none bg-white dark:bg-slate-900 border-emerald-300/70 dark:border-emerald-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
-        rows={2}
-      />
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          size="sm"
-          onClick={submit}
-          disabled={!draftDiag.trim() || submitting}
-          className="h-7 rounded-full gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-        >
-          <Plus className="h-3 w-3" /> Add Diagnosis
-        </Button>
+      <div className="relative">
+        <div className="relative">
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void addDiagnosis(searchTerm);
+              }
+            }}
+            placeholder={placeholder}
+            autoComplete="off"
+            aria-autocomplete="list"
+            aria-expanded={searchTerm.trim().length >= 2}
+            className="h-8 text-sm pr-8 bg-white dark:bg-slate-900 border-emerald-300/70 dark:border-emerald-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
+          />
+          {loading ? (
+            <Loader2 className="absolute right-2.5 top-2 h-4 w-4 animate-spin text-muted-foreground" />
+          ) : (
+            <Search className="absolute right-2.5 top-2 h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
+        {searchTerm.trim().length >= 2 && (
+          <div
+            role="listbox"
+            aria-label="ICD-11 disease suggestions"
+            className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-border bg-background shadow-lg"
+          >
+            {error ? (
+              <div className="border-b border-border/50 px-3 py-2 text-xs text-destructive">
+                Disease search is unavailable.
+              </div>
+            ) : searchPending || loading ? (
+              <p className="px-3 py-2 text-xs text-muted-foreground">
+                Searching diseases…
+              </p>
+            ) : suggestions.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-muted-foreground">
+                No ICD-11 matches.
+              </p>
+            ) : (
+              suggestions.map((suggestion, index) => (
+                <button
+                  key={suggestion.id ?? `${suggestion.code}-${index}`}
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  disabled={submitting || !suggestion.title}
+                  onClick={() => {
+                    if (suggestion.title) {
+                      void addDiagnosis(suggestion.title, suggestion.code ?? undefined);
+                    }
+                  }}
+                  className="flex w-full items-center gap-2 border-b border-border/50 px-3 py-2 text-left text-sm last:border-0 hover:bg-muted/60 disabled:opacity-50"
+                >
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {suggestion.title}
+                  </span>
+                  {suggestion.code && (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {suggestion.code}
+                    </span>
+                  )}
+                </button>
+              ))
+            )}
+            <button
+              type="button"
+              role="option"
+              aria-selected={false}
+              disabled={submitting}
+              onClick={() => void addDiagnosis(searchTerm.trim())}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-emerald-700 hover:bg-muted/60 disabled:opacity-50 dark:text-emerald-300"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add “{searchTerm.trim()}” as diagnosis
+            </button>
+          </div>
+        )}
       </div>
     </>
+  );
+}
+
+function DiagnosisNotesEditor({
+  notes,
+  canEdit,
+  onSave,
+}: {
+  notes: string;
+  canEdit: boolean;
+  onSave: (notes: string) => Promise<boolean>;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [draft, setDraft] = React.useState(notes);
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => setDraft(notes), [notes]);
+
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (await onSave(draft.trim())) setOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!canEdit) {
+    return notes ? (
+      <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
+        {notes}
+      </p>
+    ) : null;
+  }
+
+  return (
+    <div className="mt-1">
+      {notes && !open && (
+        <p className="mb-1 whitespace-pre-wrap text-xs text-muted-foreground">
+          {notes}
+        </p>
+      )}
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-300"
+        >
+          {notes ? "Edit notes" : "Add notes"}
+        </button>
+      ) : (
+        <div className="flex items-start gap-2">
+          <Textarea
+            autoFocus
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Add notes for this diagnosis…"
+            rows={2}
+            className="min-h-[52px] resize-y text-xs"
+          />
+          <Button
+            type="button"
+            size="icon"
+            aria-label="Save diagnosis notes"
+            title="Save notes"
+            disabled={saving}
+            onClick={() => void save()}
+            className="h-8 w-8 shrink-0 bg-emerald-600 text-white hover:bg-emerald-700"
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 

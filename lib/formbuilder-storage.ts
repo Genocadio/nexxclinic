@@ -395,7 +395,7 @@ export function fbMakeBlock(type: BlockType): FormBlock {
         id,
         type,
         label: "Diagnoses",
-        placeholder: "Enter diagnosis name…",
+        placeholder: "Search disease or ICD-11 code…",
         required: false,
       };
     case "medication_full":

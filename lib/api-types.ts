@@ -163,6 +163,11 @@ export enum VisitDepartmentStatus {
   DEPARTMENT_EDITING = "DEPARTMENT_EDITING",
 }
 
+export enum VisitDepartmentDiagnosisType {
+  FINAL = "FINAL",
+  HYPOTHESIS = "HYPOTHESIS",
+}
+
 export enum EncounterType {
   OUTPATIENT = "OUTPATIENT",
   INPATIENT_OBSERVATION = "INPATIENT_OBSERVATION",
@@ -630,6 +635,8 @@ export interface VisitDepartmentDiagnosis {
   id: string;
   diagnosisName: string;
   icd11Code?: string | null;
+  type: VisitDepartmentDiagnosisType;
+  notes: string;
   createdAt: string;
 }
 
