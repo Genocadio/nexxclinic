@@ -152,7 +152,7 @@ export function ReportsChart({ data, activeTab }: ReportsChartProps) {
             {(activeTab === "overview" || activeTab === "nurse") && (
               <Bar dataKey="nurse" name="Nursing / Triage" fill="#0284C7" radius={[4, 4, 0, 0]} maxBarSize={36} />
             )}
-            {(activeTab === "overview" || activeTab === "finance") && (
+            {data.canViewFinance && (activeTab === "overview" || activeTab === "finance") && (
               <Bar dataKey="finance" name="Billing / Finance" fill="#F59E0B" radius={[4, 4, 0, 0]} maxBarSize={36} />
             )}
           </BarChart>

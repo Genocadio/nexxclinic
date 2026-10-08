@@ -61,6 +61,8 @@ function CustomMoneyTooltip({ active, payload, label }: any) {
 export function ReportsFinanceView({
   data,
 }: ReportsFinanceViewProps) {
+  if (!data.finance) return null
+
   const money = data.finance.money
 
   // Export financial summary to CSV

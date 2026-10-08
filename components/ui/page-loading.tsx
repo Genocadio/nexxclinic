@@ -30,10 +30,7 @@ export function PageLoading({ className }: PageLoadingProps) {
         className,
       )}
     >
-      <div className="flex h-16 items-center justify-between border-b border-border/40">
-        <span className="size-8 animate-pulse rounded-lg bg-muted" />
-        <span className="h-8 w-8 animate-pulse rounded-full bg-muted" />
-      </div>
+      
       <div className="flex flex-1 items-start justify-center pt-[18vh]">
         <div className="w-full max-w-sm space-y-4">
           <span className="block h-5 w-2/5 animate-pulse rounded bg-muted" />

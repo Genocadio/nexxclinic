@@ -3,7 +3,6 @@
 import React, { useState, useMemo } from "react"
 import {
   Search,
-  Download,
   Filter,
   FileSpreadsheet,
   ChevronLeft,
@@ -12,7 +11,6 @@ import {
   Stethoscope,
   HeartPulse,
   Receipt,
-  Calendar,
   Layers,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -33,6 +31,7 @@ interface ReportsActivityTableProps {
   title?: string | null
   description?: string | null
   hideTitle?: boolean
+  hidePatientDetails?: boolean
 }
 
 const ITEMS_PER_PAGE = 15
@@ -42,6 +41,7 @@ export function ReportsActivityTable({
   title = "Activity Audit Log",
   description = "Detailed log of all individual interactions, records, and dispatches performed by you",
   hideTitle = false,
+  hidePatientDetails = false,
 }: ReportsActivityTableProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("ALL")
@@ -58,8 +58,8 @@ export function ReportsActivityTable({
       // Search term filter
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase()
-        const matchesPatient = act.patientName.toLowerCase().includes(query)
-        const matchesId = (act.patientIdentifier || "").toLowerCase().includes(query)
+        const matchesPatient = !hidePatientDetails && act.patientName.toLowerCase().includes(query)
+        const matchesId = !hidePatientDetails && (act.patientIdentifier || "").toLowerCase().includes(query)
         const matchesDept = (act.departmentName || "").toLowerCase().includes(query)
         const matchesDetails = act.details.toLowerCase().includes(query)
         const matchesAction = act.actionType.toLowerCase().includes(query)
@@ -68,7 +68,7 @@ export function ReportsActivityTable({
 
       return true
     })
-  }, [activities, roleFilter, searchTerm])
+  }, [activities, roleFilter, searchTerm, hidePatientDetails])
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredActivities.length / ITEMS_PER_PAGE))
@@ -86,33 +86,6 @@ export function ReportsActivityTable({
   const handleRoleFilterChange = (val: string) => {
     setRoleFilter(val)
     setCurrentPage(1)
-  }
-
-  // Export to CSV
-  const handleExportCSV = () => {
-    if (!filteredActivities.length) return
-
-    const headers = ["Timestamp", "Role", "Action Type", "Patient Name", "Patient ID", "Department", "Details", "Amount (RWF)", "Status"]
-    const rows = filteredActivities.map((item) => [
-      `"${new Date(item.timestamp).toLocaleString()}"`,
-      `"${item.role}"`,
-      `"${item.actionType.replace(/"/g, '""')}"`,
-      `"${item.patientName.replace(/"/g, '""')}"`,
-      `"${item.patientIdentifier || item.patientId || ""}"`,
-      `"${(item.departmentName || "").replace(/"/g, '""')}"`,
-      `"${item.details.replace(/"/g, '""')}"`,
-      item.amount != null ? item.amount : "",
-      `"${item.status || ""}"`,
-    ])
-
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement("a")
-    link.setAttribute("href", encodedUri)
-    link.setAttribute("download", `user-activity-report-${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
   }
 
   const getRoleBadge = (role: string) => {
@@ -182,18 +155,6 @@ export function ReportsActivityTable({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportCSV}
-              disabled={filteredActivities.length === 0}
-              className="h-9 px-3 gap-1.5 border-border/80 text-foreground hover:bg-muted/80 rounded-xl text-xs font-medium"
-            >
-              <Download className="h-3.5 w-3.5 text-muted-foreground" />
-              Export CSV
-            </Button>
-          </div>
         </div>
       )}
 
@@ -202,7 +163,7 @@ export function ReportsActivityTable({
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by patient, department, action or notes..."
+            placeholder={hidePatientDetails ? "Search by department, action or notes..." : "Search by patient, department, action or notes..."}
             value={searchTerm}
             onChange={handleSearchChange}
             className="pl-9 h-9 text-xs rounded-xl bg-background/60 border-border/70 placeholder:text-muted-foreground/60"
@@ -227,18 +188,6 @@ export function ReportsActivityTable({
           </Select>
         </div>
 
-        {hideTitle && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportCSV}
-            disabled={filteredActivities.length === 0}
-            className="h-9 px-3 gap-1.5 border-border/80 text-foreground hover:bg-muted/80 rounded-xl text-xs font-medium shrink-0 w-full sm:w-auto"
-          >
-            <Download className="h-3.5 w-3.5 text-muted-foreground" />
-            Export CSV
-          </Button>
-        )}
       </div>
 
       {/* Table Container */}
@@ -260,7 +209,7 @@ export function ReportsActivityTable({
                 <th className="py-3 px-4">Time</th>
                 <th className="py-3 px-4">Role</th>
                 <th className="py-3 px-4">Action</th>
-                <th className="py-3 px-4">Patient</th>
+                {!hidePatientDetails && <th className="py-3 px-4">Patient</th>}
                 <th className="py-3 px-4">Department / Service</th>
                 <th className="py-3 px-4">Details</th>
                 <th className="py-3 px-4 text-right">Amount</th>
@@ -275,14 +224,16 @@ export function ReportsActivityTable({
                   </td>
                   <td className="py-3 px-4 whitespace-nowrap">{getRoleBadge(item.role)}</td>
                   <td className="py-3 px-4 font-medium whitespace-nowrap">{item.actionType}</td>
-                  <td className="py-3 px-4">
-                    <div className="font-medium text-foreground">{item.patientName}</div>
-                    {item.patientIdentifier && (
-                      <div className="text-[12px] text-muted-foreground font-mono">
-                        {item.patientIdentifier}
-                      </div>
-                    )}
-                  </td>
+                  {!hidePatientDetails && (
+                    <td className="py-3 px-4">
+                      <div className="font-medium text-foreground">{item.patientName}</div>
+                      {item.patientIdentifier && (
+                        <div className="text-[12px] text-muted-foreground font-mono">
+                          {item.patientIdentifier}
+                        </div>
+                      )}
+                    </td>
+                  )}
                   <td className="py-3 px-4 text-muted-foreground">{item.departmentName || "—"}</td>
                   <td className="py-3 px-4 max-w-[280px] truncate text-muted-foreground" title={item.details}>
                     {item.details}

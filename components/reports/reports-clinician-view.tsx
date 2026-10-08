@@ -31,6 +31,7 @@ import {
 } from "lucide-react"
 import type {
   UserReportsData,
+  ClinicianMoneyReport,
   ClinicianEncounterDetail,
   ClinicianProductTurnoverItem,
   InsuranceMoneySummary,
@@ -55,20 +56,35 @@ interface ReportsClinicianViewProps {
   data: UserReportsData
   isTableExpanded?: boolean
   onToggleTableExpand?: (expanded: boolean) => void
+  financeOnly?: boolean
 }
 
 const ITEMS_PER_PAGE = 15
 
-export function ReportsClinicianView({
+export function ReportsClinicianView(props: ReportsClinicianViewProps) {
+  const money = props.data.clinician.money
+  if (!money) return null
+
+  return <ReportsClinicianViewContent {...props} money={money} />
+}
+
+interface ReportsClinicianViewContentProps extends ReportsClinicianViewProps {
+  money: ClinicianMoneyReport
+}
+
+function ReportsClinicianViewContent({
   data,
+  money,
   isTableExpanded: controlledIsTableExpanded,
   onToggleTableExpand,
-}: ReportsClinicianViewProps) {
+  financeOnly = false,
+}: ReportsClinicianViewContentProps) {
   const clinician = data.clinician
-  const money = clinician.money
 
   // 1. Two Main Tabs: "encounters" (Encounters & Demographics) vs "finance" (Finance & Turnover)
-  const [activeTab, setActiveTab] = useState<"encounters" | "finance">("encounters")
+  const [activeTab, setActiveTab] = useState<"encounters" | "finance">(
+    financeOnly ? "finance" : "encounters"
+  )
 
   // 2. Department Filter: "ALL" or specific department name (Applies across both tabs)
   const [selectedDepartment, setSelectedDepartment] = useState<string>("ALL")
@@ -478,7 +494,7 @@ export function ReportsClinicianView({
   return (
     <div className={cn("transition-all", isTableExpanded ? "flex-1 flex flex-col min-h-0 h-full space-y-0" : "space-y-6")}>
       {/* Top Clinician Sub-Tabs Navigation (Centered & Clear) */}
-      {!isTableExpanded && (
+      {!isTableExpanded && !financeOnly && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card/70 backdrop-blur-xl border border-border/60 p-2 rounded-2xl">
           <div className="flex items-center justify-center gap-2 overflow-x-auto pb-1 sm:pb-0 flex-1">
             {/* TAB 1: Encounters & Demographics */}

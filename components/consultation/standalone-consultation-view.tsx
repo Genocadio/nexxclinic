@@ -157,9 +157,12 @@ export function StandaloneConsultationView({
       answerId: loaderAnswerId,
     });
 
+  const isCompletedDepartment =
+    String(visitDepartment.status || "").toUpperCase() === "COMPLETED";
   const isFinalisedAnswer =
-    locallyFinalised ||
-    String(answer?.status || "").toUpperCase() === "FINAL";
+    !isCompletedDepartment &&
+    (locallyFinalised ||
+      String(answer?.status || "").toUpperCase() === "FINAL");
   const { saveVisitAnswer } = useSaveVisitStandaloneAnswer();
   const { addChildVisitDepartment } = useAddChildVisitDepartment();
   const { addProduct } = useAddProductToVisitDepartment();
@@ -943,6 +946,9 @@ export function StandaloneConsultationView({
       {!patientHistoryOpen && !isFinalisedAnswer && (
         <ConsultationBottomDock
           visitId={visit?.id}
+          departmentId={String(visitDepartment.id)}
+          departmentName={visitDepartment.department?.name}
+          processors={visitDepartment.processors || []}
           onComplete={() => {
             if (unreadNotesCount > 0) {
               toast.warn(

@@ -706,6 +706,27 @@ export const CONSULT_VISIT_MUTATION = gql`
   }
 `;
 
+export const ADD_VISIT_DEPARTMENT_PROCESSOR_MUTATION = gql`
+  mutation AddVisitDepartmentProcessor($visitDepartmentId: ID!, $processorId: ID!) {
+    addVisitDepartmentProcessor(
+      visitDepartmentId: $visitDepartmentId
+      processorId: $processorId
+    ) {
+      status
+      message
+      data {
+        id
+        status
+        processors {
+          id
+          firstName
+          lastName
+        }
+      }
+    }
+  }
+`;
+
 export const CHANGE_VISIT_DEPARTMENT_PROFILE_MUTATION = gql`
   mutation ChangeVisitDepartmentProfile($visitDepartmentId: ID!, $profileId: ID) {
     changeVisitDepartmentProfile(

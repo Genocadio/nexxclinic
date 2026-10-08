@@ -128,6 +128,8 @@ describe("calculateUserReports", () => {
 
   it("calculates multi-role statistics correctly for today", () => {
     const reports = calculateUserReports(mockVisits, mockWorker, "today", "2026-09-29", "2026-09-29")
+    const finance = reports.finance!
+    const clinicianMoney = reports.clinician.money!
 
     expect(reports.workerId).toBe("user-123")
     expect(reports.uniquePatientsTouched).toBe(1)
@@ -149,30 +151,30 @@ describe("calculateUserReports", () => {
     expect(reports.nurse.nursingActsCount).toBe(1) // 1 Injection Act
 
     // Finance check
-    expect(reports.finance.billedItemsCount).toBe(2)
-    expect(reports.finance.totalRevenueBilled).toBe(3000)
+    expect(finance.billedItemsCount).toBe(2)
+    expect(finance.totalRevenueBilled).toBe(3000)
 
     // Money reports check
-    expect(reports.finance.money.totalGrossBilled).toBe(3000)
-    expect(reports.finance.money.insuranceCoveredAmount).toBe(2400)
-    expect(reports.finance.money.patientCashCollected).toBe(400)
-    expect(reports.finance.money.patientLoanAmount).toBe(200)
-    expect(reports.finance.money.loanCount).toBe(1)
-    expect(reports.finance.money.insuranceBreakdown.length).toBe(1)
-    expect(reports.finance.money.insuranceBreakdown[0].insuranceName).toBe("RAMA")
+    expect(finance.money.totalGrossBilled).toBe(3000)
+    expect(finance.money.insuranceCoveredAmount).toBe(2400)
+    expect(finance.money.patientCashCollected).toBe(400)
+    expect(finance.money.patientLoanAmount).toBe(200)
+    expect(finance.money.loanCount).toBe(1)
+    expect(finance.money.insuranceBreakdown.length).toBe(1)
+    expect(finance.money.insuranceBreakdown[0].insuranceName).toBe("RAMA")
 
     // Clinician money and turnover check
-    expect(reports.clinician.money.totalGrossBilled).toBe(3000)
-    expect(reports.clinician.money.insuranceCoveredAmount).toBe(2400)
-    expect(reports.clinician.money.patientCashCollected).toBe(400)
-    expect(reports.clinician.money.patientLoanAmount).toBe(200)
-    expect(reports.clinician.money.totalProductTurnover).toBe(3000)
-    expect(reports.clinician.money.productItemsApprovedCount).toBe(3) // 2 Paracetamol + 1 Injection Act
-    expect(reports.clinician.money.productTurnoverList.length).toBe(2)
-    expect(reports.clinician.money.departmentBreakdown.length).toBe(1)
-    expect(reports.clinician.money.departmentBreakdown[0].departmentName).toBe("General Consultation")
-    expect(reports.clinician.money.insuranceBreakdown.length).toBe(1)
-    expect(reports.clinician.money.insuranceBreakdown[0].insuranceName).toBe("RAMA")
+    expect(clinicianMoney.totalGrossBilled).toBe(3000)
+    expect(clinicianMoney.insuranceCoveredAmount).toBe(2400)
+    expect(clinicianMoney.patientCashCollected).toBe(400)
+    expect(clinicianMoney.patientLoanAmount).toBe(200)
+    expect(clinicianMoney.totalProductTurnover).toBe(3000)
+    expect(clinicianMoney.productItemsApprovedCount).toBe(3) // 2 Paracetamol + 1 Injection Act
+    expect(clinicianMoney.productTurnoverList.length).toBe(2)
+    expect(clinicianMoney.departmentBreakdown.length).toBe(1)
+    expect(clinicianMoney.departmentBreakdown[0].departmentName).toBe("General Consultation")
+    expect(clinicianMoney.insuranceBreakdown.length).toBe(1)
+    expect(clinicianMoney.insuranceBreakdown[0].insuranceName).toBe("RAMA")
 
     // Clinician demographics & operational check
     expect(reports.clinician.demographics.totalPatientsCount).toBe(1)
@@ -230,6 +232,7 @@ describe("calculateUserReports", () => {
     expect(recReports.hasClinician).toBe(false)
     expect(recReports.hasNurse).toBe(false)
     expect(recReports.hasFinance).toBe(false)
+    expect(recReports.canViewFinance).toBe(false)
     expect(recReports.allowedTabs).toEqual(["reception"])
 
     const clinicianOnly: Worker = {
@@ -241,6 +244,7 @@ describe("calculateUserReports", () => {
     expect(clinReports.hasClinician).toBe(true)
     expect(clinReports.hasNurse).toBe(false)
     expect(clinReports.hasFinance).toBe(false)
+    expect(clinReports.canViewFinance).toBe(true)
     expect(clinReports.allowedTabs).toEqual(["clinician"])
   })
 
@@ -277,13 +281,14 @@ describe("calculateUserReports", () => {
     }
 
     const reports = calculateUserReports([unbilledVisit], mockWorker, "today", "2026-09-29", "2026-09-29")
+    const clinicianMoney = reports.clinician.money!
     // Prescriptions count tracks clinical order actions
     expect(reports.clinician.prescriptionsCount).toBe(1)
     // Monetary turnover and totals must remain 0 since item is unbilled (PENDING)
-    expect(reports.clinician.money.totalGrossBilled).toBe(0)
-    expect(reports.clinician.money.totalProductTurnover).toBe(0)
-    expect(reports.clinician.money.productItemsApprovedCount).toBe(0)
-    expect(reports.clinician.money.productTurnoverList[0].isBilled).toBe(false)
+    expect(clinicianMoney.totalGrossBilled).toBe(0)
+    expect(clinicianMoney.totalProductTurnover).toBe(0)
+    expect(clinicianMoney.productItemsApprovedCount).toBe(0)
+    expect(clinicianMoney.productTurnoverList[0].isBilled).toBe(false)
   })
 
   it("excludes money for departments in DEPARTMENT_EDITING mode until completed", () => {
@@ -333,14 +338,15 @@ describe("calculateUserReports", () => {
     } as any
 
     const reports = calculateUserReports([editingVisit], mockWorker, "today", "2026-09-29", "2026-09-29")
+    const clinicianMoney = reports.clinician.money!
     // Encounter is counted
     expect(reports.clinician.consultationsCount).toBe(1)
     // Money is excluded while in DEPARTMENT_EDITING
-    expect(reports.clinician.money.totalGrossBilled).toBe(0)
-    expect(reports.clinician.money.totalProductTurnover).toBe(0)
-    expect(reports.clinician.money.productItemsApprovedCount).toBe(0)
-    expect(reports.clinician.money.departmentBreakdown.length).toBe(1)
-    expect(reports.clinician.money.departmentBreakdown[0].totalAmount).toBe(0)
+    expect(clinicianMoney.totalGrossBilled).toBe(0)
+    expect(clinicianMoney.totalProductTurnover).toBe(0)
+    expect(clinicianMoney.productItemsApprovedCount).toBe(0)
+    expect(clinicianMoney.departmentBreakdown.length).toBe(1)
+    expect(clinicianMoney.departmentBreakdown[0].totalAmount).toBe(0)
     expect(reports.clinician.encountersList[0].totalGross).toBe(0)
   })
 
@@ -419,7 +425,7 @@ describe("calculateUserReports", () => {
     ]
 
     const reports = calculateUserReports(paymentVisits, mockWorker, "today", "2026-09-29", "2026-09-29")
-    const money = reports.finance.money
+    const money = reports.finance!.money
 
     expect(money.totalGrossBilled).toBe(10000)
     expect(money.insuranceCoveredAmount).toBe(7000)
@@ -439,7 +445,6 @@ describe("calculateUserReports", () => {
     expect(reports.reception.visitsInitiatedCount).toBe(0)
     expect(reports.clinician.consultationsCount).toBe(0)
     expect(reports.nurse.vitalsRecordedCount).toBe(0)
-    expect(reports.finance.billedItemsCount).toBe(0)
+    expect(reports.finance!.billedItemsCount).toBe(0)
   })
 })
-

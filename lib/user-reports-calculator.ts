@@ -208,6 +208,7 @@ export interface UserReportsData {
   hasClinician: boolean
   hasNurse: boolean
   hasFinance: boolean
+  canViewFinance: boolean
   isAdminOrManager: boolean
   allowedTabs: Array<"reception" | "clinician" | "nurse" | "finance">
 
@@ -233,7 +234,7 @@ export interface UserReportsData {
     prescriptionsCount: number
     referralsCount: number
     productCategoryBreakdown: Record<string, number>
-    money: ClinicianMoneyReport
+    money: ClinicianMoneyReport | null
     demographics: ClinicianDemographicsReport
     encountersList: ClinicianEncounterDetail[]
     activities: UserActivityItem[]
@@ -255,7 +256,7 @@ export interface UserReportsData {
     billedItemsCount: number
     departmentsBilledCount: number
     activities: UserActivityItem[]
-  }
+  } | null
 
   // Timeline for general activities chart
   timeline: Array<{
@@ -1476,6 +1477,7 @@ export function calculateUserReports(
     hasClinician,
     hasNurse,
     hasFinance,
+    canViewFinance: hasFinance || hasClinician,
     isAdminOrManager,
     allowedTabs,
     totalInteractions,

@@ -278,6 +278,8 @@ export default function DashboardPage() {
   const hasClinicianOrDoctorRole = roles.some((role) =>
     ["CLINICIAN", "DOCTOR"].includes(role),
   )
+  const canEditConsultationAnswers =
+    hasClinicianOrDoctorRole && !hasManagerRole && !hasAdminRole
   const canViewPatientHistory = hasRole(roles, "CLINICIAN")
   // Billables visibility: detailed product names, counts, and items to bill are only visible to FINANCE, ADMIN, and MANAGER
   const canSeeBillables = hasFinanceRole || hasManagerRole || hasAdminRole
@@ -2867,6 +2869,9 @@ export default function DashboardPage() {
                                         "FINALISED" &&
                                       matchingActiveDept.status !== "CANCELLED",
                                   )
+                                  const isCompletedDepartment =
+                                    String(matchingActiveDept?.status || "").toUpperCase() ===
+                                    "COMPLETED"
                                   const consultButtonLabel =
                                     hasExistingAnswer && isEligibleForContinue
                                       ? "Continue"
@@ -2897,7 +2902,8 @@ export default function DashboardPage() {
                                       {!showClosedConsultationActions &&
                                         canSeeVisitActionButtons &&
                                         canSeeConsultButton &&
-                                        canConsultVisit(visit) && (
+                                        canConsultVisit(visit) &&
+                                        !isCompletedDepartment && (
                                           <Tooltip>
                                             <TooltipTrigger asChild>
                                               <button
@@ -2938,6 +2944,9 @@ export default function DashboardPage() {
 
                                       {showClosedConsultationActions && (
                                         <>
+                                          {canEditConsultationAnswers &&
+                                            String(matchedClosedDepartment?.status || "").toUpperCase() !==
+                                              "FINALISED" && (
                                           <Tooltip>
                                             <TooltipTrigger asChild>
                                               <button
@@ -2956,6 +2965,7 @@ export default function DashboardPage() {
                                               <p>Edit Consultation</p>
                                             </TooltipContent>
                                           </Tooltip>
+                                          )}
 
                                           <Tooltip>
                                             <TooltipTrigger asChild>
@@ -2979,6 +2989,29 @@ export default function DashboardPage() {
                                           </Tooltip>
                                         </>
                                       )}
+                                      {canSeeVisitActionButtons &&
+                                        canSeeConsultButton &&
+                                        canEditConsultationAnswers &&
+                                        isCompletedDepartment && (
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  handleEditConsultation(visit)
+                                                }}
+                                                title="Edit Consultation"
+                                                aria-label="Edit Consultation"
+                                                className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-700 hover:bg-slate-800 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                              >
+                                                <FilePenLine className="w-4 h-4 flex-shrink-0" />
+                                              </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>Edit Consultation</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        )}
                                     </>
                                   )
                                 })()}
@@ -3013,6 +3046,7 @@ export default function DashboardPage() {
                                     </Tooltip>
                                   )}
                                 {canSeeVisitActionButtons &&
+                                  canEditConsultationAnswers &&
                                   hasConsultationRole &&
                                   (visit.status === "COMPLETED" ||
                                     visit.status === "CANCELLED") &&

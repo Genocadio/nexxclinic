@@ -11,6 +11,7 @@ import {
   UPDATE_VISIT_DEPARTMENT_STATUS_MUTATION,
   ADD_DEPARTMENT_TO_VISIT_MUTATION,
   CONSULT_VISIT_MUTATION,
+  ADD_VISIT_DEPARTMENT_PROCESSOR_MUTATION,
   CHANGE_VISIT_DEPARTMENT_PROFILE_MUTATION,
   REMOVE_VISIT_DEPARTMENT_PROFILE_MUTATION,
   UPDATE_VISIT_DEPARTMENT_PRODUCT_QUANTITY_MUTATION,
@@ -509,9 +510,26 @@ export function useConsultVisit() {
       console.error("Consult visit error:", err);
       throw err;
     }
+
   };
 
   return { consultVisit, loading, error };
+}
+
+export function useAddVisitDepartmentProcessor() {
+  const [mutation, { loading, error }] = useMutation(
+    ADD_VISIT_DEPARTMENT_PROCESSOR_MUTATION,
+    { refetchQueries: visitRefetchQueries, awaitRefetchQueries: true },
+  );
+
+  const addProcessor = async (visitDepartmentId: string, processorId: string) => {
+    const result = await mutation({
+      variables: { visitDepartmentId, processorId },
+    });
+    return result.data?.addVisitDepartmentProcessor;
+  };
+
+  return { addProcessor, loading, error };
 }
 
 export function useChangeVisitDepartmentProfile() {
