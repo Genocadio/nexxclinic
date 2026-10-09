@@ -208,6 +208,15 @@ export type GqlVisitDepartment = {
     requestsProducts?: boolean | null;
     nursing?: boolean | null;
     supportRequests?: boolean | null;
+    profiles?: Array<{
+      id: string;
+      name: string;
+      encounterType?: string | null;
+      isDefault?: boolean | null;
+      products?: GqlProduct[] | null;
+      createdAt?: string | null;
+      updatedAt?: string | null;
+    }> | null;
   } | null;
   answerId?: string | null;
   hasFinalizedConsultationAnswers?: boolean | null;
@@ -540,7 +549,15 @@ export function mapGqlDepartmentSummary(
       (department.insurancePolicyMode as DepartmentInsurancePolicyMode) ||
       DepartmentInsurancePolicyMode.ALL,
     insurancePolicies: [],
-    profiles: [],
+    profiles: (department.profiles || []).map((profile) => ({
+      id: profile.id,
+      name: profile.name,
+      encounterType: parseEncounterType(profile.encounterType),
+      isDefault: Boolean(profile.isDefault),
+      products: (profile.products || []).map(mapGqlProduct),
+      createdAt: profile.createdAt || EMPTY_TIMESTAMP,
+      updatedAt: profile.updatedAt || EMPTY_TIMESTAMP,
+    })),
     nursing: department.nursing ?? false,
     supportRequests: department.supportRequests ?? false,
     requestsProducts: department.requestsProducts ?? false,
