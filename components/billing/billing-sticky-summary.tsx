@@ -52,6 +52,8 @@ type BillingStickySummaryProps = {
   onEditBilling: () => void;
   onDoneEditing: () => void;
   onCompleteVisit?: () => void;
+  invoiceBlockedUntilComplete?: boolean;
+  onInvoiceBlockedClick?: () => void;
 };
 
 export function BillingStickySummary({
@@ -77,10 +79,19 @@ export function BillingStickySummary({
   onEditBilling,
   onDoneEditing,
   onCompleteVisit,
+  invoiceBlockedUntilComplete = false,
+  onInvoiceBlockedClick,
 }: BillingStickySummaryProps) {
   const remaining = Math.max(0, totals.totalAmount - amountPaid);
   const showActions = canEditBilling || hasRemainingToBill;
   const canAct = !hasUnreadNotes;
+  const handleInvoiceClick = () => {
+    if (invoiceBlockedUntilComplete) {
+      onInvoiceBlockedClick?.();
+      return;
+    }
+    onPrint();
+  };
   const billingTotals = existingVisitBilling
     ? getVisitBillingTotals(existingVisitBilling)
     : null;
@@ -127,70 +138,14 @@ export function BillingStickySummary({
       <div className="px-6">
         <div className="w-full min-w-0 mx-auto px-2 sm:px-4 md:px-[1cm] lg:px-[2cm]">
           <div className="flex items-center gap-4 lg:gap-6">
-            {/* Totals — compact horizontal strip */}
-            <div className="flex-1 flex items-center gap-4 lg:gap-6 min-w-0 overflow-x-auto">
-              {existingVisitBilling && billingTotals && !isEditingBill ? (
-                /* Already billed — show the actual billing breakdown */
-                <div className="flex items-center gap-4 lg:gap-5 text-xs shrink-0">
-                  <SummaryLine
-                    label="Service Total"
-                    value={formatRWF(billingTotals.totalAmount)}
-                  />
-                  {billingTotals.insuranceCoveredAmount > 0 && (
-                    <SummaryLine
-                      label="Insurance"
-                      value={formatRWF(billingTotals.insuranceCoveredAmount)}
-                      className="text-emerald-600 dark:text-emerald-400"
-                    />
-                  )}
-                  {Boolean(billingTotals.waivedAmount && billingTotals.waivedAmount > 0) && (
-                    <SummaryLine
-                      label="Waived"
-                      value={formatRWF(billingTotals.waivedAmount!)}
-                      className="text-purple-600 dark:text-purple-400 font-medium"
-                    />
-                  )}
-                  <SummaryLine
-                    label="Patient"
-                    value={formatRWF(billingTotals.patientPayableAmount)}
-                    hint={
-                      billingTotals.waivedAmount && billingTotals.waivedAmount > 0
-                        ? `Expected ${formatRWF(
-                            billingTotals.patientPayableAmount +
-                              billingTotals.waivedAmount,
-                          )}`
-                        : undefined
-                    }
-                    hintTitle="Patient share before waiver (patient + waived)"
-                  />
-                </div>
-              ) : (
-                /* Pre-billing or editing — show computed totals */
-                <div className="flex items-center gap-4 lg:gap-5 text-xs shrink-0">
-                  <SummaryLine
-                    label="Service Total"
-                    value={formatRWF(totals.subtotal)}
-                  />
-                  {totals.insuranceCoverage > 0 && (
-                    <SummaryLine
-                      label="Insurance"
-                      value={`−${formatRWF(totals.insuranceCoverage)}`}
-                      className="text-emerald-600 dark:text-emerald-400"
-                    />
-                  )}
-                  {Boolean(totals.waivedTotal && totals.waivedTotal > 0) && (
-                    <SummaryLine
-                      label="Waived"
-                      value={`−${formatRWF(totals.waivedTotal!)}`}
-                      className="text-purple-600 dark:text-purple-400 font-medium"
-                    />
-                  )}
-                  <SummaryLine
-                    label="Patient"
-                    value={formatRWF(totals.patientResponsibility)}
-                  />
-                </div>
-              )}
+            <div className="flex-1 flex items-stretch gap-3 lg:gap-4 min-w-0 overflow-x-auto">
+              <BillingBreakdown
+                totals={totals}
+                billingTotals={billingTotals}
+                existingVisitBilling={Boolean(existingVisitBilling)}
+                hasRemainingToBill={hasRemainingToBill}
+                isEditingBill={isEditingBill}
+              />
 
               <div className="h-8 w-px bg-border shrink-0 hidden sm:block" />
 
@@ -205,30 +160,20 @@ export function BillingStickySummary({
                   </p>
                 </div>
               ) : existingVisitBilling && billingTotals ? (
-                /* Already billed — show paid + outstanding */
-                <div className="shrink-0">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
-                    Billed {existingVisitBilling.id.slice(0, 8)}…
+                <div className="rounded-xl border border-border/70 bg-background/40 px-3 py-2 shrink-0">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Payment status
                   </p>
-                  <p className="text-[12px] text-green-600 dark:text-green-400 tabular-nums">
-                    Paid {formatRWF(billingTotals.paidAmount)}
-                  </p>
-                  {billingTotals.loanOutstandingAmount > 0 && (
-                    <p
-                      className="text-[12px] text-orange-600 dark:text-orange-400 tabular-nums"
-                      title="Outstanding declared as a loan — the patient still owes this amount"
-                    >
-                      Outstanding {formatRWF(billingTotals.loanOutstandingAmount)}
-                    </p>
-                  )}
-                  {billingTotals.giveawayOutstandingAmount > 0 && (
-                    <p
-                      className="text-[12px] text-purple-600 dark:text-purple-400 tabular-nums"
-                      title="Outstanding declared as a giveaway — the clinic absorbs this amount"
-                    >
-                      Giveaway {formatRWF(billingTotals.giveawayOutstandingAmount)}
-                    </p>
-                  )}
+                  <div className="flex items-center gap-4 lg:gap-5 text-xs">
+                    <SummaryLine label="Paid" value={formatRWF(billingTotals.paidAmount)} />
+                    <SummaryLine
+                      label="Balance"
+                      value={formatRWF(
+                        billingTotals.loanOutstandingAmount +
+                          billingTotals.giveawayOutstandingAmount,
+                      )}
+                    />
+                  </div>
                 </div>
               ) : (
                 /* Pre-billing — show amount due */
@@ -280,7 +225,7 @@ export function BillingStickySummary({
                   </>
                 )}
 
-                {!isEditingBill && hasRemainingToBill && !existingVisitBilling && (
+                {!isEditingBill && hasRemainingToBill && (
                   <Button
                     size="sm"
                     className="h-9 rounded-full text-xs px-4"
@@ -291,7 +236,7 @@ export function BillingStickySummary({
                   </Button>
                 )}
 
-                {existingVisitBilling && !isEditingBill && (
+                {existingVisitBilling && !isEditingBill && !invoiceBlockedUntilComplete && (
                   <>
                     {printableOptions.length === 1 && !printableOptions[0].hasInsurance ? (
                       <ActionButton
@@ -300,6 +245,10 @@ export function BillingStickySummary({
                           generatingInvoice ? "Loading PDF…" : "Print invoice"
                         }
                         onClick={() => {
+                          if (invoiceBlockedUntilComplete) {
+                            onInvoiceBlockedClick?.();
+                            return;
+                          }
                           if (onPrintInvoice) {
                             void onPrintInvoice(printableOptions[0].id, "PATIENT");
                           } else {
@@ -307,6 +256,8 @@ export function BillingStickySummary({
                           }
                         }}
                         disabled={generatingInvoice}
+                        aria-disabled={invoiceBlockedUntilComplete}
+                        className={invoiceBlockedUntilComplete ? "opacity-50" : undefined}
                       />
                     ) : printableOptions.length > 0 ? (
                       <DropdownMenu>
@@ -316,9 +267,10 @@ export function BillingStickySummary({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-9 w-9 rounded-full relative"
                                 disabled={generatingInvoice}
+                                aria-disabled={invoiceBlockedUntilComplete}
                                 aria-label="Print invoice"
+                                className={invoiceBlockedUntilComplete ? "h-9 w-9 rounded-full relative opacity-50" : "h-9 w-9 rounded-full relative"}
                               >
                                 <Printer className="h-4 w-4" />
                               </Button>
@@ -337,7 +289,7 @@ export function BillingStickySummary({
                                 <>
                                   <DropdownMenuItem
                                     disabled={generatingInvoice}
-                                    onSelect={() => onPrintInvoice?.(opt.id, "INSURANCE")}
+                                    onSelect={() => invoiceBlockedUntilComplete ? onInvoiceBlockedClick?.() : onPrintInvoice?.(opt.id, "INSURANCE")}
                                     className="cursor-pointer"
                                   >
                                     <span className="truncate">📄 Insurer Copy (Claim)</span>
@@ -347,7 +299,7 @@ export function BillingStickySummary({
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     disabled={generatingInvoice}
-                                    onSelect={() => onPrintInvoice?.(opt.id, "PATIENT")}
+                                    onSelect={() => invoiceBlockedUntilComplete ? onInvoiceBlockedClick?.() : onPrintInvoice?.(opt.id, "PATIENT")}
                                     className="cursor-pointer"
                                   >
                                     <span className="truncate">🧾 Patient Receipt & Statement</span>
@@ -359,7 +311,7 @@ export function BillingStickySummary({
                               ) : (
                                 <DropdownMenuItem
                                   disabled={generatingInvoice}
-                                  onSelect={() => onPrintInvoice?.(opt.id, "PATIENT")}
+                                  onSelect={() => invoiceBlockedUntilComplete ? onInvoiceBlockedClick?.() : onPrintInvoice?.(opt.id, "PATIENT")}
                                   className="cursor-pointer"
                                 >
                                   <span className="truncate">🧾 Patient Receipt</span>
@@ -378,8 +330,9 @@ export function BillingStickySummary({
                         label={
                           generatingInvoice ? "Loading PDF…" : "Print invoice"
                         }
-                        onClick={onPrint}
+                        onClick={handleInvoiceClick}
                         disabled={generatingInvoice}
+                        className={invoiceBlockedUntilComplete ? "opacity-50" : undefined}
                       />
                     )}
                   </>
@@ -456,6 +409,117 @@ function SummaryLine({
   );
 }
 
+function BillingBreakdown({
+  totals,
+  billingTotals,
+  existingVisitBilling,
+  hasRemainingToBill,
+  isEditingBill,
+}: {
+  totals: BillingTotals;
+  billingTotals: ReturnType<typeof getVisitBillingTotals> | null;
+  existingVisitBilling: boolean;
+  hasRemainingToBill: boolean;
+  isEditingBill: boolean;
+}) {
+  const billedRow = billingTotals
+    ? {
+        label: "Already billed",
+        total: billingTotals.totalAmount,
+        insurance: billingTotals.insuranceCoveredAmount,
+        exemption: billingTotals.waivedAmount || 0,
+        giveaway: billingTotals.giveawayOutstandingAmount,
+        loan: billingTotals.loanOutstandingAmount,
+        patient: billingTotals.patientPayableAmount,
+      }
+    : null;
+  const newRow = {
+    label: existingVisitBilling ? "New to bill" : "To bill",
+    total: totals.subtotal,
+    insurance: totals.insuranceCoverage,
+    exemption: totals.waivedTotal || 0,
+    giveaway: 0,
+    loan: 0,
+    patient: totals.patientResponsibility,
+  };
+  const rows =
+    !isEditingBill && billedRow && hasRemainingToBill
+      ? [billedRow, newRow]
+      : [billedRow || newRow];
+
+  return (
+    <div className="shrink-0 overflow-hidden rounded-xl border border-border/70 bg-background/40 px-3 py-2">
+      <table className="text-xs">
+        <thead>
+          <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+            <th className="pr-5 font-medium">Summary</th>
+            <th className="px-3 text-right font-medium">Total</th>
+            <th className="px-3 text-right font-medium">Insurance</th>
+            <th className="px-3 text-right font-medium">Adjustments</th>
+            <th className="pl-3 text-right font-medium">Patient payment</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.label} className="border-t border-border/50">
+              <th className="pr-5 py-1 text-left font-medium text-foreground whitespace-nowrap">
+                {row.label}
+              </th>
+              <td className="px-3 py-1 text-right font-semibold tabular-nums">
+                {formatRWF(row.total)}
+              </td>
+              <td className="px-3 py-1 text-right font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                {row.insurance > 0 ? formatRWF(row.insurance) : "—"}
+              </td>
+              <td className="px-3 py-1 text-right font-semibold tabular-nums text-purple-600 dark:text-purple-400">
+                {row.exemption + row.giveaway + row.loan > 0
+                  ? formatRWF(row.exemption + row.giveaway + row.loan)
+                  : "—"}
+                {(row.exemption > 0 || row.giveaway > 0 || row.loan > 0) && (
+                  <div className="mt-0.5 space-y-0.5 text-[10px] font-normal leading-tight text-muted-foreground">
+                    {row.exemption > 0 && (
+                      <div>Exemption {formatRWF(row.exemption)}</div>
+                    )}
+                    {row.giveaway > 0 && (
+                      <div>Giveaway {formatRWF(row.giveaway)}</div>
+                    )}
+                    {row.loan > 0 && (
+                      <div>Loan {formatRWF(row.loan)}</div>
+                    )}
+                  </div>
+                )}
+              </td>
+              <td
+                className="pl-3 py-1 text-right font-semibold tabular-nums"
+                title={
+                  row.label === "Already billed" && billingTotals?.paymentMethods.length
+                    ? `Payment mode: ${billingTotals.paymentMethods.join(", ")}`
+                    : undefined
+                }
+              >
+                <div>{formatRWF(row.patient)}</div>
+                {row.exemption > 0 && (
+                  <div className="text-[10px] font-normal text-muted-foreground">
+                    Expected {formatRWF(row.patient + row.exemption)}
+                  </div>
+                )}
+                {row.label === "Already billed" &&
+                  billingTotals?.paymentMethods.length ? (
+                  <div className="text-[10px] font-normal text-muted-foreground">
+                    {billingTotals.paymentMethods
+                      .map((method) => method.replaceAll("_", " "))
+                      .join(", ")}
+                  </div>
+                ) : null}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ActionButton({
   icon: Icon,
   label,
@@ -463,6 +527,7 @@ function ActionButton({
   disabled,
   badge,
   tooltipOverride,
+  className,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -470,6 +535,7 @@ function ActionButton({
   disabled?: boolean;
   badge?: number;
   tooltipOverride?: string;
+  className?: string;
 }) {
   return (
     <Tooltip>
@@ -477,7 +543,7 @@ function ActionButton({
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-full relative"
+          className={`h-9 w-9 rounded-full relative ${className || ""}`}
           onClick={onClick}
           disabled={disabled}
           aria-label={label}

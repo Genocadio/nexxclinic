@@ -59,6 +59,7 @@ export function visitProductToFormAction(line: {
   quantity?: number;
   price?: number | null;
   billingConfirmationStatus?: any;
+  billingState?: 'UNBILLED' | 'BILLED' | 'CORRECTING' | null;
   source?: string | null;
   confirmedBy?: { firstName?: string | null; lastName?: string | null } | null;
   product: {
@@ -90,6 +91,7 @@ export function visitProductToFormAction(line: {
     profileSource: line.source === "PROFILE",
     billingConfirmationStatus: line.billingConfirmationStatus || null,
     confirmedByName,
+    billingState: line.billingState || null,
   };
 }
 

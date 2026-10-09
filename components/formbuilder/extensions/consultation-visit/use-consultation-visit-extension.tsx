@@ -66,6 +66,7 @@ function mapDepartmentProducts(dept: VisitDepartment | null): FormAction[] {
     visitProductToFormAction({
       id: String(line.id),
       quantity: line.quantity,
+      billingState: line.billingState,
       billingConfirmationStatus: line.billingConfirmationStatus,
       confirmedBy: line.confirmedBy,
       product: {

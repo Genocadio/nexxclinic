@@ -22,7 +22,6 @@ import type {
   BillingPaymentMethod,
 } from "@/hooks/billing/hooks";
 import { useCreateBill } from "@/hooks/billing/hooks";
-import { useUpdateVisitDepartmentStatus } from "@/hooks/auth-hooks";
 import { isInsuranceActive } from "@/lib/insurance-utils";
 
 /**
@@ -43,7 +42,6 @@ export function useQuickBillReview(options?: {
 
   const [fetchVisit] = useLazyQuery(GET_VISIT_QUERY);
   const { createBill, loading: creatingBill } = useCreateBill();
-  const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus();
 
   // ── Derived (from the fetched full visit) ─────────────────────────────
   const activeVisitInsurances = useMemo<PatientInsurance[]>(() => {
@@ -175,21 +173,6 @@ export function useQuickBillReview(options?: {
     try {
       const response = await createBill(input);
       if (response.status === "SUCCESS") {
-        // Best-effort: complete any department left pending so the visit is in
-        // a consistent billed state.
-        try {
-          const allDepts = (visit?.departments || []) as Array<{
-            id: string;
-            status?: string;
-          }>;
-          for (const dept of allDepts) {
-            if (dept.status && dept.status !== "COMPLETED") {
-              await updateDepartmentStatus(String(dept.id), "COMPLETED");
-            }
-          }
-        } catch {
-          // Completing departments is best-effort; billing already succeeded.
-        }
         setOpen(false);
         setVisit(null);
         setBillingData(null);
@@ -213,7 +196,6 @@ export function useQuickBillReview(options?: {
     insuranceOptions,
     createBill,
     visit,
-    updateDepartmentStatus,
     options,
   ]);
 

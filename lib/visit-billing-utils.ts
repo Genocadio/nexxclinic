@@ -27,6 +27,7 @@ export type VisitBillingTotals = {
   /** Residual declared GIVEAWAY (clinic absorbs) — label this "Giveaway". */
   giveawayOutstandingAmount: number;
   waivedAmount?: number;
+  paymentMethods: string[];
 };
 
 const EMPTY_TS = "";
@@ -343,6 +344,14 @@ export function getVisitBillingTotals(
       }
     }
   }
+  const paymentMethods = Array.from(
+    new Set(
+      (visitBilling?.departments || [])
+        .flatMap((department) => department.payments || [])
+        .map((payment) => String(payment.paymentMethod || ""))
+        .filter(Boolean),
+    ),
+  );
 
   // Outstanding is the patient's residual only (patient payable minus paid).
   // It must never include the insurance-contributed amount, so if the
@@ -367,6 +376,7 @@ export function getVisitBillingTotals(
     loanOutstandingAmount,
     giveawayOutstandingAmount,
     waivedAmount,
+    paymentMethods,
   };
 }
 

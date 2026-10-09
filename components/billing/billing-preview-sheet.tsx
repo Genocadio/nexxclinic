@@ -69,8 +69,12 @@ interface BillingPreviewSheetProps {
   previewStartedAt?: number | null;
   onPrintInvoice?: (departmentInsuranceBillingId: string, copyType?: string) => Promise<void>;
   onDownloadInvoice?: (departmentInsuranceBillingId: string, copyType?: string) => Promise<void>;
+  onCompleteVisit?: () => void;
   onViewMore?: () => void;
   canViewMore?: boolean;
+  canCompleteVisit?: boolean;
+  completingVisit?: boolean;
+  canPrintInvoices?: boolean;
   printingInvoice?: boolean;
   isEditMode?: boolean;
   scopeToSelectedDepartment?: boolean;
@@ -87,8 +91,12 @@ export function BillingPreviewSheet({
   onDepartmentSelect,
   onPrintInvoice,
   onDownloadInvoice,
+  onCompleteVisit,
   onViewMore,
   canViewMore = false,
+  canCompleteVisit = false,
+  completingVisit = false,
+  canPrintInvoices = true,
   printingInvoice = false,
   isEditMode = false,
   scopeToSelectedDepartment = false,
@@ -496,7 +504,17 @@ export function BillingPreviewSheet({
                           View more
                         </button>
                       )}
-                      {visitBilling && printableInvoiceGroups.length > 0 && !isEditMode &&
+                      {onCompleteVisit && canCompleteVisit && (
+                        <button
+                          type="button"
+                          onClick={onCompleteVisit}
+                          disabled={completingVisit}
+                          className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {completingVisit ? "Completing…" : "Complete visit"}
+                        </button>
+                      )}
+                      {canPrintInvoices && visitBilling && printableInvoiceGroups.length > 0 && !isEditMode &&
                         (printableInvoiceGroups.length === 1 && !printableInvoiceGroups[0].hasInsurance ? (
                           <button
                             type="button"
@@ -641,7 +659,7 @@ export function BillingPreviewSheet({
                                       ? ` • ${group.insuranceLabel}`
                                       : ""}
                                   </div>
-                                  {group.id && !isEditMode ? (
+                                  {group.id && !isEditMode && canPrintInvoices ? (
                                     <div className="flex items-center gap-1.5 shrink-0">
                                       {Boolean(
                                         group.insuranceCoveredAmount > 0 ||

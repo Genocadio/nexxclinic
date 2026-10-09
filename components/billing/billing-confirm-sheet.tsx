@@ -52,6 +52,8 @@ type BillingConfirmSheetProps = {
   billingNotes?: string;
   onBillingNotesChange?: (notes: string) => void;
   onConfirm: () => void;
+  onConfirmAndContinue?: () => void;
+  onConfirmAndComplete?: () => void;
   editWarning?: string | null;
 };
 
@@ -124,6 +126,8 @@ export function BillingConfirmSheet({
   billingNotes = "",
   onBillingNotesChange,
   onConfirm,
+  onConfirmAndContinue,
+  onConfirmAndComplete,
   editWarning = null,
 }: BillingConfirmSheetProps) {
   const itemsToBill = items.filter((item) => item.paymentStatus !== "paid");
@@ -529,26 +533,36 @@ export function BillingConfirmSheet({
         </div>
 
         <SheetFooter className="px-4 py-3 border-t border-border gap-2 sm:flex-row">
-          <Button
-            type="button"
-            variant="outline"
-            className="flex-1"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            className="flex-1"
-            disabled={creatingBill || (noteRequired && !billingNotes?.trim())}
-            onClick={onConfirm}
-          >
-            {creatingBill
-              ? "Processing…"
-              : showItemsReview
-                ? "Confirm & Complete"
-                : "Save changes"}
-          </Button>
+          {showItemsReview ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                disabled={creatingBill || (noteRequired && !billingNotes?.trim())}
+                onClick={onConfirmAndContinue || onConfirm}
+              >
+                {creatingBill ? "Processing…" : "Confirm & Continue"}
+              </Button>
+              <Button
+                type="button"
+                className="flex-1"
+                disabled={creatingBill || (noteRequired && !billingNotes?.trim())}
+                onClick={onConfirmAndComplete || onConfirm}
+              >
+                {creatingBill ? "Processing…" : "Confirm & Complete"}
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              className="flex-1"
+              disabled={creatingBill || (noteRequired && !billingNotes?.trim())}
+              onClick={onConfirm}
+            >
+              {creatingBill ? "Processing…" : "Save changes"}
+            </Button>
+          )}
         </SheetFooter>
       </SheetContent>
     </Sheet>

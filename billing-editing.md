@@ -16,7 +16,7 @@ On a billed/completed visit, the normal clinical mutations are **blocked** by th
 | Normal mutation | Block message on billed visit |
 |---|---|
 | `addVisitDepartmentProduct` | "Cannot add products to a completed visit." |
-| `updateVisitDepartmentProductQuantity` | "Cannot change the quantity of a product in a billed department. Use editBillVisit to correct the billing." |
+| `updateVisitDepartmentProductQuantity` | Billed product line; use editBillVisit to correct the billing. New unbilled products remain editable even when the department has earlier billed products. |
 | `removeVisitDepartmentProduct` | "Cannot remove a product from a billed department. Use editBillVisit to correct the billing." |
 
 These guards exist to protect the billing audit trail. **All product changes on a billed visit must go through `editBillVisit`.**

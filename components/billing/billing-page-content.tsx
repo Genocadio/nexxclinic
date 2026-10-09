@@ -580,6 +580,11 @@ export function BillingPageContent() {
     canViewBilledReadOnly ||
     canEditBilling ||
     (!effectiveIsAlreadyBilled && hasRemainingToBill);
+  const activeDepartmentCanAcceptProducts =
+    Boolean(activeVisitDepartment?.id) &&
+    !["COMPLETED", "FINALISED", "CANCELLED"].includes(
+      String(activeVisitDepartment?.status || "").toUpperCase(),
+    );
 
 
 
@@ -971,6 +976,8 @@ export function BillingPageContent() {
 
   const [completeVisitConfirmOpen, setCompleteVisitConfirmOpen] =
     useState(false);
+  const [invoiceCompletionPromptOpen, setInvoiceCompletionPromptOpen] =
+    useState(false);
 
   const handleCompleteVisit = async () => {
     if (!visitId) return;
@@ -989,6 +996,35 @@ export function BillingPageContent() {
       console.error("Complete visit error:", err);
       toast.error("Failed to complete visit. Please try again.");
     }
+  };
+
+  const invoiceBlockedUntilComplete = Boolean(
+    existingVisitBilling &&
+      !activeDeptHasUnbilled &&
+      activeVisitDepartment &&
+      !["COMPLETED", "FINALISED", "CANCELLED"].includes(
+        String(activeVisitDepartment.status || "").toUpperCase(),
+      ),
+  );
+
+  const handleInvoiceBlockedClick = () => {
+    setInvoiceCompletionPromptOpen(true);
+  };
+
+  const completeDepartmentAndPrintInvoice = async () => {
+    if (!activeVisitDepartment?.id) return;
+    setInvoiceCompletionPromptOpen(false);
+    const result = await updateDepartmentStatus(
+      String(activeVisitDepartment.id),
+      "COMPLETED",
+    );
+    if (result?.status !== "SUCCESS") {
+      toast.error(result?.message || "Failed to complete the department.");
+      return;
+    }
+    await refetchVisit();
+    await refetchBill();
+    await handlePrintBillingInvoice();
   };
 
   const {
@@ -1027,6 +1063,7 @@ export function BillingPageContent() {
     ENABLE_DISCHARGE,
     previewDepartmentId,
     doctor,
+    hasUnbilledProducts: hasRemainingToBill,
     createBill,
     editBill,
     generateInvoice,
@@ -1180,21 +1217,19 @@ export function BillingPageContent() {
           items={itemsToDisplay}
           editMode={isEditMode}
           canAddItems={
-            // Edit mode (Finance): can add products even on already-billed visits.
-            // Normal mode: only when not yet billed and no unread notes.
+            // New products are incremental billing items. They can be added to
+            // an active department even when earlier products were billed.
             unreadBillingNotesCount === 0 &&
             (isEditMode
               ? canEditBilling
-              : !effectiveIsAlreadyBilled && canBill && hasRemainingToBill)
+              : canBill && activeDepartmentCanAcceptProducts)
           }
           quantityUpdating={updatingQuantity}
           canEdit={
-            // Edit mode (Finance): full editing power regardless of paid status.
-            // Normal mode: Finance only, not yet billed, no unread notes.
-            unreadBillingNotesCount === 0 &&
-            canEditBillingItems &&
-            canEditBilling &&
-            (isEditMode || !effectiveIsAlreadyBilled)
+          // Paid rows remain locked by BillingItemRow; this enables removal
+          // and adjustment of newly added unbilled rows after prior billing.
+          unreadBillingNotesCount === 0 &&
+          (isEditMode ? canEditBillingItems && canEditBilling : canBill && activeDeptHasUnbilled)
           }
           visitInsuranceOptions={visitInsuranceOptions}
           activeProfile={activeVisitDepartment?.profile ?? null}
@@ -1263,6 +1298,10 @@ export function BillingPageContent() {
             onPreview={() => void handlePreviewBilling()}
             onPrint={() => void handlePrintBillingInvoice()}
             onPrintInvoice={handleDownloadInvoice}
+            invoiceBlockedUntilComplete={hasRemainingToBill}
+            onInvoiceBlockedClick={() =>
+              toast.info("Bill all unbilled products before printing an invoice.")
+            }
             canCompleteVisit={canCompleteVisit}
             completingVisit={completingVisit}
             onCompleteVisit={() => {
@@ -1416,7 +1455,19 @@ export function BillingPageContent() {
           if (confirmSheetMode === "complete" || confirmSheetMode === "edit") {
             // Both flows call handleGenerateBill — the function itself decides
             // whether to call billVisit or editBillVisit based on existingVisitBilling.
-            await handleGenerateBill();
+            await handleGenerateBill(true);
+          }
+        }}
+        onConfirmAndContinue={async () => {
+          setShowCompleteBillConfirm(false);
+          if (confirmSheetMode === "complete" || confirmSheetMode === "edit") {
+            await handleGenerateBill(false);
+          }
+        }}
+        onConfirmAndComplete={async () => {
+          setShowCompleteBillConfirm(false);
+          if (confirmSheetMode === "complete" || confirmSheetMode === "edit") {
+            await handleGenerateBill(true);
           }
         }}
       />
@@ -1465,14 +1516,35 @@ export function BillingPageContent() {
         onDepartmentSelect={setPreviewDepartmentId}
         scopeToSelectedDepartment={true}
         previewStartedAt={previewStartedAt}
-        onPrintInvoice={handleDownloadInvoice}
-        onDownloadInvoice={handleDownloadInvoice}
+        onPrintInvoice={hasRemainingToBill ? undefined : handleDownloadInvoice}
+        onDownloadInvoice={hasRemainingToBill ? undefined : handleDownloadInvoice}
+        onCompleteVisit={() => {
+          if (unreadBillingNotesCount > 0) {
+            toast.warn("Please view the notes first before completing this visit.");
+            return;
+          }
+          setCompleteVisitConfirmOpen(true);
+        }}
+        canCompleteVisit={canCompleteVisit}
+        completingVisit={completingVisit}
+        canPrintInvoices={!hasRemainingToBill}
         canViewMore={false}
         onViewMore={() => {
           router.push(`/billing?visitId=${visit?.id}`);
         }}
         printingInvoice={generatingInvoice}
         isEditMode={isEditMode}
+      />
+
+      <ConfirmDialog
+        open={invoiceCompletionPromptOpen}
+        onOpenChange={setInvoiceCompletionPromptOpen}
+        title="Complete department before printing?"
+        description="All current products are billed, but this department is still ongoing. Complete it and generate the invoice, or keep it ongoing so the clinician can add more products."
+        confirmLabel="Complete & Print Invoice"
+        onConfirm={() => {
+          void completeDepartmentAndPrintInvoice();
+        }}
       />
 
       <ConfirmDialog

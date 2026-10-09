@@ -1,7 +1,6 @@
 "use client";
 
-import { Plus, Shield, ChevronDown, Info, ShieldAlert } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Plus, ChevronDown, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -10,10 +9,8 @@ import {
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import type { PatientInsurance } from "@/lib/api-types";
-import {
-  isInsuranceActive,
-  insuranceStatusLabel,
-} from "@/lib/insurance-utils";
+import { isInsuranceActive, insuranceStatusLabel } from "@/lib/insurance-utils";
+import { PatientInsuranceBadge } from "@/components/patient-insurance-badge";
 import { VisitPresenceBadge } from "@/components/visit-presence-badge";
 
 type BillingPatientBarProps = {
@@ -102,25 +99,11 @@ export function BillingPatientBar({
             <div className="flex items-center gap-2 shrink-0">
               {visitActiveInsurances.length > 0 ? (
                 visitActiveInsurances.map((pIns) => {
-                  const active = isInsuranceActive(pIns);
                   return (
-                    <Badge
+                    <PatientInsuranceBadge
                       key={pIns.id}
-                      variant="outline"
-                      className={`h-6 px-2 text-[12px] font-medium rounded-full border ${
-                        active
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                          : "bg-gray-100 text-gray-400 border-gray-300 dark:bg-gray-800 dark:text-gray-500 dark:border-gray-700 opacity-60"
-                      }`}
-                      title={active ? "Used for billing on this visit" : insuranceStatusLabel(pIns)}
-                    >
-                      {active ? (
-                        <Shield className="h-3 w-3 mr-1" />
-                      ) : (
-                        <ShieldAlert className="h-3 w-3 mr-1" />
-                      )}
-                      {pIns.insuranceProvider.acronym}
-                    </Badge>
+                      insurance={pIns}
+                    />
                   );
                 })
               ) : (

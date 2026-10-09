@@ -112,6 +112,7 @@ export default function FormActionsDisplay({
   }
   const renderItem = (item: FormAction) => {
     const isRemoved = item.removedFromVisit === true
+    const isBilled = item.billingState === 'BILLED'
 
     return (
       <div
@@ -136,6 +137,11 @@ export default function FormActionsDisplay({
             <p className={`text-sm font-medium truncate leading-tight ${isRemoved ? 'line-through text-muted-foreground' : ''}`}>
               {item.name}
             </p>
+            {isBilled && !isRemoved && (
+              <span className="shrink-0 text-[11px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">
+                Billed
+              </span>
+            )}
             {item.billingConfirmationStatus === "PENDING_OPERATOR_CONFIRMATION" &&
               !confirmedIds.has(item.id) && (
                 <span className="shrink-0 text-[11px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-medium">
@@ -212,9 +218,9 @@ export default function FormActionsDisplay({
                     variant="outline"
                     size="sm"
                     className="h-6 w-6 p-0 rounded-full"
-                    disabled={isRemoved || busyId === item.id}
+                    disabled={isRemoved || isBilled || busyId === item.id}
                     onClick={() => {
-                      if (isRemoved || busyId === item.id) return
+                      if (isRemoved || isBilled || busyId === item.id) return
                       const next = Math.max(1, item.quantity - 1)
                       canUseServer && item.backendId
                         ? updateServerQuantity(item, next)
@@ -231,7 +237,7 @@ export default function FormActionsDisplay({
                       type="number"
                       min={1}
                       value={draftQty}
-                      disabled={busyId === item.id}
+                      disabled={isBilled || busyId === item.id}
                       onChange={(e) => setDraftQty(e.target.value)}
                       onFocus={(e) => e.target.select()}
                       onBlur={() => {
@@ -259,7 +265,7 @@ export default function FormActionsDisplay({
                       className="text-xs tabular-nums font-medium w-8 text-center cursor-text hover:text-primary transition-colors select-none"
                       title="Click to edit quantity"
                       onClick={() => {
-                        if (isRemoved || busyId === item.id) return
+                        if (isRemoved || isBilled || busyId === item.id) return
                         setDraftQty(String(item.quantity))
                         setEditingId(item.id)
                         // focus after render
@@ -274,9 +280,9 @@ export default function FormActionsDisplay({
                     variant="outline"
                     size="sm"
                     className="h-6 w-6 p-0 rounded-full"
-                    disabled={isRemoved || busyId === item.id}
+                    disabled={isRemoved || isBilled || busyId === item.id}
                     onClick={() => {
-                      if (isRemoved || busyId === item.id) return
+                      if (isRemoved || isBilled || busyId === item.id) return
                       const next = item.quantity + 1
                       canUseServer && item.backendId
                         ? updateServerQuantity(item, next)
@@ -306,8 +312,9 @@ export default function FormActionsDisplay({
                   variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  disabled={busyId === item.id}
+                  disabled={isBilled || busyId === item.id}
                   onClick={() => {
+                    if (isBilled) return
                     if (isRemoved) {
                       onRemove?.(item.id)
                       return

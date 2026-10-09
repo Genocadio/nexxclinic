@@ -60,6 +60,7 @@ export interface BillingActionsContext {
   activeService?: string;
   canDischargeVisit: boolean;
   unreadBillingNotesCount: number;
+  hasUnbilledProducts: boolean;
   creatingBill: boolean;
   editingBill: boolean;
   isEditingBill: boolean;
@@ -141,6 +142,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     activeService,
     canDischargeVisit,
     unreadBillingNotesCount,
+    hasUnbilledProducts,
     creatingBill,
     editingBill,
     isEditingBill,
@@ -183,6 +185,10 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
   ) => {
     if (unreadBillingNotesCount > 0) {
       toast.warn("Please read the unread notes before generating an invoice.");
+      return;
+    }
+    if (hasUnbilledProducts) {
+      toast.info("Bill all unbilled products before generating an invoice.");
       return;
     }
     const invoiceUrl = await resolveInvoiceUrl(
@@ -313,7 +319,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     setPreviewOpen(true);
   };
 
-  const handleGenerateBill = async () => {
+  const handleGenerateBill = async (completeDepartment = false) => {
     if (!billingData || creatingBill || editingBill) return;
 
     if (unreadBillingNotesCount > 0) {
@@ -436,7 +442,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         })),
       }));
       let response: ApiResponse<VisitBilling>;
-      if (existingVisitBilling) {
+      if (isEditingBill) {
         // DEPARTMENT_EDITING: the department should already be in DEPARTMENT_EDITING
         // mode (set when the user clicked Edit). We just submit the edit and
         // the backend auto-restores the department status.
@@ -484,6 +490,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           (d) => (d.department?.name || "General") === activeService,
         );
         if (
+          completeDepartment &&
           activeDept &&
           activeDept.status !== "COMPLETED" &&
           activeDept.status !== "DEPARTMENT_EDITING"
@@ -499,9 +506,38 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
         await refetchBill();
 
         const freshVisitData = (freshVisitRes as any)?.data?.visit?.data;
-        const updatedVisit: Visit | undefined = freshVisitData
+        let updatedVisit: Visit | undefined = freshVisitData
           ? (freshVisitData as any)
           : visit;
+
+        if (!completeDepartment) {
+          const updatedActiveDept = updatedVisit?.departments?.find(
+            (d) => (d.department?.name || "General") === activeService,
+          );
+          if (
+            updatedActiveDept?.id &&
+            !["ACTIVE", "COMPLETED", "FINALISED", "CANCELLED"].includes(
+              String(updatedActiveDept.status || "").toUpperCase(),
+            )
+          ) {
+            const reopenResponse = await updateDepartmentStatus(
+              String(updatedActiveDept.id),
+              "ACTIVE",
+            );
+            if (reopenResponse.status !== "SUCCESS") {
+              toast.error(
+                reopenResponse.message ||
+                  "The bill was saved, but the department could not be reopened.",
+              );
+              return;
+            }
+            const reopenedVisitRes = await refetchVisit();
+            const reopenedVisitData = (reopenedVisitRes as any)?.data?.visit?.data;
+            if (reopenedVisitData) {
+              updatedVisit = reopenedVisitData as Visit;
+            }
+          }
+        }
 
         const allDepts = flattenVisitDepartmentsForBilling(
           updatedVisit?.departments || [],

@@ -78,8 +78,8 @@ export function useBillingPageState() {
 
     // In edit mode, skip the backend mutation — the quantity change will be
     // submitted as part of editBillVisit (via updatedProducts + billProducts).
-    // The normal updateVisitDepartmentProductQuantity mutation is blocked on
-    // billed departments.
+    // The normal quantity mutation is allowed for new unbilled products;
+    // billed product quantities remain locked by the backend.
     if (isEditingBill) {
       handleItemChange({ ...item, quantity: nextQty });
       return;

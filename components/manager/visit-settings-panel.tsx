@@ -207,7 +207,7 @@ export function VisitSettingsPanel({
   )
   // Confirmation dialog state
   const [deleteTarget, setDeleteTarget] = useState<
-    { type: "visit" | "cancel-visit" | "department" | "finalise" | "cancel-department" | "discharge" | "re-enable-department"; id: string; name: string } | null
+    { type: "visit" | "cancel-visit" | "department" | "finalise" | "cancel-department" | "discharge" | "re-enable-department" | "open-department"; id: string; name: string } | null
   >(null)
   // Pending date changes per department (encounter date & billing date)
   const [pendingDepartmentEncounterDate, setPendingDepartmentEncounterDate] = useState<{
@@ -336,6 +336,26 @@ export function VisitSettingsPanel({
       },
       onError: (error) => {
         toast.error(error.message || "Failed to re-enable department")
+      },
+    },
+  )
+
+  const [openDepartmentMutation, { loading: openingDept }] = useMutation(
+    UPDATE_VISIT_DEPARTMENT_STATUS_MUTATION,
+    {
+      ...refetchConfig,
+      onCompleted: (data) => {
+        handleResponse(data?.updateVisitDepartmentStatus, {
+          successMessage: "Visit opened successfully. You can add new products.",
+          onSuccess: () => {
+            onVisitUpdated?.()
+            void fetchBilling({ variables: { visitId: visit.id } })
+            void fetchProfiles({ variables: { visitId: visit.id } })
+          },
+        })
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to open visit")
       },
     },
   )
@@ -946,6 +966,11 @@ export function VisitSettingsPanel({
     setDeleteTarget({ type: "re-enable-department", id: departmentId, name: dept?.department?.name || 'this department' })
   }
 
+  const handleOpenDepartment = (departmentId: string) => {
+    const dept = visit.departments?.find((d) => d.id === departmentId)
+    setDeleteTarget({ type: "open-department", id: departmentId, name: dept?.department?.name || "this department" })
+  }
+
   const handleFinaliseDepartment = (departmentId: string) => {
     const dept = visit.departments?.find((d) => d.id === departmentId)
     setDeleteTarget({ type: "finalise", id: departmentId, name: dept?.department?.name || 'this department' })
@@ -981,6 +1006,15 @@ export function VisitSettingsPanel({
           },
         },
       })
+    } else if (deleteTarget.type === "open-department") {
+      await openDepartmentMutation({
+        variables: {
+          input: {
+            visitDepartmentId: deleteTarget.id,
+            status: "ACTIVE",
+          },
+        },
+      })
     }
     setDeleteTarget(null)
   }
@@ -1011,6 +1045,8 @@ export function VisitSettingsPanel({
               ? `Cancel "${deleteTarget?.name || ''}"?`
               : deleteTarget?.type === "re-enable-department"
                 ? `Re-enable "${deleteTarget?.name || ''}"?`
+                : deleteTarget?.type === "open-department"
+                  ? `Open "${deleteTarget?.name || ''}" for new products?`
                 : `Remove "${deleteTarget?.name || ''}"?`;
 
   const deleteDialogDeps =
@@ -1326,20 +1362,36 @@ export function VisitSettingsPanel({
                                     </button>
                                   ) : (
                                     (dept.status === "COMPLETED" || dept.status === "FINALISED") && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleStartBillEditing(dept.id)}
-                                        disabled={startingBillEdit}
-                                        className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow-xs"
-                                        title="Enable billing editing mode on this department"
-                                      >
-                                        {startingBillEdit ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                          <ReceiptText className="h-3 w-3" />
-                                        )}
-                                        Enable Billing Edit
-                                      </button>
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartBillEditing(dept.id)}
+                                          disabled={startingBillEdit}
+                                          className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow-xs"
+                                          title="Enable billing editing mode on this department"
+                                        >
+                                          {startingBillEdit ? (
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                          ) : (
+                                            <ReceiptText className="h-3 w-3" />
+                                          )}
+                                          Enable Billing Edit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenDepartment(dept.id)}
+                                          disabled={openingDept}
+                                          className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 dark:hover:bg-sky-900/60 border border-sky-200 dark:border-sky-800 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow-xs"
+                                          title="Open the visit for adding new products without deleting existing products"
+                                        >
+                                          {openingDept ? (
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                          ) : (
+                                            <RotateCcw className="h-3 w-3" />
+                                          )}
+                                          Open Visit
+                                        </button>
+                                      </>
                                     )
                                   )}
                                 </>

@@ -22,6 +22,7 @@ export interface FormAction {
   removedFromVisit?: boolean
   billingConfirmationStatus?: 'CONFIRMED' | 'PENDING_OPERATOR_CONFIRMATION' | 'REJECTED' | null
   confirmedByName?: string | null
+  billingState?: 'UNBILLED' | 'BILLED' | 'CORRECTING' | null
 }
 
 export type TableHeaderPlacement =
