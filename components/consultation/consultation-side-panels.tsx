@@ -8,11 +8,15 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
+  Plus,
+  X,
 } from "lucide-react";
 import { isInsuranceActive, insuranceStatusLabel } from "@/lib/insurance-utils";
 import { formatDateOnly } from "@/lib/utils";
 import type { Patient } from "@/lib/types";
 import { normalizeVisitVitalSigns } from "@/hooks/auth-hooks";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface PanelState {
   pinned: boolean;
@@ -23,18 +27,47 @@ function VitalsPanel({
   vitals,
   slotStyle,
   pinned,
+  canAddVitals,
+  onAddVitals,
 }: {
   vitals: any[];
   slotStyle: any;
   pinned: boolean;
+  canAddVitals: boolean;
+  onAddVitals?: (vitals: Array<{ measurementName: string; value: string; unit: string }>) => Promise<boolean>;
 }) {
+  type DraftVital = {
+    id: string;
+    measurementName: string;
+    value: string;
+    unit: string;
+    isPreset?: boolean;
+  };
+  const defaultDraft = (): DraftVital[] => [
+    { id: "bp", measurementName: "Blood Pressure", value: "", unit: "mmHg", isPreset: true },
+    { id: "hr", measurementName: "Heart Rate", value: "", unit: "bpm", isPreset: true },
+    { id: "temp", measurementName: "Temperature", value: "", unit: "°C", isPreset: true },
+    { id: "spo2", measurementName: "Oxygen Saturation", value: "", unit: "%", isPreset: true },
+    { id: "weight", measurementName: "Weight", value: "", unit: "kg", isPreset: true },
+    { id: "height", measurementName: "Height", value: "", unit: "cm", isPreset: true },
+  ];
   const [index, setIndex] = useState(0);
+  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<DraftVital[]>(defaultDraft);
+  const [editingCell, setEditingCell] = useState<string | null>(null);
 
   const groups = useMemo(() => normalizeVisitVitalSigns(vitals), [vitals]);
 
   useEffect(() => {
     setIndex((i) => Math.min(i, Math.max(0, groups.length - 1)));
   }, [groups.length]);
+
+  useEffect(() => {
+    if (groups.length === 0 && canAddVitals) {
+      setAdding(true);
+    }
+  }, [groups.length, canAddVitals]);
 
   const current = groups[index];
 
@@ -44,12 +77,83 @@ function VitalsPanel({
       style={slotStyle}
     >
       <div className="flex items-center justify-between p-3 border-b border-border">
-        <p className="text-sm font-semibold">Vital Signs</p>
-        {pinned && (
-          <span className="text-xs bg-white/30 px-2 py-1 rounded">Pinned</span>
-        )}
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-semibold">Vital Signs</p>
+          {pinned && <span className="text-xs bg-white/30 px-2 py-1 rounded">Pinned</span>}
+        </div>
       </div>
       <div className="p-3">
+        {adding && canAddVitals && onAddVitals && (
+          <div className="mb-3 space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-2">
+            <div className="grid grid-cols-[1.3fr_1fr_0.65fr] gap-1.5 border-b pb-1 text-[10px] font-semibold uppercase text-muted-foreground">
+              <span>Measurement</span><span>Value</span><span>Unit</span>
+            </div>
+            <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+            {draft.map((item) => (
+              <div key={item.id} className="grid grid-cols-[1.3fr_1fr_0.65fr_auto] items-center gap-1.5">
+                {(["measurementName", "value", "unit"] as const).map((field) => {
+                  const editable = field === "value" || editingCell === `${item.id}:${field}`;
+                  return editable ? (
+                    <Input key={field} autoFocus value={item[field]} className="h-8 text-xs"
+                      onBlur={() => field !== "value" && setEditingCell(null)}
+                      onChange={(event) => setDraft((current) => current.map((row) =>
+                        row.id === item.id ? { ...row, [field]: event.target.value } : row,
+                      ))} />
+                  ) : (
+                    <button key={field} type="button"
+                      className="h-8 rounded-md px-2 text-left text-xs text-muted-foreground hover:bg-muted"
+                      onDoubleClick={() => setEditingCell(`${item.id}:${field}`)}>
+                      {item[field] || "Double-click to edit"}
+                    </button>
+                  );
+                })}
+                {!item.isPreset && (
+                  <button
+                    type="button"
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-red-500 hover:bg-red-500/10"
+                    title="Remove measurement"
+                    aria-label={`Remove ${item.measurementName}`}
+                    onClick={() => setDraft((current) => current.filter((row) => row.id !== item.id))}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+            </div>
+            <button
+              type="button"
+              className="mx-auto flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 text-primary transition-colors hover:bg-primary/10"
+              title="Add custom measurement"
+              aria-label="Add custom measurement"
+              onClick={() => setDraft((current) => [...current, {
+                id: `custom-${Date.now()}`, measurementName: "Custom measurement", value: "", unit: "", isPreset: false,
+              }])}>
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            <Button type="button" size="sm" className="h-8 w-full"
+              disabled={saving || draft.every((item) => !item.value.trim())}
+              onClick={async () => {
+                setSaving(true);
+                const ok = await onAddVitals(
+                  draft
+                    .filter((item) => item.value.trim())
+                    .map(({ measurementName, value, unit }) => ({
+                      measurementName,
+                      value,
+                      unit,
+                    })),
+                );
+                setSaving(false);
+                if (ok) {
+                  setAdding(false);
+                  setDraft(defaultDraft);
+                }
+              }}>
+              {saving ? "Saving…" : "Save vital signs"}
+            </Button>
+          </div>
+        )}
         {groups.length === 0 ? (
           <div className="text-sm text-muted-foreground">
             No vitals recorded
@@ -127,6 +231,8 @@ interface ConsultationSidePanelsProps {
   setVitalsPanel: (state: PanelState) => void;
   setHistoryPanel: (state: PanelState) => void;
   onOpenHistory?: () => void;
+  canAddVitals?: boolean;
+  onAddVitals?: (vitals: Array<{ measurementName: string; value: string; unit: string }>) => Promise<boolean>;
   vitals?: any[];
   visitInsurances?: Array<{
     id: string;
@@ -148,6 +254,8 @@ export function ConsultationSidePanels({
   onOpenHistory,
   vitals = [],
   visitInsurances = [],
+  canAddVitals = false,
+  onAddVitals,
 }: ConsultationSidePanelsProps) {
   const hasVitals = Array.isArray(vitals) && vitals.length > 0;
   const activePanels = [
@@ -208,8 +316,7 @@ export function ConsultationSidePanels({
   };
 
   const showIdPanel = idPanel.pinned || idPanel.hover;
-  const showVitalsPanel =
-    hasVitals && (vitalsPanel.pinned || vitalsPanel.hover);
+  const showVitalsPanel = vitalsPanel.pinned || vitalsPanel.hover;
   const showHistoryPanel = historyPanel.pinned || historyPanel.hover;
 
   return (
@@ -230,31 +337,26 @@ export function ConsultationSidePanels({
           />
         </button>
         <button
-          title={hasVitals ? "Vital Signs" : "No vital signs recorded"}
+          title={hasVitals ? "Vital Signs" : "Add vital signs"}
           className={`p-2 rounded-full transition-colors ${
             vitalsPanel.pinned
               ? "bg-white/40 ring-2 ring-white/60"
               : "hover:bg-muted"
-          } ${!hasVitals ? "opacity-40 cursor-not-allowed" : ""}`}
+          }`}
           onMouseEnter={() =>
-            hasVitals
-              ? setVitalsPanel({ ...vitalsPanel, hover: !vitalsPanel.pinned })
-              : undefined
+            setVitalsPanel({ ...vitalsPanel, hover: !vitalsPanel.pinned })
           }
           onMouseLeave={() =>
-            hasVitals
-              ? setVitalsPanel({ ...vitalsPanel, hover: false })
-              : undefined
+            setVitalsPanel({ ...vitalsPanel, hover: false })
           }
           onClick={() => {
-            if (!hasVitals) return;
             handlePanelClick("vitals");
           }}
-          disabled={!hasVitals}
         >
-          <HeartPulse
+          {hasVitals ? <HeartPulse
             className={`w-5 h-5 ${vitalsPanel.pinned ? "text-foreground" : "text-muted-foreground"}`}
           />
+          : <Plus className="w-5 h-5 text-muted-foreground" />}
         </button>
         <button
           title="History"
@@ -355,6 +457,8 @@ export function ConsultationSidePanels({
             getPositionStyle(getPanelSlot("vitals"), activePanels.length) as any
           }
           pinned={vitalsPanel.pinned}
+          canAddVitals={canAddVitals}
+          onAddVitals={onAddVitals}
         />
       )}
 

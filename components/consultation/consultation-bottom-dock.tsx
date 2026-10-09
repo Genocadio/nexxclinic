@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, ArrowRightLeft, UserPlus, Search, Loader2 } from "lucide-react";
+import { CheckCircle, ArrowRightLeft, UserPlus, Search, Loader2, Grid2X2, Info } from "lucide-react";
 import { toast } from "react-toastify";
 
 interface SaveIndicatorState {
@@ -19,6 +19,7 @@ import { VisitPresenceBadge } from "@/components/visit-presence-badge";
 import { useAuth } from "@/lib/auth-context";
 import { useSearchWorkers } from "@/hooks/workers/hooks";
 import { useAddVisitDepartmentProcessor } from "@/hooks/visits/department-mutations";
+import { useChangeVisitDepartmentProfile } from "@/hooks/visits/department-mutations";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
@@ -32,6 +33,10 @@ interface ConsultationBottomDockProps {
   saveIndicator?: SaveIndicatorState;
   completeDisabled?: boolean;
   completeDisabledReason?: string;
+  profiles?: Array<{ id: string; name: string; isDefault?: boolean; products?: Array<{ id: string; name: string }> }>;
+  activeProfileId?: string | null;
+  visitDepartmentStatus?: string;
+  products?: Array<{ source?: string | null; billingState?: string | null }>;
 }
 
 export function ConsultationBottomDock({
@@ -44,9 +49,15 @@ export function ConsultationBottomDock({
   saveIndicator,
   completeDisabled = false,
   completeDisabledReason,
+  profiles = [],
+  activeProfileId,
+  visitDepartmentStatus,
+  products = [],
 }: ConsultationBottomDockProps) {
   const { doctor } = useAuth();
   const [shareOpen, setShareOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [query, setQuery] = useState("");
   const { workers, loading: workersLoading } = useSearchWorkers({
     name: query,
@@ -54,6 +65,17 @@ export function ConsultationBottomDock({
     activeOnly: true,
   });
   const { addProcessor, loading: addingProcessor } = useAddVisitDepartmentProcessor();
+  const { changeVisitDepartmentProfile, loading: changingProfile } =
+    useChangeVisitDepartmentProfile();
+  const profileChangeLocked =
+    ["COMPLETED", "FINALISED", "CANCELLED", "DEPARTMENT_EDITING"].includes(
+      String(visitDepartmentStatus || "").toUpperCase(),
+    ) ||
+    products.some(
+      (product) =>
+        String(product.source).toUpperCase() === "PROFILE" &&
+        String(product.billingState).toUpperCase() === "BILLED",
+    );
   const isCurrentProcessor = Boolean(
     doctor?.id && processors.some((processor) => String(processor.id) === String(doctor.id)),
   );
@@ -73,6 +95,21 @@ export function ConsultationBottomDock({
       setQuery("");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to add processor");
+    }
+  };
+
+  const handleChangeProfile = async (profileId: string) => {
+    try {
+      const response = await changeVisitDepartmentProfile(String(departmentId), profileId);
+      if (response?.status !== "SUCCESS") {
+        toast.error(response?.message || "Unable to change profile");
+        return;
+      }
+      toast.success("Profile changed");
+      setProfileOpen(false);
+      setMenuOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to change profile");
     }
   };
 
@@ -150,7 +187,7 @@ export function ConsultationBottomDock({
                 </Tooltip>
               </>
             )}
-            {departmentId && isCurrentProcessor && (
+            {departmentId && (isCurrentProcessor || profiles.length > 0) && (
               <>
                 <div className="w-px h-8 bg-white/20" />
                 <Tooltip>
@@ -158,19 +195,58 @@ export function ConsultationBottomDock({
                     <Button
                       size="icon"
                       className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg"
-                      onClick={() => setShareOpen(true)}
-                      aria-label="Add processor"
+                      onClick={() => setMenuOpen((open) => !open)}
+                      aria-label="Consultation actions"
                     >
-                      <UserPlus className="h-5 w-5" />
+                      <Grid2X2 className="h-5 w-5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent><p>Add processor</p></TooltipContent>
+                  <TooltipContent><p>Consultation actions</p></TooltipContent>
                 </Tooltip>
               </>
             )}
           </div>
         </TooltipProvider>
       </div>
+      {menuOpen && (
+        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 min-w-56 rounded-xl border border-border bg-background p-2 shadow-xl">
+          {departmentId && isCurrentProcessor && (
+            <Button variant="ghost" className="w-full justify-start gap-2"
+              onClick={() => { setShareOpen(true); setMenuOpen(false); }}>
+              <UserPlus className="h-4 w-4" /> Add processor
+            </Button>
+          )}
+          {profiles.length > 0 && (
+            <Button variant="ghost" className="w-full justify-start gap-2"
+              disabled={profileChangeLocked}
+              title={profileChangeLocked ? "Profile changes are locked for this visit" : "Change profile"}
+              onClick={() => setProfileOpen(true)}>
+              <ArrowRightLeft className="h-4 w-4" /> Change profile
+              {profileChangeLocked && <Info className="ml-auto h-4 w-4 text-muted-foreground" />}
+            </Button>
+          )}
+        </div>
+      )}
+      <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change consultation profile</DialogTitle>
+            <DialogDescription>
+              Products managed by the current profile will be removed and replaced by the selected profile.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1">
+            {profiles.map((profile) => (
+              <Button key={profile.id} variant={profile.id === activeProfileId ? "secondary" : "ghost"}
+                className="w-full justify-between" disabled={changingProfile || profile.id === activeProfileId}
+                onClick={() => void handleChangeProfile(profile.id)}>
+                <span>{profile.name}</span>
+                {profile.isDefault && <span className="text-xs text-muted-foreground">Default</span>}
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

@@ -4,7 +4,7 @@ import { useState, useRef } from "react"
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Pill, Trash2, Minus, Plus, AlertTriangle, Check } from "lucide-react"
+import { Pill, Trash2, Minus, Plus, AlertTriangle, Check, Info } from "lucide-react"
 import { toast } from "react-toastify"
 import type { FormAction } from "@/lib/form-storage"
 import { useRemoveProductFromVisitDepartment, useUpdateProductQuantity } from "@/hooks/visits"
@@ -127,6 +127,11 @@ export default function FormActionsDisplay({
           <div className="flex items-center gap-2 min-w-0 flex-1">
             {isRemoved && (
               <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
+            )}
+            {item.profileSource && !isRemoved && (
+              <span title="Managed by the selected profile; removed when the profile changes">
+                <Info className="h-3 w-3 shrink-0 text-blue-500" />
+              </span>
             )}
             <p className={`text-sm font-medium truncate leading-tight ${isRemoved ? 'line-through text-muted-foreground' : ''}`}>
               {item.name}

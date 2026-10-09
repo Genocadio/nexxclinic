@@ -33,6 +33,7 @@ import PatientHistorySidePane from "@/components/patient-history-side-pane";
 import VisitNotesFloating from "@/components/visit-notes-floating";
 import InlineTryAgain from "@/components/inline-try-again";
 import { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/ui/page-loading";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -62,6 +63,7 @@ import {
   useAddChildVisitDepartment,
   useAddProductToVisitDepartment,
   useAddVisitDepartmentNote,
+  useAddVisitVitalSigns,
   useLastPatientDepartmentVisit,
   useMarkVisitDepartmentNotesViewed,
   useVisitDepartmentNotes,
@@ -169,6 +171,7 @@ export function StandaloneConsultationView({
   const { confirmVisitDepartmentProduct } = useConfirmVisitDepartmentProduct();
   const [confirmingChildProductId, setConfirmingChildProductId] = useState<string | null>(null);
   const { addVisitDepartmentNote } = useAddVisitDepartmentNote();
+  const { addVisitVitalSigns } = useAddVisitVitalSigns();
   const { markNotesViewed } = useMarkVisitDepartmentNotesViewed();
   const { notes: departmentNotes, refetch: refetchNotes } =
     useVisitDepartmentNotes(visit.id, firstVisitDepartmentId || null);
@@ -302,6 +305,28 @@ export function StandaloneConsultationView({
       ) || visitDepartment,
     [visit.departments, visitDepartment],
   );
+  const canAddVitals = Boolean(
+    doctor?.roles?.some((role: any) =>
+      ["CLINICIAN", "DOCTOR"].includes(String(role?.name || role).toUpperCase()),
+    ),
+  );
+  const handleAddVitals = async (
+    vitalSigns: Array<{ measurementName: string; value: string; unit: string }>,
+  ) => {
+    try {
+      const result = await addVisitVitalSigns(visit.id, vitalSigns);
+      if (result.status !== "SUCCESS") {
+        toast.error(result.message || "Failed to add vital signs");
+        return false;
+      }
+      toast.success("Vital signs added");
+      onVisitRefetch?.();
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to add vital signs");
+      return false;
+    }
+  };
   const childInvestigationDepartments =
     parentVisitDepartment?.childVisitDepartments || [];
   const activeChildNotesDepartment = activeChildNotesDepartmentId
@@ -797,34 +822,7 @@ export function StandaloneConsultationView({
   };
 
   if (loading && !rendererForm) {
-    return (
-      <div className="space-y-6 animate-pulse py-2">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-64 rounded-lg" />
-          <Skeleton className="h-4 w-96 max-w-full rounded-md" />
-        </div>
-        <div className="space-y-4">
-          {[...Array(4)].map((_, i) => (
-            <div
-              key={i}
-              className="rounded-2xl border border-border/60 bg-card p-5 space-y-3 shadow-xs"
-            >
-              <div className="flex items-center justify-between">
-                <Skeleton className="h-5 w-40 rounded-md" />
-                <Skeleton className="h-4 w-16 rounded-full" />
-              </div>
-              <Skeleton className="h-10 w-full rounded-md" />
-              {i % 2 === 1 && (
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <Skeleton className="h-10 w-full rounded-md" />
-                  <Skeleton className="h-10 w-full rounded-md" />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <PageLoading />;
   }
 
   if (error && !rendererForm) {
@@ -894,6 +892,8 @@ export function StandaloneConsultationView({
         setVitalsPanel={setVitalsPanel}
         setHistoryPanel={setHistoryPanel}
         onOpenHistory={() => setPatientHistoryOpen(true)}
+        canAddVitals={canAddVitals}
+        onAddVitals={handleAddVitals}
       />
 
       <ConsultationPreviousEncounters
@@ -949,6 +949,10 @@ export function StandaloneConsultationView({
           departmentId={String(visitDepartment.id)}
           departmentName={visitDepartment.department?.name}
           processors={visitDepartment.processors || []}
+          profiles={visitDepartment.department?.profiles || []}
+          activeProfileId={visitDepartment.profile?.id}
+          visitDepartmentStatus={visitDepartment.status}
+          products={visitDepartment.products || []}
           onComplete={() => {
             if (unreadNotesCount > 0) {
               toast.warn(

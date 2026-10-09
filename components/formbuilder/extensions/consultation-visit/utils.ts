@@ -59,6 +59,7 @@ export function visitProductToFormAction(line: {
   quantity?: number;
   price?: number | null;
   billingConfirmationStatus?: any;
+  source?: string | null;
   confirmedBy?: { firstName?: string | null; lastName?: string | null } | null;
   product: {
     id: string;
@@ -86,6 +87,7 @@ export function visitProductToFormAction(line: {
     backendId: String(line.id),
     rawData: { id: line.product.id, product: line.product },
     source: "saved",
+    profileSource: line.source === "PROFILE",
     billingConfirmationStatus: line.billingConfirmationStatus || null,
     confirmedByName,
   };

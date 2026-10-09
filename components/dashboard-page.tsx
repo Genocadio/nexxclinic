@@ -1665,10 +1665,17 @@ export default function DashboardPage() {
     const matchingDept = visit.departments?.find((d) => {
       const deptId = String(d?.department?.id || d?.id || "")
       const isDepartmentOpen = d?.status !== "FINALISED" && d?.status !== "CANCELLED"
-      return deptId && userDepartmentIds.includes(deptId) && isDepartmentOpen
+      const processors = d?.processors || []
+      const isOwnDepartment = userDepartmentIds.includes(deptId)
+      const isAssignedProcessor = processors.some((processor) => processor.id === doctor?.id)
+      const isUnassigned = processors.length === 0
+      return deptId && isDepartmentOpen && (isOwnDepartment || isAssignedProcessor || isUnassigned)
     }) || visit.departments?.find((d) => {
       const deptId = String(d?.department?.id || d?.id || "")
-      return deptId && userDepartmentIds.includes(deptId)
+      const processors = d?.processors || []
+      return deptId && (userDepartmentIds.includes(deptId) ||
+        processors.some((processor) => processor.id === doctor?.id) ||
+        processors.length === 0)
     })
     const profiles = matchingDept?.department?.profiles || []
     // Only show profile selection when the department has profiles available

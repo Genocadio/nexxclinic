@@ -231,6 +231,16 @@ export const GET_VISIT_QUERY = gql`
             name
             insurancePolicyMode
             requestsProducts
+            profiles {
+              id
+              name
+              encounterType
+              isDefault
+              products {
+                id
+                name
+              }
+            }
           }
           status
           profile {
@@ -386,6 +396,16 @@ export const VISITS_QUERY = gql`
           department {
             id
             name
+            profiles {
+              id
+              name
+              encounterType
+              isDefault
+              products {
+                id
+                name
+              }
+            }
           }
           status
           startedAt
@@ -529,6 +549,16 @@ export const VISITS_QUERY = gql`
             department {
               id
               name
+              profiles {
+                id
+                name
+                encounterType
+                isDefault
+                products {
+                  id
+                  name
+                }
+              }
             }
             products {
               id

@@ -72,12 +72,24 @@ export default function ConsultationPage() {
             );
             const isPending = activeDepartment.status === "PENDING";
             if (isPending || !isAlreadyProcessor) {
-                consultVisit(activeDepartment.id).catch((err) => {
+                const profiles = activeDepartment.department?.profiles || [];
+                const profileId =
+                    !activeDepartment.profile?.id && profiles.length === 1
+                        ? profiles[0].id
+                        : undefined;
+                consultVisit(activeDepartment.id, profileId).catch((err) => {
                     console.error("Auto consultVisit sync failed:", err);
                 });
             }
         }
-    }, [visit?.id, activeDepartment?.id, activeDepartment?.status, doctor?.id]);
+    }, [
+        visit?.id,
+        activeDepartment?.id,
+        activeDepartment?.status,
+        activeDepartment?.profile?.id,
+        activeDepartment?.department?.profiles?.length,
+        doctor?.id,
+    ]);
 
     useEffect(() => {
         if (!loading && !visit && !error) {
@@ -94,7 +106,7 @@ export default function ConsultationPage() {
     // While loading (or before visit has arrived), always show skeleton.
     // This prevents the transient "Visit not found" flash on refresh.
     if (loading || (!visit && !error)) {
-        return <PageLoading variant="consultation" />;
+        return <PageLoading />;
     }
 
     if (error) {
@@ -109,7 +121,7 @@ export default function ConsultationPage() {
     }
 
     if (!visit || !activeDepartment) {
-        return <PageLoading variant="consultation" />;
+        return <PageLoading />;
     }
 
     const existingProducts: FormAction[] = (activeDepartment.products || []).map(
