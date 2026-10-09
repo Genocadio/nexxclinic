@@ -1678,10 +1678,9 @@ export default function DashboardPage() {
         processors.length === 0)
     })
     const profiles = matchingDept?.department?.profiles || []
-    // Only show profile selection when the department has profiles available
-    // AND the department does not already have a profile assigned or an answer.
-    // If a profile is already set, skip straight to consultation.
-    const alreadyHasProfile = Boolean(matchingDept?.profile?.id || matchingDept?.answerId || matchingDept?.status === "COMPLETED")
+    // Answers do not imply that a profile was assigned. A department with
+    // multiple profiles must always select one before consultation starts.
+    const alreadyHasProfile = Boolean(matchingDept?.profile?.id)
     if (profiles.length > 1 && !alreadyHasProfile) {
       // Show profile selection dialog
       setNavigatingVisitId(null)
