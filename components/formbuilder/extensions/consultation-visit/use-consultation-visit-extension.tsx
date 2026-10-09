@@ -13,6 +13,8 @@ import {
   useAddConsumableToVisitDepartment,
   useAddDiagnosisToVisitDepartment,
   useAddMedicationToVisitDepartment,
+  useRemoveMedication,
+  useUpdateMedication,
   useRemoveDiagnosisFromVisitDepartment,
   useUpdateDiagnosisNotes,
   useRemoveProductFromVisitDepartment,
@@ -70,6 +72,7 @@ function mapDepartmentProducts(dept: VisitDepartment | null): FormAction[] {
         id: String(line.product.id),
         name: line.product.name,
         type: line.product.type,
+        quantifiable: line.product.quantifiable,
         clinicPrice: line.product.clinicPrice,
         privateRhicPrice: line.product.privateRhicPrice,
       },
@@ -98,6 +101,8 @@ export function useConsultationVisitExtension(
   const { removeDiagnosis } = useRemoveDiagnosisFromVisitDepartment();
   const { updateDiagnosisNotes } = useUpdateDiagnosisNotes();
   const { addMedication } = useAddMedicationToVisitDepartment();
+  const { removeMedication } = useRemoveMedication();
+  const { updateMedication } = useUpdateMedication();
   const { addAction } = useAddActionToVisitDepartment();
   const { addConsumable } = useAddConsumableToVisitDepartment();
   const { removeProduct } = useRemoveProductFromVisitDepartment();
@@ -172,12 +177,14 @@ export function useConsultationVisitExtension(
       if (productsLocked) return false;
 
       const catalogId = String(item.id);
+      const requestedQuantity = item.isQuantifiable === false ? 1 : quantity;
       const existingProduct = visitProducts.find((a) =>
         extractProductIdentifiers(a).includes(catalogId),
       );
 
       if (existingProduct) {
-        const newQty = (existingProduct.quantity || 0) + quantity;
+        if (existingProduct.isQuantifiable === false) return true;
+        const newQty = (existingProduct.quantity || 0) + requestedQuantity;
         if (existingProduct.backendId) {
           try {
             const result = await updateQuantity(existingProduct.backendId, newQty);
@@ -199,8 +206,8 @@ export function useConsultationVisitExtension(
       try {
         const result =
           type === "action"
-            ? await addAction(visitId, departmentId, catalogId, quantity, doctor?.id)
-            : await addConsumable(visitId, departmentId, catalogId, quantity, doctor?.id);
+            ? await addAction(visitId, departmentId, catalogId, requestedQuantity, doctor?.id)
+            : await addConsumable(visitId, departmentId, catalogId, requestedQuantity, doctor?.id);
 
         if (result?.status !== "SUCCESS") {
           toast.error(result?.message || "Failed to add product");
@@ -358,6 +365,7 @@ export function useConsultationVisitExtension(
           name.trim(),
           instructions,
         );
+
         if (result?.status !== "SUCCESS") {
           toast.error(result?.message || "Failed to add medication");
           return false;
@@ -371,6 +379,40 @@ export function useConsultationVisitExtension(
     },
     [visitDepartmentId, addMedication, onVisitRefetch],
   );
+
+  const handleRemoveMedication = useCallback(async (medicationId: string) => {
+    try {
+      const result = await removeMedication(medicationId);
+      if (result?.status !== "SUCCESS") {
+        toast.error(result?.message || "Failed to remove medication");
+        return false;
+      }
+      onVisitRefetch?.();
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove medication");
+      return false;
+    }
+  }, [removeMedication, onVisitRefetch]);
+
+  const handleUpdateMedication = useCallback(async (
+    medicationId: string,
+    medicationName: string,
+    instructions: string,
+  ) => {
+    try {
+      const result = await updateMedication(medicationId, medicationName, instructions);
+      if (result?.status !== "SUCCESS") {
+        toast.error(result?.message || "Failed to update medication");
+        return false;
+      }
+      onVisitRefetch?.();
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update medication");
+      return false;
+    }
+  }, [updateMedication, onVisitRefetch]);
 
   const existingProductReferenceIds = useMemo(
     () =>
@@ -444,6 +486,8 @@ export function useConsultationVisitExtension(
             onAddMedicationFull: canEditClinical
               ? (entry) => handleAddMedicationFull(entry)
               : undefined,
+            onRemoveMedication: canEditClinical ? handleRemoveMedication : undefined,
+            onUpdateMedication: canEditClinical ? handleUpdateMedication : undefined,
           };
         case "medication_mini":
           return {
@@ -451,6 +495,8 @@ export function useConsultationVisitExtension(
             onAddMedicationMini: canEditClinical
               ? (name, notes) => handleAddMedicationMini(name, notes)
               : undefined,
+            onRemoveMedication: canEditClinical ? handleRemoveMedication : undefined,
+            onUpdateMedication: canEditClinical ? handleUpdateMedication : undefined,
           };
         default:
           return null;
@@ -476,6 +522,8 @@ export function useConsultationVisitExtension(
       handleUpdateDiagnosisNotes,
       handleAddMedicationFull,
       handleAddMedicationMini,
+      handleRemoveMedication,
+      handleUpdateMedication,
     ],
   );
 

@@ -272,6 +272,24 @@ export const ADD_MEDICATION_MUTATION = gql`
   }
 `;
 
+export const UPDATE_MEDICATION_MUTATION = gql`
+  mutation UpdateMedication($medicationId: ID!, $medicationName: String!, $instructions: String!) {
+    updateMedication(medicationId: $medicationId, medicationName: $medicationName, instructions: $instructions) {
+      status
+      message
+    }
+  }
+`;
+
+export const REMOVE_MEDICATION_MUTATION = gql`
+  mutation RemoveMedication($medicationId: ID!) {
+    removeMedication(medicationId: $medicationId) {
+      status
+      message
+    }
+  }
+`;
+
 export const UPSERT_CONSULTATION_ANSWERS_MUTATION = gql`
   mutation UpsertConsultationAnswers($input: ConsultationAnswersInput!) {
     upsertConsultationAnswers(input: $input) {

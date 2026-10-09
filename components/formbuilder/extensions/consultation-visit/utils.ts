@@ -66,6 +66,7 @@ export function visitProductToFormAction(line: {
     type?: string;
     clinicPrice?: number | null;
     privateRhicPrice?: number | null;
+    quantifiable?: boolean | null;
   };
 }): FormAction {
   const isConsumable = line.product.type === "CONSUMABLE_DEVICE";
@@ -81,7 +82,7 @@ export function visitProductToFormAction(line: {
     type: isConsumable ? "consumable" : "action",
     quantity: line.quantity || 1,
     privatePrice: price,
-    isQuantifiable: true,
+    isQuantifiable: line.product.quantifiable !== false,
     backendId: String(line.id),
     rawData: { id: line.product.id, product: line.product },
     source: "saved",

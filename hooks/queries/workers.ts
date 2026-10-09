@@ -5,13 +5,11 @@ export const SEARCH_WORKERS_QUERY = gql`
     $name: String
     $role: RoleName
     $activeOnly: Boolean
-    $departmentId: ID
   ) {
     searchWorkers(
       name: $name
       role: $role
       activeOnly: $activeOnly
-      departmentId: $departmentId
     ) {
       status
       message

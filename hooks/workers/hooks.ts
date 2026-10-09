@@ -7,7 +7,6 @@ type SearchWorkersVars = {
   name?: string;
   role?: string;
   activeOnly?: boolean;
-  departmentId?: string;
 };
 
 export function useSearchWorkers(variables: SearchWorkersVars) {

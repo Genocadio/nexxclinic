@@ -1675,7 +1675,7 @@ export default function DashboardPage() {
     // AND the department does not already have a profile assigned or an answer.
     // If a profile is already set, skip straight to consultation.
     const alreadyHasProfile = Boolean(matchingDept?.profile?.id || matchingDept?.answerId || matchingDept?.status === "COMPLETED")
-    if (profiles.length > 0 && !alreadyHasProfile) {
+    if (profiles.length > 1 && !alreadyHasProfile) {
       // Show profile selection dialog
       setNavigatingVisitId(null)
       setProfileDialogVisit(visit)
@@ -1690,7 +1690,9 @@ export default function DashboardPage() {
       // Direct consultation or continue: call consultVisit mutation to mark ACTIVE & add processor
       if (matchingDept?.id) {
         try {
-          const res = await consultVisit(matchingDept.id)
+          const singleProfileId =
+            !alreadyHasProfile && profiles.length === 1 ? profiles[0].id : undefined
+          const res = await consultVisit(matchingDept.id, singleProfileId)
           if (res?.status !== "SUCCESS") {
             finishNavigationFeedback()
             toast.error(res?.message || "Failed to start consultation")

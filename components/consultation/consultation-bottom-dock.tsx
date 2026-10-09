@@ -52,7 +52,6 @@ export function ConsultationBottomDock({
     name: query,
     role: "CLINICIAN",
     activeOnly: true,
-    departmentId,
   });
   const { addProcessor, loading: addingProcessor } = useAddVisitDepartmentProcessor();
   const isCurrentProcessor = Boolean(

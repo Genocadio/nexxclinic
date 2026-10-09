@@ -9,6 +9,8 @@ import {
   REMOVE_DIAGNOSIS_MUTATION,
   UPDATE_DIAGNOSIS_NOTES_MUTATION,
   ADD_MEDICATION_MUTATION,
+  UPDATE_MEDICATION_MUTATION,
+  REMOVE_MEDICATION_MUTATION,
   UPSERT_CONSULTATION_ANSWERS_MUTATION,
   GENERATE_CONSULTATION_PDF_MUTATION,
   COMPLETE_VISIT_MUTATION,
@@ -282,9 +284,28 @@ export function useAddMedicationToVisitDepartment() {
       console.error("Add medication error:", err);
       throw err;
     }
+
   };
 
   return { addMedication, loading, error };
+}
+
+export function useUpdateMedication() {
+  const [mutation, { loading, error }] = useMutation(UPDATE_MEDICATION_MUTATION);
+  const updateMedication = async (medicationId: string, medicationName: string, instructions: string) => {
+    const result = await mutation({ variables: { medicationId, medicationName, instructions } });
+    return result.data?.updateMedication;
+  };
+  return { updateMedication, loading, error };
+}
+
+export function useRemoveMedication() {
+  const [mutation, { loading, error }] = useMutation(REMOVE_MEDICATION_MUTATION);
+  const removeMedication = async (medicationId: string) => {
+    const result = await mutation({ variables: { medicationId } });
+    return result.data?.removeMedication;
+  };
+  return { removeMedication, loading, error };
 }
 
 export function useUpsertConsultationAnswers() {

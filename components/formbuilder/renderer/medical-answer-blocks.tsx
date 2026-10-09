@@ -424,6 +424,18 @@ export function MedFullAnswerBlock({
     }
     onChange(value.filter((e) => e.id !== id));
   };
+  const editMedication = async (id: string) => {
+    const current = items.find((item) => item.id === id);
+    if (!current || !handlers?.onUpdateMedication) return;
+    const name = window.prompt("Medication name", current.name);
+    if (name == null || !name.trim()) return;
+    const instructions = window.prompt(
+      "Instructions",
+      [current.frequency, current.amount, current.days, current.notes].filter(Boolean).join(" · "),
+    );
+    if (instructions == null || !instructions.trim()) return;
+    await handlers.onUpdateMedication(id, name.trim(), instructions.trim());
+  };
   const addEntry = async (draft: Omit<MedFullEntry, "id">) => {
     if (handlers?.onAddMedicationFull) {
       await handlers.onAddMedicationFull(draft);
@@ -475,6 +487,7 @@ export function MedFullAnswerBlock({
             </div>
           )}
           onRemove={edit ? remove : undefined}
+          onEdit={edit && handlers?.onUpdateMedication ? (id) => void editMedication(id) : undefined}
         />
       </div>
     </div>
@@ -588,6 +601,15 @@ export function MedMiniAnswerBlock({
     }
     onChange(value.filter((e) => e.id !== id));
   };
+  const editMedication = async (id: string) => {
+    const current = items.find((item) => item.id === id);
+    if (!current || !handlers?.onUpdateMedication) return;
+    const name = window.prompt("Medication name", current.name);
+    if (name == null || !name.trim()) return;
+    const instructions = window.prompt("Notes", current.notes || "");
+    if (instructions == null) return;
+    await handlers.onUpdateMedication(id, name.trim(), instructions.trim() || "No additional notes");
+  };
   const addEntry = async (name: string, notes?: string) => {
     if (handlers?.onAddMedicationMini) {
       await handlers.onAddMedicationMini(name, notes);
@@ -636,6 +658,7 @@ export function MedMiniAnswerBlock({
             </div>
           )}
           onRemove={edit ? remove : undefined}
+          onEdit={edit && handlers?.onUpdateMedication ? (id) => void editMedication(id) : undefined}
         />
       </div>
     </div>

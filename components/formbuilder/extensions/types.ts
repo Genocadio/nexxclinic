@@ -48,6 +48,11 @@ export interface MedicalBlockHandlers {
   onAddMedicationFull?: (entry: Omit<MedFullEntry, "id">) => Promise<boolean>;
   onAddMedicationMini?: (name: string, notes?: string) => Promise<boolean>;
   onRemoveMedication?: (medicationId: string) => Promise<boolean>;
+  onUpdateMedication?: (
+    medicationId: string,
+    medicationName: string,
+    instructions: string,
+  ) => Promise<boolean>;
 
   visitId?: string;
   departmentId?: string;
