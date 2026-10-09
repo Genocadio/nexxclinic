@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, ArrowRightLeft, UserPlus, Search, Loader2, Grid2X2, Info } from "lucide-react";
+import { CheckCircle, ArrowRightLeft, UserPlus, Search, Loader2, Grid2X2, Info, Pin } from "lucide-react";
 import { toast } from "react-toastify";
 
 interface SaveIndicatorState {
@@ -57,6 +57,7 @@ export function ConsultationBottomDock({
   const { doctor } = useAuth();
   const [shareOpen, setShareOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [minimized, setMinimized] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [query, setQuery] = useState("");
   const { workers, loading: workersLoading } = useSearchWorkers({
@@ -203,17 +204,34 @@ export function ConsultationBottomDock({
                   </TooltipTrigger>
                   <TooltipContent><p>Consultation actions</p></TooltipContent>
                 </Tooltip>
+                {menuOpen && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg"
+                        onClick={() => setMinimized((prev) => !prev)}
+                        aria-label={minimized ? "Maximize card" : "Minimize card"}
+                      >
+                        <Pin className={minimized ? "h-5 w-5 text-blue-400" : "h-5 w-5 text-white/90"} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{minimized ? "Maximize" : "Minimize"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </>
             )}
           </div>
         </TooltipProvider>
       </div>
-      {menuOpen && (
+      {menuOpen && !minimized && (
         <div className="absolute bottom-16 left-1/2 -translate-x-1/2 min-w-56 rounded-xl border border-border bg-background p-2 shadow-xl">
           {departmentId && isCurrentProcessor && (
             <Button variant="ghost" className="w-full justify-start gap-2"
               onClick={() => { setShareOpen(true); setMenuOpen(false); }}>
-              <UserPlus className="h-4 w-4" /> Add processor
+              <UserPlus className="h-4 w-4" /> Add clinician
             </Button>
           )}
           {profiles.length > 0 && (
@@ -226,6 +244,16 @@ export function ConsultationBottomDock({
             </Button>
           )}
         </div>
+      )}
+      {menuOpen && minimized && (
+        <button
+          type="button"
+          onClick={() => setMinimized(false)}
+          aria-label="Maximize card"
+          className="absolute bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-border/70 bg-background/80 px-2 py-1 shadow-sm hover:bg-muted"
+        >
+          <Pin className="h-4 w-4 text-blue-400" />
+        </button>
       )}
       <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
         <DialogContent className="sm:max-w-md">

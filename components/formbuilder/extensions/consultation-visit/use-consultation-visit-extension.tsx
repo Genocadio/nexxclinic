@@ -17,10 +17,13 @@ import {
   useUpdateMedication,
   useRemoveDiagnosisFromVisitDepartment,
   useUpdateDiagnosisNotes,
+  useAddSymptomToVisitDepartment,
+  useRemoveSymptomFromVisitDepartment,
+  useUpdateSymptomNotes,
   useRemoveProductFromVisitDepartment,
   useUpdateProductQuantity,
 } from "@/hooks/visits";
-import type { DiagEntry, FormAnswers, MedFullEntry, MedMiniEntry } from "../../renderer/types";
+import type { DiagEntry, FormAnswers, MedFullEntry, MedMiniEntry, SymptomEntry } from "../../renderer/types";
 import type { FormRendererExtension, MedicalBlockHandlers } from "../types";
 import {
   buildLongMedicationInstructions,
@@ -101,6 +104,9 @@ export function useConsultationVisitExtension(
   const { addDiagnosis } = useAddDiagnosisToVisitDepartment();
   const { removeDiagnosis } = useRemoveDiagnosisFromVisitDepartment();
   const { updateDiagnosisNotes } = useUpdateDiagnosisNotes();
+  const { addSymptom } = useAddSymptomToVisitDepartment();
+  const { removeSymptom } = useRemoveSymptomFromVisitDepartment();
+  const { updateSymptomNotes } = useUpdateSymptomNotes();
   const { addMedication } = useAddMedicationToVisitDepartment();
   const { removeMedication } = useRemoveMedication();
   const { updateMedication } = useUpdateMedication();
@@ -157,6 +163,15 @@ export function useConsultationVisitExtension(
       notes: m.instructions || undefined,
     }));
   }, [activeDepartment?.medications]);
+
+  const visitSymptoms = useMemo((): SymptomEntry[] =>
+    (activeDepartment?.symptoms || []).map((s) => ({
+      id: String(s.id),
+      symptom: s.symptomName,
+      sonomedId: s.sonomedId,
+      notes: s.notes || "",
+    })),
+  [activeDepartment?.symptoms]);
 
   const productsLocked = useMemo(
     () =>
@@ -332,6 +347,42 @@ export function useConsultationVisitExtension(
     [updateDiagnosisNotes, onVisitRefetch],
   );
 
+  const handleAddSymptom = useCallback(async (symptom: string, sonomedId?: string, notes?: string) => {
+    if (!visitDepartmentId) return false;
+    try {
+      const result = await addSymptom(visitDepartmentId, symptom.trim(), sonomedId?.trim(), notes);
+      if (result?.status !== "SUCCESS") {
+        toast.error(result?.message || "Failed to add symptom");
+        return false;
+      }
+      onVisitRefetch?.();
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add symptom");
+      return false;
+    }
+  }, [visitDepartmentId, addSymptom, onVisitRefetch]);
+
+  const handleRemoveSymptom = useCallback(async (symptomId: string) => {
+    const result = await removeSymptom(symptomId);
+    if (result?.status !== "SUCCESS") {
+      toast.error(result?.message || "Failed to remove symptom");
+      return false;
+    }
+    onVisitRefetch?.();
+    return true;
+  }, [removeSymptom, onVisitRefetch]);
+
+  const handleUpdateSymptomNotes = useCallback(async (symptomId: string, notes: string) => {
+    const result = await updateSymptomNotes(symptomId, notes);
+    if (result?.status !== "SUCCESS") {
+      toast.error(result?.message || "Failed to save symptom notes");
+      return false;
+    }
+    onVisitRefetch?.();
+    return true;
+  }, [updateSymptomNotes, onVisitRefetch]);
+
   const handleAddMedicationFull = useCallback(
     async (entry: Omit<MedFullEntry, "id">) => {
       if (!visitDepartmentId) return false;
@@ -489,6 +540,13 @@ export function useConsultationVisitExtension(
               : undefined,
             onRemoveMedication: canEditClinical ? handleRemoveMedication : undefined,
             onUpdateMedication: canEditClinical ? handleUpdateMedication : undefined,
+          };
+        case "symptom_listener":
+          return {
+            symptoms: visitSymptoms,
+            onAddSymptom: canEditClinical ? handleAddSymptom : undefined,
+            onRemoveSymptom: canEditClinical ? handleRemoveSymptom : undefined,
+            onUpdateSymptomNotes: canEditClinical ? handleUpdateSymptomNotes : undefined,
           };
         case "medication_mini":
           return {

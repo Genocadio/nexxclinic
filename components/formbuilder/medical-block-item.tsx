@@ -1113,6 +1113,8 @@ export function MedicalBlockItem(props: MedBlockProps) {
       return <LabRecordBlock {...props} />;
     case "product_listener":
       return <ProductListenerBlock {...props} />;
+    case "symptom_listener":
+      return <DiagnosticRecordBlock {...props} />;
     default:
       return null;
   }

@@ -60,3 +60,68 @@ export function useIcd11DiseaseSearch(query: string) {
     ),
   };
 }
+
+const SEARCH_SNOMED_SYMPTOMS_QUERY = gql`
+  query SearchSnomedSymptoms($query: String!, $type: String, $limit: Int) {
+    searchSnomedSymptoms(query: $query, type: $type, limit: $limit) {
+      status
+      message
+      data {
+        results {
+          id
+          preferred
+          synonyms
+          fsn
+          type
+          common
+          bodySystem
+          score
+        }
+      }
+    }
+  }
+`;
+
+export interface SnomedSymptomSuggestion {
+  id: string;
+  preferred: string;
+  synonyms: string[] | null;
+  fsn: string | null;
+  type: string | null;
+  common: boolean;
+  bodySystem: string[] | null;
+  score: number;
+}
+
+interface SearchSnomedSymptomsData {
+  searchSnomedSymptoms?: {
+    status?: string;
+    message?: string | null;
+    data?: {
+      results?: SnomedSymptomSuggestion[] | null;
+    } | null;
+  } | null;
+}
+
+export function useSnomedSymptomSearch(query: string) {
+  const { data, loading, error } = useQuery<SearchSnomedSymptomsData>(
+    SEARCH_SNOMED_SYMPTOMS_QUERY,
+    {
+      variables: { query, limit: 10 },
+      fetchPolicy: "cache-and-network",
+      skip: query.trim().length < 2,
+    },
+  );
+
+  const response = data?.searchSnomedSymptoms;
+  return {
+    suggestions:
+      response?.status === "SUCCESS" ? response.data?.results ?? [] : [],
+    loading,
+    error: error?.message ?? (
+      response?.status && response.status !== "SUCCESS"
+        ? response.message ?? "Symptom search failed."
+        : null
+    ),
+  };
+}

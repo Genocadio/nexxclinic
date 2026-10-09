@@ -8,6 +8,7 @@ import {
   X,
   ChevronRight,
   History,
+  Pin,
 } from "lucide-react";
 import type {
   LastPatientDepartmentVisitOutput,
@@ -32,7 +33,6 @@ type Props = {
 };
 
 const AUTO_DISMISS_MS = 120000;
-const DEFAULT_EXPANDED_MS = 40000;
 
 function formatWhen(value?: string | null) {
   if (!value) return "Unknown time";
@@ -173,48 +173,58 @@ function ExpandableCard({
   subtitle,
   icon,
   children,
-  minimized,
-  onMinimize,
+  pinned,
+  onTogglePin,
   onDismiss,
 }: {
   title: string;
   subtitle: string;
   icon: ReactNode;
   children: ReactNode;
-  minimized: boolean;
-  onMinimize: () => void;
+  pinned: boolean;
+  onTogglePin: () => void;
   onDismiss: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const expanded = hovered || !minimized;
+  const expanded = hovered || pinned;
 
   return (
     <div
-      className="group rounded-2xl border border-border/70 bg-card/95 p-3 shadow-lg backdrop-blur transition-all duration-200 hover:shadow-xl"
+      className={`group rounded-2xl border border-border/70 bg-card/95 p-2.5 shadow-lg backdrop-blur transition-all duration-200 hover:shadow-xl ${
+        expanded
+          ? "w-[min(88vw,22rem)] lg:w-[20rem]"
+          : "w-[15rem]"
+      }`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="mt-0.5 rounded-xl bg-primary/10 p-2 text-primary">
+          <div className="mt-0.5 shrink-0 rounded-xl bg-primary/10 p-1.5 text-primary">
             {icon}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground">{title}</p>
-            <p className="text-xs text-muted-foreground">{subtitle}</p>
+            <p className="truncate text-sm font-semibold text-foreground">{title}</p>
+            <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={onMinimize}
-            className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label={minimized ? "Expand card" : "Minimize card"}
-          >
-            <ChevronRight
-              className={`h-4 w-4 transition-transform ${expanded ? "rotate-90" : "rotate-0"}`}
-            />
-          </button>
+          {expanded && (
+            <button
+              type="button"
+              onClick={onTogglePin}
+              aria-pressed={pinned}
+              aria-label={pinned ? "Unpin card" : "Pin card"}
+              title={pinned ? "Unpin card" : "Pin card open"}
+              className={`rounded-md p-1 transition-colors ${
+                pinned
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <Pin className={`h-4 w-4 ${pinned ? "fill-current" : ""}`} />
+            </button>
+          )}
           <button
             type="button"
             onClick={onDismiss}
@@ -239,19 +249,12 @@ export function ConsultationPreviousEncounters({
 }: Props) {
   const [dismissedVisitCard, setDismissedVisitCard] = useState(false);
   const [dismissedDepartmentCard, setDismissedDepartmentCard] = useState(false);
-  const [visitMinimized, setVisitMinimized] = useState(false);
-  const [departmentMinimized, setDepartmentMinimized] = useState(false);
+  const [visitPinned, setVisitPinned] = useState(false);
+  const [departmentPinned, setDepartmentPinned] = useState(false);
 
   useEffect(() => {
-    setVisitMinimized(false);
-    setDepartmentMinimized(false);
-
-    const minimizeTimer = window.setTimeout(() => {
-      setVisitMinimized(true);
-      setDepartmentMinimized(true);
-    }, DEFAULT_EXPANDED_MS);
-
-    return () => window.clearTimeout(minimizeTimer);
+    setVisitPinned(false);
+    setDepartmentPinned(false);
   }, [data?.lastVisit?.id, data?.lastDepartmentVisit?.visitDepartment?.id]);
 
   useEffect(() => {
@@ -293,14 +296,14 @@ export function ConsultationPreviousEncounters({
   if (!showVisitCard && !showDepartmentCard) return null;
 
   return (
-    <div className="fixed bottom-6 left-6 md:left-6 xl:left-[max(1.5rem,calc(50%-42.5rem))] z-[70] flex w-[min(88vw,22rem)] flex-col gap-3 lg:w-[20rem]">
+    <div className="fixed bottom-6 left-6 md:left-6 xl:left-[max(1.5rem,calc(50%-42.5rem))] z-[70] flex flex-col items-start gap-3">
       {showVisitCard && lastVisit && (
         <ExpandableCard
           title="Previous clinic visit"
           subtitle={`${relativeWhen(lastVisit.visitDate)} • ${formatWhen(lastVisit.visitDate)}`}
           icon={<History className="h-4 w-4" />}
-          minimized={visitMinimized}
-          onMinimize={() => setVisitMinimized((prev) => !prev)}
+          pinned={visitPinned}
+          onTogglePin={() => setVisitPinned((prev) => !prev)}
           onDismiss={() => setDismissedVisitCard(true)}
         >
           <div className="space-y-3">
@@ -333,8 +336,8 @@ export function ConsultationPreviousEncounters({
           title="Last encounter in this department"
           subtitle={`${relativeWhen(lastDepartmentVisit.visitDepartment.completedAt || lastDepartmentVisit.visitDepartment.updatedAt)}${hasCurrentDepartmentMedications ? " • Has medications" : ""}`}
           icon={<Clock3 className="h-4 w-4" />}
-          minimized={departmentMinimized}
-          onMinimize={() => setDepartmentMinimized((prev) => !prev)}
+          pinned={departmentPinned}
+          onTogglePin={() => setDepartmentPinned((prev) => !prev)}
           onDismiss={() => setDismissedDepartmentCard(true)}
         >
           <div className="space-y-3">

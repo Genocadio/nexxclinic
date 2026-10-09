@@ -246,6 +246,37 @@ export const UPDATE_DIAGNOSIS_NOTES_MUTATION = gql`
   }
 `;
 
+export const ADD_SYMPTOM_MUTATION = gql`
+  mutation AddSymptom($input: AddSymptomInput!) {
+    addSymptom(input: $input) {
+      status
+      message
+      data {
+        id
+        symptoms {
+          id
+          symptomName
+          sonomedId
+          notes
+          createdAt
+        }
+      }
+    }
+  }
+`;
+
+export const REMOVE_SYMPTOM_MUTATION = gql`
+  mutation RemoveSymptom($symptomId: ID!) {
+    removeSymptom(symptomId: $symptomId) { status message }
+  }
+`;
+
+export const UPDATE_SYMPTOM_NOTES_MUTATION = gql`
+  mutation UpdateSymptomNotes($symptomId: ID!, $notes: String!) {
+    updateSymptomNotes(symptomId: $symptomId, notes: $notes) { status message }
+  }
+`;
+
 export const ADD_MEDICATION_MUTATION = gql`
   mutation AddMedication($input: AddMedicationInput!) {
     addMedication(input: $input) {

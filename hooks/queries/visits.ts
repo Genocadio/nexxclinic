@@ -98,6 +98,13 @@ const childVisitDepartmentFields = `
     notes
     createdAt
   }
+  symptoms {
+    id
+    symptomName
+    sonomedId
+    notes
+    createdAt
+  }
   medications {
     id
     medicationName
@@ -274,6 +281,13 @@ export const GET_VISIT_QUERY = gql`
             diagnosisName
             icd11Code
             type
+            notes
+            createdAt
+          }
+          symptoms {
+            id
+            symptomName
+            sonomedId
             notes
             createdAt
           }

@@ -24,6 +24,7 @@ export type BlockType =
   | "medication_mini"
   | "lab_record"
   | "product_listener"
+  | "symptom_listener"
   | "layout"
   | "media_embed"
   | "file_upload";
@@ -463,6 +464,14 @@ export function fbMakeBlock(type: BlockType): FormBlock {
         type,
         label: "Add Product / Procedure",
         productListenerCenter: false,
+      };
+    case "symptom_listener":
+      return {
+        id,
+        type,
+        label: "Signs and symptoms",
+        placeholder: "Search or enter a sign or symptom…",
+        required: false,
       };
     case "media_embed":
       return { id, type, mediaUrl: "", mediaWidth: "md", align: "center" };

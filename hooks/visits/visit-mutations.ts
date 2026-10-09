@@ -8,6 +8,9 @@ import {
   ADD_DIAGNOSIS_MUTATION,
   REMOVE_DIAGNOSIS_MUTATION,
   UPDATE_DIAGNOSIS_NOTES_MUTATION,
+  ADD_SYMPTOM_MUTATION,
+  REMOVE_SYMPTOM_MUTATION,
+  UPDATE_SYMPTOM_NOTES_MUTATION,
   ADD_MEDICATION_MUTATION,
   UPDATE_MEDICATION_MUTATION,
   REMOVE_MEDICATION_MUTATION,
@@ -221,9 +224,44 @@ export function useAddDiagnosisToVisitDepartment() {
       console.error("Add diagnosis error:", err);
       throw err;
     }
+
   };
 
   return { addDiagnosis, loading, error };
+}
+
+export function useAddSymptomToVisitDepartment() {
+  const [mutation, { loading, error }] = useMutation(ADD_SYMPTOM_MUTATION);
+  const addSymptom = async (
+    visitDepartmentId: string,
+    symptomName: string,
+    sonomedId?: string,
+    notes?: string,
+  ): Promise<ApiResponse<any>> => {
+    const result = await mutation({
+      variables: { input: { visitDepartmentId, symptomName, sonomedId, notes } },
+    });
+    return result.data?.addSymptom;
+  };
+  return { addSymptom, loading, error };
+}
+
+export function useRemoveSymptomFromVisitDepartment() {
+  const [mutation, { loading, error }] = useMutation(REMOVE_SYMPTOM_MUTATION);
+  const removeSymptom = async (symptomId: string): Promise<ApiResponse<any>> => {
+    const result = await mutation({ variables: { symptomId } });
+    return result.data?.removeSymptom;
+  };
+  return { removeSymptom, loading, error };
+}
+
+export function useUpdateSymptomNotes() {
+  const [mutation, { loading, error }] = useMutation(UPDATE_SYMPTOM_NOTES_MUTATION);
+  const updateSymptomNotes = async (symptomId: string, notes: string): Promise<ApiResponse<any>> => {
+    const result = await mutation({ variables: { symptomId, notes } });
+    return result.data?.updateSymptomNotes;
+  };
+  return { updateSymptomNotes, loading, error };
 }
 
 export function useRemoveDiagnosisFromVisitDepartment() {

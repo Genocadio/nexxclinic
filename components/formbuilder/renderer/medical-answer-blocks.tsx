@@ -15,7 +15,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import type { FormBlock } from "@/lib/formbuilder-storage";
-import { useIcd11DiseaseSearch } from "@/hooks/icd11";
+import { useIcd11DiseaseSearch, useSnomedSymptomSearch } from "@/hooks/icd11";
 import type { MedicalBlockHandlers } from "../extensions/types";
 import { ProductListenerWithVisitSync } from "./product-listener-sync";
 import { EntryList, PTYPE_COLOR, PTYPE_LABEL } from "./medical-shared";
@@ -25,8 +25,40 @@ import type {
   LabRowValues,
   MedFullEntry,
   MedMiniEntry,
+  SymptomEntry,
 } from "./types";
 import { uid } from "./utils";
+
+function bodySystemLabels(systems: string[] | null | undefined): string[] {
+  if (!systems?.length) return [];
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const system of systems) {
+    const label = system
+      .trim()
+      .replace(/^Finding of\s+/i, "")
+      .replace(/\s+-\s+finding$/i, "")
+      .replace(/\s+finding$/i, "");
+    if (!label || seen.has(label.toLowerCase())) continue;
+    seen.add(label.toLowerCase());
+    labels.push(label);
+  }
+  return labels;
+}
+
+function alternateNames(synonyms: string[] | null | undefined, max = 3): string[] {
+  if (!synonyms?.length) return [];
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const synonym of synonyms) {
+    const name = synonym.trim();
+    if (!name || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    names.push(name);
+    if (names.length >= max) break;
+  }
+  return names;
+}
 
 export function DiagnosticAnswerBlock({
   block,
@@ -53,6 +85,242 @@ export function DiagnosticAnswerBlock({
       handlers={handlers}
       diagnosisType="FINAL"
     />
+  );
+}
+
+export function SymptomListenerAnswerBlock({
+  block,
+  value,
+  onChange,
+  isError,
+  edit,
+  handlers,
+}: {
+  block: FormBlock;
+  value: SymptomEntry[];
+  onChange: (v: SymptomEntry[]) => void;
+  isError?: boolean;
+  edit: boolean;
+  handlers?: MedicalBlockHandlers | null;
+}) {
+  const entries = handlers?.symptoms ?? (Array.isArray(value) ? value : []);
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [submitting, setSubmitting] = React.useState(false);
+  const [debouncedQuery, setDebouncedQuery] = React.useState("");
+  const { suggestions, loading, error } = useSnomedSymptomSearch(debouncedQuery);
+  React.useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedQuery(searchTerm.trim()), 250);
+    return () => window.clearTimeout(timeout);
+  }, [searchTerm]);
+  const searchPending = searchTerm.trim() !== debouncedQuery.trim();
+  const canAdd = handlers ? Boolean(handlers.onAddSymptom) : edit;
+  const canRemove = handlers ? Boolean(handlers.onRemoveSymptom) : edit;
+  const canEditNotes = handlers ? Boolean(handlers.onUpdateSymptomNotes) : edit;
+
+  const add = async (selectedName = searchTerm, sonomedId?: string) => {
+    const name = selectedName.trim();
+    if (!name || submitting) return;
+    setSubmitting(true);
+    try {
+      const ok = handlers?.onAddSymptom
+        ? await handlers.onAddSymptom(name, sonomedId)
+        : true;
+      if (ok) {
+        if (!handlers) {
+          onChange([...entries, { id: `s${uid()}`, symptom: name, sonomedId }]);
+        }
+        setSearchTerm("");
+        setDebouncedQuery("");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const addFromSuggestion = async (name: string, sonomedId?: string) => {
+    if (!name.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const ok = handlers?.onAddSymptom
+        ? await handlers.onAddSymptom(name, sonomedId)
+        : true;
+      if (ok) {
+        onChange([...entries, { id: `s${uid()}`, symptom: name, sonomedId }]);
+        setSearchTerm("");
+        setDebouncedQuery("");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const remove = async (id: string) => {
+    if (handlers?.onRemoveSymptom) {
+      await handlers.onRemoveSymptom(id);
+      return;
+    }
+    onChange(entries.filter((entry) => entry.id !== id));
+  };
+
+  const updateNotes = async (id: string, notes: string): Promise<boolean> => {
+    if (handlers?.onUpdateSymptomNotes) {
+      return handlers.onUpdateSymptomNotes(id, notes);
+    }
+    onChange(entries.map((entry) => (
+      entry.id === id ? { ...entry, notes } : entry
+    )));
+    return true;
+  };
+
+  return (
+    <div className="my-3">
+      <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+        <Stethoscope className="h-3.5 w-3.5 text-blue-600" />
+        {block.label || "Signs and symptoms"}
+        {block.required && <span className="text-red-500">*</span>}
+      </label>
+      <div className={`space-y-3 rounded-xl border p-3.5 ${isError ? "border-red-400" : "border-blue-200 bg-blue-50/40 dark:border-blue-800 dark:bg-blue-950/20"}`}>
+        {canAdd && (
+          <>
+            <div className="relative">
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void add();
+                  }
+                }}
+                placeholder={block.placeholder || "Search a sign or symptom…"}
+                autoComplete="off"
+                aria-autocomplete="list"
+                aria-expanded={searchTerm.trim().length >= 2}
+                className="h-8 text-sm pr-8 bg-background"
+              />
+              {loading ? (
+                <Loader2 className="absolute right-2.5 top-2 h-4 w-4 animate-spin text-muted-foreground" />
+              ) : (
+                <Search className="absolute right-2.5 top-2 h-4 w-4 text-muted-foreground" />
+              )}
+              {searchTerm.trim().length >= 2 && (
+                <div
+                  role="listbox"
+                  aria-label="Symptom suggestions"
+                  className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-background shadow-lg"
+                >
+                  {error ? (
+                    <div className="border-b border-border/50 px-3 py-2 text-xs text-destructive">
+                      Symptom search is unavailable.
+                    </div>
+                  ) : searchPending || loading ? (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">
+                      Searching symptoms…
+                    </p>
+                  ) : suggestions.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">
+                      No symptom matches.
+                    </p>
+                  ) : (
+                    suggestions.map((suggestion, index) => {
+                      const regions = bodySystemLabels(suggestion.bodySystem);
+                      const alternate = alternateNames(suggestion.synonyms);
+                      const disabled = submitting || !suggestion.preferred;
+                      const addName = (name?: string) => {
+                        if (!name || disabled) return;
+                        void add(name, suggestion.id || undefined);
+                      };
+                      return (
+                        <div
+                          key={suggestion.id || `${suggestion.preferred}-${index}`}
+                          role="option"
+                          aria-selected={false}
+                          aria-disabled={disabled}
+                          tabIndex={disabled ? -1 : 0}
+                          onClick={() => addName(suggestion.preferred)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              addName(suggestion.preferred);
+                            }
+                          }}
+                          className={`flex w-full flex-col gap-1 border-b border-border/50 px-3 py-2 text-left text-sm last:border-0 ${
+                            disabled
+                              ? "pointer-events-none opacity-50"
+                              : "cursor-pointer hover:bg-muted/60"
+                          }`}
+                        >
+                          <span className="flex w-full items-center gap-2">
+                            <span className="min-w-0 flex-1 truncate font-medium">
+                              {suggestion.preferred}
+                            </span>
+                            {regions.length > 0 && (
+                              <span
+                                className="max-w-[55%] shrink-0 truncate text-xs text-muted-foreground"
+                                title={regions.join(" · ")}
+                              >
+                                {regions.join(" · ")}
+                              </span>
+                            )}
+                          </span>
+                          {alternate.length > 0 && (
+                            <span className="flex w-full flex-wrap items-center gap-1">
+                              {alternate.map((name) => (
+                                <button
+                                  key={name}
+                                  type="button"
+                                  title={`Add “${name}” as symptom`}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    addName(name);
+                                  }}
+                                  className="max-w-[48%] truncate rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
+                                >
+                                  {name}
+                                </button>
+                              ))}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                  {!error && !searchPending && !loading && (
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      disabled={submitting}
+                      onClick={() => void add(searchTerm.trim())}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-blue-700 hover:bg-muted/60 disabled:opacity-50 dark:text-blue-300"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add “{searchTerm.trim()}” as symptom
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+        <EntryList
+          emptyLabel="No signs or symptoms recorded"
+          items={entries}
+          render={(entry) => (
+            <div className="flex-1 min-w-0">
+              <p className="font-medium break-words">{entry.symptom}</p>
+              <DiagnosisNotesEditor
+                notes={entry.notes ?? ""}
+                canEdit={canEditNotes}
+                entryLabel="symptom"
+                onSave={(notes) => updateNotes(entry.id, notes)}
+              />
+            </div>
+          )}
+          onRemove={canRemove ? remove : undefined}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -326,10 +594,12 @@ function DiagnosisNotesEditor({
   notes,
   canEdit,
   onSave,
+  entryLabel = "diagnosis",
 }: {
   notes: string;
   canEdit: boolean;
   onSave: (notes: string) => Promise<boolean>;
+  entryLabel?: string;
 }) {
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState(notes);
@@ -376,14 +646,14 @@ function DiagnosisNotesEditor({
             autoFocus
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="Add notes for this diagnosis…"
+            placeholder={`Add notes for this ${entryLabel}…`}
             rows={2}
             className="min-h-[52px] resize-y text-xs"
           />
           <Button
             type="button"
             size="icon"
-            aria-label="Save diagnosis notes"
+            aria-label={`Save ${entryLabel} notes`}
             title="Save notes"
             disabled={saving}
             onClick={() => void save()}

@@ -193,6 +193,13 @@ export type GqlVisitDepartment = {
     notes?: string | null;
     createdAt?: string | null;
   }> | null;
+  symptoms?: Array<{
+    id: string;
+    symptomName: string;
+    sonomedId?: string | null;
+    notes?: string | null;
+    createdAt?: string | null;
+  }> | null;
   medications?: Array<{
     id: string;
     medicationName: string;
@@ -618,6 +625,13 @@ export function mapGqlVisitDepartment(
       type: diagnosis.type || VisitDepartmentDiagnosisType.FINAL,
       notes: diagnosis.notes || "",
       createdAt: diagnosis.createdAt || EMPTY_TIMESTAMP,
+    })),
+    symptoms: (dept.symptoms || []).map((symptom) => ({
+      id: String(symptom.id),
+      symptomName: symptom.symptomName || "",
+      sonomedId: symptom.sonomedId || null,
+      notes: symptom.notes || "",
+      createdAt: symptom.createdAt || EMPTY_TIMESTAMP,
     })),
     medications: (dept.medications || []).map((medication) => ({
       id: String(medication.id),

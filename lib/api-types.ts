@@ -594,6 +594,7 @@ export interface VisitDepartment {
   childVisitDepartments: VisitDepartment[];
   products: VisitDepartmentProduct[];
   diagnostics?: VisitDepartmentDiagnosis[] | null;
+  symptoms?: VisitDepartmentSymptom[] | null;
   hasFinalizedConsultationAnswers?: boolean | null;
   hasBillableProducts?: boolean | null;
   medications?: VisitDepartmentMedication[] | null;
@@ -636,6 +637,14 @@ export interface VisitDepartmentDiagnosis {
   diagnosisName: string;
   icd11Code?: string | null;
   type: VisitDepartmentDiagnosisType;
+  notes: string;
+  createdAt: string;
+}
+
+export interface VisitDepartmentSymptom {
+  id: string;
+  symptomName: string;
+  sonomedId?: string | null;
   notes: string;
   createdAt: string;
 }

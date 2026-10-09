@@ -28,7 +28,7 @@ export interface BlockItemProps {
 }
 
 const TEXTUAL_TYPES: BlockType[] = ["heading1", "heading2", "heading3", "paragraph"];
-const MEDICAL_TYPES: BlockType[] = ["diagnostic_record", "hypothesis_record", "medication_full", "medication_mini", "lab_record", "product_listener"];
+const MEDICAL_TYPES: BlockType[] = ["diagnostic_record", "hypothesis_record", "medication_full", "medication_mini", "lab_record", "product_listener", "symptom_listener"];
 
 export function BlockItem(props: BlockItemProps) {
   const { block, isActive, onActivate, onChange } = props;

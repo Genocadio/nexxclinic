@@ -5,6 +5,7 @@ import type { PatientInsurance } from "@/lib/api-types";
 import type {
   AddedProduct,
   DiagEntry,
+  SymptomEntry,
   FormAnswers,
   MedFullEntry,
   MedMiniEntry,
@@ -41,6 +42,11 @@ export interface MedicalBlockHandlers {
   ) => Promise<boolean>;
   onRemoveDiagnosis?: (diagnosisId: string) => Promise<boolean>;
   onUpdateDiagnosisNotes?: (diagnosisId: string, notes: string) => Promise<boolean>;
+
+  symptoms?: SymptomEntry[];
+  onAddSymptom?: (symptom: string, sonomedId?: string, notes?: string) => Promise<boolean>;
+  onRemoveSymptom?: (symptomId: string) => Promise<boolean>;
+  onUpdateSymptomNotes?: (symptomId: string, notes: string) => Promise<boolean>;
 
   /** Medication blocks — live list from visit & direct mutations */
   medicationsFull?: MedFullEntry[];

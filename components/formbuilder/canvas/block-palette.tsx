@@ -65,6 +65,7 @@ export const PALETTE_GROUPS: {
       { type: "medication_mini", label: "Quick Medication", icon: "💉" },
       { type: "lab_record", label: "Lab Record", icon: "🧪" },
       { type: "product_listener", label: "Product Listener", icon: "🔗" },
+      { type: "symptom_listener", label: "Symptoms Listener", icon: "🩺" },
     ],
   },
 ];

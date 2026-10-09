@@ -31,6 +31,13 @@ export interface DiagEntry {
   notes?: string;
 }
 
+export interface SymptomEntry {
+  id: string;
+  symptom: string;
+  sonomedId?: string | null;
+  notes?: string;
+}
+
 export interface MedFullEntry {
   id: string;
   name: string;
