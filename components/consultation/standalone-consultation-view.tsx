@@ -162,9 +162,9 @@ export function StandaloneConsultationView({
   const isCompletedDepartment =
     String(visitDepartment.status || "").toUpperCase() === "COMPLETED";
   const isFinalisedAnswer =
-    !isCompletedDepartment &&
-    (locallyFinalised ||
-      String(answer?.status || "").toUpperCase() === "FINAL");
+    isCompletedDepartment ||
+    locallyFinalised ||
+    String(answer?.status || "").toUpperCase() === "FINAL";
   const { saveVisitAnswer } = useSaveVisitStandaloneAnswer();
   const { addChildVisitDepartment } = useAddChildVisitDepartment();
   const { addProduct } = useAddProductToVisitDepartment();

@@ -279,7 +279,7 @@ export function ConsultationPreviewSheet({
                   <ConsultationFormRenderer
                     key={`${answerId || "none"}:${resolvedVisitDepartment?.id || visitDepartmentId || ""}`}
                     form={previewForm}
-                    showTitle={true}
+                    showTitle={false}
                     edit={false}
                     validate={false}
                     hideSubmit={true}

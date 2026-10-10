@@ -321,24 +321,33 @@ export default function FormActionsDisplay({
                     Restore
                   </Button>
                 ) : null}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  disabled={isBilled || busyId === item.id}
-                  onClick={() => {
-                    if (isBilled) return
-                    if (isRemoved) {
-                      onRemove?.(item.id)
-                      return
-                    }
-                    canUseServer && item.backendId
-                      ? removeServerItem(item)
-                      : onRemove?.(item.id)
-                  }}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {item.profileSource ? (
+                  <span
+                    title="Profile-managed product. Change the consultation profile to remove it."
+                    className="inline-flex h-6 w-6 items-center justify-center text-blue-500"
+                  >
+                    <Info className="h-3.5 w-3.5" />
+                  </span>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    disabled={isBilled || busyId === item.id}
+                    onClick={() => {
+                      if (isBilled) return
+                      if (isRemoved) {
+                        onRemove?.(item.id)
+                        return
+                      }
+                      canUseServer && item.backendId
+                        ? removeServerItem(item)
+                        : onRemove?.(item.id)
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
               </div>
             </div>
