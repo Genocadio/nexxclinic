@@ -4,6 +4,14 @@ FROM oven/bun:1-alpine AS builder
 ARG API_BASE_URL=http://backend:8080
 ENV API_BASE_URL=${API_BASE_URL}
 
+# NOTE: next.config.mjs reads SUPABASE_INTERNAL_URL inside rewrites(), and Next
+# freezes rewrite destinations into routes-manifest.json at BUILD time (the
+# standalone image does not ship next.config). This must therefore be passed as
+# a build arg too — a runtime env var has no effect on /supa/* and
+# /storage/sign/* requests.
+ARG SUPABASE_INTERNAL_URL=http://host.docker.internal:55321
+ENV SUPABASE_INTERNAL_URL=${SUPABASE_INTERNAL_URL}
+
 WORKDIR /app
 
 # Copy dependency descriptors (wildcard ensures it matches bun.lock or bun.lockb if present)
