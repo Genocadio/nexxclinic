@@ -1059,7 +1059,7 @@ export function BillingPageContent() {
     unreadBillingNotesCount,
     creatingBill,
     editingBill,
-    isEditingBill,
+    isEditingBill: isEditMode,
     ENABLE_DISCHARGE,
     previewDepartmentId,
     doctor,
@@ -1128,7 +1128,7 @@ export function BillingPageContent() {
         // Ctrl+S / Cmd+S → open save/complete confirmation
         "ctrl+s": () => {
           if (billingData?.items.length) {
-            setConfirmSheetMode(isEditingBill ? "edit" : "complete");
+            setConfirmSheetMode(isEditMode ? "edit" : "complete");
             setShowCompleteBillConfirm(true);
           }
         },
@@ -1137,7 +1137,7 @@ export function BillingPageContent() {
           void handlePrintBillingInvoice();
         },
       }),
-      [billingData, isEditingBill, setConfirmSheetMode, setShowCompleteBillConfirm, handlePrintBillingInvoice],
+      [billingData, isEditMode, setConfirmSheetMode, setShowCompleteBillConfirm, handlePrintBillingInvoice],
     ),
   );
 
