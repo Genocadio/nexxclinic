@@ -31,14 +31,63 @@ export function splitInitialAnswers(initialAnswers: FormAnswers = {}) {
   return { blockAnswers, inlineAnswers };
 }
 
+/**
+ * Clinical list blocks (diagnostics, symptoms, medications, products) render
+ * from live visit-department data supplied through `MedicalBlockHandlers` —
+ * their answers are never written to `answers[block.id]` (and are stripped on
+ * save). Validation must therefore read the handler-provided live lists when
+ * present, otherwise populated required blocks always report as empty.
+ */
+function resolveClinicalList(
+  block: FormBlock,
+  handlers?: MedicalBlockHandlers | null,
+): unknown[] | null {
+  if (!handlers) return null;
+  switch (block.type) {
+    case "diagnostic_record": {
+      const all = handlers.diagnostics;
+      if (!Array.isArray(all)) return null;
+      return all.filter((d) => (d.type ?? "FINAL") === "FINAL");
+    }
+    case "hypothesis_record": {
+      const all = handlers.diagnostics;
+      if (!Array.isArray(all)) return null;
+      return all.filter((d) => d.type === "HYPOTHESIS");
+    }
+    case "symptom_listener":
+      return Array.isArray(handlers.symptoms) ? handlers.symptoms : null;
+    case "medication_full":
+      return Array.isArray(handlers.medicationsFull)
+        ? handlers.medicationsFull
+        : null;
+    case "medication_mini":
+      return Array.isArray(handlers.medicationsMini)
+        ? handlers.medicationsMini
+        : null;
+    case "product_listener":
+      return Array.isArray(handlers.productActions)
+        ? handlers.productActions
+        : null;
+    default:
+      return null;
+  }
+}
+
 export function isBlockViolating(
   block: FormBlock,
   answers: FormAnswers,
+  handlers?: MedicalBlockHandlers | null,
 ): boolean {
   const minChars = block.minChars ?? (block as any).minLength;
   const hasMinChars = typeof minChars === "number" && minChars > 0;
 
   if (!block.required && !hasMinChars) return false;
+
+  const clinical = resolveClinicalList(block, handlers);
+  if (clinical) {
+    return clinical.length === 0;
+  }
+
   const v = answers[block.id];
   if (v === undefined || v === null) return true;
   switch (block.type) {
@@ -63,6 +112,7 @@ export function isBlockViolating(
       return !v || String(v) === "";
     case "diagnostic_record":
     case "hypothesis_record":
+    case "symptom_listener":
     case "medication_full":
     case "medication_mini":
     case "product_listener":
@@ -81,8 +131,9 @@ export function isBlockViolating(
 export function getBlockErrorMessage(
   block: FormBlock,
   answers: FormAnswers,
+  handlers?: MedicalBlockHandlers | null,
 ): string | undefined {
-  if (!isBlockViolating(block, answers)) return undefined;
+  if (!isBlockViolating(block, answers, handlers)) return undefined;
   const v = answers[block.id];
   const minChars = block.minChars ?? (block as any).minLength;
   if (typeof minChars === "number" && minChars > 0) {

@@ -213,7 +213,7 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
           if (!shouldRenderBlock(b, answers, getBlockHandlers, form?.blocks)) {
             return false;
           }
-          return isBlockViolating(b, answers);
+          return isBlockViolating(b, answers, getBlockHandlers(b));
         }),
       [allBlocks, answers, getBlockHandlers, form?.blocks],
     );

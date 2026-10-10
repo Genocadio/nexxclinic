@@ -197,6 +197,7 @@ export function ProductListenerWithVisitSync({
             visitId={visitId}
             departmentId={departmentId}
             readOnly={locked}
+            hideSettledStatuses={!edit}
             onUpdateQuantity={
               locked
                 ? undefined

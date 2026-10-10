@@ -24,6 +24,10 @@ interface FormActionsDisplayProps {
   onRestore?: (id: string) => void
   onUpdateQuantity?: (id: string, quantity: number) => void
   readOnly?: boolean
+  /** When true, fully-settled items (billed AND confirmed) render as just
+   *  name + quantity — status badges are reserved for pending items. Used by
+   *  the read-only consultation preview. */
+  hideSettledStatuses?: boolean
 }
 
 export default function FormActionsDisplay({
@@ -40,6 +44,7 @@ export default function FormActionsDisplay({
   onRestore,
   onUpdateQuantity,
   readOnly = false,
+  hideSettledStatuses = false,
 }: FormActionsDisplayProps) {
   const { updateQuantity } = useUpdateProductQuantity()
   const { removeProduct } = useRemoveProductFromVisitDepartment()
@@ -113,6 +118,15 @@ export default function FormActionsDisplay({
   const renderItem = (item: FormAction) => {
     const isRemoved = item.removedFromVisit === true
     const isBilled = item.billingState === 'BILLED'
+    const isConfirmed = Boolean(
+      confirmedIds.has(item.id) ||
+        item.billingConfirmationStatus === 'CONFIRMED' ||
+        item.confirmedByName,
+    )
+    // A fully-settled item (billed AND confirmed) has nothing left to surface,
+    // so in preview we collapse it to just name + quantity.
+    const isSettled = isBilled && isConfirmed
+    const showStatusBadges = !hideSettledStatuses || !isSettled
 
     return (
       <div
@@ -137,20 +151,19 @@ export default function FormActionsDisplay({
             <p className={`text-sm font-medium truncate leading-tight ${isRemoved ? 'line-through text-muted-foreground' : ''}`}>
               {item.name}
             </p>
-            {isBilled && !isRemoved && (
+            {showStatusBadges && isBilled && !isRemoved && (
               <span className="shrink-0 text-[11px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">
                 Billed
               </span>
             )}
-            {item.billingConfirmationStatus === "PENDING_OPERATOR_CONFIRMATION" &&
+            {showStatusBadges &&
+              item.billingConfirmationStatus === "PENDING_OPERATOR_CONFIRMATION" &&
               !confirmedIds.has(item.id) && (
                 <span className="shrink-0 text-[11px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-medium">
                   Added in Billing
                 </span>
               )}
-            {(confirmedIds.has(item.id) ||
-              item.billingConfirmationStatus === "CONFIRMED" ||
-              item.confirmedByName) && (
+            {showStatusBadges && isConfirmed && (
               <span className="shrink-0 text-[11px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-1.5 py-0.5 rounded-full font-medium">
                 {item.confirmedByName
                   ? `Confirmed by ${item.confirmedByName}`

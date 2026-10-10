@@ -491,7 +491,10 @@ export function useConsultationVisitExtension(
     (
       block: import("@/lib/formbuilder-storage").FormBlock,
     ): MedicalBlockHandlers | null => {
-      const canEditClinical = !isVisitOrDeptFinalised;
+      // `edit` guards the read-only surfaces (consultation preview panel).
+      // Products already gate their handlers on `edit` below; the other clinical
+      // blocks must too, otherwise the preview still renders search/add UI.
+      const canEditClinical = edit && !isVisitOrDeptFinalised;
 
       switch (block.type) {
         case "product_listener":

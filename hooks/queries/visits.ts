@@ -421,6 +421,15 @@ export const VISITS_QUERY = gql`
               }
             }
           }
+          profile {
+            id
+            name
+            isDefault
+            products {
+              id
+              name
+            }
+          }
           status
           startedAt
           completedAt

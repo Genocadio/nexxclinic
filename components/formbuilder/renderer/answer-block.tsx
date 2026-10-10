@@ -37,8 +37,10 @@ export function AnswerBlock({
   const content = replacePlaceholders(block.content ?? "", ctx);
 
   const val = answers[block.id] ?? (block.type === "checkbox_group" ? [] : "");
-  const isError = showErrors && isBlockViolating(block, answers);
-  const errorMessage = isError ? getBlockErrorMessage(block, answers) : undefined;
+  const isError = showErrors && isBlockViolating(block, answers, blockHandlers);
+  const errorMessage = isError
+    ? getBlockErrorMessage(block, answers, blockHandlers)
+    : undefined;
   const alignClass =
     block.align === "center"
       ? "text-center"
