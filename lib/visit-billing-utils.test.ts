@@ -304,6 +304,7 @@ describe("getVisitBillingTotals", () => {
       loanOutstandingAmount: 0,
       giveawayOutstandingAmount: 0,
       waivedAmount: 0,
+      paymentMethods: [],
     });
   });
 });

@@ -168,10 +168,17 @@ export function BillingStickySummary({
                     <SummaryLine label="Paid" value={formatRWF(billingTotals.paidAmount)} />
                     <SummaryLine
                       label="Balance"
-                      value={formatRWF(
-                        billingTotals.loanOutstandingAmount +
-                          billingTotals.giveawayOutstandingAmount,
-                      )}
+                      value={formatRWF(billingTotals.loanOutstandingAmount)}
+                      hint={
+                        billingTotals.giveawayOutstandingAmount > 0
+                          ? `Giveaway: ${formatRWF(billingTotals.giveawayOutstandingAmount)}`
+                          : undefined
+                      }
+                      hintTitle={
+                        billingTotals.giveawayOutstandingAmount > 0
+                          ? `Waived as giveaway: ${formatRWF(billingTotals.giveawayOutstandingAmount)}`
+                          : undefined
+                      }
                     />
                   </div>
                 </div>
