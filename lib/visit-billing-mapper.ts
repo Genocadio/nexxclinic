@@ -146,6 +146,7 @@ export function mapVisitToBillingData(
 
       items.push({
         id: line.id,
+        visitId: visitData.id,
         productId: String(product.id || ""),
         source: line.source ?? null,
         name: product.name || "Product",

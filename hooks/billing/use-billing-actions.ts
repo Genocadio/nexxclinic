@@ -811,9 +811,14 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
             };
           }>;
         }>;
-        const visitDept = allDepts.find(
-          (d) => String(d.department?.id) === String(catalogDepartmentId),
-        );
+        const visitDept =
+          allDepts.find(
+            (d) =>
+              String(d.department?.id) === String(catalogDepartmentId) ||
+              String(d.id) === String(catalogDepartmentId),
+          ) ||
+          allDepts.find((d) => d.id === activeVisitDepartment?.id) ||
+          allDepts[0];
 
         // Try to get price from existing visit products (in case this product
         // was previously on the visit and is being re-added)
@@ -893,8 +898,15 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           selectedCoverageId = best?.coverageId;
         }
 
+        const resolvedVisitDeptId =
+          visitDept?.id ||
+          activeVisitDepartment?.id ||
+          allDepts[0]?.id ||
+          catalogDepartmentId;
+
         const newBillingItem: BillingItem = {
           id: tempId,
+          visitId: visit.id,
           productId: item.id,
           source: "USER",
           isNewInEditMode: true,
@@ -906,8 +918,8 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           insuranceCoverageMeta: meta,
           insuranceNotCovered: defaultVisitInsuranceId ? notCovered : false,
           type: "product",
-          visitDepartmentId: visitDept?.id || catalogDepartmentId,
-          rootVisitDepartmentId: visitDept?.id || catalogDepartmentId,
+          visitDepartmentId: resolvedVisitDeptId,
+          rootVisitDepartmentId: resolvedVisitDeptId,
           departmentId: catalogDepartmentId,
           departmentName: deptName,
           departmentStatus: undefined,
@@ -1055,8 +1067,15 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
               selectedCoverageId = best?.coverageId;
             }
 
+            const resolvedDeptId =
+              newProduct?.id ||
+              departmentInfo?.id ||
+              activeVisitDepartment?.id ||
+              catalogDepartmentId;
+
             const newBillingItem: BillingItem = {
               id: addedLine.id,
+              visitId: visit.id,
               productId: item.id,
               source: "USER",
               isNewInEditMode: isEditingBill,
@@ -1068,8 +1087,8 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
               insuranceCoverageMeta: meta,
               insuranceNotCovered: defaultVisitInsuranceId ? notCovered : false,
               type: "product",
-              visitDepartmentId: newProduct?.id || catalogDepartmentId,
-              rootVisitDepartmentId: newProduct?.id || catalogDepartmentId,
+              visitDepartmentId: resolvedDeptId,
+              rootVisitDepartmentId: resolvedDeptId,
               departmentId: departmentInfo?.department?.id,
               departmentName: departmentInfo?.department?.name || "General",
               departmentStatus: departmentInfo?.status,

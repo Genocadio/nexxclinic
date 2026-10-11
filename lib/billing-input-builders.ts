@@ -255,6 +255,7 @@ export function buildEditBillInput(
   // Process removed items (in snapshot but no longer in current)
   snapshotItems
     .filter((i) => !currentIds.has(i.id))
+    .filter((i) => !i.visitId || i.visitId === billingData.visitId)
     .forEach((item) => {
       const deptId = String(
         item.rootVisitDepartmentId || item.visitDepartmentId || "",

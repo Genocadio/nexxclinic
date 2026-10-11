@@ -9,6 +9,7 @@ import {
 
 export interface BillingItem {
   id: string;
+  visitId?: string;
   productId?: string;
   isNewInEditMode?: boolean;
   /** How the product line was added to the visit department. */

@@ -301,13 +301,19 @@ export function BillingPageContent() {
     });
 
     if (hasLocalEditsRef.current && billingData) {
-      // User has made local edits — never overwrite, even for structural
-      // changes. The user's edits are authoritative until they complete or
-      // cancel the edit session.
+      if (billingData.visitId !== visit.id) {
+        hasLocalEditsRef.current = false;
+        setBillingData(mapped);
+        return;
+      }
       return;
     }
 
     if (isEditMode && billingData) {
+      if (billingData.visitId !== visit.id) {
+        setBillingData(mapped);
+        return;
+      }
       const hasPaidItemsInEdit = billingData.items.some(
         (i) => i.paymentStatus === "paid" || i.paymentStatus === "exempted",
       );
@@ -513,7 +519,14 @@ export function BillingPageContent() {
   // short-circuit to "no changes" forever even after the user edits items.
   useEffect(() => {
     if (!isEditMode || !billingData) return;
-    if (editModeSnapshot) return;
+    if (
+      editModeSnapshot &&
+      editModeSnapshot.every(
+        (item) => !item.visitId || item.visitId === billingData.visitId,
+      )
+    ) {
+      return;
+    }
     // Base snapshot must reflect the server-sourced items, not any in-memory
     // local edits. On a fresh mount billingData has just been remapped from the
     // visit, so this is the clean baseline.
@@ -1107,6 +1120,10 @@ export function BillingPageContent() {
   useEffect(() => {
     setBillJustCreated(false);
     setBillingNotesByDepartment({});
+    setIsEditingBill(false);
+    setEditModeSnapshot(null);
+    setBillingData(null);
+    hasLocalEditsRef.current = false;
   }, [visitId]);
 
   useEffect(() => {
