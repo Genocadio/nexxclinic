@@ -44,6 +44,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import type { ClinicReportsData, ClinicDiagnosticRecord } from "@/hooks/reports/use-clinic-reports"
+import type { DiagnosticReportsData } from "@/hooks/reports/use-diagnostic-reports"
 
 export interface AgeBracketConfig {
   id: string
@@ -70,7 +71,7 @@ const DEFAULT_AGE_BRACKETS: AgeBracketConfig[] = [
 const LOCAL_STORAGE_GROUPS_KEY = "nexxclinic_diagnostic_report_disease_groups_v1"
 
 interface AdminReportsDiagnosticsProps {
-  data: ClinicReportsData
+  data: ClinicReportsData | DiagnosticReportsData
 }
 
 export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) {
@@ -78,7 +79,7 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
   const rawRecords: ClinicDiagnosticRecord[] = useMemo(() => {
     return (
       data.diagnosticReports ||
-      data.deepReports?.diagnosticReports ||
+      ("deepReports" in data ? data.deepReports?.diagnosticReports : undefined) ||
       []
     )
   }, [data])

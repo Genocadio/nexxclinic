@@ -5,7 +5,7 @@ import Link from "next/link"
 import Header from "@/components/header"
 import { useAuth } from "@/lib/auth-context"
 import { canAccessMedicalReports } from "@/lib/role-utils"
-import { useClinicReports } from "@/hooks/reports/use-clinic-reports"
+import { useDiagnosticReports } from "@/hooks/reports/use-diagnostic-reports"
 import { useDepartments } from "@/hooks/departments/hooks"
 import { useUsers } from "@/hooks/auth/hooks"
 import type { ReportPeriod } from "@/lib/user-reports-calculator"
@@ -149,12 +149,12 @@ export default function MedicalReportsPage() {
     }
   }, [period, selectedMonth, selectedYear, customFromDate, customToDate])
 
-  // Query Clinic Reports
+  // Query Diagnostic Reports (isolated medical endpoint)
   const {
     reportData,
     loading: reportsLoading,
     refetch,
-  } = useClinicReports({
+  } = useDiagnosticReports({
     fromDate,
     toDate,
     period,

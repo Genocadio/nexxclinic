@@ -51,3 +51,29 @@ export const GET_CLINIC_REPORTS = gql`
     }
   }
 `
+
+export const GET_DIAGNOSTIC_REPORTS = gql`
+  query GetDiagnosticReports(
+    $fromDate: String
+    $toDate: String
+    $period: String
+    $departmentId: ID
+    $departmentIds: [ID]
+    $clinicianId: ID
+    $clinicianIds: [ID]
+  ) {
+    getDiagnosticReports(
+      fromDate: $fromDate
+      toDate: $toDate
+      period: $period
+      departmentId: $departmentId
+      departmentIds: $departmentIds
+      clinicianId: $clinicianId
+      clinicianIds: $clinicianIds
+    ) {
+      status
+      message
+      data
+    }
+  }
+`
