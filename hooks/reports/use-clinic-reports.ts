@@ -120,12 +120,14 @@ export interface ClinicReportsInsuranceBreakdown {
 
 export interface ClinicDiagnosticRecord {
   id: string
+  visitId?: string
   diagnosisName: string
   icd11Code?: string
   type: "HYPOTHESIS" | "FINAL" | string
   notes?: string
   patientId: string
   patientName: string
+  patientIdentifier?: string
   patientGender?: string
   patientAge?: number | null
   departmentId: string

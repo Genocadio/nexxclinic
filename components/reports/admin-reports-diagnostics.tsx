@@ -20,6 +20,13 @@ import {
   X,
   FolderPlus,
   FolderOpen,
+  Calendar,
+  User,
+  Eye,
+  ChevronDown,
+  ChevronRight,
+  Hash,
+  Building2,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -78,9 +85,22 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
 
   // Local state for UI controls
   const [diagnosisTypeFilter, setDiagnosisTypeFilter] = useState<"FINAL_ONLY" | "ALL">("FINAL_ONLY")
+  const [groupByVisit, setGroupByVisit] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [showSymptoms, setShowSymptoms] = useState(false)
   const [showMedications, setShowMedications] = useState(false)
+  const [expandedVisits, setExpandedVisits] = useState<Set<string>>(new Set())
+  const [selectedVisitDetails, setSelectedVisitDetails] = useState<{
+    visitId: string
+    patientName: string
+    patientIdentifier?: string
+    patientGender?: string
+    patientAge?: number | null
+    departmentName: string
+    clinicianName: string
+    date: string
+    records: ClinicDiagnosticRecord[]
+  } | null>(null)
 
   // Disease Groups State
   const [diseaseGroups, setDiseaseGroups] = useState<DiseaseGroupConfig[]>(() => {
@@ -327,6 +347,116 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
     })
   }, [aggregatedData, searchQuery])
 
+  // Group filteredRecords by visit
+  const visitsGroupedData = useMemo(() => {
+    interface VisitGroup {
+      visitId: string
+      date: string
+      patientId: string
+      patientName: string
+      patientIdentifier?: string
+      patientGender?: string
+      patientAge?: number | null
+      departmentName: string
+      clinicianName: string
+      records: ClinicDiagnosticRecord[]
+      symptomsSet: Set<string>
+      medicationsSet: Set<string>
+      diseaseSummaries: Array<{
+        name: string
+        icd11Code?: string
+        type: string
+        isGroup: boolean
+        groupName?: string
+      }>
+    }
+
+    const map = new Map<string, VisitGroup>()
+
+    filteredRecords.forEach((record) => {
+      // Determine visit key: record.visitId, or fallback to patientId-date
+      const vKey = record.visitId && record.visitId.trim()
+        ? record.visitId.trim()
+        : `${record.patientId || "pat"}_${record.date || "date"}`
+
+      if (!map.has(vKey)) {
+        map.set(vKey, {
+          visitId: vKey,
+          date: record.date || "",
+          patientId: record.patientId || "",
+          patientName: record.patientName || "Unknown Patient",
+          patientIdentifier: record.patientIdentifier,
+          patientGender: record.patientGender,
+          patientAge: record.patientAge,
+          departmentName: record.departmentName || "General",
+          clinicianName: record.clinicianName || "Unknown Clinician",
+          records: [],
+          symptomsSet: new Set(),
+          medicationsSet: new Set(),
+          diseaseSummaries: [],
+        })
+      }
+
+      const grp = map.get(vKey)!
+      grp.records.push(record)
+
+      // Collect symptoms and medications
+      if (record.symptoms && Array.isArray(record.symptoms)) {
+        record.symptoms.forEach((s) => {
+          if (s && s.trim()) grp.symptomsSet.add(s.trim())
+        })
+      }
+      if (record.medications && Array.isArray(record.medications)) {
+        record.medications.forEach((m) => {
+          if (m && m.trim()) grp.medicationsSet.add(m.trim())
+        })
+      }
+
+      // Disease summary
+      const canonKey = getRecordCanonicalKey(record)
+      const matchingGroup = keyToGroupMap.get(canonKey)
+      grp.diseaseSummaries.push({
+        name: record.diagnosisName,
+        icd11Code: record.icd11Code,
+        type: record.type,
+        isGroup: !!matchingGroup,
+        groupName: matchingGroup?.groupName,
+      })
+    })
+
+    const groups = Array.from(map.values())
+    // Sort descending by date
+    groups.sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+    return groups
+  }, [filteredRecords, keyToGroupMap])
+
+  // Filter visit groups by search query
+  const searchedVisitGroups = useMemo(() => {
+    if (!searchQuery.trim()) return visitsGroupedData
+    const q = searchQuery.toLowerCase()
+    return visitsGroupedData.filter((vg) => {
+      if (vg.patientName.toLowerCase().includes(q)) return true
+      if (vg.patientIdentifier && vg.patientIdentifier.toLowerCase().includes(q)) return true
+      if (vg.clinicianName.toLowerCase().includes(q)) return true
+      if (vg.departmentName.toLowerCase().includes(q)) return true
+      if (vg.diseaseSummaries.some((d) => d.name.toLowerCase().includes(q) || (d.icd11Code && d.icd11Code.toLowerCase().includes(q)) || (d.groupName && d.groupName.toLowerCase().includes(q)))) return true
+      if (Array.from(vg.symptomsSet).some((s) => s.toLowerCase().includes(q))) return true
+      if (Array.from(vg.medicationsSet).some((m) => m.toLowerCase().includes(q))) return true
+      return false
+    })
+  }, [visitsGroupedData, searchQuery])
+
+  // Toggle single visit expand/collapse
+  const handleToggleVisitExpand = (vKey: string) => {
+    const next = new Set(expandedVisits)
+    if (next.has(vKey)) {
+      next.delete(vKey)
+    } else {
+      next.add(vKey)
+    }
+    setExpandedVisits(next)
+  }
+
   // Column totals across all filtered rows
   const columnTotals = useMemo(() => {
     const totals: Record<string, number> = {}
@@ -418,6 +548,59 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
 
   // Export to CSV
   const handleExportCsv = () => {
+    if (groupByVisit) {
+      // Export visits CSV
+      const headers = [
+        "#",
+        "Visit ID",
+        "Date",
+        "Patient Name",
+        "Patient ID",
+        "Gender",
+        "Age",
+        "Department",
+        "Clinician",
+        "Diagnoses / Conditions",
+        "Total Diagnoses",
+        ...(showSymptoms ? ["Symptoms"] : []),
+        ...(showMedications ? ["Medications"] : []),
+      ]
+
+      const csvRows = [headers.join(",")]
+
+      searchedVisitGroups.forEach((vg, idx) => {
+        const diagListStr = vg.diseaseSummaries
+          .map((d) => `${d.name}${d.icd11Code ? ` (${d.icd11Code})` : ""}${d.isGroup ? ` [Group: ${d.groupName}]` : ""} [${d.type}]`)
+          .join(" | ")
+
+        const rowData = [
+          String(idx + 1),
+          `"${vg.visitId.replace(/"/g, '""')}"`,
+          `"${(vg.date || "").replace(/"/g, '""')}"`,
+          `"${vg.patientName.replace(/"/g, '""')}"`,
+          `"${(vg.patientIdentifier || "").replace(/"/g, '""')}"`,
+          `"${(vg.patientGender || "").replace(/"/g, '""')}"`,
+          vg.patientAge !== null && vg.patientAge !== undefined ? String(vg.patientAge) : "",
+          `"${vg.departmentName.replace(/"/g, '""')}"`,
+          `"${vg.clinicianName.replace(/"/g, '""')}"`,
+          `"${diagListStr.replace(/"/g, '""')}"`,
+          String(vg.records.length),
+          ...(showSymptoms ? [`"${Array.from(vg.symptomsSet).join("; ").replace(/"/g, '""')}"`] : []),
+          ...(showMedications ? [`"${Array.from(vg.medicationsSet).join("; ").replace(/"/g, '""')}"`] : []),
+        ]
+        csvRows.push(rowData.join(","))
+      })
+
+      const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `diagnostic_visits_report_${data.fromDate}_to_${data.toDate}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      return
+    }
+
     const headers = [
       "#",
       "Disease / Condition",
@@ -559,29 +742,52 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
             />
           </div>
 
-          {/* Diagnosis Type Toggle */}
-          <div className="flex items-center bg-muted/40 p-1 rounded-xl border border-border/50 shrink-0">
-            <Button
-              variant={diagnosisTypeFilter === "FINAL_ONLY" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setDiagnosisTypeFilter("FINAL_ONLY")}
-              className="rounded-lg h-8 px-3 text-xs font-medium"
-            >
-              Final Diagnoses Only
-            </Button>
-            <Button
-              variant={diagnosisTypeFilter === "ALL" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setDiagnosisTypeFilter("ALL")}
-              className="rounded-lg h-8 px-3 text-xs font-medium"
-            >
-              Hypothesis + Final
-            </Button>
+          {/* Diagnosis Type Toggle & Group by Visit Toggle */}
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <div className="flex items-center bg-muted/40 p-1 rounded-xl border border-border/50">
+              <Button
+                variant={diagnosisTypeFilter === "FINAL_ONLY" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setDiagnosisTypeFilter("FINAL_ONLY")}
+                className="rounded-lg h-8 px-3 text-xs font-medium"
+              >
+                Final Diagnoses Only
+              </Button>
+              <Button
+                variant={diagnosisTypeFilter === "ALL" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setDiagnosisTypeFilter("ALL")}
+                className="rounded-lg h-8 px-3 text-xs font-medium"
+              >
+                Hypothesis + Final
+              </Button>
+            </div>
+
+            <div className="flex items-center bg-muted/40 p-1 rounded-xl border border-border/50">
+              <Button
+                variant={!groupByVisit ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setGroupByVisit(false)}
+                className="rounded-lg h-8 px-3 text-xs font-medium gap-1.5"
+              >
+                <Stethoscope className="h-3.5 w-3.5" />
+                By Disease
+              </Button>
+              <Button
+                variant={groupByVisit ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setGroupByVisit(true)}
+                className="rounded-lg h-8 px-3 text-xs font-medium gap-1.5"
+              >
+                <Calendar className="h-3.5 w-3.5" />
+                Group by Visit
+              </Button>
+            </div>
           </div>
 
           {/* Action Buttons: Group Management, Age Range Config & Export */}
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            {/* Manage Groups Modal Trigger */}
+            {/* Manage Groups Modal Trigger (Relevant for disease grouping) */}
             <Button
               variant="outline"
               size="sm"
@@ -597,24 +803,26 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
               )}
             </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleOpenBracketModal}
-              className="h-10 rounded-xl border-border/70 gap-1.5 text-xs font-medium"
-            >
-              <SlidersHorizontal className="h-4 w-4 text-primary" />
-              <span>Configure Age Ranges</span>
-              <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-                {ageBrackets.length}
-              </Badge>
-            </Button>
+            {!groupByVisit && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenBracketModal}
+                className="h-10 rounded-xl border-border/70 gap-1.5 text-xs font-medium"
+              >
+                <SlidersHorizontal className="h-4 w-4 text-primary" />
+                <span>Configure Age Ranges</span>
+                <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                  {ageBrackets.length}
+                </Badge>
+              </Button>
+            )}
 
             <Button
               variant="outline"
               size="sm"
               onClick={handleExportCsv}
-              disabled={searchedRows.length === 0}
+              disabled={groupByVisit ? searchedVisitGroups.length === 0 : searchedRows.length === 0}
               className="h-10 rounded-xl border-border/70 gap-1.5 text-xs font-medium"
             >
               <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
@@ -659,12 +867,14 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
 
           <div className="text-xs text-muted-foreground flex items-center gap-1.5">
             <Info className="h-3.5 w-3.5 text-muted-foreground/70" />
-            Showing {searchedRows.length} conditions / {columnTotals.grandTotal} cases
+            {groupByVisit
+              ? `Showing ${searchedVisitGroups.length} visits / ${filteredRecords.length} diagnostic entries`
+              : `Showing ${searchedRows.length} conditions / ${columnTotals.grandTotal} cases`}
           </div>
         </div>
 
-        {/* Interactive Group Creation Bar (Appears when user checks rows) */}
-        {selectedItemKeys.size > 0 && (
+        {/* Interactive Group Creation Bar (Appears when user checks rows in Disease Mode) */}
+        {!groupByVisit && selectedItemKeys.size > 0 && (
           <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/30 flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
             <div className="flex items-center gap-2">
               <Badge variant="default" className="text-xs h-6 px-2 font-bold bg-primary text-primary-foreground">
@@ -700,279 +910,500 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
         )}
       </div>
 
-      {/* Main Epidemiological Diagnostic Table */}
-      <div className="bg-card/70 border border-border/70 rounded-2xl shadow-sm overflow-hidden backdrop-blur-md">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse min-w-[700px]">
-            <thead>
-              {/* Top grouping row */}
-              <tr className="bg-muted/60 border-b border-border/60 text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
-                {/* Selection Checkbox Column */}
-                <th className="py-2.5 px-3 w-10 text-center" rowSpan={2}>
-                  <Checkbox
-                    checked={areAllSelectableChecked}
-                    onCheckedChange={handleSelectAllVisible}
-                    aria-label="Select all visible diseases"
-                  />
-                </th>
-                <th className="py-2.5 px-2 w-10 text-center" rowSpan={2}>
-                  #
-                </th>
-                <th className="py-2.5 px-4 min-w-[260px]" rowSpan={2}>
-                  Disease / Condition
-                </th>
-                {ageBrackets.map((bracket) => (
-                  <th
-                    key={bracket.id}
-                    colSpan={2}
-                    className="py-1 px-3 text-center border-l border-border/40 bg-muted/40 font-bold text-foreground/80"
-                  >
-                    {bracket.label}
-                  </th>
-                ))}
-                <th
-                  className="py-2.5 px-4 text-center font-bold text-foreground border-l border-border/60 bg-primary/5 min-w-[90px]"
-                  rowSpan={2}
-                >
-                  Total
-                </th>
-              </tr>
-
-              {/* Sub-header row for Male / Female */}
-              <tr className="bg-muted/50 border-b border-border/60 text-[10px] font-bold text-muted-foreground">
-                {ageBrackets.map((bracket) => (
-                  <React.Fragment key={`${bracket.id}-sub`}>
-                    <th className="py-1 px-2 text-center border-l border-border/40 w-16 text-blue-600 dark:text-blue-400">
-                      M
-                    </th>
-                    <th className="py-1 px-2 text-center border-l border-border/20 w-16 text-pink-600 dark:text-pink-400">
-                      F
-                    </th>
-                  </React.Fragment>
-                ))}
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-border/40 text-xs">
-              {searchedRows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={3 + ageBrackets.length * 2 + 1}
-                    className="py-12 text-center text-muted-foreground"
-                  >
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <Activity className="h-8 w-8 text-muted-foreground/40" />
-                      <p className="text-sm font-medium">No diagnostic records found</p>
-                      <p className="text-xs text-muted-foreground/80 max-w-sm">
-                        No diagnoses matching your selected filters (period, department, clinician, diagnosis type) were recorded.
-                      </p>
-                    </div>
-                  </td>
+      {/* Main Table: Either Group by Visit Table OR Epidemiological Disease Table */}
+      {groupByVisit ? (
+        <div className="bg-card/70 border border-border/70 rounded-2xl shadow-sm overflow-hidden backdrop-blur-md">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse min-w-[750px]">
+              <thead>
+                <tr className="bg-muted/60 border-b border-border/60 text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
+                  <th className="py-3 px-3 w-10 text-center">#</th>
+                  <th className="py-3 px-4 min-w-[140px]">Date & Time</th>
+                  <th className="py-3 px-4 min-w-[180px]">Patient</th>
+                  <th className="py-3 px-3 min-w-[110px]">Demographics</th>
+                  <th className="py-3 px-4 min-w-[150px]">Department & Clinician</th>
+                  <th className="py-3 px-4 min-w-[260px]">Diagnoses & Conditions</th>
+                  <th className="py-3 px-3 text-center w-24">Total Diag</th>
+                  <th className="py-3 px-3 text-center w-20">Details</th>
                 </tr>
-              ) : (
-                searchedRows.map((row, index) => {
-                  const isSelected = selectedItemKeys.has(row.rowKey)
+              </thead>
+              <tbody className="divide-y divide-border/40 text-xs">
+                {searchedVisitGroups.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Activity className="h-8 w-8 text-muted-foreground/40" />
+                        <p className="text-sm font-medium">No visit diagnostic records found</p>
+                        <p className="text-xs text-muted-foreground/80 max-w-sm">
+                          No visits matching your selected filters (period, department, clinician, diagnosis type) were recorded.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  searchedVisitGroups.map((vg, index) => {
+                    const isExpanded = expandedVisits.has(vg.visitId)
 
-                  return (
-                    <tr
-                      key={row.rowKey}
-                      className={`hover:bg-muted/30 transition-colors group ${
-                        isSelected ? "bg-primary/5" : ""
-                      } ${row.isGroup ? "bg-indigo-500/5 dark:bg-indigo-950/20" : ""}`}
-                    >
-                      {/* Checkbox column */}
-                      <td className="py-3 px-3 text-center">
-                        {!row.isGroup ? (
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={() => handleToggleRowSelect(row.rowKey)}
-                            aria-label={`Select ${row.diseaseName}`}
-                          />
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleUngroup(row.groupId!)}
-                            className="h-6 w-6 text-muted-foreground hover:text-destructive rounded"
-                            title="Ungroup this combined condition"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </td>
-
-                      {/* Index */}
-                      <td className="py-3 px-2 text-center text-muted-foreground font-mono text-[11px]">
-                        {index + 1}
-                      </td>
-
-                      {/* Disease Name & Optional Group details / ICD-11 / Symptoms / Medications */}
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-foreground text-sm flex items-center gap-2 flex-wrap">
-                          <span>{row.diseaseName}</span>
-
-                          {row.isGroup ? (
-                            <Badge
-                              variant="default"
-                              className="text-[10px] px-1.5 py-0 font-medium bg-indigo-600 text-white gap-1"
-                            >
-                              <Layers className="h-2.5 w-2.5" />
-                              Grouped ({row.subDiseases?.length || 0})
-                            </Badge>
-                          ) : (
-                            row.icd11Code && (
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] px-1.5 py-0 font-mono font-medium border-border/60 text-muted-foreground"
-                              >
-                                ICD: {row.icd11Code}
-                              </Badge>
-                            )
-                          )}
-                        </div>
-
-                        {/* If Group, list bundled sub-conditions */}
-                        {row.isGroup && row.subDiseases && row.subDiseases.length > 0 && (
-                          <div className="mt-1 flex flex-wrap items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground font-medium">
-                              Includes:
-                            </span>
-                            {row.subDiseases.map((sub) => (
-                              <span
-                                key={sub}
-                                className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted/70 text-muted-foreground font-medium"
-                              >
-                                {sub}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Matching Symptoms Pills */}
-                        {showSymptoms && row.symptomsSet.size > 0 && (
-                          <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium mr-1">
-                              <Stethoscope className="h-3 w-3 text-amber-500" />
-                              Symptoms:
-                            </span>
-                            {Array.from(row.symptomsSet).slice(0, 6).map((sym) => (
-                              <Badge
-                                key={sym}
-                                variant="secondary"
-                                className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
-                              >
-                                {sym}
-                              </Badge>
-                            ))}
-                            {row.symptomsSet.size > 6 && (
-                              <span className="text-[10px] text-muted-foreground">
-                                +{row.symptomsSet.size - 6} more
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Matching Medications Pills */}
-                        {showMedications && row.medicationsSet.size > 0 && (
-                          <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium mr-1">
-                              <Pill className="h-3 w-3 text-indigo-500" />
-                              Rx:
-                            </span>
-                            {Array.from(row.medicationsSet).slice(0, 6).map((med) => (
-                              <Badge
-                                key={med}
-                                variant="secondary"
-                                className="text-[10px] px-1.5 py-0 bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/20"
-                              >
-                                {med}
-                              </Badge>
-                            ))}
-                            {row.medicationsSet.size > 6 && (
-                              <span className="text-[10px] text-muted-foreground">
-                                +{row.medicationsSet.size - 6} more
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Age & Gender Buckets */}
-                      {ageBrackets.map((bracket) => {
-                        const mCount = row.counts[`${bracket.id}_M`] || 0
-                        const fCount = row.counts[`${bracket.id}_F`] || 0
-                        return (
-                          <React.Fragment key={bracket.id}>
-                            <td className="py-3 px-2 text-center border-l border-border/40 font-mono text-xs">
-                              {mCount > 0 ? (
-                                <span className="font-semibold text-blue-600 dark:text-blue-400">
-                                  {mCount}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground/40 font-light">0</span>
-                              )}
-                            </td>
-                            <td className="py-3 px-2 text-center border-l border-border/20 font-mono text-xs">
-                              {fCount > 0 ? (
-                                <span className="font-semibold text-pink-600 dark:text-pink-400">
-                                  {fCount}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground/40 font-light">0</span>
-                              )}
-                            </td>
-                          </React.Fragment>
-                        )
-                      })}
-
-                      {/* Row Total */}
-                      <td className="py-3 px-4 text-center border-l border-border/60 font-mono font-bold text-foreground bg-primary/5">
-                        <span className="inline-block px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
-                          {row.totalCases}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-
-            {/* Bottom Total Summary Row */}
-            {searchedRows.length > 0 && (
-              <tfoot>
-                <tr className="bg-muted/80 border-t-2 border-border/80 font-bold text-foreground text-xs">
-                  <td className="py-3 px-3 text-center text-muted-foreground">—</td>
-                  <td className="py-3 px-2 text-center text-muted-foreground">—</td>
-                  <td className="py-3 px-4">
-                    <span className="uppercase tracking-wider text-[11px] font-extrabold text-foreground">
-                      Total cases consulted or screened
-                    </span>
-                  </td>
-
-                  {ageBrackets.map((bracket) => {
-                    const mTot = columnTotals.totals[`${bracket.id}_M`] || 0
-                    const fTot = columnTotals.totals[`${bracket.id}_F`] || 0
                     return (
-                      <React.Fragment key={`tot-${bracket.id}`}>
-                        <td className="py-3 px-2 text-center border-l border-border/40 font-mono text-blue-600 dark:text-blue-400 font-extrabold">
-                          {mTot}
-                        </td>
-                        <td className="py-3 px-2 text-center border-l border-border/20 font-mono text-pink-600 dark:text-pink-400 font-extrabold">
-                          {fTot}
-                        </td>
+                      <React.Fragment key={vg.visitId}>
+                        <tr className="hover:bg-muted/30 transition-colors group">
+                          {/* Index */}
+                          <td className="py-3 px-3 text-center text-muted-foreground font-mono text-[11px]">
+                            {index + 1}
+                          </td>
+
+                          {/* Date */}
+                          <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
+                            {vg.date ? vg.date.replace("T", " ").substring(0, 16) : "—"}
+                          </td>
+
+                          {/* Patient */}
+                          <td className="py-3 px-4">
+                            <div className="font-semibold text-foreground flex items-center gap-1.5">
+                              <User className="h-3.5 w-3.5 text-primary shrink-0" />
+                              <span className="truncate">{vg.patientName}</span>
+                            </div>
+                            {vg.patientIdentifier && (
+                              <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                                ID: {vg.patientIdentifier}
+                              </p>
+                            )}
+                          </td>
+
+                          {/* Demographics (Gender & Age) */}
+                          <td className="py-3 px-3 text-xs">
+                            <div className="flex items-center gap-1">
+                              {vg.patientGender && (
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[10px] px-1 py-0 font-medium ${
+                                    vg.patientGender.toUpperCase().startsWith("M")
+                                      ? "text-blue-600 dark:text-blue-400 border-blue-500/30"
+                                      : vg.patientGender.toUpperCase().startsWith("F")
+                                      ? "text-pink-600 dark:text-pink-400 border-pink-500/30"
+                                      : ""
+                                  }`}
+                                >
+                                  {vg.patientGender.substring(0, 1).toUpperCase()}
+                                </Badge>
+                              )}
+                              <span className="text-muted-foreground">
+                                {vg.patientAge !== null && vg.patientAge !== undefined ? `${vg.patientAge}y` : "—"}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Department & Clinician */}
+                          <td className="py-3 px-4">
+                            <div className="font-medium text-foreground text-xs flex items-center gap-1">
+                              <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span>{vg.departmentName}</span>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <Stethoscope className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="truncate">{vg.clinicianName}</span>
+                            </div>
+                          </td>
+
+                          {/* Diagnoses List */}
+                          <td className="py-3 px-4">
+                            <div className="space-y-1">
+                              {vg.diseaseSummaries.map((diag, dIdx) => (
+                                <div key={dIdx} className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-medium text-foreground">
+                                    {diag.name}
+                                  </span>
+
+                                  {diag.isGroup ? (
+                                    <Badge
+                                      variant="default"
+                                      className="text-[9px] px-1 py-0 bg-indigo-600 text-white font-normal gap-0.5"
+                                    >
+                                      <Layers className="h-2 w-2" />
+                                      {diag.groupName}
+                                    </Badge>
+                                  ) : (
+                                    diag.icd11Code && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[9px] px-1 py-0 font-mono border-border/60 text-muted-foreground"
+                                      >
+                                        ICD: {diag.icd11Code}
+                                      </Badge>
+                                    )
+                                  )}
+
+                                  <Badge
+                                    variant="secondary"
+                                    className={`text-[9px] px-1 py-0 font-normal ${
+                                      diag.type === "HYPOTHESIS"
+                                        ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                                        : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                                    }`}
+                                  >
+                                    {diag.type === "HYPOTHESIS" ? "Hypothesis" : "Final"}
+                                  </Badge>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Symptoms Pills for Visit */}
+                            {showSymptoms && vg.symptomsSet.size > 0 && (
+                              <div className="mt-2 flex flex-wrap items-center gap-1 pt-1 border-t border-border/30">
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium mr-1">
+                                  <Stethoscope className="h-3 w-3 text-amber-500" />
+                                  Symptoms:
+                                </span>
+                                {Array.from(vg.symptomsSet).map((sym) => (
+                                  <Badge
+                                    key={sym}
+                                    variant="secondary"
+                                    className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                                  >
+                                    {sym}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Medications Pills for Visit */}
+                            {showMedications && vg.medicationsSet.size > 0 && (
+                              <div className="mt-1 flex flex-wrap items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium mr-1">
+                                  <Pill className="h-3 w-3 text-indigo-500" />
+                                  Rx:
+                                </span>
+                                {Array.from(vg.medicationsSet).map((med) => (
+                                  <Badge
+                                    key={med}
+                                    variant="secondary"
+                                    className="text-[10px] px-1.5 py-0 bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/20"
+                                  >
+                                    {med}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Total Diagnoses Count */}
+                          <td className="py-3 px-3 text-center font-mono font-bold text-foreground">
+                            <span className="inline-block px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
+                              {vg.records.length}
+                            </span>
+                          </td>
+
+                          {/* View Full Visit Record Button */}
+                          <td className="py-3 px-3 text-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setSelectedVisitDetails(vg)}
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-lg"
+                              title="View full visit diagnostic breakdown"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                          </td>
+                        </tr>
                       </React.Fragment>
                     )
-                  })}
-
-                  <td className="py-3 px-4 text-center border-l border-border/60 font-mono font-black text-sm bg-primary/10 text-primary">
-                    {columnTotals.grandTotal}
-                  </td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
+                  })
+                )}
+              </tbody>
+              {searchedVisitGroups.length > 0 && (
+                <tfoot>
+                  <tr className="bg-muted/80 border-t-2 border-border/80 font-bold text-foreground text-xs">
+                    <td className="py-3 px-3 text-center text-muted-foreground">—</td>
+                    <td className="py-3 px-4" colSpan={5}>
+                      <span className="uppercase tracking-wider text-[11px] font-extrabold text-foreground">
+                        Total Visits with Diagnoses: {searchedVisitGroups.length}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-center border-l border-border/60 font-mono font-black text-sm bg-primary/10 text-primary">
+                      {searchedVisitGroups.reduce((acc, vg) => acc + vg.records.length, 0)}
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground">—</td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-card/70 border border-border/70 rounded-2xl shadow-sm overflow-hidden backdrop-blur-md">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse min-w-[700px]">
+              <thead>
+                {/* Top grouping row */}
+                <tr className="bg-muted/60 border-b border-border/60 text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
+                  {/* Selection Checkbox Column */}
+                  <th className="py-2.5 px-3 w-10 text-center" rowSpan={2}>
+                    <Checkbox
+                      checked={areAllSelectableChecked}
+                      onCheckedChange={handleSelectAllVisible}
+                      aria-label="Select all visible diseases"
+                    />
+                  </th>
+                  <th className="py-2.5 px-2 w-10 text-center" rowSpan={2}>
+                    #
+                  </th>
+                  <th className="py-2.5 px-4 min-w-[260px]" rowSpan={2}>
+                    Disease / Condition
+                  </th>
+                  {ageBrackets.map((bracket) => (
+                    <th
+                      key={bracket.id}
+                      colSpan={2}
+                      className="py-1 px-3 text-center border-l border-border/40 bg-muted/40 font-bold text-foreground/80"
+                    >
+                      {bracket.label}
+                    </th>
+                  ))}
+                  <th
+                    className="py-2.5 px-4 text-center font-bold text-foreground border-l border-border/60 bg-primary/5 min-w-[90px]"
+                    rowSpan={2}
+                  >
+                    Total
+                  </th>
+                </tr>
+
+                {/* Sub-header row for Male / Female */}
+                <tr className="bg-muted/50 border-b border-border/60 text-[10px] font-bold text-muted-foreground">
+                  {ageBrackets.map((bracket) => (
+                    <React.Fragment key={`${bracket.id}-sub`}>
+                      <th className="py-1 px-2 text-center border-l border-border/40 w-16 text-blue-600 dark:text-blue-400">
+                        M
+                      </th>
+                      <th className="py-1 px-2 text-center border-l border-border/20 w-16 text-pink-600 dark:text-pink-400">
+                        F
+                      </th>
+                    </React.Fragment>
+                  ))}
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-border/40 text-xs">
+                {searchedRows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={3 + ageBrackets.length * 2 + 1}
+                      className="py-12 text-center text-muted-foreground"
+                    >
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Activity className="h-8 w-8 text-muted-foreground/40" />
+                        <p className="text-sm font-medium">No diagnostic records found</p>
+                        <p className="text-xs text-muted-foreground/80 max-w-sm">
+                          No diagnoses matching your selected filters (period, department, clinician, diagnosis type) were recorded.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  searchedRows.map((row, index) => {
+                    const isSelected = selectedItemKeys.has(row.rowKey)
+
+                    return (
+                      <tr
+                        key={row.rowKey}
+                        className={`hover:bg-muted/30 transition-colors group ${
+                          isSelected ? "bg-primary/5" : ""
+                        } ${row.isGroup ? "bg-indigo-500/5 dark:bg-indigo-950/20" : ""}`}
+                      >
+                        {/* Checkbox column */}
+                        <td className="py-3 px-3 text-center">
+                          {!row.isGroup ? (
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => handleToggleRowSelect(row.rowKey)}
+                              aria-label={`Select ${row.diseaseName}`}
+                            />
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleUngroup(row.groupId!)}
+                              className="h-6 w-6 text-muted-foreground hover:text-destructive rounded"
+                              title="Ungroup this combined condition"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </td>
+
+                        {/* Index */}
+                        <td className="py-3 px-2 text-center text-muted-foreground font-mono text-[11px]">
+                          {index + 1}
+                        </td>
+
+                        {/* Disease Name & Optional Group details / ICD-11 / Symptoms / Medications */}
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-foreground text-sm flex items-center gap-2 flex-wrap">
+                            <span>{row.diseaseName}</span>
+
+                            {row.isGroup ? (
+                              <Badge
+                                variant="default"
+                                className="text-[10px] px-1.5 py-0 font-medium bg-indigo-600 text-white gap-1"
+                              >
+                                <Layers className="h-2.5 w-2.5" />
+                                Grouped ({row.subDiseases?.length || 0})
+                              </Badge>
+                            ) : (
+                              row.icd11Code && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] px-1.5 py-0 font-mono font-medium border-border/60 text-muted-foreground"
+                                >
+                                  ICD: {row.icd11Code}
+                                </Badge>
+                              )
+                            )}
+                          </div>
+
+                          {/* If Group, list bundled sub-conditions */}
+                          {row.isGroup && row.subDiseases && row.subDiseases.length > 0 && (
+                            <div className="mt-1 flex flex-wrap items-center gap-1">
+                              <span className="text-[10px] text-muted-foreground font-medium">
+                                Includes:
+                              </span>
+                              {row.subDiseases.map((sub) => (
+                                <span
+                                  key={sub}
+                                  className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted/70 text-muted-foreground font-medium"
+                                >
+                                  {sub}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Matching Symptoms Pills */}
+                          {showSymptoms && row.symptomsSet.size > 0 && (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium mr-1">
+                                <Stethoscope className="h-3 w-3 text-amber-500" />
+                                Symptoms:
+                              </span>
+                              {Array.from(row.symptomsSet).slice(0, 6).map((sym) => (
+                                <Badge
+                                  key={sym}
+                                  variant="secondary"
+                                  className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                                >
+                                  {sym}
+                                </Badge>
+                              ))}
+                              {row.symptomsSet.size > 6 && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  +{row.symptomsSet.size - 6} more
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Matching Medications Pills */}
+                          {showMedications && row.medicationsSet.size > 0 && (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium mr-1">
+                                <Pill className="h-3 w-3 text-indigo-500" />
+                                Rx:
+                              </span>
+                              {Array.from(row.medicationsSet).slice(0, 6).map((med) => (
+                                <Badge
+                                  key={med}
+                                  variant="secondary"
+                                  className="text-[10px] px-1.5 py-0 bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/20"
+                                >
+                                  {med}
+                                </Badge>
+                              ))}
+                              {row.medicationsSet.size > 6 && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  +{row.medicationsSet.size - 6} more
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Age & Gender Buckets */}
+                        {ageBrackets.map((bracket) => {
+                          const mCount = row.counts[`${bracket.id}_M`] || 0
+                          const fCount = row.counts[`${bracket.id}_F`] || 0
+                          return (
+                            <React.Fragment key={bracket.id}>
+                              <td className="py-3 px-2 text-center border-l border-border/40 font-mono text-xs">
+                                {mCount > 0 ? (
+                                  <span className="font-semibold text-blue-600 dark:text-blue-400">
+                                    {mCount}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground/40 font-light">0</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-2 text-center border-l border-border/20 font-mono text-xs">
+                                {fCount > 0 ? (
+                                  <span className="font-semibold text-pink-600 dark:text-pink-400">
+                                    {fCount}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground/40 font-light">0</span>
+                                )}
+                              </td>
+                            </React.Fragment>
+                          )
+                        })}
+
+                        {/* Row Total */}
+                        <td className="py-3 px-4 text-center border-l border-border/60 font-mono font-bold text-foreground bg-primary/5">
+                          <span className="inline-block px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
+                            {row.totalCases}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+
+              {/* Bottom Total Summary Row */}
+              {searchedRows.length > 0 && (
+                <tfoot>
+                  <tr className="bg-muted/80 border-t-2 border-border/80 font-bold text-foreground text-xs">
+                    <td className="py-3 px-3 text-center text-muted-foreground">—</td>
+                    <td className="py-3 px-2 text-center text-muted-foreground">—</td>
+                    <td className="py-3 px-4">
+                      <span className="uppercase tracking-wider text-[11px] font-extrabold text-foreground">
+                        Total cases consulted or screened
+                      </span>
+                    </td>
+
+                    {ageBrackets.map((bracket) => {
+                      const mTot = columnTotals.totals[`${bracket.id}_M`] || 0
+                      const fTot = columnTotals.totals[`${bracket.id}_F`] || 0
+                      return (
+                        <React.Fragment key={`tot-${bracket.id}`}>
+                          <td className="py-3 px-2 text-center border-l border-border/40 font-mono text-blue-600 dark:text-blue-400 font-extrabold">
+                            {mTot}
+                          </td>
+                          <td className="py-3 px-2 text-center border-l border-border/20 font-mono text-pink-600 dark:text-pink-400 font-extrabold">
+                            {fTot}
+                          </td>
+                        </React.Fragment>
+                      )
+                    })}
+
+                    <td className="py-3 px-4 text-center border-l border-border/60 font-mono font-black text-sm bg-primary/10 text-primary">
+                      {columnTotals.grandTotal}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Modal: Create Disease Group from Selection */}
       <Dialog open={isCreateGroupModalOpen} onOpenChange={setIsCreateGroupModalOpen}>
@@ -1245,6 +1676,172 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal: Visit Details Diagnostic Breakdown */}
+      <Dialog
+        open={selectedVisitDetails !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedVisitDetails(null)
+        }}
+      >
+        <DialogContent className="max-w-xl rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              Visit Diagnostic Encounter
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Complete diagnostic record, symptoms, and medications recorded for this clinical visit.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedVisitDetails && (
+            <div className="space-y-4 py-2 text-xs">
+              {/* Patient & Encounter Header */}
+              <div className="p-3 rounded-xl bg-muted/40 border border-border/50 grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Patient</span>
+                  <p className="font-bold text-foreground text-sm mt-0.5">{selectedVisitDetails.patientName}</p>
+                  {selectedVisitDetails.patientIdentifier && (
+                    <p className="text-[10px] text-muted-foreground font-mono">ID: {selectedVisitDetails.patientIdentifier}</p>
+                  )}
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Demographics</span>
+                  <p className="text-foreground mt-0.5">
+                    {selectedVisitDetails.patientGender ? `${selectedVisitDetails.patientGender}, ` : ""}
+                    {selectedVisitDetails.patientAge !== null && selectedVisitDetails.patientAge !== undefined
+                      ? `${selectedVisitDetails.patientAge} years old`
+                      : "Age not recorded"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Department</span>
+                  <p className="text-foreground mt-0.5">{selectedVisitDetails.departmentName}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Clinician</span>
+                  <p className="text-foreground mt-0.5">{selectedVisitDetails.clinicianName}</p>
+                </div>
+                <div className="col-span-2 pt-1 border-t border-border/30">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Date & Time</span>
+                  <p className="font-mono text-muted-foreground mt-0.5">
+                    {selectedVisitDetails.date ? selectedVisitDetails.date.replace("T", " ") : "—"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Diagnoses List */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase">
+                    Diagnoses Recorded ({selectedVisitDetails.records.length})
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">Each counts as 1 entry</span>
+                </div>
+
+                <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                  {selectedVisitDetails.records.map((diag, dIdx) => (
+                    <div
+                      key={dIdx}
+                      className="p-2.5 rounded-xl border border-border/60 bg-card/60 flex items-start justify-between gap-3"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-foreground text-sm">{diag.diagnosisName}</span>
+                          {diag.icd11Code && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 font-mono">
+                              ICD: {diag.icd11Code}
+                            </Badge>
+                          )}
+                          <Badge
+                            variant="secondary"
+                            className={`text-[10px] px-1.5 py-0 font-medium ${
+                              diag.type === "HYPOTHESIS"
+                                ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                                : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                            }`}
+                          >
+                            {diag.type === "HYPOTHESIS" ? "Hypothesis" : "Final"}
+                          </Badge>
+                        </div>
+                        {diag.notes && (
+                          <p className="text-[11px] text-muted-foreground italic">
+                            &quot;{diag.notes}&quot;
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Correlated Symptoms */}
+              {selectedVisitDetails.records.some((r) => r.symptoms && r.symptoms.length > 0) && (
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
+                    <Stethoscope className="h-3.5 w-3.5 text-amber-500" />
+                    Correlated Symptoms
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {Array.from(
+                      new Set(
+                        selectedVisitDetails.records.flatMap((r) => r.symptoms || []).filter(Boolean)
+                      )
+                    ).map((sym) => (
+                      <Badge
+                        key={sym}
+                        variant="secondary"
+                        className="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                      >
+                        {sym}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Prescribed Medications */}
+              {selectedVisitDetails.records.some((r) => r.medications && r.medications.length > 0) && (
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
+                    <Pill className="h-3.5 w-3.5 text-indigo-500" />
+                    Prescribed Medications
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {Array.from(
+                      new Set(
+                        selectedVisitDetails.records.flatMap((r) => r.medications || []).filter(Boolean)
+                      )
+                    ).map((med) => (
+                      <Badge
+                        key={med}
+                        variant="secondary"
+                        className="text-xs px-2 py-0.5 bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/20"
+                      >
+                        {med}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedVisitDetails(null)}
+              className="rounded-xl text-xs h-9"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
+
