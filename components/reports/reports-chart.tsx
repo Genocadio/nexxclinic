@@ -13,6 +13,7 @@ import {
 } from "recharts"
 import type { UserReportsData } from "@/lib/user-reports-calculator"
 import { BarChart3 } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 // Custom tooltip
 function CustomTooltip({ active, payload, label }: any) {
@@ -49,9 +50,11 @@ function CustomTooltip({ active, payload, label }: any) {
 interface ReportsChartProps {
   data: UserReportsData
   activeTab: string
+  compact?: boolean
+  className?: string
 }
 
-export function ReportsChart({ data, activeTab }: ReportsChartProps) {
+export function ReportsChart({ data, activeTab, compact = false, className }: ReportsChartProps) {
   const timeline = data.timeline
 
   // Granularity subtitle & badge
@@ -103,56 +106,114 @@ export function ReportsChart({ data, activeTab }: ReportsChartProps) {
   }
 
 
+  // Calculate role visibility: show if user currently has the role OR has non-zero activity for that role
+  const hasReceptionData =
+    (data.reception?.departmentsDispatchedCount ?? 0) > 0 ||
+    (data.reception?.visitsInitiatedCount ?? 0) > 0 ||
+    (data.reception?.activities?.length ?? 0) > 0 ||
+    Boolean(timeline?.some((t) => (t.reception ?? 0) > 0))
+
+  const hasClinicianData =
+    (data.clinician?.consultationsCount ?? 0) > 0 ||
+    (data.clinician?.prescriptionsCount ?? 0) > 0 ||
+    (data.clinician?.activities?.length ?? 0) > 0 ||
+    Boolean(timeline?.some((t) => (t.clinician ?? 0) > 0))
+
+  const hasNurseData =
+    ((data.nurse?.vitalsRecordedCount ?? 0) +
+      (data.nurse?.triageEncountersCount ?? 0) +
+      (data.nurse?.nursingActsCount ?? 0)) > 0 ||
+    (data.nurse?.activities?.length ?? 0) > 0 ||
+    Boolean(timeline?.some((t) => (t.nurse ?? 0) > 0))
+
+  const hasFinanceData =
+    (data.finance?.billedItemsCount ?? 0) > 0 ||
+    (data.finance?.money?.totalGrossBilled ?? 0) > 0 ||
+    (data.finance?.activities?.length ?? 0) > 0 ||
+    Boolean(timeline?.some((t) => (t.finance ?? 0) > 0))
+
+  const showReception =
+    (activeTab === "reception" || activeTab === "overview") &&
+    (data.hasReception || hasReceptionData)
+
+  const showClinician =
+    (activeTab === "clinician" || activeTab === "overview") &&
+    (data.hasClinician || hasClinicianData)
+
+  const showNurse =
+    (activeTab === "nurse" || activeTab === "overview") &&
+    (data.hasNurse || hasNurseData)
+
+  const showFinance =
+    (activeTab === "finance" || activeTab === "overview") &&
+    (data.hasFinance || hasFinanceData) &&
+    Boolean(data.canViewFinance)
+
   return (
-    <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-5 sm:p-6 shadow-sm">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+    <div
+      className={cn(
+        "bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl shadow-sm flex flex-col justify-between",
+        compact ? "p-3.5 sm:p-4" : "p-5 sm:p-6",
+        className
+      )}
+    >
+      <div className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-1.5", compact ? "mb-2" : "mb-6")}>
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-semibold text-foreground">Activity Timeline</h3>
+            <h3 className={cn("font-semibold text-foreground", compact ? "text-sm" : "text-base")}>
+              Activity Timeline
+            </h3>
             <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
               {scaleBadge}
             </span>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-[11px] text-muted-foreground mt-0.5">
             {subtitle}
           </p>
         </div>
       </div>
 
-      <div className="h-[280px] sm:h-[320px] w-full">
+      <div className={cn("w-full", compact ? "h-[200px] sm:h-[220px]" : "h-[280px] sm:h-[320px]")}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={timeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-border/40" />
+          <BarChart data={timeline} margin={{ top: 8, right: 10, left: -24, bottom: 0 }}>
+            <CartesianGrid
+              strokeDasharray="4 4"
+              vertical={true}
+              stroke="currentColor"
+              className="text-border/80 dark:text-border/60"
+              strokeOpacity={0.7}
+            />
             <XAxis
               dataKey="label"
               stroke="currentColor"
-              className="text-xs text-muted-foreground"
-              tickLine={false}
-              axisLine={false}
+              className="text-[11px] font-medium text-foreground/80"
+              tickLine={{ stroke: "currentColor", className: "text-border" }}
+              axisLine={{ stroke: "currentColor", className: "text-border/80" }}
+              dy={3}
             />
             <YAxis
               stroke="currentColor"
-              className="text-xs text-muted-foreground"
-              tickLine={false}
-              axisLine={false}
+              className="text-[11px] font-medium text-foreground/80"
+              tickLine={{ stroke: "currentColor", className: "text-border" }}
+              axisLine={{ stroke: "currentColor", className: "text-border/80" }}
               allowDecimals={false}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend
-              wrapperStyle={{ paddingTop: "12px", fontSize: "12px" }}
+              wrapperStyle={{ paddingTop: compact ? "6px" : "12px", fontSize: compact ? "11px" : "12px" }}
               formatter={(value) => <span className="text-foreground text-xs font-medium mr-2">{value}</span>}
             />
 
-            {(activeTab === "overview" || activeTab === "reception") && (
+            {showReception && (
               <Bar dataKey="reception" name="Reception" fill="#4453C8" radius={[4, 4, 0, 0]} maxBarSize={36} />
             )}
-            {(activeTab === "overview" || activeTab === "clinician") && (
+            {showClinician && (
               <Bar dataKey="clinician" name="Clinician" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={36} />
             )}
-            {(activeTab === "overview" || activeTab === "nurse") && (
+            {showNurse && (
               <Bar dataKey="nurse" name="Nursing / Triage" fill="#0284C7" radius={[4, 4, 0, 0]} maxBarSize={36} />
             )}
-            {data.canViewFinance && (activeTab === "overview" || activeTab === "finance") && (
+            {showFinance && (
               <Bar dataKey="finance" name="Billing / Finance" fill="#F59E0B" radius={[4, 4, 0, 0]} maxBarSize={36} />
             )}
           </BarChart>

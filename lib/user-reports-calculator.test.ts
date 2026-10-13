@@ -446,5 +446,80 @@ describe("calculateUserReports", () => {
     expect(reports.clinician.consultationsCount).toBe(0)
     expect(reports.nurse.vitalsRecordedCount).toBe(0)
     expect(reports.finance!.billedItemsCount).toBe(0)
+    expect(reports.demographics?.totalPatientsCount).toBe(0)
+  })
+
+  it("calculates all-around demographics at top-level for clinician", () => {
+    const clinicianWorker: Worker = {
+      ...mockWorker,
+      roles: [RoleName.CLINICIAN],
+    }
+    const reports = calculateUserReports(mockVisits, clinicianWorker, "today", "2026-09-29", "2026-09-29")
+    expect(reports.demographics).toBeDefined()
+    expect(reports.demographics?.totalPatientsCount).toBe(1)
+    expect(reports.demographics?.maleCount).toBe(1)
+    expect(reports.demographics?.femaleCount).toBe(0)
+    expect(reports.demographics?.averageAge).toBeGreaterThan(0)
+    expect(reports.demographics?.peakActivityHour).toContain("AM")
+    expect(reports.demographics?.averageEncounterTimeMinutes).toBe(20)
+  })
+
+  it("calculates pending billing amount and giveaways for items approved by clinician", () => {
+    const clinicianWorker: Worker = {
+      ...mockWorker,
+      roles: [RoleName.CLINICIAN],
+    }
+
+    const testVisit: Visit = {
+      ...mockVisits[0],
+      departments: [
+        {
+          id: "dept-pharmacy",
+          department: { id: "d-pharm", name: "Pharmacy" } as any,
+          status: "COMPLETED" as any,
+          startedAt: "2026-09-29T09:00:00Z",
+          products: [
+            {
+              id: "p-pending-1",
+              product: {
+                id: "prod-amox",
+                name: "Amoxicillin 500mg",
+                type: "MEDICATION" as any,
+                clinicPrice: 4000,
+              } as any,
+              quantity: 2,
+              status: "ADDED" as any,
+              addedBy: mockWorker,
+              createdAt: "2026-09-29T09:05:00Z",
+              updatedAt: "2026-09-29T09:05:00Z",
+            } as any,
+            {
+              id: "p-exempt-1",
+              product: {
+                id: "prod-gauze",
+                name: "Sterile Gauze",
+                type: "CONSUMABLE_DEVICE" as any,
+                clinicPrice: 1500,
+              } as any,
+              quantity: 1,
+              status: "EXEMPTED" as any,
+              addedBy: mockWorker,
+              createdAt: "2026-09-29T09:10:00Z",
+              updatedAt: "2026-09-29T09:10:00Z",
+            } as any,
+          ],
+        } as any,
+      ],
+    }
+
+    const reports = calculateUserReports([testVisit], clinicianWorker, "today", "2026-09-29", "2026-09-29")
+    expect(reports.canViewFinance).toBe(true)
+    expect(reports.clinician.money).toBeDefined()
+    // 2 * 4000 = 8000 pending billing
+    expect(reports.clinician.money?.pendingBillingAmount).toBe(8000)
+    expect(reports.clinician.money?.pendingBillingCount).toBe(2)
+    // 1 * 1500 = 1500 giveaway/exempted
+    expect(reports.clinician.money?.giveawayAmount).toBe(1500)
+    expect(reports.clinician.money?.giveawayCount).toBe(1)
   })
 })

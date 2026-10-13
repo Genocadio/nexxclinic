@@ -12,9 +12,7 @@ import { cn } from "@/lib/utils"
 import {
   ReportsClinicianSkeleton,
   ReportsFinanceSkeleton,
-  ReportsKpiCardsSkeleton,
-  ReportsChartSkeleton,
-  ReportsTableSkeleton,
+  ReportsDemographicsSkeleton,
 } from "@/components/reports/reports-skeleton"
 
 // Dynamically imported report components with skeleton fallbacks for optimal bundle size & lazy loading
@@ -28,19 +26,9 @@ const ReportsClinicianView = dynamic(
   { ssr: false, loading: () => <ReportsClinicianSkeleton /> }
 )
 
-const ReportsKpiCards = dynamic(
-  () => import("@/components/reports/reports-kpi-cards").then((mod) => mod.ReportsKpiCards),
-  { ssr: false, loading: () => <ReportsKpiCardsSkeleton /> }
-)
-
-const ReportsChart = dynamic(
-  () => import("@/components/reports/reports-chart").then((mod) => mod.ReportsChart),
-  { ssr: false, loading: () => <ReportsChartSkeleton /> }
-)
-
-const ReportsActivityTable = dynamic(
-  () => import("@/components/reports/reports-activity-table").then((mod) => mod.ReportsActivityTable),
-  { ssr: false, loading: () => <ReportsTableSkeleton /> }
+const ReportsDemographicsView = dynamic(
+  () => import("@/components/reports/reports-demographics-view").then((mod) => mod.ReportsDemographicsView),
+  { ssr: false, loading: () => <ReportsDemographicsSkeleton /> }
 )
 
 import { Button } from "@/components/ui/button"
@@ -50,6 +38,8 @@ import {
   Wallet,
   Activity,
   ShieldAlert,
+  Landmark,
+  Stethoscope,
 } from "lucide-react"
 
 import { ReportsPeriodSelector } from "@/components/reports/reports-period-selector"
@@ -209,8 +199,12 @@ export default function ReportsPage() {
   }, [backendReportData, doctor, period, fromDate, toDate])
 
   const canShowFinance =
-    (reportData.canViewFinance ?? (reportData.hasFinance || reportData.hasClinician)) &&
-    (reportData.hasFinance || reportData.hasClinician)
+    reportData.hasClinician
+      ? Boolean(reportData.canViewFinance ?? true)
+      : Boolean(reportData.canViewFinance) &&
+        (reportData.hasFinance || reportData.isAdminOrManager) &&
+        !reportData.hasReception &&
+        !reportData.hasNurse
 
   if (authLoading) {
     return <AppLoadingState message="Loading your reports…" />
@@ -245,32 +239,34 @@ export default function ReportsPage() {
 
       <main className={cn(
         "container w-full mx-auto px-4 sm:px-6 max-w-7xl transition-all flex-1 min-h-0 min-w-0",
-        "py-6 space-y-6 overflow-y-auto"
+        "py-3 sm:py-4 space-y-3 sm:space-y-3.5 overflow-y-auto"
       )}>
-        <div className="flex items-center gap-2 bg-card/80 backdrop-blur-xl border border-border/70 p-2 rounded-2xl shadow-sm">
-          <Button
-            variant={activeTab === "activity" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setActiveTab("activity")}
-            className="rounded-xl h-9 px-4 text-xs font-medium gap-2"
-          >
-            <Activity className="h-4 w-4" />
-            Activity
-            <Badge variant="secondary" className="py-0 px-1.5 text-[11px]">
-              {reportData.totalInteractions}
-            </Badge>
-          </Button>
-          {canShowFinance && (
+        <div className="flex items-center justify-center w-full">
+          <div className="inline-flex items-center justify-center gap-2 bg-card/80 backdrop-blur-xl border border-border/70 p-1.5 rounded-2xl shadow-sm flex-wrap">
             <Button
-              variant={activeTab === "finance" ? "default" : "ghost"}
+              variant={activeTab === "activity" ? "default" : "ghost"}
               size="sm"
-              onClick={() => setActiveTab("finance")}
+              onClick={() => setActiveTab("activity")}
               className="rounded-xl h-9 px-4 text-xs font-medium gap-2"
             >
-              <Wallet className="h-4 w-4" />
-              Finance
+              <Activity className="h-4 w-4" />
+              My Activity
+              <Badge variant="secondary" className="py-0 px-1.5 text-[11px]">
+                {reportData.totalInteractions}
+              </Badge>
             </Button>
-          )}
+            {canShowFinance && (
+              <Button
+                variant={activeTab === "finance" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setActiveTab("finance")}
+                className="rounded-xl h-9 px-4 text-xs font-medium gap-2"
+              >
+                <Wallet className="h-4 w-4" />
+                My Earnings
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Loading Indicator for background refetching */}
@@ -286,11 +282,7 @@ export default function ReportsPage() {
           activeTab === "finance" && canShowFinance ? (
             <ReportsFinanceSkeleton />
           ) : (
-            <div className="space-y-6">
-              <ReportsKpiCardsSkeleton />
-              <ReportsChartSkeleton />
-              <ReportsTableSkeleton />
-            </div>
+            <ReportsDemographicsSkeleton />
           )
         ) : (
           <>
@@ -300,26 +292,15 @@ export default function ReportsPage() {
                 {reportData.hasFinance && reportData.finance && (
                   <ReportsFinanceView data={reportData} />
                 )}
-                {reportData.hasClinician && reportData.clinician.money && (
+                {reportData.hasClinician && (
                   <ReportsClinicianView data={reportData} financeOnly />
                 )}
               </div>
             ) : (
-              <>
-                <ReportsKpiCards data={reportData} activeTab="activity" />
-                <ReportsChart data={reportData} activeTab="overview" />
-                <ReportsActivityTable
-                  activities={reportData.allActivities}
-                  title="User Activity"
-                  description="Recorded actions attributed to this user across their assigned roles."
-                  hidePatientDetails={
-                    reportData.hasReception &&
-                    !reportData.hasClinician &&
-                    !reportData.hasNurse &&
-                    !reportData.hasFinance
-                  }
-                />
-              </>
+              <ReportsDemographicsView
+                data={reportData}
+                periodLabel={rangeDisplayLabel}
+              />
             )}
           </>
         )}

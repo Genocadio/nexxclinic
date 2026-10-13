@@ -106,6 +106,8 @@ const ALL_ROLES = [
   "RECEPTION",
   "NURSE",
   "CLINICIAN",
+  "MEDICAL_REPORTS",
+  "FINANCE_REPORTS",
 ] as const;
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
@@ -117,6 +119,8 @@ const ROLE_DESCRIPTIONS: Record<string, string> = {
   RECEPTION: "Patient check-in, visit routing, and patient registration.",
   NURSE: "Triage queue, vital signs recording, and bedside observation notes.",
   CLINICIAN: "Physician consultations, medical diagnostics, prescriptions, and order requests.",
+  MEDICAL_REPORTS: "Access to clinic-wide clinical, diagnostic, and symptom reports only.",
+  FINANCE_REPORTS: "Access to clinic-wide financial, earnings, waiver, and adjustment reports only.",
 };
 
 function getRoleBadgeConfig(role: string) {
@@ -142,9 +146,15 @@ function getRoleBadgeConfig(role: string) {
         containerClass: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
       };
     case "FINANCE":
+    case "FINANCE_REPORTS":
       return {
         badgeClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/20",
         containerClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+      };
+    case "MEDICAL_REPORTS":
+      return {
+        badgeClass: "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/20",
+        containerClass: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
       };
     case "MANAGER":
     case "CLINIC_ADMIN":

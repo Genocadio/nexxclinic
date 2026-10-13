@@ -51,7 +51,8 @@ export default function AdminDashboardPage() {
                 <div>
                   <p className="text-base font-semibold text-foreground">{label}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {label === "Clinic Profile" ? "Read and update clinic branding and details" :
+                    {label === "Clinic Reports" ? "Clinic overview, revenue, loans & waivers" :
+                      label === "Clinic Profile" ? "Read and update clinic branding and details" :
                       label === "Settings" ? "Invoice paper sizes, printing & system config" :
                       label === "Manage Insurances" ? "Create, edit, and delete insurances" :
                       label === "Manage Products" ? "Create, edit, and delete products" :

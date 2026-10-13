@@ -377,13 +377,26 @@ export function ReportsFinanceView({
             <div className="h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={money.moneyTimeline} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-border/40" />
-                  <XAxis dataKey="label" stroke="currentColor" className="text-xs text-muted-foreground" tickLine={false} axisLine={false} />
+                  <CartesianGrid
+                    strokeDasharray="4 4"
+                    vertical={true}
+                    stroke="currentColor"
+                    className="text-border/80 dark:text-border/60"
+                    strokeOpacity={0.7}
+                  />
+                  <XAxis
+                    dataKey="label"
+                    stroke="currentColor"
+                    className="text-xs font-medium text-foreground/80"
+                    tickLine={{ stroke: "currentColor", className: "text-border" }}
+                    axisLine={{ stroke: "currentColor", className: "text-border/80" }}
+                    dy={3}
+                  />
                   <YAxis
                     stroke="currentColor"
-                    className="text-xs text-muted-foreground"
-                    tickLine={false}
-                    axisLine={false}
+                    className="text-xs font-medium text-foreground/80"
+                    tickLine={{ stroke: "currentColor", className: "text-border" }}
+                    axisLine={{ stroke: "currentColor", className: "text-border/80" }}
                     tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : v)}
                   />
                   <Tooltip content={<CustomMoneyTooltip />} />

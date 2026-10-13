@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { usePathname, useRouter } from '@/lib/navigation'
-import { LayoutDashboard, Building2, Package, ShieldCheck, Users, BadgeInfo, Settings } from 'lucide-react'
+import { LayoutDashboard, Building2, Package, ShieldCheck, Users, BadgeInfo, Settings, BarChart3 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
@@ -32,6 +32,8 @@ export default function AdminBottomDock() {
     if (!pathname?.startsWith('/admin')) return true
     // Form builder has its own dedicated dock.
     if (pathname === '/admin/forms') return true
+    // Reports pages should not display bottom dock.
+    if (pathname.startsWith('/admin/reports') || pathname.startsWith('/reports')) return true
     return false
   }, [pathname])
 

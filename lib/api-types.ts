@@ -25,6 +25,8 @@ export enum RoleName {
   NURSE = "NURSE",
   CLINICIAN = "CLINICIAN",
   ADMIN = "ADMIN",
+  MEDICAL_REPORTS = "MEDICAL_REPORTS",
+  FINANCE_REPORTS = "FINANCE_REPORTS",
 }
 
 export enum AccountStatus {

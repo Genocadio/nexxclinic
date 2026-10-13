@@ -28,6 +28,28 @@ interface ReportsKpiCardsProps {
 
 export function ReportsKpiCards({ data, activeTab }: ReportsKpiCardsProps) {
   if (activeTab === "activity") {
+    const hasReceptionData =
+      (data.reception?.departmentsDispatchedCount ?? 0) > 0 ||
+      (data.reception?.visitsInitiatedCount ?? 0) > 0
+
+    const hasClinicianData =
+      (data.clinician?.consultationsCount ?? 0) > 0 ||
+      (data.clinician?.prescriptionsCount ?? 0) > 0
+
+    const hasNurseData =
+      ((data.nurse?.vitalsRecordedCount ?? 0) +
+        (data.nurse?.triageEncountersCount ?? 0) +
+        (data.nurse?.nursingActsCount ?? 0)) > 0
+
+    const hasFinanceData =
+      (data.finance?.billedItemsCount ?? 0) > 0 ||
+      (data.finance?.money?.totalGrossBilled ?? 0) > 0
+
+    const showReception = data.hasReception || hasReceptionData
+    const showClinician = data.hasClinician || hasClinicianData
+    const showNurse = data.hasNurse || hasNurseData
+    const showFinance = (data.hasFinance || hasFinanceData) && Boolean(data.canViewFinance)
+
     const cards = [
       {
         label: "Recorded Actions",
@@ -43,34 +65,34 @@ export function ReportsKpiCards({ data, activeTab }: ReportsKpiCardsProps) {
         icon: Users,
         color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
       },
-      ...(data.hasReception
+      ...(showReception
         ? [{
             label: "Departments Dispatched",
-            value: data.reception.departmentsDispatchedCount,
+            value: data.reception?.departmentsDispatchedCount ?? 0,
             description: "Departments assigned by you",
             icon: Building2,
             color: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
           }]
         : []),
-      ...(data.hasClinician
+      ...(showClinician
         ? [{
             label: "Consultations",
-            value: data.clinician.consultationsCount,
-            description: `${data.clinician.consultationsCompletedCount} completed`,
+            value: data.clinician?.consultationsCount ?? 0,
+            description: `${data.clinician?.consultationsCompletedCount ?? 0} completed`,
             icon: Stethoscope,
             color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
           }]
         : []),
-      ...(data.hasNurse
+      ...(showNurse
         ? [{
             label: "Nursing Actions",
-            value: data.nurse.vitalsRecordedCount + data.nurse.triageEncountersCount + data.nurse.nursingActsCount,
+            value: (data.nurse?.vitalsRecordedCount ?? 0) + (data.nurse?.triageEncountersCount ?? 0) + (data.nurse?.nursingActsCount ?? 0),
             description: "Vitals, triage and nursing acts",
             icon: HeartPulse,
             color: "bg-red-500/10 text-red-600 dark:text-red-400",
           }]
         : []),
-      ...(data.canViewFinance && data.hasFinance
+      ...(showFinance
         ? [{
             label: "Items Billed",
             value: data.finance?.billedItemsCount ?? 0,

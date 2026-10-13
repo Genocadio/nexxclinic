@@ -152,3 +152,54 @@ export function ReportsClinicianSkeleton() {
     </div>
   )
 }
+
+export function ReportsDemographicsSkeleton() {
+  return (
+    <div className="space-y-3.5 animate-pulse">
+      {/* 5 compact KPI skeleton cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="bg-card/90 border border-border/70 rounded-xl p-3 shadow-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-3 w-20 rounded" />
+              <Skeleton className="h-7 w-7 rounded-lg" />
+            </div>
+            <Skeleton className="h-5 w-14 rounded" />
+            <Skeleton className="h-2.5 w-24 rounded" />
+          </div>
+        ))}
+      </div>
+
+      {/* Side-by-side 2 columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+        <div className="lg:col-span-7 bg-card/90 border border-border/70 rounded-2xl p-3.5 sm:p-4 space-y-3">
+          <div className="flex justify-between items-center">
+            <Skeleton className="h-4 w-32 rounded" />
+            <Skeleton className="h-4 w-20 rounded" />
+          </div>
+          <Skeleton className="h-[200px] sm:h-[220px] w-full rounded-xl" />
+        </div>
+        <div className="lg:col-span-5 bg-card/90 border border-border/70 rounded-2xl p-3.5 sm:p-4 space-y-3 flex flex-col justify-between">
+          <div className="flex justify-between items-center pb-2 border-b border-border/50">
+            <Skeleton className="h-4 w-36 rounded" />
+            <Skeleton className="h-4 w-16 rounded" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-28 rounded" />
+            <Skeleton className="h-3 w-full rounded-full" />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-16 rounded-xl" />
+            ))}
+          </div>
+          <div className="space-y-2 pt-2 border-t border-border/50">
+            <Skeleton className="h-3 w-32 rounded" />
+            <Skeleton className="h-2 w-full rounded-full" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+

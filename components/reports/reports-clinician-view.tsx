@@ -59,12 +59,29 @@ interface ReportsClinicianViewProps {
   financeOnly?: boolean
 }
 
-const ITEMS_PER_PAGE = 15
+const defaultEmptyMoney: ClinicianMoneyReport = {
+  totalGrossBilled: 0,
+  insuranceCoveredAmount: 0,
+  patientShareAmount: 0,
+  patientCashCollected: 0,
+  patientLoanAmount: 0,
+  giveawayAmount: 0,
+  outstandingBalance: 0,
+  loanCount: 0,
+  giveawayCount: 0,
+  pendingBillingAmount: 0,
+  pendingBillingCount: 0,
+  totalProductTurnover: 0,
+  productItemsApprovedCount: 0,
+  productTurnoverByCategory: {},
+  productTurnoverList: [],
+  moneyTimeline: [],
+  insuranceBreakdown: [],
+  departmentBreakdown: [],
+}
 
 export function ReportsClinicianView(props: ReportsClinicianViewProps) {
-  const money = props.data.clinician.money
-  if (!money) return null
-
+  const money = props.data.clinician.money || defaultEmptyMoney
   return <ReportsClinicianViewContent {...props} money={money} />
 }
 
@@ -91,6 +108,9 @@ function ReportsClinicianViewContent({
 
   // 3. Finance Turnover View Switcher: "grouped" (Group by encounter) vs "detailed" (Itemized products)
   const [financeViewMode, setFinanceViewMode] = useState<"grouped" | "detailed">("grouped")
+
+  // 4. Turnover Status Filter: "ALL" | "BILLED" | "PENDING" | "EXEMPTED" | "LOAN"
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "BILLED" | "PENDING" | "EXEMPTED" | "LOAN">("ALL")
 
   // 4. Search and Continuous Pagination state
   const [searchTerm, setSearchTerm] = useState("")
@@ -213,22 +233,59 @@ function ReportsClinicianViewContent({
   // Dynamic Financial KPIs for the selected department
   const currentFinanceStats = useMemo(() => {
     if (selectedDepartment === "ALL") {
+      const pendingItems = money.productTurnoverList.filter((p) => !p.isBilled && !p.isExempted)
+      const pendingAmount =
+        money.pendingBillingAmount != null
+          ? money.pendingBillingAmount
+          : pendingItems.reduce((sum, p) => sum + p.lineTotal, 0)
+      const pendingCount =
+        money.pendingBillingCount != null
+          ? money.pendingBillingCount
+          : pendingItems.reduce((sum, p) => sum + (p.quantity || 1), 0)
+
+      const giveawayItems = money.productTurnoverList.filter((p) => p.isExempted)
+      const giveawayAmount =
+        money.giveawayAmount > 0
+          ? money.giveawayAmount
+          : giveawayItems.reduce((sum, p) => sum + p.lineTotal, 0)
+      const giveawayCount =
+        money.giveawayCount > 0
+          ? money.giveawayCount
+          : giveawayItems.reduce((sum, p) => sum + (p.quantity || 1), 0)
+
       return {
         departmentName: "All My Departments",
         totalGross: money.totalGrossBilled || money.totalProductTurnover,
         insuranceCovered: money.insuranceCoveredAmount,
         patientCash: money.patientCashCollected || money.patientShareAmount,
         loanAmount: money.patientLoanAmount,
-        giveawayAmount: money.giveawayAmount,
+        giveawayAmount,
+        giveawayCount,
         loanCount: money.loanCount,
+        pendingBillingAmount: pendingAmount,
+        pendingBillingCount: pendingCount,
         encountersCount: clinician.consultationsCount,
         productsCount: money.productItemsApprovedCount,
       }
     }
 
     const deptSummary = money.departmentBreakdown.find((d) => d.departmentName === selectedDepartment)
+    const deptProds = money.productTurnoverList.filter((p) => p.departmentName === selectedDepartment)
+    const pendingItems = deptProds.filter((p) => !p.isBilled && !p.isExempted)
+    const pendingAmount = pendingItems.reduce((sum, p) => sum + p.lineTotal, 0)
+    const pendingCount = pendingItems.reduce((sum, p) => sum + (p.quantity || 1), 0)
+
+    const giveawayItems = deptProds.filter((p) => p.isExempted)
+    const giveawayAmount =
+      (deptSummary?.giveawayAmount ?? 0) > 0
+        ? deptSummary!.giveawayAmount
+        : giveawayItems.reduce((sum, p) => sum + p.lineTotal, 0)
+    const giveawayCount =
+      (deptSummary?.giveawayAmount ?? 0) > 0
+        ? 1
+        : giveawayItems.reduce((sum, p) => sum + (p.quantity || 1), 0)
+
     if (deptSummary) {
-      const deptProds = money.productTurnoverList.filter((p) => p.departmentName === selectedDepartment)
       const productsCount = deptProds.reduce((sum, p) => sum + (p.quantity || 1), 0)
 
       return {
@@ -237,17 +294,20 @@ function ReportsClinicianViewContent({
         insuranceCovered: deptSummary.insuranceCovered,
         patientCash: deptSummary.paidAmount || deptSummary.patientShare,
         loanAmount: deptSummary.loanAmount,
-        giveawayAmount: deptSummary.giveawayAmount,
+        giveawayAmount,
+        giveawayCount,
         loanCount: deptSummary.loanAmount > 0 ? 1 : 0,
+        pendingBillingAmount: pendingAmount,
+        pendingBillingCount: pendingCount,
         encountersCount: deptSummary.encountersCount,
         productsCount,
       }
     }
 
-    const deptProds = money.productTurnoverList.filter((p) => p.departmentName === selectedDepartment && (p.isBilled || p.isExempted))
-    const totalGross = deptProds.reduce((sum, p) => sum + p.lineTotal, 0)
-    const insuranceCovered = deptProds.reduce((sum, p) => sum + p.insuranceCoveredAmount, 0)
-    const patientCash = deptProds.reduce((sum, p) => sum + p.patientPayableAmount, 0)
+    const billedOrExemptedProds = deptProds.filter((p) => p.isBilled || p.isExempted)
+    const totalGross = billedOrExemptedProds.reduce((sum, p) => sum + p.lineTotal, 0)
+    const insuranceCovered = billedOrExemptedProds.reduce((sum, p) => sum + p.insuranceCoveredAmount, 0)
+    const patientCash = billedOrExemptedProds.reduce((sum, p) => sum + p.patientPayableAmount, 0)
     const productsCount = deptProds.reduce((sum, p) => sum + (p.quantity || 1), 0)
 
     return {
@@ -256,8 +316,11 @@ function ReportsClinicianViewContent({
       insuranceCovered,
       patientCash,
       loanAmount: 0,
-      giveawayAmount: 0,
+      giveawayAmount,
+      giveawayCount,
       loanCount: 0,
+      pendingBillingAmount: pendingAmount,
+      pendingBillingCount: pendingCount,
       encountersCount: deptProds.length,
       productsCount,
     }
@@ -316,12 +379,38 @@ function ReportsClinicianViewContent({
     return Array.from(map.values()).sort((a, b) => b.totalAmount - a.totalAmount)
   }, [departmentFilteredEncounters, departmentFilteredProducts])
 
+  // Filtered Encounters by Status
+  const statusFilteredEncounters = useMemo(() => {
+    if (statusFilter === "ALL") return departmentFilteredEncounters
+    if (statusFilter === "BILLED") {
+      return departmentFilteredEncounters.filter(
+        (e) => e.status === "BILLED" || e.status === "COMPLETED" || e.totalGross > 0
+      )
+    }
+    if (statusFilter === "PENDING") {
+      return departmentFilteredEncounters.filter(
+        (e) => e.status !== "BILLED" && e.status !== "COMPLETED" && e.status !== "EXEMPTED"
+      )
+    }
+    if (statusFilter === "EXEMPTED") {
+      return departmentFilteredEncounters.filter(
+        (e) =>
+          e.status === "EXEMPTED" ||
+          e.products.some((p) => p.status === "EXEMPTED" || p.status === "PATIENT_SHARE_EXEMPTED")
+      )
+    }
+    if (statusFilter === "LOAN") {
+      return departmentFilteredEncounters.filter((e) => e.totalPatient > 0)
+    }
+    return departmentFilteredEncounters
+  }, [departmentFilteredEncounters, statusFilter])
+
   // Filtered Encounters for Tab 1 table
   const searchFilteredEncounters = useMemo(() => {
-    if (!searchTerm.trim()) return departmentFilteredEncounters
+    if (!searchTerm.trim()) return statusFilteredEncounters
 
     const q = searchTerm.toLowerCase()
-    return departmentFilteredEncounters.filter((enc) => {
+    return statusFilteredEncounters.filter((enc) => {
       const matchesPatient = enc.patientName.toLowerCase().includes(q)
       const matchesId = (enc.patientIdentifier || "").toLowerCase().includes(q)
       const matchesDept = enc.departmentName.toLowerCase().includes(q)
@@ -331,14 +420,36 @@ function ReportsClinicianViewContent({
       )
       return matchesPatient || matchesId || matchesDept || matchesIns || matchesProds
     })
-  }, [departmentFilteredEncounters, searchTerm])
+  }, [statusFilteredEncounters, searchTerm])
+
+  // Filtered Detailed Items by Status
+  const statusFilteredDetailedProducts = useMemo(() => {
+    if (statusFilter === "ALL") return departmentFilteredProducts
+    if (statusFilter === "BILLED") {
+      return departmentFilteredProducts.filter((p) => p.isBilled || p.status === "BILLED")
+    }
+    if (statusFilter === "PENDING") {
+      return departmentFilteredProducts.filter(
+        (p) => !p.isBilled && !p.isExempted && p.status !== "BILLED"
+      )
+    }
+    if (statusFilter === "EXEMPTED") {
+      return departmentFilteredProducts.filter(
+        (p) => p.isExempted || p.status === "EXEMPTED" || p.status === "PATIENT_SHARE_EXEMPTED"
+      )
+    }
+    if (statusFilter === "LOAN") {
+      return departmentFilteredProducts.filter((p) => p.patientPayableAmount > 0)
+    }
+    return departmentFilteredProducts
+  }, [departmentFilteredProducts, statusFilter])
 
   // Filtered Detailed Items for Tab 2 table
   const searchFilteredDetailedProducts = useMemo(() => {
-    if (!searchTerm.trim()) return departmentFilteredProducts
+    if (!searchTerm.trim()) return statusFilteredDetailedProducts
 
     const q = searchTerm.toLowerCase()
-    return departmentFilteredProducts.filter((item) => {
+    return statusFilteredDetailedProducts.filter((item) => {
       const matchesName = item.productName.toLowerCase().includes(q)
       const matchesPatient = item.patientName.toLowerCase().includes(q)
       const matchesId = (item.patientIdentifier || "").toLowerCase().includes(q)
@@ -347,7 +458,7 @@ function ReportsClinicianViewContent({
       const matchesIns = (item.insuranceName || "").toLowerCase().includes(q)
       return matchesName || matchesPatient || matchesId || matchesDept || matchesCode || matchesIns
     })
-  }, [departmentFilteredProducts, searchTerm])
+  }, [statusFilteredDetailedProducts, searchTerm])
 
   // Continuous Visible Slices for Encounters and Detailed products
   const visibleEncounters = useMemo(() => {
@@ -751,16 +862,16 @@ function ReportsClinicianViewContent({
         <div className={cn("transition-all", isTableExpanded ? "flex-1 flex flex-col min-h-0 h-full" : "space-y-4")}>
           {/* Financial KPI Cards - Compact Mini Cards */}
           {!isTableExpanded && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-              {/* Total Generated */}
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
+              {/* 1. Total Earnings */}
               <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <span className="text-[12px] font-medium text-muted-foreground block truncate">Total Generated</span>
+                  <span className="text-[12px] font-medium text-muted-foreground block truncate">Total Earnings</span>
                   <p className="text-base sm:text-lg font-bold text-foreground truncate mt-0.5">
                     {formatRWF(currentFinanceStats.totalGross)}
                   </p>
                   <p className="text-[11px] text-muted-foreground truncate">
-                    {selectedDepartment === "ALL" ? "Across all departments" : selectedDepartment}
+                    {selectedDepartment === "ALL" ? "Approved & billed items" : selectedDepartment}
                   </p>
                 </div>
                 <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -768,7 +879,55 @@ function ReportsClinicianViewContent({
                 </div>
               </div>
 
-              {/* Insurance Covered */}
+              {/* 2. Pending on Billing */}
+              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="text-[12px] font-medium text-amber-600 dark:text-amber-400 block truncate">Pending on Billing</span>
+                  <p className="text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400 truncate mt-0.5">
+                    {formatRWF(currentFinanceStats.pendingBillingAmount)}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {currentFinanceStats.pendingBillingCount} items awaiting billing
+                  </p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <Clock className="h-4 w-4" />
+                </div>
+              </div>
+
+              {/* 3. Giveaways & Waivers */}
+              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="text-[12px] font-medium text-pink-600 dark:text-pink-400 block truncate">Giveaways & Waivers</span>
+                  <p className="text-base sm:text-lg font-bold text-pink-600 dark:text-pink-400 truncate mt-0.5">
+                    {formatRWF(currentFinanceStats.giveawayAmount)}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {currentFinanceStats.giveawayCount} waived / exempted copays
+                  </p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center shrink-0">
+                  <Gift className="h-4 w-4" />
+                </div>
+              </div>
+
+              {/* 4. Patient Loans */}
+              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="text-[12px] font-medium text-orange-600 dark:text-orange-400 block truncate">Patient Loans</span>
+                  <p className="text-base sm:text-lg font-bold text-orange-600 dark:text-orange-400 truncate mt-0.5">
+                    {formatRWF(currentFinanceStats.loanAmount)}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {currentFinanceStats.loanCount} active credit loans
+                  </p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="h-4 w-4" />
+                </div>
+              </div>
+
+              {/* 5. Insurance Covered */}
               <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <span className="text-[12px] font-medium text-muted-foreground block truncate">Insurance Covered</span>
@@ -777,8 +936,8 @@ function ReportsClinicianViewContent({
                   </p>
                   <p className="text-[11px] text-muted-foreground truncate">
                     {currentFinanceStats.totalGross > 0
-                      ? `${Math.round((currentFinanceStats.insuranceCovered / currentFinanceStats.totalGross) * 100)}% covered by insurers`
-                      : "Covered by insurance"}
+                      ? `${Math.round((currentFinanceStats.insuranceCovered / currentFinanceStats.totalGross) * 100)}% covered`
+                      : "Insurer share"}
                   </p>
                 </div>
                 <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
@@ -786,31 +945,17 @@ function ReportsClinicianViewContent({
                 </div>
               </div>
 
-              {/* Patient Share / Cash */}
+              {/* 6. Patient Share / Cash */}
               <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <span className="text-[12px] font-medium text-muted-foreground block truncate">Patient Share (Cash)</span>
                   <p className="text-base sm:text-lg font-bold text-foreground truncate mt-0.5">
                     {formatRWF(currentFinanceStats.patientCash)}
                   </p>
-                  <p className="text-[11px] text-muted-foreground truncate">Patient copays & private cash</p>
+                  <p className="text-[11px] text-muted-foreground truncate">Direct copays collected</p>
                 </div>
                 <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                   <CreditCard className="h-4 w-4" />
-                </div>
-              </div>
-
-              {/* Giveaways & Waived */}
-              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <span className="text-[12px] font-medium text-muted-foreground block truncate">Giveaways & Waived</span>
-                  <p className="text-base sm:text-lg font-bold text-foreground truncate mt-0.5">
-                    {formatRWF(currentFinanceStats.giveawayAmount)}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground truncate">Waived copays & exemptions</p>
-                </div>
-                <div className="h-8 w-8 rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center shrink-0">
-                  <Gift className="h-4 w-4" />
                 </div>
               </div>
             </div>
@@ -905,15 +1050,46 @@ function ReportsClinicianViewContent({
               </div>
             </div>
 
-            {/* Search Toolbar */}
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by patient, ID, product, code, insurance, or department..."
-                value={searchTerm}
-                onChange={handleSearchChange}
-                className="pl-9 h-8 text-xs rounded-xl bg-background/60 border-border/70 placeholder:text-muted-foreground/60"
-              />
+            {/* Search & Status Filter Toolbar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by patient, ID, product, code, insurance, or department..."
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  className="pl-9 h-8 text-xs rounded-xl bg-background/60 border-border/70 placeholder:text-muted-foreground/60"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                {(
+                  [
+                    { id: "ALL", label: "All Items" },
+                    { id: "BILLED", label: "Billed" },
+                    { id: "PENDING", label: `Pending (${currentFinanceStats.pendingBillingCount})` },
+                    { id: "EXEMPTED", label: `Waivers (${currentFinanceStats.giveawayCount})` },
+                    { id: "LOAN", label: `Loans (${currentFinanceStats.loanCount})` },
+                  ] as const
+                ).map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter(f.id)
+                      setVisibleCount(INITIAL_VISIBLE_COUNT)
+                    }}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer border",
+                      statusFilter === f.id
+                        ? "bg-primary text-primary-foreground border-primary shadow-xs font-semibold"
+                        : "bg-muted/40 text-muted-foreground border-border/60 hover:text-foreground hover:bg-muted/70"
+                    )}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* MODE 1: Group by Encounter Table */}

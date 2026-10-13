@@ -124,6 +124,8 @@ export interface ClinicianMoneyReport {
   outstandingBalance: number
   loanCount: number
   giveawayCount: number
+  pendingBillingAmount?: number
+  pendingBillingCount?: number
 
   // Specific Product Turnover for items approved/prescribed by the clinician
   totalProductTurnover: number
@@ -215,6 +217,7 @@ export interface UserReportsData {
   // Global summary
   totalInteractions: number
   uniquePatientsTouched: number
+  demographics?: ClinicianDemographicsReport
 
   // Reception Stats
   reception: {
@@ -488,6 +491,18 @@ export function calculateUserReports(
   let clinicianDurationCount = 0
   const clinicianEncountersByHour: Record<string, number> = {}
 
+  // Overall demographics accumulators across any touched patient
+  const overallPatientsSet = new Set<string>()
+  let overallMaleCount = 0
+  let overallFemaleCount = 0
+  let overallOtherGenderCount = 0
+  let overallTotalAgeSum = 0
+  let overallAgeCount = 0
+  let overallUnder18Count = 0
+  let overallAdults18to50Count = 0
+  let overallSeniors50plusCount = 0
+  const overallEncountersByHour: Record<string, number> = {}
+
   let vitalsRecordedCount = 0
   let triageEncountersCount = 0
   let nursingActsCount = 0
@@ -525,6 +540,8 @@ export function calculateUserReports(
   let clinicianGiveawayAmount = 0
   let clinicianLoanCount = 0
   let clinicianGiveawayCount = 0
+  let clinicianPendingBillingAmount = 0
+  let clinicianPendingBillingCount = 0
 
   // Clinician Product Turnover list & category accumulators
   let clinicianProductTurnoverTotal = 0
@@ -598,6 +615,12 @@ export function calculateUserReports(
     }
     timelineMap[key][type]++
     timelineMap[key].total++
+
+    const d = new Date(timestamp)
+    if (!isNaN(d.getTime())) {
+      const hKey = `${String(d.getHours()).padStart(2, "0")}:00`
+      overallEncountersByHour[hKey] = (overallEncountersByHour[hKey] || 0) + 1
+    }
   }
 
   const bumpMoneyTimeline = (timestamp: string, gross: number, ins: number, cash: number, loan: number, give: number) => {
@@ -1024,6 +1047,13 @@ export function calculateUserReports(
             if (shouldCountMoney) {
               clinicianProductTurnoverTotal += lineTotal
               clinicianProductItemsApprovedCount += qty
+              if (isExempted && !isClinicianOnDept) {
+                clinicianGiveawayAmount += lineTotal
+                clinicianGiveawayCount += qty
+              }
+            } else if (!isBilledOrExempted) {
+              clinicianPendingBillingAmount += lineTotal
+              clinicianPendingBillingCount += qty
             }
 
             if (!clinicianProductTurnoverByCategory[prodType]) {
@@ -1294,6 +1324,26 @@ export function calculateUserReports(
 
     if (patientTouchedByWorker && patientId) {
       uniquePatientsSet.add(patientId)
+      if (!overallPatientsSet.has(patientId)) {
+        overallPatientsSet.add(patientId)
+        const pGender = (visit.patient?.gender || "").toUpperCase()
+        if (pGender === "MALE" || pGender.startsWith("M")) {
+          overallMaleCount++
+        } else if (pGender === "FEMALE" || pGender.startsWith("F")) {
+          overallFemaleCount++
+        } else {
+          overallOtherGenderCount++
+        }
+
+        const patAge = calculatePatientAge(visit.patient?.dateOfBirth, visit.patient?.age)
+        if (patAge != null) {
+          overallTotalAgeSum += patAge
+          overallAgeCount++
+          if (patAge < 18) overallUnder18Count++
+          else if (patAge <= 50) overallAdults18to50Count++
+          else overallSeniors50plusCount++
+        }
+      }
     }
   }
 
@@ -1322,6 +1372,16 @@ export function calculateUserReports(
     }
   }
 
+  let overallPeakHourStr = "N/A"
+  let maxOverallHourCount = 0
+  for (const [hKey, count] of Object.entries(overallEncountersByHour)) {
+    if (count > maxOverallHourCount) {
+      maxOverallHourCount = count
+      const hourNum = parseInt(hKey.split(":")[0], 10)
+      overallPeakHourStr = formatHourRange(hourNum)
+    }
+  }
+
   const clinicianDemographics: ClinicianDemographicsReport = {
     totalPatientsCount: clinicianPatientsSet.size || consultationsCount,
     maleCount: clinicianMaleCount,
@@ -1337,6 +1397,24 @@ export function calculateUserReports(
     peakActivityHour: peakHourStr,
     encountersByHour: clinicianEncountersByHour,
   }
+
+  const overallDemographics: ClinicianDemographicsReport = clinicianPatientsSet.size > 0
+    ? clinicianDemographics
+    : {
+        totalPatientsCount: overallPatientsSet.size || uniquePatientsSet.size,
+        maleCount: overallMaleCount,
+        femaleCount: overallFemaleCount,
+        otherGenderCount: overallOtherGenderCount,
+        averageAge: overallAgeCount > 0 ? Math.round((overallTotalAgeSum / overallAgeCount) * 10) / 10 : 0,
+        ageBrackets: {
+          under18: overallUnder18Count,
+          adults18to50: overallAdults18to50Count,
+          seniors50plus: overallSeniors50plusCount,
+        },
+        averageEncounterTimeMinutes: clinicianDurationCount > 0 ? Math.round(clinicianTotalDurationMinutes / clinicianDurationCount) : 0,
+        peakActivityHour: peakHourStr !== "N/A" ? peakHourStr : overallPeakHourStr,
+        encountersByHour: Object.keys(clinicianEncountersByHour).length > 0 ? clinicianEncountersByHour : overallEncountersByHour,
+      }
 
   const formatTimelineLabel = (key: string): string => {
     if (isDailyView) {
@@ -1446,6 +1524,8 @@ export function calculateUserReports(
     outstandingBalance: Math.max(0, (clinicianTotalGrossBilled || clinicianProductTurnoverTotal) - clinicianInsuranceCoveredAmount - clinicianPatientCashCollected - clinicianGiveawayAmount),
     loanCount: clinicianLoanCount,
     giveawayCount: clinicianGiveawayCount,
+    pendingBillingAmount: clinicianPendingBillingAmount,
+    pendingBillingCount: clinicianPendingBillingCount,
 
     totalProductTurnover: clinicianProductTurnoverTotal,
     productItemsApprovedCount: clinicianProductItemsApprovedCount,
@@ -1477,11 +1557,12 @@ export function calculateUserReports(
     hasClinician,
     hasNurse,
     hasFinance,
-    canViewFinance: hasFinance || hasClinician,
+    canViewFinance: hasFinance || hasClinician || isAdminOrManager,
     isAdminOrManager,
     allowedTabs,
     totalInteractions,
     uniquePatientsTouched: uniquePatientsSet.size,
+    demographics: overallDemographics,
     reception: {
       visitsInitiatedCount,
       departmentsDispatchedCount,
