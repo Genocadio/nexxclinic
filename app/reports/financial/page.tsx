@@ -289,16 +289,16 @@ export default function FinancialReportsPage() {
         </div>
 
         {/* Tab Switcher: Overview, Earnings, Waivers, Adjustments, Loans */}
-        <div className="flex items-center justify-center w-full">
-          <div className="inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-card/80 backdrop-blur-xl border border-border/70 p-1.5 rounded-2xl shadow-sm flex-wrap">
+        <div className="flex items-center justify-center w-full overflow-x-auto pb-1">
+          <div className="inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-card/80 backdrop-blur-xl border border-border/70 p-1.5 rounded-2xl shadow-sm flex-wrap max-w-full">
             <Button
               variant={activeTab === "overview" ? "default" : "ghost"}
               size="sm"
               onClick={() => setActiveTab("overview")}
-              className="rounded-xl h-9 px-3 sm:px-4 text-xs font-medium gap-1.5"
+              className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
             >
-              <LayoutDashboard className="h-4 w-4" />
-              Overview
+              <LayoutDashboard className="h-4 w-4 shrink-0" />
+              <span>Overview</span>
               {reportData && (
                 <Badge variant="secondary" className="py-0 px-1 text-[10px]">
                   {reportData.overview.totalPatients}
@@ -310,20 +310,20 @@ export default function FinancialReportsPage() {
               variant={activeTab === "earnings" ? "default" : "ghost"}
               size="sm"
               onClick={() => setActiveTab("earnings")}
-              className="rounded-xl h-9 px-3 sm:px-4 text-xs font-medium gap-1.5"
+              className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
             >
-              <TrendingUp className="h-4 w-4" />
-              Earnings Deep Dive
+              <TrendingUp className="h-4 w-4 shrink-0" />
+              <span>Earnings Deep Dive</span>
             </Button>
 
             <Button
               variant={activeTab === "waivers" ? "default" : "ghost"}
               size="sm"
               onClick={() => setActiveTab("waivers")}
-              className="rounded-xl h-9 px-3 sm:px-4 text-xs font-medium gap-1.5"
+              className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
             >
-              <Percent className="h-4 w-4" />
-              Waivers & Giveaways
+              <Percent className="h-4 w-4 shrink-0" />
+              <span>Waivers & Giveaways</span>
               {reportData && (
                 <Badge variant="secondary" className="py-0 px-1 text-[10px]">
                   {reportData.overview.waiverCount + reportData.overview.giveawayCount}
@@ -335,10 +335,10 @@ export default function FinancialReportsPage() {
               variant={activeTab === "adjustments" ? "default" : "ghost"}
               size="sm"
               onClick={() => setActiveTab("adjustments")}
-              className="rounded-xl h-9 px-3 sm:px-4 text-xs font-medium gap-1.5"
+              className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
             >
-              <SlidersHorizontal className="h-4 w-4" />
-              Adjustments Only
+              <SlidersHorizontal className="h-4 w-4 shrink-0" />
+              <span>Adjustments Only</span>
               {reportData && (
                 <Badge variant="secondary" className="py-0 px-1 text-[10px]">
                   {reportData.deepReports.adjustments.length}
@@ -350,10 +350,10 @@ export default function FinancialReportsPage() {
               variant={activeTab === "loans" ? "default" : "ghost"}
               size="sm"
               onClick={() => setActiveTab("loans")}
-              className="rounded-xl h-9 px-3 sm:px-4 text-xs font-medium gap-1.5"
+              className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
             >
-              <HandCoins className="h-4 w-4" />
-              Current Loans & Debtors
+              <HandCoins className="h-4 w-4 shrink-0" />
+              <span>Current Loans & Debtors</span>
               {reportData && (
                 <Badge variant="secondary" className="py-0 px-1 text-[10px]">
                   {reportData.overview.loanCount}

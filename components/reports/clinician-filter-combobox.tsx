@@ -86,12 +86,12 @@ export function ClinicianFilterCombobox({
           aria-expanded={open}
           size="sm"
           className={cn(
-            "h-8 rounded-xl text-xs bg-background/80 hover:bg-background justify-between gap-1.5 px-2.5 font-normal border-border/80 shadow-2xs",
+            "h-8 rounded-xl text-xs bg-background/80 hover:bg-background justify-between gap-1.5 px-2.5 font-normal border-border/80 shadow-2xs max-w-full shrink-0",
             selectedIds.length > 0 && "border-primary/40 text-foreground font-medium",
             className
           )}
         >
-          <div className="flex items-center gap-1.5 truncate max-w-[140px] sm:max-w-[180px]">
+          <div className="flex items-center gap-1.5 truncate max-w-[130px] sm:max-w-[170px] min-w-0">
             <Stethoscope
               className={cn(
                 "h-3 w-3 shrink-0",
@@ -111,11 +111,11 @@ export function ClinicianFilterCombobox({
             )}
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1 shrink-0 ml-1">
             {selectedIds.length > 0 && (
               <Badge
                 variant="secondary"
-                className="h-4 px-1 text-[10px] font-semibold bg-primary/15 text-primary border-0"
+                className="h-4 px-1 text-[10px] font-semibold bg-primary/15 text-primary border-0 shrink-0"
               >
                 {selectedIds.length}
               </Badge>

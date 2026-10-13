@@ -728,28 +728,30 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
       </div>
 
       {/* Control Toolbar */}
-      <div className="bg-card/70 border border-border/70 rounded-2xl p-4 shadow-sm backdrop-blur-md space-y-3.5">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+      <div className="bg-card/70 border border-border/70 rounded-2xl p-3 sm:p-4 shadow-sm backdrop-blur-md space-y-3">
+        {/* Row 1: Search + View & Diagnosis Filters + Actions (Flex-wrapping gracefully) */}
+        <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2.5 sm:gap-3">
           {/* Search Input */}
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="relative flex-1 min-w-0 sm:min-w-[220px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground shrink-0" />
             <Input
               type="text"
               placeholder="Search by disease name, group, or ICD-11 code..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-10 rounded-xl bg-background/60 border-border/60 text-sm"
+              className="pl-9 h-9 sm:h-10 rounded-xl bg-background/60 border-border/60 text-xs sm:text-sm w-full min-w-0"
             />
           </div>
 
-          {/* Diagnosis Type Toggle & Group by Visit Toggle */}
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            <div className="flex items-center bg-muted/40 p-1 rounded-xl border border-border/50">
+          {/* Filter Toggles & Action Buttons Container */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {/* Diagnosis Type Segmented Control */}
+            <div className="inline-flex items-center bg-muted/40 p-0.5 sm:p-1 rounded-xl border border-border/50 shrink-0">
               <Button
                 variant={diagnosisTypeFilter === "FINAL_ONLY" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setDiagnosisTypeFilter("FINAL_ONLY")}
-                className="rounded-lg h-8 px-3 text-xs font-medium"
+                className="rounded-lg h-7 sm:h-8 px-2 sm:px-3 text-xs font-medium whitespace-nowrap"
               >
                 Final Diagnoses Only
               </Button>
@@ -757,82 +759,83 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
                 variant={diagnosisTypeFilter === "ALL" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setDiagnosisTypeFilter("ALL")}
-                className="rounded-lg h-8 px-3 text-xs font-medium"
+                className="rounded-lg h-7 sm:h-8 px-2 sm:px-3 text-xs font-medium whitespace-nowrap"
               >
                 Hypothesis + Final
               </Button>
             </div>
 
-            <div className="flex items-center bg-muted/40 p-1 rounded-xl border border-border/50">
+            {/* Visit vs Disease Grouping Segmented Control */}
+            <div className="inline-flex items-center bg-muted/40 p-0.5 sm:p-1 rounded-xl border border-border/50 shrink-0">
               <Button
                 variant={!groupByVisit ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setGroupByVisit(false)}
-                className="rounded-lg h-8 px-3 text-xs font-medium gap-1.5"
+                className="rounded-lg h-7 sm:h-8 px-2 sm:px-2.5 text-xs font-medium gap-1.5 whitespace-nowrap"
               >
-                <Stethoscope className="h-3.5 w-3.5" />
-                By Disease
+                <Stethoscope className="h-3.5 w-3.5 shrink-0" />
+                <span>By Disease</span>
               </Button>
               <Button
                 variant={groupByVisit ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setGroupByVisit(true)}
-                className="rounded-lg h-8 px-3 text-xs font-medium gap-1.5"
+                className="rounded-lg h-7 sm:h-8 px-2 sm:px-2.5 text-xs font-medium gap-1.5 whitespace-nowrap"
               >
-                <Calendar className="h-3.5 w-3.5" />
-                Group by Visit
+                <Calendar className="h-3.5 w-3.5 shrink-0" />
+                <span>Group by Visit</span>
               </Button>
             </div>
-          </div>
 
-          {/* Action Buttons: Group Management, Age Range Config & Export */}
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            {/* Manage Groups Modal Trigger (Relevant for disease grouping) */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsManageGroupsModalOpen(true)}
-              className="h-10 rounded-xl border-border/70 gap-1.5 text-xs font-medium"
-            >
-              <Layers className="h-4 w-4 text-indigo-500" />
-              <span>Disease Groups</span>
-              {diseaseGroups.length > 0 && (
-                <Badge variant="secondary" className="px-1.5 py-0 text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                  {diseaseGroups.length}
-                </Badge>
-              )}
-            </Button>
-
-            {!groupByVisit && (
+            {/* Actions: Groups, Age Brackets & CSV Export */}
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleOpenBracketModal}
-                className="h-10 rounded-xl border-border/70 gap-1.5 text-xs font-medium"
+                onClick={() => setIsManageGroupsModalOpen(true)}
+                className="h-8 sm:h-9 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0"
               >
-                <SlidersHorizontal className="h-4 w-4 text-primary" />
-                <span>Configure Age Ranges</span>
-                <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-                  {ageBrackets.length}
-                </Badge>
+                <Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-indigo-500 shrink-0" />
+                <span>Disease Groups</span>
+                {diseaseGroups.length > 0 && (
+                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                    {diseaseGroups.length}
+                  </Badge>
+                )}
               </Button>
-            )}
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportCsv}
-              disabled={groupByVisit ? searchedVisitGroups.length === 0 : searchedRows.length === 0}
-              className="h-10 rounded-xl border-border/70 gap-1.5 text-xs font-medium"
-            >
-              <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-              <span>Export CSV</span>
-            </Button>
+              {!groupByVisit && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenBracketModal}
+                  className="h-8 sm:h-9 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0"
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
+                  <span className="hidden sm:inline">Configure Age Ranges</span>
+                  <span className="sm:hidden">Age Ranges</span>
+                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                    {ageBrackets.length}
+                  </Badge>
+                </Button>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportCsv}
+                disabled={groupByVisit ? searchedVisitGroups.length === 0 : searchedRows.length === 0}
+                className="h-8 sm:h-9 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 shrink-0" />
+                <span>Export CSV</span>
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* Second Row: Toggles for Matching Symptoms & Medications */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border/40">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-border/40">
           <div className="flex flex-wrap items-center gap-6">
             <div className="flex items-center space-x-2">
               <Switch
@@ -875,35 +878,35 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
 
         {/* Interactive Group Creation Bar (Appears when user checks rows in Disease Mode) */}
         {!groupByVisit && selectedItemKeys.size > 0 && (
-          <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/30 flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
-            <div className="flex items-center gap-2">
-              <Badge variant="default" className="text-xs h-6 px-2 font-bold bg-primary text-primary-foreground">
+          <div className="p-2.5 sm:p-3 rounded-xl bg-primary/10 border border-primary/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="flex items-center gap-2 min-w-0">
+              <Badge variant="default" className="text-xs h-6 px-2 font-bold bg-primary text-primary-foreground shrink-0">
                 {selectedItemKeys.size} Selected
               </Badge>
-              <span className="text-xs font-medium text-foreground">
+              <span className="text-xs font-medium text-foreground truncate sm:whitespace-normal">
                 Combine selected diseases (e.g. Myopia, Hypermetropia, Astigmatism) into one report row.
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Button
                 size="sm"
                 onClick={handleOpenCreateGroup}
                 disabled={selectedItemKeys.size < 2}
-                className="h-8 rounded-lg text-xs font-medium gap-1.5 bg-primary text-primary-foreground shadow-xs"
+                className="h-8 rounded-lg text-xs font-medium gap-1.5 bg-primary text-primary-foreground shadow-xs whitespace-nowrap"
               >
-                <FolderPlus className="h-3.5 w-3.5" />
-                Group Selection as One ({selectedItemKeys.size})
+                <FolderPlus className="h-3.5 w-3.5 shrink-0" />
+                <span>Group Selection as One ({selectedItemKeys.size})</span>
               </Button>
 
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleDropSelection}
-                className="h-8 rounded-lg text-xs gap-1 text-muted-foreground hover:text-foreground"
+                className="h-8 rounded-lg text-xs gap-1 text-muted-foreground hover:text-foreground whitespace-nowrap shrink-0"
               >
-                <X className="h-3.5 w-3.5" />
-                Drop Selection
+                <X className="h-3.5 w-3.5 shrink-0" />
+                <span>Drop Selection</span>
               </Button>
             </div>
           </div>
