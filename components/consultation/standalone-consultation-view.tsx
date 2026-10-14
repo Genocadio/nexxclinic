@@ -134,10 +134,11 @@ export function StandaloneConsultationView({
   const requestProductsEnabled = Boolean(
     visitDepartment.department?.requestsProducts,
   );
-  const productsLocked = isVisitOrDepartmentClosedForProducts(
-    visit.status,
-    visitDepartment.status,
-  );
+  const isCancelled =
+    String(visit.status || "").toUpperCase() === "CANCELLED" ||
+    String(visitDepartment.status || "").toUpperCase() === "CANCELLED";
+  const isDepartmentFinalised =
+    String(visitDepartment.status || "").toUpperCase() === "FINALISED";
   const firstVisitDepartmentId = String(visitDepartment.id || "");
 
   // Freeze the loader's answer input for the life of this mount. Once hydrated,
@@ -159,12 +160,13 @@ export function StandaloneConsultationView({
       answerId: loaderAnswerId,
     });
 
-  const isCompletedDepartment =
-    String(visitDepartment.status || "").toUpperCase() === "COMPLETED";
   const isFinalisedAnswer =
-    isCompletedDepartment ||
     locallyFinalised ||
-    String(answer?.status || "").toUpperCase() === "FINAL";
+    isDepartmentFinalised ||
+    String(answer?.status || "").toUpperCase() === "FINAL" ||
+    String(answer?.status || "").toUpperCase() === "SUBMITTED" ||
+    Boolean(visitDepartment.hasFinalizedConsultationAnswers);
+  const productsLocked = isCancelled || isFinalisedAnswer;
   const { saveVisitAnswer } = useSaveVisitStandaloneAnswer();
   const { addChildVisitDepartment } = useAddChildVisitDepartment();
   const { addProduct } = useAddProductToVisitDepartment();

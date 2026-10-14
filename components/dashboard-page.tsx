@@ -1311,29 +1311,35 @@ export default function DashboardPage() {
   }
   const handlePreviewConsultation = (visit: Visit) => {
     const previewStartedAt = Date.now()
-    const matchedClosedDepartment =
+    const matchedDepartment =
       (visit.departments || []).find((dept) => {
-        const normalizedStatus = String(dept.status || "").toUpperCase()
+        const deptId = String(dept?.department?.id || dept?.id || "")
         return (
-          Boolean(dept.answerId) &&
-          (normalizedStatus === "COMPLETED" || normalizedStatus === "BILLING")
+          deptId &&
+          userDepartmentIds.includes(deptId) &&
+          (Boolean(dept.answerId) || Boolean(dept.hasFinalizedConsultationAnswers))
         )
-      }) || getMatchingUserDepartment(visit, { mustBeClosed: true })
-    const answerId = matchedClosedDepartment?.answerId
-      ? String(matchedClosedDepartment.answerId)
+      }) ||
+      (visit.departments || []).find((dept) =>
+        Boolean(dept.answerId) || Boolean(dept.hasFinalizedConsultationAnswers),
+      ) ||
+      getMatchingUserDepartment(visit, { mustBeClosed: true }) ||
+      visit.departments?.[0]
+    const answerId = matchedDepartment?.answerId
+      ? String(matchedDepartment.answerId)
       : null
     const departmentName =
-      matchedClosedDepartment?.department?.name || "Department"
+      matchedDepartment?.department?.name || "Department"
     setPreviewConsultationContext({
       answerId,
       departmentName,
       patientName:
         `${visit.patient.firstName} ${visit.patient.lastName}`.trim(),
       visitId: String(visit.id),
-      visitDepartmentId: matchedClosedDepartment?.id
-        ? String(matchedClosedDepartment.id)
+      visitDepartmentId: matchedDepartment?.id
+        ? String(matchedDepartment.id)
         : null,
-      visitDepartment: matchedClosedDepartment || null,
+      visitDepartment: matchedDepartment || null,
       previewStartedAt,
     })
     setPreviewConsultationOpen(true)
@@ -2867,21 +2873,27 @@ export default function DashboardPage() {
                                         userDepartmentIds.includes(deptId)
                                       )
                                     })
-                                  const hasExistingAnswer = Boolean(
-                                    matchingActiveDept?.answerId ||
-                                      matchingActiveDept?.hasFinalizedConsultationAnswers,
+                                  const hasFinalizedAnswer = Boolean(
+                                    matchingActiveDept?.hasFinalizedConsultationAnswers ||
+                                      matchedClosedDepartment?.hasFinalizedConsultationAnswers,
+                                  )
+                                  const hasDraftAnswer = Boolean(
+                                    (matchingActiveDept?.answerId ||
+                                      matchedClosedDepartment?.answerId) &&
+                                      !hasFinalizedAnswer,
                                   )
                                   const isEligibleForContinue = Boolean(
                                     matchingActiveDept &&
                                       matchingActiveDept.status !==
                                         "FINALISED" &&
-                                      matchingActiveDept.status !== "CANCELLED",
+                                      matchingActiveDept.status !== "CANCELLED" &&
+                                      !hasFinalizedAnswer,
                                   )
                                   const isCompletedDepartment =
                                     String(matchingActiveDept?.status || "").toUpperCase() ===
                                     "COMPLETED"
                                   const consultButtonLabel =
-                                    hasExistingAnswer && isEligibleForContinue
+                                    hasDraftAnswer && isEligibleForContinue
                                       ? "Continue"
                                       : "Start Consult"
                                   return (
@@ -2911,7 +2923,8 @@ export default function DashboardPage() {
                                         canSeeVisitActionButtons &&
                                         canSeeConsultButton &&
                                         canConsultVisit(visit) &&
-                                        !isCompletedDepartment && (
+                                        !isCompletedDepartment &&
+                                        !hasFinalizedAnswer && (
                                           <Tooltip>
                                             <TooltipTrigger asChild>
                                               <button
@@ -2950,9 +2963,34 @@ export default function DashboardPage() {
                                           </Tooltip>
                                         )}
 
+                                      {!showClosedConsultationActions &&
+                                        canSeeVisitActionButtons &&
+                                        canSeeConsultButton &&
+                                        hasFinalizedAnswer && (
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  handlePreviewConsultation(visit)
+                                                }}
+                                                title="Preview Consultation"
+                                                aria-label="Preview Consultation"
+                                                className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-500 hover:bg-slate-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                              >
+                                                <Eye className="w-4 h-4 flex-shrink-0" />
+                                              </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>Preview Consultation</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        )}
+
                                       {showClosedConsultationActions && (
                                         <>
                                           {canEditConsultationAnswers &&
+                                            !hasFinalizedAnswer &&
                                             String(matchedClosedDepartment?.status || "").toUpperCase() !==
                                               "FINALISED" && (
                                           <Tooltip>
@@ -3000,7 +3038,8 @@ export default function DashboardPage() {
                                       {canSeeVisitActionButtons &&
                                         canSeeConsultButton &&
                                         canEditConsultationAnswers &&
-                                        isCompletedDepartment && (
+                                        isCompletedDepartment &&
+                                        !hasFinalizedAnswer && (
                                           <Tooltip>
                                             <TooltipTrigger asChild>
                                               <button
@@ -3062,7 +3101,8 @@ export default function DashboardPage() {
                                     getMatchingUserDepartment(visit, {
                                       mustBeClosed: true,
                                     }),
-                                  ) && (
+                                  ) &&
+                                  !(visit.departments || []).some((d) => d.hasFinalizedConsultationAnswers) && (
                                     <>
                                       <Tooltip>
                                         <TooltipTrigger asChild>

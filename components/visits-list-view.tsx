@@ -37,6 +37,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Eye,
 } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
 import { useAuth } from "@/lib/auth-context"
@@ -44,6 +45,13 @@ import { hasRole } from "@/lib/role-utils"
 import { Button } from "@/components/ui/button"
 import dynamic from "next/dynamic"
 
+const ConsultationPreviewSheet = dynamic(
+  () =>
+    import("@/components/dashboard/consultation-preview-sheet").then(
+      (m) => m.ConsultationPreviewSheet,
+    ),
+  { ssr: false },
+)
 const AddDepartmentModal = dynamic(
   () => import("./add-department-modal").then((m) => m.AddDepartmentModal),
   { ssr: false }
@@ -86,6 +94,16 @@ export default function VisitsListView({
   )
   const [previewVisit, setPreviewVisit] = useState<Visit | null>(null)
   const [previewStartedAt, setPreviewStartedAt] = useState<number | null>(null)
+  const [previewConsultationOpen, setPreviewConsultationOpen] = useState(false)
+  const [previewConsultationContext, setPreviewConsultationContext] = useState<{
+    answerId: string | null
+    departmentName: string
+    patientName: string
+    visitId: string
+    visitDepartmentId?: string
+    visitDepartment?: any
+    previewStartedAt: number | null
+  } | null>(null)
   // In-flight invoice generation (print/download) — disables those buttons
   // so a double click can't fire generateInvoice twice.
   const [printingInvoice, setPrintingInvoice] = useState(false)
@@ -301,6 +319,40 @@ export default function VisitsListView({
     return []
   }
   const userDepartmentIds = getUserDepartmentIds()
+
+  const handlePreviewConsultation = (visit: Visit) => {
+    const previewStartedAt = Date.now()
+    const matchedDepartment =
+      (visit.departments || []).find((dept) => {
+        const deptId = String(dept?.department?.id || dept?.id || "")
+        return (
+          deptId &&
+          userDepartmentIds.includes(deptId) &&
+          (Boolean(dept.answerId) || Boolean(dept.hasFinalizedConsultationAnswers))
+        )
+      }) ||
+      (visit.departments || []).find((dept) =>
+        Boolean(dept.answerId) || Boolean(dept.hasFinalizedConsultationAnswers),
+      ) ||
+      visit.departments?.[0]
+
+    const answerId = matchedDepartment?.answerId
+      ? String(matchedDepartment.answerId)
+      : null
+    const departmentName =
+      matchedDepartment?.department?.name || "Department"
+    setPreviewConsultationContext({
+      answerId,
+      departmentName,
+      patientName: `${visit.patient.firstName} ${visit.patient.lastName}`.trim(),
+      visitId: visit.id,
+      visitDepartmentId: matchedDepartment?.id,
+      visitDepartment: matchedDepartment,
+      previewStartedAt,
+    })
+    setPreviewConsultationOpen(true)
+  }
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "CREATED":
@@ -399,20 +451,28 @@ export default function VisitsListView({
                         isDepartmentOpen
                       )
                     })
+                    const matchedUserDept = visit.departments?.find((d) => {
+                      const deptId = String(d?.department?.id || d?.id || "")
+                      return deptId && userDepartmentIds.includes(deptId)
+                    })
+                    const hasFinalizedAnswer = Boolean(
+                      matchingDept?.hasFinalizedConsultationAnswers ||
+                        matchedUserDept?.hasFinalizedConsultationAnswers ||
+                        (visit.departments || []).some(
+                          (d) => d.hasFinalizedConsultationAnswers,
+                        ),
+                    )
                     const canUserConsultThisVisit =
                       isClinicianLike && Boolean(matchingDept)
-                    const showConsultButton = canUserConsultThisVisit
-                    const hasExistingAnswer = Boolean(
-                      matchingDept?.answerId ||
-                        matchingDept?.hasFinalizedConsultationAnswers,
+                    const showConsultButton =
+                      canUserConsultThisVisit && !hasFinalizedAnswer
+                    const showPreviewConsultationButton =
+                      isClinicianLike && hasFinalizedAnswer
+
+                    const hasDraftAnswer = Boolean(
+                      matchingDept?.answerId && !hasFinalizedAnswer,
                     )
-                    const isEligibleForContinue = Boolean(
-                      matchingDept &&
-                        matchingDept.status !== "FINALISED" &&
-                        matchingDept.status !== "CANCELLED",
-                    )
-                    const isContinue =
-                      hasExistingAnswer && isEligibleForContinue
+                    const isContinue = hasDraftAnswer
                     const consultButtonTitle = isContinue
                       ? "Continue"
                       : "Start Consult"
@@ -440,6 +500,25 @@ export default function VisitsListView({
 
                     return (
                       <>
+                        {showPreviewConsultationButton && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handlePreviewConsultation(visit)
+                            }}
+                            title="Preview Consultation"
+                            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-slate-500 hover:bg-slate-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1 sm:gap-2"
+                          >
+                            <Eye className="w-4 h-4 flex-shrink-0" />
+                            <span className="hidden sm:inline lg:hidden">
+                              Preview
+                            </span>
+                            <span className="hidden lg:inline">
+                              Preview Consultation
+                            </span>
+                          </button>
+                        )}
+
                         {showConsultButton && (
                           <button
                             onClick={(e) => {
@@ -751,6 +830,23 @@ export default function VisitsListView({
             void handleCancelVisit(visitToCancel)
           }
         }}
+      />
+
+      <ConsultationPreviewSheet
+        open={previewConsultationOpen}
+        onOpenChange={(open) => {
+          setPreviewConsultationOpen(open)
+          if (!open) {
+            setPreviewConsultationContext(null)
+          }
+        }}
+        answerId={previewConsultationContext?.answerId || null}
+        departmentName={previewConsultationContext?.departmentName}
+        patientName={previewConsultationContext?.patientName}
+        visitId={previewConsultationContext?.visitId}
+        visitDepartmentId={previewConsultationContext?.visitDepartmentId}
+        visitDepartment={previewConsultationContext?.visitDepartment || null}
+        previewStartedAt={previewConsultationContext?.previewStartedAt || null}
       />
     </div>
   )

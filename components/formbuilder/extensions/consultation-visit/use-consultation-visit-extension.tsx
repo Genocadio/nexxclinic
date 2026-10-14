@@ -173,11 +173,16 @@ export function useConsultationVisitExtension(
     })),
   [activeDepartment?.symptoms]);
 
-  const productsLocked = useMemo(
-    () =>
-      isVisitOrDepartmentClosedForProducts(visitStatus, visitDepartmentStatus),
-    [visitStatus, visitDepartmentStatus],
-  );
+  const productsLocked = useMemo(() => {
+    if (!edit) return true;
+    const vStatus = String(visitStatus || "").toUpperCase();
+    const dStatus = String(visitDepartmentStatus || "").toUpperCase();
+    return (
+      vStatus === "CANCELLED" ||
+      dStatus === "CANCELLED" ||
+      dStatus === "FINALISED"
+    );
+  }, [edit, visitStatus, visitDepartmentStatus]);
 
   const handleAddProduct = useCallback(
     async (
