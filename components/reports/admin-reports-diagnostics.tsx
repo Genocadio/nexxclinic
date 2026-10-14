@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo, useEffect } from "react"
+import React, { useState, useMemo, useEffect, useRef } from "react"
 import {
   Activity,
   Search,
@@ -93,6 +93,8 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
   const [diagnosisTypeFilter, setDiagnosisTypeFilter] = useState<"FINAL_ONLY" | "ALL">("FINAL_ONLY")
   const [groupByVisit, setGroupByVisit] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [showSymptoms, setShowSymptoms] = useState(false)
   const [showMedications, setShowMedications] = useState(false)
   const [expandedVisits, setExpandedVisits] = useState<Set<string>>(new Set())
@@ -735,18 +737,65 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
 
       {/* Control Toolbar */}
       <div className="bg-card/70 border border-border/70 rounded-2xl p-3 sm:p-4 shadow-sm backdrop-blur-md space-y-3">
-        {/* Row 1: Search + View & Diagnosis Filters + Actions (Flex-wrapping gracefully) */}
-        <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2.5 sm:gap-3">
-          {/* Search Input */}
-          <div className="relative flex-1 min-w-0 sm:min-w-[220px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground shrink-0" />
-            <Input
-              type="text"
-              placeholder="Search by disease name, group, or ICD-11 code..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9 sm:h-10 rounded-xl bg-background/60 border-border/60 text-xs sm:text-sm w-full min-w-0"
-            />
+        {/* Row 1: Expandable Search + View & Diagnosis Filters + Actions */}
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-2.5">
+          {/* Expandable Search Control (Fixed size, never varies between disease or visit mode) */}
+          <div className="flex items-center shrink-0">
+            {isSearchExpanded || searchQuery ? (
+              <div className="relative flex items-center transition-all duration-200 ease-in-out w-56 sm:w-64 shrink-0">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  ref={searchInputRef}
+                  type="text"
+                  autoFocus
+                  placeholder="Search diseases, visits, codes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setSearchQuery("")
+                      setIsSearchExpanded(false)
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!searchQuery.trim()) {
+                      setIsSearchExpanded(false)
+                    }
+                  }}
+                  className="pl-8 pr-7 h-8 sm:h-9 text-xs rounded-xl bg-background/80 border-border/70 w-full focus-visible:ring-1"
+                />
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    setSearchQuery("")
+                    setIsSearchExpanded(false)
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-md hover:bg-muted/60 transition-colors"
+                  title="Close search"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsSearchExpanded(true)
+                      setTimeout(() => searchInputRef.current?.focus(), 50)
+                    }}
+                    className="h-8 sm:h-9 w-8 sm:w-9 p-0 rounded-xl border-border/70 hover:bg-muted/80 text-muted-foreground hover:text-foreground shrink-0"
+                    aria-label="Search diagnoses"
+                  >
+                    <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Search diseases, codes or visits</TooltipContent>
+              </Tooltip>
+            )}
           </div>
 
           {/* Filter Toggles & Action Buttons Container (Wrapping gracefully, no overflow) */}
