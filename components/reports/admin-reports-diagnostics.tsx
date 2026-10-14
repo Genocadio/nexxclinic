@@ -43,6 +43,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import type { ClinicReportsData, ClinicDiagnosticRecord } from "@/hooks/reports/use-clinic-reports"
 import type { DiagnosticReportsData } from "@/hooks/reports/use-diagnostic-reports"
 
@@ -744,94 +749,120 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
             />
           </div>
 
-          {/* Filter Toggles & Action Buttons Container */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* Filter Toggles & Action Buttons Container (Wrapping gracefully, no overflow) */}
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Diagnosis Type Segmented Control */}
             <div className="inline-flex items-center bg-muted/40 p-0.5 sm:p-1 rounded-xl border border-border/50 shrink-0">
               <Button
                 variant={diagnosisTypeFilter === "FINAL_ONLY" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setDiagnosisTypeFilter("FINAL_ONLY")}
-                className="rounded-lg h-7 sm:h-8 px-2 sm:px-3 text-xs font-medium whitespace-nowrap"
+                title="Show final confirmed diagnoses only"
+                className="rounded-lg h-7 sm:h-8 px-2 sm:px-2.5 text-xs font-medium whitespace-nowrap"
               >
-                Final Diagnoses Only
+                <span className="hidden sm:inline">Final Diagnoses Only</span>
+                <span className="sm:hidden">Final Only</span>
               </Button>
               <Button
                 variant={diagnosisTypeFilter === "ALL" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setDiagnosisTypeFilter("ALL")}
-                className="rounded-lg h-7 sm:h-8 px-2 sm:px-3 text-xs font-medium whitespace-nowrap"
+                title="Include preliminary hypothesis and final diagnoses"
+                className="rounded-lg h-7 sm:h-8 px-2 sm:px-2.5 text-xs font-medium whitespace-nowrap"
               >
-                Hypothesis + Final
+                <span className="hidden sm:inline">Hypothesis + Final</span>
+                <span className="sm:hidden">All Types</span>
               </Button>
             </div>
 
-            {/* Visit vs Disease Grouping Segmented Control */}
-            <div className="inline-flex items-center bg-muted/40 p-0.5 sm:p-1 rounded-xl border border-border/50 shrink-0">
-              <Button
-                variant={!groupByVisit ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setGroupByVisit(false)}
-                className="rounded-lg h-7 sm:h-8 px-2 sm:px-2.5 text-xs font-medium gap-1.5 whitespace-nowrap"
-              >
-                <Stethoscope className="h-3.5 w-3.5 shrink-0" />
-                <span>By Disease</span>
-              </Button>
-              <Button
-                variant={groupByVisit ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setGroupByVisit(true)}
-                className="rounded-lg h-7 sm:h-8 px-2 sm:px-2.5 text-xs font-medium gap-1.5 whitespace-nowrap"
-              >
-                <Calendar className="h-3.5 w-3.5 shrink-0" />
-                <span>Group by Visit</span>
-              </Button>
-            </div>
-
-            {/* Actions: Groups, Age Brackets & CSV Export */}
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsManageGroupsModalOpen(true)}
-                className="h-8 sm:h-9 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0"
-              >
-                <Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-indigo-500 shrink-0" />
-                <span>Disease Groups</span>
-                {diseaseGroups.length > 0 && (
-                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                    {diseaseGroups.length}
-                  </Badge>
-                )}
-              </Button>
-
-              {!groupByVisit && (
+            {/* Visit vs Disease Grouping: Single Switcher Toggle Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleOpenBracketModal}
-                  className="h-8 sm:h-9 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0"
+                  onClick={() => setGroupByVisit((prev) => !prev)}
+                  className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0 hover:bg-muted/80 transition-all"
                 >
-                  <SlidersHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
-                  <span className="hidden sm:inline">Configure Age Ranges</span>
-                  <span className="sm:hidden">Age Ranges</span>
-                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-                    {ageBrackets.length}
-                  </Badge>
+                  {groupByVisit ? (
+                    <>
+                      <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span>Group by Visit</span>
+                    </>
+                  ) : (
+                    <>
+                      <Stethoscope className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span>By Disease</span>
+                    </>
+                  )}
                 </Button>
-              )}
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {groupByVisit
+                  ? "Click to switch to disease aggregate breakdown (By Disease)"
+                  : "Click to switch to chronological visit breakdown (Group by Visit)"}
+              </TooltipContent>
+            </Tooltip>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportCsv}
-                disabled={groupByVisit ? searchedVisitGroups.length === 0 : searchedRows.length === 0}
-                className="h-8 sm:h-9 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0"
-              >
-                <FileSpreadsheet className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 shrink-0" />
-                <span>Export CSV</span>
-              </Button>
-            </div>
+            {/* Actions: Groups, Age Brackets & CSV Export */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsManageGroupsModalOpen(true)}
+                  className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0"
+                >
+                  <Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-indigo-500 shrink-0" />
+                  <span className="hidden md:inline">Disease Groups</span>
+                  <span className="md:hidden">Groups</span>
+                  {diseaseGroups.length > 0 && (
+                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                      {diseaseGroups.length}
+                    </Badge>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Manage Disease Groups</TooltipContent>
+            </Tooltip>
+
+            {!groupByVisit && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleOpenBracketModal}
+                    className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
+                    <span className="hidden lg:inline">Configure Age Ranges</span>
+                    <span className="lg:hidden">Age Ranges</span>
+                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                      {ageBrackets.length}
+                    </Badge>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Configure Demographic Age Ranges</TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* Download Button (Minimised with Icon & Tooltip) */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportCsv}
+                  disabled={groupByVisit ? searchedVisitGroups.length === 0 : searchedRows.length === 0}
+                  className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0 hover:border-emerald-500/40 hover:text-emerald-600 transition-colors"
+                >
+                  <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 shrink-0" />
+                  <span className="hidden sm:inline">Export CSV</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Download report as CSV</TooltipContent>
+            </Tooltip>
           </div>
         </div>
 
