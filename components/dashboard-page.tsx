@@ -1311,17 +1311,23 @@ export default function DashboardPage() {
   }
   const handlePreviewConsultation = (visit: Visit) => {
     const previewStartedAt = Date.now()
+    const isDeptFinalized = (d: any) => {
+      if (!d) return false
+      if (Boolean(d.hasFinalizedConsultationAnswers)) return true
+      const st = String(d.status || "").toUpperCase()
+      return st === "FINALISED"
+    }
     const matchedDepartment =
       (visit.departments || []).find((dept) => {
         const deptId = String(dept?.department?.id || dept?.id || "")
         return (
           deptId &&
           userDepartmentIds.includes(deptId) &&
-          (Boolean(dept.answerId) || Boolean(dept.hasFinalizedConsultationAnswers))
+          (Boolean(dept.answerId) || isDeptFinalized(dept))
         )
       }) ||
       (visit.departments || []).find((dept) =>
-        Boolean(dept.answerId) || Boolean(dept.hasFinalizedConsultationAnswers),
+        Boolean(dept.answerId) || isDeptFinalized(dept),
       ) ||
       getMatchingUserDepartment(visit, { mustBeClosed: true }) ||
       visit.departments?.[0]
@@ -2850,52 +2856,83 @@ export default function DashboardPage() {
                                 className={`flex items-center gap-2 flex-wrap ${viewMode === "grid" ? "justify-start" : "justify-end lg:justify-start lg:flex-nowrap"}`}
                               >
                                 {(() => {
-                                  const matchedClosedDepartment =
-                                    getMatchingUserDepartment(visit, {
-                                      mustBeClosed: true,
-                                    })
-                                  const showClosedConsultationActions = Boolean(
-                                    canSeeVisitActionButtons &&
-                                    canSeeConsultButton &&
-                                    hasClinicianOrDoctorRole &&
-                                    matchedClosedDepartment,
-                                  )
+                                  const isDeptFinalized = (d: any) => {
+                                    if (!d) return false
+                                    if (Boolean(d.hasFinalizedConsultationAnswers)) return true
+                                    const st = String(d.status || "").toUpperCase()
+                                    return st === "FINALISED"
+                                  }
+
+                                  const matchingClinicianDepts = (visit.departments || []).filter((d) => {
+                                    const deptId = String(d?.department?.id || d?.id || "")
+                                    const processors = (d as any)?.processors || []
+                                    const isAssigned = processors.some(
+                                      (p: any) => String(p?.id || "") === String(doctor?.id || ""),
+                                    )
+                                    return (deptId && userDepartmentIds.includes(deptId)) || isAssigned
+                                  })
+
                                   const matchingActiveDept =
-                                    getMatchingUserDepartment(visit, {
-                                      mustBeClosed: false,
+                                    matchingClinicianDepts.find((d) => {
+                                      const st = String(d.status || "").toUpperCase()
+                                      return st !== "FINALISED" && st !== "CANCELLED" && st !== "COMPLETED"
                                     }) ||
+                                    getMatchingUserDepartment(visit, { mustBeClosed: false }) ||
                                     (visit.departments || []).find((d) => {
-                                      const deptId = String(
-                                        d?.department?.id || d?.id || "",
-                                      )
-                                      return (
-                                        deptId &&
-                                        userDepartmentIds.includes(deptId)
-                                      )
+                                      const deptId = String(d?.department?.id || d?.id || "")
+                                      const st = String(d.status || "").toUpperCase()
+                                      return deptId && userDepartmentIds.includes(deptId) && st !== "FINALISED" && st !== "CANCELLED"
                                     })
-                                  const hasFinalizedAnswer = Boolean(
-                                    matchingActiveDept?.hasFinalizedConsultationAnswers ||
-                                      matchedClosedDepartment?.hasFinalizedConsultationAnswers,
+
+                                  const matchedClosedDepartment =
+                                    matchingClinicianDepts.find((d) => {
+                                      const st = String(d.status || "").toUpperCase()
+                                      return st === "FINALISED" || st === "COMPLETED"
+                                    }) ||
+                                    getMatchingUserDepartment(visit, { mustBeClosed: true })
+
+                                  const hasAnyFinalizedDept = (visit.departments || []).some(isDeptFinalized)
+                                  const hasUserFinalizedDept = matchingClinicianDepts.some(isDeptFinalized)
+
+                                  const canConsultActiveDept = Boolean(
+                                    matchingActiveDept &&
+                                    !isDeptFinalized(matchingActiveDept) &&
+                                    String(matchingActiveDept.status || "").toUpperCase() !== "COMPLETED" &&
+                                    String(matchingActiveDept.status || "").toUpperCase() !== "FINALISED" &&
+                                    String(matchingActiveDept.status || "").toUpperCase() !== "CANCELLED"
                                   )
+
+                                  const hasFinalizedAnswer = canConsultActiveDept
+                                    ? false
+                                    : Boolean(hasUserFinalizedDept || hasAnyFinalizedDept)
+
                                   const hasDraftAnswer = Boolean(
-                                    (matchingActiveDept?.answerId ||
-                                      matchedClosedDepartment?.answerId) &&
+                                    (matchingActiveDept?.answerId || matchedClosedDepartment?.answerId) &&
                                       !hasFinalizedAnswer,
                                   )
+
                                   const isEligibleForContinue = Boolean(
                                     matchingActiveDept &&
-                                      matchingActiveDept.status !==
-                                        "FINALISED" &&
+                                      matchingActiveDept.status !== "FINALISED" &&
                                       matchingActiveDept.status !== "CANCELLED" &&
                                       !hasFinalizedAnswer,
                                   )
+
                                   const isCompletedDepartment =
-                                    String(matchingActiveDept?.status || "").toUpperCase() ===
-                                    "COMPLETED"
+                                    String(matchingActiveDept?.status || "").toUpperCase() === "COMPLETED" ||
+                                    String(matchedClosedDepartment?.status || "").toUpperCase() === "COMPLETED" ||
+                                    visit.status === "COMPLETED"
+
                                   const consultButtonLabel =
                                     hasDraftAnswer && isEligibleForContinue
                                       ? "Continue"
                                       : "Start Consult"
+
+                                  const showClinicianActions =
+                                    canSeeVisitActionButtons &&
+                                    canSeeConsultButton &&
+                                    hasClinicianOrDoctorRole
+
                                   return (
                                     <>
                                       {canViewPatientHistory && (
@@ -2919,127 +2956,70 @@ export default function DashboardPage() {
                                         </Tooltip>
                                       )}
 
-                                      {!showClosedConsultationActions &&
-                                        canSeeVisitActionButtons &&
-                                        canSeeConsultButton &&
-                                        canConsultVisit(visit) &&
-                                        !isCompletedDepartment &&
-                                        !hasFinalizedAnswer && (
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  setNavigatingVisitId(visit.id)
-                                                  handleConsultVisit(visit)
-                                                }}
-                                                title={
-                                                  navigatingVisitId === visit.id
-                                                    ? "Starting consultation…"
-                                                    : consultButtonLabel
-                                                }
-                                                aria-label={
-                                                  navigatingVisitId === visit.id
-                                                    ? "Starting consultation"
-                                                    : consultButtonLabel
-                                                }
-                                                disabled={navigatingVisitId === visit.id}
-                                                className="h-9 w-9 sm:h-10 sm:w-10 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
-                                              >
-                                                {navigatingVisitId === visit.id ? (
-                                                  <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
-                                                ) : (
-                                                  <Stethoscope className="w-4 h-4 flex-shrink-0" />
-                                                )}
-                                              </button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p>
-                                                {navigatingVisitId === visit.id
-                                                  ? "Starting consultation…"
-                                                  : consultButtonLabel}
-                                              </p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        )}
-
-                                      {!showClosedConsultationActions &&
-                                        canSeeVisitActionButtons &&
-                                        canSeeConsultButton &&
-                                        hasFinalizedAnswer && (
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  handlePreviewConsultation(visit)
-                                                }}
-                                                title="Preview Consultation"
-                                                aria-label="Preview Consultation"
-                                                className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-500 hover:bg-slate-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
-                                              >
-                                                <Eye className="w-4 h-4 flex-shrink-0" />
-                                              </button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p>Preview Consultation</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        )}
-
-                                      {showClosedConsultationActions && (
-                                        <>
-                                          {canEditConsultationAnswers &&
-                                            !hasFinalizedAnswer &&
-                                            String(matchedClosedDepartment?.status || "").toUpperCase() !==
-                                              "FINALISED" && (
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  handleEditConsultation(visit)
-                                                }}
-                                                title="Edit Consultation"
-                                                aria-label="Edit Consultation"
-                                                className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-700 hover:bg-slate-800 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
-                                              >
-                                                <FilePenLine className="w-4 h-4 flex-shrink-0" />
-                                              </button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p>Edit Consultation</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                          )}
-
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  handlePreviewConsultation(
-                                                    visit,
-                                                  )
-                                                }}
-                                                title="Preview Consultation"
-                                                aria-label="Preview Consultation"
-                                                className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-500 hover:bg-slate-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
-                                              >
-                                                <Eye className="w-4 h-4 flex-shrink-0" />
-                                              </button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p>Preview Consultation</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </>
+                                      {showClinicianActions && hasFinalizedAnswer && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                handlePreviewConsultation(visit)
+                                              }}
+                                              title="Preview Consultation"
+                                              aria-label="Preview Consultation"
+                                              className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-500 hover:bg-slate-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                            >
+                                              <Eye className="w-4 h-4 flex-shrink-0" />
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Preview Consultation</p>
+                                          </TooltipContent>
+                                        </Tooltip>
                                       )}
-                                      {canSeeVisitActionButtons &&
-                                        canSeeConsultButton &&
+
+                                      {showClinicianActions && !hasFinalizedAnswer && canConsultVisit(visit) && !isCompletedDepartment && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                setNavigatingVisitId(visit.id)
+                                                handleConsultVisit(visit)
+                                              }}
+                                              title={
+                                                navigatingVisitId === visit.id
+                                                  ? "Starting consultation…"
+                                                  : consultButtonLabel
+                                              }
+                                              aria-label={
+                                                navigatingVisitId === visit.id
+                                                  ? "Starting consultation"
+                                                  : consultButtonLabel
+                                              }
+                                              disabled={navigatingVisitId === visit.id}
+                                              className="h-9 w-9 sm:h-10 sm:w-10 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                                            >
+                                              {navigatingVisitId === visit.id ? (
+                                                <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                                              ) : (
+                                                <Stethoscope className="w-4 h-4 flex-shrink-0" />
+                                              )}
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>
+                                              {navigatingVisitId === visit.id
+                                                ? "Starting consultation…"
+                                                : consultButtonLabel}
+                                            </p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      )}
+
+                                      {showClinicianActions &&
+                                        !hasFinalizedAnswer &&
                                         canEditConsultationAnswers &&
-                                        isCompletedDepartment &&
-                                        !hasFinalizedAnswer && (
+                                        (isCompletedDepartment || matchedClosedDepartment) && (
                                           <Tooltip>
                                             <TooltipTrigger asChild>
                                               <button
@@ -3091,38 +3071,6 @@ export default function DashboardPage() {
                                         <p>Triage</p>
                                       </TooltipContent>
                                     </Tooltip>
-                                  )}
-                                {canSeeVisitActionButtons &&
-                                  canEditConsultationAnswers &&
-                                  hasConsultationRole &&
-                                  (visit.status === "COMPLETED" ||
-                                    visit.status === "CANCELLED") &&
-                                  !Boolean(
-                                    getMatchingUserDepartment(visit, {
-                                      mustBeClosed: true,
-                                    }),
-                                  ) &&
-                                  !(visit.departments || []).some((d) => d.hasFinalizedConsultationAnswers) && (
-                                    <>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              handleEditConsultation(visit)
-                                            }}
-                                            title="Edit Consultation"
-                                            aria-label="Edit Consultation"
-                                            className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-700 hover:bg-slate-800 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
-                                          >
-                                            <FilePenLine className="w-4 h-4 flex-shrink-0" />
-                                          </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Edit Consultation</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </>
                                   )}
                                 {canSeeAddDepartment &&
                                   canAddDepartment(visit) &&
