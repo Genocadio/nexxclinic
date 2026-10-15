@@ -326,7 +326,10 @@ export default function VisitsListView({
       if (!d) return false
       if (Boolean(d.hasFinalizedConsultationAnswers)) return true
       const st = String(d.status || "").toUpperCase()
-      return st === "FINALISED"
+      if (st === "FINALISED") return true
+      const ansSt = String(d.answer?.status || "").toUpperCase()
+      if (ansSt === "FINAL" || ansSt === "SUBMITTED") return true
+      return false
     }
     const matchedDepartment =
       (visit.departments || []).find((dept) => {
@@ -449,7 +452,10 @@ export default function VisitsListView({
                       if (!d) return false
                       if (Boolean(d.hasFinalizedConsultationAnswers)) return true
                       const st = String(d.status || "").toUpperCase()
-                      return st === "FINALISED"
+                      if (st === "FINALISED") return true
+                      const ansSt = String(d.answer?.status || "").toUpperCase()
+                      if (ansSt === "FINAL" || ansSt === "SUBMITTED") return true
+                      return false
                     }
 
                     const matchingClinicianDepts = (visit.departments || []).filter((d) => {
@@ -478,17 +484,9 @@ export default function VisitsListView({
                     const hasAnyFinalizedDept = (visit.departments || []).some(isDeptFinalized)
                     const hasUserFinalizedDept = matchingClinicianDepts.some(isDeptFinalized)
 
-                    const canConsultActiveDept = Boolean(
-                      matchingDept &&
-                      !isDeptFinalized(matchingDept) &&
-                      String(matchingDept.status || "").toUpperCase() !== "COMPLETED" &&
-                      String(matchingDept.status || "").toUpperCase() !== "FINALISED" &&
-                      String(matchingDept.status || "").toUpperCase() !== "CANCELLED"
+                    const hasFinalizedAnswer = Boolean(
+                      hasUserFinalizedDept || hasAnyFinalizedDept,
                     )
-
-                    const hasFinalizedAnswer = canConsultActiveDept
-                      ? false
-                      : Boolean(hasUserFinalizedDept || hasAnyFinalizedDept)
 
                     const canUserConsultThisVisit =
                       isClinicianLike && Boolean(matchingDept)

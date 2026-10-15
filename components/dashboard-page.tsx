@@ -363,6 +363,16 @@ export default function DashboardPage() {
     return false
   }
 
+  const isDeptFinalized = (d: any) => {
+    if (!d) return false
+    if (Boolean(d.hasFinalizedConsultationAnswers)) return true
+    const st = String(d.status || "").toUpperCase()
+    if (st === "FINALISED") return true
+    const ansSt = String(d.answer?.status || "").toUpperCase()
+    if (ansSt === "FINAL" || ansSt === "SUBMITTED") return true
+    return false
+  }
+
   const getVisitClinicianDepartment = (visit: Visit) => {
     return (
       (visit.departments || []).find((dept) => {
@@ -372,33 +382,23 @@ export default function DashboardPage() {
   }
 
   const getVisitAnswerState = (visit: Visit) => {
-    if (!hasManagerRole && !hasAdminRole && hasClinicianOrDoctorRole) {
-      const clinDept = getVisitClinicianDepartment(visit)
-      if (clinDept) {
-        const isFinalised = Boolean(clinDept.hasFinalizedConsultationAnswers)
-        const hasDraft = Boolean(
-          clinDept.answerId && !clinDept.hasFinalizedConsultationAnswers,
-        )
-        return { isFinalised, hasDraft, isPending: !isFinalised }
-      }
-      return { isFinalised: false, hasDraft: false, isPending: true }
-    }
     const nonCancelledDepts = (visit.departments || []).filter(
       (d) => d.status !== "CANCELLED",
     )
     if (nonCancelledDepts.length === 0) {
       return { isFinalised: false, hasDraft: false, isPending: true }
     }
-    const anyFinalised = nonCancelledDepts.some((d) =>
-      Boolean(d.hasFinalizedConsultationAnswers),
-    )
-    const anyDraft = nonCancelledDepts.some(
-      (d) => Boolean(d.answerId && !d.hasFinalizedConsultationAnswers),
-    )
+
+    const clinicianDepts = nonCancelledDepts.filter((d) => isClinicianProcessorForDept(d))
+    const targetDepts = clinicianDepts.length > 0 ? clinicianDepts : nonCancelledDepts
+
+    const isFinalised = targetDepts.some(isDeptFinalized) || nonCancelledDepts.some(isDeptFinalized)
+    const hasDraft = !isFinalised && targetDepts.some((d) => Boolean(d.answerId))
+
     return {
-      isFinalised: anyFinalised,
-      hasDraft: anyDraft,
-      isPending: !anyFinalised,
+      isFinalised,
+      hasDraft,
+      isPending: !isFinalised && !hasDraft,
     }
   }
 
@@ -1315,7 +1315,10 @@ export default function DashboardPage() {
       if (!d) return false
       if (Boolean(d.hasFinalizedConsultationAnswers)) return true
       const st = String(d.status || "").toUpperCase()
-      return st === "FINALISED"
+      if (st === "FINALISED") return true
+      const ansSt = String(d.answer?.status || "").toUpperCase()
+      if (ansSt === "FINAL" || ansSt === "SUBMITTED") return true
+      return false
     }
     const matchedDepartment =
       (visit.departments || []).find((dept) => {
@@ -2856,13 +2859,6 @@ export default function DashboardPage() {
                                 className={`flex items-center gap-2 flex-wrap ${viewMode === "grid" ? "justify-start" : "justify-end lg:justify-start lg:flex-nowrap"}`}
                               >
                                 {(() => {
-                                  const isDeptFinalized = (d: any) => {
-                                    if (!d) return false
-                                    if (Boolean(d.hasFinalizedConsultationAnswers)) return true
-                                    const st = String(d.status || "").toUpperCase()
-                                    return st === "FINALISED"
-                                  }
-
                                   const matchingClinicianDepts = (visit.departments || []).filter((d) => {
                                     const deptId = String(d?.department?.id || d?.id || "")
                                     const processors = (d as any)?.processors || []
@@ -2891,31 +2887,28 @@ export default function DashboardPage() {
                                     }) ||
                                     getMatchingUserDepartment(visit, { mustBeClosed: true })
 
+                                  const ansState = getVisitAnswerState(visit)
                                   const hasAnyFinalizedDept = (visit.departments || []).some(isDeptFinalized)
                                   const hasUserFinalizedDept = matchingClinicianDepts.some(isDeptFinalized)
 
-                                  const canConsultActiveDept = Boolean(
-                                    matchingActiveDept &&
-                                    !isDeptFinalized(matchingActiveDept) &&
-                                    String(matchingActiveDept.status || "").toUpperCase() !== "COMPLETED" &&
-                                    String(matchingActiveDept.status || "").toUpperCase() !== "FINALISED" &&
-                                    String(matchingActiveDept.status || "").toUpperCase() !== "CANCELLED"
+                                  const hasFinalizedAnswer = Boolean(
+                                    ansState.isFinalised ||
+                                      hasUserFinalizedDept ||
+                                      hasAnyFinalizedDept,
                                   )
 
-                                  const hasFinalizedAnswer = canConsultActiveDept
-                                    ? false
-                                    : Boolean(hasUserFinalizedDept || hasAnyFinalizedDept)
-
                                   const hasDraftAnswer = Boolean(
-                                    (matchingActiveDept?.answerId || matchedClosedDepartment?.answerId) &&
-                                      !hasFinalizedAnswer,
+                                    !hasFinalizedAnswer &&
+                                      (ansState.hasDraft ||
+                                        matchingActiveDept?.answerId ||
+                                        matchedClosedDepartment?.answerId),
                                   )
 
                                   const isEligibleForContinue = Boolean(
-                                    matchingActiveDept &&
+                                    !hasFinalizedAnswer &&
+                                      matchingActiveDept &&
                                       matchingActiveDept.status !== "FINALISED" &&
-                                      matchingActiveDept.status !== "CANCELLED" &&
-                                      !hasFinalizedAnswer,
+                                      matchingActiveDept.status !== "CANCELLED",
                                   )
 
                                   const isCompletedDepartment =
