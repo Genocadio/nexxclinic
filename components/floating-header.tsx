@@ -36,6 +36,7 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
   const canFinancialReports = canAccessFinancialReports(roles)
   const canMedicalReports = canAccessMedicalReports(roles)
   const canAnyClinicReports = canAccessAnyClinicReports(roles)
+  const canAccessReportsMenu = Boolean(doctor && (canAccessAdminOrManager || canAnyClinicReports))
   const isAdminPath = pathname?.startsWith("/admin")
   const isRootPage = pathname === "/" || pathname === "/admin"
   const clinicName = getClinicDisplayName(clinicProfile)
@@ -58,8 +59,8 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
       <div className="fixed top-3 left-3 sm:top-3.5 sm:left-4 z-40">
         <div className="relative">
           {isRootPage ? (
-            doctor ? (
-              // For logged in users on root pages (/ or /admin): circular button with menu icon
+            canAccessReportsMenu ? (
+              // For logged in users with admin/manager/reporting access on root pages: circular button with menu icon
               <>
                 <button
                   type="button"
