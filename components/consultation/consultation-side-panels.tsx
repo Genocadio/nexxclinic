@@ -9,11 +9,13 @@ import {
   ChevronRight,
   Plus,
   X,
+  Pin,
 } from "lucide-react";
 import { formatDateOnly } from "@/lib/utils";
 import type { Patient } from "@/lib/types";
 import { PatientInsuranceBadge } from "@/components/patient-insurance-badge";
 import { normalizeVisitVitalSigns } from "@/hooks/auth-hooks";
+import { calculateAge } from "@/lib/validation-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -28,12 +30,14 @@ function VitalsPanel({
   pinned,
   canAddVitals,
   onAddVitals,
+  onTogglePin,
 }: {
   vitals: any[];
   slotStyle: any;
   pinned: boolean;
   canAddVitals: boolean;
   onAddVitals?: (vitals: Array<{ measurementName: string; value: string; unit: string }>) => Promise<boolean>;
+  onTogglePin?: () => void;
 }) {
   type DraftVital = {
     id: string;
@@ -78,8 +82,27 @@ function VitalsPanel({
       <div className="flex items-center justify-between p-3 border-b border-border">
         <div className="flex items-center gap-2">
           <p className="text-sm font-semibold">Vital Signs</p>
-          {pinned && <span className="text-xs bg-white/30 px-2 py-1 rounded">Pinned</span>}
+          {pinned && (
+            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+              Pinned
+            </span>
+          )}
         </div>
+        {onTogglePin && (
+          <button
+            type="button"
+            onClick={onTogglePin}
+            className={`p-1.5 rounded-md transition-colors ${
+              pinned
+                ? "text-primary hover:bg-primary/10"
+                : "text-muted-foreground hover:bg-muted"
+            }`}
+            title={pinned ? "Unpin card" : "Pin card"}
+            aria-label={pinned ? "Unpin card" : "Pin card"}
+          >
+            <Pin className={`w-4 h-4 ${pinned ? "fill-current" : ""}`} />
+          </button>
+        )}
       </div>
       <div className="p-3">
         {adding && canAddVitals && onAddVitals && (
@@ -322,6 +345,40 @@ export function ConsultationSidePanels({
   const showVitalsPanel = vitalsPanel.pinned || vitalsPanel.hover;
   const showHistoryPanel = historyPanel.pinned || historyPanel.hover;
 
+  const patientFullName = useMemo(() => {
+    const parts = [patient.firstName, patient.middleName, patient.lastName]
+      .filter(Boolean)
+      .map((s) => String(s).trim())
+      .filter(Boolean);
+    const fromParts = parts.join(" ");
+    if (patient.fullName && patient.fullName.trim()) {
+      const trimmedFull = patient.fullName.trim();
+      if (trimmedFull.split(/\s+/).length > parts.length) {
+        return trimmedFull;
+      }
+    }
+    return fromParts || patient.fullName?.trim() || "Patient";
+  }, [patient.firstName, patient.middleName, patient.lastName, patient.fullName]);
+
+  const patientAge = useMemo(() => {
+    if (patient.age != null && !Number.isNaN(Number(patient.age))) {
+      return Number(patient.age);
+    }
+    if (patient.dateOfBirth) {
+      const calculated = calculateAge(patient.dateOfBirth);
+      if (!Number.isNaN(calculated)) {
+        return calculated;
+      }
+    }
+    return null;
+  }, [patient.age, patient.dateOfBirth]);
+
+  const ageText = useMemo(() => {
+    if (patientAge == null) return null;
+    if (patientAge === 0) return "< 1 yr";
+    return `${patientAge} ${patientAge === 1 ? "yr" : "yrs"}`;
+  }, [patientAge]);
+
   return (
     <>
       {/* Left vertical pill with quick panel buttons */}
@@ -387,16 +444,31 @@ export function ConsultationSidePanels({
           }
         >
           <div className="flex items-center justify-between p-3 border-b border-border">
-            <p className="text-sm font-semibold">Identification</p>
-            {idPanel.pinned && (
-              <span className="text-xs bg-white/30 px-2 py-1 rounded">
-                Pinned
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold">Identification</p>
+              {idPanel.pinned && (
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                  Pinned
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => handlePanelClick("id")}
+              className={`p-1.5 rounded-md transition-colors ${
+                idPanel.pinned
+                  ? "text-primary hover:bg-primary/10"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+              title={idPanel.pinned ? "Unpin card" : "Pin card"}
+              aria-label={idPanel.pinned ? "Unpin card" : "Pin card"}
+            >
+              <Pin className={`w-4 h-4 ${idPanel.pinned ? "fill-current" : ""}`} />
+            </button>
           </div>
           <div className="p-4 space-y-2 text-sm">
-            <div className="font-medium text-foreground">
-              {patient.firstName} {patient.lastName}
+            <div className="font-semibold text-foreground text-base leading-tight">
+              {patientFullName}
             </div>
             {patient.patientIdentifier && (
               <div className="text-muted-foreground">
@@ -404,7 +476,12 @@ export function ConsultationSidePanels({
               </div>
             )}
             <div className="text-muted-foreground">
-              DOB: {formatDateOnly(patient.dateOfBirth)}
+              DOB: {patient.dateOfBirth ? formatDateOnly(patient.dateOfBirth) : "N/A"}
+              {ageText && (
+                <span className="ml-1.5 text-foreground/80 font-medium">
+                  ({ageText})
+                </span>
+              )}
             </div>
             <div className="text-muted-foreground">
               Gender: {patient.gender}
@@ -453,6 +530,7 @@ export function ConsultationSidePanels({
           pinned={vitalsPanel.pinned}
           canAddVitals={canAddVitals}
           onAddVitals={onAddVitals}
+          onTogglePin={() => handlePanelClick("vitals")}
         />
       )}
 
@@ -468,12 +546,27 @@ export function ConsultationSidePanels({
           }
         >
           <div className="flex items-center justify-between p-3 border-b border-border">
-            <p className="text-sm font-semibold">History</p>
-            {historyPanel.pinned && (
-              <span className="text-xs bg-white/30 px-2 py-1 rounded">
-                Pinned
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold">History</p>
+              {historyPanel.pinned && (
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                  Pinned
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => handlePanelClick("history")}
+              className={`p-1.5 rounded-md transition-colors ${
+                historyPanel.pinned
+                  ? "text-primary hover:bg-primary/10"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+              title={historyPanel.pinned ? "Unpin card" : "Pin card"}
+              aria-label={historyPanel.pinned ? "Unpin card" : "Pin card"}
+            >
+              <Pin className={`w-4 h-4 ${historyPanel.pinned ? "fill-current" : ""}`} />
+            </button>
           </div>
           <div className="p-4 space-y-3 text-sm">
             <div>

@@ -10,10 +10,12 @@ import {
   FlaskConical,
   Loader2,
   Package,
+  Pencil,
   Pill,
   Plus,
   Search,
   Stethoscope,
+  X,
 } from "lucide-react";
 import type { FormBlock } from "@/lib/formbuilder-storage";
 import { useIcd11DiseaseSearch, useSnomedSymptomSearch } from "@/hooks/icd11";
@@ -688,25 +690,19 @@ export function MedFullAnswerBlock({
   handlers?: MedicalBlockHandlers | null;
 }) {
   const items = handlers?.medicationsFull ?? value ?? [];
+  const [editingEntry, setEditingEntry] = React.useState<MedFullEntry | null>(null);
+
   const remove = async (id: string) => {
+    if (editingEntry?.id === id) {
+      setEditingEntry(null);
+    }
     if (handlers?.onRemoveMedication) {
       await handlers.onRemoveMedication(id);
       return;
     }
     onChange(value.filter((e) => e.id !== id));
   };
-  const editMedication = async (id: string) => {
-    const current = items.find((item) => item.id === id);
-    if (!current || !handlers?.onUpdateMedication) return;
-    const name = window.prompt("Medication name", current.name);
-    if (name == null || !name.trim()) return;
-    const instructions = window.prompt(
-      "Instructions",
-      [current.frequency, current.amount, current.days, current.notes].filter(Boolean).join(" · "),
-    );
-    if (instructions == null || !instructions.trim()) return;
-    await handlers.onUpdateMedication(id, name.trim(), instructions.trim());
-  };
+
   const addEntry = async (draft: Omit<MedFullEntry, "id">) => {
     if (handlers?.onAddMedicationFull) {
       await handlers.onAddMedicationFull(draft);
@@ -721,6 +717,27 @@ export function MedFullAnswerBlock({
       },
     ]);
   };
+
+  const updateEntry = async (id: string, draft: Omit<MedFullEntry, "id">) => {
+    if (handlers?.onUpdateMedication) {
+      const instructions = `Frequency: ${draft.frequency.trim()}, Amount: ${draft.amount.trim()}, Days: ${draft.days.trim()}${draft.notes?.trim() ? `, Extra notes: ${draft.notes.trim()}` : ""}`;
+      await handlers.onUpdateMedication(id, draft.name.trim(), instructions);
+    } else {
+      onChange(
+        value.map((e) =>
+          e.id === id
+            ? {
+                ...e,
+                ...draft,
+                notes: draft.notes?.trim() || undefined,
+              }
+            : e
+        )
+      );
+    }
+    setEditingEntry(null);
+  };
+
   const canAdd = handlers ? Boolean(handlers.onAddMedicationFull) : edit;
 
   return (
@@ -740,6 +757,9 @@ export function MedFullAnswerBlock({
         {canAdd && (
           <MedFullDraft
             onAdd={addEntry}
+            onUpdate={updateEntry}
+            editingEntry={editingEntry}
+            onCancelEdit={() => setEditingEntry(null)}
             placeholder={block.placeholder || "Medication name…"}
           />
         )}
@@ -748,7 +768,14 @@ export function MedFullAnswerBlock({
           items={items}
           render={(e) => (
             <div className="flex-1 min-w-0">
-              <p className="font-medium break-words">{e.name}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="font-medium break-words">{e.name}</p>
+                {editingEntry?.id === e.id && (
+                  <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-700 dark:text-blue-300">
+                    Editing
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Frequency: {e.frequency} · Amount: {e.amount} · Days: {e.days}
               </p>
@@ -758,7 +785,10 @@ export function MedFullAnswerBlock({
             </div>
           )}
           onRemove={edit ? remove : undefined}
-          onEdit={edit && handlers?.onUpdateMedication ? (id) => void editMedication(id) : undefined}
+          onEdit={edit ? (id) => {
+            const current = items.find((item) => item.id === id);
+            if (current) setEditingEntry(current);
+          } : undefined}
         />
       </div>
     </div>
@@ -767,9 +797,15 @@ export function MedFullAnswerBlock({
 
 function MedFullDraft({
   onAdd,
+  onUpdate,
+  editingEntry,
+  onCancelEdit,
   placeholder,
 }: {
   onAdd: (v: Omit<MedFullEntry, "id">) => void | Promise<void>;
+  onUpdate?: (id: string, v: Omit<MedFullEntry, "id">) => void | Promise<void>;
+  editingEntry?: MedFullEntry | null;
+  onCancelEdit?: () => void;
   placeholder: string;
 }) {
   const [draft, setDraft] = React.useState({
@@ -780,28 +816,70 @@ function MedFullDraft({
     notes: "",
   });
   const [submitting, setSubmitting] = React.useState(false);
+  const nameInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (editingEntry) {
+      setDraft({
+        name: editingEntry.name || "",
+        frequency: editingEntry.frequency || "",
+        amount: editingEntry.amount || "",
+        days: editingEntry.days || "",
+        notes: editingEntry.notes || "",
+      });
+      nameInputRef.current?.focus();
+    } else {
+      setDraft({ name: "", frequency: "", amount: "", days: "", notes: "" });
+    }
+  }, [editingEntry]);
+
   const upd =
     (k: keyof typeof draft) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setDraft((d) => ({ ...d, [k]: e.target.value }));
+
   const canAdd =
     draft.name.trim() &&
     draft.frequency.trim() &&
     draft.amount.trim() &&
     draft.days.trim();
+
   const submit = async () => {
     if (!canAdd || submitting) return;
     setSubmitting(true);
     try {
-      await onAdd(draft);
-      setDraft({ name: "", frequency: "", amount: "", days: "", notes: "" });
+      if (editingEntry && onUpdate) {
+        await onUpdate(editingEntry.id, draft);
+      } else {
+        await onAdd(draft);
+        setDraft({ name: "", frequency: "", amount: "", days: "", notes: "" });
+      }
     } finally {
       setSubmitting(false);
     }
   };
+
   return (
-    <>
+    <div className={editingEntry ? "p-3 rounded-lg border border-blue-400/80 bg-white dark:bg-slate-900/90 shadow-sm space-y-2.5 transition-all" : "space-y-2.5"}>
+      {editingEntry && (
+        <div className="flex items-center justify-between text-xs text-blue-700 dark:text-blue-300 font-semibold pb-1 border-b border-blue-200/60 dark:border-blue-800/60">
+          <span className="flex items-center gap-1.5 truncate">
+            <Pencil className="h-3.5 w-3.5 shrink-0" />
+            Edit Medication: <span className="font-bold">{editingEntry.name}</span>
+          </span>
+          {onCancelEdit && (
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="text-[11px] text-muted-foreground hover:text-foreground font-normal hover:underline ml-2 cursor-pointer"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      )}
       <Input
+        ref={nameInputRef}
         value={draft.name}
         onChange={upd("name")}
         placeholder={placeholder}
@@ -817,7 +895,7 @@ function MedFullDraft({
         <Input
           value={draft.amount}
           onChange={upd("amount")}
-          placeholder="Amount"
+          placeholder="Amount / Qty"
           className="h-8 text-sm bg-white dark:bg-slate-900 border-blue-300/70 dark:border-blue-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
         />
         <Input
@@ -834,18 +912,38 @@ function MedFullDraft({
         className="text-sm min-h-[48px] resize-none bg-white dark:bg-slate-900 border-blue-300/70 dark:border-blue-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
         rows={2}
       />
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2 pt-0.5">
+        {editingEntry && onCancelEdit && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onCancelEdit}
+            disabled={submitting}
+            className="h-7 rounded-full gap-1 text-xs cursor-pointer"
+          >
+            <X className="h-3 w-3" /> Cancel
+          </Button>
+        )}
         <Button
           type="button"
           size="sm"
           onClick={submit}
           disabled={!canAdd || submitting}
-          className="h-7 rounded-full gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-xs"
+          className="h-7 rounded-full gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer"
         >
-          <Plus className="h-3 w-3" /> Add Medication
+          {editingEntry ? (
+            <>
+              <Check className="h-3 w-3" /> Update Medication
+            </>
+          ) : (
+            <>
+              <Plus className="h-3 w-3" /> Add Medication
+            </>
+          )}
         </Button>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -865,22 +963,19 @@ export function MedMiniAnswerBlock({
   handlers?: MedicalBlockHandlers | null;
 }) {
   const items = handlers?.medicationsMini ?? value ?? [];
+  const [editingEntry, setEditingEntry] = React.useState<MedMiniEntry | null>(null);
+
   const remove = async (id: string) => {
+    if (editingEntry?.id === id) {
+      setEditingEntry(null);
+    }
     if (handlers?.onRemoveMedication) {
       await handlers.onRemoveMedication(id);
       return;
     }
     onChange(value.filter((e) => e.id !== id));
   };
-  const editMedication = async (id: string) => {
-    const current = items.find((item) => item.id === id);
-    if (!current || !handlers?.onUpdateMedication) return;
-    const name = window.prompt("Medication name", current.name);
-    if (name == null || !name.trim()) return;
-    const instructions = window.prompt("Notes", current.notes || "");
-    if (instructions == null) return;
-    await handlers.onUpdateMedication(id, name.trim(), instructions.trim() || "No additional notes");
-  };
+
   const addEntry = async (name: string, notes?: string) => {
     if (handlers?.onAddMedicationMini) {
       await handlers.onAddMedicationMini(name, notes);
@@ -895,6 +990,22 @@ export function MedMiniAnswerBlock({
       },
     ]);
   };
+
+  const updateEntry = async (id: string, name: string, notes?: string) => {
+    if (handlers?.onUpdateMedication) {
+      await handlers.onUpdateMedication(id, name.trim(), notes?.trim() || "No additional notes");
+    } else {
+      onChange(
+        value.map((e) =>
+          e.id === id
+            ? { ...e, name: name.trim(), notes: notes?.trim() || undefined }
+            : e
+        )
+      );
+    }
+    setEditingEntry(null);
+  };
+
   const canAdd = handlers ? Boolean(handlers.onAddMedicationMini) : edit;
 
   return (
@@ -914,6 +1025,9 @@ export function MedMiniAnswerBlock({
         {canAdd && (
           <MedMiniDraft
             onAdd={addEntry}
+            onUpdate={updateEntry}
+            editingEntry={editingEntry}
+            onCancelEdit={() => setEditingEntry(null)}
             placeholder={block.placeholder || "Medication name…"}
           />
         )}
@@ -922,14 +1036,24 @@ export function MedMiniAnswerBlock({
           items={items}
           render={(e) => (
             <div className="flex-1 min-w-0">
-              <p className="font-medium break-words">{e.name}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="font-medium break-words">{e.name}</p>
+                {editingEntry?.id === e.id && (
+                  <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">
+                    Editing
+                  </span>
+                )}
+              </div>
               {e.notes && (
                 <p className="text-xs text-muted-foreground">{e.notes}</p>
               )}
             </div>
           )}
           onRemove={edit ? remove : undefined}
-          onEdit={edit && handlers?.onUpdateMedication ? (id) => void editMedication(id) : undefined}
+          onEdit={edit ? (id) => {
+            const current = items.find((item) => item.id === id);
+            if (current) setEditingEntry(current);
+          } : undefined}
         />
       </div>
     </div>
@@ -938,28 +1062,70 @@ export function MedMiniAnswerBlock({
 
 function MedMiniDraft({
   onAdd,
+  onUpdate,
+  editingEntry,
+  onCancelEdit,
   placeholder,
 }: {
   onAdd: (name: string, notes?: string) => void | Promise<void>;
+  onUpdate?: (id: string, name: string, notes?: string) => void | Promise<void>;
+  editingEntry?: MedMiniEntry | null;
+  onCancelEdit?: () => void;
   placeholder: string;
 }) {
   const [draftName, setDraftName] = React.useState("");
   const [draftNotes, setDraftNotes] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
+  const nameInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (editingEntry) {
+      setDraftName(editingEntry.name || "");
+      setDraftNotes(editingEntry.notes || "");
+      nameInputRef.current?.focus();
+    } else {
+      setDraftName("");
+      setDraftNotes("");
+    }
+  }, [editingEntry]);
+
   const submit = async () => {
     if (!draftName.trim() || submitting) return;
     setSubmitting(true);
     try {
-      await onAdd(draftName, draftNotes);
-      setDraftName("");
-      setDraftNotes("");
+      if (editingEntry && onUpdate) {
+        await onUpdate(editingEntry.id, draftName, draftNotes);
+      } else {
+        await onAdd(draftName, draftNotes);
+        setDraftName("");
+        setDraftNotes("");
+      }
     } finally {
       setSubmitting(false);
     }
   };
+
   return (
-    <>
+    <div className={editingEntry ? "p-3 rounded-lg border border-indigo-400/80 bg-white dark:bg-slate-900/90 shadow-sm space-y-2.5 transition-all" : "space-y-2.5"}>
+      {editingEntry && (
+        <div className="flex items-center justify-between text-xs text-indigo-700 dark:text-indigo-300 font-semibold pb-1 border-b border-indigo-200/60 dark:border-indigo-800/60">
+          <span className="flex items-center gap-1.5 truncate">
+            <Pencil className="h-3.5 w-3.5 shrink-0" />
+            Edit Medication: <span className="font-bold">{editingEntry.name}</span>
+          </span>
+          {onCancelEdit && (
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="text-[11px] text-muted-foreground hover:text-foreground font-normal hover:underline ml-2 cursor-pointer"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      )}
       <Input
+        ref={nameInputRef}
         value={draftName}
         onChange={(e) => setDraftName(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && submit()}
@@ -973,18 +1139,38 @@ function MedMiniDraft({
         className="text-sm min-h-[48px] resize-none bg-white dark:bg-slate-900 border-indigo-300/70 dark:border-indigo-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
         rows={2}
       />
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2 pt-0.5">
+        {editingEntry && onCancelEdit && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onCancelEdit}
+            disabled={submitting}
+            className="h-7 rounded-full gap-1 text-xs cursor-pointer"
+          >
+            <X className="h-3 w-3" /> Cancel
+          </Button>
+        )}
         <Button
           type="button"
           size="sm"
           onClick={submit}
           disabled={!draftName.trim() || submitting}
-          className="h-7 rounded-full gap-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
+          className="h-7 rounded-full gap-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer"
         >
-          <Plus className="h-3 w-3" /> Add Medication
+          {editingEntry ? (
+            <>
+              <Check className="h-3 w-3" /> Update Medication
+            </>
+          ) : (
+            <>
+              <Plus className="h-3 w-3" /> Add Medication
+            </>
+          )}
         </Button>
       </div>
-    </>
+    </div>
   );
 }
 

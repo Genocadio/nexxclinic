@@ -294,11 +294,19 @@ export function StandaloneConsultationView({
   const loadedAnswerSignatureRef = useRef<string>("");
 
   const patientLabel = useMemo(() => {
-    const name = [patient.firstName, patient.lastName]
+    const parts = [patient.firstName, patient.middleName, patient.lastName]
       .filter(Boolean)
-      .join(" ");
-    return name || "Patient";
-  }, [patient.firstName, patient.lastName]);
+      .map((s) => String(s).trim())
+      .filter(Boolean);
+    const fromParts = parts.join(" ");
+    if (patient.fullName && patient.fullName.trim()) {
+      const trimmedFull = patient.fullName.trim();
+      if (trimmedFull.split(/\s+/).length > parts.length) {
+        return trimmedFull;
+      }
+    }
+    return fromParts || patient.fullName?.trim() || "Patient";
+  }, [patient.firstName, patient.middleName, patient.lastName, patient.fullName]);
 
   const parentVisitDepartment = useMemo(
     () =>

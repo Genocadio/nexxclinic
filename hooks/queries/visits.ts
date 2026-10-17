@@ -137,9 +137,11 @@ export const GET_VISIT_QUERY = gql`
           firstName
           lastName
           middleName
+          fullName
           patientIdentifier
           gender
           dateOfBirth
+          age
           primaryPhoneNumber
           alternativePhone
           village
