@@ -475,6 +475,27 @@ export const VISITS_QUERY = gql`
               billingDate
             }
           }
+          diagnostics {
+            id
+            diagnosisName
+            icd11Code
+            type
+            notes
+            createdAt
+          }
+          symptoms {
+            id
+            symptomName
+            sonomedId
+            notes
+            createdAt
+          }
+          medications {
+            id
+            medicationName
+            instructions
+            createdAt
+          }
           products {
             id
             product {
@@ -695,6 +716,13 @@ export const GET_PATIENT_HISTORY_QUERY = gql`
             notes
             createdAt
           }
+          symptoms {
+            id
+            symptomName
+            sonomedId
+            notes
+            createdAt
+          }
           medications {
             id
             medicationName
@@ -776,6 +804,13 @@ export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
               notes
               createdAt
             }
+            symptoms {
+              id
+              symptomName
+              sonomedId
+              notes
+              createdAt
+            }
             medications {
               id
               medicationName
@@ -823,6 +858,13 @@ export const LAST_PATIENT_DEPARTMENT_VISIT_QUERY = gql`
               diagnosisName
               icd11Code
               type
+              notes
+              createdAt
+            }
+            symptoms {
+              id
+              symptomName
+              sonomedId
               notes
               createdAt
             }

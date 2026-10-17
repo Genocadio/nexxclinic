@@ -47,22 +47,31 @@ export function ConsultationPreviewSheet({
   // live visit-department data through the consultation extension, never from
   // the stored answer payload (those keys are stripped on save). So the visit
   // has to be in scope here, otherwise the blocks come up empty.
-  const needsVisitFetch =
-    open && Boolean(visitId) && !visitDepartment && Boolean(visitDepartmentId)
+  const needsVisitFetch = open && Boolean(visitId)
   const { data: visitData, loading: visitLoading } = useQuery(GET_VISIT_QUERY, {
     variables: { id: visitId },
     skip: !needsVisitFetch,
   })
 
-  const visitDepartments: VisitDepartment[] =
-    visitData?.data?.departments || []
+  const fetchedVisit = visitData?.visit?.data
+  const visitDepartments: VisitDepartment[] = fetchedVisit?.departments || []
   const resolvedVisitDepartment: VisitDepartment | null = useMemo(() => {
-    if (visitDepartment) return visitDepartment
-    const targetId = String(visitDepartmentId || "")
-    if (!targetId) return null
-    return (
-      visitDepartments.find((dept) => String(dept.id) === targetId) || null
-    )
+    const targetId = String(visitDepartment?.id || visitDepartmentId || "")
+    const fetchedDept = targetId
+      ? visitDepartments.find((dept) => String(dept.id) === targetId) || null
+      : null
+
+    if (fetchedDept && visitDepartment) {
+      return {
+        ...visitDepartment,
+        ...fetchedDept,
+        diagnostics: fetchedDept.diagnostics ?? visitDepartment.diagnostics,
+        symptoms: fetchedDept.symptoms ?? visitDepartment.symptoms,
+        medications: fetchedDept.medications ?? visitDepartment.medications,
+        products: fetchedDept.products ?? visitDepartment.products,
+      }
+    }
+    return fetchedDept || visitDepartment || null
   }, [visitDepartment, visitDepartmentId, visitDepartments])
 
   const previewForm = useMemo(
@@ -74,7 +83,8 @@ export function ConsultationPreviewSheet({
     [answer?.answers],
   )
   const answerStatus = answer?.status || null
-  const clinicalLoading = needsVisitFetch && visitLoading && !visitData
+  const clinicalLoading =
+    needsVisitFetch && visitLoading && !visitData && !visitDepartment
   useEffect(() => {
     if (open) {
       setIsRendered(true)
@@ -188,6 +198,30 @@ export function ConsultationPreviewSheet({
                   <div className="space-y-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                        Symptoms
+                      </p>
+                      {resolvedVisitDepartment.symptoms?.length ? (
+                        <ul className="space-y-1 text-sm text-foreground list-disc pl-5">
+                          {resolvedVisitDepartment.symptoms.map((item) => (
+                            <li key={item.id}>
+                              {item.symptomName}
+                              {item.notes ? (
+                                <span className="text-xs text-muted-foreground ml-2">
+                                  ({item.notes})
+                                </span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No symptoms recorded.
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                         Diagnoses
                       </p>
                       {resolvedVisitDepartment.diagnostics?.length ? (
@@ -297,7 +331,7 @@ export function ConsultationPreviewSheet({
                         ? [resolvedVisitDepartment]
                         : visitDepartments
                     }
-                    visitStatus={visitData?.data?.status}
+                    visitStatus={fetchedVisit?.status || resolvedVisitDepartment?.status}
                     visitDepartmentStatus={resolvedVisitDepartment?.status}
                   />
                 </div>

@@ -382,23 +382,30 @@ export default function DashboardPage() {
   }
 
   const getVisitAnswerState = (visit: Visit) => {
+    if (visit.status === "CANCELLED") {
+      return { isFinalised: false, hasDraft: false, isPending: false }
+    }
+
     const nonCancelledDepts = (visit.departments || []).filter(
       (d) => d.status !== "CANCELLED",
     )
     if (nonCancelledDepts.length === 0) {
-      return { isFinalised: false, hasDraft: false, isPending: true }
+      return { isFinalised: false, hasDraft: false, isPending: false }
     }
 
     const clinicianDepts = nonCancelledDepts.filter((d) => isClinicianProcessorForDept(d))
     const targetDepts = clinicianDepts.length > 0 ? clinicianDepts : nonCancelledDepts
 
     const isFinalised = targetDepts.some(isDeptFinalized) || nonCancelledDepts.some(isDeptFinalized)
-    const hasDraft = !isFinalised && targetDepts.some((d) => Boolean(d.answerId))
+    const hasDraft =
+      !isFinalised &&
+      (targetDepts.some((d) => Boolean(d.answerId)) ||
+        nonCancelledDepts.some((d) => Boolean(d.answerId)))
 
     return {
       isFinalised,
       hasDraft,
-      isPending: !isFinalised && !hasDraft,
+      isPending: !isFinalised,
     }
   }
 
@@ -1516,9 +1523,17 @@ export default function DashboardPage() {
     // 2. Consultation Answers Filter
     if (canQueryAnswerState && answersFilter !== "all") {
       if (answersFilter === "finalised") {
-        result = result.filter((visit) => getVisitAnswerState(visit).isFinalised)
+        result = result.filter(
+          (visit) =>
+            visit.status !== "CANCELLED" &&
+            getVisitAnswerState(visit).isFinalised,
+        )
       } else if (answersFilter === "pending") {
-        result = result.filter((visit) => getVisitAnswerState(visit).isPending)
+        result = result.filter(
+          (visit) =>
+            visit.status !== "CANCELLED" &&
+            getVisitAnswerState(visit).isPending,
+        )
       }
     }
 
