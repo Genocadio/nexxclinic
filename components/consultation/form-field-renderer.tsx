@@ -3,6 +3,7 @@
 
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
+import { MedicationFrequencyInput } from "@/components/ui/medication-frequency-input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -711,7 +712,12 @@ export function FormFieldRenderer({
           onChange={(e) => setMedicationLongDrafts((prev) => ({ ...prev, [field.id]: { ...draft, name: e.target.value } }))}
         />
         <div className="grid grid-cols-3 gap-2">
-          <Input className={contrastInputClass} placeholder="Frequency" value={draft.frequency} onChange={(e) => setMedicationLongDrafts((prev) => ({ ...prev, [field.id]: { ...draft, frequency: e.target.value } }))} />
+          <MedicationFrequencyInput
+            className={contrastInputClass}
+            placeholder="Frequency"
+            value={draft.frequency}
+            onChange={(val) => setMedicationLongDrafts((prev) => ({ ...prev, [field.id]: { ...draft, frequency: val } }))}
+          />
           <Input className={contrastInputClass} placeholder="Amount" value={draft.amount} onChange={(e) => setMedicationLongDrafts((prev) => ({ ...prev, [field.id]: { ...draft, amount: e.target.value } }))} />
           <Input className={contrastInputClass} placeholder="Days" value={draft.days} onChange={(e) => setMedicationLongDrafts((prev) => ({ ...prev, [field.id]: { ...draft, days: e.target.value } }))} />
         </div>

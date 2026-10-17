@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { MedicationFrequencyInput } from "@/components/ui/medication-frequency-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
@@ -315,9 +316,9 @@ function MedicationFullBlock({
           className="h-8 text-sm bg-background"
         />
         <div className="grid grid-cols-3 gap-2">
-          <Input
+          <MedicationFrequencyInput
             value={draft.frequency}
-            onChange={upd("frequency")}
+            onChange={(val) => setDraft((d) => ({ ...d, frequency: val }))}
             placeholder="Frequency"
             className="h-8 text-sm bg-background"
           />

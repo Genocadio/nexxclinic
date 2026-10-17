@@ -3,6 +3,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MedicationFrequencyInput } from "@/components/ui/medication-frequency-input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Check,
@@ -807,9 +808,9 @@ function MedFullDraft({
         className="h-8 text-sm bg-white dark:bg-slate-900 border-blue-300/70 dark:border-blue-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
       />
       <div className="grid grid-cols-3 gap-2">
-        <Input
+        <MedicationFrequencyInput
           value={draft.frequency}
-          onChange={upd("frequency")}
+          onChange={(val) => setDraft((d) => ({ ...d, frequency: val }))}
           placeholder="Frequency"
           className="h-8 text-sm bg-white dark:bg-slate-900 border-blue-300/70 dark:border-blue-700/70 shadow-xs focus:bg-white dark:focus:bg-slate-950"
         />
