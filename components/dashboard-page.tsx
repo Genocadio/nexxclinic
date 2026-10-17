@@ -533,10 +533,41 @@ export default function DashboardPage() {
     if (!hasMoreCompleted && pageToFetch > 0) return
     isFetchingCompletedRef.current = true
     try {
+      let minAge: number | undefined
+      let maxAge: number | undefined
+      if (ageRange === "pediatric") {
+        minAge = 0
+        maxAge = 17
+      } else if (ageRange === "adult") {
+        minAge = 18
+        maxAge = 64
+      } else if (ageRange === "senior") {
+        minAge = 65
+      } else if (ageRange === "custom") {
+        if (customAgeMin.trim()) {
+          const parsed = parseInt(customAgeMin.trim(), 10)
+          if (!Number.isNaN(parsed)) minAge = parsed
+        }
+        if (customAgeMax.trim()) {
+          const parsed = parseInt(customAgeMax.trim(), 10)
+          if (!Number.isNaN(parsed)) maxAge = parsed
+        }
+      }
+
       const res = await getOlderCompletedVisits({
         variables: {
           input: {
             status: "COMPLETED",
+            patientName: searchQuery.trim() || undefined,
+            answersFilter:
+              canQueryAnswerState && answersFilter !== "all"
+                ? answersFilter
+                : undefined,
+            gender:
+              genderFilter !== "all" ? (genderFilter as any) : undefined,
+            dob: dobFilter.trim() || undefined,
+            minAge,
+            maxAge,
             page: pageToFetch,
             size: 20,
           },
@@ -553,6 +584,7 @@ export default function DashboardPage() {
         return m
       })
       setExtraCompletedVisits((prev) => {
+        if (pageToFetch === 0) return mapped
         const existingIds = new Set(prev.map((v) => v.id))
         const combined = [...prev]
         for (const item of mapped) {
@@ -571,12 +603,24 @@ export default function DashboardPage() {
     }
   }
 
-  // When switching to COMPLETED tab, ensure initial page of completed visits is loaded
+  // When switching to COMPLETED tab or changing filters while on COMPLETED tab, ensure fresh completed visits are loaded
   useEffect(() => {
-    if (statusFilter === "COMPLETED" && extraCompletedVisits.length === 0) {
+    if (statusFilter === "COMPLETED") {
+      setExtraCompletedVisits([])
+      setCompletedPage(0)
+      setHasMoreCompleted(true)
       void fetchNextCompletedPage(0)
     }
-  }, [statusFilter])
+  }, [
+    statusFilter,
+    answersFilter,
+    genderFilter,
+    ageRange,
+    customAgeMin,
+    customAgeMax,
+    dobFilter,
+    canQueryAnswerState,
+  ])
 
   // Sentinel ref for automatic continuous scroll loading via IntersectionObserver
   const completedSentinelRef = useRef<HTMLDivElement | null>(null)
@@ -626,6 +670,27 @@ export default function DashboardPage() {
     let isMounted = true
     const doFetch = async () => {
       try {
+        let minAge: number | undefined
+        let maxAge: number | undefined
+        if (ageRange === "pediatric") {
+          minAge = 0
+          maxAge = 17
+        } else if (ageRange === "adult") {
+          minAge = 18
+          maxAge = 64
+        } else if (ageRange === "senior") {
+          minAge = 65
+        } else if (ageRange === "custom") {
+          if (customAgeMin.trim()) {
+            const parsed = parseInt(customAgeMin.trim(), 10)
+            if (!Number.isNaN(parsed)) minAge = parsed
+          }
+          if (customAgeMax.trim()) {
+            const parsed = parseInt(customAgeMax.trim(), 10)
+            if (!Number.isNaN(parsed)) maxAge = parsed
+          }
+        }
+
         const res = await fetchHistoricalVisits({
           variables: {
             input: {
@@ -637,6 +702,15 @@ export default function DashboardPage() {
                 statusFilter !== "CONSULTATION"
                   ? (statusFilter as any)
                   : undefined,
+              answersFilter:
+                canQueryAnswerState && answersFilter !== "all"
+                  ? answersFilter
+                  : undefined,
+              gender:
+                genderFilter !== "all" ? (genderFilter as any) : undefined,
+              dob: dobFilter.trim() || undefined,
+              minAge,
+              maxAge,
               recentDays: 0, // 0 = all historical records from backend
               page: 0,
               size: 50,
@@ -657,7 +731,13 @@ export default function DashboardPage() {
     }
 
     // Immediate execution when toggling filter or tab, minimal debounce for typing
-    const delay = searchQuery.trim() ? 150 : 0
+    const delay =
+      searchQuery.trim() ||
+      dobFilter.trim() ||
+      customAgeMin.trim() ||
+      customAgeMax.trim()
+        ? 150
+        : 0
     if (delay === 0) {
       void doFetch()
       return () => {
@@ -670,7 +750,19 @@ export default function DashboardPage() {
       isMounted = false
       clearTimeout(timer)
     }
-  }, [searchAllHistorical, searchQuery, statusFilter, fetchHistoricalVisits])
+  }, [
+    searchAllHistorical,
+    searchQuery,
+    statusFilter,
+    answersFilter,
+    genderFilter,
+    ageRange,
+    customAgeMin,
+    customAgeMax,
+    dobFilter,
+    canQueryAnswerState,
+    fetchHistoricalVisits,
+  ])
   // Modal states
   const [showPatientRegistrationModal, setShowPatientRegistrationModal] =
     useState(false)
