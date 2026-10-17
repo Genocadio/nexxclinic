@@ -7,6 +7,7 @@ import { useTheme } from "@/lib/theme-context"
 import { useRouter, usePathname } from "@/lib/navigation"
 import { useState } from "react"
 import {
+  hasRole,
   hasAdminAccess,
   hasAdminOrManagerAccess,
   canAccessFinancialReports,
@@ -42,8 +43,14 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
   const clinicName = getClinicDisplayName(clinicProfile)
   const clinicLogoUrl = getClinicLogoUrl(clinicProfile)
 
-  const OPERATIONAL_REPORT_ROLES = ["CLINICIAN", "NURSE", "FINANCE", "RECEPTION"]
-  const canAccessReports = roles.some((r) => OPERATIONAL_REPORT_ROLES.includes(String(r)))
+  // Personal user report is only for users with operational duties (CLINICIAN, NURSE, FINANCE, RECEPTION)
+  // Users who are strictly admin, manager, or reporting-only do not have personal patient/visit activity.
+  const hasOperationalRole =
+    hasRole(roles, "CLINICIAN") ||
+    hasRole(roles, "NURSE") ||
+    hasRole(roles, "FINANCE") ||
+    hasRole(roles, "RECEPTION")
+  const canAccessPersonalReport = hasOperationalRole
 
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/)
@@ -189,7 +196,7 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
                         )
                       )}
 
-                      {canAccessReports && (
+                      {canAccessPersonalReport && (
                         <button
                           type="button"
                           onClick={() => {
@@ -277,34 +284,7 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
                     <UserCog className="w-4 h-4 text-muted-foreground" />
                     <span className="text-sm font-medium">My Account</span>
                   </button>
-                  {canFinancialReports && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        router.push("/reports/financial")
-                        setDropdownOpen(false)
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-all duration-200 text-left text-foreground cursor-pointer"
-                    >
-                      <Landmark className="w-4 h-4 text-primary" />
-                      <span className="text-sm font-medium">Financial Reports</span>
-                    </button>
-                  )}
-
-                  {canMedicalReports && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        router.push("/reports/medical")
-                        setDropdownOpen(false)
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-all duration-200 text-left text-foreground cursor-pointer"
-                    >
-                      <Stethoscope className="w-4 h-4 text-emerald-500" />
-                      <span className="text-sm font-medium">Medical Reports</span>
-                    </button>
-                  )}
-                  {canAccessReports && (
+                  {canAccessPersonalReport && (
                     <button
                       type="button"
                       onClick={() => {
