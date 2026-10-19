@@ -250,9 +250,14 @@ function ReportsClinicianViewContent({
 
       const giveawayItems = money.productTurnoverList.filter((p) => p.isExempted)
       const giveawayAmount =
-        money.giveawayAmount > 0
-          ? money.giveawayAmount
-          : giveawayItems.reduce((sum, p) => sum + p.lineTotal, 0)
+        (money.giveawayAmount || 0) + ((money as any).waiverAmount || 0) > 0
+          ? (money.giveawayAmount || 0) + ((money as any).waiverAmount || 0)
+          : giveawayItems.reduce((sum, p) => {
+              if (p.status === "PATIENT_SHARE_EXEMPTED") {
+                return sum + Math.max(0, p.lineTotal - (p.insuranceCoveredAmount || 0))
+              }
+              return sum + p.lineTotal
+            }, 0)
       const giveawayCount =
         money.giveawayCount > 0
           ? money.giveawayCount
@@ -282,9 +287,14 @@ function ReportsClinicianViewContent({
 
     const giveawayItems = deptProds.filter((p) => p.isExempted)
     const giveawayAmount =
-      (deptSummary?.giveawayAmount ?? 0) > 0
-        ? deptSummary!.giveawayAmount
-        : giveawayItems.reduce((sum, p) => sum + p.lineTotal, 0)
+      (deptSummary?.giveawayAmount ?? 0) + ((deptSummary as any)?.waiverAmount ?? 0) > 0
+        ? (deptSummary?.giveawayAmount ?? 0) + ((deptSummary as any)?.waiverAmount ?? 0)
+        : giveawayItems.reduce((sum, p) => {
+            if (p.status === "PATIENT_SHARE_EXEMPTED") {
+              return sum + Math.max(0, p.lineTotal - (p.insuranceCoveredAmount || 0))
+            }
+            return sum + p.lineTotal
+          }, 0)
     const giveawayCount =
       (deptSummary?.giveawayAmount ?? 0) > 0
         ? 1
@@ -354,6 +364,17 @@ function ReportsClinicianViewContent({
       entry.insuranceCovered += enc.totalInsurance
       entry.patientShare += enc.totalPatient
       entry.count++
+      let encWaiver = (enc.waiverAmount || 0) + (enc.giveawayAmount || 0)
+      if (encWaiver === 0 && Array.isArray(enc.products)) {
+        for (const p of enc.products) {
+          if (p.status === "PATIENT_SHARE_EXEMPTED") {
+            encWaiver += Math.max(0, p.lineTotal - p.insuranceCovered)
+          } else if (p.status === "EXEMPTED") {
+            encWaiver += p.lineTotal
+          }
+        }
+      }
+      entry.giveawayAmount += encWaiver
     }
 
     // Also factor in any standalone product items if encounters list had 0 totals
@@ -378,6 +399,11 @@ function ReportsClinicianViewContent({
         entry.insuranceCovered += prod.insuranceCoveredAmount
         entry.patientShare += prod.patientPayableAmount
         entry.count += prod.quantity || 1
+        if (prod.status === "PATIENT_SHARE_EXEMPTED") {
+          entry.giveawayAmount += Math.max(0, prod.lineTotal - prod.insuranceCoveredAmount)
+        } else if (prod.status === "EXEMPTED" || prod.isExempted) {
+          entry.giveawayAmount += prod.lineTotal
+        }
       }
     }
 
@@ -923,9 +949,13 @@ function ReportsClinicianViewContent({
                 ? (ins.paidAmount || ins.patientShare || ins.totalAmount || 0)
                 : (ins.paidAmount || ins.patientShare || 0)
               const totalEarnings = insuranceShare + patientPaid
-              const giveawaysAndWaivers = ins.giveawayAmount || 0
+              const recordedWaivers = (ins.giveawayAmount || 0) + ((ins as any).waiverAmount || 0)
               const currentLoans = ins.loanAmount || 0
-              const totalExpected = Math.max(ins.totalAmount || 0, totalEarnings + giveawaysAndWaivers + currentLoans)
+              const inferredWaivers = recordedWaivers === 0 && (ins.totalAmount || 0) > (totalEarnings + currentLoans)
+                ? Math.max(0, (ins.totalAmount || 0) - (totalEarnings + currentLoans))
+                : 0
+              const giveawaysAndWaivers = recordedWaivers > 0 ? recordedWaivers : inferredWaivers
+              const totalExpected = Math.round(totalEarnings + giveawaysAndWaivers + currentLoans)
               const isSelected = selectedInsuranceFilter?.toLowerCase() === rawName.toLowerCase()
 
               return {
@@ -1006,10 +1036,17 @@ function ReportsClinicianViewContent({
                         return (
                           <tr
                             key={row.name}
+                            onClick={() => {
+                              setSelectedInsuranceFilter((prev) =>
+                                prev?.toLowerCase() === row.name.toLowerCase() ? null : row.name
+                              )
+                              setVisibleCount(INITIAL_VISIBLE_COUNT)
+                            }}
                             className={cn(
-                              "hover:bg-muted/30 transition-colors group",
+                              "hover:bg-muted/30 transition-colors group cursor-pointer",
                               row.isSelected && "bg-primary/10 border-l-4 border-l-primary"
                             )}
+                            title={row.isSelected ? "Click to clear filter" : `Click to filter by ${row.name}`}
                           >
                             {/* Payer / Channel */}
                             <td className="py-3 px-3">
@@ -1124,29 +1161,13 @@ function ReportsClinicianViewContent({
                               <span className="text-xs sm:text-sm">{formatRWF(row.totalExpected)}</span>
                             </td>
 
-                            {/* Action */}
-                            <td className="py-3 px-3 text-center">
-                              <Button
-                                variant={row.isSelected ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedInsuranceFilter((prev) =>
-                                    prev?.toLowerCase() === row.name.toLowerCase() ? null : row.name
-                                  )
-                                  setVisibleCount(INITIAL_VISIBLE_COUNT)
-                                }}
-                                className="h-6 px-2 text-[10px] rounded-lg font-medium"
-                              >
-                                {row.isSelected ? "Active ✓" : "Filter"}
-                              </Button>
-                            </td>
                           </tr>
                         )
                       })}
 
                       {clinicianRows.length === 0 && (
                         <tr>
-                          <td colSpan={9} className="py-6 text-center text-xs text-muted-foreground">
+                          <td colSpan={8} className="py-6 text-center text-xs text-muted-foreground">
                             No billing or prescriptions found for the selected department.
                           </td>
                         </tr>
@@ -1182,25 +1203,8 @@ function ReportsClinicianViewContent({
                         <td className="py-3.5 px-3 text-right text-rose-600 dark:text-rose-400">
                           {currentFinanceStats.loanAmount > 0 ? formatRWF(currentFinanceStats.loanAmount) : "0 RWF"}
                         </td>
-                        <td className="py-3.5 px-3 text-right text-sm font-extrabold text-foreground">
+                        <td className="py-3.5 px-3 text-right text-sm font-extrabold text-foreground rounded-br-xl">
                           {formatRWF(currentFinanceStats.totalGross > 0 ? currentFinanceStats.totalGross : sumExpected)}
-                        </td>
-                        <td className="py-3.5 px-3 text-center rounded-br-xl">
-                          {selectedInsuranceFilter ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedInsuranceFilter(null)
-                                setVisibleCount(INITIAL_VISIBLE_COUNT)
-                              }}
-                              className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
-                            >
-                              Reset
-                            </Button>
-                          ) : (
-                            <span className="text-[10px] text-muted-foreground">All Payers</span>
-                          )}
                         </td>
                       </tr>
                     </tfoot>

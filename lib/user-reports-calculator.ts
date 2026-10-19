@@ -194,6 +194,8 @@ export interface ClinicianEncounterDetail {
   totalGross: number
   totalInsurance: number
   totalPatient: number
+  giveawayAmount?: number
+  waiverAmount?: number
 }
 
 export interface FinanceGeneralReport {
@@ -899,10 +901,8 @@ export function calculateUserReports(
             )
             const lineTotal = (p.quantity || 1) * unitPrice
             encounterGross += lineTotal
-            encounterPaid += lineTotal
-            if (p.status === "EXEMPTED" || p.status === "PATIENT_SHARE_EXEMPTED") {
-              encounterGiveaway += lineTotal
-              clinicianGiveawayCount++
+            if (p.status === "BILLED") {
+              encounterPaid += lineTotal
             }
           }
         }
@@ -945,6 +945,17 @@ export function calculateUserReports(
           ? (encounterPatPay > 0 ? encounterPatPay : billedEncounterProducts.reduce((s, p) => s + p.patientShare, 0))
           : 0
 
+        let encounterWaiver = 0
+        for (const p of encounterProducts) {
+          if (p.status === "PATIENT_SHARE_EXEMPTED") {
+            encounterWaiver += Math.max(0, p.lineTotal - p.insuranceCovered)
+            clinicianGiveawayCount++
+          } else if (p.status === "EXEMPTED") {
+            encounterWaiver += p.lineTotal
+            clinicianGiveawayCount++
+          }
+        }
+
         clinicianEncountersList.push({
           id: `clinician-enc-${dept.id}`,
           visitId: String(visit.id || ""),
@@ -967,6 +978,8 @@ export function calculateUserReports(
           totalGross: effectiveGross,
           totalInsurance: effectiveInsCov,
           totalPatient: effectivePatPay,
+          giveawayAmount: encounterGiveaway,
+          waiverAmount: encounterWaiver,
         })
 
         clinicianTotalGrossBilled += encounterGross
@@ -974,9 +987,16 @@ export function calculateUserReports(
         clinicianPatientShareAmount += encounterPatPay
         clinicianPatientCashCollected += encounterPaid
         clinicianPatientLoanAmount += encounterLoan
-        clinicianGiveawayAmount += encounterGiveaway
+        clinicianGiveawayAmount += encounterGiveaway + encounterWaiver
 
-        bumpClinicianMoneyTimeline(effectiveDeptTime, encounterGross, encounterInsCov, encounterPaid, encounterLoan, encounterGiveaway)
+        if (encounterWaiver > 0 && clinicianInsuranceBreakdownMap[resolvedDeptInsuranceName]) {
+          clinicianInsuranceBreakdownMap[resolvedDeptInsuranceName].giveawayAmount += encounterWaiver
+          if (clinicianInsuranceBreakdownMap[resolvedDeptInsuranceName].waiverAmount != null) {
+            clinicianInsuranceBreakdownMap[resolvedDeptInsuranceName].waiverAmount! += encounterWaiver
+          }
+        }
+
+        bumpClinicianMoneyTimeline(effectiveDeptTime, encounterGross, encounterInsCov, encounterPaid, encounterLoan, encounterGiveaway + encounterWaiver)
 
         // Clinician Department breakdown
         if (!clinicianDepartmentBreakdownMap[deptName]) {

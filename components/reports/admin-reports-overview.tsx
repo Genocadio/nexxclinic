@@ -144,12 +144,15 @@ export function AdminReportsOverview({
         ? (ins.paidAmount ?? ins.patientPaid ?? ins.totalAmount ?? 0)
         : (ins.paidAmount ?? ins.patientPaid ?? 0)
       const totalEarnings = insuranceShare + patientPaid
-      const giveawaysAndWaivers = (ins.giveawayAmount || 0) + (ins.waiverAmount || 0)
+      const recordedWaivers = (ins.giveawayAmount || 0) + (ins.waiverAmount || 0)
       const currentLoans = ins.loanAmount ?? ins.outstanding ?? 0
-      const totalExpected = Math.max(
-        ins.totalAmount || 0,
-        totalEarnings + giveawaysAndWaivers + currentLoans
-      )
+      // Accounting reconciliation: If recorded waivers are 0 and gross exceeds earnings + loans,
+      // the difference represents absorbed clinical waivers so the row balances accurately
+      const inferredWaivers = recordedWaivers === 0 && (ins.totalAmount || 0) > (totalEarnings + currentLoans)
+        ? Math.max(0, (ins.totalAmount || 0) - (totalEarnings + currentLoans))
+        : 0
+      const giveawaysAndWaivers = recordedWaivers > 0 ? recordedWaivers : inferredWaivers
+      const totalExpected = Math.round(totalEarnings + giveawaysAndWaivers + currentLoans)
       const isSelected = isPrivate
         ? isPrivateOnly
         : (ins.id ? selectedInsuranceIds?.includes(ins.id) : selectedInsuranceIds?.includes(rawName))
