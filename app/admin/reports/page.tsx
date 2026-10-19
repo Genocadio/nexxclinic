@@ -22,9 +22,7 @@ import {
 } from "@/components/ui/select"
 import {
   Loader2,
-  TrendingUp,
   Percent,
-  SlidersHorizontal,
   HandCoins,
   LayoutDashboard,
   Building2,
@@ -40,11 +38,8 @@ import { DepartmentFilterCombobox } from "@/components/reports/department-filter
 import { ClinicianFilterCombobox } from "@/components/reports/clinician-filter-combobox"
 import { PayerFilterCombobox } from "@/components/reports/payer-filter-combobox"
 import { AdminReportsOverview } from "@/components/reports/admin-reports-overview"
-import { AdminReportsEarnings } from "@/components/reports/admin-reports-earnings"
 import { AdminReportsWaivers } from "@/components/reports/admin-reports-waivers"
-import { AdminReportsAdjustments } from "@/components/reports/admin-reports-adjustments"
 import { AdminReportsLoans } from "@/components/reports/admin-reports-loans"
-import { AdminReportsDiagnostics } from "@/components/reports/admin-reports-diagnostics"
 
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear()
@@ -314,16 +309,6 @@ export default function AdminReportsPage() {
             </Button>
 
             <Button
-              variant={activeTab === "earnings" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveTab("earnings")}
-              className="rounded-xl h-9 px-3 sm:px-4 text-xs font-medium gap-1.5"
-            >
-              <TrendingUp className="h-4 w-4" />
-              Earnings Deep Dive
-            </Button>
-
-            <Button
               variant={activeTab === "waivers" ? "default" : "ghost"}
               size="sm"
               onClick={() => setActiveTab("waivers")}
@@ -334,21 +319,6 @@ export default function AdminReportsPage() {
               {reportData && (
                 <Badge variant="secondary" className="py-0 px-1 text-[10px]">
                   {reportData.overview.waiverCount + reportData.overview.giveawayCount}
-                </Badge>
-              )}
-            </Button>
-
-            <Button
-              variant={activeTab === "adjustments" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveTab("adjustments")}
-              className="rounded-xl h-9 px-3 sm:px-4 text-xs font-medium gap-1.5"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              Adjustments Only
-              {reportData && (
-                <Badge variant="secondary" className="py-0 px-1 text-[10px]">
-                  {reportData.deepReports.adjustments.length}
                 </Badge>
               )}
             </Button>
@@ -381,10 +351,14 @@ export default function AdminReportsPage() {
         {/* Initial Loading Skeleton */}
         {reportsLoading && !reportData ? (
           <div className="space-y-4 animate-pulse">
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <div key={i} className="h-20 bg-card/80 border border-border/70 rounded-xl p-3" />
-              ))}
+            <div className="h-72 bg-card/80 border border-border/70 rounded-2xl p-4 flex flex-col justify-between">
+              <div className="h-6 w-1/3 bg-muted/60 rounded-lg" />
+              <div className="space-y-2">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="h-8 bg-muted/40 rounded-lg w-full" />
+                ))}
+              </div>
+              <div className="h-8 bg-muted/60 rounded-lg w-full" />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
               <div className="lg:col-span-7 h-64 bg-card/80 border border-border/70 rounded-2xl" />
@@ -394,16 +368,29 @@ export default function AdminReportsPage() {
         ) : reportData ? (
           <>
             {activeTab === "overview" && (
-              <AdminReportsOverview data={reportData} onTabChange={setActiveTab} />
-            )}
-            {activeTab === "earnings" && (
-              <AdminReportsEarnings data={reportData} />
+              <AdminReportsOverview
+                data={reportData}
+                onTabChange={setActiveTab}
+                onSelectPayer={({ insuranceId, isPrivateOnly: nextPrivate }) => {
+                  if (nextPrivate) {
+                    setIsPrivateOnly((prev) => !prev)
+                    setSelectedInsuranceIds([])
+                  } else if (insuranceId) {
+                    setIsPrivateOnly(false)
+                    setSelectedInsuranceIds((prev) =>
+                      prev.includes(insuranceId)
+                        ? prev.filter((id) => id !== insuranceId)
+                        : [insuranceId]
+                    )
+                  }
+                }}
+                cliniciansRoster={clinicians as any}
+                selectedInsuranceIds={selectedInsuranceIds}
+                isPrivateOnly={isPrivateOnly}
+              />
             )}
             {activeTab === "waivers" && (
               <AdminReportsWaivers data={reportData} />
-            )}
-            {activeTab === "adjustments" && (
-              <AdminReportsAdjustments data={reportData} />
             )}
             {activeTab === "loans" && (
               <AdminReportsLoans data={reportData} />

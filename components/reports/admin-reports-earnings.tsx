@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useMemo } from "react"
 import {
   Pill,
   Activity,
@@ -10,12 +10,19 @@ import {
   Building2,
   ShieldCheck,
   TrendingUp,
+  Filter,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import type { ClinicReportsData } from "@/hooks/reports/use-clinic-reports"
 
 interface AdminReportsEarningsProps {
   data: ClinicReportsData
+  cliniciansRoster?: Array<{ id: string; name?: string; roles?: string[] }>
+  onSelectPayer?: (payer: { insuranceId?: string; isPrivateOnly?: boolean }) => void
+  selectedInsuranceIds?: string[]
+  isPrivateOnly?: boolean
 }
 
 function formatRwf(amount: number): string {
@@ -50,11 +57,30 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: any; color: string 
   },
 }
 
-export function AdminReportsEarnings({ data }: AdminReportsEarningsProps) {
+export function AdminReportsEarnings({
+  data,
+  cliniciansRoster,
+  onSelectPayer,
+  selectedInsuranceIds = [],
+  isPrivateOnly = false,
+}: AdminReportsEarningsProps) {
   const { overview, financialBreakdown } = data
   const { categoryBreakdown, insuranceBreakdown, departmentBreakdown, clinicianBreakdown } = financialBreakdown
 
   const totalCatGross = Object.values(categoryBreakdown).reduce((sum, c) => sum + (c.totalAmount || 0), 0)
+
+  // Filter clinician breakdown to only actual clinicians
+  const verifiedClinicians = useMemo(() => {
+    if (!cliniciansRoster || cliniciansRoster.length === 0) {
+      return clinicianBreakdown
+    }
+    const clinicianIdSet = new Set(
+      cliniciansRoster
+        .filter((c) => c.roles?.includes("CLINICIAN"))
+        .map((c) => String(c.id))
+    )
+    return clinicianBreakdown.filter((c) => clinicianIdSet.has(String(c.clinicianId)))
+  }, [clinicianBreakdown, cliniciansRoster])
 
   return (
     <div className="space-y-4">
@@ -118,6 +144,7 @@ export function AdminReportsEarnings({ data }: AdminReportsEarningsProps) {
                 <th className="pb-2 font-medium text-right">Patient Co-Pay Paid</th>
                 <th className="pb-2 font-medium text-right">Outstanding Claim</th>
                 <th className="pb-2 font-medium text-right">Claim Share</th>
+                {onSelectPayer && <th className="pb-2 font-medium text-right">Action</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40">
@@ -125,8 +152,9 @@ export function AdminReportsEarnings({ data }: AdminReportsEarningsProps) {
                 const insName = ins.name || ins.insuranceName || "Private / Insurance"
                 const initials = (insName.substring(0, 2) || "IN").toUpperCase()
                 const insSharePct = overview.totalGrossBilled > 0 ? Math.round((ins.totalAmount / overview.totalGrossBilled) * 100) : 0
+                const isSelected = ins.id ? selectedInsuranceIds.includes(String(ins.id)) : false
                 return (
-                  <tr key={ins.id || `ins-${idx}`} className="hover:bg-muted/30 transition-colors">
+                  <tr key={ins.id || `ins-${idx}`} className={cn("hover:bg-muted/30 transition-colors", isSelected && "bg-primary/5")}>
                     <td className="py-2.5 font-semibold text-foreground flex items-center gap-2">
                       <div className="h-6 w-6 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
                         {initials}
@@ -142,12 +170,29 @@ export function AdminReportsEarnings({ data }: AdminReportsEarningsProps) {
                         {insSharePct}%
                       </Badge>
                     </td>
+                    {onSelectPayer && (
+                      <td className="py-2.5 text-right">
+                        <Button
+                          variant={isSelected ? "default" : "outline"}
+                          size="sm"
+                          className="h-7 px-2.5 text-[11px] rounded-lg"
+                          onClick={() => {
+                            if (ins.id) {
+                              onSelectPayer({ insuranceId: String(ins.id) })
+                            }
+                          }}
+                        >
+                          <Filter className="h-3 w-3 mr-1" />
+                          {isSelected ? "Filtered" : "Filter"}
+                        </Button>
+                      </td>
+                    )}
                   </tr>
                 )
               })}
               {insuranceBreakdown.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center py-6 text-muted-foreground text-xs">
+                  <td colSpan={onSelectPayer ? 7 : 6} className="text-center py-6 text-muted-foreground text-xs">
                     No insurance billing records in this period (private only or unbilled).
                   </td>
                 </tr>
@@ -216,7 +261,7 @@ export function AdminReportsEarnings({ data }: AdminReportsEarningsProps) {
             <h4 className="text-sm font-semibold text-foreground">Clinician Prescriptions & Turnover</h4>
           </div>
           <Badge variant="outline" className="text-[11px] py-0 px-2 bg-muted/40 font-normal">
-            {clinicianBreakdown.length} clinicians
+            {verifiedClinicians.length} clinicians
           </Badge>
         </div>
 
@@ -234,7 +279,7 @@ export function AdminReportsEarnings({ data }: AdminReportsEarningsProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40">
-              {clinicianBreakdown.map((c) => (
+              {verifiedClinicians.map((c) => (
                 <tr key={c.clinicianId} className="hover:bg-muted/30 transition-colors">
                   <td className="py-2.5 font-semibold text-foreground">{c.name}</td>
                   <td className="py-2.5 text-center text-muted-foreground">{c.consultationsCount}</td>
@@ -245,7 +290,7 @@ export function AdminReportsEarnings({ data }: AdminReportsEarningsProps) {
                   <td className="py-2.5 text-right text-purple-600 dark:text-purple-400">{formatRwf(c.waivers)}</td>
                 </tr>
               ))}
-              {clinicianBreakdown.length === 0 && (
+              {verifiedClinicians.length === 0 && (
                 <tr>
                   <td colSpan={7} className="text-center py-6 text-muted-foreground text-xs">
                     No clinician records found in this timeframe.

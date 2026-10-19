@@ -17,6 +17,8 @@ export interface UserActivityItem {
 }
 
 export interface InsuranceMoneySummary {
+  id?: string
+  name?: string
   insuranceName: string
   totalAmount: number
   insuranceCovered: number
@@ -24,6 +26,7 @@ export interface InsuranceMoneySummary {
   paidAmount: number
   loanAmount: number
   giveawayAmount: number
+  waiverAmount?: number
   count: number
 }
 
@@ -36,6 +39,7 @@ export interface DepartmentMoneySummary {
   paidAmount: number
   loanAmount: number
   giveawayAmount: number
+  waiverAmount?: number
   encountersCount: number
 }
 
@@ -90,6 +94,7 @@ export interface PaymentModeDetail {
 }
 
 export interface FinanceMoneyReport {
+  totalMoneyMade?: number
   totalGrossBilled: number
   insuranceCoveredAmount: number
   patientShareAmount: number
@@ -115,6 +120,7 @@ export interface FinanceMoneyReport {
 
 
 export interface ClinicianMoneyReport {
+  totalMoneyMade?: number
   totalGrossBilled: number
   insuranceCoveredAmount: number
   patientShareAmount: number
@@ -734,10 +740,10 @@ export function calculateUserReports(
         )
 
       const isClinicianOnDept =
-        isProcessorMatch(dept.processors) ||
-        isUserMatch(dept.completedBy) ||
-        hasWorkerPrescribedOnDept ||
-        (isUserMatch(dept.addedBy) && !isTriage)
+        hasClinician &&
+        (isProcessorMatch(dept.processors) ||
+          hasWorkerPrescribedOnDept ||
+          (isUserMatch(dept.addedBy) && !isTriage))
 
       const isDeptInPeriod = isWithinDateRange(deptTime, fromDate, toDate) || hasWorkerPrescribedInPeriod
       const effectiveDeptTime = hasWorkerPrescribedInPeriod
@@ -1025,8 +1031,13 @@ export function calculateUserReports(
             prod.billingItem?.unitPriceSnapshot ?? prod.product?.privateRhicPrice ?? prod.product?.clinicPrice ?? 0,
           )
           const lineTotal = qty * unitPrice
-          const isBilledByWorker = isUserMatch(prod.billedBy) || isAdminOrManager
-          const isClinicianApproved = isUserMatch(prod.addedBy) || isUserMatch(prod.processor) || (isClinicianOnDept && isUserMatch(dept.completedBy)) || isAdminOrManager
+          const isBilledByWorker = isUserMatch(prod.billedBy)
+          const isClinicianApproved =
+            hasClinician &&
+            (isUserMatch(prod.addedBy) ||
+              isUserMatch(prod.processor) ||
+              isUserMatch((prod as any).confirmedBy) ||
+              (isClinicianOnDept && isProcessorMatch(dept.processors)))
 
           // 1. Clinician Prescribed / Added / Approved turnover tracking
           if (isClinicianApproved && isWithinDateRange(prodTime, fromDate, toDate)) {
@@ -1493,6 +1504,7 @@ export function calculateUserReports(
   }
 
   const financeMoneyReport: FinanceMoneyReport = {
+    totalMoneyMade: insuranceCoveredAmount + patientCashCollected,
     totalGrossBilled,
     insuranceCoveredAmount,
     patientShareAmount,
@@ -1515,6 +1527,7 @@ export function calculateUserReports(
 
 
   const clinicianMoneyReport: ClinicianMoneyReport = {
+    totalMoneyMade: clinicianInsuranceCoveredAmount + clinicianPatientCashCollected,
     totalGrossBilled: clinicianTotalGrossBilled || clinicianProductTurnoverTotal,
     insuranceCoveredAmount: clinicianInsuranceCoveredAmount,
     patientShareAmount: clinicianPatientShareAmount,

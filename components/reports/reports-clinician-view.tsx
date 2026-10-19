@@ -28,6 +28,8 @@ import {
   ChevronDown,
   Check,
   Loader2,
+  Filter,
+  HandCoins,
 } from "lucide-react"
 import type {
   UserReportsData,
@@ -112,7 +114,10 @@ function ReportsClinicianViewContent({
   // 4. Turnover Status Filter: "ALL" | "BILLED" | "PENDING" | "EXEMPTED" | "LOAN"
   const [statusFilter, setStatusFilter] = useState<"ALL" | "BILLED" | "PENDING" | "EXEMPTED" | "LOAN">("ALL")
 
-  // 4. Search and Continuous Pagination state
+  // 5. Insurance Filter for Finance Breakdown: null or specific insurance name
+  const [selectedInsuranceFilter, setSelectedInsuranceFilter] = useState<string | null>(null)
+
+  // 6. Search and Continuous Pagination state
   const [searchTerm, setSearchTerm] = useState("")
   const INITIAL_VISIBLE_COUNT = 25
   const BATCH_SIZE = 25
@@ -405,12 +410,21 @@ function ReportsClinicianViewContent({
     return departmentFilteredEncounters
   }, [departmentFilteredEncounters, statusFilter])
 
+  // Filtered Encounters by Insurance Selection
+  const insuranceFilteredEncounters = useMemo(() => {
+    if (!selectedInsuranceFilter) return statusFilteredEncounters
+    return statusFilteredEncounters.filter((enc) => {
+      const insName = enc.insuranceName || "Private / Cash"
+      return insName.toLowerCase() === selectedInsuranceFilter.toLowerCase()
+    })
+  }, [statusFilteredEncounters, selectedInsuranceFilter])
+
   // Filtered Encounters for Tab 1 table
   const searchFilteredEncounters = useMemo(() => {
-    if (!searchTerm.trim()) return statusFilteredEncounters
+    if (!searchTerm.trim()) return insuranceFilteredEncounters
 
     const q = searchTerm.toLowerCase()
-    return statusFilteredEncounters.filter((enc) => {
+    return insuranceFilteredEncounters.filter((enc) => {
       const matchesPatient = enc.patientName.toLowerCase().includes(q)
       const matchesId = (enc.patientIdentifier || "").toLowerCase().includes(q)
       const matchesDept = enc.departmentName.toLowerCase().includes(q)
@@ -420,7 +434,7 @@ function ReportsClinicianViewContent({
       )
       return matchesPatient || matchesId || matchesDept || matchesIns || matchesProds
     })
-  }, [statusFilteredEncounters, searchTerm])
+  }, [insuranceFilteredEncounters, searchTerm])
 
   // Filtered Detailed Items by Status
   const statusFilteredDetailedProducts = useMemo(() => {
@@ -444,12 +458,21 @@ function ReportsClinicianViewContent({
     return departmentFilteredProducts
   }, [departmentFilteredProducts, statusFilter])
 
+  // Filtered Detailed Items by Insurance Selection
+  const insuranceFilteredDetailedProducts = useMemo(() => {
+    if (!selectedInsuranceFilter) return statusFilteredDetailedProducts
+    return statusFilteredDetailedProducts.filter((item) => {
+      const insName = item.insuranceName || "Private / Cash"
+      return insName.toLowerCase() === selectedInsuranceFilter.toLowerCase()
+    })
+  }, [statusFilteredDetailedProducts, selectedInsuranceFilter])
+
   // Filtered Detailed Items for Tab 2 table
   const searchFilteredDetailedProducts = useMemo(() => {
-    if (!searchTerm.trim()) return statusFilteredDetailedProducts
+    if (!searchTerm.trim()) return insuranceFilteredDetailedProducts
 
     const q = searchTerm.toLowerCase()
-    return statusFilteredDetailedProducts.filter((item) => {
+    return insuranceFilteredDetailedProducts.filter((item) => {
       const matchesName = item.productName.toLowerCase().includes(q)
       const matchesPatient = item.patientName.toLowerCase().includes(q)
       const matchesId = (item.patientIdentifier || "").toLowerCase().includes(q)
@@ -458,7 +481,33 @@ function ReportsClinicianViewContent({
       const matchesIns = (item.insuranceName || "").toLowerCase().includes(q)
       return matchesName || matchesPatient || matchesId || matchesDept || matchesCode || matchesIns
     })
-  }, [statusFilteredDetailedProducts, searchTerm])
+  }, [insuranceFilteredDetailedProducts, searchTerm])
+
+  // Compute Private vs Insured Patient Share breakdown for current department
+  const { privateAmount, insuredPatientAmount } = useMemo(() => {
+    let priv = 0
+    let insPart = 0
+    for (const enc of departmentFilteredEncounters) {
+      const isPriv = !enc.insuranceName || enc.insuranceName.toLowerCase().includes("private") || enc.insuranceName.toLowerCase().includes("cash")
+      if (isPriv) {
+        priv += enc.totalPatient
+      } else {
+        insPart += enc.totalPatient
+      }
+    }
+    if (priv === 0 && insPart === 0) {
+      for (const prod of departmentFilteredProducts) {
+        if (!prod.isBilled && !prod.isExempted) continue
+        const isPriv = !prod.insuranceName || prod.insuranceName.toLowerCase().includes("private") || prod.insuranceName.toLowerCase().includes("cash")
+        if (isPriv) {
+          priv += prod.patientPayableAmount
+        } else {
+          insPart += prod.patientPayableAmount
+        }
+      }
+    }
+    return { privateAmount: priv, insuredPatientAmount: insPart }
+  }, [departmentFilteredEncounters, departmentFilteredProducts])
 
   // Continuous Visible Slices for Encounters and Detailed products
   const visibleEncounters = useMemo(() => {
@@ -475,6 +524,7 @@ function ReportsClinicianViewContent({
 
   const handleDepartmentChange = (dept: string) => {
     setSelectedDepartment(dept)
+    setSelectedInsuranceFilter(null)
     setVisibleCount(INITIAL_VISIBLE_COUNT)
   }
 
@@ -860,106 +910,319 @@ function ReportsClinicianViewContent({
       {/* ========================================================================= */}
       {activeTab === "finance" && (
         <div className={cn("transition-all", isTableExpanded ? "flex-1 flex flex-col min-h-0 h-full" : "space-y-4")}>
-          {/* Financial KPI Cards - Compact Mini Cards */}
-          {!isTableExpanded && (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
-              {/* 1. Total Earnings */}
-              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <span className="text-[12px] font-medium text-muted-foreground block truncate">Total Earnings</span>
-                  <p className="text-base sm:text-lg font-bold text-foreground truncate mt-0.5">
-                    {formatRWF(currentFinanceStats.totalGross)}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground truncate">
-                    {selectedDepartment === "ALL" ? "Approved & billed items" : selectedDepartment}
-                  </p>
-                </div>
-                <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                  <Wallet className="h-4 w-4" />
-                </div>
-              </div>
+          {/* Financial Overview - Clean, Restrained Tabular Layout */}
+          {!isTableExpanded && (() => {
+            const clinicianMoneyMade = (currentFinanceStats.insuranceCovered || 0) + (currentFinanceStats.patientCash || 0)
 
-              {/* 2. Pending on Billing */}
-              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <span className="text-[12px] font-medium text-amber-600 dark:text-amber-400 block truncate">Pending on Billing</span>
-                  <p className="text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400 truncate mt-0.5">
-                    {formatRWF(currentFinanceStats.pendingBillingAmount)}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground truncate">
-                    {currentFinanceStats.pendingBillingCount} items awaiting billing
-                  </p>
-                </div>
-                <div className="h-8 w-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                  <Clock className="h-4 w-4" />
-                </div>
-              </div>
+            const clinicianRows = currentInsuranceBreakdown.map((ins) => {
+              const rawName = ins.insuranceName || "Unknown Payer"
+              const isPrivate = rawName.toLowerCase().includes("private") || rawName.toLowerCase().includes("cash")
+              const visitsCount = ins.count || 0
+              const insuranceShare = isPrivate ? 0 : (ins.insuranceCovered || 0)
+              const patientPaid = isPrivate
+                ? (ins.paidAmount || ins.patientShare || ins.totalAmount || 0)
+                : (ins.paidAmount || ins.patientShare || 0)
+              const totalEarnings = insuranceShare + patientPaid
+              const giveawaysAndWaivers = ins.giveawayAmount || 0
+              const currentLoans = ins.loanAmount || 0
+              const totalExpected = Math.max(ins.totalAmount || 0, totalEarnings + giveawaysAndWaivers + currentLoans)
+              const isSelected = selectedInsuranceFilter?.toLowerCase() === rawName.toLowerCase()
 
-              {/* 3. Giveaways & Waivers */}
-              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <span className="text-[12px] font-medium text-pink-600 dark:text-pink-400 block truncate">Giveaways & Waivers</span>
-                  <p className="text-base sm:text-lg font-bold text-pink-600 dark:text-pink-400 truncate mt-0.5">
-                    {formatRWF(currentFinanceStats.giveawayAmount)}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground truncate">
-                    {currentFinanceStats.giveawayCount} waived / exempted copays
-                  </p>
-                </div>
-                <div className="h-8 w-8 rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center shrink-0">
-                  <Gift className="h-4 w-4" />
-                </div>
-              </div>
+              return {
+                name: rawName,
+                isPrivate,
+                visitsCount,
+                insuranceShare,
+                patientPaid,
+                totalEarnings,
+                giveawaysAndWaivers,
+                currentLoans,
+                totalExpected,
+                isSelected,
+              }
+            })
 
-              {/* 4. Patient Loans */}
-              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <span className="text-[12px] font-medium text-orange-600 dark:text-orange-400 block truncate">Patient Loans</span>
-                  <p className="text-base sm:text-lg font-bold text-orange-600 dark:text-orange-400 truncate mt-0.5">
-                    {formatRWF(currentFinanceStats.loanAmount)}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground truncate">
-                    {currentFinanceStats.loanCount} active credit loans
-                  </p>
-                </div>
-                <div className="h-8 w-8 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="h-4 w-4" />
-                </div>
-              </div>
+            const sumVisits = clinicianRows.reduce((acc, r) => acc + r.visitsCount, 0)
+            const sumExpected = clinicianRows.reduce((acc, r) => acc + r.totalExpected, 0)
 
-              {/* 5. Insurance Covered */}
-              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <span className="text-[12px] font-medium text-muted-foreground block truncate">Insurance Covered</span>
-                  <p className="text-base sm:text-lg font-bold text-foreground truncate mt-0.5">
-                    {formatRWF(currentFinanceStats.insuranceCovered)}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground truncate">
-                    {currentFinanceStats.totalGross > 0
-                      ? `${Math.round((currentFinanceStats.insuranceCovered / currentFinanceStats.totalGross) * 100)}% covered`
-                      : "Insurer share"}
-                  </p>
-                </div>
-                <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="h-4 w-4" />
-                </div>
-              </div>
+            return (
+              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-border/50">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-foreground tracking-tight">Turnover Overview & Payer Breakdown</h3>
+                      <Badge variant="outline" className="text-[11px] py-0 px-2 bg-primary/10 text-primary border-primary/20 font-medium">
+                        Personal Financial Contribution
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Consultation fees, approved drugs, procedures, and tests attributed to your clinical service
+                    </p>
+                  </div>
 
-              {/* 6. Patient Share / Cash */}
-              <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-xl p-3 shadow-sm flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <span className="text-[12px] font-medium text-muted-foreground block truncate">Patient Share (Cash)</span>
-                  <p className="text-base sm:text-lg font-bold text-foreground truncate mt-0.5">
-                    {formatRWF(currentFinanceStats.patientCash)}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground truncate">Direct copays collected</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {selectedInsuranceFilter && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedInsuranceFilter(null)
+                          setVisibleCount(INITIAL_VISIBLE_COUNT)
+                        }}
+                        className="h-7 px-2.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-lg gap-1 font-medium"
+                      >
+                        Reset Filter ({selectedInsuranceFilter}) ✕
+                      </Button>
+                    )}
+                    <Badge variant="outline" className="text-xs py-1 px-2.5 bg-muted/40 font-mono">
+                      {clinicianRows.length} Payers
+                    </Badge>
+                  </div>
                 </div>
-                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <CreditCard className="h-4 w-4" />
+
+                {/* Tabular View */}
+                <div className="overflow-x-auto -mx-1 sm:mx-0">
+                  <table className="w-full text-xs text-left border-collapse min-w-[850px]">
+                    <thead>
+                      <tr className="border-b border-border/70 text-muted-foreground uppercase text-[10px] tracking-wider font-semibold bg-muted/20">
+                        <th className="py-2.5 px-3 rounded-l-xl">Payer / Channel</th>
+                        <th className="py-2.5 px-3 text-center">Encounters / Items</th>
+                        <th className="py-2.5 px-3 text-right">Insurance Share</th>
+                        <th className="py-2.5 px-3 text-right">Patient Paid</th>
+                        <th className="py-2.5 px-3 text-right bg-primary/5 dark:bg-primary/10 text-primary font-bold">
+                          Total Earnings (Money Made)
+                        </th>
+                        <th className="py-2.5 px-3 text-right">Giveaways & Waivers</th>
+                        <th className="py-2.5 px-3 text-right">Current Loans</th>
+                        <th className="py-2.5 px-3 text-right font-bold text-foreground rounded-r-xl">Total Expected (Gross)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/40">
+                      {clinicianRows.map((row) => {
+                        const initials = (row.name.substring(0, 2) || "PA").toUpperCase()
+                        const earningsPct = clinicianMoneyMade > 0
+                          ? Math.round((row.totalEarnings / clinicianMoneyMade) * 100)
+                          : 0
+                        return (
+                          <tr
+                            key={row.name}
+                            className={cn(
+                              "hover:bg-muted/30 transition-colors group",
+                              row.isSelected && "bg-primary/10 border-l-4 border-l-primary"
+                            )}
+                          >
+                            {/* Payer / Channel */}
+                            <td className="py-3 px-3">
+                              <div className="flex items-center gap-2">
+                                <div className={cn(
+                                  "h-7 w-7 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0",
+                                  row.isPrivate
+                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                    : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
+                                )}>
+                                  {row.isPrivate ? "PV" : initials}
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="font-semibold text-foreground text-xs block truncate">{row.name}</span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {row.isPrivate ? "Direct Patient Cash" : "Insurance Provider"}
+                                  </span>
+                                </div>
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "text-[9px] py-0 px-1.5 ml-1 shrink-0 font-medium",
+                                    row.isPrivate
+                                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                      : "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30"
+                                  )}
+                                >
+                                  {row.isPrivate ? "Private" : "Insurance"}
+                                </Badge>
+                              </div>
+                            </td>
+
+                            {/* Encounters */}
+                            <td className="py-3 px-3 text-center">
+                              <span className="font-medium text-foreground">{row.visitsCount}</span>
+                              {sumVisits > 0 && (
+                                <span className="text-[10px] text-muted-foreground block">
+                                  {Math.round((row.visitsCount / sumVisits) * 100)}%
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Insurance Share */}
+                            <td className="py-3 px-3 text-right">
+                              {row.isPrivate ? (
+                                <span className="text-muted-foreground text-xs">—</span>
+                              ) : (
+                                <div>
+                                  <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                                    {formatRWF(row.insuranceShare)}
+                                  </span>
+                                  {row.totalExpected > 0 && (
+                                    <span className="text-[10px] text-muted-foreground block">
+                                      {Math.round((row.insuranceShare / row.totalExpected) * 100)}% covered
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Patient Paid */}
+                            <td className="py-3 px-3 text-right">
+                              <div>
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                  {formatRWF(row.patientPaid)}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground block">
+                                  {row.isPrivate ? "100% direct cash" : "Patient share"}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Total Earnings */}
+                            <td className="py-3 px-3 text-right bg-primary/5 dark:bg-primary/10">
+                              <div>
+                                <span className="font-bold text-foreground text-sm">
+                                  {formatRWF(row.totalEarnings)}
+                                </span>
+                                <span className="text-[10px] text-primary font-medium block">
+                                  {earningsPct}% of total
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Giveaways & Waivers */}
+                            <td className="py-3 px-3 text-right">
+                              {row.giveawaysAndWaivers > 0 ? (
+                                <span className="font-semibold text-purple-600 dark:text-purple-400">
+                                  {formatRWF(row.giveawaysAndWaivers)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">—</span>
+                              )}
+                            </td>
+
+                            {/* Current Loans */}
+                            <td className="py-3 px-3 text-right">
+                              {row.currentLoans > 0 ? (
+                                <div>
+                                  <span className="font-bold text-rose-600 dark:text-rose-400">
+                                    {formatRWF(row.currentLoans)}
+                                  </span>
+                                  <span className="text-[10px] text-rose-500 block">unpaid debtor</span>
+                                </div>
+                              ) : (
+                                <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-medium">Settled ✓</span>
+                              )}
+                            </td>
+
+                            {/* Total Expected / Gross */}
+                            <td className="py-3 px-3 text-right font-bold text-foreground">
+                              <span className="text-xs sm:text-sm">{formatRWF(row.totalExpected)}</span>
+                            </td>
+
+                            {/* Action */}
+                            <td className="py-3 px-3 text-center">
+                              <Button
+                                variant={row.isSelected ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedInsuranceFilter((prev) =>
+                                    prev?.toLowerCase() === row.name.toLowerCase() ? null : row.name
+                                  )
+                                  setVisibleCount(INITIAL_VISIBLE_COUNT)
+                                }}
+                                className="h-6 px-2 text-[10px] rounded-lg font-medium"
+                              >
+                                {row.isSelected ? "Active ✓" : "Filter"}
+                              </Button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+
+                      {clinicianRows.length === 0 && (
+                        <tr>
+                          <td colSpan={9} className="py-6 text-center text-xs text-muted-foreground">
+                            No billing or prescriptions found for the selected department.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+
+                    {/* GRAND TOTALS FOOTER */}
+                    <tfoot>
+                      <tr className="border-t-2 border-border/80 bg-muted/40 font-bold text-foreground">
+                        <td className="py-3.5 px-3 rounded-bl-xl">
+                          <div className="flex items-center gap-2">
+                            <span className="uppercase text-xs tracking-wider">Grand Total</span>
+                            <Badge variant="secondary" className="text-[10px] py-0 px-1.5 font-normal">
+                              {clinicianRows.length} Payers
+                            </Badge>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-3 text-center text-xs">
+                          {currentFinanceStats.productsCount > 0 ? currentFinanceStats.productsCount : sumVisits}
+                        </td>
+                        <td className="py-3.5 px-3 text-right text-indigo-600 dark:text-indigo-400">
+                          {formatRWF(currentFinanceStats.insuranceCovered)}
+                        </td>
+                        <td className="py-3.5 px-3 text-right text-emerald-600 dark:text-emerald-400">
+                          {formatRWF(currentFinanceStats.patientCash)}
+                        </td>
+                        <td className="py-3.5 px-3 text-right bg-primary/10 text-primary text-sm font-extrabold">
+                          {formatRWF(clinicianMoneyMade)}
+                        </td>
+                        <td className="py-3.5 px-3 text-right text-purple-600 dark:text-purple-400">
+                          {formatRWF(currentFinanceStats.giveawayAmount)}
+                        </td>
+                        <td className="py-3.5 px-3 text-right text-rose-600 dark:text-rose-400">
+                          {currentFinanceStats.loanAmount > 0 ? formatRWF(currentFinanceStats.loanAmount) : "0 RWF"}
+                        </td>
+                        <td className="py-3.5 px-3 text-right text-sm font-extrabold text-foreground">
+                          {formatRWF(currentFinanceStats.totalGross > 0 ? currentFinanceStats.totalGross : sumExpected)}
+                        </td>
+                        <td className="py-3.5 px-3 text-center rounded-br-xl">
+                          {selectedInsuranceFilter ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedInsuranceFilter(null)
+                                setVisibleCount(INITIAL_VISIBLE_COUNT)
+                              }}
+                              className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+                            >
+                              Reset
+                            </Button>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">All Payers</span>
+                          )}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                {/* Accounting Reconciliation Footnote */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2 border-t border-border/40 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-foreground">Reconciliation Formula:</span>
+                    <span>Total Earnings ({formatRWF(clinicianMoneyMade)})</span>
+                    <span>+ Giveaways ({formatRWF(currentFinanceStats.giveawayAmount)})</span>
+                    <span>+ Loans ({formatRWF(currentFinanceStats.loanAmount)})</span>
+                    <span>= <span className="font-semibold text-foreground">Total Expected ({formatRWF(currentFinanceStats.totalGross > 0 ? currentFinanceStats.totalGross : sumExpected)})</span></span>
+                  </div>
+                  <span className="text-xs text-muted-foreground font-mono">
+                    {currentFinanceStats.productsCount} items prescribed
+                  </span>
                 </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           {/* Turnover Breakdown Table with View Switcher, Fit/Expand and Continuous Scroll */}
           <div className={cn(

@@ -15,9 +15,12 @@ export interface ClinicReportsOverview {
     seniors50plus: number
   }
   peakActivityHour: string
+  totalMoneyMade?: number
   totalGrossBilled: number
   insuranceCoveredAmount: number
   patientShareAmount: number
+  privatePatientAmount?: number
+  insuredPatientShareAmount?: number
   patientCashCollected: number
   patientLoanAmount: number
   giveawayAmount: number
@@ -112,10 +115,17 @@ export interface ClinicReportsClinicianBreakdown {
 export interface ClinicReportsInsuranceBreakdown {
   id?: string
   name: string
+  insuranceName?: string
   totalAmount: number
   insuranceCovered: number
   patientPaid: number
+  paidAmount?: number
+  patientShare?: number
   outstanding: number
+  loanAmount?: number
+  giveawayAmount?: number
+  waiverAmount?: number
+  count?: number
 }
 
 export interface ClinicDiagnosticRecord {
