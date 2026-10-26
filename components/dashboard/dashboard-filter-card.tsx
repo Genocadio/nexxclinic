@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState, useMemo } from "react"
 import {
   SlidersHorizontal,
   Check,
@@ -12,8 +12,12 @@ import {
   Loader2,
   X,
   Shield,
+  ShieldCheck,
+  ChevronDown,
+  Search,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Popover,
   PopoverContent,
@@ -27,6 +31,7 @@ export type AgeRangeType = "all" | "pediatric" | "adult" | "senior" | "custom" |
 export interface AvailableInsuranceOption {
   id: string
   name: string
+  insuranceName?: string
   acronym?: string | null
 }
 
@@ -36,8 +41,10 @@ export interface DashboardFilterCardProps {
   setAnswersFilter: (val: AnswersFilterType) => void
   genderFilter: GenderFilterType
   setGenderFilter: (val: GenderFilterType) => void
-  insuranceFilter: string
-  setInsuranceFilter: (val: string) => void
+  selectedInsuranceIds: string[]
+  setSelectedInsuranceIds: (val: string[]) => void
+  isPrivateOnly: boolean
+  setIsPrivateOnly: (val: boolean) => void
   availableInsurances?: AvailableInsuranceOption[]
   insurancesLoading?: boolean
   ageRange: AgeRangeType
@@ -64,8 +71,10 @@ export function DashboardFilterCardContent({
   setAnswersFilter,
   genderFilter,
   setGenderFilter,
-  insuranceFilter,
-  setInsuranceFilter,
+  selectedInsuranceIds = [],
+  setSelectedInsuranceIds,
+  isPrivateOnly = false,
+  setIsPrivateOnly,
   availableInsurances = [],
   insurancesLoading = false,
   ageRange,
@@ -85,6 +94,51 @@ export function DashboardFilterCardContent({
   matchCount,
   onClose,
 }: DashboardFilterCardProps) {
+  const [insuranceDropdownOpen, setInsuranceDropdownOpen] = useState(false)
+  const [insuranceSearchQuery, setInsuranceSearchQuery] = useState("")
+
+  const filteredInsurances = useMemo(() => {
+    if (!insuranceSearchQuery.trim()) return availableInsurances
+    const q = insuranceSearchQuery.toLowerCase().trim()
+    return availableInsurances.filter((ins) => {
+      const name = (ins.insuranceName || ins.name || "").toLowerCase()
+      const acr = (ins.acronym || "").toLowerCase()
+      return name.includes(q) || acr.includes(q)
+    })
+  }, [availableInsurances, insuranceSearchQuery])
+
+  const toggleInsurance = (id: string) => {
+    setIsPrivateOnly(false)
+    if (selectedInsuranceIds.includes(id)) {
+      setSelectedInsuranceIds(selectedInsuranceIds.filter((item) => item !== id))
+    } else {
+      setSelectedInsuranceIds([...selectedInsuranceIds, id])
+    }
+  }
+
+  const togglePrivateOnly = () => {
+    if (isPrivateOnly) {
+      setIsPrivateOnly(false)
+    } else {
+      setSelectedInsuranceIds([])
+      setIsPrivateOnly(true)
+    }
+  }
+
+  const handleClearInsurance = () => {
+    setSelectedInsuranceIds([])
+    setIsPrivateOnly(false)
+  }
+
+  const insuranceTriggerLabel = useMemo(() => {
+    if (!isPrivateOnly && selectedInsuranceIds.length === 0) return "All Payers"
+    if (isPrivateOnly) return "Private Only (Cash)"
+    if (selectedInsuranceIds.length === 1) {
+      const match = availableInsurances.find((i) => i.id === selectedInsuranceIds[0])
+      return match?.acronym || match?.insuranceName || match?.name || "1 Insurance"
+    }
+    return `${selectedInsuranceIds.length} Insurances Selected`
+  }, [isPrivateOnly, selectedInsuranceIds, availableInsurances])
   return (
     <div className="space-y-4">
       {/* Popover Header */}
@@ -200,86 +254,123 @@ export function DashboardFilterCardContent({
         </div>
       </div>
 
-      {/* Section 3: Insurance Filter */}
+      {/* Section 3: Insurance Filter (Dropdown with Checkboxes) */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
             <Shield className="w-3.5 h-3.5 text-primary" />
             <span>Insurance / Payer</span>
           </label>
-          {insuranceFilter !== "all" && (
+          {(isPrivateOnly || selectedInsuranceIds.length > 0) && (
             <button
               type="button"
-              onClick={() => setInsuranceFilter("all")}
+              onClick={handleClearInsurance}
               className="text-[11px] text-primary hover:underline cursor-pointer"
             >
-              Clear
+              Reset ({isPrivateOnly ? 1 : selectedInsuranceIds.length})
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted/60 dark:bg-slate-800/60 border border-border/40 text-xs">
+        {/* Dropdown with Checkboxes */}
+        <div className="relative">
           <button
             type="button"
-            onClick={() => setInsuranceFilter("all")}
-            className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-              insuranceFilter === "all"
-                ? "bg-background text-foreground shadow-xs font-semibold"
-                : "text-muted-foreground hover:text-foreground"
+            onClick={() => setInsuranceDropdownOpen(!insuranceDropdownOpen)}
+            className={`w-full flex items-center justify-between px-3 py-2 text-xs rounded-xl border transition-all cursor-pointer shadow-2xs ${
+              isPrivateOnly || selectedInsuranceIds.length > 0
+                ? "bg-primary/5 border-primary/40 text-foreground font-medium"
+                : "bg-background border-border/60 hover:border-border text-foreground"
             }`}
           >
-            All Payers
+            <div className="flex items-center gap-2 truncate">
+              <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="truncate">{insuranceTriggerLabel}</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 ml-1">
+              {(isPrivateOnly || selectedInsuranceIds.length > 0) && (
+                <span className="px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold">
+                  {(isPrivateOnly ? 1 : 0) + selectedInsuranceIds.length}
+                </span>
+              )}
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${
+                  insuranceDropdownOpen ? "rotate-180" : ""
+                }`}
+              />
+            </div>
           </button>
-          <button
-            type="button"
-            onClick={() => setInsuranceFilter("private")}
-            className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-              insuranceFilter === "private"
-                ? "bg-background text-foreground shadow-xs font-semibold"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Private / Self-pay
-          </button>
-        </div>
 
-        {/* List of specific insurances */}
-        {availableInsurances && availableInsurances.length > 0 && (
-          <div className="max-h-36 overflow-y-auto space-y-1 pr-1 pt-1 border-t border-border/30">
-            <div className="grid grid-cols-2 gap-1">
-              {availableInsurances.map((ins) => {
-                const isSelected =
-                  insuranceFilter === ins.id ||
-                  (ins.name && insuranceFilter.toLowerCase() === ins.name.toLowerCase()) ||
-                  (ins.acronym && insuranceFilter.toLowerCase() === ins.acronym.toLowerCase())
-                const label = ins.acronym || ins.name
+          {insuranceDropdownOpen && (
+            <div className="mt-1.5 p-2 rounded-xl bg-card border border-border/70 shadow-lg space-y-1.5 max-h-56 overflow-y-auto">
+              {availableInsurances.length > 4 && (
+                <div className="relative mb-1">
+                  <Search className="absolute left-2.5 top-2.5 h-3 w-3 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search insurance..."
+                    value={insuranceSearchQuery}
+                    onChange={(e) => setInsuranceSearchQuery(e.target.value)}
+                    className="w-full pl-7 pr-3 py-1 text-xs bg-muted/40 border border-border/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              )}
+
+              {/* Private Only Checkbox */}
+              <label className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-muted/60 cursor-pointer select-none text-xs transition-colors">
+                <Checkbox
+                  checked={isPrivateOnly}
+                  onCheckedChange={togglePrivateOnly}
+                />
+                <div className="min-w-0 flex-1">
+                  <span className="font-medium text-foreground">Private Only (Self-pay)</span>
+                  <p className="text-[10px] text-muted-foreground">Uninsured / cash visits</p>
+                </div>
+              </label>
+
+              <div className="my-1 border-t border-border/40" />
+
+              {/* Specific Insurance Checkboxes */}
+              {filteredInsurances.map((ins) => {
+                const checked = selectedInsuranceIds.includes(ins.id)
                 return (
-                  <button
+                  <label
                     key={ins.id}
-                    type="button"
-                    onClick={() => setInsuranceFilter(isSelected ? "all" : ins.id)}
-                    title={ins.name}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-medium text-left truncate transition-all flex items-center justify-between gap-1 border cursor-pointer ${
-                      isSelected
-                        ? "bg-primary/10 border-primary/50 text-primary font-semibold shadow-2xs"
-                        : "bg-background/80 hover:bg-background border-border/50 text-foreground hover:border-border"
-                    }`}
+                    className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-muted/60 cursor-pointer select-none text-xs transition-colors"
                   >
-                    <span className="truncate">{label}</span>
-                    {isSelected && <Check className="w-3 h-3 text-primary shrink-0 stroke-[2.5]" />}
-                  </button>
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() => toggleInsurance(ins.id)}
+                    />
+                    <div className="min-w-0 flex-1 flex items-center justify-between gap-1">
+                      <span className="font-medium text-foreground truncate">
+                        {ins.acronym ? `${ins.acronym} - ${ins.name}` : ins.name}
+                      </span>
+                      {ins.acronym && (
+                        <span className="text-[10px] font-semibold px-1 py-0.2 rounded bg-muted text-muted-foreground shrink-0">
+                          {ins.acronym}
+                        </span>
+                      )}
+                    </div>
+                  </label>
                 )
               })}
-            </div>
-          </div>
-        )}
 
-        {insurancesLoading && (!availableInsurances || availableInsurances.length === 0) && (
-          <div className="flex items-center justify-center py-2 text-xs text-muted-foreground gap-1.5">
-            <Loader2 className="w-3 h-3 animate-spin text-primary" />
-            <span>Loading insurances...</span>
-          </div>
-        )}
+              {filteredInsurances.length === 0 && (
+                <div className="p-2 text-center text-xs text-muted-foreground">
+                  No insurance found
+                </div>
+              )}
+
+              {insurancesLoading && availableInsurances.length === 0 && (
+                <div className="flex items-center justify-center py-2 text-xs text-muted-foreground gap-1.5">
+                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                  <span>Loading insurances...</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Section 4: Age & Date of Birth Filter */}

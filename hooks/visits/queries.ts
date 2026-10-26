@@ -48,6 +48,7 @@ export function useVisits(
     ...(filter?.minAge !== undefined ? { minAge: filter.minAge } : {}),
     ...(filter?.maxAge !== undefined ? { maxAge: filter.maxAge } : {}),
     ...(filter?.insuranceId ? { insuranceId: filter.insuranceId } : {}),
+    ...(filter?.insuranceIds && filter.insuranceIds.length > 0 ? { insuranceIds: filter.insuranceIds } : {}),
     ...(filter?.isPrivateOnly !== undefined ? { isPrivateOnly: filter.isPrivateOnly } : {}),
     page: page ?? 0,
     size: size ?? 20,

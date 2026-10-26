@@ -137,6 +137,7 @@ import {
   type AgeRangeType,
 } from "@/components/dashboard/dashboard-filter-card"
 import { useInsurances } from "@/hooks/insurances/hooks"
+import { PayerFilterCombobox } from "@/components/reports/payer-filter-combobox"
 export default function DashboardPage() {
   const router = useRouter()
   const { doctor } = useAuth()
@@ -185,7 +186,8 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [answersFilter, setAnswersFilter] = useState<AnswersFilterType>("all")
   const [genderFilter, setGenderFilter] = useState<GenderFilterType>("all")
-  const [insuranceFilter, setInsuranceFilter] = useState<string>("all")
+  const [selectedInsuranceIds, setSelectedInsuranceIds] = useState<string[]>([])
+  const [isPrivateOnly, setIsPrivateOnly] = useState<boolean>(false)
   const [ageRange, setAgeRange] = useState<AgeRangeType>("all")
   const [customAgeMin, setCustomAgeMin] = useState<string>("")
   const [customAgeMax, setCustomAgeMax] = useState<string>("")
@@ -197,16 +199,17 @@ export default function DashboardPage() {
     let count = 0
     if (answersFilter !== "all") count++
     if (genderFilter !== "all") count++
-    if (insuranceFilter !== "all") count++
+    if (isPrivateOnly || selectedInsuranceIds.length > 0) count++
     if (ageRange !== "all" || dobFilter.trim() !== "") count++
     if (searchAllHistorical) count++
     return count
-  }, [answersFilter, genderFilter, insuranceFilter, ageRange, dobFilter, searchAllHistorical])
+  }, [answersFilter, genderFilter, isPrivateOnly, selectedInsuranceIds, ageRange, dobFilter, searchAllHistorical])
 
   const handleResetFilters = () => {
     setAnswersFilter("all")
     setGenderFilter("all")
-    setInsuranceFilter("all")
+    setSelectedInsuranceIds([])
+    setIsPrivateOnly(false)
     setAgeRange("all")
     setCustomAgeMin("")
     setCustomAgeMax("")
@@ -573,11 +576,9 @@ export default function DashboardPage() {
             dob: dobFilter.trim() || undefined,
             minAge,
             maxAge,
-            insuranceId:
-              insuranceFilter !== "all" && insuranceFilter !== "private"
-                ? insuranceFilter
-                : undefined,
-            isPrivateOnly: insuranceFilter === "private" ? true : undefined,
+            insuranceId: selectedInsuranceIds.length === 1 ? selectedInsuranceIds[0] : undefined,
+            insuranceIds: selectedInsuranceIds.length > 0 ? selectedInsuranceIds : undefined,
+            isPrivateOnly: isPrivateOnly ? true : undefined,
             page: pageToFetch,
             size: 20,
           },
@@ -625,7 +626,8 @@ export default function DashboardPage() {
     statusFilter,
     answersFilter,
     genderFilter,
-    insuranceFilter,
+    selectedInsuranceIds,
+    isPrivateOnly,
     ageRange,
     customAgeMin,
     customAgeMax,
@@ -722,11 +724,9 @@ export default function DashboardPage() {
               dob: dobFilter.trim() || undefined,
               minAge,
               maxAge,
-              insuranceId:
-                insuranceFilter !== "all" && insuranceFilter !== "private"
-                  ? insuranceFilter
-                  : undefined,
-              isPrivateOnly: insuranceFilter === "private" ? true : undefined,
+              insuranceId: selectedInsuranceIds.length === 1 ? selectedInsuranceIds[0] : undefined,
+              insuranceIds: selectedInsuranceIds.length > 0 ? selectedInsuranceIds : undefined,
+              isPrivateOnly: isPrivateOnly ? true : undefined,
               recentDays: 0, // 0 = all historical records from backend
               page: 0,
               size: 50,
@@ -772,7 +772,8 @@ export default function DashboardPage() {
     statusFilter,
     answersFilter,
     genderFilter,
-    insuranceFilter,
+    selectedInsuranceIds,
+    isPrivateOnly,
     ageRange,
     customAgeMin,
     customAgeMax,
@@ -1617,7 +1618,7 @@ export default function DashboardPage() {
   }, [visits, locallyCreatedVisits, extraCompletedVisits, backendHistoricalVisits])
 
   const availableInsurances = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; acronym?: string | null }>()
+    const map = new Map<string, { id: string; name: string; insuranceName: string; acronym?: string | null }>()
 
     // 1. Add clinic-configured insurances
     for (const ins of clinicInsurances || []) {
@@ -1625,6 +1626,7 @@ export default function DashboardPage() {
         map.set(String(ins.id), {
           id: String(ins.id),
           name: ins.insuranceName || "Unknown",
+          insuranceName: ins.insuranceName || "Unknown",
           acronym: ins.acronym || null,
         })
       }
@@ -1641,6 +1643,7 @@ export default function DashboardPage() {
             map.set(provId, {
               id: provId,
               name: prov.insuranceName || "Unknown",
+              insuranceName: prov.insuranceName || "Unknown",
               acronym: prov.acronym || null,
             })
           }
@@ -1695,21 +1698,23 @@ export default function DashboardPage() {
     }
 
     // 4. Insurance Filter
-    if (insuranceFilter !== "all") {
+    if (isPrivateOnly) {
       result = result.filter((visit) => {
         const linked = visit.linkedInsurances || []
-        if (insuranceFilter === "private") {
-          return linked.length === 0
-        }
+        return linked.length === 0
+      })
+    } else if (selectedInsuranceIds.length > 0) {
+      const selectedSet = new Set(selectedInsuranceIds.map((id) => id.toLowerCase()))
+      result = result.filter((visit) => {
+        const linked = visit.linkedInsurances || []
         return linked.some((item) => {
-          const provId = item.insuranceProvider?.id ? String(item.insuranceProvider.id) : null
+          const provId = item.insuranceProvider?.id ? String(item.insuranceProvider.id).toLowerCase() : null
           const provName = item.insuranceProvider?.insuranceName?.toLowerCase()
           const provAcronym = item.insuranceProvider?.acronym?.toLowerCase()
-          const target = insuranceFilter.toLowerCase()
           return (
-            (provId && provId === insuranceFilter) ||
-            (provName && provName === target) ||
-            (provAcronym && provAcronym === target)
+            (provId && selectedSet.has(provId)) ||
+            (provName && selectedSet.has(provName)) ||
+            (provAcronym && selectedSet.has(provAcronym))
           )
         })
       })
@@ -1786,7 +1791,8 @@ export default function DashboardPage() {
     searchQuery,
     answersFilter,
     genderFilter,
-    insuranceFilter,
+    selectedInsuranceIds,
+    isPrivateOnly,
     ageRange,
     customAgeMin,
     customAgeMax,
@@ -1846,7 +1852,8 @@ export default function DashboardPage() {
     searchQuery,
     answersFilter,
     genderFilter,
-    insuranceFilter,
+    selectedInsuranceIds,
+    isPrivateOnly,
     ageRange,
     customAgeMin,
     customAgeMax,
@@ -2196,6 +2203,24 @@ export default function DashboardPage() {
                       </button>
                     )
                   })}
+
+                  <div className="h-6 w-px bg-border/40 mx-1 hidden sm:block" />
+
+                  <PayerFilterCombobox
+                    insurances={availableInsurances}
+                    selectedInsuranceIds={selectedInsuranceIds}
+                    isPrivateOnly={isPrivateOnly}
+                    onChange={({ insuranceIds, isPrivateOnly: priv }) => {
+                      setSelectedInsuranceIds(insuranceIds)
+                      setIsPrivateOnly(priv)
+                    }}
+                    loading={insurancesLoading}
+                    className={`h-9 px-3.5 rounded-full text-xs font-medium backdrop-blur-sm transition-all duration-200 ${
+                      selectedInsuranceIds.length > 0 || isPrivateOnly
+                        ? "bg-primary/15 border-primary/50 text-primary shadow-xs font-semibold"
+                        : "bg-muted/50 border-border/50 text-foreground hover:bg-muted/70 hover:scale-105"
+                    }`}
+                  />
                 </div>
                 {/* Mobile filter, layout switch, and search controls */}
                 <div className="md:hidden px-11 sm:px-14 md:px-0">
@@ -2221,6 +2246,17 @@ export default function DashboardPage() {
                             ))}
                           </select>
                         </div>
+                        <PayerFilterCombobox
+                          insurances={availableInsurances}
+                          selectedInsuranceIds={selectedInsuranceIds}
+                          isPrivateOnly={isPrivateOnly}
+                          onChange={({ insuranceIds, isPrivateOnly: priv }) => {
+                            setSelectedInsuranceIds(insuranceIds)
+                            setIsPrivateOnly(priv)
+                          }}
+                          loading={insurancesLoading}
+                          className="h-10 px-3 rounded-full text-xs flex-shrink-0"
+                        />
                         <Button
                           type="button"
                           size="icon"
@@ -2265,8 +2301,10 @@ export default function DashboardPage() {
                           setAnswersFilter={setAnswersFilter}
                           genderFilter={genderFilter}
                           setGenderFilter={setGenderFilter}
-                          insuranceFilter={insuranceFilter}
-                          setInsuranceFilter={setInsuranceFilter}
+                          selectedInsuranceIds={selectedInsuranceIds}
+                          setSelectedInsuranceIds={setSelectedInsuranceIds}
+                          isPrivateOnly={isPrivateOnly}
+                          setIsPrivateOnly={setIsPrivateOnly}
                           availableInsurances={availableInsurances}
                           insurancesLoading={insurancesLoading}
                           ageRange={ageRange}
@@ -2309,8 +2347,10 @@ export default function DashboardPage() {
                       setAnswersFilter={setAnswersFilter}
                       genderFilter={genderFilter}
                       setGenderFilter={setGenderFilter}
-                      insuranceFilter={insuranceFilter}
-                      setInsuranceFilter={setInsuranceFilter}
+                      selectedInsuranceIds={selectedInsuranceIds}
+                      setSelectedInsuranceIds={setSelectedInsuranceIds}
+                      isPrivateOnly={isPrivateOnly}
+                      setIsPrivateOnly={setIsPrivateOnly}
                       availableInsurances={availableInsurances}
                       insurancesLoading={insurancesLoading}
                       ageRange={ageRange}

@@ -448,6 +448,7 @@ export interface SearchVisitsInput {
   minAge?: number
   maxAge?: number
   insuranceId?: string
+  insuranceIds?: string[]
   isPrivateOnly?: boolean
   page?: number
   size?: number
