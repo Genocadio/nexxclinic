@@ -136,10 +136,12 @@ import {
   type GenderFilterType,
   type AgeRangeType,
 } from "@/components/dashboard/dashboard-filter-card"
+import { useInsurances } from "@/hooks/insurances/hooks"
 export default function DashboardPage() {
   const router = useRouter()
   const { doctor } = useAuth()
   const { visits, loading, error, refetch: refetchVisits } = useVisits()
+  const { insurances: clinicInsurances, loading: insurancesLoading } = useInsurances({ supportedByClinic: true })
   const [visitsTakingLonger, setVisitsTakingLonger] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid")
@@ -183,6 +185,7 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [answersFilter, setAnswersFilter] = useState<AnswersFilterType>("all")
   const [genderFilter, setGenderFilter] = useState<GenderFilterType>("all")
+  const [insuranceFilter, setInsuranceFilter] = useState<string>("all")
   const [ageRange, setAgeRange] = useState<AgeRangeType>("all")
   const [customAgeMin, setCustomAgeMin] = useState<string>("")
   const [customAgeMax, setCustomAgeMax] = useState<string>("")
@@ -194,14 +197,16 @@ export default function DashboardPage() {
     let count = 0
     if (answersFilter !== "all") count++
     if (genderFilter !== "all") count++
+    if (insuranceFilter !== "all") count++
     if (ageRange !== "all" || dobFilter.trim() !== "") count++
     if (searchAllHistorical) count++
     return count
-  }, [answersFilter, genderFilter, ageRange, dobFilter, searchAllHistorical])
+  }, [answersFilter, genderFilter, insuranceFilter, ageRange, dobFilter, searchAllHistorical])
 
   const handleResetFilters = () => {
     setAnswersFilter("all")
     setGenderFilter("all")
+    setInsuranceFilter("all")
     setAgeRange("all")
     setCustomAgeMin("")
     setCustomAgeMax("")
@@ -568,6 +573,11 @@ export default function DashboardPage() {
             dob: dobFilter.trim() || undefined,
             minAge,
             maxAge,
+            insuranceId:
+              insuranceFilter !== "all" && insuranceFilter !== "private"
+                ? insuranceFilter
+                : undefined,
+            isPrivateOnly: insuranceFilter === "private" ? true : undefined,
             page: pageToFetch,
             size: 20,
           },
@@ -615,6 +625,7 @@ export default function DashboardPage() {
     statusFilter,
     answersFilter,
     genderFilter,
+    insuranceFilter,
     ageRange,
     customAgeMin,
     customAgeMax,
@@ -711,6 +722,11 @@ export default function DashboardPage() {
               dob: dobFilter.trim() || undefined,
               minAge,
               maxAge,
+              insuranceId:
+                insuranceFilter !== "all" && insuranceFilter !== "private"
+                  ? insuranceFilter
+                  : undefined,
+              isPrivateOnly: insuranceFilter === "private" ? true : undefined,
               recentDays: 0, // 0 = all historical records from backend
               page: 0,
               size: 50,
@@ -756,6 +772,7 @@ export default function DashboardPage() {
     statusFilter,
     answersFilter,
     genderFilter,
+    insuranceFilter,
     ageRange,
     customAgeMin,
     customAgeMax,
@@ -1599,6 +1616,43 @@ export default function DashboardPage() {
     return baseList
   }, [visits, locallyCreatedVisits, extraCompletedVisits, backendHistoricalVisits])
 
+  const availableInsurances = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; acronym?: string | null }>()
+
+    // 1. Add clinic-configured insurances
+    for (const ins of clinicInsurances || []) {
+      if (ins.id) {
+        map.set(String(ins.id), {
+          id: String(ins.id),
+          name: ins.insuranceName || "Unknown",
+          acronym: ins.acronym || null,
+        })
+      }
+    }
+
+    // 2. Also harvest any insurances present on loaded visits
+    for (const visit of combinedVisitsList || []) {
+      const linked = visit.linkedInsurances || []
+      for (const item of linked) {
+        const prov = item.insuranceProvider
+        if (prov && prov.id) {
+          const provId = String(prov.id)
+          if (!map.has(provId)) {
+            map.set(provId, {
+              id: provId,
+              name: prov.insuranceName || "Unknown",
+              acronym: prov.acronym || null,
+            })
+          }
+        }
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) =>
+      (a.acronym || a.name).localeCompare(b.acronym || b.name)
+    )
+  }, [clinicInsurances, combinedVisitsList])
+
   const applyGeneralFilters = (list: Visit[]) => {
     let result = list
 
@@ -1637,6 +1691,27 @@ export default function DashboardPage() {
           return g !== "MALE" && g !== "FEMALE"
         }
         return g === genderFilter
+      })
+    }
+
+    // 4. Insurance Filter
+    if (insuranceFilter !== "all") {
+      result = result.filter((visit) => {
+        const linked = visit.linkedInsurances || []
+        if (insuranceFilter === "private") {
+          return linked.length === 0
+        }
+        return linked.some((item) => {
+          const provId = item.insuranceProvider?.id ? String(item.insuranceProvider.id) : null
+          const provName = item.insuranceProvider?.insuranceName?.toLowerCase()
+          const provAcronym = item.insuranceProvider?.acronym?.toLowerCase()
+          const target = insuranceFilter.toLowerCase()
+          return (
+            (provId && provId === insuranceFilter) ||
+            (provName && provName === target) ||
+            (provAcronym && provAcronym === target)
+          )
+        })
       })
     }
 
@@ -1711,6 +1786,7 @@ export default function DashboardPage() {
     searchQuery,
     answersFilter,
     genderFilter,
+    insuranceFilter,
     ageRange,
     customAgeMin,
     customAgeMax,
@@ -1770,6 +1846,7 @@ export default function DashboardPage() {
     searchQuery,
     answersFilter,
     genderFilter,
+    insuranceFilter,
     ageRange,
     customAgeMin,
     customAgeMax,
@@ -2188,6 +2265,10 @@ export default function DashboardPage() {
                           setAnswersFilter={setAnswersFilter}
                           genderFilter={genderFilter}
                           setGenderFilter={setGenderFilter}
+                          insuranceFilter={insuranceFilter}
+                          setInsuranceFilter={setInsuranceFilter}
+                          availableInsurances={availableInsurances}
+                          insurancesLoading={insurancesLoading}
                           ageRange={ageRange}
                           setAgeRange={setAgeRange}
                           customAgeMin={customAgeMin}
@@ -2228,6 +2309,10 @@ export default function DashboardPage() {
                       setAnswersFilter={setAnswersFilter}
                       genderFilter={genderFilter}
                       setGenderFilter={setGenderFilter}
+                      insuranceFilter={insuranceFilter}
+                      setInsuranceFilter={setInsuranceFilter}
+                      availableInsurances={availableInsurances}
+                      insurancesLoading={insurancesLoading}
                       ageRange={ageRange}
                       setAgeRange={setAgeRange}
                       customAgeMin={customAgeMin}

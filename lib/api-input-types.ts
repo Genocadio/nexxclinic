@@ -442,6 +442,13 @@ export interface SearchVisitsInput {
   activeOnly?: boolean
   status?: VisitStatus
   patientName?: string
+  answersFilter?: string
+  gender?: Gender
+  dob?: string
+  minAge?: number
+  maxAge?: number
+  insuranceId?: string
+  isPrivateOnly?: boolean
   page?: number
   size?: number
 }

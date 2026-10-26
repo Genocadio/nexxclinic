@@ -11,6 +11,7 @@ import {
   FileText,
   Loader2,
   X,
+  Shield,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,12 +24,22 @@ export type AnswersFilterType = "all" | "finalised" | "pending"
 export type GenderFilterType = "all" | "MALE" | "FEMALE" | "OTHER"
 export type AgeRangeType = "all" | "pediatric" | "adult" | "senior" | "custom" | "dob"
 
+export interface AvailableInsuranceOption {
+  id: string
+  name: string
+  acronym?: string | null
+}
+
 export interface DashboardFilterCardProps {
   canQueryAnswerState: boolean
   answersFilter: AnswersFilterType
   setAnswersFilter: (val: AnswersFilterType) => void
   genderFilter: GenderFilterType
   setGenderFilter: (val: GenderFilterType) => void
+  insuranceFilter: string
+  setInsuranceFilter: (val: string) => void
+  availableInsurances?: AvailableInsuranceOption[]
+  insurancesLoading?: boolean
   ageRange: AgeRangeType
   setAgeRange: (val: AgeRangeType) => void
   customAgeMin: string
@@ -53,6 +64,10 @@ export function DashboardFilterCardContent({
   setAnswersFilter,
   genderFilter,
   setGenderFilter,
+  insuranceFilter,
+  setInsuranceFilter,
+  availableInsurances = [],
+  insurancesLoading = false,
   ageRange,
   setAgeRange,
   customAgeMin,
@@ -173,7 +188,7 @@ export function DashboardFilterCardContent({
               key={g.id}
               type="button"
               onClick={() => setGenderFilter(g.id)}
-              className={`py-1.5 px-2 rounded-lg text-xs font-medium text-center transition-all ${
+              className={`py-1.5 px-2 rounded-lg text-xs font-medium text-center transition-all cursor-pointer ${
                 genderFilter === g.id
                   ? "bg-background text-foreground shadow-xs font-semibold"
                   : "text-muted-foreground hover:text-foreground"
@@ -185,7 +200,89 @@ export function DashboardFilterCardContent({
         </div>
       </div>
 
-      {/* Section 3: Age & Date of Birth Filter */}
+      {/* Section 3: Insurance Filter */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+            <Shield className="w-3.5 h-3.5 text-primary" />
+            <span>Insurance / Payer</span>
+          </label>
+          {insuranceFilter !== "all" && (
+            <button
+              type="button"
+              onClick={() => setInsuranceFilter("all")}
+              className="text-[11px] text-primary hover:underline cursor-pointer"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted/60 dark:bg-slate-800/60 border border-border/40 text-xs">
+          <button
+            type="button"
+            onClick={() => setInsuranceFilter("all")}
+            className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              insuranceFilter === "all"
+                ? "bg-background text-foreground shadow-xs font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All Payers
+          </button>
+          <button
+            type="button"
+            onClick={() => setInsuranceFilter("private")}
+            className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              insuranceFilter === "private"
+                ? "bg-background text-foreground shadow-xs font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Private / Self-pay
+          </button>
+        </div>
+
+        {/* List of specific insurances */}
+        {availableInsurances && availableInsurances.length > 0 && (
+          <div className="max-h-36 overflow-y-auto space-y-1 pr-1 pt-1 border-t border-border/30">
+            <div className="grid grid-cols-2 gap-1">
+              {availableInsurances.map((ins) => {
+                const isSelected =
+                  insuranceFilter === ins.id ||
+                  (ins.name && insuranceFilter.toLowerCase() === ins.name.toLowerCase()) ||
+                  (ins.acronym && insuranceFilter.toLowerCase() === ins.acronym.toLowerCase())
+                const label = ins.acronym || ins.name
+                return (
+                  <button
+                    key={ins.id}
+                    type="button"
+                    onClick={() => setInsuranceFilter(isSelected ? "all" : ins.id)}
+                    title={ins.name}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-medium text-left truncate transition-all flex items-center justify-between gap-1 border cursor-pointer ${
+                      isSelected
+                        ? "bg-primary/10 border-primary/50 text-primary font-semibold shadow-2xs"
+                        : "bg-background/80 hover:bg-background border-border/50 text-foreground hover:border-border"
+                    }`}
+                  >
+                    <span className="truncate">{label}</span>
+                    {isSelected && <Check className="w-3 h-3 text-primary shrink-0 stroke-[2.5]" />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {insurancesLoading && (!availableInsurances || availableInsurances.length === 0) && (
+          <div className="flex items-center justify-center py-2 text-xs text-muted-foreground gap-1.5">
+            <Loader2 className="w-3 h-3 animate-spin text-primary" />
+            <span>Loading insurances...</span>
+          </div>
+        )}
+      </div>
+
+      {/* Section 4: Age & Date of Birth Filter */}
       <div className="space-y-1.5">
         <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
           <Calendar className="w-3.5 h-3.5 text-primary" />
@@ -387,7 +484,7 @@ export function DashboardFilterPopover(props: DashboardFilterCardProps) {
               ? "bg-primary/10 border-primary/40 text-primary hover:bg-primary/20"
               : "bg-card/80 dark:bg-slate-900/70 border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/60"
           }`}
-          title="Filter visits (Answers, Gender, Age, DOB, Deep Search)"
+          title="Filter visits (Answers, Gender, Insurance, Age, DOB, Deep Search)"
           aria-label="Filter visits"
         >
           <SlidersHorizontal className="w-4 h-4" />
