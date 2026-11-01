@@ -43,14 +43,13 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
   const clinicName = getClinicDisplayName(clinicProfile)
   const clinicLogoUrl = getClinicLogoUrl(clinicProfile)
 
-  // Personal user report is only for users with operational duties (CLINICIAN, NURSE, FINANCE, RECEPTION)
-  // Users who are strictly admin, manager, or reporting-only do not have personal patient/visit activity.
+  // Personal user report is for staff with operational duties or management oversight
   const hasOperationalRole =
     hasRole(roles, "CLINICIAN") ||
     hasRole(roles, "NURSE") ||
     hasRole(roles, "FINANCE") ||
     hasRole(roles, "RECEPTION")
-  const canAccessPersonalReport = hasOperationalRole
+  const canAccessPersonalReport = hasOperationalRole || canAccessAdminOrManager
 
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/)

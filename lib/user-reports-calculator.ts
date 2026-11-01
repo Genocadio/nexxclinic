@@ -442,7 +442,9 @@ export function calculateUserReports(
   const workerName = worker ? `${worker.firstName || ""} ${worker.lastName || ""}`.trim() || worker.username || "User" : "User"
   const rawRoles = (worker?.roles || []) as RoleName[]
 
-  const isAdminOrManager = false
+  const isAdminOrManager = rawRoles.some((r) =>
+    ["ADMIN", "CLINIC_ADMIN", "MANAGER"].includes(String(r).toUpperCase())
+  )
   const hasReception = rawRoles.some((r) => String(r) === "RECEPTION")
   const hasClinician = rawRoles.some((r) => String(r) === "CLINICIAN")
   const hasNurse = rawRoles.some((r) => String(r) === "NURSE")
@@ -453,6 +455,10 @@ export function calculateUserReports(
   if (hasFinance) allowedTabs.push("finance")
   if (hasNurse) allowedTabs.push("nurse")
   if (hasReception) allowedTabs.push("reception")
+
+  if (allowedTabs.length === 0 && isAdminOrManager) {
+    allowedTabs.push("clinician", "finance", "nurse", "reception")
+  }
 
   const isUserMatch = (userObj?: { id?: string | number | null } | null) => {
     if (!userObj?.id || !workerId) return false
