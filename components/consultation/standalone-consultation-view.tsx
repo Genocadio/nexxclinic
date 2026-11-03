@@ -307,6 +307,11 @@ export function StandaloneConsultationView({
     String(answer?.status || "").toUpperCase() === "FINAL" ||
     String(answer?.status || "").toUpperCase() === "SUBMITTED" ||
     Boolean(visitDepartment.hasFinalizedConsultationAnswers);
+  const isTerminalVisit =
+    visit?.status === "COMPLETED" ||
+    visit?.status === "FINALISED" ||
+    isFinalised;
+
   const productsLocked = isCancelled || isFinalised || isBilled || isDepartmentCompleted;
   const { saveVisitAnswer } = useSaveVisitStandaloneAnswer();
   const { addChildVisitDepartment } = useAddChildVisitDepartment();
@@ -319,9 +324,11 @@ export function StandaloneConsultationView({
   const { notes: departmentNotes, refetch: refetchNotes } =
     useVisitDepartmentNotes(visit.id, firstVisitDepartmentId || null);
   refetchNotesRef.current = refetchNotes;
-  const unreadNotesCount = (departmentNotes || []).filter(
-    (note: any) => !note?.viewed,
-  ).length;
+  const unreadNotesCount = isTerminalVisit
+    ? 0
+    : (departmentNotes || []).filter(
+        (note: any) => !note?.viewed,
+      ).length;
   const { data: previousEncounterData } = useLastPatientDepartmentVisit(
     visit.id,
     catalogDepartmentId || null,
@@ -1070,22 +1077,24 @@ export function StandaloneConsultationView({
             )}
           </Button>
         )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => setNotesOpen((prev) => !prev)}
-          className="relative rounded-full border border-border/70 bg-background p-2"
-          title="Notes"
-          aria-label="Open notes"
-        >
-          <StickyNote className="h-5 w-5" />
-          {!notesOpen && unreadNotesCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[12px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-bounce">
-              {unreadNotesCount}
-            </span>
-          )}
-        </Button>
+        {!isTerminalVisit && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setNotesOpen((prev) => !prev)}
+            className="relative rounded-full border border-border/70 bg-background p-2"
+            title="Notes"
+            aria-label="Open notes"
+          >
+            <StickyNote className="h-5 w-5" />
+            {!notesOpen && unreadNotesCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[12px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-bounce">
+                {unreadNotesCount}
+              </span>
+            )}
+          </Button>
+        )}
       </div>
 
       <ConsultationSidePanels
@@ -1890,35 +1899,37 @@ export function StandaloneConsultationView({
         </SheetContent>
       </Sheet>
 
-      <VisitNotesFloating
-        title="Consultation Notes"
-        notes={departmentNotes}
-        noteTypes={["BILLING", "FORMS", "CONSULTATION", "ADMIN", "PUBLIC"]}
-        open={notesOpen}
-        onOpenChange={setNotesOpen}
-        hideToggleButton
-        visitId={visit?.id}
-        visitDepartmentId={firstVisitDepartmentId}
-        onAddNote={async (noteType, content) => {
-          if (!firstVisitDepartmentId)
-            throw new Error("No department selected for consultation note");
-          const result = await addVisitDepartmentNote(
-            firstVisitDepartmentId,
-            content,
-            noteType,
-          );
-          if (result?.status !== "SUCCESS") {
-            throw new Error(result?.message || "Failed to add note");
-          }
-          await refetchNotes();
-          onVisitRefetch?.();
-        }}
-        onMarkAsViewed={async () => {
-          await markNotesViewed(firstVisitDepartmentId);
-          await refetchNotes();
-          onVisitRefetch?.();
-        }}
-      />
+      {!isTerminalVisit && (
+        <VisitNotesFloating
+          title="Consultation Notes"
+          notes={departmentNotes}
+          noteTypes={["BILLING", "FORMS", "CONSULTATION", "ADMIN", "PUBLIC"]}
+          open={notesOpen}
+          onOpenChange={setNotesOpen}
+          hideToggleButton
+          visitId={visit?.id}
+          visitDepartmentId={firstVisitDepartmentId}
+          onAddNote={async (noteType, content) => {
+            if (!firstVisitDepartmentId)
+              throw new Error("No department selected for consultation note");
+            const result = await addVisitDepartmentNote(
+              firstVisitDepartmentId,
+              content,
+              noteType,
+            );
+            if (result?.status !== "SUCCESS") {
+              throw new Error(result?.message || "Failed to add note");
+            }
+            await refetchNotes();
+            onVisitRefetch?.();
+          }}
+          onMarkAsViewed={async () => {
+            await markNotesViewed(firstVisitDepartmentId);
+            await refetchNotes();
+            onVisitRefetch?.();
+          }}
+        />
+      )}
 
       {patientHistoryOpen && (
         <PatientHistorySidePane

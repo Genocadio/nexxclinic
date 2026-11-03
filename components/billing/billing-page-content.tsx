@@ -1080,6 +1080,10 @@ export function BillingPageContent() {
     );
   };
 
+  const isTerminalVisit =
+    visit?.status === "COMPLETED" ||
+    visit?.status === "FINALISED";
+
   const canDischargeVisit = Boolean(
     visit &&
     visit.status !== "COMPLETED" &&
@@ -1548,36 +1552,38 @@ export function BillingPageContent() {
         disabled={addingVisitInsurance}
       />
 
-      <VisitNotesFloating
-        title="Visit Notes"
-        notes={billingVisibleNotes}
-        allowedDisplayTypes={["PUBLIC", "BILLING"]}
-        noteTypes={["BILLING", "PUBLIC"]}
-        visitId={visit?.id}
-        visitDepartmentId={String(currentBillingDepartmentId || "")}
-        onAddNote={async (noteType, content) => {
-          const visitDepartmentId = String(currentBillingDepartmentId || "");
-          if (!visitDepartmentId) {
-            throw new Error("No department selected for billing note");
-          }
+      {!isTerminalVisit && (
+        <VisitNotesFloating
+          title="Visit Notes"
+          notes={billingVisibleNotes}
+          allowedDisplayTypes={["PUBLIC", "BILLING"]}
+          noteTypes={["BILLING", "PUBLIC"]}
+          visitId={visit?.id}
+          visitDepartmentId={String(currentBillingDepartmentId || "")}
+          onAddNote={async (noteType, content) => {
+            const visitDepartmentId = String(currentBillingDepartmentId || "");
+            if (!visitDepartmentId) {
+              throw new Error("No department selected for billing note");
+            }
 
-          const result = await addVisitDepartmentNote(
-            visitDepartmentId,
-            content,
-            noteType,
-          );
-          if (result?.status !== "SUCCESS") {
-            throw new Error(result?.message || "Failed to add note");
-          }
-          await refetchNotes();
-          await refetchVisit();
-        }}
-        onMarkAsViewed={async (_noteId) => {
-          await markNotesViewed(String(currentBillingDepartmentId || ""));
-          await refetchNotes();
-          await refetchVisit();
-        }}
-      />
+            const result = await addVisitDepartmentNote(
+              visitDepartmentId,
+              content,
+              noteType,
+            );
+            if (result?.status !== "SUCCESS") {
+              throw new Error(result?.message || "Failed to add note");
+            }
+            await refetchNotes();
+            await refetchVisit();
+          }}
+          onMarkAsViewed={async (_noteId) => {
+            await markNotesViewed(String(currentBillingDepartmentId || ""));
+            await refetchNotes();
+            await refetchVisit();
+          }}
+        />
+      )}
 
       <BillingConfirmSheet
         open={showCompleteBillConfirm}

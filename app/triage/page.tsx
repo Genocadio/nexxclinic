@@ -1167,11 +1167,11 @@ function TriagePageInner() {
 
         {/*
           ── Department notes (floating, right-side) ──────────────────────────
-          Rendered only when the visit has at least 1 department.
+          Rendered only when the visit is active and has at least 1 department.
           Vitals above remain GLOBAL to the visit — this component only
           handles notes, scoped per-department with tab switching.
         */}
-        {(visit.departments?.length ?? 0) > 0 && (
+        {visit.status !== "COMPLETED" && visit.status !== "FINALISED" && (visit.departments?.length ?? 0) > 0 && (
           <DepartmentNotesFloating
             visitId={visit.id}
             visitDepartments={visit.departments ?? []}

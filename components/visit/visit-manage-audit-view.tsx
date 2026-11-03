@@ -463,6 +463,10 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
     return visitParsed
   }, [visit])
 
+  const isTerminalVisit =
+    visit?.status === "COMPLETED" ||
+    visit?.status === "FINALISED"
+
   const visitCompletionTime = useMemo(() => {
     if (!visit) return null
     if (visit.status !== "COMPLETED" && visit.status !== "FINALISED") return null
@@ -1648,8 +1652,8 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
         />
       )}
 
-      {/* Floating Department Notes Button (Accessible to Managers & Admins with All Notes) */}
-      {(visit.departments?.length ?? 0) > 0 && (
+      {/* Floating Department Notes Button (Accessible to Managers & Admins with All Notes, only for active/in-progress visits) */}
+      {!isTerminalVisit && (visit.departments?.length ?? 0) > 0 && (
         <DepartmentNotesFloating
           visitId={visit.id}
           visitDepartments={visit.departments ?? []}

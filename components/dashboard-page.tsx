@@ -140,7 +140,6 @@ import {
   type AgeRangeType,
 } from "@/components/dashboard/dashboard-filter-card"
 import { useInsurances } from "@/hooks/insurances/hooks"
-import { PayerFilterCombobox } from "@/components/reports/payer-filter-combobox"
 export default function DashboardPage() {
   const router = useRouter()
   const { doctor } = useAuth()
@@ -319,19 +318,14 @@ export default function DashboardPage() {
     return userDepartmentIds.includes(String(deptId))
   }
 
-  // Unread note visibility on terminal visits (COMPLETED/FINALISED): finance and
-  // admin don't need the note count — only clinicians/doctors and nurses who are
-  // in the department's processors still see unread notes.
-  const isUserInDeptProcessors = (dept?: any) => {
-    if (!doctor?.id || !dept?.processors) return false
-    return (dept.processors as any[]).some((p) => String(p.id) === String(doctor.id))
-  }
+  // Unread note visibility: if a visit is completed or finalised,
+  // no unread note badges or counts are shown anywhere.
   const canSeeUnreadNotesForDept = (visit: Visit, dept: any) => {
-    const isTerminalVisit = visit.status === "COMPLETED" || visit.status === "FINALISED"
-    if (!isTerminalVisit) return true
-    return (
-      (hasClinicianOrDoctorRole || hasNurseRole) && isUserInDeptProcessors(dept)
-    )
+    const isTerminalVisit =
+      visit.status === "COMPLETED" ||
+      visit.status === "FINALISED"
+    if (isTerminalVisit) return false
+    return true
   }
 
   const hasNonClinicianNonFinanceRoles = roles.some((r) =>
@@ -2206,24 +2200,6 @@ export default function DashboardPage() {
                       </button>
                     )
                   })}
-
-                  <div className="h-6 w-px bg-border/40 mx-1 hidden sm:block" />
-
-                  <PayerFilterCombobox
-                    insurances={availableInsurances}
-                    selectedInsuranceIds={selectedInsuranceIds}
-                    isPrivateOnly={isPrivateOnly}
-                    onChange={({ insuranceIds, isPrivateOnly: priv }) => {
-                      setSelectedInsuranceIds(insuranceIds)
-                      setIsPrivateOnly(priv)
-                    }}
-                    loading={insurancesLoading}
-                    className={`h-9 px-3.5 rounded-full text-xs font-medium backdrop-blur-sm transition-all duration-200 ${
-                      selectedInsuranceIds.length > 0 || isPrivateOnly
-                        ? "bg-primary/15 border-primary/50 text-primary shadow-xs font-semibold"
-                        : "bg-muted/50 border-border/50 text-foreground hover:bg-muted/70 hover:scale-105"
-                    }`}
-                  />
                 </div>
                 {/* Mobile filter, layout switch, and search controls */}
                 <div className="md:hidden px-11 sm:px-14 md:px-0">
@@ -2249,17 +2225,6 @@ export default function DashboardPage() {
                             ))}
                           </select>
                         </div>
-                        <PayerFilterCombobox
-                          insurances={availableInsurances}
-                          selectedInsuranceIds={selectedInsuranceIds}
-                          isPrivateOnly={isPrivateOnly}
-                          onChange={({ insuranceIds, isPrivateOnly: priv }) => {
-                            setSelectedInsuranceIds(insuranceIds)
-                            setIsPrivateOnly(priv)
-                          }}
-                          loading={insurancesLoading}
-                          className="h-10 px-3 rounded-full text-xs flex-shrink-0"
-                        />
                         <Button
                           type="button"
                           size="icon"
