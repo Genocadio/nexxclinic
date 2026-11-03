@@ -3,6 +3,11 @@
 import { useEffect, useRef } from "react"
 import { useApolloClient } from "@apollo/client"
 import { useAuth } from "@/lib/auth-context"
+import {
+  playNewVisitNotificationSound,
+  playNoteNotificationSound,
+  playBillingNotificationSound,
+} from "@/lib/sound-notifications"
 
 export interface ClinicSseEvent {
   eventId: string
@@ -121,6 +126,9 @@ export function useClinicSse() {
 
               if (eventType === "VISIT_CREATED") {
                 queriesToRefetch.push("SearchPatients")
+                if (data.actorId !== doctor?.id) {
+                  playNewVisitNotificationSound()
+                }
               }
               if (
                 eventType === "BILLING_COMPLETED" ||

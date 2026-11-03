@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useMutation, useQuery } from "@apollo/client";
 import { VISIT_DEPARTMENT_NOTES_QUERY } from "../queries";
 import {
@@ -6,6 +7,7 @@ import {
   MARK_VISIT_DEPARTMENT_NOTES_VIEWED_MUTATION,
 } from "../mutations";
 import type { ApiResponse } from "../types";
+import type { ClinicSseEvent } from "../use-clinic-sse";
 
 export function useVisitDepartmentNotes(
   visitId: string | null,
@@ -21,6 +23,31 @@ export function useVisitDepartmentNotes(
       fetchPolicy: "cache-and-network",
     },
   );
+
+  useEffect(() => {
+    if (!visitId || typeof window === "undefined") return;
+
+    const handleSse = (e: Event) => {
+      const customEvent = e as CustomEvent<ClinicSseEvent>;
+      const detail = customEvent?.detail;
+      if (!detail) return;
+
+      if (detail.type === "VISIT_NOTE_ADDED" && detail.visitId === visitId) {
+        if (
+          !visitDepartmentId ||
+          !detail.departmentId ||
+          String(detail.departmentId) === String(visitDepartmentId)
+        ) {
+          void refetch();
+        }
+      }
+    };
+
+    window.addEventListener("clinic-sse-event", handleSse);
+    return () => {
+      window.removeEventListener("clinic-sse-event", handleSse);
+    };
+  }, [visitId, visitDepartmentId, refetch]);
 
   const notes = data?.visitDepartmentNotes?.data || [];
   const errorMessage = error?.message || null;

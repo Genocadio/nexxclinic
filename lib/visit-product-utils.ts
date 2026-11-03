@@ -186,3 +186,36 @@ export function canDischargeVisit(visit?: Visit | null): boolean {
   })
 }
 
+/** Returns true if a department or visit is in DEPARTMENT_EDITING mode */
+export function isVisitBeingEditedForBilling(visit?: Visit | null): boolean {
+  if (!visit) return false
+  return flattenVisitDepartments(visit.departments || []).some(
+    (dept) => normalizeVisitProductStatus(dept.status) === "DEPARTMENT_EDITING",
+  )
+}
+
+/** Returns true if a visit has been sent for billing or is ready for billing (BILLING, FINALISED, COMPLETED, or DEPARTMENT_EDITING) */
+export function isVisitSentForBillingOrEditing(visit?: Visit | null): boolean {
+  if (!visit) return false
+  if (isVisitBeingEditedForBilling(visit)) return true
+  const vStatus = normalizeVisitProductStatus(visit.status)
+  if (vStatus === "CANCELLED") return false
+  if (vStatus === "BILLING" || vStatus === "COMPLETED" || vStatus === "FINALISED") {
+    return true
+  }
+  return flattenVisitDepartments(visit.departments || []).some((dept) => {
+    const dStatus = normalizeVisitProductStatus(dept.status)
+    return dStatus === "BILLING" || dStatus === "COMPLETED" || dStatus === "FINALISED"
+  })
+}
+
+/** Returns true if a visit has unbilled products but is still actively under consultation (not sent to billing, not being edited) */
+export function isVisitStillUnderConsultation(visit?: Visit | null): boolean {
+  if (!visit) return false
+  const vStatus = normalizeVisitProductStatus(visit.status)
+  if (vStatus === "CANCELLED") return false
+  if (visitProductsFullySettled(visit)) return false
+  if (!visitHasUnbilledProducts(visit)) return false
+  return !isVisitSentForBillingOrEditing(visit)
+}
+

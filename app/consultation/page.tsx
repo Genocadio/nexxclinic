@@ -4,14 +4,11 @@ import { useRouter, useSearchParams } from "@/lib/navigation";
 import { useVisit } from "@/hooks/auth-hooks";
 import {
     useVisitDepartmentNotes,
-    useAddVisitDepartmentNote,
-    useMarkVisitDepartmentNotesViewed,
     useConsultVisit,
 } from "@/hooks/visits/hooks";
 import { useAuth } from "@/lib/auth-context";
 import { hasRole } from "@/lib/role-utils";
 import { StandaloneConsultationView } from "@/components/consultation/standalone-consultation-view";
-import VisitNotesFloating from "@/components/visit-notes-floating";
 import Header from "@/components/header";
 import type { FormAction } from "@/lib/form-storage";
 import { useEffect, useState } from "react";
@@ -28,10 +25,7 @@ export default function ConsultationPage() {
 
     const { doctor } = useAuth();
     const { visit, loading, error, refetch } = useVisit(visitId || "");
-    const { addVisitDepartmentNote } = useAddVisitDepartmentNote();
-    const { markNotesViewed } = useMarkVisitDepartmentNotesViewed();
     const { consultVisit } = useConsultVisit();
-    const [notesOpen, setNotesOpen] = useState(false);
 
     const visitDepartmentIdParam = searchParams.get("visitDepartmentId");
     const departmentIdParam = searchParams.get("departmentId");
@@ -60,12 +54,15 @@ export default function ConsultationPage() {
     useEffect(() => {
         if (
             visit &&
+            visit.status !== "FINALISED" &&
+            visit.status !== "CANCELLED" &&
             activeDepartment &&
             doctor?.id &&
             hasRole(doctor.roles || [], "CLINICIAN") &&
             activeDepartment.status !== "COMPLETED" &&
             activeDepartment.status !== "FINALISED" &&
-            activeDepartment.status !== "CANCELLED"
+            activeDepartment.status !== "CANCELLED" &&
+            activeDepartment.status !== "BILLING"
         ) {
             const isAlreadyProcessor = (activeDepartment.processors || []).some(
                 (p) => p.id === doctor.id
@@ -140,39 +137,11 @@ export default function ConsultationPage() {
                     existingProducts={existingProducts}
                     onVisitRefetch={() => {
                         void refetch();
+                        void refetchNotes();
                     }}
                     onBack={() => router.back()}
                 />
             </div>
-
-            <VisitNotesFloating
-                title="Consultation Notes"
-                notes={departmentNotes}
-                noteTypes={["BILLING", "FORMS", "CONSULTATION", "ADMIN", "PUBLIC"]}
-                open={notesOpen}
-                onOpenChange={setNotesOpen}
-                hideToggleButton
-                onAddNote={async (noteType, content) => {
-                    const visitDepartmentId = String(activeVisitDepartmentId || "");
-                    if (!visitDepartmentId)
-                        throw new Error("No department selected for consultation note");
-                    const result = await addVisitDepartmentNote(
-                        visitDepartmentId,
-                        content,
-                        noteType,
-                    );
-                    if (result?.status !== "SUCCESS") {
-                        throw new Error(result?.message || "Failed to add note");
-                    }
-                    await refetchNotes();
-                    await refetch();
-                }}
-                onMarkAsViewed={async () => {
-                    await markNotesViewed(String(activeVisitDepartmentId || ""));
-                    await refetchNotes();
-                    await refetch();
-                }}
-            />
         </div>
     );
 }

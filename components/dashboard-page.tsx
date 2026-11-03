@@ -24,6 +24,9 @@ import {
   visitHasDepartmentReadyForBilling,
   visitHasUnbilledProducts,
   visitProductsFullySettled,
+  isVisitBeingEditedForBilling,
+  isVisitSentForBillingOrEditing,
+  isVisitStillUnderConsultation,
 } from "@/lib/visit-product-utils"
 import { useLazyQuery, useMutation } from "@apollo/client"
 import { GET_BILL_BY_VISIT_QUERY, VISITS_QUERY } from "@/hooks/queries"
@@ -3351,8 +3354,52 @@ export default function DashboardPage() {
                                       </TooltipContent>
                                     </Tooltip>
                                   )}
-                                {canSeeBillButton &&
-                                  hasUnbilledItems(visit) && (
+                                {canSeeBillButton && (
+                                  isVisitBeingEditedForBilling(visit) ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setNavigatingVisitId(visit.id)
+                                            handleGoToBilling(visit)
+                                          }}
+                                          title="Continue billing"
+                                          className="h-9 w-9 sm:h-10 sm:w-10 bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center relative"
+                                        >
+                                          {navigatingVisitId === visit.id ? (
+                                            <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                                          ) : (
+                                            <ReceiptText className="w-4 h-4 flex-shrink-0" />
+                                          )}
+                                          <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-amber-500 text-white text-[11px] font-bold flex items-center justify-center border border-white">
+                                            ✎
+                                          </span>
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Continue billing (Edit mode)</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : isVisitStillUnderConsultation(visit) ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            toast.info("This visit is currently under consultation and has not been sent to billing yet.")
+                                          }}
+                                          title="Under Consultation — Not yet sent to billing (Coming Soon)"
+                                          className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full border border-dashed border-amber-400 dark:border-amber-600 transition-all duration-200 flex items-center justify-center"
+                                        >
+                                          <Clock className="w-4 h-4 flex-shrink-0 text-amber-500 animate-pulse" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Under Consultation — Coming soon for billing</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : hasUnbilledItems(visit) && isVisitSentForBillingOrEditing(visit) ? (
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <button
@@ -3383,32 +3430,7 @@ export default function DashboardPage() {
                                         )}
                                       </TooltipContent>
                                     </Tooltip>
-                                  )}
-                                {canSeeBillButton &&
-                                  (visit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING") && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleGoToBilling(visit)
-                                          }}
-                                          title="Continue billing"
-                                          className="h-9 w-9 sm:h-10 sm:w-10 bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center relative"
-                                        >
-                                          <ReceiptText className="w-4 h-4 flex-shrink-0" />
-                                          <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-amber-500 text-white text-[11px] font-bold flex items-center justify-center border border-white">
-                                            ✎
-                                          </span>
-                                        </button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>Continue billing</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  )}
-                                {canSeeBillButton &&
-                                  canPreviewVisitInvoice(visit) && (
+                                  ) : canPreviewVisitInvoice(visit) ? (
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <button
@@ -3434,7 +3456,8 @@ export default function DashboardPage() {
                                         <p>Preview Invoice</p>
                                       </TooltipContent>
                                     </Tooltip>
-                                  )}
+                                  ) : null
+                                )}
 
                                 {/* Manager role buttons */}
                                 {(hasManagerRole || hasAdminRole) && (

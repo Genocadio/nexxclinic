@@ -179,8 +179,12 @@ export function useConsultationVisitExtension(
     const dStatus = String(visitDepartmentStatus || "").toUpperCase();
     return (
       vStatus === "CANCELLED" ||
+      vStatus === "FINALISED" ||
+      vStatus === "COMPLETED" ||
       dStatus === "CANCELLED" ||
-      dStatus === "FINALISED"
+      dStatus === "FINALISED" ||
+      dStatus === "BILLING" ||
+      dStatus === "COMPLETED"
     );
   }, [edit, visitStatus, visitDepartmentStatus]);
 

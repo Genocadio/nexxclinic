@@ -113,4 +113,22 @@ describe("billing edit change detection", () => {
   it("returns false when there is no snapshot baseline", () => {
     expect(hasEditChanges([base], null, pctResolver)).toBe(false);
   });
+
+  it("detects newly added billables from clinician when baseline snapshot only contains previously-billed items", () => {
+    // Previously billed item p1
+    const billedItem = makeItem({ id: "p1", name: "Paracetamol", price: 1000 });
+    // Baseline snapshot created from previous bill (only p1)
+    const baselineSnapshot = snapshotBillingItems([billedItem], pctResolver)!;
+
+    // Doctor in consultation adds p2 (new lab test)
+    const clinicianAddedItem = makeItem({ id: "p2", name: "Malaria Rapid Test", price: 2500 });
+    const currentItems = [billedItem, clinicianAddedItem];
+
+    // Change detection must immediately detect changes without requiring manual adjustments
+    expect(hasEditChanges(currentItems, baselineSnapshot, pctResolver)).toBe(true);
+
+    const changes = detectEditedItemChanges(currentItems, baselineSnapshot, pctResolver);
+    expect(changes.get("p2")).toBe("added");
+    expect(changes.get("p1")).toBeUndefined();
+  });
 });

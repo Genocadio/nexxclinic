@@ -15,8 +15,16 @@ import {
   Search,
   MessageSquarePlus,
   Check,
+  Lock,
+  Receipt,
+  Users,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { useVisitLiveness, isViewerBilling } from "@/hooks/use-visit-liveness";
+import {
+  playNoteNotificationSound,
+  playBillingNotificationSound,
+} from "@/lib/sound-notifications";
 import { useConfirmVisitDepartmentProduct } from "@/hooks/billing/hooks";
 import type { Patient, Visit, VisitDepartment } from "@/lib/api-types";
 import type { FormAction } from "@/lib/form-storage";
@@ -134,12 +142,120 @@ export function StandaloneConsultationView({
   const requestProductsEnabled = Boolean(
     visitDepartment.department?.requestsProducts,
   );
-  const isCancelled =
-    String(visit.status || "").toUpperCase() === "CANCELLED" ||
-    String(visitDepartment.status || "").toUpperCase() === "CANCELLED";
-  const isDepartmentFinalised =
-    String(visitDepartment.status || "").toUpperCase() === "FINALISED";
   const firstVisitDepartmentId = String(visitDepartment.id || "");
+
+  // Real-time overrides from SSE events to ensure instant reflection
+  const [liveVisitFinalised, setLiveVisitFinalised] = useState(
+    String(visit.status || "").toUpperCase() === "FINALISED",
+  );
+  const [liveDepartmentStatus, setLiveDepartmentStatus] = useState<string | null>(
+    visitDepartment.status ? String(visitDepartment.status).toUpperCase() : null,
+  );
+  const [liveBilled, setLiveBilled] = useState(
+    String(visitDepartment.status || "").toUpperCase() === "BILLING",
+  );
+
+  useEffect(() => {
+    if (String(visit.status || "").toUpperCase() === "FINALISED") {
+      setLiveVisitFinalised(true);
+    }
+  }, [visit.status]);
+
+  useEffect(() => {
+    if (visitDepartment.status) {
+      setLiveDepartmentStatus(String(visitDepartment.status).toUpperCase());
+    }
+  }, [visitDepartment.status]);
+
+  const { doctor } = useAuth();
+  const refetchNotesRef = useRef<() => Promise<any> | void>(() => {});
+  const refetchActiveChildNotesRef = useRef<() => Promise<any> | void>(() => {});
+
+  // Real-time presence and SSE handling for consultation
+  const { billingViewers, otherViewers, updateActivity } = useVisitLiveness(visit.id, {
+    onBillingPersonnelOpened: (viewer) => {
+      toast.info(`Billing personnel (${viewer.name}) has opened this visit for billing.`, {
+        toastId: `billing-viewer-${viewer.workerId}`,
+      });
+      playNoteNotificationSound();
+    },
+    onSseEvent: (detail) => {
+      if (detail.visitId !== visit.id) return;
+
+      if (detail.type === "BILLING_COMPLETED") {
+        const actor = detail.actorName ? ` by ${detail.actorName}` : "";
+        toast.info(`This visit has been billed${actor}.`, {
+          toastId: `billing-completed-${detail.eventId || Date.now()}`,
+        });
+        playBillingNotificationSound();
+        setLiveBilled(true);
+        onVisitRefetch?.();
+      } else if (detail.type === "VISIT_DEPARTMENT_STATE_CHANGED") {
+        const deptStatus = String(detail.departmentStatus || "").toUpperCase();
+        const actor = detail.actorName ? ` by ${detail.actorName}` : "";
+
+        if (deptStatus === "BILLING") {
+          toast.info(`This visit has been sent to billing${actor}.`, {
+            toastId: `dept-billing-${detail.departmentId || Date.now()}`,
+          });
+          setLiveDepartmentStatus("BILLING");
+          setLiveBilled(true);
+        } else if (deptStatus === "FINALISED") {
+          toast.info(`This visit department has been finalised${actor}.`, {
+            toastId: `dept-finalised-${detail.departmentId || Date.now()}`,
+          });
+          setLiveDepartmentStatus("FINALISED");
+        } else if (deptStatus === "COMPLETED") {
+          toast.info(`Department completed${actor}.`, {
+            toastId: `dept-completed-${detail.departmentId || Date.now()}`,
+          });
+          setLiveDepartmentStatus("COMPLETED");
+        }
+        onVisitRefetch?.();
+      } else if (detail.type === "VISIT_DISCHARGED") {
+        const actor = detail.actorName ? ` by ${detail.actorName}` : "";
+        toast.info(`This visit has been finalised${actor}.`, {
+          toastId: `visit-finalised-${detail.eventId || Date.now()}`,
+        });
+        setLiveVisitFinalised(true);
+        onVisitRefetch?.();
+      } else if (detail.type === "VISIT_PRODUCT_CHANGED") {
+        const prodName = detail.metadata?.productName ? `: ${detail.metadata.productName}` : "";
+        const action = detail.metadata?.action ? String(detail.metadata.action).toLowerCase() : "updated";
+        toast.info(`Product ${action}${prodName}`, {
+          toastId: `prod-changed-${detail.eventId || Date.now()}`,
+        });
+        onVisitRefetch?.();
+      } else if (detail.type === "VISIT_NOTE_ADDED") {
+        if (detail.actorId !== doctor?.id) {
+          const typeLabel = detail.metadata?.noteType
+            ? `${String(detail.metadata.noteType).toLowerCase()} `
+            : "";
+          const actor = detail.actorName ? ` by ${detail.actorName}` : "";
+          toast.info(`New ${typeLabel}note added${actor}.`, {
+            toastId: `note-added-${detail.metadata?.noteId || detail.eventId || Date.now()}`,
+          });
+          playNoteNotificationSound();
+        }
+        void refetchNotesRef.current?.();
+        void refetchActiveChildNotesRef.current?.();
+        onVisitRefetch?.();
+      } else if (detail.type === "VISIT_CANCELLED") {
+        toast.warn(`This visit has been cancelled.`, {
+          toastId: `visit-cancelled-${detail.eventId || Date.now()}`,
+        });
+        onVisitRefetch?.();
+      } else if (detail.type === "VISIT_REOPENED") {
+        toast.info(`This visit has been reopened.`, {
+          toastId: `visit-reopened-${detail.eventId || Date.now()}`,
+        });
+        setLiveVisitFinalised(false);
+        setLiveDepartmentStatus(null);
+        setLiveBilled(false);
+        onVisitRefetch?.();
+      }
+    },
+  });
 
   // Freeze the loader's answer input for the life of this mount. Once hydrated,
   // the loader must NOT flip sources (department → answer) when the parent's
@@ -153,20 +269,45 @@ export function StandaloneConsultationView({
   const [isFinalising, setIsFinalising] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
 
-  const { doctor } = useAuth();
   const { answer, defaultForm, loading, error, refetch, source } =
     useConsultationFormLoader({
       departmentId: catalogDepartmentId,
       answerId: loaderAnswerId,
     });
 
+  const effectiveVisitStatus = liveVisitFinalised
+    ? "FINALISED"
+    : String(visit.status || "").toUpperCase();
+
+  const effectiveDepartmentStatus =
+    liveDepartmentStatus ||
+    String(visitDepartment.status || "").toUpperCase();
+
+  const isCancelled =
+    effectiveVisitStatus === "CANCELLED" ||
+    effectiveDepartmentStatus === "CANCELLED";
+
+  const isVisitFinalised = effectiveVisitStatus === "FINALISED";
+  const isDepartmentFinalised = effectiveDepartmentStatus === "FINALISED";
+  const isFinalised = isVisitFinalised || isDepartmentFinalised || locallyFinalised;
+
+  const isDepartmentBilling = effectiveDepartmentStatus === "BILLING";
+  const isDepartmentCompleted = effectiveDepartmentStatus === "COMPLETED";
+
+  const hasBilledProducts = Boolean(
+    visitDepartment.products?.some(
+      (p) => String(p.billingState || "").toUpperCase() === "BILLED",
+    ),
+  );
+
+  const isBilled = liveBilled || isDepartmentBilling || hasBilledProducts;
+
   const isFinalisedAnswer =
-    locallyFinalised ||
-    isDepartmentFinalised ||
+    isFinalised ||
     String(answer?.status || "").toUpperCase() === "FINAL" ||
     String(answer?.status || "").toUpperCase() === "SUBMITTED" ||
     Boolean(visitDepartment.hasFinalizedConsultationAnswers);
-  const productsLocked = isCancelled || isFinalisedAnswer;
+  const productsLocked = isCancelled || isFinalised || isBilled || isDepartmentCompleted;
   const { saveVisitAnswer } = useSaveVisitStandaloneAnswer();
   const { addChildVisitDepartment } = useAddChildVisitDepartment();
   const { addProduct } = useAddProductToVisitDepartment();
@@ -177,6 +318,7 @@ export function StandaloneConsultationView({
   const { markNotesViewed } = useMarkVisitDepartmentNotesViewed();
   const { notes: departmentNotes, refetch: refetchNotes } =
     useVisitDepartmentNotes(visit.id, firstVisitDepartmentId || null);
+  refetchNotesRef.current = refetchNotes;
   const unreadNotesCount = (departmentNotes || []).filter(
     (note: any) => !note?.viewed,
   ).length;
@@ -315,11 +457,15 @@ export function StandaloneConsultationView({
       ) || visitDepartment,
     [visit.departments, visitDepartment],
   );
-  const canAddVitals = Boolean(
-    doctor?.roles?.some((role: any) =>
-      ["CLINICIAN", "DOCTOR"].includes(String(role?.name || role).toUpperCase()),
-    ),
-  );
+  const canAddVitals =
+    !isCancelled &&
+    !isFinalised &&
+    !isBilled &&
+    Boolean(
+      doctor?.roles?.some((role: any) =>
+        ["CLINICIAN", "DOCTOR"].includes(String(role?.name || role).toUpperCase()),
+      ),
+    );
   const handleAddVitals = async (
     vitalSigns: Array<{ measurementName: string; value: string; unit: string }>,
   ) => {
@@ -348,6 +494,7 @@ export function StandaloneConsultationView({
     notes: activeChildDepartmentNotes = [],
     refetch: refetchActiveChildNotes,
   } = useVisitDepartmentNotes(visit.id, activeChildNotesDepartmentId || null);
+  refetchActiveChildNotesRef.current = refetchActiveChildNotes;
   const hasUnreadChildRequestNotes = childInvestigationDepartments.some(
     (dept) => (dept.notes?.newNotes || 0) > 0,
   );
@@ -413,9 +560,8 @@ export function StandaloneConsultationView({
         throw new Error("Form context is missing");
       }
 
-      // Never save a finalised form back down to a draft. Once the answer is
-      // FINAL the form must stay frozen — autosave/`edit later` cannot downgrade it.
-      if (status === "DRAFT" && isFinalisedAnswer) {
+      // Never save a finalised or billed form back down to a draft.
+      if (status === "DRAFT" && (isFinalisedAnswer || isBilled)) {
         return null;
       }
 
@@ -604,6 +750,17 @@ export function StandaloneConsultationView({
     return () => window.clearTimeout(timer);
   }, [productSearchQuery]);
 
+  // Sync real-time activity (WhatsApp-style typing / product searching presence)
+  useEffect(() => {
+    if (productSearchFocused || productSearchQuery.trim().length > 0) {
+      updateActivity("searching_products");
+    } else if (notesOpen) {
+      updateActivity("typing_notes");
+    } else {
+      updateActivity("viewing");
+    }
+  }, [productSearchFocused, productSearchQuery, notesOpen, updateActivity]);
+
   // Keep the latest persistAnswers in a ref so the autosave debounce effect can
   // depend only on `answers`. persistAnswers' identity changes whenever its deps
   // change (e.g. onVisitRefetch is an inline arrow from the parent), and letting
@@ -615,7 +772,7 @@ export function StandaloneConsultationView({
 
   useEffect(() => {
     if (!hydratedRef.current) return;
-    if (isFinalisedAnswer) return;
+    if (isFinalisedAnswer || isBilled) return;
 
     const currentSnapshot = buildAnswersSnapshot(answers);
     if (currentSnapshot === lastSavedSnapshotRef.current) {
@@ -662,9 +819,13 @@ export function StandaloneConsultationView({
         clearTimeout(autoSaveTimer.current);
       }
     };
-  }, [answers, isFinalisedAnswer]);
+  }, [answers, isFinalisedAnswer, isBilled]);
 
   const handleManualSave = async () => {
+    if (isFinalised || isBilled) {
+      toast.warn("This visit is already finalised or in billing.");
+      return;
+    }
     if (manualSaveRef.current) return;
     manualSaveRef.current = true;
     setSavingDraft(true);
@@ -683,6 +844,10 @@ export function StandaloneConsultationView({
   };
 
   const handleComplete = async () => {
+    if (isFinalised || isBilled) {
+      toast.warn("This visit is already finalised or in billing.");
+      return;
+    }
     if (unreadNotesCount > 0) {
       toast.warn("Please view the notes first before completing this visit.");
       setNotesOpen(true);
@@ -854,6 +1019,38 @@ export function StandaloneConsultationView({
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 space-y-6 pb-28">
+      {/* Real-time status banners */}
+      {isFinalised && (
+        <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50/80 p-4 text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200 shadow-sm animate-in fade-in">
+          <Lock className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+          <div className="flex-1 text-sm font-medium">
+            <span className="font-semibold">Visit Finalised:</span> This consultation is finalised. All clinical records, products, and actions are locked.
+          </div>
+        </div>
+      )}
+
+      {!isFinalised && isBilled && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200 shadow-sm animate-in fade-in">
+          <Receipt className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <div className="flex-1 text-sm font-medium">
+            <span className="font-semibold">Visit In Billing:</span> This visit is currently open or billed by finance. Product orders and records are locked.
+          </div>
+        </div>
+      )}
+
+      {billingViewers.length > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/80 px-3.5 py-2 text-xs font-medium text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300 shadow-sm animate-in fade-in">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <Users className="w-3.5 h-3.5" />
+          <span>
+            Billing personnel ({billingViewers.map((v) => v.name).join(", ")}) is currently viewing this visit.
+          </span>
+        </div>
+      )}
+
       <div className="fixed right-6 top-1/2 z-50 -translate-y-1/2 flex flex-col items-center gap-3 rounded-full border border-border/60 bg-card/80 p-2 shadow-2xl backdrop-blur">
         {requestProductsEnabled && (
           <Button
@@ -938,7 +1135,7 @@ export function StandaloneConsultationView({
         showTitle={false}
         hideSubmit
         validate
-        edit={!isFinalisedAnswer}
+        edit={!isFinalisedAnswer && !isDepartmentBilling}
         initialAnswers={initialAnswers}
         controlledAnswers={answers}
         onControlledAnswersChange={setAnswers}
@@ -946,14 +1143,14 @@ export function StandaloneConsultationView({
         visitDepartmentId={String(visitDepartment.id)}
         departmentId={catalogDepartmentId}
         visitDepartments={visit.departments as any}
-        visitStatus={visit.status}
-        visitDepartmentStatus={visitDepartment.status}
+        visitStatus={effectiveVisitStatus}
+        visitDepartmentStatus={effectiveDepartmentStatus}
         existingProducts={existingProducts}
         linkedInsurances={visitInsurances}
         onVisitRefetch={onVisitRefetch}
       />
 
-      {!patientHistoryOpen && !isFinalisedAnswer && (
+      {!patientHistoryOpen && (
         <ConsultationBottomDock
           visitId={visit?.id}
           departmentId={String(visitDepartment.id)}
@@ -961,9 +1158,10 @@ export function StandaloneConsultationView({
           processors={visitDepartment.processors || []}
           profiles={visitDepartment.department?.profiles || []}
           activeProfileId={visitDepartment.profile?.id}
-          visitDepartmentStatus={visitDepartment.status}
+          visitDepartmentStatus={effectiveDepartmentStatus}
           products={visitDepartment.products || []}
           onComplete={() => {
+            if (isFinalised || isBilled) return;
             if (unreadNotesCount > 0) {
               toast.warn(
                 "Please view the notes first before completing this visit.",
@@ -973,15 +1171,19 @@ export function StandaloneConsultationView({
             }
             setShowFinalizeConfirm(true);
           }}
-          completeDisabled={unreadNotesCount > 0}
+          completeDisabled={isFinalised || isBilled || unreadNotesCount > 0 || isFinalising}
           completeDisabledReason={
-            unreadNotesCount > 0
-              ? `Unread notes: ${unreadNotesCount}. Open notes to read them first.`
-              : undefined
+            isFinalised
+              ? "Visit is finalised. Edits are locked."
+              : isBilled
+                ? "Visit is in billing / billed. Edits are locked."
+                : unreadNotesCount > 0
+                  ? `Unread notes: ${unreadNotesCount}. Open notes to read them first.`
+                  : undefined
           }
           saveIndicator={{
-            visible: hasAnyAnswerContent,
-            status: saveStatus,
+            visible: hasAnyAnswerContent || isFinalised || isBilled,
+            status: isFinalised || isBilled ? "saved" : saveStatus,
           }}
         />
       )}
@@ -999,7 +1201,7 @@ export function StandaloneConsultationView({
             <Button
               type="button"
               variant="outline"
-              disabled={isFinalising || savingDraft}
+              disabled={isFinalising || savingDraft || isFinalised || isBilled}
               onClick={() => {
                 setShowFinalizeConfirm(false);
                 void handleManualSave();
@@ -1009,9 +1211,9 @@ export function StandaloneConsultationView({
             </Button>
             <Button
               type="button"
-              disabled={unreadNotesCount > 0 || isFinalising}
+              disabled={unreadNotesCount > 0 || isFinalising || isFinalised || isBilled}
               onClick={async () => {
-                if (finalisingRef.current) return;
+                if (finalisingRef.current || isFinalised || isBilled) return;
                 const valid =
                   formRendererRef.current?.validateAndShowErrors() ?? true;
                 if (!valid) {
@@ -1108,8 +1310,8 @@ export function StandaloneConsultationView({
                                         type="button"
                                         size="sm"
                                         variant="outline"
-                                        disabled={isConfirmingThis}
-                                        className="h-6 px-2 text-[12px] font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-300 dark:border-emerald-800 shrink-0"
+                                        disabled={isConfirmingThis || isFinalised || isBilled}
+                                        className="h-6 px-2 text-[12px] font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-300 dark:border-emerald-800 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                                         onClick={async () => {
                                           try {
                                             setConfirmingChildProductId(line.id);
@@ -1145,7 +1347,8 @@ export function StandaloneConsultationView({
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="w-full"
+                              className="w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={isFinalised || String(childDept.status || "").toUpperCase() === "FINALISED"}
                               onClick={() => {
                                 setActiveChildNotesDepartmentId(
                                   String(childDept.id),
@@ -1666,7 +1869,8 @@ export function StandaloneConsultationView({
                       isSubmittingInvestigations ||
                       !firstVisitDepartmentId ||
                       !selectedRequestDepartmentId ||
-                      pendingRequestProducts.length === 0
+                      pendingRequestProducts.length === 0 ||
+                      productsLocked
                     }
                   >
                     {isSubmittingInvestigations
@@ -1693,6 +1897,8 @@ export function StandaloneConsultationView({
         open={notesOpen}
         onOpenChange={setNotesOpen}
         hideToggleButton
+        visitId={visit?.id}
+        visitDepartmentId={firstVisitDepartmentId}
         onAddNote={async (noteType, content) => {
           if (!firstVisitDepartmentId)
             throw new Error("No department selected for consultation note");

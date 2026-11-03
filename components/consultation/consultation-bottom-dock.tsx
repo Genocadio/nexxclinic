@@ -68,10 +68,12 @@ export function ConsultationBottomDock({
   const { addProcessor, loading: addingProcessor } = useAddVisitDepartmentProcessor();
   const { changeVisitDepartmentProfile, loading: changingProfile } =
     useChangeVisitDepartmentProfile();
-  const profileChangeLocked =
-    ["COMPLETED", "FINALISED", "CANCELLED", "DEPARTMENT_EDITING"].includes(
+  const isLockedState =
+    ["COMPLETED", "FINALISED", "CANCELLED", "DEPARTMENT_EDITING", "BILLING"].includes(
       String(visitDepartmentStatus || "").toUpperCase(),
-    ) ||
+    ) || completeDisabled;
+  const profileChangeLocked =
+    isLockedState ||
     products.some(
       (product) =>
         String(product.source).toUpperCase() === "PROFILE" &&
@@ -173,17 +175,20 @@ export function ConsultationBottomDock({
                 <div className="w-px h-8 bg-white/20" />
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
-                      size="icon"
-                      className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg"
-                      onClick={onTransfer}
-                      aria-label="Transfer"
-                    >
-                      <ArrowRightLeft className="h-5 w-5" />
-                    </Button>
+                    <span>
+                      <Button
+                        size="icon"
+                        className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={onTransfer}
+                        aria-label="Transfer"
+                        disabled={isLockedState}
+                      >
+                        <ArrowRightLeft className="h-5 w-5" />
+                      </Button>
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Transfer</p>
+                    <p>{isLockedState ? completeDisabledReason || "Transfer locked" : "Transfer"}</p>
                   </TooltipContent>
                 </Tooltip>
               </>
@@ -230,6 +235,8 @@ export function ConsultationBottomDock({
         <div className="absolute bottom-16 left-1/2 -translate-x-1/2 min-w-56 rounded-xl border border-border bg-background p-2 shadow-xl">
           {departmentId && isCurrentProcessor && (
             <Button variant="ghost" className="w-full justify-start gap-2"
+              disabled={isLockedState}
+              title={isLockedState ? "Clinician additions are locked for this visit" : undefined}
               onClick={() => { setShareOpen(true); setMenuOpen(false); }}>
               <UserPlus className="h-4 w-4" /> Add clinician
             </Button>

@@ -6,6 +6,9 @@ import {
   isBilledVisitProduct,
   visitProductsFullySettled,
   visitHasUnbilledProducts,
+  isVisitBeingEditedForBilling,
+  isVisitSentForBillingOrEditing,
+  isVisitStillUnderConsultation,
 } from "./visit-product-utils"
 import type { Visit, VisitDepartmentProduct } from "./api-types"
 
@@ -149,5 +152,64 @@ describe("billing state / exemption mode split", () => {
     expect(visitProductsFullySettled(visitWith([product({ billingState: "CORRECTING" as any })]))).toBe(false)
     expect(visitHasUnbilledProducts(visitWith([product({ billingState: "CORRECTING" as any })]))).toBe(false)
     expect(visitHasUnbilledProducts(visitWith([product({ billingState: "UNBILLED" as any })]))).toBe(true)
+  })
+})
+
+describe("billing status gates & consultation lifecycle helpers", () => {
+  it("identifies DEPARTMENT_EDITING mode properly", () => {
+    const visit = {
+      id: "v-1",
+      departments: [{ id: "d-1", status: "DEPARTMENT_EDITING" }],
+    } as unknown as Visit
+    expect(isVisitBeingEditedForBilling(visit)).toBe(true)
+    expect(isVisitSentForBillingOrEditing(visit)).toBe(true)
+    expect(isVisitStillUnderConsultation(visit)).toBe(false)
+  })
+
+  it("identifies visits still under consultation with unbilled items", () => {
+    const visit = {
+      id: "v-2",
+      status: "ACTIVE",
+      departments: [
+        {
+          id: "d-1",
+          status: "IN_PROGRESS",
+          products: [{ id: "p-1", billingState: "UNBILLED" }],
+        },
+      ],
+    } as unknown as Visit
+    expect(isVisitBeingEditedForBilling(visit)).toBe(false)
+    expect(isVisitSentForBillingOrEditing(visit)).toBe(false)
+    expect(isVisitStillUnderConsultation(visit)).toBe(true)
+  })
+
+  it("identifies visits sent to billing (BILLING / FINALISED / COMPLETED)", () => {
+    const visitBilling = {
+      id: "v-3",
+      status: "ACTIVE",
+      departments: [
+        {
+          id: "d-1",
+          status: "BILLING",
+          products: [{ id: "p-1", billingState: "UNBILLED" }],
+        },
+      ],
+    } as unknown as Visit
+    expect(isVisitSentForBillingOrEditing(visitBilling)).toBe(true)
+    expect(isVisitStillUnderConsultation(visitBilling)).toBe(false)
+
+    const visitFinalised = {
+      id: "v-4",
+      status: "FINALISED",
+      departments: [
+        {
+          id: "d-1",
+          status: "FINALISED",
+          products: [{ id: "p-1", billingState: "UNBILLED" }],
+        },
+      ],
+    } as unknown as Visit
+    expect(isVisitSentForBillingOrEditing(visitFinalised)).toBe(true)
+    expect(isVisitStillUnderConsultation(visitFinalised)).toBe(false)
   })
 })

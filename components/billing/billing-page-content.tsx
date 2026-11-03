@@ -23,7 +23,9 @@ import {
   visitHasBillableProducts,
   visitHasUnbilledProducts,
   visitProductsFullySettled,
+  isVisitStillUnderConsultation,
 } from "@/lib/visit-product-utils";
+import { Clock } from "lucide-react";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useSearchParams } from "@/lib/navigation";
@@ -41,7 +43,11 @@ import {
   useCancelBillEditing,
 } from "@/hooks/auth-hooks";
 import type { Visit, VisitBilling } from "@/lib/api-types";
-import { getVisitBillingTotals } from "@/lib/visit-billing-utils";
+import {
+  getVisitBillingTotals,
+  isVisitDepartmentProductBilled,
+  flattenVisitBillingItems,
+} from "@/lib/visit-billing-utils";
 import { formatRWF } from "@/lib/utils";
 import { useUpdateVisitDepartmentStatus } from "@/hooks/auth-hooks";
 import {
@@ -53,6 +59,8 @@ import {
   useMarkVisitDepartmentNotesViewed,
   useRemoveVisitDepartment,
 } from "@/hooks/visits/hooks";
+import { useVisitLiveness } from "@/hooks/use-visit-liveness";
+import { playNoteNotificationSound } from "@/lib/sound-notifications";
 import { useBillingPageState } from "@/hooks/billing/use-billing-page-state";
 import { useBillingPageActions } from "@/hooks/billing/use-billing-actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -306,6 +314,26 @@ export function BillingPageContent() {
         setBillingData(mapped);
         return;
       }
+
+      // Live synchronization: if a clinician or background event added or removed products on the visit,
+      // merge them into billingData while strictly preserving the biller's in-progress local edits on existing items.
+      const currentItemMap = new Map(billingData.items.map((i) => [i.id, i]));
+      const mappedIds = new Set(mapped.items.map((i) => i.id));
+      const newItemsFromBackend = mapped.items.filter((item) => !currentItemMap.has(item.id));
+      const removedIdsOnBackend = billingData.items
+        .filter((item) => !item.id.startsWith("temp-") && !mappedIds.has(item.id))
+        .map((i) => i.id);
+
+      if (newItemsFromBackend.length > 0 || removedIdsOnBackend.length > 0) {
+        const removedSet = new Set(removedIdsOnBackend);
+        const preservedItems = billingData.items.filter((item) => !removedSet.has(item.id));
+        const mergedItems = [...preservedItems, ...newItemsFromBackend];
+        setBillingData((prev) =>
+          prev
+            ? { ...prev, items: mergedItems, updatedAt: new Date().toISOString() }
+            : mapped,
+        );
+      }
       return;
     }
 
@@ -527,15 +555,39 @@ export function BillingPageContent() {
     ) {
       return;
     }
-    // Base snapshot must reflect the server-sourced items, not any in-memory
-    // local edits. On a fresh mount billingData has just been remapped from the
-    // visit, so this is the clean baseline.
-    setEditModeSnapshot(bakeSnapshotItems(billingData.items));
-  }, [isEditMode, billingData, editModeSnapshot, bakeSnapshotItems]);
+    // Base snapshot must reflect the server-sourced items that were already part of the bill,
+    // NOT newly added unbilled products from clinicians!
+    const baselineItems = existingVisitBilling
+      ? billingData.items.filter((item) =>
+          isVisitDepartmentProductBilled(existingVisitBilling, item.id),
+        )
+      : billingData.items;
+    setEditModeSnapshot(bakeSnapshotItems(baselineItems));
+  }, [isEditMode, billingData, editModeSnapshot, bakeSnapshotItems, existingVisitBilling]);
 
   // Detect whether the user has made any actual changes in edit mode
   const hasEditChanges = useMemo(() => {
     if (!isEditMode || !billingData) return false;
+
+    // 1. Any product in billingData that was NOT in the previous bill is a newly added
+    // billable from a clinician or staff — this is inherently a valid edit!
+    if (existingVisitBilling) {
+      const hasNewUnbilled = billingData.items.some(
+        (item) => !isVisitDepartmentProductBilled(existingVisitBilling, item.id),
+      );
+      if (hasNewUnbilled) return true;
+
+      // 2. Any product that WAS in the previous bill but has been removed in billingData
+      const previousBilledIds = new Set(
+        flattenVisitBillingItems(existingVisitBilling).map(
+          (i) => i.visitDepartmentProductId,
+        ),
+      );
+      const currentIds = new Set(billingData.items.map((i) => i.id));
+      const hasRemovedBilled = [...previousBilledIds].some((id) => !currentIds.has(id));
+      if (hasRemovedBilled) return true;
+    }
+
     // NOTE: pass the already-baked editModeSnapshot directly. Re-baking it here
     // would overwrite the frozen snapshotPct with the live resolver and mask
     // insurance-data changes that happened during the session.
@@ -544,17 +596,26 @@ export function BillingPageContent() {
       editModeSnapshot,
       resolveSnapshotPct,
     );
-  }, [isEditMode, billingData, editModeSnapshot, resolveSnapshotPct]);
+  }, [isEditMode, billingData, editModeSnapshot, resolveSnapshotPct, existingVisitBilling]);
 
   // Per-item change map for visual diff indicators in edit mode
   const editedItemChanges = useMemo(() => {
     if (!isEditMode || !billingData) return new Map<string, "added" | "modified">();
-    return detectEditedItemChanges(
+    const map = detectEditedItemChanges(
       billingData.items,
       editModeSnapshot ?? [],
       resolveSnapshotPct,
     );
-  }, [isEditMode, billingData, editModeSnapshot, resolveSnapshotPct]);
+    // Explicitly flag any product not in existingVisitBilling as "added"
+    if (existingVisitBilling) {
+      for (const item of billingData.items) {
+        if (!isVisitDepartmentProductBilled(existingVisitBilling, item.id)) {
+          map.set(item.id, "added");
+        }
+      }
+    }
+    return map;
+  }, [isEditMode, billingData, editModeSnapshot, resolveSnapshotPct, existingVisitBilling]);
 
   // Removed items in edit mode for visual diff in confirmation sheet
   const removedItems = useMemo(() => {
@@ -882,6 +943,55 @@ export function BillingPageContent() {
     refetch: refetchNotes,
   } = useVisitDepartmentNotes(visitId, null);
 
+  // Real-time presence and SSE handling for billing
+  const { updateActivity } = useVisitLiveness(visitId, {
+    onSseEvent: (detail) => {
+      if (detail.visitId !== visitId) return;
+
+      if (detail.type === "VISIT_NOTE_ADDED") {
+        if (detail.actorId !== doctor?.id) {
+          const typeLabel = detail.metadata?.noteType
+            ? `${String(detail.metadata.noteType).toLowerCase()} `
+            : "";
+          const actor = detail.actorName ? ` by ${detail.actorName}` : "";
+          toast.info(`New ${typeLabel}note added${actor}.`, {
+            toastId: `note-added-${detail.metadata?.noteId || detail.eventId || Date.now()}`,
+          });
+          playNoteNotificationSound();
+        }
+        void refetchNotes();
+        void refetchVisit();
+      } else if (detail.type === "VISIT_PRODUCT_CHANGED") {
+        const prodName = detail.metadata?.productName ? `: ${detail.metadata.productName}` : "";
+        const action = detail.metadata?.action ? String(detail.metadata.action).toLowerCase() : "updated";
+        toast.info(`Product ${action}${prodName}`, {
+          toastId: `prod-changed-${detail.eventId || Date.now()}`,
+        });
+        void refetchVisit();
+        void refetchBill();
+      } else if (detail.type === "VISIT_DEPARTMENT_STATE_CHANGED") {
+        void refetchVisit();
+        void refetchBill();
+      } else if (
+        detail.type === "VISIT_DISCHARGED" ||
+        detail.type === "VISIT_CANCELLED" ||
+        detail.type === "VISIT_REOPENED"
+      ) {
+        void refetchVisit();
+        void refetchBill();
+      }
+    },
+  });
+
+  // Sync real-time activity for billing (WhatsApp-style presence)
+  useEffect(() => {
+    if (showAddProductModal || addingBillingItem) {
+      updateActivity("searching_products");
+    } else {
+      updateActivity("in_billing");
+    }
+  }, [showAddProductModal, addingBillingItem, updateActivity]);
+
   // Notes dedicated to the department currently being billed (floating panel).
   const billingDepartmentNotes = useMemo(
     () =>
@@ -949,6 +1059,8 @@ export function BillingPageContent() {
     cancelledVisitDepartmentIds,
     visit?.departments,
   ]);
+
+  const isUnderConsultation = visit ? isVisitStillUnderConsultation(visit) : false;
 
   const hasUnbilledItems = (visitData: Visit | undefined) => {
     if (!visitData) return false;
@@ -1214,6 +1326,14 @@ export function BillingPageContent() {
       />
 
       <div className="flex-1 flex flex-col min-h-0">
+        {isUnderConsultation && (
+          <div className="flex items-center gap-2 px-6 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
+            <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span>
+              <strong>Under Consultation:</strong> This visit is currently active in consultation and has not been sent to billing yet. Items cannot be billed until consultation is completed or sent to billing.
+            </span>
+          </div>
+        )}
         {unreadNotesOnOtherDepartments.length > 0 && (
           <div className="flex items-center gap-2 px-4 py-2 bg-destructive/10 border-b border-border text-xs text-destructive">
             <span>
@@ -1236,6 +1356,7 @@ export function BillingPageContent() {
           canAddItems={
             // New products are incremental billing items. They can be added to
             // an active department even when earlier products were billed.
+            !isUnderConsultation &&
             unreadBillingNotesCount === 0 &&
             (isEditMode
               ? canEditBilling
@@ -1245,6 +1366,7 @@ export function BillingPageContent() {
           canEdit={
           // Paid rows remain locked by BillingItemRow; this enables removal
           // and adjustment of newly added unbilled rows after prior billing.
+          !isUnderConsultation &&
           unreadBillingNotesCount === 0 &&
           (isEditMode ? canEditBillingItems && canEditBilling : canBill && activeDeptHasUnbilled)
           }
@@ -1283,7 +1405,7 @@ export function BillingPageContent() {
             }
             existingVisitBilling={isEditMode ? null : existingVisitBilling}
             canEditBilling={canEditBilling}
-            hasRemainingToBill={activeDeptHasUnbilled}
+            hasRemainingToBill={!isUnderConsultation && activeDeptHasUnbilled}
             creatingBill={creatingBill || editingBill}
             generatingInvoice={generatingInvoice}
             isEditingBill={isEditMode}
@@ -1295,6 +1417,12 @@ export function BillingPageContent() {
             // reported outstandingAmount can lag a full payment and otherwise
             // keep showing the Collect payment button after the bill is settled.
             onCompleteBill={() => {
+              if (isUnderConsultation) {
+                toast.warn(
+                  "This visit is still under consultation and cannot be billed yet.",
+                );
+                return;
+              }
               if (unreadBillingNotesCount > 0) {
                 toast.warn(
                   "Please view the notes first before completing the bill.",
@@ -1351,7 +1479,13 @@ export function BillingPageContent() {
                   editMode: true,
                 });
                 setBillingData(editMapped);
-                setEditModeSnapshot(bakeSnapshotItems(editMapped?.items ?? null));
+                // Baseline snapshot must reflect the previous bill's items, so newly added products are detected as added
+                const baselineItems = existingVisitBilling
+                  ? (editMapped?.items ?? []).filter((item) =>
+                      isVisitDepartmentProductBilled(existingVisitBilling, item.id),
+                    )
+                  : (editMapped?.items ?? []);
+                setEditModeSnapshot(bakeSnapshotItems(baselineItems));
                 // Refetch so dept.status becomes DEPARTMENT_EDITING and the
                 // derived isEditMode picks it up even without local state.
                 await refetchVisit();
@@ -1365,12 +1499,16 @@ export function BillingPageContent() {
               try {
                 // Exit DEPARTMENT_EDITING mode on the backend for the active department
                 if (activeVisitDepartment?.id) {
-                  // Collect IDs of products that were added during this edit session
-                  // (in current items but not in the snapshot, excluding temp IDs)
+                  // Collect product IDs that were added directly in billing edit mode,
+                  // protecting consultation/clinical additions from cancellation
                   const addedIds = billingData.items
-                    .filter((item) => !editModeSnapshot?.some((s) => s.id === item.id))
-                    .map((item) => item.id)
-                    .filter((id) => !id.startsWith("temp-"));
+                    .filter(
+                      (item) =>
+                        item.isNewInEditMode &&
+                        !editModeSnapshot?.some((s) => s.id === item.id),
+                    )
+                    .map((item) => item.productId)
+                    .filter((id): id is string => Boolean(id && !id.startsWith("temp-")));
                   try {
                     const result = await cancelBillEditing(activeVisitDepartment.id, addedIds);
                     if (result.status !== "SUCCESS") {
@@ -1414,7 +1552,9 @@ export function BillingPageContent() {
         title="Visit Notes"
         notes={billingVisibleNotes}
         allowedDisplayTypes={["PUBLIC", "BILLING"]}
-        noteTypes={["PUBLIC"]}
+        noteTypes={["BILLING", "PUBLIC"]}
+        visitId={visit?.id}
+        visitDepartmentId={String(currentBillingDepartmentId || "")}
         onAddNote={async (noteType, content) => {
           const visitDepartmentId = String(currentBillingDepartmentId || "");
           if (!visitDepartmentId) {

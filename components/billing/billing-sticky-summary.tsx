@@ -232,7 +232,7 @@ export function BillingStickySummary({
                   </>
                 )}
 
-                {!isEditingBill && hasRemainingToBill && (
+                {!isEditingBill && hasRemainingToBill && !existingVisitBilling && (
                   <Button
                     size="sm"
                     className="h-9 rounded-full text-xs px-4"

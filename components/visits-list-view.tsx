@@ -12,6 +12,9 @@ import {
   visitHasBillableProducts,
   visitProductsFullySettled,
   canDischargeVisit,
+  isVisitBeingEditedForBilling,
+  isVisitSentForBillingOrEditing,
+  isVisitStillUnderConsultation,
 } from "@/lib/visit-product-utils"
 import { useLazyQuery, useMutation } from "@apollo/client"
 import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
@@ -612,8 +615,47 @@ export default function VisitsListView({
                             </span>
                           </button>
                         )}
-                        {/* Bill Visit: only for FINANCE role */}
-                        {hasFinanceRole && hasUnbilledItems(visit) && (
+                        {/* Billing actions for FINANCE role - mutually exclusive: Edit Billing OR Under Consultation OR Bill Visit OR Preview Invoice */}
+                        {hasFinanceRole && isVisitBeingEditedForBilling(visit) ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setNavigatingVisitId(visit.id)
+                              handleGoToBilling(visit)
+                            }}
+                            title="Continue billing (Edit mode)"
+                            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
+                          >
+                            {navigatingVisitId === visit.id ? (
+                              <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                            ) : (
+                              <ReceiptText className="w-4 h-4 flex-shrink-0" />
+                            )}
+                            <span className="hidden sm:inline lg:hidden">
+                              Edit
+                            </span>
+                            <span className="hidden lg:inline">
+                              {navigatingVisitId === visit.id ? "Opening…" : "Continue billing"}
+                            </span>
+                          </button>
+                        ) : hasFinanceRole && isVisitStillUnderConsultation(visit) ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toast.info("This visit is currently under consultation and has not been sent to billing yet.")
+                            }}
+                            title="Under Consultation — Not yet sent to billing (Coming Soon)"
+                            className="px-2 sm:px-3 py-1.5 sm:py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs sm:text-sm font-medium rounded-full border border-dashed border-amber-400 dark:border-amber-600 transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
+                          >
+                            <Clock className="w-4 h-4 flex-shrink-0 text-amber-500 animate-pulse" />
+                            <span className="hidden sm:inline lg:hidden">
+                              Soon
+                            </span>
+                            <span className="hidden lg:inline">
+                              Under Consultation
+                            </span>
+                          </button>
+                        ) : hasFinanceRole && hasUnbilledItems(visit) && isVisitSentForBillingOrEditing(visit) ? (
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -635,32 +677,30 @@ export default function VisitsListView({
                               {navigatingVisitId === visit.id ? "Opening…" : "Bill Visit"}
                             </span>
                           </button>
-                        )}
-                        {/* Preview Invoice: only for FINANCE role if billed or completed/finalised */}
-                        {hasFinanceRole &&
+                        ) : hasFinanceRole &&
                           (getDerivedVisitBillingStatus(visit) === "BILLED" ||
                             visit.status === "COMPLETED" ||
-                            visit.status === "FINALISED") && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                void handlePreviewInvoice(visit)
-                              }}
-                              title="Preview Invoice"
-                              disabled={previewingVisitId === visit.id}
-                              className="px-2 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
-                            >
-                              <ReceiptText
-                                className={`w-4 h-4 flex-shrink-0 ${previewingVisitId === visit.id ? "animate-spin" : ""}`}
-                              />
-                              <span className="hidden sm:inline lg:hidden">
-                                Invoice
-                              </span>
-                              <span className="hidden lg:inline">
-                                Preview Invoice
-                              </span>
-                            </button>
-                          )}
+                            visit.status === "FINALISED") ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              void handlePreviewInvoice(visit)
+                            }}
+                            title="Preview Invoice"
+                            disabled={previewingVisitId === visit.id}
+                            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
+                          >
+                            <ReceiptText
+                              className={`w-4 h-4 flex-shrink-0 ${previewingVisitId === visit.id ? "animate-spin" : ""}`}
+                            />
+                            <span className="hidden sm:inline lg:hidden">
+                              Invoice
+                            </span>
+                            <span className="hidden lg:inline">
+                              Preview Invoice
+                            </span>
+                          </button>
+                        ) : null}
                         {/* Discharge Patient: when all departments completed, visible to MANAGER, ADMIN, FINANCE */}
                         {canSeeDischargeButton && canDischargeVisit(visit) && (
                           <button
