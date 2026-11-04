@@ -69,7 +69,7 @@ export function ConsultationBottomDock({
   const { changeVisitDepartmentProfile, loading: changingProfile } =
     useChangeVisitDepartmentProfile();
   const isLockedState =
-    ["COMPLETED", "FINALISED", "CANCELLED", "DEPARTMENT_EDITING", "BILLING"].includes(
+    ["COMPLETED", "FINALISED", "CANCELLED", "DEPARTMENT_EDITING"].includes(
       String(visitDepartmentStatus || "").toUpperCase(),
     ) || completeDisabled;
   const profileChangeLocked =

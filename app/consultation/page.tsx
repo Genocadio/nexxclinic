@@ -61,14 +61,15 @@ export default function ConsultationPage() {
             hasRole(doctor.roles || [], "CLINICIAN") &&
             activeDepartment.status !== "COMPLETED" &&
             activeDepartment.status !== "FINALISED" &&
-            activeDepartment.status !== "CANCELLED" &&
-            activeDepartment.status !== "BILLING"
+            activeDepartment.status !== "CANCELLED"
         ) {
             const isAlreadyProcessor = (activeDepartment.processors || []).some(
                 (p) => p.id === doctor.id
             );
-            const isPending = activeDepartment.status === "PENDING";
-            if (isPending || !isAlreadyProcessor) {
+            const isPendingOrBilling =
+                activeDepartment.status === "PENDING" ||
+                activeDepartment.status === "BILLING";
+            if (isPendingOrBilling || !isAlreadyProcessor) {
                 const profiles = activeDepartment.department?.profiles || [];
                 const profileId =
                     !activeDepartment.profile?.id && profiles.length === 1

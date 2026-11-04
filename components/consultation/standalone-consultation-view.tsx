@@ -151,9 +151,7 @@ export function StandaloneConsultationView({
   const [liveDepartmentStatus, setLiveDepartmentStatus] = useState<string | null>(
     visitDepartment.status ? String(visitDepartment.status).toUpperCase() : null,
   );
-  const [liveBilled, setLiveBilled] = useState(
-    String(visitDepartment.status || "").toUpperCase() === "BILLING",
-  );
+  const [liveBilled, setLiveBilled] = useState(false);
 
   useEffect(() => {
     if (String(visit.status || "").toUpperCase() === "FINALISED") {
@@ -199,7 +197,13 @@ export function StandaloneConsultationView({
             toastId: `dept-billing-${detail.departmentId || Date.now()}`,
           });
           setLiveDepartmentStatus("BILLING");
-          setLiveBilled(true);
+        } else if (deptStatus === "ACTIVE") {
+          toast.info(`Consultation resumed${actor}.`, {
+            toastId: `dept-active-${detail.departmentId || Date.now()}`,
+          });
+          setLiveDepartmentStatus("ACTIVE");
+          setLiveBilled(false);
+          setLocallyFinalised(false);
         } else if (deptStatus === "FINALISED") {
           toast.info(`This visit department has been finalised${actor}.`, {
             toastId: `dept-finalised-${detail.departmentId || Date.now()}`,
@@ -300,7 +304,8 @@ export function StandaloneConsultationView({
     ),
   );
 
-  const isBilled = liveBilled || isDepartmentBilling || hasBilledProducts;
+  const isActuallyBilled = liveBilled || hasBilledProducts;
+  const isBilled = isActuallyBilled;
 
   const isFinalisedAnswer =
     isFinalised ||
@@ -312,7 +317,7 @@ export function StandaloneConsultationView({
     visit?.status === "FINALISED" ||
     isFinalised;
 
-  const productsLocked = isCancelled || isFinalised || isBilled || isDepartmentCompleted;
+  const productsLocked = isCancelled || isFinalised || isActuallyBilled || isDepartmentCompleted;
   const { saveVisitAnswer } = useSaveVisitStandaloneAnswer();
   const { addChildVisitDepartment } = useAddChildVisitDepartment();
   const { addProduct } = useAddProductToVisitDepartment();
@@ -567,8 +572,8 @@ export function StandaloneConsultationView({
         throw new Error("Form context is missing");
       }
 
-      // Never save a finalised or billed form back down to a draft.
-      if (status === "DRAFT" && (isFinalisedAnswer || isBilled)) {
+      // Never save a finalised form back down to a draft.
+      if (status === "DRAFT" && isFinalised) {
         return null;
       }
 
@@ -851,8 +856,8 @@ export function StandaloneConsultationView({
   };
 
   const handleComplete = async () => {
-    if (isFinalised || isBilled) {
-      toast.warn("This visit is already finalised or in billing.");
+    if (isFinalised) {
+      toast.warn("This visit is already finalised.");
       return;
     }
     if (unreadNotesCount > 0) {
@@ -1144,7 +1149,7 @@ export function StandaloneConsultationView({
         showTitle={false}
         hideSubmit
         validate
-        edit={!isFinalisedAnswer && !isDepartmentBilling}
+        edit={!isFinalised && !isTerminalVisit}
         initialAnswers={initialAnswers}
         controlledAnswers={answers}
         onControlledAnswersChange={setAnswers}
@@ -1170,7 +1175,7 @@ export function StandaloneConsultationView({
           visitDepartmentStatus={effectiveDepartmentStatus}
           products={visitDepartment.products || []}
           onComplete={() => {
-            if (isFinalised || isBilled) return;
+            if (isFinalised) return;
             if (unreadNotesCount > 0) {
               toast.warn(
                 "Please view the notes first before completing this visit.",
@@ -1180,19 +1185,17 @@ export function StandaloneConsultationView({
             }
             setShowFinalizeConfirm(true);
           }}
-          completeDisabled={isFinalised || isBilled || unreadNotesCount > 0 || isFinalising}
+          completeDisabled={isFinalised || unreadNotesCount > 0 || isFinalising}
           completeDisabledReason={
             isFinalised
               ? "Visit is finalised. Edits are locked."
-              : isBilled
-                ? "Visit is in billing / billed. Edits are locked."
-                : unreadNotesCount > 0
-                  ? `Unread notes: ${unreadNotesCount}. Open notes to read them first.`
-                  : undefined
+              : unreadNotesCount > 0
+                ? `Unread notes: ${unreadNotesCount}. Open notes to read them first.`
+                : undefined
           }
           saveIndicator={{
-            visible: hasAnyAnswerContent || isFinalised || isBilled,
-            status: isFinalised || isBilled ? "saved" : saveStatus,
+            visible: hasAnyAnswerContent || isFinalised || isActuallyBilled,
+            status: isFinalised ? "saved" : saveStatus,
           }}
         />
       )}
@@ -1210,7 +1213,7 @@ export function StandaloneConsultationView({
             <Button
               type="button"
               variant="outline"
-              disabled={isFinalising || savingDraft || isFinalised || isBilled}
+              disabled={isFinalising || savingDraft || isFinalised}
               onClick={() => {
                 setShowFinalizeConfirm(false);
                 void handleManualSave();
@@ -1220,9 +1223,9 @@ export function StandaloneConsultationView({
             </Button>
             <Button
               type="button"
-              disabled={unreadNotesCount > 0 || isFinalising || isFinalised || isBilled}
+              disabled={unreadNotesCount > 0 || isFinalising || isFinalised}
               onClick={async () => {
-                if (finalisingRef.current || isFinalised || isBilled) return;
+                if (finalisingRef.current || isFinalised) return;
                 const valid =
                   formRendererRef.current?.validateAndShowErrors() ?? true;
                 if (!valid) {

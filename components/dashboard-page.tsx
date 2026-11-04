@@ -3105,8 +3105,7 @@ export default function DashboardPage() {
                                   )
 
                                   const isEligibleForContinue = Boolean(
-                                    !hasFinalizedAnswer &&
-                                      matchingActiveDept &&
+                                    matchingActiveDept &&
                                       matchingActiveDept.status !== "FINALISED" &&
                                       matchingActiveDept.status !== "CANCELLED",
                                   )
@@ -3117,7 +3116,9 @@ export default function DashboardPage() {
                                     visit.status === "COMPLETED"
 
                                   const consultButtonLabel =
-                                    hasDraftAnswer && isEligibleForContinue
+                                    matchingActiveDept?.status === "BILLING" ||
+                                    matchingActiveDept?.status === "ACTIVE" ||
+                                    (hasDraftAnswer && isEligibleForContinue)
                                       ? "Continue"
                                       : "Start Consult"
 
@@ -3170,7 +3171,7 @@ export default function DashboardPage() {
                                         </Tooltip>
                                       )}
 
-                                      {showClinicianActions && !hasFinalizedAnswer && canConsultVisit(visit) && !isCompletedDepartment && (
+                                      {showClinicianActions && canConsultVisit(visit) && !isCompletedDepartment && (
                                         <Tooltip>
                                           <TooltipTrigger asChild>
                                             <button
@@ -3210,7 +3211,6 @@ export default function DashboardPage() {
                                       )}
 
                                       {showClinicianActions &&
-                                        !hasFinalizedAnswer &&
                                         canEditConsultationAnswers &&
                                         (isCompletedDepartment || matchedClosedDepartment) && (
                                           <Tooltip>
