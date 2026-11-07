@@ -533,16 +533,16 @@ export default function AddActionConsumableModal({
                 </div>
               )}
 
-              {/* Processor Selection — only show when 2+ processors; single processor is silently auto-assigned */}
+              {/* Clinician Selection — only show when 2+ clinicians; single clinician is silently auto-assigned */}
               {processors.length > 1 && (
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Processor</Label>
+                  <Label className="text-sm font-medium">Attending Clinician</Label>
                   <Select
                     value={selectedProcessorId}
                     onValueChange={setSelectedProcessorId}
                   >
                     <SelectTrigger className="h-10">
-                      <SelectValue placeholder="Choose processor..." />
+                      <SelectValue placeholder="Choose clinician..." />
                     </SelectTrigger>
                     <SelectContent>
                       {processors.map((proc) => (

@@ -1096,7 +1096,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                           </div>
 
                           <div className="bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-800">
-                            <span className="text-[11px] uppercase font-bold text-slate-400 block">Assigned Processors</span>
+                            <span className="text-[11px] uppercase font-bold text-slate-400 block">Assigned Clinicians</span>
                             <span className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 block truncate">
                               {processorNames || "Unassigned"}
                             </span>
@@ -1365,7 +1365,7 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                 </div>
 
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                  <span className="text-[11px] text-slate-400 uppercase font-bold block">Processors &amp; Items</span>
+                  <span className="text-[11px] text-slate-400 uppercase font-bold block">Clinicians &amp; Items</span>
                   <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 truncate">
                     {(activeDepartmentMeta.dept.processors || []).map(getWorkerName).join(", ") || "Unassigned"}
                   </p>
@@ -1587,8 +1587,11 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="text-[11px] text-slate-400 block italic">
-                                    Treating Processor
+                                  <span
+                                    className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium"
+                                    title={`Prescribed directly by attending clinician (${addedByName})`}
+                                  >
+                                    Direct Order
                                   </span>
                                 )}
                               </div>
