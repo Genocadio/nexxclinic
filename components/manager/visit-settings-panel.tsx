@@ -134,12 +134,11 @@ const GET_VISIT_BILLING = gql`
             outstandingAmount
             patientInsurance {
               id
-              policyNumber
+              insuranceCardNumber
               insuranceProvider {
                 id
-                name
-                acronym
                 insuranceName
+                acronym
               }
             }
             billingDate
@@ -1917,7 +1916,6 @@ export function VisitSettingsPanel({
                                     const providerName =
                                       ib.patientInsurance?.insuranceProvider?.acronym ||
                                       ib.patientInsurance?.insuranceProvider?.insuranceName ||
-                                      ib.patientInsurance?.insuranceProvider?.name ||
                                       "Insurer"
 
                                     if (isInsured) {
