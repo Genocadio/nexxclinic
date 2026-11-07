@@ -3403,7 +3403,11 @@ export default function DashboardPage() {
                                             e.stopPropagation()
                                             void handlePreviewInvoice(visit)
                                           }}
-                                          title="Preview Invoice"
+                                          title={
+                                            visit.linkedInsurances && visit.linkedInsurances.length > 0
+                                              ? "Preview Invoices (Insurance & Patient)"
+                                              : "Preview Invoice"
+                                          }
                                           disabled={
                                             printingVisitId === visit.id
                                           }
@@ -3418,7 +3422,11 @@ export default function DashboardPage() {
                                         </button>
                                       </TooltipTrigger>
                                       <TooltipContent>
-                                        <p>Preview Invoice</p>
+                                        <p>
+                                          {visit.linkedInsurances && visit.linkedInsurances.length > 0
+                                            ? "Preview Invoices (Insurance & Patient)"
+                                            : "Preview Invoice"}
+                                        </p>
                                       </TooltipContent>
                                     </Tooltip>
                                   ) : null

@@ -686,7 +686,11 @@ export default function VisitsListView({
                               e.stopPropagation()
                               void handlePreviewInvoice(visit)
                             }}
-                            title="Preview Invoice"
+                            title={
+                              visit.linkedInsurances && visit.linkedInsurances.length > 0
+                                ? "Preview Invoices (Insurance & Patient)"
+                                : "Preview Invoice"
+                            }
                             disabled={previewingVisitId === visit.id}
                             className="px-2 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap"
                           >
@@ -694,10 +698,14 @@ export default function VisitsListView({
                               className={`w-4 h-4 flex-shrink-0 ${previewingVisitId === visit.id ? "animate-spin" : ""}`}
                             />
                             <span className="hidden sm:inline lg:hidden">
-                              Invoice
+                              {visit.linkedInsurances && visit.linkedInsurances.length > 0
+                                ? "Invoices"
+                                : "Invoice"}
                             </span>
                             <span className="hidden lg:inline">
-                              Preview Invoice
+                              {visit.linkedInsurances && visit.linkedInsurances.length > 0
+                                ? "Preview Invoices"
+                                : "Preview Invoice"}
                             </span>
                           </button>
                         ) : null}

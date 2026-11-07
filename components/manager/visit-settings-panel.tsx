@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, Fragment } from "react"
 import { createPortal } from "react-dom"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -128,6 +128,20 @@ const GET_VISIT_BILLING = gql`
             id
             status
             totalAmount
+            insuranceCoveredAmount
+            patientPayableAmount
+            paidAmount
+            outstandingAmount
+            patientInsurance {
+              id
+              policyNumber
+              insuranceProvider {
+                id
+                name
+                acronym
+                insuranceName
+              }
+            }
             billingDate
             invoiceUrl
           }
@@ -576,6 +590,7 @@ export function VisitSettingsPanel({
   }
 
   const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice()
+  const [previewingInvoiceKey, setPreviewingInvoiceKey] = useState<string | null>(null)
   const { generateConsultationPdf, loading: generatingConsultationPdf } = useGenerateConsultationPdf()
 
   const handleDepartmentEncounterDateChange = (
@@ -859,6 +874,8 @@ export function VisitSettingsPanel({
     departmentInsuranceBillingId: string,
     copyType?: string,
   ) => {
+    const key = `${departmentInsuranceBillingId}-${copyType || "DEFAULT"}`
+    setPreviewingInvoiceKey(key)
     try {
       const invoiceUrl = await resolveInvoiceUrl(
         departmentInsuranceBillingId,
@@ -868,6 +885,8 @@ export function VisitSettingsPanel({
       openInvoicePreview(invoiceUrl)
     } catch (err: any) {
       toast.error(err.message || "Failed to generate invoice")
+    } finally {
+      setPreviewingInvoiceKey(null)
     }
   }
 
@@ -1884,79 +1903,105 @@ export function VisitSettingsPanel({
                               const deptBilling = billingDepartments?.find(
                                 (b: any) => b.visitDepartment?.id === dept.id,
                               )
-                              const firstInsuranceBilling =
-                                deptBilling?.insuranceBillings?.[0]
-                              if (firstInsuranceBilling) {
-                                const isInsured = Boolean(
-                                  firstInsuranceBilling.insuranceCoveredAmount > 0 ||
-                                    firstInsuranceBilling.patientInsurance,
-                                )
-                                return (
-                                  <div className="flex items-center gap-1.5">
-                                    {isInsured ? (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handlePreviewInvoice(
-                                              firstInsuranceBilling.id,
-                                              "INSURANCE",
-                                            )
-                                          }
-                                          disabled={generatingInvoice}
-                                          className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-blue-200 disabled:opacity-50"
-                                          title="Insurer Claim (Tariff)"
-                                        >
-                                          {generatingInvoice ? (
-                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                          ) : (
-                                            <Eye className="h-3 w-3" />
-                                          )}
-                                          Insurer Claim
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handlePreviewInvoice(
-                                              firstInsuranceBilling.id,
-                                              "PATIENT",
-                                            )
-                                          }
-                                          disabled={generatingInvoice}
-                                          className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-emerald-200 disabled:opacity-50"
-                                          title="Patient Receipt"
-                                        >
-                                          {generatingInvoice ? (
-                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                          ) : (
-                                            <Eye className="h-3 w-3" />
-                                          )}
-                                          Patient Receipt
-                                        </button>
-                                      </>
-                                    ) : (
+                              const insBillings = deptBilling?.insuranceBillings || []
+                              if (insBillings.length === 0) return null
+
+                              return (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {insBillings.map((ib: any) => {
+                                    const isInsured = Boolean(
+                                      (ib.insuranceCoveredAmount && ib.insuranceCoveredAmount > 0) ||
+                                        ib.patientInsurance,
+                                    )
+                                    const invoiceNo = ib.id ? ib.id.slice(-8).toUpperCase() : ""
+                                    const providerName =
+                                      ib.patientInsurance?.insuranceProvider?.acronym ||
+                                      ib.patientInsurance?.insuranceProvider?.insuranceName ||
+                                      ib.patientInsurance?.insuranceProvider?.name ||
+                                      "Insurer"
+
+                                    if (isInsured) {
+                                      const claimKey = `${ib.id}-INSURANCE`
+                                      const receiptKey = `${ib.id}-PATIENT`
+                                      const isClaimLoading =
+                                        previewingInvoiceKey === claimKey ||
+                                        (generatingInvoice && !previewingInvoiceKey)
+                                      const isReceiptLoading =
+                                        previewingInvoiceKey === receiptKey
+
+                                      return (
+                                        <Fragment key={ib.id}>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handlePreviewInvoice(
+                                                ib.id,
+                                                "INSURANCE",
+                                              )
+                                            }
+                                            disabled={generatingInvoice}
+                                            className="px-2 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-blue-200 dark:border-blue-800 disabled:opacity-50"
+                                            title={`${providerName} Claim #${invoiceNo}`}
+                                          >
+                                            {isClaimLoading ? (
+                                              <Loader2 className="h-3 w-3 animate-spin" />
+                                            ) : (
+                                              <Eye className="h-3 w-3" />
+                                            )}
+                                            <span>Claim #{invoiceNo} <span className="text-[10px] opacity-75 font-normal">({providerName})</span></span>
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handlePreviewInvoice(
+                                                ib.id,
+                                                "PATIENT",
+                                              )
+                                            }
+                                            disabled={generatingInvoice}
+                                            className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-emerald-200 dark:border-emerald-800 disabled:opacity-50"
+                                            title={`Patient Receipt #${invoiceNo}`}
+                                          >
+                                            {isReceiptLoading ? (
+                                              <Loader2 className="h-3 w-3 animate-spin" />
+                                            ) : (
+                                              <Eye className="h-3 w-3" />
+                                            )}
+                                            <span>Receipt #{invoiceNo}</span>
+                                          </button>
+                                        </Fragment>
+                                      )
+                                    }
+
+                                    const privKey = `${ib.id}-DEFAULT`
+                                    const isPrivLoading =
+                                      previewingInvoiceKey === privKey ||
+                                      (generatingInvoice && !previewingInvoiceKey)
+
+                                    return (
                                       <button
+                                        key={ib.id}
                                         type="button"
                                         onClick={() =>
                                           handlePreviewInvoice(
-                                            firstInsuranceBilling.id,
+                                            ib.id,
                                           )
                                         }
                                         disabled={generatingInvoice}
-                                        className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-purple-200 disabled:opacity-50"
+                                        className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-purple-200 dark:border-purple-800 disabled:opacity-50"
+                                        title={`Private Invoice #${invoiceNo}`}
                                       >
-                                        {generatingInvoice ? (
+                                        {isPrivLoading ? (
                                           <Loader2 className="h-3 w-3 animate-spin" />
                                         ) : (
                                           <Eye className="h-3 w-3" />
                                         )}
-                                        Preview Invoice
+                                        <span>Invoice #{invoiceNo} <span className="text-[10px] opacity-75 font-normal">(Private)</span></span>
                                       </button>
-                                    )}
-                                  </div>
-                                )
-                              }
-                              return null
+                                    )
+                                  })}
+                                </div>
+                              )
                             })()}
                           </div>
                         </div>

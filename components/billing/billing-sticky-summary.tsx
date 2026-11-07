@@ -249,7 +249,9 @@ export function BillingStickySummary({
                       <ActionButton
                         icon={Printer}
                         label={
-                          generatingInvoice ? "Loading PDF…" : "Print invoice"
+                          generatingInvoice
+                            ? "Loading PDF…"
+                            : `Print invoice #${printableOptions[0].id.slice(-8).toUpperCase()}`
                         }
                         onClick={() => {
                           if (invoiceBlockedUntilComplete) {
@@ -289,7 +291,7 @@ export function BillingStickySummary({
                           {printableOptions.map((opt) => (
                             <div key={opt.id} className="p-1 border-b last:border-b-0 border-border/50">
                               <div className="px-2 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                                <span>{opt.insuranceLabel}</span>
+                                <span>{opt.insuranceLabel} {opt.id ? `• #${opt.id.slice(-8).toUpperCase()}` : ""}</span>
                                 {opt.title && <span className="font-normal lowercase text-[11px] text-muted-foreground/70">{opt.title}</span>}
                               </div>
                               {opt.hasInsurance ? (
@@ -299,7 +301,7 @@ export function BillingStickySummary({
                                     onSelect={() => invoiceBlockedUntilComplete ? onInvoiceBlockedClick?.() : onPrintInvoice?.(opt.id, "INSURANCE")}
                                     className="cursor-pointer"
                                   >
-                                    <span className="truncate">📄 Insurer Copy (Claim)</span>
+                                    <span className="truncate">📄 Insurer Copy (Claim #{opt.id.slice(-8).toUpperCase()})</span>
                                     <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">
                                       {formatRWF(opt.insuranceCoveredAmount)}
                                     </span>
@@ -309,7 +311,7 @@ export function BillingStickySummary({
                                     onSelect={() => invoiceBlockedUntilComplete ? onInvoiceBlockedClick?.() : onPrintInvoice?.(opt.id, "PATIENT")}
                                     className="cursor-pointer"
                                   >
-                                    <span className="truncate">🧾 Patient Receipt & Statement</span>
+                                    <span className="truncate">🧾 Patient Receipt & Statement (#{opt.id.slice(-8).toUpperCase()})</span>
                                     <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">
                                       {formatRWF(opt.patientPayableAmount)}
                                     </span>
@@ -321,7 +323,7 @@ export function BillingStickySummary({
                                   onSelect={() => invoiceBlockedUntilComplete ? onInvoiceBlockedClick?.() : onPrintInvoice?.(opt.id, "PATIENT")}
                                   className="cursor-pointer"
                                 >
-                                  <span className="truncate">🧾 Patient Receipt</span>
+                                  <span className="truncate">🧾 Private Invoice & Receipt (#{opt.id.slice(-8).toUpperCase()})</span>
                                   <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">
                                     {formatRWF(opt.totalAmount)}
                                   </span>

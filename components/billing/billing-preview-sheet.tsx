@@ -654,6 +654,7 @@ export function BillingPreviewSheet({
                                     {invoiceGroups.length > 1
                                       ? `Invoice option ${groupIndex + 1}`
                                       : "Invoice"}
+                                    {group.id ? ` • #${group.id.slice(-8).toUpperCase()}` : ""}
                                     {group.status ? ` • ${group.status}` : ""}
                                     {group.insuranceLabel
                                       ? ` • ${group.insuranceLabel}`
@@ -678,7 +679,7 @@ export function BillingPreviewSheet({
                                             className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
                                             title="Download contracted insurer claim copy"
                                           >
-                                            Insurer Claim
+                                            Insurer Claim #{group.id.slice(-8).toUpperCase()}
                                           </button>
                                           <button
                                             type="button"
@@ -692,7 +693,7 @@ export function BillingPreviewSheet({
                                             className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
                                             title="Download patient receipt and billing statement"
                                           >
-                                            Patient Receipt
+                                            Patient Receipt #{group.id.slice(-8).toUpperCase()}
                                           </button>
                                         </>
                                       ) : (
@@ -706,8 +707,9 @@ export function BillingPreviewSheet({
                                           }
                                           disabled={printingInvoice}
                                           className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                                          title="Download private invoice and receipt"
                                         >
-                                          Download invoice
+                                          Private Invoice #{group.id.slice(-8).toUpperCase()}
                                         </button>
                                       )}
                                     </div>
