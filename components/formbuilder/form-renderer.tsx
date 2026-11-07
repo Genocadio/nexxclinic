@@ -30,6 +30,7 @@ import type {
 } from "./renderer/types";
 import {
   collectAnswerableBlocks,
+  isBlockAnswered,
   isBlockViolating,
   shouldRenderBlock,
   splitInitialAnswers,
@@ -220,19 +221,172 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
 
     const hasViolations = violations.length > 0;
 
+    // Build section jump-nav chips for full mode when the form has multiple logical sections
+    const jumpSections = useMemo(() => {
+      if (mode !== "full") return [];
+      const topBlocks = (form?.blocks ?? []).filter((b) =>
+        shouldRenderBlock(b, answers, getBlockHandlers, form?.blocks),
+      );
+      if (topBlocks.length === 0) return [];
+
+      const headingTypes = new Set(["heading1", "heading2", "heading3"]);
+      const hasMultipleHeadings =
+        topBlocks.filter((b) => headingTypes.has(b.type)).length >= 2;
+
+      type RawGroup = {
+        id: string;
+        title: string;
+        blocks: FormBlock[];
+      };
+      const rawGroups: RawGroup[] = [];
+
+      if (hasMultipleHeadings) {
+        let current: RawGroup | null = null;
+        for (const block of topBlocks) {
+          if (headingTypes.has(block.type)) {
+            if (current && current.blocks.length > 0) {
+              rawGroups.push(current);
+            }
+            current = {
+              id: block.id,
+              title: (block.content || "Section").trim() || "Section",
+              blocks: [block],
+            };
+          } else {
+            if (!current) {
+              current = {
+                id: block.id,
+                title: "Overview",
+                blocks: [block],
+              };
+            } else {
+              current.blocks.push(block);
+            }
+          }
+        }
+        if (current && current.blocks.length > 0) {
+          rawGroups.push(current);
+        }
+      } else {
+        // Fallback for forms without headings: group by clinical/labeled top-level blocks if >= 3
+        const getFallbackTitle = (b: FormBlock): string | null => {
+          if (b.label && b.label.trim()) return b.label.trim();
+          if (b.content && headingTypes.has(b.type)) return b.content.trim();
+          switch (b.type) {
+            case "symptom_listener":
+              return "Symptoms";
+            case "diagnostic_record":
+              return "Diagnosis";
+            case "hypothesis_record":
+              return "Hypothesis";
+            case "medication_full":
+            case "medication_mini":
+              return "Medications";
+            case "product_listener":
+              return "Procedures & Products";
+            case "lab_record":
+              return "Lab Results";
+            default:
+              return null;
+          }
+        };
+
+        for (const block of topBlocks) {
+          const title = getFallbackTitle(block);
+          if (title) {
+            rawGroups.push({
+              id: block.id,
+              title,
+              blocks: [block],
+            });
+          }
+        }
+      }
+
+      if (rawGroups.length < 2) return [];
+
+      const NON_ANSWER_TYPES = new Set([
+        "heading1",
+        "heading2",
+        "heading3",
+        "divider",
+        "spacer",
+      ]);
+
+      return rawGroups.map((group) => {
+        const answerable = collectAnswerableBlocks(group.blocks).filter(
+          (b) =>
+            !NON_ANSWER_TYPES.has(b.type) &&
+            (b.type !== "paragraph" || (b.inlineFields?.length ?? 0) > 0) &&
+            shouldRenderBlock(b, answers, getBlockHandlers, form?.blocks),
+        );
+        const groupViolations = answerable.filter((b) =>
+          isBlockViolating(b, answers, getBlockHandlers(b)),
+        );
+        const answeredCount = answerable.filter((b) =>
+          isBlockAnswered(b, answers, inlineAnswers, getBlockHandlers(b)),
+        ).length;
+        const hasError = showErrors && groupViolations.length > 0;
+        const isComplete =
+          answerable.length > 0 &&
+          groupViolations.length === 0 &&
+          answeredCount > 0;
+
+        return {
+          id: group.id,
+          title: group.title,
+          hasError,
+          violationCount: groupViolations.length,
+          firstViolationId: groupViolations[0]?.id ? String(groupViolations[0].id) : null,
+          isComplete,
+          answeredCount,
+          totalCount: answerable.length,
+        };
+      });
+    }, [mode, form?.blocks, answers, inlineAnswers, getBlockHandlers, showErrors]);
+
+    const scrollToBlock = useCallback((blockId: string, highlightError = true) => {
+      const el = document.getElementById(`block-${blockId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (highlightError) {
+          el.classList.add("ring-2", "ring-red-500", "ring-offset-2");
+          setTimeout(
+            () => el.classList.remove("ring-2", "ring-red-500", "ring-offset-2"),
+            2200,
+          );
+        } else {
+          el.classList.add("ring-2", "ring-primary/50", "ring-offset-2");
+          setTimeout(
+            () => el.classList.remove("ring-2", "ring-primary/50", "ring-offset-2"),
+            1400,
+          );
+        }
+        // Focus first interactive field inside the target block after smooth scroll starts
+        setTimeout(() => {
+          const focusable = el.querySelector<HTMLElement>(
+            "input:not([disabled]), textarea:not([disabled]), select:not([disabled])",
+          );
+          focusable?.focus({ preventScroll: true });
+        }, 320);
+      }
+    }, []);
+
     const validateAndShowErrors = useCallback(() => {
       if (!validate) return true;
       if (hasViolations) {
         setShowErrors(true);
-        // focus first invalid block to make it obvious what to fix
+        // Smoothly scroll to and focus the first invalid block
         const first = violations[0];
         if (first?.id) {
-          scrollToBlock(String(first.id));
+          requestAnimationFrame(() => {
+            scrollToBlock(String(first.id), true);
+          });
         }
         return false;
       }
       return true;
-    }, [validate, hasViolations, violations]);
+    }, [validate, hasViolations, violations, scrollToBlock]);
 
     const clearErrors = useCallback(() => {
       setShowErrors(false);
@@ -254,18 +408,6 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
         return;
       }
       onSubmit?.({ ...answers, ...inlineAnswers });
-    };
-
-    const scrollToBlock = (blockId: string) => {
-      const el = document.getElementById(`block-${blockId}`);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        el.classList.add("ring-2", "ring-red-500", "ring-offset-2");
-        setTimeout(
-          () => el.classList.remove("ring-2", "ring-red-500", "ring-offset-2"),
-          2000,
-        );
-      }
     };
 
     if (!form) return null;
@@ -343,6 +485,57 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
                   }}
                 />
               </div>
+            </div>
+          )}
+
+          {mode === "full" && jumpSections.length >= 2 && (
+            <div className="mb-4 flex items-center gap-1.5 overflow-x-auto rounded-xl border border-border/60 bg-card/70 px-2.5 py-1.5 shadow-2xs backdrop-blur-xs scrollbar-none">
+              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground pr-1 border-r border-border/60">
+                Sections ({jumpSections.filter((s) => s.isComplete).length}/{jumpSections.length})
+              </span>
+              {jumpSections.map((section) => {
+                const targetBlockId =
+                  section.hasError && section.firstViolationId
+                    ? section.firstViolationId
+                    : section.id;
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() =>
+                      scrollToBlock(targetBlockId, section.hasError)
+                    }
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors shrink-0",
+                      section.hasError
+                        ? "border-red-300 bg-red-50/90 text-red-700 hover:bg-red-100 dark:border-red-800/80 dark:bg-red-950/50 dark:text-red-300"
+                        : section.isComplete
+                          ? "border-emerald-300/80 bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100/80 dark:border-emerald-800/70 dark:bg-emerald-950/40 dark:text-emerald-300"
+                          : "border-border/60 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                    title={
+                      section.hasError
+                        ? `${section.title} — ${section.violationCount} required field(s) missing`
+                        : section.isComplete
+                          ? `${section.title} — Completed`
+                          : `Jump to ${section.title}`
+                    }
+                  >
+                    {section.hasError ? (
+                      <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white leading-none">
+                        !
+                      </span>
+                    ) : section.isComplete ? (
+                      <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white leading-none">
+                        ✓
+                      </span>
+                    ) : (
+                      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" />
+                    )}
+                    <span className="max-w-36 truncate">{section.title}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 

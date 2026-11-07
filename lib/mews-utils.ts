@@ -763,3 +763,154 @@ export function calculateMewsScore(
     hasWarningAlert,
   };
 }
+
+export type BmiCategory = "UNDERWEIGHT" | "NORMAL" | "OVERWEIGHT" | "OBESE";
+
+export interface AnthropometricsEvaluation {
+  weightKg: number | null;
+  heightCm: number | null;
+  bmi: number | null;
+  bmiCategory: BmiCategory | null;
+  bmiLabel: string | null;
+  bmiBadgeClassName: string | null;
+  bsaM2: number | null;
+}
+
+/**
+ * Extracts latest valid weight in kg from a list of vital measurements.
+ */
+export function extractLatestWeightKg(
+  measurements: Array<{ measurementName: string; value: string | number }> | null | undefined,
+): number | null {
+  if (!Array.isArray(measurements)) return null;
+  for (const m of measurements) {
+    const key = cleanMetricName(m.measurementName);
+    if (
+      key === "weight" ||
+      key === "poids" ||
+      key === "wt" ||
+      key === "body weight" ||
+      key.includes("weight") ||
+      key.includes("poids")
+    ) {
+      const val = parseNumericVital(m.value);
+      if (val != null && val >= 0.5 && val <= 450) {
+        return Math.round(val * 10) / 10;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Extracts latest valid height in cm from a list of vital measurements.
+ * Automatically converts meters (e.g. 1.72) to cm (172) when value is between 0.35 and 2.6.
+ */
+export function extractLatestHeightCm(
+  measurements: Array<{ measurementName: string; value: string | number }> | null | undefined,
+): number | null {
+  if (!Array.isArray(measurements)) return null;
+  for (const m of measurements) {
+    const key = cleanMetricName(m.measurementName);
+    if (
+      key === "height" ||
+      key === "taille" ||
+      key === "ht" ||
+      key === "length" ||
+      key === "stature" ||
+      key === "body height" ||
+      key.includes("height") ||
+      key.includes("taille")
+    ) {
+      const val = parseNumericVital(m.value);
+      if (val == null || val <= 0) continue;
+      const cm = val >= 0.35 && val <= 2.6 ? val * 100 : val;
+      if (cm >= 25 && cm <= 260) {
+        return Math.round(cm * 10) / 10;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Computes BMI (kg/m²), BMI classification badge, and Mosteller BSA (m²)
+ * from a list of vital measurements.
+ */
+export function calculateAnthropometrics(
+  measurements: Array<{ measurementName: string; value: string | number }> | null | undefined,
+  patientAge?: number | null,
+): AnthropometricsEvaluation {
+  const weightKg = extractLatestWeightKg(measurements);
+  const heightCm = extractLatestHeightCm(measurements);
+
+  if (weightKg == null || heightCm == null || heightCm <= 0) {
+    return {
+      weightKg,
+      heightCm,
+      bmi: null,
+      bmiCategory: null,
+      bmiLabel: null,
+      bmiBadgeClassName: null,
+      bsaM2: null,
+    };
+  }
+
+  const heightM = heightCm / 100;
+  const rawBmi = weightKg / (heightM * heightM);
+  const bmi = Math.round(rawBmi * 10) / 10;
+
+  // Mosteller formula for Body Surface Area (BSA): sqrt((heightCm * weightKg) / 3600)
+  const rawBsa = Math.sqrt((heightCm * weightKg) / 3600);
+  const bsaM2 = Math.round(rawBsa * 100) / 100;
+
+  // For infants < 2 years, standard adult BMI cutoffs do not apply clinically
+  if (patientAge != null && patientAge < 2) {
+    return {
+      weightKg,
+      heightCm,
+      bmi,
+      bmiCategory: "NORMAL",
+      bmiLabel: "Infant BMI",
+      bmiBadgeClassName:
+        "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30",
+      bsaM2,
+    };
+  }
+
+  let bmiCategory: BmiCategory;
+  let bmiLabel: string;
+  let bmiBadgeClassName: string;
+
+  if (bmi < 18.5) {
+    bmiCategory = "UNDERWEIGHT";
+    bmiLabel = "Underweight";
+    bmiBadgeClassName =
+      "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30";
+  } else if (bmi < 25) {
+    bmiCategory = "NORMAL";
+    bmiLabel = "Normal";
+    bmiBadgeClassName =
+      "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
+  } else if (bmi < 30) {
+    bmiCategory = "OVERWEIGHT";
+    bmiLabel = "Overweight";
+    bmiBadgeClassName =
+      "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30";
+  } else {
+    bmiCategory = "OBESE";
+    bmiLabel = "Obese";
+    bmiBadgeClassName =
+      "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30";
+  }
+
+  return {
+    weightKg,
+    heightCm,
+    bmi,
+    bmiCategory,
+    bmiLabel,
+    bmiBadgeClassName,
+    bsaM2,
+  };
+}

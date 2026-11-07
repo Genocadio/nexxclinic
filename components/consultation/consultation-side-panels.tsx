@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VitalSignAlertBadge } from "@/components/vital-signs/vital-sign-alert-badge";
 import { VitalSignsMewsBanner } from "@/components/vital-signs/vital-signs-mews-banner";
+import { calculateAnthropometrics } from "@/lib/mews-utils";
 
 interface PanelState {
   pinned: boolean;
@@ -33,6 +34,7 @@ function VitalsPanel({
   canAddVitals,
   onAddVitals,
   onTogglePin,
+  onClose,
   patientAge,
 }: {
   vitals: any[];
@@ -41,6 +43,7 @@ function VitalsPanel({
   canAddVitals: boolean;
   onAddVitals?: (vitals: Array<{ measurementName: string; value: string; unit: string }>) => Promise<boolean>;
   onTogglePin?: () => void;
+  onClose?: () => void;
   patientAge?: number | null;
 }) {
   type DraftVital = {
@@ -77,36 +80,62 @@ function VitalsPanel({
   }, [groups.length, canAddVitals]);
 
   const current = groups[index];
+  const draftAnthropometrics = useMemo(
+    () =>
+      calculateAnthropometrics(
+        draft.filter((item) => !!item.value.trim()),
+        patientAge,
+      ),
+    [draft, patientAge],
+  );
+  const currentAnthropometrics = useMemo(
+    () => calculateAnthropometrics(current?.measurements || [], patientAge),
+    [current?.measurements, patientAge],
+  );
+  const isPediatric = patientAge != null && patientAge < 15;
 
   return (
     <div
-      className="fixed z-40 w-88 bg-background border border-border rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
+      className="fixed z-50 lg:z-40 inset-x-3 top-20 mx-auto w-auto max-w-md lg:inset-x-auto lg:mx-0 lg:w-72 xl:w-80 max-h-[calc(100dvh-6.5rem)] overflow-y-auto overscroll-contain bg-background/95 backdrop-blur-md border border-border rounded-xl shadow-2xl transition-all duration-200"
       style={slotStyle}
     >
-      <div className="flex items-center justify-between p-3 border-b border-border">
+      <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2.5 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-semibold">Vital Signs</p>
+          <p className="text-xs sm:text-sm font-semibold">Vital Signs</p>
           {pinned && (
-            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+            <span className="hidden lg:inline-block text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
               Pinned
             </span>
           )}
         </div>
-        {onTogglePin && (
-          <button
-            type="button"
-            onClick={onTogglePin}
-            className={`p-1.5 rounded-md transition-colors ${
-              pinned
-                ? "text-primary hover:bg-primary/10"
-                : "text-muted-foreground hover:bg-muted"
-            }`}
-            title={pinned ? "Unpin card" : "Pin card"}
-            aria-label={pinned ? "Unpin card" : "Pin card"}
-          >
-            <Pin className={`w-4 h-4 ${pinned ? "fill-current" : ""}`} />
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          {onTogglePin && (
+            <button
+              type="button"
+              onClick={onTogglePin}
+              className={`hidden lg:inline-flex p-1 rounded-md transition-colors ${
+                pinned
+                  ? "text-primary hover:bg-primary/10"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+              title={pinned ? "Unpin card" : "Pin card"}
+              aria-label={pinned ? "Unpin card" : "Pin card"}
+            >
+              <Pin className={`w-3.5 h-3.5 ${pinned ? "fill-current" : ""}`} />
+            </button>
+          )}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              title="Close vital signs"
+              aria-label="Close vital signs"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
       <div className="p-3">
         {adding && canAddVitals && onAddVitals && (
@@ -118,6 +147,33 @@ function VitalsPanel({
                 compact
                 className="mb-2"
               />
+            )}
+            {(draftAnthropometrics.bmi != null || (isPediatric && draftAnthropometrics.weightKg != null)) && (
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-1.5 rounded-lg border border-indigo-500/25 bg-indigo-500/10 px-2.5 py-1.5 text-xs">
+                {draftAnthropometrics.bmi != null ? (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-foreground">
+                      BMI: {draftAnthropometrics.bmi} kg/m²
+                    </span>
+                    {draftAnthropometrics.bmiLabel && (
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${draftAnthropometrics.bmiBadgeClassName}`}
+                      >
+                        {draftAnthropometrics.bmiLabel}
+                      </span>
+                    )}
+                    {draftAnthropometrics.bsaM2 != null && (
+                      <span className="text-[11px] text-muted-foreground">
+                        • BSA: {draftAnthropometrics.bsaM2} m²
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="font-medium text-indigo-700 dark:text-indigo-300">
+                    Pediatric Dosing Weight: {draftAnthropometrics.weightKg} kg
+                  </span>
+                )}
+              </div>
             )}
             <div className="grid grid-cols-[1.3fr_1fr_0.65fr] gap-1.5 border-b pb-1 text-[10px] font-semibold uppercase text-muted-foreground">
               <span>Measurement</span><span>Value</span><span>Unit</span>
@@ -249,6 +305,45 @@ function VitalsPanel({
               />
             )}
 
+            {/* Auto-calculated BMI, BSA & Pediatric Weight summary */}
+            {(currentAnthropometrics.bmi != null || (isPediatric && currentAnthropometrics.weightKg != null)) && (
+              <div className="mb-2.5 rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-3 py-2 text-xs">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  {currentAnthropometrics.bmi != null ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-semibold text-foreground">
+                        BMI: {currentAnthropometrics.bmi} kg/m²
+                      </span>
+                      {currentAnthropometrics.bmiLabel && (
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${currentAnthropometrics.bmiBadgeClassName}`}
+                        >
+                          {currentAnthropometrics.bmiLabel}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="font-semibold text-indigo-700 dark:text-indigo-300">
+                      Pediatric Weight: {currentAnthropometrics.weightKg} kg
+                    </span>
+                  )}
+                  {currentAnthropometrics.bsaM2 != null && (
+                    <span
+                      className="text-[11px] font-medium text-muted-foreground"
+                      title="Body Surface Area (Mosteller formula)"
+                    >
+                      BSA: {currentAnthropometrics.bsaM2} m²
+                    </span>
+                  )}
+                </div>
+                {isPediatric && currentAnthropometrics.weightKg != null && currentAnthropometrics.bmi != null && (
+                  <div className="mt-1 pt-1 border-t border-indigo-500/20 text-[11px] text-indigo-800 dark:text-indigo-200 font-medium">
+                    👶 Pediatric Dosing Weight: <span className="font-bold">{currentAnthropometrics.weightKg} kg</span> ({patientAge} {patientAge === 1 ? "yr" : "yrs"})
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               {current.measurements.map((v: any) => (
                 <div
@@ -342,11 +437,29 @@ export function ConsultationSidePanels({
     return panelIndex === 0 ? "upper" : panelIndex === 1 ? "middle" : "lower";
   };
 
+  const [isDesktopViewport, setIsDesktopViewport] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsDesktopViewport(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  const canHoverPreview = () =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(min-width: 1280px) and (hover: hover)").matches;
+
   const getPositionStyle = (
     slot: "single" | "upper" | "lower" | "middle",
     count: number,
   ) => {
-    const base = { left: "5rem", transform: "translateY(-50%)" };
+    if (!isDesktopViewport) {
+      return undefined;
+    }
+    const base = { left: "3.25rem", transform: "translateY(-50%)" };
     if (count <= 1) return { ...base, top: "50%" };
     if (count === 2) {
       return slot === "upper"
@@ -358,25 +471,44 @@ export function ConsultationSidePanels({
     return { ...base, top: "75%" };
   };
 
+  const closeAllPanels = () => {
+    setIdPanel({ pinned: false, hover: false });
+    setVitalsPanel({ pinned: false, hover: false });
+    setHistoryPanel({ pinned: false, hover: false });
+  };
+
   const handlePanelClick = (panelKey: "id" | "vitals" | "history") => {
     if (panelKey === "id") {
-      setIdPanel({ ...idPanel, pinned: !idPanel.pinned, hover: false });
+      const nextPinned = !idPanel.pinned;
+      setIdPanel({ pinned: nextPinned, hover: false });
+      if (!isDesktopViewport && nextPinned) {
+        setVitalsPanel({ pinned: false, hover: false });
+        setHistoryPanel({ pinned: false, hover: false });
+      }
     } else if (panelKey === "vitals") {
+      const nextPinned = !vitalsPanel.pinned;
       setVitalsPanel({
-        ...vitalsPanel,
-        pinned: !vitalsPanel.pinned,
+        pinned: nextPinned,
         hover: false,
       });
+      if (!isDesktopViewport && nextPinned) {
+        setIdPanel({ pinned: false, hover: false });
+        setHistoryPanel({ pinned: false, hover: false });
+      }
     } else if (panelKey === "history") {
       if (onOpenHistory) {
         onOpenHistory();
         return;
       }
+      const nextPinned = !historyPanel.pinned;
       setHistoryPanel({
-        ...historyPanel,
-        pinned: !historyPanel.pinned,
+        pinned: nextPinned,
         hover: false,
       });
+      if (!isDesktopViewport && nextPinned) {
+        setIdPanel({ pinned: false, hover: false });
+        setVitalsPanel({ pinned: false, hover: false });
+      }
     }
   };
 
@@ -420,31 +552,46 @@ export function ConsultationSidePanels({
 
   return (
     <>
-      {/* Left vertical pill with quick panel buttons */}
-      <div className="fixed left-6 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-2 bg-card/60 backdrop-blur-xl border border-border/50 rounded-full p-2 shadow-2xl">
+      {/* Mobile/Tablet backdrop to dismiss open floating panel */}
+      {(showIdPanel || showVitalsPanel || (!onOpenHistory && showHistoryPanel)) && (
+        <div
+          className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px] lg:hidden"
+          onClick={closeAllPanels}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Left vertical pill with compact quick panel buttons (desktop lg+) */}
+      <div className="hidden lg:flex fixed left-2.5 xl:left-4 top-1/2 -translate-y-1/2 z-40 flex-col items-center gap-1.5 bg-card/85 backdrop-blur-md border border-border/60 rounded-full p-1 shadow-lg">
         <button
           title="Identification"
-          className={`p-2 rounded-full transition-colors ${idPanel.pinned ? "bg-white/40 ring-2 ring-white/60" : "hover:bg-muted"}`}
-          onMouseEnter={() =>
-            setIdPanel({ ...idPanel, hover: !idPanel.pinned })
-          }
+          className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+            idPanel.pinned
+              ? "bg-primary/15 text-primary ring-1 ring-primary/40"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+          onMouseEnter={() => {
+            if (canHoverPreview()) {
+              setIdPanel({ ...idPanel, hover: !idPanel.pinned });
+            }
+          }}
           onMouseLeave={() => setIdPanel({ ...idPanel, hover: false })}
           onClick={() => handlePanelClick("id")}
         >
-          <User
-            className={`w-5 h-5 ${idPanel.pinned ? "text-foreground" : "text-muted-foreground"}`}
-          />
+          <User className="w-4 h-4" />
         </button>
         <button
-          title={hasVitals ? "Vital Signs" : "Add vital signs"}
-          className={`p-2 rounded-full transition-colors ${
+          title={hasVitals ? "Vital Signs (Alt+V)" : "Add vital signs (Alt+V)"}
+          className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
             vitalsPanel.pinned
-              ? "bg-white/40 ring-2 ring-white/60"
-              : "hover:bg-muted"
+              ? "bg-primary/15 text-primary ring-1 ring-primary/40"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
           }`}
-          onMouseEnter={() =>
-            setVitalsPanel({ ...vitalsPanel, hover: !vitalsPanel.pinned })
-          }
+          onMouseEnter={() => {
+            if (canHoverPreview()) {
+              setVitalsPanel({ ...vitalsPanel, hover: !vitalsPanel.pinned });
+            }
+          }}
           onMouseLeave={() =>
             setVitalsPanel({ ...vitalsPanel, hover: false })
           }
@@ -452,61 +599,77 @@ export function ConsultationSidePanels({
             handlePanelClick("vitals");
           }}
         >
-          {hasVitals ? <HeartPulse
-            className={`w-5 h-5 ${vitalsPanel.pinned ? "text-foreground" : "text-muted-foreground"}`}
-          />
-          : <Plus className="w-5 h-5 text-muted-foreground" />}
+          {hasVitals ? (
+            <HeartPulse className="w-4 h-4" />
+          ) : (
+            <Plus className="w-4 h-4" />
+          )}
         </button>
         <button
           title="History"
-          className={`p-2 rounded-full transition-colors ${historyPanel.pinned ? "bg-white/40 ring-2 ring-white/60" : "hover:bg-muted"}`}
-          onMouseEnter={() =>
-            setHistoryPanel({ ...historyPanel, hover: !historyPanel.pinned })
-          }
+          className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+            historyPanel.pinned
+              ? "bg-primary/15 text-primary ring-1 ring-primary/40"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+          onMouseEnter={() => {
+            if (canHoverPreview()) {
+              setHistoryPanel({ ...historyPanel, hover: !historyPanel.pinned });
+            }
+          }}
           onMouseLeave={() =>
             setHistoryPanel({ ...historyPanel, hover: false })
           }
           onClick={() => handlePanelClick("history")}
         >
-          <HistoryIcon
-            className={`w-5 h-5 ${historyPanel.pinned ? "text-foreground" : "text-muted-foreground"}`}
-          />
+          <HistoryIcon className="w-4 h-4" />
         </button>
       </div>
 
       {/* Identification Panel */}
       {showIdPanel && (
         <div
-          className="fixed z-40 w-80 bg-background border border-border rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
+          className="fixed z-50 lg:z-40 inset-x-3 top-20 mx-auto w-auto max-w-md lg:inset-x-auto lg:mx-0 lg:w-72 xl:w-80 max-h-[calc(100dvh-6.5rem)] overflow-y-auto overscroll-contain bg-background/95 backdrop-blur-md border border-border rounded-xl shadow-2xl transition-all duration-200"
           style={
             getPositionStyle(getPanelSlot("id"), activePanels.length) as any
           }
         >
-          <div className="flex items-center justify-between p-3 border-b border-border">
+          <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2.5 bg-background/95 backdrop-blur-md border-b border-border">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold">Identification</p>
+              <p className="text-xs sm:text-sm font-semibold">Identification</p>
               {idPanel.pinned && (
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                <span className="hidden lg:inline-block text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
                   Pinned
                 </span>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => handlePanelClick("id")}
-              className={`p-1.5 rounded-md transition-colors ${
-                idPanel.pinned
-                  ? "text-primary hover:bg-primary/10"
-                  : "text-muted-foreground hover:bg-muted"
-              }`}
-              title={idPanel.pinned ? "Unpin card" : "Pin card"}
-              aria-label={idPanel.pinned ? "Unpin card" : "Pin card"}
-            >
-              <Pin className={`w-4 h-4 ${idPanel.pinned ? "fill-current" : ""}`} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => handlePanelClick("id")}
+                className={`hidden lg:inline-flex p-1 rounded-md transition-colors ${
+                  idPanel.pinned
+                    ? "text-primary hover:bg-primary/10"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+                title={idPanel.pinned ? "Unpin card" : "Pin card"}
+                aria-label={idPanel.pinned ? "Unpin card" : "Pin card"}
+              >
+                <Pin className={`w-3.5 h-3.5 ${idPanel.pinned ? "fill-current" : ""}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIdPanel({ pinned: false, hover: false })}
+                className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                title="Close identification"
+                aria-label="Close identification"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-          <div className="p-4 space-y-2 text-sm">
-            <div className="font-semibold text-foreground text-base leading-tight">
+          <div className="p-3.5 space-y-1.5 text-xs sm:text-sm">
+            <div className="font-semibold text-foreground text-sm sm:text-base leading-tight">
               {patientFullName}
             </div>
             {patient.patientIdentifier && (
@@ -533,7 +696,7 @@ export function ConsultationSidePanels({
             <div className="pt-2 border-t border-border/40">
               {visitInsurances && visitInsurances.length > 0 ? (
                 <div className="space-y-1">
-                  <div className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                  <div className="text-[11px] font-semibold text-foreground uppercase tracking-wide">
                     Insurance
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -570,6 +733,7 @@ export function ConsultationSidePanels({
           canAddVitals={canAddVitals}
           onAddVitals={onAddVitals}
           onTogglePin={() => handlePanelClick("vitals")}
+          onClose={() => setVitalsPanel({ pinned: false, hover: false })}
           patientAge={patientAge}
         />
       )}
@@ -577,7 +741,7 @@ export function ConsultationSidePanels({
       {/* History Panel */}
       {!onOpenHistory && showHistoryPanel && (
         <div
-          className="fixed z-40 w-96 bg-white/20 backdrop-blur-xl border border-white/30 rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
+          className="fixed z-50 lg:z-40 inset-x-3 top-20 mx-auto w-auto max-w-md lg:inset-x-auto lg:mx-0 lg:w-72 xl:w-80 max-h-[calc(100dvh-6.5rem)] overflow-y-auto overscroll-contain bg-background/95 backdrop-blur-md border border-border rounded-xl shadow-2xl transition-all duration-200"
           style={
             getPositionStyle(
               getPanelSlot("history"),
@@ -585,28 +749,39 @@ export function ConsultationSidePanels({
             ) as any
           }
         >
-          <div className="flex items-center justify-between p-3 border-b border-border">
+          <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2.5 bg-background/95 backdrop-blur-md border-b border-border">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold">History</p>
+              <p className="text-xs sm:text-sm font-semibold">History</p>
               {historyPanel.pinned && (
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                <span className="hidden lg:inline-block text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
                   Pinned
                 </span>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => handlePanelClick("history")}
-              className={`p-1.5 rounded-md transition-colors ${
-                historyPanel.pinned
-                  ? "text-primary hover:bg-primary/10"
-                  : "text-muted-foreground hover:bg-muted"
-              }`}
-              title={historyPanel.pinned ? "Unpin card" : "Pin card"}
-              aria-label={historyPanel.pinned ? "Unpin card" : "Pin card"}
-            >
-              <Pin className={`w-4 h-4 ${historyPanel.pinned ? "fill-current" : ""}`} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => handlePanelClick("history")}
+                className={`hidden lg:inline-flex p-1 rounded-md transition-colors ${
+                  historyPanel.pinned
+                    ? "text-primary hover:bg-primary/10"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+                title={historyPanel.pinned ? "Unpin card" : "Pin card"}
+                aria-label={historyPanel.pinned ? "Unpin card" : "Pin card"}
+              >
+                <Pin className={`w-3.5 h-3.5 ${historyPanel.pinned ? "fill-current" : ""}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryPanel({ pinned: false, hover: false })}
+                className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                title="Close history"
+                aria-label="Close history"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
           <div className="p-4 space-y-3 text-sm">
             <div>

@@ -10,6 +10,9 @@ import {
   evaluateRespiratoryRate,
   evaluateVitalSignAlert,
   calculateMewsScore,
+  calculateAnthropometrics,
+  extractLatestWeightKg,
+  extractLatestHeightCm,
 } from "./mews-utils";
 
 describe("mews-utils parsing", () => {
@@ -254,5 +257,76 @@ describe("Compound MEWS Score Calculation", () => {
 
     const alertSpO2 = evaluateVitalSignAlert("SpO2", "91%");
     expect(alertSpO2?.metric).toBe("SPO2");
+  });
+});
+
+describe("Anthropometrics (BMI, BSA & Pediatric Weight)", () => {
+  it("extracts weight in kg and height in cm (including meter conversion)", () => {
+    expect(
+      extractLatestWeightKg([{ measurementName: "Weight", value: "18.5 kg" }]),
+    ).toBe(18.5);
+    expect(
+      extractLatestHeightCm([{ measurementName: "Height", value: "110 cm" }]),
+    ).toBe(110);
+    expect(
+      extractLatestHeightCm([{ measurementName: "Taille", value: "1.75 m" }]),
+    ).toBe(175);
+  });
+
+  it("calculates BMI, category, and Mosteller BSA accurately", () => {
+    const normal = calculateAnthropometrics(
+      [
+        { measurementName: "Weight", value: "70" },
+        { measurementName: "Height", value: "175" },
+      ],
+      30,
+    );
+    expect(normal.bmi).toBe(22.9);
+    expect(normal.bmiCategory).toBe("NORMAL");
+    expect(normal.bmiLabel).toBe("Normal");
+    expect(normal.bsaM2).toBe(1.84);
+
+    const underweight = calculateAnthropometrics(
+      [
+        { measurementName: "Weight", value: "45" },
+        { measurementName: "Height", value: "170" },
+      ],
+      25,
+    );
+    expect(underweight.bmi).toBe(15.6);
+    expect(underweight.bmiCategory).toBe("UNDERWEIGHT");
+    expect(underweight.bmiLabel).toBe("Underweight");
+
+    const overweight = calculateAnthropometrics(
+      [
+        { measurementName: "Weight", value: "82" },
+        { measurementName: "Height", value: "170" },
+      ],
+      40,
+    );
+    expect(overweight.bmi).toBe(28.4);
+    expect(overweight.bmiCategory).toBe("OVERWEIGHT");
+    expect(overweight.bmiLabel).toBe("Overweight");
+
+    const obese = calculateAnthropometrics(
+      [
+        { measurementName: "Weight", value: "98" },
+        { measurementName: "Height", value: "170" },
+      ],
+      40,
+    );
+    expect(obese.bmi).toBe(33.9);
+    expect(obese.bmiCategory).toBe("OBESE");
+    expect(obese.bmiLabel).toBe("Obese");
+  });
+
+  it("returns weightKg even when height is missing (for pediatric dosing)", () => {
+    const ped = calculateAnthropometrics(
+      [{ measurementName: "Weight", value: "14.2" }],
+      4,
+    );
+    expect(ped.weightKg).toBe(14.2);
+    expect(ped.heightCm).toBeNull();
+    expect(ped.bmi).toBeNull();
   });
 });

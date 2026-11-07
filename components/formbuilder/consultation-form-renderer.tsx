@@ -22,6 +22,10 @@ type ConsultationFormRendererProps = Omit<
   onVisitRefetch?: () => void;
   linkedInsurances?: any[];
   visitInsurances?: any[];
+  patientAge?: number | null;
+  patientWeightKg?: number | null;
+  patientBsaM2?: number | null;
+  onOpenVitals?: () => void;
   /** When provided, parent owns answer state (used by consultation view auto-save). */
   controlledAnswers?: FormAnswers;
   onControlledAnswersChange?: (answers: FormAnswers) => void;
@@ -47,6 +51,10 @@ export const ConsultationFormRenderer = forwardRef<
     onVisitRefetch,
     linkedInsurances,
     visitInsurances,
+    patientAge,
+    patientWeightKg,
+    patientBsaM2,
+    onOpenVitals,
     initialAnswers = {},
     onChange,
     form,
@@ -92,6 +100,10 @@ export const ConsultationFormRenderer = forwardRef<
       existingProducts,
       onVisitRefetch,
       linkedInsurances: resolvedLinkedInsurances,
+      patientAge,
+      patientWeightKg,
+      patientBsaM2,
+      onOpenVitals,
     }),
     [
       visitId,
@@ -103,6 +115,10 @@ export const ConsultationFormRenderer = forwardRef<
       existingProducts,
       onVisitRefetch,
       resolvedLinkedInsurances,
+      patientAge,
+      patientWeightKg,
+      patientBsaM2,
+      onOpenVitals,
     ],
   );
 

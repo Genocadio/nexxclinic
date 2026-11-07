@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, Fragment } from "react"
+import { useState, useEffect, useMemo, useRef, Fragment } from "react"
 import { createPortal } from "react-dom"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -413,17 +413,21 @@ export function VisitSettingsPanel({
     },
   )
 
+  const batchSyncingDatesRef = useRef(false)
+
   const [updateDepartmentEncounterDate, { loading: updatingEncounterDate }] = useMutation(
     UPDATE_VISIT_DEPARTMENT_ENCOUNTER_DATE_MUTATION,
     {
       ...refetchConfig,
       onCompleted: (data) => {
         handleResponse(data?.updateVisitDepartmentEncounterDate, {
-          successMessage: "Department encounter date updated successfully",
+          successMessage: batchSyncingDatesRef.current ? false : "Department encounter date updated successfully",
           onSuccess: () => {
-            onVisitUpdated?.()
-            void fetchBilling({ variables: { visitId: visit.id } })
-            void fetchProfiles({ variables: { visitId: visit.id } })
+            if (!batchSyncingDatesRef.current) {
+              onVisitUpdated?.()
+              void fetchBilling({ variables: { visitId: visit.id } })
+              void fetchProfiles({ variables: { visitId: visit.id } })
+            }
           },
         })
       },
@@ -437,10 +441,12 @@ export function VisitSettingsPanel({
     ...refetchConfig,
     onCompleted: (data) => {
       handleResponse(data?.updateBillingDate, {
-        successMessage: "Billing date updated successfully",
+        successMessage: batchSyncingDatesRef.current ? false : "Billing date updated successfully",
         onSuccess: () => {
-          onVisitUpdated?.()
-          void fetchBilling({ variables: { visitId: visit.id } })
+          if (!batchSyncingDatesRef.current) {
+            onVisitUpdated?.()
+            void fetchBilling({ variables: { visitId: visit.id } })
+          }
         },
       })
     },
@@ -671,6 +677,7 @@ export function VisitSettingsPanel({
     if (depts.length === 0) return
 
     setApplyingDate(true)
+    batchSyncingDatesRef.current = true
     try {
       let anchorIdx = 0
       if (anchorDeptId) {
@@ -845,6 +852,7 @@ export function VisitSettingsPanel({
     } catch (err: any) {
       toast.error(err.message || "Failed to synchronize department times")
     } finally {
+      batchSyncingDatesRef.current = false
       setApplyingDate(false)
     }
   }

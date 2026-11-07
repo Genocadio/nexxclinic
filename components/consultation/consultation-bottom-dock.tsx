@@ -117,20 +117,20 @@ export function ConsultationBottomDock({
   };
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
-      <div className="glass-gray rounded-full shadow-xl px-3 py-2 flex items-center gap-2">
+    <div className="fixed bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100dvw-1.5rem)]">
+      <div className="glass-gray rounded-full shadow-lg px-2.5 py-1.5 flex items-center gap-1.5">
         {visitId && (
           <VisitPresenceBadge
             visitId={visitId}
-            className="bg-white/10 text-white/95 border-white/20 text-xs py-1"
+            className="bg-white/10 text-white/95 border-white/20 text-[11px] py-0.5 px-2"
           />
         )}
         <TooltipProvider>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {saveIndicator?.visible ? (
-              <div className="group flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-2">
+              <div className="group flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1.5">
                 <span
-                  className={`h-2.5 w-2.5 rounded-full ${
+                  className={`h-2 w-2 rounded-full ${
                     saveIndicator.status === "saving"
                       ? "bg-orange-500"
                       : saveIndicator.status === "dirty"
@@ -138,7 +138,7 @@ export function ConsultationBottomDock({
                         : "bg-green-500"
                   }`}
                 />
-                <span className="max-w-0 overflow-hidden whitespace-nowrap pl-0 text-xs font-medium text-white/90 opacity-0 transition-all duration-200 group-hover:max-w-24 group-hover:pl-2 group-hover:opacity-100">
+                <span className="max-w-0 overflow-hidden whitespace-nowrap pl-0 text-[11px] font-medium text-white/90 opacity-0 transition-all duration-200 group-hover:max-w-20 group-hover:pl-1.5 group-hover:opacity-100">
                   {saveIndicator.status === "saving"
                     ? "Saving"
                     : saveIndicator.status === "dirty"
@@ -152,38 +152,38 @@ export function ConsultationBottomDock({
                 <span>
                   <Button
                     size="icon"
-                    className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg"
+                    className="rounded-full h-9 w-9 sm:h-10 sm:w-10 border border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-md"
                     onClick={onComplete}
                     aria-label="Complete"
                     disabled={completeDisabled}
                   >
-                    <CheckCircle className="h-5 w-5" />
+                    <CheckCircle className="h-4 w-4" />
                   </Button>
                 </span>
               </TooltipTrigger>
               <TooltipContent>
                 <p>
                   {completeDisabled
-                    ? completeDisabledReason || "Complete"
-                    : "Complete"}
+                    ? completeDisabledReason || "Complete (⌘+Enter)"
+                    : "Complete (⌘+Enter)"}
                 </p>
               </TooltipContent>
             </Tooltip>
 
             {onTransfer && (
               <>
-                <div className="w-px h-8 bg-white/20" />
+                <div className="w-px h-5 bg-white/20" />
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span>
                       <Button
                         size="icon"
-                        className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="rounded-full h-9 w-9 sm:h-10 sm:w-10 border border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={onTransfer}
                         aria-label="Transfer"
                         disabled={isLockedState}
                       >
-                        <ArrowRightLeft className="h-5 w-5" />
+                        <ArrowRightLeft className="h-4 w-4" />
                       </Button>
                     </span>
                   </TooltipTrigger>
@@ -195,16 +195,16 @@ export function ConsultationBottomDock({
             )}
             {departmentId && (isCurrentProcessor || profiles.length > 0) && (
               <>
-                <div className="w-px h-8 bg-white/20" />
+                <div className="w-px h-5 bg-white/20" />
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       size="icon"
-                      className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg"
+                      className="rounded-full h-9 w-9 sm:h-10 sm:w-10 border border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-md"
                       onClick={() => setMenuOpen((open) => !open)}
                       aria-label="Consultation actions"
                     >
-                      <Grid2X2 className="h-5 w-5" />
+                      <Grid2X2 className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent><p>Consultation actions</p></TooltipContent>
@@ -214,11 +214,11 @@ export function ConsultationBottomDock({
                     <TooltipTrigger asChild>
                       <Button
                         size="icon"
-                        className="rounded-full h-12 w-12 border-2 border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-lg"
+                        className="rounded-full h-9 w-9 sm:h-10 sm:w-10 border border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-md"
                         onClick={() => setMinimized((prev) => !prev)}
                         aria-label={minimized ? "Maximize card" : "Minimize card"}
                       >
-                        <Pin className={minimized ? "h-5 w-5 text-blue-400" : "h-5 w-5 text-white/90"} />
+                        <Pin className={minimized ? "h-4 w-4 text-blue-400" : "h-4 w-4 text-white/90"} />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -232,7 +232,7 @@ export function ConsultationBottomDock({
         </TooltipProvider>
       </div>
       {menuOpen && !minimized && (
-        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 min-w-56 rounded-xl border border-border bg-background p-2 shadow-xl">
+        <div className="absolute bottom-13 left-1/2 -translate-x-1/2 min-w-52 rounded-xl border border-border bg-background p-1.5 shadow-xl">
           {departmentId && isCurrentProcessor && (
             <Button variant="ghost" className="w-full justify-start gap-2"
               disabled={isLockedState}

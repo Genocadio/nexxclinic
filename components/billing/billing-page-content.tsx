@@ -962,11 +962,6 @@ export function BillingPageContent() {
         void refetchNotes();
         void refetchVisit();
       } else if (detail.type === "VISIT_PRODUCT_CHANGED") {
-        const prodName = detail.metadata?.productName ? `: ${detail.metadata.productName}` : "";
-        const action = detail.metadata?.action ? String(detail.metadata.action).toLowerCase() : "updated";
-        toast.info(`Product ${action}${prodName}`, {
-          toastId: `prod-changed-${detail.eventId || Date.now()}`,
-        });
         void refetchVisit();
         void refetchBill();
       } else if (detail.type === "VISIT_DEPARTMENT_STATE_CHANGED") {

@@ -59,6 +59,11 @@ export interface MedicalBlockHandlers {
     medicationName: string,
     instructions: string,
   ) => Promise<boolean>;
+  /** Pediatric & anthropometric context for weight-based medication dosing */
+  patientAge?: number | null;
+  patientWeightKg?: number | null;
+  patientBsaM2?: number | null;
+  onOpenVitals?: () => void;
 
   visitId?: string;
   departmentId?: string;

@@ -2,9 +2,16 @@
 
 import { useEffect } from "react"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { initSingleToastManager } from "@/lib/single-toast"
+
+if (typeof window !== "undefined") {
+  initSingleToastManager()
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
+    initSingleToastManager()
+
     const handleChunkError = (event: ErrorEvent | PromiseRejectionEvent) => {
       const errorMsg =
         "message" in event

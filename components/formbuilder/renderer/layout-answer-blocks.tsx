@@ -213,20 +213,25 @@ export function LayoutAnswerBlock({
               non-last children), so neutralise them and space with gap. */}
           <div className="min-w-0 flex flex-col gap-3 [&>*]:my-0!">
             {col.blocks.map((b) => (
-              <AnswerBlock
+              <div
                 key={b.id}
-                block={b}
-                answers={answers}
-                onAnswerChange={onAnswerChange}
-                showErrors={showErrors}
-                inlineAnswers={inlineAnswers}
-                onInlineChange={onInlineChange}
-                edit={edit}
-                context={context}
-                blockHandlers={getBlockHandlers?.(b)}
-                getBlockHandlers={getBlockHandlers}
-                allBlocks={allBlocks}
-              />
+                id={`block-${b.id}`}
+                className="transition-all duration-300 rounded-lg"
+              >
+                <AnswerBlock
+                  block={b}
+                  answers={answers}
+                  onAnswerChange={onAnswerChange}
+                  showErrors={showErrors}
+                  inlineAnswers={inlineAnswers}
+                  onInlineChange={onInlineChange}
+                  edit={edit}
+                  context={context}
+                  blockHandlers={getBlockHandlers?.(b)}
+                  getBlockHandlers={getBlockHandlers}
+                  allBlocks={allBlocks}
+                />
+              </div>
             ))}
           </div>
         </div>

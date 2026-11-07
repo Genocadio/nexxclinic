@@ -674,6 +674,79 @@ function DiagnosisNotesEditor({
   );
 }
 
+function PediatricDosingBanner({
+  patientAge,
+  patientWeightKg,
+  patientBsaM2,
+  onOpenVitals,
+}: {
+  patientAge?: number | null;
+  patientWeightKg?: number | null;
+  patientBsaM2?: number | null;
+  onOpenVitals?: () => void;
+}) {
+  if (patientAge == null || patientAge >= 15) return null;
+
+  const ageLabel = patientAge === 0 ? "< 1 yr" : `${patientAge} ${patientAge === 1 ? "yr" : "yrs"}`;
+
+  if (patientWeightKg == null) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-300/80 bg-amber-50/90 dark:border-amber-800/70 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="shrink-0">⚠️</span>
+          <span className="font-medium">
+            Pediatric patient ({ageLabel}) — No weight recorded for weight-based dosing
+          </span>
+        </div>
+        {onOpenVitals && (
+          <button
+            type="button"
+            onClick={onOpenVitals}
+            className="shrink-0 rounded-md border border-amber-400/80 bg-white dark:bg-slate-900 px-2 py-1 text-[11px] font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-100/70 transition-colors cursor-pointer"
+          >
+            Record Weight
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  const dose10 = Math.round(patientWeightKg * 10);
+  const dose15 = Math.round(patientWeightKg * 15);
+  const dose20 = Math.round(patientWeightKg * 20);
+
+  return (
+    <div className="rounded-lg border border-indigo-300/80 bg-indigo-50/80 dark:border-indigo-800/70 dark:bg-indigo-950/40 px-3 py-2 text-xs text-indigo-950 dark:text-indigo-200 space-y-1">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-bold text-white">
+            👶 Pediatric ({ageLabel})
+          </span>
+          <span className="font-semibold text-xs sm:text-sm text-indigo-950 dark:text-indigo-100">
+            Weight: {patientWeightKg} kg
+          </span>
+          {patientBsaM2 != null && (
+            <span className="text-[11px] text-indigo-700 dark:text-indigo-300">
+              • BSA: {patientBsaM2} m²
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-indigo-800 dark:text-indigo-300">
+          <span className="rounded bg-white/80 dark:bg-slate-900/70 border border-indigo-200 dark:border-indigo-800 px-1.5 py-0.5 font-medium">
+            10 mg/kg = <strong>{dose10} mg</strong>
+          </span>
+          <span className="rounded bg-white/80 dark:bg-slate-900/70 border border-indigo-200 dark:border-indigo-800 px-1.5 py-0.5 font-medium">
+            15 mg/kg = <strong>{dose15} mg</strong>
+          </span>
+          <span className="rounded bg-white/80 dark:bg-slate-900/70 border border-indigo-200 dark:border-indigo-800 px-1.5 py-0.5 font-medium">
+            20 mg/kg = <strong>{dose20} mg</strong>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MedFullAnswerBlock({
   block,
   value,
@@ -742,11 +815,18 @@ export function MedFullAnswerBlock({
 
   return (
     <div className="my-3">
-      <label className="text-sm leading-5 font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
-        <Pill className="h-3.5 w-3.5 text-blue-600" />
-        {block.label || "Medications"}
-        {block.required && <span className="text-red-500">*</span>}
-      </label>
+      <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+        <label className="text-sm leading-5 font-medium flex items-center gap-1.5 text-foreground">
+          <Pill className="h-3.5 w-3.5 text-blue-600" />
+          {block.label || "Medications"}
+          {block.required && <span className="text-red-500">*</span>}
+        </label>
+        {handlers?.patientWeightKg != null && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 border border-blue-500/25 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:text-blue-300">
+            Weight: {handlers.patientWeightKg} kg
+          </span>
+        )}
+      </div>
       <div
         className={`space-y-3 p-3.5 rounded-xl border transition-colors shadow-xs ${
           isError
@@ -754,6 +834,12 @@ export function MedFullAnswerBlock({
             : "border-blue-200/80 dark:border-blue-800/70 bg-blue-50/50 dark:bg-blue-950/30"
         }`}
       >
+        <PediatricDosingBanner
+          patientAge={handlers?.patientAge}
+          patientWeightKg={handlers?.patientWeightKg}
+          patientBsaM2={handlers?.patientBsaM2}
+          onOpenVitals={handlers?.onOpenVitals}
+        />
         {canAdd && (
           <MedFullDraft
             onAdd={addEntry}
@@ -1010,11 +1096,18 @@ export function MedMiniAnswerBlock({
 
   return (
     <div className="my-3">
-      <label className="text-sm leading-5 font-medium flex items-center gap-1.5 mb-1.5 text-foreground">
-        <Pill className="h-3.5 w-3.5 text-indigo-600" />
-        {block.label || "Medications"}
-        {block.required && <span className="text-red-500">*</span>}
-      </label>
+      <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+        <label className="text-sm leading-5 font-medium flex items-center gap-1.5 text-foreground">
+          <Pill className="h-3.5 w-3.5 text-indigo-600" />
+          {block.label || "Medications"}
+          {block.required && <span className="text-red-500">*</span>}
+        </label>
+        {handlers?.patientWeightKg != null && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 border border-indigo-500/25 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">
+            Weight: {handlers.patientWeightKg} kg
+          </span>
+        )}
+      </div>
       <div
         className={`space-y-3 p-3.5 rounded-xl border transition-colors shadow-xs ${
           isError
@@ -1022,6 +1115,12 @@ export function MedMiniAnswerBlock({
             : "border-indigo-200/80 dark:border-indigo-800/70 bg-indigo-50/50 dark:bg-indigo-950/30"
         }`}
       >
+        <PediatricDosingBanner
+          patientAge={handlers?.patientAge}
+          patientWeightKg={handlers?.patientWeightKg}
+          patientBsaM2={handlers?.patientBsaM2}
+          onOpenVitals={handlers?.onOpenVitals}
+        />
         {canAdd && (
           <MedMiniDraft
             onAdd={addEntry}

@@ -158,6 +158,72 @@ export function getBlockErrorMessage(
   return "This field is required.";
 }
 
+export function isBlockAnswered(
+  block: FormBlock,
+  answers: FormAnswers,
+  inlineAnswers: Record<string, string> = {},
+  handlers?: MedicalBlockHandlers | null,
+): boolean {
+  const clinical = resolveClinicalList(block, handlers);
+  if (clinical !== null) {
+    return clinical.length > 0;
+  }
+
+  if (block.type === "paragraph") {
+    const fields = block.inlineFields ?? [];
+    if (fields.length === 0) return false;
+    return fields.some((f) => {
+      const key = `${block.id}__${f.id}`;
+      return Boolean((inlineAnswers[key] ?? (answers[key] as string) ?? "").trim());
+    });
+  }
+
+  if (block.type === "table") {
+    const prefix = `${block.id}__`;
+    return (
+      Object.entries(inlineAnswers).some(
+        ([k, val]) => k.startsWith(prefix) && Boolean(String(val ?? "").trim()),
+      ) ||
+      Object.entries(answers).some(
+        ([k, val]) => k.startsWith(prefix) && Boolean(String(val ?? "").trim()),
+      )
+    );
+  }
+
+  const v = answers[block.id];
+  if (v === undefined || v === null) return false;
+
+  switch (block.type) {
+    case "text_input":
+    case "textarea_input":
+    case "number_input":
+    case "date_input":
+    case "select_input":
+    case "signature":
+      return String(v).trim().length > 0;
+    case "checkbox_single":
+      return Boolean(v);
+    case "checkbox_group":
+    case "radio_group":
+      return Array.isArray(v) ? v.length > 0 : Boolean(String(v).trim());
+    case "diagnostic_record":
+    case "hypothesis_record":
+    case "symptom_listener":
+    case "medication_full":
+    case "medication_mini":
+    case "product_listener":
+    case "file_upload":
+      return Array.isArray(v) && v.length > 0;
+    case "lab_record": {
+      const typed = v as LabRowValues | undefined;
+      if (!typed || typeof typed !== "object") return false;
+      return Object.values(typed).some((rv) => Boolean(rv?.value || rv?.result));
+    }
+    default:
+      return false;
+  }
+}
+
 export function collectAnswerableBlocks(blocks: FormBlock[]): FormBlock[] {
   const result: FormBlock[] = [];
   for (const b of blocks) {

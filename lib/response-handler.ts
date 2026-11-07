@@ -7,15 +7,6 @@ import { toast } from 'react-toastify'
 import type { ApiResponse } from '@/hooks/types'
 import { resetApolloCache } from '@/lib/apollo-client'
 
-const TOAST_STYLES = {
-  SUCCESS: { background: '#16a34a', color: '#ffffff' },
-  ERROR: { background: '#dc2626', color: '#ffffff' },
-  UNAUTHORISED: { background: '#f59e0b', color: '#111827' },
-  UNAUTHORIZED: { background: '#f59e0b', color: '#111827' },
-  UNAUTHENTICATED: { background: '#7c3aed', color: '#ffffff' },
-  PARTIAL_SUCCESS: { background: '#2563eb', color: '#ffffff' },
-} as const
-
 export function getStatusToastMessage(status: string | undefined, message?: string) {
   switch (status) {
     case 'UNAUTHENTICATED':
@@ -36,29 +27,26 @@ export function getStatusToastMessage(status: string | undefined, message?: stri
 
 export function toastResponseStatus(status: string | undefined, message?: string) {
   const resolvedMessage = getStatusToastMessage(status, message)
-  const toastOptions = {
-    style: TOAST_STYLES[(status as keyof typeof TOAST_STYLES) || 'ERROR'] || TOAST_STYLES.ERROR,
-  }
 
   switch (status) {
     case 'SUCCESS':
-      toast.success(resolvedMessage, toastOptions)
+      toast.success(resolvedMessage)
       return
     case 'UNAUTHENTICATED':
-      toast.info(resolvedMessage, toastOptions)
+      toast.info(resolvedMessage)
       return
     case 'UNAUTHORISED':
     case 'UNAUTHORIZED':
-      toast.warn(resolvedMessage, toastOptions)
+      toast.warn(resolvedMessage)
       return
     case 'PARTIAL_SUCCESS':
-      toast.warn(resolvedMessage, toastOptions)
+      toast.warn(resolvedMessage)
       return
     case 'ERROR':
-      toast.error(resolvedMessage, toastOptions)
+      toast.error(resolvedMessage)
       return
     default:
-      toast.error(resolvedMessage, toastOptions)
+      toast.error(resolvedMessage)
   }
 }
 

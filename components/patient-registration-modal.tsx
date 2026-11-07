@@ -327,9 +327,6 @@ export default function PatientRegistrationModal({
         }}
         patient={selectedPatientForEdit}
         onPatientUpdated={(updatedPatient) => {
-          toast.success(
-            `Patient updated and selected: ${updatedPatient.firstName} ${updatedPatient.lastName}`,
-          )
           setEditPatientModal(false)
           setSelectedPatientForEdit(null)
           onClose()

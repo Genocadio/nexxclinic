@@ -3898,10 +3898,7 @@ export default function DashboardPage() {
             setSelectedPatientForEdit(null)
           }}
           patient={selectedPatientForEdit}
-          onPatientUpdated={(updatedPatient) => {
-            toast.success(
-              `Patient updated: ${updatedPatient.firstName} ${updatedPatient.lastName}`
-            )
+          onPatientUpdated={() => {
             setEditPatientModalOpen(false)
             setSelectedPatientForEdit(null)
             void refetchVisits()

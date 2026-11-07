@@ -1641,9 +1641,6 @@ export default function VisitCreationModal({
         }}
         patient={selectedPatientForEdit}
         onPatientUpdated={(updatedPatient) => {
-          toast.success(
-            `Patient updated: ${updatedPatient.firstName} ${updatedPatient.lastName}`,
-          );
           setEditPatientModal(false);
           setSelectedPatientForEdit(null);
           // Update selection to edited patient

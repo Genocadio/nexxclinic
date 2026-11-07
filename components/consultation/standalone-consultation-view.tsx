@@ -18,6 +18,9 @@ import {
   Lock,
   Receipt,
   Users,
+  User,
+  HeartPulse,
+  History as HistoryIcon,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useVisitLiveness, isViewerBilling } from "@/hooks/use-visit-liveness";
@@ -91,6 +94,8 @@ import { stripClinicalAnswers } from "@/components/formbuilder/extensions/consul
 import { normalizeVisitVitalSigns } from "@/hooks/visits/vital-signs";
 import { calculateAge } from "@/lib/validation-utils";
 import { VitalSignsMewsBanner } from "@/components/vital-signs/vital-signs-mews-banner";
+import { PatientInsuranceBadge } from "@/components/patient-insurance-badge";
+import { calculateAnthropometrics } from "@/lib/mews-utils";
 
 interface StandaloneConsultationViewProps {
   visit: Visit;
@@ -186,12 +191,20 @@ export function StandaloneConsultationView({
       const currentVisitId = String(visit.id || "").toLowerCase();
       if (eventVisitId && currentVisitId && eventVisitId !== currentVisitId) return;
 
+      const isSelfEvent = Boolean(
+        (detail.actorId && doctor?.id && String(detail.actorId) === String(doctor.id)) ||
+        manualSaveRef.current ||
+        finalisingRef.current
+      );
+
       if (detail.type === "BILLING_COMPLETED") {
-        const actor = detail.actorName ? ` by ${detail.actorName}` : "";
-        toast.info(`This visit has been billed${actor}.`, {
-          toastId: `billing-completed-${detail.eventId || Date.now()}`,
-        });
-        playBillingNotificationSound();
+        if (!isSelfEvent) {
+          const actor = detail.actorName ? ` by ${detail.actorName}` : "";
+          toast.info(`This visit has been billed${actor}.`, {
+            toastId: `billing-completed-${visit.id}`,
+          });
+          playBillingNotificationSound();
+        }
         setLiveBilled(true);
         onVisitRefetch?.();
       } else if (detail.type === "VISIT_DEPARTMENT_STATE_CHANGED") {
@@ -199,42 +212,47 @@ export function StandaloneConsultationView({
         const actor = detail.actorName ? ` by ${detail.actorName}` : "";
 
         if (deptStatus === "BILLING") {
-          toast.info(`This visit has been sent to billing${actor}.`, {
-            toastId: `dept-billing-${detail.departmentId || Date.now()}`,
-          });
+          if (!isSelfEvent) {
+            toast.info(`This visit has been sent to billing${actor}.`, {
+              toastId: `dept-billing-${visit.id}`,
+            });
+          }
           setLiveDepartmentStatus("BILLING");
         } else if (deptStatus === "ACTIVE") {
-          toast.info(`Consultation resumed${actor}.`, {
-            toastId: `dept-active-${detail.departmentId || Date.now()}`,
-          });
+          if (!isSelfEvent) {
+            toast.info(`Consultation resumed${actor}.`, {
+              toastId: `dept-active-${visit.id}`,
+            });
+          }
           setLiveDepartmentStatus("ACTIVE");
           setLiveBilled(false);
           setLocallyFinalised(false);
         } else if (deptStatus === "FINALISED") {
-          toast.info(`This visit department has been finalised${actor}.`, {
-            toastId: `dept-finalised-${detail.departmentId || Date.now()}`,
-          });
+          if (!isSelfEvent) {
+            toast.info(`This visit department has been finalised${actor}.`, {
+              toastId: `dept-finalised-${visit.id}`,
+            });
+          }
           setLiveDepartmentStatus("FINALISED");
         } else if (deptStatus === "COMPLETED") {
-          toast.info(`Department completed${actor}.`, {
-            toastId: `dept-completed-${detail.departmentId || Date.now()}`,
-          });
+          if (!isSelfEvent) {
+            toast.info(`Department completed${actor}.`, {
+              toastId: `dept-completed-${visit.id}`,
+            });
+          }
           setLiveDepartmentStatus("COMPLETED");
         }
         onVisitRefetch?.();
       } else if (detail.type === "VISIT_DISCHARGED") {
-        const actor = detail.actorName ? ` by ${detail.actorName}` : "";
-        toast.info(`This visit has been finalised${actor}.`, {
-          toastId: `visit-finalised-${detail.eventId || Date.now()}`,
-        });
+        if (!isSelfEvent) {
+          const actor = detail.actorName ? ` by ${detail.actorName}` : "";
+          toast.info(`This visit has been finalised${actor}.`, {
+            toastId: `visit-finalised-${visit.id}`,
+          });
+        }
         setLiveVisitFinalised(true);
         onVisitRefetch?.();
       } else if (detail.type === "VISIT_PRODUCT_CHANGED") {
-        const prodName = detail.metadata?.productName ? `: ${detail.metadata.productName}` : "";
-        const action = detail.metadata?.action ? String(detail.metadata.action).toLowerCase() : "updated";
-        toast.info(`Product ${action}${prodName}`, {
-          toastId: `prod-changed-${detail.eventId || Date.now()}`,
-        });
         onVisitRefetch?.();
       } else if (detail.type === "VISIT_NOTE_ADDED") {
         if (detail.actorId !== doctor?.id) {
@@ -251,14 +269,18 @@ export function StandaloneConsultationView({
         void refetchActiveChildNotesRef.current?.();
         onVisitRefetch?.();
       } else if (detail.type === "VISIT_CANCELLED") {
-        toast.warn(`This visit has been cancelled.`, {
-          toastId: `visit-cancelled-${detail.eventId || Date.now()}`,
-        });
+        if (!isSelfEvent) {
+          toast.warn(`This visit has been cancelled.`, {
+            toastId: `visit-cancelled-${visit.id}`,
+          });
+        }
         onVisitRefetch?.();
       } else if (detail.type === "VISIT_REOPENED") {
-        toast.info(`This visit has been reopened.`, {
-          toastId: `visit-reopened-${detail.eventId || Date.now()}`,
-        });
+        if (!isSelfEvent) {
+          toast.info(`This visit has been reopened.`, {
+            toastId: `visit-reopened-${visit.id}`,
+          });
+        }
         setLiveVisitFinalised(false);
         setLiveDepartmentStatus(null);
         setLiveBilled(false);
@@ -498,6 +520,15 @@ export function StandaloneConsultationView({
     const groups = normalizeVisitVitalSigns(visit?.vitalSigns || []);
     return groups[0] || null;
   }, [visit?.vitalSigns]);
+
+  const latestAnthropometrics = useMemo(
+    () =>
+      calculateAnthropometrics(
+        latestVitalsGroup?.measurements || [],
+        patientAge,
+      ),
+    [latestVitalsGroup?.measurements, patientAge],
+  );
 
   const parentVisitDepartment = useMemo(
     () =>
@@ -776,12 +807,15 @@ export function StandaloneConsultationView({
   }, [loading, source, answer, defaultForm, catalogDepartmentId]);
 
   useEffect(() => {
-    // Only auto-pin vitals when they exist.
+    // Only auto-pin vitals when they exist and the viewport is wide enough (>= 1536px / 2xl)
+    // so the floating card never covers the main consultation form on mobile, tablet, or laptops.
     if (!visit?.vitalSigns?.length || autoPinnedVitalsRef.current) return;
-    setVitalsPanel((current) =>
-      current.pinned ? current : { ...current, pinned: true, hover: true },
-    );
     autoPinnedVitalsRef.current = true;
+    if (typeof window !== "undefined" && window.innerWidth >= 1536) {
+      setVitalsPanel((current) =>
+        current.pinned ? current : { ...current, pinned: true, hover: false },
+      );
+    }
   }, [visit?.vitalSigns?.length]);
 
   useEffect(() => {
@@ -869,6 +903,96 @@ export function StandaloneConsultationView({
       }
     };
   }, [answers, isFinalisedAnswer, isBilled]);
+
+  // Keyboard shortcuts for fast clinical navigation:
+  // Alt+V: Toggle Vital Signs panel
+  // Alt+I: Toggle Investigations / Lab Orders
+  // Alt+N: Toggle Visit Notes
+  // Cmd/Ctrl+S: Force immediate draft save
+  // Cmd/Ctrl+Enter: Open Complete / Finalise dialog
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Alt+V — Toggle Vital Signs
+      if (event.altKey && !event.metaKey && !event.ctrlKey && event.code === "KeyV") {
+        event.preventDefault();
+        setVitalsPanel((prev) => ({ pinned: !prev.pinned, hover: false }));
+        return;
+      }
+
+      // Alt+I — Toggle Investigations
+      if (event.altKey && !event.metaKey && !event.ctrlKey && event.code === "KeyI") {
+        if (!requestProductsEnabled) return;
+        event.preventDefault();
+        setRequestProductsOpen((prev) => !prev);
+        return;
+      }
+
+      // Alt+N — Toggle Visit Notes
+      if (event.altKey && !event.metaKey && !event.ctrlKey && event.code === "KeyN") {
+        if (isTerminalVisit) return;
+        event.preventDefault();
+        setNotesOpen((prev) => !prev);
+        return;
+      }
+
+      // Cmd/Ctrl+S — Force immediate draft save
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "s"
+      ) {
+        event.preventDefault();
+        if (isFinalised || isBilled || saveInFlightRef.current) return;
+        if (autoSaveTimer.current) {
+          clearTimeout(autoSaveTimer.current);
+          autoSaveTimer.current = null;
+        }
+        saveInFlightRef.current = true;
+        formRendererRef.current?.clearErrors();
+        void persistAnswersRef
+          .current(answers, "DRAFT", {
+            silent: false,
+            skipDuplicateCheck: true,
+            sendToBilling: false,
+          })
+          .catch(() => {
+            setSaveStatus("dirty");
+          })
+          .finally(() => {
+            saveInFlightRef.current = false;
+          });
+        return;
+      }
+
+      // Cmd/Ctrl+Enter — Open Complete / Finalise dialog (unless typing inside Visit Notes composer)
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        const target = event.target as HTMLElement | null;
+        if (target?.closest('[aria-label="Consultation Notes"]')) {
+          return;
+        }
+        event.preventDefault();
+        if (isFinalised || isFinalising) return;
+        if (unreadNotesCount > 0) {
+          toast.warn("Please view the notes first before completing this visit.");
+          setNotesOpen(true);
+          return;
+        }
+        setShowFinalizeConfirm(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    answers,
+    isBilled,
+    isFinalised,
+    isFinalising,
+    isTerminalVisit,
+    requestProductsEnabled,
+    unreadNotesCount,
+  ]);
 
   const handleManualSave = async () => {
     if (isFinalised) {
@@ -1067,6 +1191,17 @@ export function StandaloneConsultationView({
     }
   };
 
+  const ageGenderSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (patientAge != null) {
+      parts.push(patientAge === 0 ? "<1y" : `${patientAge}y`);
+    }
+    if (patient?.gender) {
+      parts.push(String(patient.gender).charAt(0).toUpperCase());
+    }
+    return parts.join(" • ");
+  }, [patientAge, patient?.gender]);
+
   if (loading && !rendererForm) {
     return <PageLoading />;
   }
@@ -1089,21 +1224,200 @@ export function StandaloneConsultationView({
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8 space-y-6 pb-28">
+    <div className="max-w-4xl mx-auto px-3 sm:px-5 lg:px-14 xl:px-8 py-3 sm:py-5 space-y-4 sm:space-y-5 pb-24">
+      {/* Sticky Compact Patient Header Strip on Scroll — keeps Patient Name, Age/Gender, Insurance, Save Status & Quick Actions visible at all times */}
+      <div className="sticky top-2 z-30 flex items-center justify-between gap-2 min-h-9 rounded-xl border border-border/70 bg-card/90 backdrop-blur-md px-2.5 py-1.5 shadow-sm overflow-x-auto scrollbar-none">
+        {/* Left: Patient Name • Age/Gender • Insurance Badge • Save Status */}
+        <div className="flex items-center gap-2 min-w-0 shrink-0 sm:shrink">
+          <button
+            type="button"
+            onClick={() =>
+              setIdPanel((prev) => ({ pinned: !prev.pinned, hover: false }))
+            }
+            className="flex items-center gap-1.5 min-w-0 text-left group"
+            title="Click to toggle full Patient Identification card"
+          >
+            <span className="font-semibold text-xs sm:text-sm text-foreground truncate max-w-36 sm:max-w-56 group-hover:text-primary transition-colors">
+              {patientLabel}
+            </span>
+            {ageGenderSummary && (
+              <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                {ageGenderSummary}
+              </span>
+            )}
+          </button>
+
+          <div className="hidden sm:flex items-center gap-1 shrink-0 border-l border-border/60 pl-2">
+            {visitInsurances && visitInsurances.length > 0 ? (
+              <PatientInsuranceBadge
+                insurance={visitInsurances[0] as any}
+                compact
+              />
+            ) : (
+              <span className="inline-block rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                Private
+              </span>
+            )}
+          </div>
+
+          {(hasAnyAnswerContent || isFinalised || isActuallyBilled) && (
+            <div
+              className="flex items-center gap-1.5 shrink-0 border-l border-border/60 pl-2"
+              title="Press Cmd/Ctrl+S to save draft immediately"
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  isFinalised
+                    ? "bg-blue-500"
+                    : saveStatus === "saving"
+                      ? "bg-orange-500 animate-pulse"
+                      : saveStatus === "dirty"
+                        ? "bg-amber-500"
+                        : "bg-emerald-500"
+                }`}
+              />
+              <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                {isFinalised
+                  ? "Finalised"
+                  : saveStatus === "saving"
+                    ? "Saving…"
+                    : saveStatus === "dirty"
+                      ? "Unsaved"
+                      : "Saved"}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Quick-access buttons (all screens, with keyboard shortcut hints on desktop) */}
+        <div className="flex items-center gap-1 shrink-0">
+          <div className="flex lg:hidden items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                const next = !idPanel.pinned;
+                setIdPanel({ pinned: next, hover: false });
+                if (next) {
+                  setVitalsPanel({ pinned: false, hover: false });
+                  setHistoryPanel({ pinned: false, hover: false });
+                }
+              }}
+              className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
+                idPanel.pinned
+                  ? "bg-primary/15 text-primary ring-1 ring-primary/30"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+              title="Patient Identification"
+            >
+              <User className="h-3.5 w-3.5 shrink-0" />
+              <span>ID</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const next = !vitalsPanel.pinned;
+              setVitalsPanel({ pinned: next, hover: false });
+              if (next && typeof window !== "undefined" && window.innerWidth < 1024) {
+                setIdPanel({ pinned: false, hover: false });
+                setHistoryPanel({ pinned: false, hover: false });
+              }
+            }}
+            className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
+              vitalsPanel.pinned
+                ? "bg-primary/15 text-primary ring-1 ring-primary/30"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+            title={
+              visit?.vitalSigns?.length
+                ? "Vital Signs (Alt+V)"
+                : "Add vital signs (Alt+V)"
+            }
+          >
+            {visit?.vitalSigns?.length ? (
+              <HeartPulse className="h-3.5 w-3.5 shrink-0" />
+            ) : (
+              <Plus className="h-3.5 w-3.5 shrink-0" />
+            )}
+            <span>Vitals</span>
+            <kbd className="hidden xl:inline-block ml-0.5 rounded bg-muted px-1 py-0.2 text-[9px] font-mono text-muted-foreground">
+              ⌥V
+            </kbd>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPatientHistoryOpen(true)}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors whitespace-nowrap"
+            title="Patient History"
+          >
+            <HistoryIcon className="h-3.5 w-3.5 shrink-0" />
+            <span>History</span>
+          </button>
+
+          {requestProductsEnabled && (
+            <button
+              type="button"
+              onClick={() => setRequestProductsOpen(true)}
+              className="relative inline-flex items-center gap-1 rounded-lg border border-border/60 bg-background px-2 py-1 text-xs font-medium text-foreground hover:bg-muted transition-colors whitespace-nowrap"
+              title="Investigations / Lab Orders (Alt+I)"
+              aria-label="Open investigations"
+            >
+              <FlaskConical className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <span className="hidden sm:inline">Orders</span>
+              <kbd className="hidden xl:inline-block rounded bg-muted px-1 py-0.2 text-[9px] font-mono text-muted-foreground">
+                ⌥I
+              </kbd>
+              {!requestProductsOpen && hasUnreadChildRequestNotes && (
+                <span className="ml-0.5 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-4 text-center">
+                  {childRequestUnreadNotesCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {!isTerminalVisit && (
+            <button
+              type="button"
+              onClick={() => setNotesOpen((prev) => !prev)}
+              className={`relative inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
+                notesOpen
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-border/60 bg-background text-foreground hover:bg-muted"
+              }`}
+              title="Visit Notes (Alt+N)"
+              aria-label="Open notes"
+            >
+              <StickyNote className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden sm:inline">Notes</span>
+              <kbd className="hidden xl:inline-block rounded bg-muted px-1 py-0.2 text-[9px] font-mono text-muted-foreground">
+                ⌥N
+              </kbd>
+              {!notesOpen && unreadNotesCount > 0 && (
+                <span className="ml-0.5 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-4 text-center">
+                  {unreadNotesCount}
+                </span>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Real-time status banners */}
       {isFinalised && (
-        <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50/80 p-4 text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200 shadow-sm animate-in fade-in">
-          <Lock className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
-          <div className="flex-1 text-sm font-medium">
+        <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50/80 p-3.5 text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200 shadow-sm animate-in fade-in">
+          <Lock className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+          <div className="flex-1 text-xs sm:text-sm font-medium">
             <span className="font-semibold">Visit Finalised:</span> This consultation is finalised. All clinical records, products, and actions are locked.
           </div>
         </div>
       )}
 
       {!isFinalised && isBilled && (
-        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200 shadow-sm animate-in fade-in">
-          <Receipt className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-          <div className="flex-1 text-sm font-medium">
+        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200 shadow-sm animate-in fade-in">
+          <Receipt className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <div className="flex-1 text-xs sm:text-sm font-medium">
             <span className="font-semibold">Visit In Billing:</span> This visit is currently open or billed by finance. Product orders and records are locked.
           </div>
         </div>
@@ -1130,20 +1444,21 @@ export function StandaloneConsultationView({
         />
       )}
 
-      <div className="fixed right-6 top-1/2 z-50 -translate-y-1/2 flex flex-col items-center gap-3 rounded-full border border-border/60 bg-card/80 p-2 shadow-2xl backdrop-blur">
+      {/* Desktop right vertical pill (lg+) — compact & unobtrusive */}
+      <div className="hidden lg:flex fixed right-2.5 xl:right-4 top-1/2 z-40 -translate-y-1/2 flex-col items-center gap-1.5 rounded-full border border-border/60 bg-card/85 p-1 shadow-lg backdrop-blur-md">
         {requestProductsEnabled && (
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="relative rounded-full border border-border/70 bg-background p-2"
-            title="Investigations"
+            className="relative h-8 w-8 rounded-full border border-border/60 bg-background p-0 hover:bg-muted"
+            title="Investigations (Alt+I)"
             aria-label="Open investigations"
             onClick={() => setRequestProductsOpen(true)}
           >
-            <FlaskConical className="h-5 w-5" />
+            <FlaskConical className="h-4 w-4" />
             {!requestProductsOpen && hasUnreadChildRequestNotes && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[12px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-bounce">
+              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-4 text-center shadow ring-1 ring-background animate-bounce">
                 {childRequestUnreadNotesCount}
               </span>
             )}
@@ -1155,13 +1470,13 @@ export function StandaloneConsultationView({
             variant="ghost"
             size="icon"
             onClick={() => setNotesOpen((prev) => !prev)}
-            className="relative rounded-full border border-border/70 bg-background p-2"
-            title="Notes"
+            className="relative h-8 w-8 rounded-full border border-border/60 bg-background p-0 hover:bg-muted"
+            title="Visit Notes (Alt+N)"
             aria-label="Open notes"
           >
-            <StickyNote className="h-5 w-5" />
+            <StickyNote className="h-4 w-4" />
             {!notesOpen && unreadNotesCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[12px] font-bold leading-5 text-center shadow-lg ring-2 ring-background animate-bounce">
+              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-4 text-center shadow ring-1 ring-background animate-bounce">
                 {unreadNotesCount}
               </span>
             )}
@@ -1228,6 +1543,12 @@ export function StandaloneConsultationView({
         visitDepartmentStatus={effectiveDepartmentStatus}
         existingProducts={existingProducts}
         linkedInsurances={visitInsurances}
+        patientAge={patientAge}
+        patientWeightKg={latestAnthropometrics.weightKg}
+        patientBsaM2={latestAnthropometrics.bsaM2}
+        onOpenVitals={() =>
+          setVitalsPanel({ pinned: true, hover: false })
+        }
         onVisitRefetch={onVisitRefetch}
       />
 

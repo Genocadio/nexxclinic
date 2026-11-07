@@ -50,6 +50,10 @@ export interface ConsultationVisitExtensionOptions {
   edit?: boolean;
   onVisitRefetch?: () => void;
   linkedInsurances?: PatientInsurance[];
+  patientAge?: number | null;
+  patientWeightKg?: number | null;
+  patientBsaM2?: number | null;
+  onOpenVitals?: () => void;
 }
 
 function resolveVisitDepartment(
@@ -98,6 +102,10 @@ export function useConsultationVisitExtension(
     edit = true,
     onVisitRefetch,
     linkedInsurances = [],
+    patientAge,
+    patientWeightKg,
+    patientBsaM2,
+    onOpenVitals,
   } = options;
 
   const { doctor } = useAuth();
@@ -552,6 +560,10 @@ export function useConsultationVisitExtension(
               : undefined,
             onRemoveMedication: canEditClinical ? handleRemoveMedication : undefined,
             onUpdateMedication: canEditClinical ? handleUpdateMedication : undefined,
+            patientAge,
+            patientWeightKg,
+            patientBsaM2,
+            onOpenVitals,
           };
         case "symptom_listener":
           return {
@@ -568,6 +580,10 @@ export function useConsultationVisitExtension(
               : undefined,
             onRemoveMedication: canEditClinical ? handleRemoveMedication : undefined,
             onUpdateMedication: canEditClinical ? handleUpdateMedication : undefined,
+            patientAge,
+            patientWeightKg,
+            patientBsaM2,
+            onOpenVitals,
           };
         default:
           return null;
@@ -585,6 +601,10 @@ export function useConsultationVisitExtension(
       departmentId,
       visitDepartmentId,
       linkedInsurances,
+      patientAge,
+      patientWeightKg,
+      patientBsaM2,
+      onOpenVitals,
       handleAddProduct,
       handleRemoveProduct,
       handleUpdateProductQuantity,

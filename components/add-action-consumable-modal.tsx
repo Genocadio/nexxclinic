@@ -10,7 +10,7 @@ import { Search, X, Pill, Filter } from "lucide-react"
 import { useProductSearch } from "@/hooks/products"
 import { formatRWF } from "@/lib/utils"
 import { getInsuranceAwarePricing } from "@/lib/insurance-utils"
-import { toast } from "sonner"
+import { toast } from "react-toastify"
 
 type ProductTypeFilter = 'ALL' | 'DRUG' | 'MEDICAL_ACT' | 'BIOLOGICAL_ACT' | 'CONSUMABLE_DEVICE'
 

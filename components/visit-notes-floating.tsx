@@ -628,71 +628,82 @@ export default function VisitNotesFloating({
         </div>
       )}
 
-      {/* Floating Notes Panel */}
+      {/* Floating Notes Panel — Bottom sheet on mobile (< sm), compact side/corner window on laptop & desktop */}
       {isOpen && (
-        <div
-          role="region"
-          aria-label={title}
-          className="fixed right-6 sm:right-16 top-1/2 -translate-y-1/2 w-[420px] max-w-[calc(100vw-2rem)] max-h-[85vh] z-50 flex flex-col bg-background/95 backdrop-blur-md border border-border/80 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border/70 bg-muted/40">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                <StickyNote className="h-4 w-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-foreground leading-none">
-                    {title}
-                  </h3>
-                  {unreadNotesCount > 0 ? (
-                    <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-bold leading-none animate-pulse">
-                      {unreadNotesCount} new
-                    </span>
-                  ) : (
-                    <span className="text-[11px] text-muted-foreground">
-                      ({visibleNotes.length})
-                    </span>
-                  )}
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Real-time handover & visit notices
-                </p>
-              </div>
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px] sm:hidden"
+            onClick={() => setOpenState(false)}
+            aria-hidden="true"
+          />
+          <div
+            role="region"
+            aria-label={title}
+            className="fixed z-50 inset-x-0 bottom-0 top-auto translate-y-0 w-full max-w-none max-h-[78dvh] rounded-t-2xl rounded-b-none border-t border-border/80 sm:inset-x-auto sm:bottom-14 sm:right-12 lg:right-14 sm:w-[350px] xl:w-[380px] sm:max-h-[min(72dvh,520px)] sm:rounded-2xl sm:border flex flex-col bg-background/95 backdrop-blur-md shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-150"
+          >
+            {/* Mobile drag handle indicator */}
+            <div className="flex justify-center pt-2 pb-0.5 sm:hidden">
+              <div className="h-1 w-9 rounded-full bg-muted-foreground/30" />
             </div>
 
-            <div className="flex items-center gap-1.5">
-              {unreadNotesCount > 0 && onMarkAsViewed && (
+            {/* Header */}
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border/70 bg-muted/40">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-7 w-7 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <StickyNote className="h-3.5 w-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-xs sm:text-sm font-semibold text-foreground leading-none truncate">
+                      {title}
+                    </h3>
+                    {unreadNotesCount > 0 ? (
+                      <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-bold leading-none animate-pulse shrink-0">
+                        {unreadNotesCount} new
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground shrink-0">
+                        ({visibleNotes.length})
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                    Real-time handover & visit notices
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0">
+                {unreadNotesCount > 0 && onMarkAsViewed && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] rounded-full border-border/70 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-300"
+                    onClick={markAllAsRead}
+                    disabled={markingRead}
+                    title="Mark all notes as read"
+                  >
+                    <CheckCheck className="h-3 w-3 mr-1 text-emerald-600" />
+                    Mark read ({unreadNotesCount})
+                  </Button>
+                )}
+
                 <Button
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2.5 text-[11px] rounded-full border-border/70 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-300"
-                  onClick={markAllAsRead}
-                  disabled={markingRead}
-                  title="Mark all notes as read"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground"
+                  onClick={() => setOpenState(false)}
+                  aria-label="Close notes"
                 >
-                  <CheckCheck className="h-3.5 w-3.5 mr-1 text-emerald-600" />
-                  Mark read ({unreadNotesCount})
+                  <X className="h-3.5 w-3.5" />
                 </Button>
-              )}
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground"
-                onClick={() => setOpenState(false)}
-                aria-label="Close notes"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              </div>
             </div>
-          </div>
 
-          {/* Notes Feed */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2.5 max-h-[300px] min-h-[140px] bg-muted/15">
+            {/* Notes Feed */}
+            <div className="flex-1 overflow-y-auto overscroll-contain p-2.5 space-y-2 max-h-[210px] min-h-[100px] bg-muted/15">
             {visibleNotes.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
                 <MessageSquare className="h-8 w-8 stroke-1 text-muted-foreground/50 mb-2" />
@@ -949,9 +960,9 @@ export default function VisitNotesFloating({
                       }, 0);
                     }
                   }}
-                  rows={3}
+                  rows={2}
                   placeholder={activeTypeConfig.placeholder}
-                  className="bg-muted/40 border-border/80 focus-visible:ring-1 focus-visible:ring-primary text-xs resize-none"
+                  className="bg-muted/40 border-border/80 focus-visible:ring-1 focus-visible:ring-primary text-xs resize-none min-h-14"
                 />
               </div>
 
@@ -1019,7 +1030,8 @@ export default function VisitNotesFloating({
               </div>
             </div>
           )}
-        </div>
+          </div>
+        </>
       )}
     </>
   );

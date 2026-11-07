@@ -368,25 +368,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     }
 
     // ── Pre-submission guards ───────────────────────────────────────────
-    // Warn about items with zero price
-    const zeroPriceItems = unbilledItems.filter(
-      (item) => !item.price || item.price <= 0,
-    );
-    if (zeroPriceItems.length > 0) {
-      const names = zeroPriceItems.map((i) => i.name).join(", ");
-      toast.warn(`Items with no price will bill at 0: ${names}. Set a catalog price first.`);
-    }
-
-    // Warn about insurance selected but not covered
-    const insuranceNotCovered = unbilledItems.filter(
-      (item) => item.selectedInsuranceId && item.insuranceNotCovered,
-    );
-    if (insuranceNotCovered.length > 0) {
-      const names = insuranceNotCovered.map((i) => i.name).join(", ");
-      toast.warn(`Insurance not covering: ${names}. These will be billed as PRIVATE.`);
-    }
-
-    // Warn about items with quantity < 1 (shouldn't happen but guard anyway)
+    // Guard against items with quantity < 1
     const badQtyItems = unbilledItems.filter(
       (item) => !item.quantity || item.quantity < 1,
     );
@@ -399,34 +381,6 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     // Pre-compute coverage for guards and bill building
     const coverageForItem = (item: BillingItem) =>
       getCoveragePercentageForBillingItem(item, activeVisitInsurances);
-
-    // ── Edit-mode: warn if total changed significantly ──────────────────
-    if (existingVisitBilling) {
-      const correctedPatientPayable = billingData.items.reduce(
-        (sum, item) => {
-          const { patientAmount, skip } = getItemInsuranceSplit(
-            item,
-            coverageForItem(item),
-          );
-          return skip ? sum : sum + patientAmount;
-        },
-        0,
-      );
-      // Billing edits are FULLY INDEPENDENT snapshots — we never correlate the
-      // corrected bill against previously-collected money, so there is no
-      // "corrected bill less than paid / treated as credit" warning.
-      // Warn if total changed significantly
-      const originalTotal = billingData.items.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0,
-      );
-      const diff = Math.abs(originalTotal - correctedPatientPayable);
-      if (diff > 0.01 && diff / (originalTotal || 1) > 0.1) {
-        toast.warn(
-          `Bill total changed by ${formatRWF(diff)} (${Math.round((diff / (originalTotal || 1)) * 100)}%). Review before submitting.`,
-        );
-      }
-    }
 
     try {
 
