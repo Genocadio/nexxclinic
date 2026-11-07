@@ -165,7 +165,9 @@ export function useVisitLiveness(
       const detail = customEvent.detail
       if (!detail) return
 
-      if (detail.visitId === visitId) {
+      const eventVisitId = String(detail.visitId || "").toLowerCase()
+      const currentVisitId = String(visitId || "").toLowerCase()
+      if (eventVisitId && currentVisitId && eventVisitId === currentVisitId) {
         setLastEvent(detail)
         optionsRef.current?.onSseEvent?.(detail)
         if (detail.type === "VISIT_PRESENCE_CHANGED") {

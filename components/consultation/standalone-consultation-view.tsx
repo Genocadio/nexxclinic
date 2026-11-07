@@ -178,7 +178,9 @@ export function StandaloneConsultationView({
       playNoteNotificationSound();
     },
     onSseEvent: (detail) => {
-      if (detail.visitId !== visit.id) return;
+      const eventVisitId = String(detail.visitId || "").toLowerCase();
+      const currentVisitId = String(visit.id || "").toLowerCase();
+      if (eventVisitId && currentVisitId && eventVisitId !== currentVisitId) return;
 
       if (detail.type === "BILLING_COMPLETED") {
         const actor = detail.actorName ? ` by ${detail.actorName}` : "";
@@ -304,7 +306,7 @@ export function StandaloneConsultationView({
     ),
   );
 
-  const isActuallyBilled = liveBilled || hasBilledProducts;
+  const isActuallyBilled = liveBilled || hasBilledProducts || isDepartmentBilling;
   const isBilled = isActuallyBilled;
 
   const isFinalisedAnswer =
