@@ -651,14 +651,15 @@ export function BillingPreviewSheet({
                               <div className="border-b border-border bg-slate-50 px-3 py-2 text-sm font-semibold text-foreground dark:bg-slate-800">
                                 <div className="flex items-center justify-between gap-3">
                                   <div>
-                                    {invoiceGroups.length > 1
-                                      ? `Invoice option ${groupIndex + 1}`
-                                      : "Invoice"}
-                                    {group.id ? ` • #${group.id.slice(-8).toUpperCase()}` : ""}
-                                    {group.status ? ` • ${group.status}` : ""}
                                     {group.insuranceLabel
-                                      ? ` • ${group.insuranceLabel}`
-                                      : ""}
+                                      ? `${group.insuranceLabel} Insurance Billing`
+                                      : "Private Cash Billing"}
+                                    {group.status ? ` • ${group.status}` : ""}
+                                    {group.id ? (
+                                      <span className="text-xs font-normal text-muted-foreground ml-2">
+                                        (Ref: #{group.id.slice(-8).toUpperCase()})
+                                      </span>
+                                    ) : null}
                                   </div>
                                   {group.id && !isEditMode && canPrintInvoices ? (
                                     <div className="flex items-center gap-1.5 shrink-0">
@@ -677,9 +678,9 @@ export function BillingPreviewSheet({
                                             }
                                             disabled={printingInvoice}
                                             className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                                            title="Download contracted insurer claim copy"
+                                            title={`Download contracted insurer claim copy (Ref: #${group.id.slice(-8).toUpperCase()})`}
                                           >
-                                            Insurer Claim #{group.id.slice(-8).toUpperCase()}
+                                            {group.insuranceLabel ? `${group.insuranceLabel} Claim` : "Insurer Claim"}
                                           </button>
                                           <button
                                             type="button"
@@ -691,9 +692,9 @@ export function BillingPreviewSheet({
                                             }
                                             disabled={printingInvoice}
                                             className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                                            title="Download patient receipt and billing statement"
+                                            title={`Download patient co-pay receipt and statement (Ref: #${group.id.slice(-8).toUpperCase()})`}
                                           >
-                                            Patient Receipt #{group.id.slice(-8).toUpperCase()}
+                                            Patient Co-pay Receipt
                                           </button>
                                         </>
                                       ) : (
@@ -707,9 +708,9 @@ export function BillingPreviewSheet({
                                           }
                                           disabled={printingInvoice}
                                           className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                                          title="Download private invoice and receipt"
+                                          title={`Download private invoice and receipt (Ref: #${group.id.slice(-8).toUpperCase()})`}
                                         >
-                                          Private Invoice #{group.id.slice(-8).toUpperCase()}
+                                          Private Invoice & Receipt
                                         </button>
                                       )}
                                     </div>

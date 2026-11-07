@@ -1938,15 +1938,15 @@ export function VisitSettingsPanel({
                                               )
                                             }
                                             disabled={generatingInvoice}
-                                            className="px-2 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-blue-200 dark:border-blue-800 disabled:opacity-50"
-                                            title={`${providerName} Claim #${invoiceNo}`}
+                                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-blue-200 dark:border-blue-800 disabled:opacity-50"
+                                            title={`Download contracted insurer claim for ${providerName} (Ref: #${invoiceNo})`}
                                           >
                                             {isClaimLoading ? (
                                               <Loader2 className="h-3 w-3 animate-spin" />
                                             ) : (
                                               <Eye className="h-3 w-3" />
                                             )}
-                                            <span>Claim #{invoiceNo} <span className="text-[10px] opacity-75 font-normal">({providerName})</span></span>
+                                            <span>{providerName} Claim <span className="text-[10px] opacity-75 font-normal">(Insurer)</span></span>
                                           </button>
                                           <button
                                             type="button"
@@ -1957,15 +1957,15 @@ export function VisitSettingsPanel({
                                               )
                                             }
                                             disabled={generatingInvoice}
-                                            className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-emerald-200 dark:border-emerald-800 disabled:opacity-50"
-                                            title={`Patient Receipt #${invoiceNo}`}
+                                            className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-emerald-200 dark:border-emerald-800 disabled:opacity-50"
+                                            title={`Download patient co-pay receipt for ${providerName} (Ref: #${invoiceNo})`}
                                           >
                                             {isReceiptLoading ? (
                                               <Loader2 className="h-3 w-3 animate-spin" />
                                             ) : (
                                               <Eye className="h-3 w-3" />
                                             )}
-                                            <span>Receipt #{invoiceNo}</span>
+                                            <span>Patient Receipt <span className="text-[10px] opacity-75 font-normal">({providerName} Co-pay)</span></span>
                                           </button>
                                         </Fragment>
                                       )
@@ -1987,14 +1987,14 @@ export function VisitSettingsPanel({
                                         }
                                         disabled={generatingInvoice}
                                         className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-purple-200 dark:border-purple-800 disabled:opacity-50"
-                                        title={`Private Invoice #${invoiceNo}`}
+                                        title={`Download private self-pay invoice & receipt (Ref: #${invoiceNo})`}
                                       >
                                         {isPrivLoading ? (
                                           <Loader2 className="h-3 w-3 animate-spin" />
                                         ) : (
                                           <Eye className="h-3 w-3" />
                                         )}
-                                        <span>Invoice #{invoiceNo} <span className="text-[10px] opacity-75 font-normal">(Private)</span></span>
+                                        <span>Private Invoice & Receipt</span>
                                       </button>
                                     )
                                   })}
