@@ -31,6 +31,7 @@ import {
   ShieldAlert,
   RotateCcw,
   Activity,
+  Layers,
 } from "lucide-react"
 
 import { ReportsPeriodSelector } from "@/components/reports/reports-period-selector"
@@ -40,6 +41,7 @@ import { PayerFilterCombobox } from "@/components/reports/payer-filter-combobox"
 import { AdminReportsOverview } from "@/components/reports/admin-reports-overview"
 import { AdminReportsWaivers } from "@/components/reports/admin-reports-waivers"
 import { AdminReportsLoans } from "@/components/reports/admin-reports-loans"
+import { AdminReportsDetailed } from "@/components/reports/admin-reports-detailed"
 
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear()
@@ -309,6 +311,21 @@ export default function AdminReportsPage() {
             </Button>
 
             <Button
+              variant={activeTab === "detailed" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveTab("detailed")}
+              className="rounded-xl h-9 px-3 sm:px-4 text-xs font-medium gap-1.5"
+            >
+              <Layers className="h-4 w-4" />
+              Detailed Visits
+              {reportData && (
+                <Badge variant="secondary" className="py-0 px-1 text-[10px]">
+                  {reportData.encountersList?.length || reportData.overview.totalVisits}
+                </Badge>
+              )}
+            </Button>
+
+            <Button
               variant={activeTab === "waivers" ? "default" : "ghost"}
               size="sm"
               onClick={() => setActiveTab("waivers")}
@@ -387,6 +404,18 @@ export default function AdminReportsPage() {
                 cliniciansRoster={clinicians as any}
                 selectedInsuranceIds={selectedInsuranceIds}
                 isPrivateOnly={isPrivateOnly}
+              />
+            )}
+            {activeTab === "detailed" && (
+              <AdminReportsDetailed
+                data={reportData}
+                selectedDepartmentIds={selectedDepartmentIds}
+                selectedClinicianIds={selectedClinicianIds}
+                selectedInsuranceIds={selectedInsuranceIds}
+                isPrivateOnly={isPrivateOnly}
+                departments={departments}
+                clinicians={clinicians as any}
+                insurances={insurances}
               />
             )}
             {activeTab === "waivers" && (

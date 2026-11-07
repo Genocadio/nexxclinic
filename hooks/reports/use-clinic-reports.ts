@@ -128,6 +128,71 @@ export interface ClinicReportsInsuranceBreakdown {
   count?: number
 }
 
+export interface ClinicEncounterProductItem {
+  id?: string
+  name: string
+  code?: string | null
+  quantity: number
+  unitPrice: number
+  lineTotal: number
+  insuranceCovered: number
+  patientShare: number
+  status: string
+  type: string
+}
+
+export interface ClinicEncounterDetail {
+  id: string
+  visitId: string
+  visitDepartmentId: string
+  timestamp: string
+  patientName: string
+  patientId: string
+  patientIdentifier?: string | null
+  gender?: string | null
+  age?: number | null
+  departmentId: string
+  departmentName: string
+  clinicianId?: string | null
+  clinicianName?: string | null
+  insuranceName: string
+  status: string
+  products: ClinicEncounterProductItem[]
+  totalGross: number
+  totalInsurance: number
+  totalPatient: number
+  patientPaid?: number
+  loanAmount?: number
+  giveawayAmount?: number
+  waiverAmount?: number
+  pendingAmount?: number
+}
+
+export interface ClinicProductTurnoverItem {
+  id: string
+  visitId: string
+  visitDepartmentId: string
+  timestamp: string
+  productName: string
+  productCode?: string | null
+  patientName: string
+  patientId: string
+  patientIdentifier?: string | null
+  departmentId: string
+  departmentName: string
+  clinicianId?: string | null
+  clinicianName?: string | null
+  quantity: number
+  unitPrice: number
+  lineTotal: number
+  insuranceName: string
+  insuranceCoveredAmount: number
+  patientPayableAmount: number
+  status: string
+  isBilled: boolean
+  isExempted: boolean
+}
+
 export interface ClinicDiagnosticRecord {
   id: string
   visitId?: string
@@ -175,14 +240,20 @@ export interface ClinicReportsData {
       giveaway: number
       waiver: number
     }>
+    encountersList?: ClinicEncounterDetail[]
+    productTurnoverList?: ClinicProductTurnoverItem[]
   }
   deepReports: {
     waivers: ClinicReportsWaiver[]
     giveaways: ClinicReportsGiveaway[]
     adjustments: ClinicReportsAdjustment[]
     loans: ClinicReportsLoan[]
+    encounters?: ClinicEncounterDetail[]
+    productTurnoverList?: ClinicProductTurnoverItem[]
     diagnosticReports?: ClinicDiagnosticRecord[]
   }
+  encountersList?: ClinicEncounterDetail[]
+  productTurnoverList?: ClinicProductTurnoverItem[]
   diagnosticReports?: ClinicDiagnosticRecord[]
 }
 

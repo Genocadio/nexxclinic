@@ -12,9 +12,7 @@ import {
   HandCoins,
   ShieldCheck,
   ShieldAlert,
-  Clock,
   CheckCircle2,
-  UserCheck,
   CreditCard,
   Smartphone,
   Banknote,
@@ -83,16 +81,6 @@ export function AdminReportsOverview({
   isPrivateOnly = false,
 }: AdminReportsOverviewProps) {
   const { overview, financialBreakdown } = data
-  const genderTotal = (overview.maleCount || 0) + (overview.femaleCount || 0) + (overview.otherGenderCount || 0)
-  const malePct = genderTotal > 0 ? Math.round((overview.maleCount / genderTotal) * 100) : 0
-  const femalePct = genderTotal > 0 ? Math.round((overview.femaleCount / genderTotal) * 100) : 0
-  const otherPct = genderTotal > 0 ? Math.max(0, 100 - malePct - femalePct) : 0
-
-  const ageBrackets = overview.ageBrackets || { under18: 0, adults18to50: 0, seniors50plus: 0 }
-  const ageTotal = ageBrackets.under18 + ageBrackets.adults18to50 + ageBrackets.seniors50plus
-  const under18Pct = ageTotal > 0 ? Math.round((ageBrackets.under18 / ageTotal) * 100) : 0
-  const adultsPct = ageTotal > 0 ? Math.round((ageBrackets.adults18to50 / ageTotal) * 100) : 0
-  const seniorsPct = ageTotal > 0 ? Math.max(0, 100 - under18Pct - adultsPct) : 0
 
   // Private vs Insured Patient Share calculation
   const privateEntry = financialBreakdown.insuranceBreakdown.find((i: any) => {
@@ -458,160 +446,73 @@ export function AdminReportsOverview({
         </div>
       </div>
 
-      {/* 2. REVENUE TIMELINE & DEMOGRAPHICS (SIDE-BY-SIDE ON DESKTOP) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-        {/* Timeline Chart (7 cols) */}
-        <div className="lg:col-span-7 bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2 border-b border-border/50">
-            <div>
-              <h4 className="text-sm font-semibold text-foreground">Clinic Cashflow & Revenue Timeline</h4>
-              <p className="text-[11px] text-muted-foreground">Distribution of gross billed, collections, loans & absorbed giveaways</p>
-            </div>
-            <Badge variant="outline" className="text-[11px] py-0 px-2 bg-primary/10 text-primary border-primary/20">
-              {data.period.toUpperCase()}
-            </Badge>
+      {/* 2. REVENUE TIMELINE */}
+      <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 shadow-xs flex flex-col justify-between">
+        <div className="flex items-center justify-between pb-2 border-b border-border/50">
+          <div>
+            <h4 className="text-sm font-semibold text-foreground">Clinic Cashflow & Revenue Timeline</h4>
+            <p className="text-[11px] text-muted-foreground">Distribution of gross billed, collections, loans & absorbed giveaways</p>
           </div>
-
-          <div className="w-full h-[250px] pt-3">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={financialBreakdown.moneyTimeline} margin={{ top: 12, right: 12, left: -16, bottom: 4 }}>
-                <defs>
-                  <linearGradient id="grossRevenueGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="4 4"
-                  vertical={true}
-                  stroke="currentColor"
-                  className="text-border/80 dark:text-border/60"
-                  strokeOpacity={0.7}
-                />
-                <XAxis
-                  dataKey="label"
-                  stroke="currentColor"
-                  className="text-[11px] font-medium text-foreground/80"
-                  tickLine={{ stroke: "currentColor", className: "text-border" }}
-                  axisLine={{ stroke: "currentColor", className: "text-border/80" }}
-                  dy={4}
-                />
-                <YAxis
-                  stroke="currentColor"
-                  className="text-[11px] font-medium text-foreground/80"
-                  tickLine={{ stroke: "currentColor", className: "text-border" }}
-                  axisLine={{ stroke: "currentColor", className: "text-border/80" }}
-                  tickFormatter={(val) => val >= 1000 ? `${Math.round(val / 1000)}k` : `${val}`}
-                />
-                <Tooltip content={<CustomTimelineTooltip />} />
-                <Legend
-                  wrapperStyle={{ paddingTop: "8px", fontSize: "11px" }}
-                  formatter={(value) => (
-                    <span className="text-foreground font-medium text-xs mr-2">{value}</span>
-                  )}
-                />
-                {/* Gross Trend Area & Line */}
-                <Area
-                  type="monotone"
-                  dataKey="gross"
-                  name="Gross Billed (Trend)"
-                  stroke="#2563eb"
-                  strokeWidth={2.5}
-                  fill="url(#grossRevenueGrad)"
-                  dot={{ r: 3, fill: "#2563eb", strokeWidth: 1, stroke: "#ffffff" }}
-                  activeDot={{ r: 5, fill: "#1d4ed8" }}
-                />
-                <Bar dataKey="collected" name="Patient Paid" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={18} />
-                <Bar dataKey="insurance" name="Insurance" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={18} />
-                <Bar dataKey="loan" name="Loans" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={18} />
-                <Bar dataKey="giveaway" name="Giveaways" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={18} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
+          <Badge variant="outline" className="text-[11px] py-0 px-2 bg-primary/10 text-primary border-primary/20">
+            {data.period.toUpperCase()}
+          </Badge>
         </div>
 
-        {/* Demographics & Peak Hour (5 cols) */}
-        <div className="lg:col-span-5 bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 shadow-xs flex flex-col justify-between space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-border/50">
-            <div className="flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-semibold text-foreground">Patient Demographics & Peak Activity</h4>
-            </div>
-            <Badge variant="outline" className="text-[11px] py-0 px-2 bg-muted/40 font-normal">
-              {genderTotal} patients
-            </Badge>
-          </div>
-
-          {/* Gender Ratio */}
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs font-medium">
-              <span className="text-blue-600 dark:text-blue-400 text-[11px]">
-                Male: {overview.maleCount} ({malePct}%)
-              </span>
-              <span className="text-pink-600 dark:text-pink-400 text-[11px]">
-                Female: {overview.femaleCount} ({femalePct}%)
-              </span>
-            </div>
-            <div className="h-2 w-full bg-muted/60 rounded-full overflow-hidden flex">
-              <div className="bg-blue-500 h-full" style={{ width: `${malePct}%` }} />
-              <div className="bg-pink-500 h-full" style={{ width: `${femalePct}%` }} />
-              {otherPct > 0 && <div className="bg-purple-500 h-full" style={{ width: `${otherPct}%` }} />}
-            </div>
-          </div>
-
-          {/* Age Distribution */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
-              <span>Age Brackets</span>
-              <span>Avg Age: {overview.averageAge} yrs</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="p-2 rounded-xl bg-muted/40 border border-border/50 space-y-1">
-                <div className="flex justify-between items-center text-[11px]">
-                  <span className="text-muted-foreground">&lt;18 yrs</span>
-                  <span className="font-semibold text-foreground">{under18Pct}%</span>
-                </div>
-                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                  <div className="bg-sky-500 h-full" style={{ width: `${under18Pct}%` }} />
-                </div>
-                <span className="text-[10px] text-muted-foreground block text-right">{ageBrackets.under18} pts</span>
-              </div>
-              <div className="p-2 rounded-xl bg-muted/40 border border-border/50 space-y-1">
-                <div className="flex justify-between items-center text-[11px]">
-                  <span className="text-muted-foreground">18–50 yrs</span>
-                  <span className="font-semibold text-foreground">{adultsPct}%</span>
-                </div>
-                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                  <div className="bg-emerald-500 h-full" style={{ width: `${adultsPct}%` }} />
-                </div>
-                <span className="text-[10px] text-muted-foreground block text-right">{ageBrackets.adults18to50} pts</span>
-              </div>
-              <div className="p-2 rounded-xl bg-muted/40 border border-border/50 space-y-1">
-                <div className="flex justify-between items-center text-[11px]">
-                  <span className="text-muted-foreground">50+ yrs</span>
-                  <span className="font-semibold text-foreground">{seniorsPct}%</span>
-                </div>
-                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                  <div className="bg-amber-500 h-full" style={{ width: `${seniorsPct}%` }} />
-                </div>
-                <span className="text-[10px] text-muted-foreground block text-right">{ageBrackets.seniors50plus} pts</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Peak Active Hour Card */}
-          <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <div>
-                <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400 block">Peak Workflow Hour</span>
-                <span className="text-xs font-bold text-foreground">{overview.peakActivityHour}</span>
-              </div>
-            </div>
-            <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-700 dark:text-amber-300">
-              Busiest Window
-            </Badge>
-          </div>
+        <div className="w-full h-[280px] pt-3">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={financialBreakdown.moneyTimeline} margin={{ top: 12, right: 12, left: -16, bottom: 4 }}>
+              <defs>
+                <linearGradient id="grossRevenueGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="4 4"
+                vertical={true}
+                stroke="currentColor"
+                className="text-border/80 dark:text-border/60"
+                strokeOpacity={0.7}
+              />
+              <XAxis
+                dataKey="label"
+                stroke="currentColor"
+                className="text-[11px] font-medium text-foreground/80"
+                tickLine={{ stroke: "currentColor", className: "text-border" }}
+                axisLine={{ stroke: "currentColor", className: "text-border/80" }}
+                dy={4}
+              />
+              <YAxis
+                stroke="currentColor"
+                className="text-[11px] font-medium text-foreground/80"
+                tickLine={{ stroke: "currentColor", className: "text-border" }}
+                axisLine={{ stroke: "currentColor", className: "text-border/80" }}
+                tickFormatter={(val) => val >= 1000 ? `${Math.round(val / 1000)}k` : `${val}`}
+              />
+              <Tooltip content={<CustomTimelineTooltip />} />
+              <Legend
+                wrapperStyle={{ paddingTop: "8px", fontSize: "11px" }}
+                formatter={(value) => (
+                  <span className="text-foreground font-medium text-xs mr-2">{value}</span>
+                )}
+              />
+              {/* Gross Trend Area & Line */}
+              <Area
+                type="monotone"
+                dataKey="gross"
+                name="Gross Billed (Trend)"
+                stroke="#2563eb"
+                strokeWidth={2.5}
+                fill="url(#grossRevenueGrad)"
+                dot={{ r: 3, fill: "#2563eb", strokeWidth: 1, stroke: "#ffffff" }}
+                activeDot={{ r: 5, fill: "#1d4ed8" }}
+              />
+              <Bar dataKey="collected" name="Patient Paid" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={18} />
+              <Bar dataKey="insurance" name="Insurance" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={18} />
+              <Bar dataKey="loan" name="Loans" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={18} />
+              <Bar dataKey="giveaway" name="Giveaways" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={18} />
+            </ComposedChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

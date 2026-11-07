@@ -24,6 +24,7 @@ import {
   RotateCcw,
   Stethoscope,
   Landmark,
+  Layers,
 } from "lucide-react"
 
 import { ReportsPeriodSelector } from "@/components/reports/reports-period-selector"
@@ -35,6 +36,7 @@ import { AdminReportsEarnings } from "@/components/reports/admin-reports-earning
 import { AdminReportsWaivers } from "@/components/reports/admin-reports-waivers"
 import { AdminReportsAdjustments } from "@/components/reports/admin-reports-adjustments"
 import { AdminReportsLoans } from "@/components/reports/admin-reports-loans"
+import { AdminReportsDetailed } from "@/components/reports/admin-reports-detailed"
 
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear()
@@ -307,6 +309,21 @@ export default function FinancialReportsPage() {
             </Button>
 
             <Button
+              variant={activeTab === "detailed" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveTab("detailed")}
+              className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
+            >
+              <Layers className="h-4 w-4 shrink-0" />
+              <span>Detailed Visits</span>
+              {reportData && (
+                <Badge variant="secondary" className="py-0 px-1 text-[10px]">
+                  {reportData.encountersList?.length || reportData.overview.totalVisits}
+                </Badge>
+              )}
+            </Button>
+
+            <Button
               variant={activeTab === "earnings" ? "default" : "ghost"}
               size="sm"
               onClick={() => setActiveTab("earnings")}
@@ -388,6 +405,18 @@ export default function FinancialReportsPage() {
           <>
             {activeTab === "overview" && (
               <AdminReportsOverview data={reportData} onTabChange={setActiveTab} />
+            )}
+            {activeTab === "detailed" && (
+              <AdminReportsDetailed
+                data={reportData}
+                selectedDepartmentIds={selectedDepartmentIds}
+                selectedClinicianIds={selectedClinicianIds}
+                selectedInsuranceIds={selectedInsuranceIds}
+                isPrivateOnly={isPrivateOnly}
+                departments={departments}
+                clinicians={clinicians as any}
+                insurances={insurances}
+              />
             )}
             {activeTab === "earnings" && (
               <AdminReportsEarnings data={reportData} />

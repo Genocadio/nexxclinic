@@ -43,13 +43,8 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
   const clinicName = getClinicDisplayName(clinicProfile)
   const clinicLogoUrl = getClinicLogoUrl(clinicProfile)
 
-  // Personal user report is for staff with operational duties or management oversight
-  const hasOperationalRole =
-    hasRole(roles, "CLINICIAN") ||
-    hasRole(roles, "NURSE") ||
-    hasRole(roles, "FINANCE") ||
-    hasRole(roles, "RECEPTION")
-  const canAccessPersonalReport = hasOperationalRole || canAccessAdminOrManager
+  // Personal activity report under user avatar dropdown is only for clinicians
+  const isClinician = hasRole(roles, "CLINICIAN")
 
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/)
@@ -194,20 +189,6 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
                           </button>
                         )
                       )}
-
-                      {canAccessPersonalReport && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            router.push("/reports")
-                            setLeftMenuOpen(false)
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-all duration-200 text-left text-foreground cursor-pointer"
-                        >
-                          <BarChart3 className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm font-medium">My Personal Activity</span>
-                        </button>
-                      )}
                     </div>
                   </>
                 )}
@@ -283,7 +264,7 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
                     <UserCog className="w-4 h-4 text-muted-foreground" />
                     <span className="text-sm font-medium">My Account</span>
                   </button>
-                  {canAccessPersonalReport && (
+                  {isClinician && (
                     <button
                       type="button"
                       onClick={() => {
