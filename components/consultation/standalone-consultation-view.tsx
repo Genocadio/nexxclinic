@@ -310,19 +310,26 @@ export function StandaloneConsultationView({
     ),
   );
 
+  const isDepartmentEditing =
+    effectiveDepartmentStatus === "DEPARTMENT_EDITING" ||
+    visitDepartment.status === "DEPARTMENT_EDITING";
+
   // A department is only locked in billing if its status is BILLING or finance just completed billing (liveBilled)
-  // while not in ACTIVE status. Pre-billed products (e.g. registration fee or consultation fee paid at reception)
-  // must never lock the active consultation room.
+  // while not in ACTIVE status and not in DEPARTMENT_EDITING status. Pre-billed products (e.g. registration fee
+  // or consultation fee paid at reception) must never lock the active consultation room.
   const isLockedInBilling =
-    (isDepartmentBilling || liveBilled) && effectiveDepartmentStatus !== "ACTIVE";
+    (isDepartmentBilling || liveBilled) &&
+    effectiveDepartmentStatus !== "ACTIVE" &&
+    !isDepartmentEditing;
   const isActuallyBilled = isLockedInBilling;
   const isBilled = isLockedInBilling;
 
   const isFinalisedAnswer =
-    isFinalised ||
-    String(answer?.status || "").toUpperCase() === "FINAL" ||
-    String(answer?.status || "").toUpperCase() === "SUBMITTED" ||
-    Boolean(visitDepartment.hasFinalizedConsultationAnswers);
+    !isDepartmentEditing &&
+    (isFinalised ||
+      String(answer?.status || "").toUpperCase() === "FINAL" ||
+      String(answer?.status || "").toUpperCase() === "SUBMITTED" ||
+      Boolean(visitDepartment.hasFinalizedConsultationAnswers));
   const isTerminalVisit =
     visit?.status === "COMPLETED" ||
     visit?.status === "FINALISED" ||
@@ -602,8 +609,8 @@ export function StandaloneConsultationView({
         throw new Error("Form context is missing");
       }
 
-      // Never save a finalised form back down to a draft.
-      if (status === "DRAFT" && isFinalised) {
+      // Never save a finalised form back down to a draft unless in DEPARTMENT_EDITING mode.
+      if (status === "DRAFT" && isFinalised && !isDepartmentEditing) {
         return null;
       }
 
@@ -879,12 +886,21 @@ export function StandaloneConsultationView({
       formRendererRef.current?.clearErrors();
       await persistAnswers(answers, "DRAFT", { skipDuplicateCheck: true });
 
-      // If there are unbilled products on this department, hand it off to billing
-      // so finance can bill the prescribed products/investigations.
-      const hasUnbilledProducts = visitDepartment.products?.some(
-        (p) => !(p as any).deleted && String(p.billingState || "").toUpperCase() !== "BILLED",
+      // State transition rules:
+      // 1. If in edit mode (DEPARTMENT_EDITING): keep the state intact (do not change status).
+      // 2. If unbilled products exist: send to BILLING so finance can bill the products.
+      // 3. Unless visit is already billed and not in edit mode: just save answers (no state change).
+      const allDepts = [
+        visitDepartment,
+        ...(visitDepartment.childVisitDepartments || []),
+      ];
+      const hasUnbilledProducts = allDepts.some((d) =>
+        d.products?.some(
+          (p) => !(p as any).deleted && String(p.billingState || "").toUpperCase() !== "BILLED",
+        ),
       );
-      if (hasUnbilledProducts && visitDepartment.status !== "BILLING") {
+
+      if (!isDepartmentEditing && hasUnbilledProducts && visitDepartment.status !== "BILLING") {
         try {
           await updateDepartmentStatus(String(visitDepartment.id), "BILLING");
         } catch (statusErr) {
@@ -933,18 +949,28 @@ export function StandaloneConsultationView({
 
       await persistAnswers(answers, "FINAL", { skipDuplicateCheck: true });
 
-      // Transition department status:
-      // If unbilled products exist -> BILLING so finance can collect payment.
-      // Otherwise -> FINALISED.
-      const hasUnbilledProducts = visitDepartment.products?.some(
-        (p) => !(p as any).deleted && String(p.billingState || "").toUpperCase() !== "BILLED",
+      // State transition rules:
+      // 1. If in edit mode (DEPARTMENT_EDITING): keep the state intact (do not change status).
+      // 2. If unbilled products exist: send to BILLING so finance can collect payment.
+      // 3. If visit is already billed and not in edit mode: mark department as FINALISED.
+      const allDepts = [
+        visitDepartment,
+        ...(visitDepartment.childVisitDepartments || []),
+      ];
+      const hasUnbilledProducts = allDepts.some((d) =>
+        d.products?.some(
+          (p) => !(p as any).deleted && String(p.billingState || "").toUpperCase() !== "BILLED",
+        ),
       );
-      const targetStatus = hasUnbilledProducts ? "BILLING" : "FINALISED";
-      if (visitDepartment.status !== targetStatus) {
-        try {
-          await updateDepartmentStatus(String(visitDepartment.id), targetStatus);
-        } catch (statusErr) {
-          console.warn("Department status update during finalize:", statusErr);
+
+      if (!isDepartmentEditing) {
+        const targetStatus = hasUnbilledProducts ? "BILLING" : "FINALISED";
+        if (visitDepartment.status !== targetStatus) {
+          try {
+            await updateDepartmentStatus(String(visitDepartment.id), targetStatus);
+          } catch (statusErr) {
+            console.warn("Department status update during finalize:", statusErr);
+          }
         }
       }
 
