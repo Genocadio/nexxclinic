@@ -1,6 +1,8 @@
 "use client"
 
-import React, { useState, useMemo, useCallback } from "react"
+import React, { useState, useMemo, useCallback, useEffect } from "react"
+import { useLazyQuery, gql } from "@apollo/client"
+import { toast } from "react-toastify"
 import {
   ClinicReportsData,
   ClinicEncounterDetail,
@@ -11,6 +13,15 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet"
+import { useGenerateInvoice } from "@/hooks/billing/hooks"
+import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
 import {
   Search,
   FileSpreadsheet,
@@ -27,7 +38,56 @@ import {
   CreditCard,
   Clock,
   Filter,
+  Eye,
+  Printer,
+  ExternalLink,
+  FileText,
+  Loader2,
 } from "lucide-react"
+
+const GET_VISIT_BILLING_AUDIT = gql`
+  query GetVisitBillingForAudit($visitId: ID!) {
+    visitBilling(visitId: $visitId) {
+      status
+      message
+      data {
+        id
+        departments {
+          id
+          status
+          totalAmount
+          visitDepartment {
+            id
+            department {
+              id
+              name
+            }
+          }
+          insuranceBillings {
+            id
+            status
+            totalAmount
+            insuranceCoveredAmount
+            patientPayableAmount
+            paidAmount
+            outstandingAmount
+            patientInsurance {
+              id
+              insuranceCardNumber
+              insuranceProvider {
+                id
+                insuranceName
+                acronym
+              }
+            }
+            billingDate
+            invoiceUrl
+          }
+        }
+      }
+    }
+  }
+`
 
 interface AdminReportsDetailedProps {
   data: ClinicReportsData
@@ -59,6 +119,119 @@ export function AdminReportsDetailed({
   const [statusFilter, setStatusFilter] = useState<"ALL" | "BILLED" | "PENDING" | "EXEMPTED" | "LOAN">("ALL")
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT)
   const [isTableExpanded, setIsTableExpanded] = useState(false)
+
+  // Drawer & Invoice state for instant audit
+  const [selectedAuditEncounter, setSelectedAuditEncounter] = useState<ClinicEncounterDetail | null>(null)
+  const [previewingInvoiceKey, setPreviewingInvoiceKey] = useState<string | null>(null)
+  const { generateInvoice } = useGenerateInvoice()
+
+  const [fetchVisitBilling, { data: auditBillingData, loading: loadingAuditBilling }] = useLazyQuery(
+    GET_VISIT_BILLING_AUDIT,
+    { fetchPolicy: "network-only" }
+  )
+
+  useEffect(() => {
+    if (selectedAuditEncounter?.visitId) {
+      void fetchVisitBilling({ variables: { visitId: selectedAuditEncounter.visitId } })
+    }
+  }, [selectedAuditEncounter?.visitId, fetchVisitBilling])
+
+  const auditInvoices = useMemo(() => {
+    const depts = (auditBillingData?.visitBilling?.data?.departments || []) as any[]
+    const list: Array<{
+      id: string
+      title: string
+      subtitle: string
+      insuranceBillingId: string
+      copyType: "INSURANCE" | "PATIENT" | "PRIVATE"
+      providerName: string
+      cardNumber?: string
+      isInsured: boolean
+    }> = []
+
+    depts.forEach((dept) => {
+      const iBillings = (dept.insuranceBillings || []) as any[]
+      iBillings.forEach((ib) => {
+        const provider = ib.patientInsurance?.insuranceProvider
+        const providerName = provider?.acronym || provider?.insuranceName || "Insurance"
+        const isPrivate =
+          !provider ||
+          providerName.toLowerCase().includes("private") ||
+          providerName.toLowerCase().includes("cash")
+        const cardNumber = ib.patientInsurance?.insuranceCardNumber
+
+        if (isPrivate) {
+          list.push({
+            id: `priv-${ib.id}`,
+            title: "Private Invoice & Receipt",
+            subtitle: `${formatRWF(ib.totalAmount)} • Cash / Direct`,
+            insuranceBillingId: ib.id,
+            copyType: "PRIVATE",
+            providerName: "Private",
+            cardNumber,
+            isInsured: false,
+          })
+        } else {
+          list.push({
+            id: `ins-${ib.id}`,
+            title: `${providerName} Claim (Insurer)`,
+            subtitle: `Insurer: ${formatRWF(ib.insuranceCoveredAmount || Math.round(ib.totalAmount * 0.85))}`,
+            insuranceBillingId: ib.id,
+            copyType: "INSURANCE",
+            providerName,
+            cardNumber,
+            isInsured: true,
+          })
+          list.push({
+            id: `pat-${ib.id}`,
+            title: `Patient Receipt (${providerName} Co-pay)`,
+            subtitle: `Patient: ${formatRWF(ib.patientPayableAmount || Math.round(ib.totalAmount * 0.15))}`,
+            insuranceBillingId: ib.id,
+            copyType: "PATIENT",
+            providerName,
+            cardNumber,
+            isInsured: true,
+          })
+        }
+      })
+    })
+
+    return list
+  }, [auditBillingData])
+
+  const handleReprintInvoice = async (
+    billingId: string,
+    copyType?: string,
+    explicitKey?: string,
+  ) => {
+    const key = explicitKey || `${billingId}-${copyType || "DEFAULT"}`
+    setPreviewingInvoiceKey(key)
+    try {
+      const invoiceUrl = await resolveInvoiceUrl(billingId, generateInvoice, copyType)
+      openInvoicePreview(invoiceUrl)
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to generate invoice")
+    } finally {
+      setPreviewingInvoiceKey(null)
+    }
+  }
+
+  const handleReprintDeptInvoice = async (visitDeptId: string, copyType?: string) => {
+    const key = `dept-${visitDeptId}-${copyType || "DEFAULT"}`
+    setPreviewingInvoiceKey(key)
+    try {
+      const invoiceUrl = await resolveInvoiceUrl(
+        visitDeptId,
+        (id, opts) => generateInvoice(id, { ...opts, isVisitDepartmentId: true }),
+        copyType,
+      )
+      openInvoicePreview(invoiceUrl)
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to generate invoice")
+    } finally {
+      setPreviewingInvoiceKey(null)
+    }
+  }
 
   // Determine active focused filters to hide redundant columns
   const isDepartmentFiltered = selectedDepartmentIds.length > 0
@@ -403,6 +576,148 @@ export function AdminReportsDetailed({
     }
   }
 
+  // Export Insurer Claim Bordereau (RSSB, MMI, Radiant, Sanlam, Britam, etc.)
+  const handleExportClaimBordereau = () => {
+    // If filtering by insurer or private, respect that; otherwise filter out pure private encounters
+    const eligibleEncounters = encounters.filter((enc) => {
+      const isInsured =
+        enc.insuranceName &&
+        !enc.insuranceName.toLowerCase().includes("private") &&
+        !enc.insuranceName.toLowerCase().includes("cash")
+      if (selectedInsuranceIds.length > 0) {
+        return searchFilteredEncounters.some((s) => s.id === enc.id) && isInsured
+      }
+      return isInsured && (statusFilter === "ALL" || enc.status === statusFilter)
+    })
+
+    if (eligibleEncounters.length === 0) {
+      toast.info("No insured claim records found matching the active filters to export a bordereau.")
+      return
+    }
+
+    // Official Rwandan Insurer Transmission Sheet (Bordereau de transmission des factures)
+    const headers = [
+      "No",
+      "Date_Soins",
+      "No_Feuille_Soins_Voucher",
+      "Nom_Assure_Principal",
+      "Nom_Beneficiaire",
+      "Qualite_Beneficiaire",
+      "No_Affiliation_Carte",
+      "Sexe",
+      "Age",
+      "Organisme_Assurance",
+      "Departement_Service",
+      "Medecin_Traitant",
+      "Diagnostic_Principal_CIM11",
+      "Code_Acte_Medicament",
+      "Description_Prestation",
+      "Quantite",
+      "Prix_Unitaire_RWF",
+      "Montant_Total_RWF",
+      "Prise_en_Charge_Assurance_RWF",
+      "Ticket_Moderateur_Patient_RWF",
+      "Statut_Facture",
+    ]
+
+    const rows: Array<Array<string | number>> = []
+    let rowSeq = 1
+
+    eligibleEncounters.forEach((enc) => {
+      const encDate = enc.timestamp ? enc.timestamp.slice(0, 10) : ""
+      const voucherNo = enc.visitId ? enc.visitId.slice(-8).toUpperCase() : enc.id.slice(-8).toUpperCase()
+      const principalName = enc.principalMemberName || enc.patientName
+      const patientName = enc.patientName
+      const quality = enc.isPrincipalMember ? "Assuré Principal" : "Ayoborwa / Dépendant"
+      const cardNumber = enc.insuranceCardNumber || enc.patientIdentifier || "—"
+      const gender = enc.gender ? (enc.gender.toUpperCase().startsWith("M") ? "M" : "F") : "—"
+      const age = enc.age != null ? enc.age : "—"
+      const insurer = enc.insuranceName
+      const deptName = enc.departmentName
+      const doctor = enc.clinicianName || "Direct Order"
+      const diagnosis = enc.primaryDiagnosis || enc.primaryIcdCode || "—"
+      const status = enc.status
+
+      if (!enc.products || enc.products.length === 0) {
+        rows.push([
+          rowSeq++,
+          `"${encDate}"`,
+          `"${voucherNo}"`,
+          `"${principalName.replace(/"/g, '""')}"`,
+          `"${patientName.replace(/"/g, '""')}"`,
+          `"${quality}"`,
+          `"${cardNumber.replace(/"/g, '""')}"`,
+          `"${gender}"`,
+          age,
+          `"${insurer.replace(/"/g, '""')}"`,
+          `"${deptName.replace(/"/g, '""')}"`,
+          `"${doctor.replace(/"/g, '""')}"`,
+          `"${diagnosis.replace(/"/g, '""')}"`,
+          `"ACT-GEN"`,
+          `"Consultation / Service Médical"`,
+          1,
+          enc.totalGross,
+          enc.totalGross,
+          enc.totalInsurance,
+          enc.totalPatient,
+          `"${status}"`,
+        ])
+      } else {
+        enc.products.forEach((prod) => {
+          const itemCode = prod.code || "ACT-001"
+          const itemName = prod.name
+          const qty = prod.quantity
+          const unitPrice = prod.unitPrice
+          const lineTotal = prod.lineTotal
+          const insShare = prod.insuranceCovered
+          const patShare = prod.patientShare
+
+          rows.push([
+            rowSeq++,
+            `"${encDate}"`,
+            `"${voucherNo}"`,
+            `"${principalName.replace(/"/g, '""')}"`,
+            `"${patientName.replace(/"/g, '""')}"`,
+            `"${quality}"`,
+            `"${cardNumber.replace(/"/g, '""')}"`,
+            `"${gender}"`,
+            age,
+            `"${insurer.replace(/"/g, '""')}"`,
+            `"${deptName.replace(/"/g, '""')}"`,
+            `"${doctor.replace(/"/g, '""')}"`,
+            `"${diagnosis.replace(/"/g, '""')}"`,
+            `"${itemCode.replace(/"/g, '""')}"`,
+            `"${itemName.replace(/"/g, '""')}"`,
+            qty,
+            unitPrice,
+            lineTotal,
+            insShare,
+            patShare,
+            `"${status}"`,
+          ])
+        })
+      }
+    })
+
+    const csvContent =
+      "data:text/csv;charset=utf-8,\uFEFF" +
+      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    const insurerPrefix = focusedInsuranceLabel
+      ? focusedInsuranceLabel.replace(/[^a-zA-Z0-9]/g, "_")
+      : "RSSB_MMI_Insurers"
+    link.setAttribute(
+      "download",
+      `Bordereau_Transmission_${insurerPrefix}_${new Date().toISOString().slice(0, 10)}.csv`
+    )
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    toast.success(`Exported claim bordereau sheet (${rows.length} claim lines)`)
+  }
+
   const anyFilterApplied = isDepartmentFiltered || isClinicianFiltered || isInsuranceFiltered || isStatusFiltered
 
   return (
@@ -546,6 +861,17 @@ export function AdminReportsDetailed({
             >
               <FileSpreadsheet className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="hidden sm:inline">CSV</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportClaimBordereau}
+              className="h-8 px-2.5 text-xs rounded-xl border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 gap-1.5 shrink-0 font-medium cursor-pointer shadow-xs transition-all"
+              title="Export official claim bordereau formatted for RSSB (RAMA), MMI, and private insurers"
+            >
+              <Shield className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Export Claim Bordereau</span>
             </Button>
 
             <Button
@@ -696,16 +1022,21 @@ export function AdminReportsDetailed({
                       {!isStatusFiltered && (
                         <th className="py-2.5 px-3.5 text-right whitespace-nowrap bg-muted/80 backdrop-blur-xl">Billing Status</th>
                       )}
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap bg-muted/80 backdrop-blur-xl">Audit</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50 text-foreground">
                     {visibleEncounters.map((enc) => (
-                      <tr key={enc.id} className="hover:bg-muted/30 transition-colors align-top">
+                      <tr
+                        key={enc.id}
+                        onClick={() => setSelectedAuditEncounter(enc)}
+                        className="hover:bg-primary/5 cursor-pointer transition-colors align-top group"
+                      >
                         <td className="py-2.5 px-3.5 font-mono text-muted-foreground whitespace-nowrap">
                           {formatTimestamp(enc.timestamp)}
                         </td>
                         <td className="py-2.5 px-3.5">
-                          <div className="font-semibold text-foreground">{enc.patientName}</div>
+                          <div className="font-semibold text-foreground group-hover:text-primary transition-colors">{enc.patientName}</div>
                           {enc.patientIdentifier && (
                             <div className="text-[11px] text-muted-foreground font-mono">
                               {enc.patientIdentifier}
@@ -766,13 +1097,13 @@ export function AdminReportsDetailed({
                             </Badge>
                           </td>
                         )}
-                        <td className="py-2.5 px-3.5 text-right font-bold text-foreground whitespace-nowrap">
+                        <td className="py-2.5 px-3.5 text-right font-bold text-foreground whitespace-nowrap font-mono">
                           {formatRWF(enc.totalGross)}
                         </td>
-                        <td className="py-2.5 px-3.5 text-right text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">
+                        <td className="py-2.5 px-3.5 text-right text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap font-mono">
                           {enc.totalInsurance > 0 ? formatRWF(enc.totalInsurance) : "—"}
                         </td>
-                        <td className="py-2.5 px-3.5 text-right text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap">
+                        <td className="py-2.5 px-3.5 text-right text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap font-mono">
                           {formatRWF(enc.totalPatient)}
                         </td>
                         {!isStatusFiltered && (
@@ -789,6 +1120,21 @@ export function AdminReportsDetailed({
                             </Badge>
                           </td>
                         )}
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedAuditEncounter(enc)
+                            }}
+                            className="h-7 px-2 text-[11px] rounded-lg gap-1 text-primary hover:bg-primary/10 font-medium cursor-pointer"
+                            title="Open Audit & Invoice Drawer"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span className="hidden xl:inline">Audit</span>
+                          </Button>
+                        </td>
                       </tr>
                     ))}
 
@@ -839,6 +1185,9 @@ export function AdminReportsDetailed({
                                 <Skeleton className="h-4 w-16 rounded-full ml-auto" />
                               </td>
                             )}
+                            <td className="py-2.5 px-3 text-center">
+                              <Skeleton className="h-6 w-12 rounded-lg mx-auto" />
+                            </td>
                           </tr>
                         ))}
                       </>
@@ -926,79 +1275,108 @@ export function AdminReportsDetailed({
                       {!isStatusFiltered && (
                         <th className="py-2.5 px-3.5 text-right bg-muted/80 backdrop-blur-xl">Status</th>
                       )}
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap bg-muted/80 backdrop-blur-xl">Audit</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50 text-foreground">
-                    {visibleDetailedProducts.map((item) => (
-                      <tr key={item.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="py-2.5 px-3.5 font-mono text-muted-foreground whitespace-nowrap">
-                          {formatTimestamp(item.timestamp)}
-                        </td>
-                        <td className="py-2.5 px-3.5 font-semibold text-foreground">
-                          {item.productName}
-                          {item.productCode && (
-                            <span className="block text-[11px] text-muted-foreground font-mono font-normal">
-                              Code: {item.productCode}
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3.5">
-                          <div className="font-medium text-foreground">{item.patientName}</div>
-                          {item.patientIdentifier && (
-                            <div className="text-[11px] text-muted-foreground font-mono">
-                              {item.patientIdentifier}
-                            </div>
-                          )}
-                        </td>
-                        {!isDepartmentFiltered && (
-                          <td className="py-2.5 px-3.5 text-muted-foreground whitespace-nowrap">{item.departmentName}</td>
-                        )}
-                        {!isClinicianFiltered && (
-                          <td className="py-2.5 px-3.5 text-foreground whitespace-nowrap">
-                            <div className="flex items-center gap-1.5">
-                              <Stethoscope className="h-3 w-3 text-primary shrink-0" />
-                              <span>{item.clinicianName || "—"}</span>
-                            </div>
+                    {visibleDetailedProducts.map((item) => {
+                      const parentEnc = encounters.find((e) => e.visitId === item.visitId)
+                      return (
+                        <tr
+                          key={item.id}
+                          onClick={() => {
+                            if (parentEnc) setSelectedAuditEncounter(parentEnc)
+                          }}
+                          className="hover:bg-primary/5 cursor-pointer transition-colors group"
+                        >
+                          <td className="py-2.5 px-3.5 font-mono text-muted-foreground whitespace-nowrap">
+                            {formatTimestamp(item.timestamp)}
                           </td>
-                        )}
-                        <td className="py-2.5 px-3.5 text-center font-bold text-primary">{item.quantity}</td>
-                        <td className="py-2.5 px-3.5 text-right font-mono text-muted-foreground">
-                          {formatRWF(item.unitPrice)}
-                        </td>
-                        {!isInsuranceFiltered && (
-                          <td className="py-2.5 px-3.5 whitespace-nowrap">
-                            <Badge variant="outline" className="text-[11px] py-0 px-1.5 bg-muted/40 font-medium">
-                              {item.insuranceName || "Private / Cash"}
-                            </Badge>
+                          <td className="py-2.5 px-3.5 font-semibold text-foreground">
+                            <span className="group-hover:text-primary transition-colors">{item.productName}</span>
+                            {item.productCode && (
+                              <span className="block text-[11px] text-muted-foreground font-mono font-normal">
+                                Code: {item.productCode}
+                              </span>
+                            )}
                           </td>
-                        )}
-                        <td className="py-2.5 px-3.5 text-right font-bold text-foreground font-mono">
-                          {formatRWF(item.lineTotal)}
-                        </td>
-                        <td className="py-2.5 px-3.5 text-right text-blue-600 dark:text-blue-400 font-mono font-medium">
-                          {item.insuranceCoveredAmount > 0 ? formatRWF(item.insuranceCoveredAmount) : "—"}
-                        </td>
-                        <td className="py-2.5 px-3.5 text-right text-emerald-600 dark:text-emerald-400 font-mono font-medium">
-                          {formatRWF(item.patientPayableAmount)}
-                        </td>
-                        {!isStatusFiltered && (
-                          <td className="py-2.5 px-3.5 text-right whitespace-nowrap">
-                            <Badge
-                              variant="outline"
-                              className={`text-[11px] uppercase tracking-wider py-0 px-1.5 ${
-                                item.isBilled || item.status === "BILLED"
-                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-semibold"
-                                  : item.isExempted
-                                  ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
-                                  : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
-                              }`}
+                          <td className="py-2.5 px-3.5">
+                            <div className="font-medium text-foreground">{item.patientName}</div>
+                            {item.patientIdentifier && (
+                              <div className="text-[11px] text-muted-foreground font-mono">
+                                {item.patientIdentifier}
+                              </div>
+                            )}
+                          </td>
+                          {!isDepartmentFiltered && (
+                            <td className="py-2.5 px-3.5 text-muted-foreground whitespace-nowrap">{item.departmentName}</td>
+                          )}
+                          {!isClinicianFiltered && (
+                            <td className="py-2.5 px-3.5 text-foreground whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <Stethoscope className="h-3 w-3 text-primary shrink-0" />
+                                <span>{item.clinicianName || "—"}</span>
+                              </div>
+                            </td>
+                          )}
+                          <td className="py-2.5 px-3.5 text-center font-bold text-primary font-mono">{item.quantity}</td>
+                          <td className="py-2.5 px-3.5 text-right font-mono text-muted-foreground">
+                            {formatRWF(item.unitPrice)}
+                          </td>
+                          {!isInsuranceFiltered && (
+                            <td className="py-2.5 px-3.5 whitespace-nowrap">
+                              <Badge variant="outline" className="text-[11px] py-0 px-1.5 bg-muted/40 font-medium">
+                                {item.insuranceName || "Private / Cash"}
+                              </Badge>
+                            </td>
+                          )}
+                          <td className="py-2.5 px-3.5 text-right font-bold text-foreground font-mono">
+                            {formatRWF(item.lineTotal)}
+                          </td>
+                          <td className="py-2.5 px-3.5 text-right text-blue-600 dark:text-blue-400 font-mono font-medium">
+                            {item.insuranceCoveredAmount > 0 ? formatRWF(item.insuranceCoveredAmount) : "—"}
+                          </td>
+                          <td className="py-2.5 px-3.5 text-right text-emerald-600 dark:text-emerald-400 font-mono font-medium">
+                            {formatRWF(item.patientPayableAmount)}
+                          </td>
+                          {!isStatusFiltered && (
+                            <td className="py-2.5 px-3.5 text-right whitespace-nowrap">
+                              <Badge
+                                variant="outline"
+                                className={`text-[11px] uppercase tracking-wider py-0 px-1.5 ${
+                                  item.isBilled || item.status === "BILLED"
+                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-semibold"
+                                    : item.isExempted
+                                    ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
+                                    : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                                }`}
+                              >
+                                {item.status}
+                              </Badge>
+                            </td>
+                          )}
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (parentEnc) {
+                                  setSelectedAuditEncounter(parentEnc)
+                                } else {
+                                  toast.info("Encounter details loading...")
+                                }
+                              }}
+                              className="h-7 px-2 text-[11px] rounded-lg gap-1 text-primary hover:bg-primary/10 font-medium cursor-pointer"
+                              title="Open Audit & Invoice Drawer"
                             >
-                              {item.status}
-                            </Badge>
+                              <Eye className="h-3.5 w-3.5" />
+                              <span className="hidden xl:inline">Audit</span>
+                            </Button>
                           </td>
-                        )}
-                      </tr>
-                    ))}
+                        </tr>
+                      )
+                    })}
 
                     {/* Skeletons for detailed product loading */}
                     {hasMoreItems && (
@@ -1050,6 +1428,9 @@ export function AdminReportsDetailed({
                                 <Skeleton className="h-4 w-16 rounded-full ml-auto" />
                               </td>
                             )}
+                            <td className="py-2.5 px-3 text-center">
+                              <Skeleton className="h-6 w-12 rounded-lg mx-auto" />
+                            </td>
                           </tr>
                         ))}
                       </>
@@ -1093,6 +1474,356 @@ export function AdminReportsDetailed({
           </div>
         )}
       </div>
+
+      {/* Slide-over Audit & Invoice Drawer (Feature B) */}
+      <Sheet
+        open={!!selectedAuditEncounter}
+        onOpenChange={(open) => !open && setSelectedAuditEncounter(null)}
+      >
+        <SheetContent
+          side="right"
+          className="sm:max-w-xl md:max-w-2xl w-full p-0 flex flex-col gap-0 border-l border-border bg-background shadow-2xl"
+        >
+          {selectedAuditEncounter && (
+            <>
+              {/* Header */}
+              <div className="p-5 border-b border-border/70 bg-muted/30 flex flex-col gap-2.5 shrink-0">
+                <SheetHeader className="p-0 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                        <FileText className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <SheetTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                          <span>{selectedAuditEncounter.patientName}</span>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] uppercase font-semibold py-0 px-1.5",
+                              selectedAuditEncounter.status === "BILLED" || selectedAuditEncounter.status === "COMPLETED"
+                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                            )}
+                          >
+                            {selectedAuditEncounter.status}
+                          </Badge>
+                        </SheetTitle>
+                        <SheetDescription className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                          <span className="font-mono">
+                            ID: {selectedAuditEncounter.patientIdentifier || selectedAuditEncounter.patientId.slice(0, 8)}
+                          </span>
+                          {selectedAuditEncounter.gender && (
+                            <>
+                              <span>•</span>
+                              <span>{selectedAuditEncounter.gender}</span>
+                            </>
+                          )}
+                          {selectedAuditEncounter.age != null && (
+                            <>
+                              <span>•</span>
+                              <span>{selectedAuditEncounter.age} yrs</span>
+                            </>
+                          )}
+                        </SheetDescription>
+                      </div>
+                    </div>
+
+                    <a
+                      href={`/visits/manage?visitId=${selectedAuditEncounter.visitId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline flex items-center gap-1 font-medium bg-primary/10 hover:bg-primary/15 px-2.5 py-1.5 rounded-lg transition-colors shrink-0 mr-6"
+                      title="Open full visit in new tab"
+                    >
+                      <span>Manage Visit</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                </SheetHeader>
+
+                {/* Metadata badges row */}
+                <div className="flex items-center gap-2 flex-wrap text-xs pt-1">
+                  <div className="flex items-center gap-1 text-muted-foreground bg-background/80 px-2 py-1 rounded-md border border-border/60">
+                    <Clock className="h-3 w-3 text-primary" />
+                    <span>{formatTimestamp(selectedAuditEncounter.timestamp)}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-muted-foreground bg-background/80 px-2 py-1 rounded-md border border-border/60">
+                    <Building2 className="h-3 w-3 text-primary" />
+                    <span>{selectedAuditEncounter.departmentName}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-muted-foreground bg-background/80 px-2 py-1 rounded-md border border-border/60">
+                    <Stethoscope className="h-3 w-3 text-primary" />
+                    <span>{selectedAuditEncounter.clinicianName || "Direct Order"}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-muted-foreground bg-background/80 px-2 py-1 rounded-md border border-border/60">
+                    <Shield className="h-3 w-3 text-blue-500" />
+                    <span className="font-medium text-foreground">{selectedAuditEncounter.insuranceName}</span>
+                    {selectedAuditEncounter.insuranceCardNumber && (
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        ({selectedAuditEncounter.insuranceCardNumber})
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Diagnosis ribbon if present */}
+                {(selectedAuditEncounter.primaryDiagnosis || (selectedAuditEncounter.diagnostics && selectedAuditEncounter.diagnostics.length > 0)) && (
+                  <div className="text-xs bg-primary/5 border border-primary/20 rounded-lg p-2 text-foreground flex items-center gap-1.5">
+                    <Stethoscope className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span className="font-semibold text-primary">Diagnosis:</span>
+                    <span>
+                      {selectedAuditEncounter.primaryDiagnosis ||
+                        selectedAuditEncounter.diagnostics?.map((d) => d.icd11Code ? `${d.diagnosisName} (${d.icd11Code})` : d.diagnosisName).join("; ")}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Scrollable Content Body */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                {/* Financial summary stats */}
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                    Financial Summary
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
+                      <span className="text-[11px] text-muted-foreground block">Gross Total</span>
+                      <span className="text-sm font-bold text-foreground font-mono">
+                        {formatRWF(selectedAuditEncounter.totalGross)}
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                      <span className="text-[11px] text-blue-600 dark:text-blue-400 block">Insurer Share</span>
+                      <span className="text-sm font-bold text-blue-700 dark:text-blue-300 font-mono">
+                        {formatRWF(selectedAuditEncounter.totalInsurance)}
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                      <span className="text-[11px] text-emerald-600 dark:text-emerald-400 block">Patient Co-Pay</span>
+                      <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300 font-mono">
+                        {formatRWF(selectedAuditEncounter.totalPatient)}
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
+                      <span className="text-[11px] text-muted-foreground block">Cash Collected</span>
+                      <span className="text-sm font-bold text-foreground font-mono">
+                        {formatRWF(selectedAuditEncounter.patientPaid || 0)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Itemized prescribed products & acts table */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Itemized Acts & Prescriptions ({selectedAuditEncounter.products.length})
+                    </h4>
+                    <span className="text-[11px] text-muted-foreground font-mono">
+                      {selectedAuditEncounter.products.length} line item(s)
+                    </span>
+                  </div>
+
+                  {selectedAuditEncounter.products.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-dashed border-border text-center text-xs text-muted-foreground">
+                      No individual itemized acts recorded for this encounter.
+                    </div>
+                  ) : (
+                    <div className="border border-border/70 rounded-xl overflow-hidden shadow-xs">
+                      <table className="w-full text-xs">
+                        <thead className="bg-muted/60 border-b border-border/70 font-semibold text-muted-foreground">
+                          <tr>
+                            <th className="py-2 px-3 text-left">Item Description</th>
+                            <th className="py-2 px-2 text-center">Qty</th>
+                            <th className="py-2 px-2.5 text-right">Unit Price</th>
+                            <th className="py-2 px-2.5 text-right">Line Total</th>
+                            <th className="py-2 px-2.5 text-right">Insurer</th>
+                            <th className="py-2 px-2.5 text-right">Patient</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/40 text-foreground">
+                          {selectedAuditEncounter.products.map((p, i) => (
+                            <tr key={i} className="hover:bg-muted/20">
+                              <td className="py-2 px-3">
+                                <div className="font-medium text-foreground">{p.name}</div>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  {p.code && (
+                                    <span className="font-mono text-[10px] text-muted-foreground">
+                                      {p.code}
+                                    </span>
+                                  )}
+                                  <Badge variant="outline" className="text-[9px] py-0 px-1 font-mono uppercase bg-muted/40">
+                                    {p.type || "ACT"}
+                                  </Badge>
+                                  {p.status && p.status !== "BILLED" && (
+                                    <Badge variant="outline" className="text-[9px] py-0 px-1 text-amber-600 border-amber-500/30">
+                                      {p.status}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-2 px-2 text-center font-bold text-primary font-mono">{p.quantity}</td>
+                              <td className="py-2 px-2.5 text-right font-mono text-muted-foreground">{formatRWF(p.unitPrice)}</td>
+                              <td className="py-2 px-2.5 text-right font-mono font-bold text-foreground">{formatRWF(p.lineTotal)}</td>
+                              <td className="py-2 px-2.5 text-right font-mono text-blue-600 dark:text-blue-400">
+                                {p.insuranceCovered > 0 ? formatRWF(p.insuranceCovered) : "—"}
+                              </td>
+                              <td className="py-2 px-2.5 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                                {formatRWF(p.patientShare)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Linked Payments & Recorded MoMo / Card Transaction Codes */}
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span>Linked Payments & Transaction Codes</span>
+                    <CreditCard className="h-3.5 w-3.5 text-primary" />
+                  </h4>
+
+                  {selectedAuditEncounter.payments && selectedAuditEncounter.payments.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedAuditEncounter.payments.map((pm, idx) => (
+                        <div
+                          key={idx}
+                          className="p-3 rounded-xl border border-border/70 bg-card/60 flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                              <CreditCard className="h-3.5 w-3.5" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-foreground flex items-center gap-1.5">
+                                <span>{pm.paymentMethod || pm.rawMethod || "Payment"}</span>
+                                {pm.reference && (
+                                  <Badge variant="outline" className="font-mono text-[10px] bg-primary/5 text-primary border-primary/20">
+                                    Ref: {pm.reference}
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-muted-foreground">
+                                {pm.createdAt ? formatTimestamp(pm.createdAt) : "Recorded Transaction"}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400 text-sm">
+                              {formatRWF(pm.amount)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3.5 rounded-xl border border-dashed border-border/80 bg-muted/20 text-xs text-muted-foreground flex items-center gap-2">
+                      <Receipt className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>
+                        No direct cashier cash/MoMo transaction receipt captured on this encounter row yet. (Patient Share: {formatRWF(selectedAuditEncounter.totalPatient)})
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Footer: 1-Click Reprint Receipt / Invoice */}
+              <div className="p-4 border-t border-border/70 bg-muted/40 flex flex-col gap-2.5 shrink-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Printer className="h-3.5 w-3.5 text-primary" />
+                    1-Click Reprint / Preview Invoices & Receipts
+                  </span>
+                  {loadingAuditBilling && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                      Checking billing records...
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {auditInvoices.length > 0 ? (
+                    auditInvoices.map((inv) => (
+                      <Button
+                        key={inv.id}
+                        variant="outline"
+                        size="sm"
+                        disabled={previewingInvoiceKey !== null}
+                        onClick={() => handleReprintInvoice(inv.insuranceBillingId, inv.copyType, inv.id)}
+                        className="h-8 px-3 text-xs rounded-xl font-medium gap-1.5 bg-card hover:bg-muted border-border cursor-pointer shadow-xs"
+                      >
+                        {previewingInvoiceKey === inv.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                        ) : inv.isInsured ? (
+                          inv.copyType === "INSURANCE" ? (
+                            <Shield className="h-3.5 w-3.5 text-blue-500" />
+                          ) : (
+                            <Receipt className="h-3.5 w-3.5 text-emerald-500" />
+                          )
+                        ) : (
+                          <FileText className="h-3.5 w-3.5 text-primary" />
+                        )}
+                        <span>{inv.title}</span>
+                      </Button>
+                    ))
+                  ) : (
+                    /* Fallback direct reprint options */
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={previewingInvoiceKey !== null}
+                        onClick={() => handleReprintDeptInvoice(selectedAuditEncounter.visitDepartmentId, "INSURANCE")}
+                        className="h-8 px-3 text-xs rounded-xl font-medium gap-1.5 bg-card hover:bg-muted border-border cursor-pointer"
+                      >
+                        {previewingInvoiceKey === `dept-${selectedAuditEncounter.visitDepartmentId}-INSURANCE` ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                        ) : (
+                          <Shield className="h-3.5 w-3.5 text-blue-500" />
+                        )}
+                        <span>Reprint Insurer Claim</span>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={previewingInvoiceKey !== null}
+                        onClick={() => handleReprintDeptInvoice(selectedAuditEncounter.visitDepartmentId, "PATIENT")}
+                        className="h-8 px-3 text-xs rounded-xl font-medium gap-1.5 bg-card hover:bg-muted border-border cursor-pointer"
+                      >
+                        {previewingInvoiceKey === `dept-${selectedAuditEncounter.visitDepartmentId}-PATIENT` ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                        ) : (
+                          <Receipt className="h-3.5 w-3.5 text-emerald-500" />
+                        )}
+                        <span>Reprint Patient Receipt</span>
+                      </Button>
+
+                      {selectedAuditEncounter.invoiceUrl && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openInvoicePreview(selectedAuditEncounter.invoiceUrl!)}
+                          className="h-8 px-3 text-xs rounded-xl font-medium gap-1.5 bg-card hover:bg-muted border-border cursor-pointer"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5 text-primary" />
+                          <span>View Stored Invoice</span>
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

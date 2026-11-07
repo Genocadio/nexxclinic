@@ -156,6 +156,10 @@ export interface ClinicEncounterDetail {
   clinicianId?: string | null
   clinicianName?: string | null
   insuranceName: string
+  insuranceCardNumber?: string | null
+  principalMemberName?: string | null
+  isPrincipalMember?: boolean | null
+  invoiceUrl?: string | null
   status: string
   products: ClinicEncounterProductItem[]
   totalGross: number
@@ -166,6 +170,21 @@ export interface ClinicEncounterDetail {
   giveawayAmount?: number
   waiverAmount?: number
   pendingAmount?: number
+  primaryDiagnosis?: string | null
+  primaryIcdCode?: string | null
+  diagnostics?: Array<{
+    diagnosisName: string
+    icd11Code?: string | null
+    type?: string | null
+  }>
+  payments?: Array<{
+    id?: string
+    amount: number
+    paymentMethod?: string | null
+    rawMethod?: string | null
+    reference?: string | null
+    createdAt?: string | null
+  }>
 }
 
 export interface ClinicProductTurnoverItem {
