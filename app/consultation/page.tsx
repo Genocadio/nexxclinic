@@ -11,7 +11,7 @@ import { hasRole } from "@/lib/role-utils";
 import { StandaloneConsultationView } from "@/components/consultation/standalone-consultation-view";
 import Header from "@/components/header";
 import type { FormAction } from "@/lib/form-storage";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PageLoading } from "@/components/ui/page-loading";
 import InlineTryAgain from "@/components/inline-try-again";
 
@@ -51,17 +51,24 @@ export default function ConsultationPage() {
     const { notes: departmentNotes, refetch: refetchNotes } =
         useVisitDepartmentNotes(visitId || "", activeVisitDepartmentId || null);
 
+    const autoConsultedDeptIdRef = useRef<string | null>(null);
+
     useEffect(() => {
+        if (!visit || !activeDepartment || !doctor?.id) return;
+        // CRITICAL: Only run auto-consult ONCE when the consultation page first loads for this department.
+        // Never re-run when activeDepartment.status transitions to BILLING during "Save & Edit Later" or "Finalise",
+        // otherwise consultVisit would immediately revert the department from BILLING back to ACTIVE!
+        if (autoConsultedDeptIdRef.current === activeDepartment.id) return;
+        autoConsultedDeptIdRef.current = activeDepartment.id;
+
         if (
-            visit &&
             visit.status !== "FINALISED" &&
             visit.status !== "CANCELLED" &&
-            activeDepartment &&
-            doctor?.id &&
             hasRole(doctor.roles || [], "CLINICIAN") &&
             activeDepartment.status !== "COMPLETED" &&
             activeDepartment.status !== "FINALISED" &&
-            activeDepartment.status !== "CANCELLED"
+            activeDepartment.status !== "CANCELLED" &&
+            !activeDepartment.hasFinalizedConsultationAnswers
         ) {
             const isAlreadyProcessor = (activeDepartment.processors || []).some(
                 (p) => p.id === doctor.id
@@ -83,9 +90,6 @@ export default function ConsultationPage() {
     }, [
         visit?.id,
         activeDepartment?.id,
-        activeDepartment?.status,
-        activeDepartment?.profile?.id,
-        activeDepartment?.department?.profiles?.length,
         doctor?.id,
     ]);
 

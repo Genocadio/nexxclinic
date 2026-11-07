@@ -652,10 +652,9 @@ export function StandaloneConsultationView({
       setSaveStatus("saved");
       hydratedRef.current = true;
 
-      if (status === "FINAL" || isFirstCreation) {
-        if (status === "FINAL") {
-          setLocallyFinalised(true);
-        }
+      if (status === "FINAL") {
+        setLocallyFinalised(true);
+      } else if (isFirstCreation && !options?.sendToBilling) {
         onVisitRefetch?.();
       }
 
@@ -888,20 +887,12 @@ export function StandaloneConsultationView({
 
       // State transition rules:
       // 1. If in edit mode (DEPARTMENT_EDITING): keep the state intact (sendToBilling: false).
-      // 2. Otherwise: sendToBilling: true. The backend will inspect all departments on the visit;
+      // 2. Otherwise: sendToBilling: true. The backend inspects all departments on the visit;
       //    if unbilled products exist, it transitions the departments to BILLING.
+      //    If already billed and no unbilled products exist, it just saves answers without changing state.
       const shouldSendToBilling = !isDepartmentEditing;
       await persistAnswers(answers, "DRAFT", { skipDuplicateCheck: true, sendToBilling: shouldSendToBilling });
 
-      if (shouldSendToBilling) {
-        try {
-          await updateDepartmentStatus(String(visitDepartment.id), "BILLING");
-        } catch (statusErr) {
-          console.warn("Failed to transition department to BILLING on save & edit later:", statusErr);
-        }
-      }
-
-      await onVisitRefetch?.();
       toast.success("Consultation saved for later editing");
       // "Complete Visit Edit Later" = done with this visit for now — head home.
       router.push("/");
@@ -943,33 +934,11 @@ export function StandaloneConsultationView({
 
       // State transition rules:
       // 1. If in edit mode (DEPARTMENT_EDITING): keep the state intact (sendToBilling: false).
-      // 2. If unbilled products exist: send to BILLING so finance can collect payment.
-      // 3. If visit is already billed and not in edit mode: mark department as FINALISED.
+      // 2. If unbilled products exist: backend transitions departments to BILLING so finance can collect payment.
+      // 3. If visit is already billed / no unbilled products and not in edit mode: backend marks department as FINALISED.
       const shouldSendToBilling = !isDepartmentEditing;
       await persistAnswers(answers, "FINAL", { skipDuplicateCheck: true, sendToBilling: shouldSendToBilling });
 
-      if (!isDepartmentEditing) {
-        const allDepts = [
-          visitDepartment,
-          ...(visitDepartment.childVisitDepartments || []),
-          ...(visit.departments || []),
-        ];
-        const hasUnbilledProducts = allDepts.some((d) =>
-          d.products?.some(
-            (p) => !(p as any).deleted && String(p.billingState || "").toUpperCase() !== "BILLED",
-          ),
-        );
-        const targetStatus = hasUnbilledProducts ? "BILLING" : "FINALISED";
-        if (visitDepartment.status !== targetStatus) {
-          try {
-            await updateDepartmentStatus(String(visitDepartment.id), targetStatus);
-          } catch (statusErr) {
-            console.warn("Department status update during finalize:", statusErr);
-          }
-        }
-      }
-
-      await onVisitRefetch?.();
       toast.success("Consultation completed");
       router.push("/");
     } catch (err: unknown) {
