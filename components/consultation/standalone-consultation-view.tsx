@@ -87,6 +87,9 @@ import {
 } from "@/lib/standalone-form-mapper";
 import { isVisitOrDepartmentClosedForProducts } from "@/lib/visit-product-lock";
 import { stripClinicalAnswers } from "@/components/formbuilder/extensions/consultation-visit/utils";
+import { normalizeVisitVitalSigns } from "@/hooks/visits/vital-signs";
+import { calculateAge } from "@/lib/validation-utils";
+import { VitalSignsMewsBanner } from "@/components/vital-signs/vital-signs-mews-banner";
 
 interface StandaloneConsultationViewProps {
   visit: Visit;
@@ -463,6 +466,24 @@ export function StandaloneConsultationView({
     }
     return fromParts || patient.fullName?.trim() || "Patient";
   }, [patient.firstName, patient.middleName, patient.lastName, patient.fullName]);
+
+  const patientAge = useMemo(() => {
+    if (patient?.age != null && !Number.isNaN(Number(patient.age))) {
+      return Number(patient.age);
+    }
+    if (patient?.dateOfBirth) {
+      const calculated = calculateAge(patient.dateOfBirth);
+      if (!Number.isNaN(calculated)) {
+        return calculated;
+      }
+    }
+    return null;
+  }, [patient?.age, patient?.dateOfBirth]);
+
+  const latestVitalsGroup = useMemo(() => {
+    const groups = normalizeVisitVitalSigns(visit?.vitalSigns || []);
+    return groups[0] || null;
+  }, [visit?.vitalSigns]);
 
   const parentVisitDepartment = useMemo(
     () =>
@@ -1063,6 +1084,14 @@ export function StandaloneConsultationView({
             Billing personnel ({billingViewers.map((v) => v.name).join(", ")}) is currently viewing this visit.
           </span>
         </div>
+      )}
+
+      {/* MEWS Early Warning / Clinical Vitals Alert Banner */}
+      {latestVitalsGroup?.measurements && latestVitalsGroup.measurements.length > 0 && (
+        <VitalSignsMewsBanner
+          measurements={latestVitalsGroup.measurements}
+          patientAge={patientAge}
+        />
       )}
 
       <div className="fixed right-6 top-1/2 z-50 -translate-y-1/2 flex flex-col items-center gap-3 rounded-full border border-border/60 bg-card/80 p-2 shadow-2xl backdrop-blur">

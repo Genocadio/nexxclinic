@@ -69,6 +69,8 @@ import {
 import { AddDepartmentModal } from "@/components/add-department-modal";
 // NEW: departmental notes wrapper
 import DepartmentNotesFloating from "@/components/department-notes-floating";
+import { VitalSignAlertBadge } from "@/components/vital-signs/vital-sign-alert-badge";
+import { VitalSignsMewsBanner } from "@/components/vital-signs/vital-signs-mews-banner";
 
 interface VitalRow {
   id: string;
@@ -269,6 +271,11 @@ function TriagePageInner() {
       return null;
     }
   };
+
+  const patientAge = useMemo(
+    () => getAge(visit?.patient?.dateOfBirth),
+    [visit?.patient?.dateOfBirth],
+  );
 
   const groupedEntries = useMemo(
     () => normalizeVisitVitalSigns(visit?.vitalSigns || []),
@@ -640,16 +647,23 @@ function TriagePageInner() {
                         </span>
                       </div>
 
-                      {canEdit && (
-                        <button
-                          type="button"
-                          onClick={() => handleEditVitalsGroup(group)}
-                          className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/15 transition-all cursor-pointer"
-                          title="Edit vitals (within 10m)"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <VitalSignsMewsBanner
+                          measurements={group.measurements}
+                          patientAge={patientAge}
+                          compact
+                        />
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => handleEditVitalsGroup(group)}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/15 transition-all cursor-pointer"
+                            title="Edit vitals (within 10m)"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {group.addedBy && (
@@ -669,7 +683,14 @@ function TriagePageInner() {
                               className="border-b border-border/50 last:border-0 hover:bg-muted/25 transition-colors"
                             >
                               <td className="px-5 py-3 font-medium text-foreground/80">
-                                {vital.measurementName}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span>{vital.measurementName}</span>
+                                  <VitalSignAlertBadge
+                                    measurementName={vital.measurementName}
+                                    value={vital.value}
+                                    patientAge={patientAge}
+                                  />
+                                </div>
                               </td>
                               <td className="px-5 py-3 text-right whitespace-nowrap">
                                 <span className="text-xl sm:text-2xl font-bold text-indigo-700 dark:text-indigo-300">
@@ -966,6 +987,16 @@ function TriagePageInner() {
                 </div>
               )}
 
+              {/* Live MEWS Risk Banner as nurse enters measurements */}
+              {rows.some((r) => !!r.value.trim()) && (
+                <VitalSignsMewsBanner
+                  measurements={rows.filter((r) => !!r.value.trim())}
+                  patientAge={patientAge}
+                  compact
+                  className="mb-1"
+                />
+              )}
+
               {/* 6 Preset vitals in a sleek 3-column / 2-row grid (no scrolling needed) */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {rows
@@ -1011,6 +1042,16 @@ function TriagePageInner() {
                           }
                           className="h-8 text-lg font-bold text-indigo-700 dark:text-indigo-300 placeholder:text-muted-foreground/30 border-0 bg-transparent px-0 focus-visible:ring-0 shadow-none"
                         />
+                        {row.value.trim() && (
+                          <div className="pt-0.5">
+                            <VitalSignAlertBadge
+                              measurementName={row.measurementName}
+                              value={row.value}
+                              patientAge={patientAge}
+                              compact
+                            />
+                          </div>
+                        )}
                         {hasError && (
                           <p className="text-[11px] font-medium text-red-600 dark:text-red-400 truncate">
                             {vitalRowErrors[row.id]}
@@ -1094,6 +1135,14 @@ function TriagePageInner() {
                               </p>
                             )}
                           </div>
+                          {row.measurementName.trim() && row.value.trim() && (
+                            <VitalSignAlertBadge
+                              measurementName={row.measurementName}
+                              value={row.value}
+                              patientAge={patientAge}
+                              compact
+                            />
+                          )}
                           <Button
                             type="button"
                             variant="ghost"

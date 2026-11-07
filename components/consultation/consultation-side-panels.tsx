@@ -18,6 +18,8 @@ import { normalizeVisitVitalSigns } from "@/hooks/auth-hooks";
 import { calculateAge } from "@/lib/validation-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { VitalSignAlertBadge } from "@/components/vital-signs/vital-sign-alert-badge";
+import { VitalSignsMewsBanner } from "@/components/vital-signs/vital-signs-mews-banner";
 
 interface PanelState {
   pinned: boolean;
@@ -31,6 +33,7 @@ function VitalsPanel({
   canAddVitals,
   onAddVitals,
   onTogglePin,
+  patientAge,
 }: {
   vitals: any[];
   slotStyle: any;
@@ -38,6 +41,7 @@ function VitalsPanel({
   canAddVitals: boolean;
   onAddVitals?: (vitals: Array<{ measurementName: string; value: string; unit: string }>) => Promise<boolean>;
   onTogglePin?: () => void;
+  patientAge?: number | null;
 }) {
   type DraftVital = {
     id: string;
@@ -76,7 +80,7 @@ function VitalsPanel({
 
   return (
     <div
-      className="fixed z-40 w-80 bg-background border border-border rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
+      className="fixed z-40 w-88 bg-background border border-border rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
       style={slotStyle}
     >
       <div className="flex items-center justify-between p-3 border-b border-border">
@@ -107,38 +111,57 @@ function VitalsPanel({
       <div className="p-3">
         {adding && canAddVitals && onAddVitals && (
           <div className="mb-3 space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-2">
+            {draft.some((item) => !!item.value.trim()) && (
+              <VitalSignsMewsBanner
+                measurements={draft.filter((item) => !!item.value.trim())}
+                patientAge={patientAge}
+                compact
+                className="mb-2"
+              />
+            )}
             <div className="grid grid-cols-[1.3fr_1fr_0.65fr] gap-1.5 border-b pb-1 text-[10px] font-semibold uppercase text-muted-foreground">
               <span>Measurement</span><span>Value</span><span>Unit</span>
             </div>
-            <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
             {draft.map((item) => (
-              <div key={item.id} className="grid grid-cols-[1.3fr_1fr_0.65fr_auto] items-center gap-1.5">
-                {(["measurementName", "value", "unit"] as const).map((field) => {
-                  const editable = field === "value" || editingCell === `${item.id}:${field}`;
-                  return editable ? (
-                    <Input key={field} autoFocus value={item[field]} className="h-8 text-xs"
-                      onBlur={() => field !== "value" && setEditingCell(null)}
-                      onChange={(event) => setDraft((current) => current.map((row) =>
-                        row.id === item.id ? { ...row, [field]: event.target.value } : row,
-                      ))} />
-                  ) : (
-                    <button key={field} type="button"
-                      className="h-8 rounded-md px-2 text-left text-xs text-muted-foreground hover:bg-muted"
-                      onDoubleClick={() => setEditingCell(`${item.id}:${field}`)}>
-                      {item[field] || "Double-click to edit"}
+              <div key={item.id} className="space-y-1 rounded-md bg-background/50 p-1.5 border border-border/40">
+                <div className="grid grid-cols-[1.3fr_1fr_0.65fr_auto] items-center gap-1.5">
+                  {(["measurementName", "value", "unit"] as const).map((field) => {
+                    const editable = field === "value" || editingCell === `${item.id}:${field}`;
+                    return editable ? (
+                      <Input key={field} autoFocus value={item[field]} className="h-8 text-xs"
+                        onBlur={() => field !== "value" && setEditingCell(null)}
+                        onChange={(event) => setDraft((current) => current.map((row) =>
+                          row.id === item.id ? { ...row, [field]: event.target.value } : row,
+                        ))} />
+                    ) : (
+                      <button key={field} type="button"
+                        className="h-8 rounded-md px-2 text-left text-xs text-muted-foreground hover:bg-muted"
+                        onDoubleClick={() => setEditingCell(`${item.id}:${field}`)}>
+                        {item[field] || "Double-click to edit"}
+                      </button>
+                    );
+                  })}
+                  {!item.isPreset && (
+                    <button
+                      type="button"
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-red-500 hover:bg-red-500/10"
+                      title="Remove measurement"
+                      aria-label={`Remove ${item.measurementName}`}
+                      onClick={() => setDraft((current) => current.filter((row) => row.id !== item.id))}
+                    >
+                      <X className="h-3.5 w-3.5" />
                     </button>
-                  );
-                })}
-                {!item.isPreset && (
-                  <button
-                    type="button"
-                    className="flex h-6 w-6 items-center justify-center rounded-full text-red-500 hover:bg-red-500/10"
-                    title="Remove measurement"
-                    aria-label={`Remove ${item.measurementName}`}
-                    onClick={() => setDraft((current) => current.filter((row) => row.id !== item.id))}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                  )}
+                </div>
+                {item.value.trim() && (
+                  <div className="pt-0.5">
+                    <VitalSignAlertBadge
+                      measurementName={item.measurementName}
+                      value={item.value}
+                      patientAge={patientAge}
+                    />
+                  </div>
                 )}
               </div>
             ))}
@@ -217,15 +240,31 @@ function VitalsPanel({
               )}
             </div>
 
+            {/* MEWS & Early Warning Alerts */}
+            {current?.measurements && current.measurements.length > 0 && (
+              <VitalSignsMewsBanner
+                measurements={current.measurements}
+                patientAge={patientAge}
+                className="mb-2.5"
+              />
+            )}
+
             <div className="space-y-2">
               {current.measurements.map((v: any) => (
                 <div
                   key={v.id}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/20 px-3 py-2"
+                  className="flex items-center justify-between gap-2.5 rounded-2xl border border-border/60 bg-muted/20 px-3 py-2"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-foreground">
-                      {v.measurementName}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="truncate text-sm font-medium text-foreground">
+                        {v.measurementName}
+                      </span>
+                      <VitalSignAlertBadge
+                        measurementName={v.measurementName}
+                        value={v.value}
+                        patientAge={patientAge}
+                      />
                     </div>
                   </div>
                   <div className="whitespace-nowrap text-right text-lg font-bold text-indigo-700 dark:text-indigo-300">
@@ -531,6 +570,7 @@ export function ConsultationSidePanels({
           canAddVitals={canAddVitals}
           onAddVitals={onAddVitals}
           onTogglePin={() => handlePanelClick("vitals")}
+          patientAge={patientAge}
         />
       )}
 
