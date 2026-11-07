@@ -32,6 +32,14 @@ export interface VisitNoteItem {
   id?: string;
   content?: string | null;
   noteType?: string | null;
+  visitDepartmentId?: string | null;
+  visitDepartment?: {
+    id?: string;
+    department?: {
+      id?: string;
+      name?: string;
+    } | null;
+  } | null;
   createdBy?: {
     id?: string;
     firstName?: string;
@@ -43,18 +51,29 @@ export interface VisitNoteItem {
   viewed?: boolean;
 }
 
+export interface VisitDepartmentOption {
+  id: string;
+  name?: string;
+  status?: string | null;
+  department?: {
+    id?: string;
+    name?: string;
+  } | null;
+}
+
 export interface VisitNotesFloatingProps {
   notes: VisitNoteItem[];
   noteTypes: string[];
   title?: string;
   allowedDisplayTypes?: string[];
-  onAddNote?: (noteType: string, content: string) => Promise<void>;
-  onMarkAsViewed?: (noteId: string) => Promise<void>;
+  onAddNote?: (noteType: string, content: string, visitDepartmentId?: string) => Promise<void>;
+  onMarkAsViewed?: (noteId?: string, visitDepartmentId?: string) => Promise<void>;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   hideToggleButton?: boolean;
   visitId?: string;
   visitDepartmentId?: string;
+  visitDepartments?: VisitDepartmentOption[];
 }
 
 const QUICK_TEMPLATES: Record<string, string[]> = {
@@ -201,6 +220,7 @@ export default function VisitNotesFloating({
   hideToggleButton = false,
   visitId,
   visitDepartmentId,
+  visitDepartments,
 }: VisitNotesFloatingProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const { doctor } = useAuth();
@@ -223,6 +243,33 @@ export default function VisitNotesFloating({
   const [submitting, setSubmitting] = useState(false);
   const [markingRead, setMarkingRead] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const validDepts = useMemo(
+    () => (visitDepartments || []).filter((d) => Boolean(d.id)),
+    [visitDepartments]
+  );
+
+  const deptMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const d of validDepts) {
+      if (d.id) {
+        map[d.id] = d.department?.name || d.name || "Department";
+      }
+    }
+    return map;
+  }, [validDepts]);
+
+  const [selectedDeptId, setSelectedDeptId] = useState<string>(
+    visitDepartmentId || validDepts[0]?.id || ""
+  );
+
+  useEffect(() => {
+    if (visitDepartmentId) {
+      setSelectedDeptId(visitDepartmentId);
+    } else if (validDepts.length > 0 && !selectedDeptId) {
+      setSelectedDeptId(validDepts[0].id);
+    }
+  }, [visitDepartmentId, validDepts, selectedDeptId]);
 
   // Liveness & Presence hook
   const { otherViewers, updateActivity } = useVisitLiveness(visitId);
@@ -398,7 +445,7 @@ export default function VisitNotesFloating({
     setSubmitting(true);
     broadcastActivity("viewing");
     try {
-      await onAddNote(selectedType, trimmed);
+      await onAddNote(selectedType, trimmed, selectedDeptId || visitDepartmentId);
       setText("");
     } catch (error: any) {
       const message = error?.message || "Failed to save note";
@@ -415,11 +462,11 @@ export default function VisitNotesFloating({
     textareaRef.current?.focus();
   };
 
-  const handleMarkAsViewed = async (noteId: string) => {
+  const handleMarkAsViewed = async (noteId: string, deptId?: string) => {
     if (!onMarkAsViewed || markingRead) return;
     setMarkingRead(true);
     try {
-      await onMarkAsViewed(noteId);
+      await onMarkAsViewed(noteId, deptId || selectedDeptId || visitDepartmentId);
     } catch (error: any) {
       console.error("Failed to mark note as viewed", error);
     } finally {
@@ -436,7 +483,14 @@ export default function VisitNotesFloating({
 
     setMarkingRead(true);
     try {
-      await Promise.all(unread.map((note) => onMarkAsViewed(String(note.id))));
+      await Promise.all(
+        unread.map((note) =>
+          onMarkAsViewed(
+            String(note.id),
+            note.visitDepartmentId || selectedDeptId || visitDepartmentId
+          )
+        )
+      );
     } catch (error: any) {
       console.error("Failed to mark notes as viewed", error);
     } finally {
@@ -653,6 +707,9 @@ export default function VisitNotesFloating({
                 const NoteIcon = config.icon;
                 const isUnread = !note.viewed;
                 const noteTime = formatRelativeTime(note.createdAt);
+                const noteDeptName =
+                  note.visitDepartment?.department?.name ||
+                  (note.visitDepartmentId ? deptMap[note.visitDepartmentId] : null);
 
                 const createdBy = note.createdBy;
                 const isCurrentUser = Boolean(doctor && createdBy?.id === doctor.id);
@@ -681,6 +738,13 @@ export default function VisitNotesFloating({
                           <NoteIcon className="h-3 w-3" />
                           {config.label}
                         </span>
+
+                        {/* Department Badge */}
+                        {noteDeptName && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-muted text-[10px] font-medium text-muted-foreground border border-border/50">
+                            {noteDeptName}
+                          </span>
+                        )}
 
                         {/* Author */}
                         <span className="inline-flex items-center gap-1 text-[11px] font-medium text-foreground/80">
@@ -790,6 +854,26 @@ export default function VisitNotesFloating({
                   );
                 })}
               </div>
+
+              {/* Department selection (shown when visit has multiple departments) */}
+              {validDepts.length > 1 && (
+                <div className="flex items-center gap-1.5 text-[11px] pt-0.5">
+                  <span className="text-[10px] text-muted-foreground font-medium shrink-0">
+                    Dept:
+                  </span>
+                  <select
+                    value={selectedDeptId}
+                    onChange={(e) => setSelectedDeptId(e.target.value)}
+                    className="h-6 text-[11px] px-2 py-0.5 rounded-md bg-muted/60 text-foreground border border-border/60 focus:outline-none focus:ring-1 focus:ring-primary truncate max-w-[240px]"
+                  >
+                    {validDepts.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.department?.name || d.name || "Department"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Quick Template Chips */}
               {currentTemplates && currentTemplates.length > 0 && (
