@@ -76,6 +76,7 @@ import {
   useMarkVisitDepartmentNotesViewed,
   useVisitDepartmentNotes,
 } from "@/hooks/visits";
+import { useUpdateVisitDepartmentStatus } from "@/hooks/visits/department-mutations";
 import {
   useConsultationFormLoader,
   useSaveVisitStandaloneAnswer,
@@ -309,8 +310,13 @@ export function StandaloneConsultationView({
     ),
   );
 
-  const isActuallyBilled = liveBilled || hasBilledProducts || isDepartmentBilling;
-  const isBilled = isActuallyBilled;
+  // A department is only locked in billing if its status is BILLING or finance just completed billing (liveBilled)
+  // while not in ACTIVE status. Pre-billed products (e.g. registration fee or consultation fee paid at reception)
+  // must never lock the active consultation room.
+  const isLockedInBilling =
+    (isDepartmentBilling || liveBilled) && effectiveDepartmentStatus !== "ACTIVE";
+  const isActuallyBilled = isLockedInBilling;
+  const isBilled = isLockedInBilling;
 
   const isFinalisedAnswer =
     isFinalised ||
@@ -323,6 +329,7 @@ export function StandaloneConsultationView({
     isFinalised;
 
   const productsLocked = isCancelled || isFinalised || isActuallyBilled || isDepartmentCompleted;
+  const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus();
   const { saveVisitAnswer } = useSaveVisitStandaloneAnswer();
   const { addChildVisitDepartment } = useAddChildVisitDepartment();
   const { addProduct } = useAddProductToVisitDepartment();
@@ -857,17 +864,35 @@ export function StandaloneConsultationView({
   }, [answers, isFinalisedAnswer, isBilled]);
 
   const handleManualSave = async () => {
-    if (isFinalised || isBilled) {
-      toast.warn("This visit is already finalised or in billing.");
+    if (isFinalised) {
+      toast.warn("This visit is already finalised.");
       return;
     }
     if (manualSaveRef.current) return;
     manualSaveRef.current = true;
     setSavingDraft(true);
     try {
+      if (autoSaveTimer.current) {
+        clearTimeout(autoSaveTimer.current);
+        autoSaveTimer.current = null;
+      }
       formRendererRef.current?.clearErrors();
       await persistAnswers(answers, "DRAFT", { skipDuplicateCheck: true });
-      toast.success("Draft saved");
+
+      // If there are unbilled products on this department, hand it off to billing
+      // so finance can bill the prescribed products/investigations.
+      const hasUnbilledProducts = visitDepartment.products?.some(
+        (p) => !(p as any).deleted && String(p.billingState || "").toUpperCase() !== "BILLED",
+      );
+      if (hasUnbilledProducts && visitDepartment.status !== "BILLING") {
+        try {
+          await updateDepartmentStatus(String(visitDepartment.id), "BILLING");
+        } catch (statusErr) {
+          console.warn("Failed to transition department to BILLING on save & edit later:", statusErr);
+        }
+      }
+
+      toast.success("Consultation saved for later editing");
       // "Complete Visit Edit Later" = done with this visit for now — head home.
       router.push("/");
     } catch (err: unknown) {
@@ -894,6 +919,10 @@ export function StandaloneConsultationView({
     setIsFinalising(true);
 
     try {
+      if (autoSaveTimer.current) {
+        clearTimeout(autoSaveTimer.current);
+        autoSaveTimer.current = null;
+      }
       // Belt-and-braces: a FINAL save must always pass validation, regardless of
       // which entry point triggered it.
       const valid = formRendererRef.current?.validateAndShowErrors() ?? true;
@@ -903,6 +932,22 @@ export function StandaloneConsultationView({
       }
 
       await persistAnswers(answers, "FINAL", { skipDuplicateCheck: true });
+
+      // Transition department status:
+      // If unbilled products exist -> BILLING so finance can collect payment.
+      // Otherwise -> FINALISED.
+      const hasUnbilledProducts = visitDepartment.products?.some(
+        (p) => !(p as any).deleted && String(p.billingState || "").toUpperCase() !== "BILLED",
+      );
+      const targetStatus = hasUnbilledProducts ? "BILLING" : "FINALISED";
+      if (visitDepartment.status !== targetStatus) {
+        try {
+          await updateDepartmentStatus(String(visitDepartment.id), targetStatus);
+        } catch (statusErr) {
+          console.warn("Department status update during finalize:", statusErr);
+        }
+      }
+
       toast.success("Consultation completed");
       router.push("/");
     } catch (err: unknown) {
