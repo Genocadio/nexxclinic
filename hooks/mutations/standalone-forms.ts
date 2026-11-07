@@ -138,12 +138,14 @@ export const UPDATE_STANDALONE_ANSWER_MUTATION = gql`
     $answers: JSON!
     $status: AnswerStatus
     $score: Float
+    $sendToBilling: Boolean
   ) {
     updateStandaloneAnswer(
       answerId: $answerId
       answers: $answers
       status: $status
       score: $score
+      sendToBilling: $sendToBilling
     ) {
       status
       message
@@ -172,6 +174,7 @@ export const SAVE_VISIT_STANDALONE_ANSWER_MUTATION = gql`
     $answers: JSON!
     $status: AnswerStatus
     $score: Float
+    $sendToBilling: Boolean
   ) {
     saveVisitStandaloneAnswer(
       visitId: $visitId
@@ -180,6 +183,7 @@ export const SAVE_VISIT_STANDALONE_ANSWER_MUTATION = gql`
       answers: $answers
       status: $status
       score: $score
+      sendToBilling: $sendToBilling
     ) {
       status
       message

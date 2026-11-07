@@ -205,7 +205,7 @@ export function isVisitSentForBillingOrEditing(visit?: Visit | null): boolean {
   }
   return flattenVisitDepartments(visit.departments || []).some((dept) => {
     const dStatus = normalizeVisitProductStatus(dept.status)
-    return dStatus === "BILLING" || dStatus === "COMPLETED" || dStatus === "FINALISED"
+    return dStatus === "BILLING" || dStatus === "COMPLETED" || dStatus === "FINALISED" || Boolean(dept.hasFinalizedConsultationAnswers)
   })
 }
 

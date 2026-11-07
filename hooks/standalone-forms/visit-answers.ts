@@ -58,6 +58,7 @@ export function useSaveVisitStandaloneAnswer() {
     status?: "DRAFT" | "FINAL";
     score?: number;
     answerId?: string | null;
+    sendToBilling?: boolean;
   }) => {
     if (input.answerId) {
       const { data } = await updateAnswerMutate({
@@ -66,6 +67,14 @@ export function useSaveVisitStandaloneAnswer() {
           answers: input.answers,
           status: input.status,
           score: input.score,
+          sendToBilling: input.sendToBilling ?? false,
+        },
+        update(cache) {
+          if (input.sendToBilling || input.status === "FINAL") {
+            cache.evict({ fieldName: "visits" });
+            cache.evict({ id: cache.identify({ __typename: "Visit", id: input.visitId }) });
+            cache.gc();
+          }
         },
       });
       if (data?.updateStandaloneAnswer?.status === "ERROR") {
@@ -90,8 +99,14 @@ export function useSaveVisitStandaloneAnswer() {
         answers: input.answers,
         status: input.status,
         score: input.score,
+        sendToBilling: input.sendToBilling ?? false,
       },
       update(cache, { data: mutationData }) {
+        if (input.sendToBilling || input.status === "FINAL") {
+          cache.evict({ fieldName: "visits" });
+          cache.evict({ id: cache.identify({ __typename: "Visit", id: input.visitId }) });
+          cache.gc();
+        }
         const savedAnswerId =
           mutationData?.saveVisitStandaloneAnswer?.data?.answer?.id ||
           mutationData?.saveVisitStandaloneAnswer?.data?.visitDepartment?.answerId;

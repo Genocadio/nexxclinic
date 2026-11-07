@@ -603,7 +603,7 @@ export function StandaloneConsultationView({
     async (
       nextAnswers: FormAnswers,
       status: "DRAFT" | "FINAL",
-      options?: { silent?: boolean; skipDuplicateCheck?: boolean },
+      options?: { silent?: boolean; skipDuplicateCheck?: boolean; sendToBilling?: boolean },
     ) => {
       if (!formVersionId || !catalogDepartmentId) {
         throw new Error("Form context is missing");
@@ -638,6 +638,7 @@ export function StandaloneConsultationView({
         answers: cleanAnswers,
         status,
         answerId: localAnswerIdRef.current,
+        sendToBilling: options?.sendToBilling ?? false,
       });
 
       const savedAnswerId =
@@ -884,23 +885,15 @@ export function StandaloneConsultationView({
         autoSaveTimer.current = null;
       }
       formRendererRef.current?.clearErrors();
-      await persistAnswers(answers, "DRAFT", { skipDuplicateCheck: true });
 
       // State transition rules:
-      // 1. If in edit mode (DEPARTMENT_EDITING): keep the state intact (do not change status).
-      // 2. If unbilled products exist: send to BILLING so finance can bill the products.
-      // 3. Unless visit is already billed and not in edit mode: just save answers (no state change).
-      const allDepts = [
-        visitDepartment,
-        ...(visitDepartment.childVisitDepartments || []),
-      ];
-      const hasUnbilledProducts = allDepts.some((d) =>
-        d.products?.some(
-          (p) => !(p as any).deleted && String(p.billingState || "").toUpperCase() !== "BILLED",
-        ),
-      );
+      // 1. If in edit mode (DEPARTMENT_EDITING): keep the state intact (sendToBilling: false).
+      // 2. Otherwise: sendToBilling: true. The backend will inspect all departments on the visit;
+      //    if unbilled products exist, it transitions the departments to BILLING.
+      const shouldSendToBilling = !isDepartmentEditing;
+      await persistAnswers(answers, "DRAFT", { skipDuplicateCheck: true, sendToBilling: shouldSendToBilling });
 
-      if (!isDepartmentEditing && hasUnbilledProducts && visitDepartment.status !== "BILLING") {
+      if (shouldSendToBilling) {
         try {
           await updateDepartmentStatus(String(visitDepartment.id), "BILLING");
         } catch (statusErr) {
@@ -908,6 +901,7 @@ export function StandaloneConsultationView({
         }
       }
 
+      await onVisitRefetch?.();
       toast.success("Consultation saved for later editing");
       // "Complete Visit Edit Later" = done with this visit for now — head home.
       router.push("/");
@@ -947,23 +941,24 @@ export function StandaloneConsultationView({
         return;
       }
 
-      await persistAnswers(answers, "FINAL", { skipDuplicateCheck: true });
-
       // State transition rules:
-      // 1. If in edit mode (DEPARTMENT_EDITING): keep the state intact (do not change status).
+      // 1. If in edit mode (DEPARTMENT_EDITING): keep the state intact (sendToBilling: false).
       // 2. If unbilled products exist: send to BILLING so finance can collect payment.
       // 3. If visit is already billed and not in edit mode: mark department as FINALISED.
-      const allDepts = [
-        visitDepartment,
-        ...(visitDepartment.childVisitDepartments || []),
-      ];
-      const hasUnbilledProducts = allDepts.some((d) =>
-        d.products?.some(
-          (p) => !(p as any).deleted && String(p.billingState || "").toUpperCase() !== "BILLED",
-        ),
-      );
+      const shouldSendToBilling = !isDepartmentEditing;
+      await persistAnswers(answers, "FINAL", { skipDuplicateCheck: true, sendToBilling: shouldSendToBilling });
 
       if (!isDepartmentEditing) {
+        const allDepts = [
+          visitDepartment,
+          ...(visitDepartment.childVisitDepartments || []),
+          ...(visit.departments || []),
+        ];
+        const hasUnbilledProducts = allDepts.some((d) =>
+          d.products?.some(
+            (p) => !(p as any).deleted && String(p.billingState || "").toUpperCase() !== "BILLED",
+          ),
+        );
         const targetStatus = hasUnbilledProducts ? "BILLING" : "FINALISED";
         if (visitDepartment.status !== targetStatus) {
           try {
@@ -974,6 +969,7 @@ export function StandaloneConsultationView({
         }
       }
 
+      await onVisitRefetch?.();
       toast.success("Consultation completed");
       router.push("/");
     } catch (err: unknown) {
