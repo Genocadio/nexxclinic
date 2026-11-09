@@ -22,9 +22,36 @@ export const LOGIN_MUTATION = gql`
             id
             name
           }
+          settings {
+            id
+            workerId
+            fontSize
+            theme
+            settingsJson
+            createdAt
+            updatedAt
+          }
           createdAt
           updatedAt
         }
+      }
+    }
+  }
+`;
+
+export const UPDATE_MY_SETTINGS_MUTATION = gql`
+  mutation UpdateMySettings($input: UpdateUserSettingsInput!) {
+    updateMySettings(input: $input) {
+      status
+      message
+      data {
+        id
+        workerId
+        fontSize
+        theme
+        settingsJson
+        createdAt
+        updatedAt
       }
     }
   }

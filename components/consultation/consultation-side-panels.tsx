@@ -459,7 +459,7 @@ export function ConsultationSidePanels({
     if (!isDesktopViewport) {
       return undefined;
     }
-    const base = { left: "3.25rem", transform: "translateY(-50%)" };
+    const base = { left: "1.25rem", transform: "translateY(-50%)" };
     if (count <= 1) return { ...base, top: "50%" };
     if (count === 2) {
       return slot === "upper"
@@ -561,70 +561,7 @@ export function ConsultationSidePanels({
         />
       )}
 
-      {/* Left vertical pill with compact quick panel buttons (desktop lg+) */}
-      <div className="hidden lg:flex fixed left-2.5 xl:left-4 top-1/2 -translate-y-1/2 z-40 flex-col items-center gap-1.5 bg-card/85 backdrop-blur-md border border-border/60 rounded-full p-1 shadow-lg">
-        <button
-          title="Identification"
-          className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-            idPanel.pinned
-              ? "bg-primary/15 text-primary ring-1 ring-primary/40"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-          }`}
-          onMouseEnter={() => {
-            if (canHoverPreview()) {
-              setIdPanel({ ...idPanel, hover: !idPanel.pinned });
-            }
-          }}
-          onMouseLeave={() => setIdPanel({ ...idPanel, hover: false })}
-          onClick={() => handlePanelClick("id")}
-        >
-          <User className="w-4 h-4" />
-        </button>
-        <button
-          title={hasVitals ? "Vital Signs (Alt+V)" : "Add vital signs (Alt+V)"}
-          className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-            vitalsPanel.pinned
-              ? "bg-primary/15 text-primary ring-1 ring-primary/40"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-          }`}
-          onMouseEnter={() => {
-            if (canHoverPreview()) {
-              setVitalsPanel({ ...vitalsPanel, hover: !vitalsPanel.pinned });
-            }
-          }}
-          onMouseLeave={() =>
-            setVitalsPanel({ ...vitalsPanel, hover: false })
-          }
-          onClick={() => {
-            handlePanelClick("vitals");
-          }}
-        >
-          {hasVitals ? (
-            <HeartPulse className="w-4 h-4" />
-          ) : (
-            <Plus className="w-4 h-4" />
-          )}
-        </button>
-        <button
-          title="History"
-          className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-            historyPanel.pinned
-              ? "bg-primary/15 text-primary ring-1 ring-primary/40"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-          }`}
-          onMouseEnter={() => {
-            if (canHoverPreview()) {
-              setHistoryPanel({ ...historyPanel, hover: !historyPanel.pinned });
-            }
-          }}
-          onMouseLeave={() =>
-            setHistoryPanel({ ...historyPanel, hover: false })
-          }
-          onClick={() => handlePanelClick("history")}
-        >
-          <HistoryIcon className="w-4 h-4" />
-        </button>
-      </div>
+
 
       {/* Identification Panel */}
       {showIdPanel && (

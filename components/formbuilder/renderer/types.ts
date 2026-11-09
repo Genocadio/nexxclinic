@@ -15,6 +15,8 @@ export interface FormRendererProps {
   initialAnswers?: FormAnswers;
   edit?: boolean;
   mode?: "full" | "wizard";
+  /** When true, suppresses the floating section timeline jump-nav indicator */
+  hideSectionNav?: boolean;
   /** Optional extensions (e.g. consultation visit sync listener) */
   extensions?: import("../extensions/types").FormRendererExtension[];
   /** Controlled answers — use with extensions that mutate answer state */

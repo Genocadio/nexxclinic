@@ -84,7 +84,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = () => {
     setPreference((prev) => {
       const resolvedTheme = prev === "system" ? getSystemTheme() : prev
-      return resolvedTheme === "dark" ? "light" : "dark"
+      const nextTheme = resolvedTheme === "dark" ? "light" : "dark"
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("theme-preference-changed", { detail: nextTheme }))
+      }
+      return nextTheme
     })
   }
 
@@ -94,6 +98,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setThemePreference = (pref: ThemePreference) => {
     setPreference(pref)
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("theme-preference-changed", { detail: pref }))
+    }
   }
 
   return (

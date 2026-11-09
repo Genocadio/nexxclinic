@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Pencil, Layers, Check } from "lucide-react";
+import { Pencil, Layers } from "lucide-react";
 import type { ComponentProps } from "react";
 import { BillingItemsList } from "@/components/BillingItemsList";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -12,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { BillingItem } from "@/lib/billing-utils";
 import type { VisitDepartment } from "@/lib/api-types";
 
@@ -21,8 +18,8 @@ type BillingInsuranceOption = NonNullable<
 >[number];
 
 type BillingItemsWorkspaceProps = {
-  activeService: string;
-  allServiceNames: string[];
+  activeService?: string;
+  allServiceNames?: string[];
   /** Visit department IDs keyed by department name, used to identify which visit department to remove. */
   serviceDepartmentIds?: Record<string, string>;
   /** Visit departments from the active visit */
@@ -34,60 +31,48 @@ type BillingItemsWorkspaceProps = {
   allItems?: BillingItem[];
   /** Department names that are fully billed (all items paid). */
   billedDepartmentNames?: Set<string>;
-  canAddItems: boolean;
+  canAddItems?: boolean;
   canEdit?: boolean;
   editMode?: boolean;
   quantityUpdating?: boolean;
-  visitInsuranceOptions: BillingInsuranceOption[];
+  availableProfiles?: Array<{ id: string; name: string }>;
   activeProfile?: { id: string; name: string } | null;
-  availableProfiles?: { id: string; name: string }[];
   canChangeProfile?: boolean;
   onChangeProfile?: (profileId: string | null) => void;
-  onServiceChange: (serviceName: string) => void;
-  onAddItem: () => void;
+  visitInsuranceOptions?: BillingInsuranceOption[];
+  onServiceChange?: (service: string) => void;
+  onAddItem?: () => void;
   onItemChange: (item: BillingItem) => void;
   onItemRemove: (itemId: string) => void;
-  onQuantityChange: (item: BillingItem, quantity: number) => void;
-  onCancelDepartment?: (visitDepartmentId: string) => void;
+  onQuantityChange?: (item: BillingItem, quantity: number) => void;
+  onCancelDepartment?: (serviceName: string) => void;
   onRemoveDepartment?: (visitDepartmentId: string) => void;
   editedItemChanges?: Map<string, "added" | "modified">;
 };
 
 export function BillingItemsWorkspace({
-  activeService,
-  allServiceNames,
-  serviceDepartmentIds = {},
-  departments = [],
-  currentUserId,
-  userRoles = [],
   items,
-  allItems = [],
-  billedDepartmentNames = new Set(),
-  canAddItems,
+  visitInsuranceOptions = [],
+  quantityUpdating = false,
   canEdit = true,
   editMode = false,
-  quantityUpdating = false,
-  visitInsuranceOptions,
-  activeProfile = null,
   availableProfiles = [],
+  activeProfile = null,
   canChangeProfile = false,
   onChangeProfile,
-  onServiceChange,
-  onAddItem,
   onItemChange,
   onItemRemove,
   onQuantityChange,
-  onCancelDepartment,
-  onRemoveDepartment,
   editedItemChanges,
 }: BillingItemsWorkspaceProps) {
+  const showHeaderRow =
+    editMode || (canChangeProfile && availableProfiles.length > 0) || Boolean(activeProfile);
+
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-6">
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full min-w-0 mx-auto px-2 sm:px-4 md:px-[1cm] lg:px-[2cm]">          <div className="flex items-center justify-between gap-3 mb-2 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-foreground">
-              Items to Bill
-            </h2>
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-2 sm:p-3">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full min-w-0">
+        {showHeaderRow && (
+          <div className="flex items-center gap-2 mb-2 flex-shrink-0 px-1">
             {editMode && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 border border-amber-300 dark:border-amber-700 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide">
                 <Pencil className="h-2.5 w-2.5" />
@@ -131,52 +116,9 @@ export function BillingItemsWorkspace({
               );
             })() : null}
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {canAddItems && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 rounded-full text-xs"
-                onClick={onAddItem}
-              >
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Add Product
-              </Button>
-            )}
-          </div>
-        </div>
+        )}
 
-        <div className="mb-2 flex-shrink-0">
-          <Tabs value={activeService} onValueChange={onServiceChange}>
-            <TabsList className="h-8">
-              {allServiceNames.map((dept) => {
-                const isBilled = billedDepartmentNames.has(dept);
-
-                return (
-                  <TabsTrigger
-                    key={dept}
-                    value={dept}
-                    className={`rounded-full px-3 text-xs h-7 gap-1 transition-colors ${
-                      isBilled
-                        ? "bg-green-100/90 text-green-800 border border-green-300/80 hover:bg-green-200/90 data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=active]:border-green-600 dark:bg-green-950/50 dark:text-green-300 dark:border-green-800 dark:data-[state=active]:bg-green-600 dark:data-[state=active]:text-white"
-                        : ""
-                    }`}
-                  >
-                    {isBilled && (
-                      <Check
-                        className="h-3.5 w-3.5 shrink-0 text-green-700 dark:text-green-400 group-data-[state=active]:text-white data-[state=active]:text-white"
-                        strokeWidth={2.5}
-                      />
-                    )}
-                    <span>{dept}</span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </Tabs>
-        </div>
-
-        <div className="flex-1 min-h-0 bg-card/60 backdrop-blur-xl border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 bg-card/60 backdrop-blur-xl border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
           <div className="flex-1 overflow-y-auto py-2">
             <BillingItemsList
               items={items}

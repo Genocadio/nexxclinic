@@ -30,6 +30,8 @@ type Props = {
   currentDepartmentId: string;
   hasAnsweredCurrentForm: boolean;
   onPreviewAnswerAction: (input: EncounterPreviewInput) => void;
+  currentVisitId?: string | null;
+  currentVisitDepartmentId?: string | null;
 };
 
 const AUTO_DISMISS_MS = 120000;
@@ -190,25 +192,25 @@ function ExpandableCard({
 
   return (
     <div
-      className={`group rounded-2xl border border-border/70 bg-card/95 p-2.5 shadow-lg backdrop-blur transition-all duration-200 hover:shadow-xl ${
+      className={`pointer-events-auto group rounded-xl border border-border/80 bg-background/95 dark:bg-card/90 p-2.5 sm:p-3 shadow-xl backdrop-blur-md transition-all duration-200 hover:shadow-2xl animate-in fade-in slide-in-from-bottom-2 ${
         expanded
-          ? "w-[min(88vw,22rem)] lg:w-[20rem]"
-          : "w-[15rem]"
+          ? "w-[min(90vw,22rem)] sm:w-[21rem]"
+          : "w-[15rem] sm:w-[17rem]"
       }`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="mt-0.5 shrink-0 rounded-xl bg-primary/10 p-1.5 text-primary">
+      <div className="flex items-start justify-between gap-2.5">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <div className="mt-0.5 shrink-0 rounded-lg bg-primary/10 p-1.5 text-primary">
             {icon}
           </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">{title}</p>
-            <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+          <div className="min-w-0 pr-1">
+            <p className="truncate text-xs font-semibold text-foreground leading-tight">{title}</p>
+            <p className="truncate text-[11px] text-muted-foreground mt-0.5 leading-snug">{subtitle}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {expanded && (
             <button
               type="button"
@@ -219,23 +221,23 @@ function ExpandableCard({
               className={`rounded-md p-1 transition-colors ${
                 pinned
                   ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  : "text-muted-foreground/60 hover:bg-muted hover:text-foreground"
               }`}
             >
-              <Pin className={`h-4 w-4 ${pinned ? "fill-current" : ""}`} />
+              <Pin className={`h-3.5 w-3.5 ${pinned ? "fill-current" : ""}`} />
             </button>
           )}
           <button
             type="button"
             onClick={onDismiss}
-            className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="rounded-md p-1 text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-colors"
             aria-label="Dismiss card"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
-      {expanded && <div className="mt-3">{children}</div>}
+      {expanded && <div className="mt-2.5">{children}</div>}
     </div>
   );
 }
@@ -246,16 +248,56 @@ export function ConsultationPreviousEncounters({
   currentDepartmentId,
   hasAnsweredCurrentForm,
   onPreviewAnswerAction,
+  currentVisitId,
+  currentVisitDepartmentId,
 }: Props) {
   const [dismissedVisitCard, setDismissedVisitCard] = useState(false);
   const [dismissedDepartmentCard, setDismissedDepartmentCard] = useState(false);
   const [visitPinned, setVisitPinned] = useState(false);
   const [departmentPinned, setDepartmentPinned] = useState(false);
 
+  const currentVisitIdNorm = currentVisitId
+    ? String(currentVisitId).toLowerCase().trim()
+    : null;
+  const currentVisitDeptIdNorm = currentVisitDepartmentId
+    ? String(currentVisitDepartmentId).toLowerCase().trim()
+    : null;
+
+  // Strict check: Ensure lastVisit is NEVER the current visit
+  const rawLastVisit = data?.lastVisit || null;
+  const lastVisit = useMemo(() => {
+    if (!rawLastVisit) return null;
+    const visitId = String(rawLastVisit.id || "").toLowerCase().trim();
+    if (currentVisitIdNorm && visitId && visitId === currentVisitIdNorm) {
+      return null;
+    }
+    return rawLastVisit;
+  }, [rawLastVisit, currentVisitIdNorm]);
+
+  // Strict check: Ensure lastDepartmentVisit is NEVER the current visit or current department encounter
+  const rawLastDepartmentVisit = data?.lastDepartmentVisit || null;
+  const lastDepartmentVisit = useMemo(() => {
+    if (!rawLastDepartmentVisit) return null;
+    const deptVisitId = rawLastDepartmentVisit.visitId
+      ? String(rawLastDepartmentVisit.visitId).toLowerCase().trim()
+      : null;
+    const deptId = rawLastDepartmentVisit.visitDepartment?.id
+      ? String(rawLastDepartmentVisit.visitDepartment.id).toLowerCase().trim()
+      : null;
+
+    if (currentVisitIdNorm && deptVisitId && deptVisitId === currentVisitIdNorm) {
+      return null;
+    }
+    if (currentVisitDeptIdNorm && deptId && deptId === currentVisitDeptIdNorm) {
+      return null;
+    }
+    return rawLastDepartmentVisit;
+  }, [rawLastDepartmentVisit, currentVisitIdNorm, currentVisitDeptIdNorm]);
+
   useEffect(() => {
     setVisitPinned(false);
     setDepartmentPinned(false);
-  }, [data?.lastVisit?.id, data?.lastDepartmentVisit?.visitDepartment?.id]);
+  }, [lastVisit?.id, lastDepartmentVisit?.visitDepartment?.id]);
 
   useEffect(() => {
     if (!hasAnsweredCurrentForm) return;
@@ -266,8 +308,6 @@ export function ConsultationPreviousEncounters({
     return () => window.clearTimeout(timer);
   }, [hasAnsweredCurrentForm]);
 
-  const lastVisit = data?.lastVisit || null;
-  const lastDepartmentVisit = data?.lastDepartmentVisit || null;
   const highlightedDepartmentId = String(
     lastDepartmentVisit?.visitDepartment?.id || "",
   );
@@ -296,7 +336,7 @@ export function ConsultationPreviousEncounters({
   if (!showVisitCard && !showDepartmentCard) return null;
 
   return (
-    <div className="fixed bottom-6 left-6 md:left-6 xl:left-[max(1.5rem,calc(50%-42.5rem))] z-[70] flex flex-col items-start gap-3">
+    <div className="fixed bottom-3 left-3 sm:bottom-4 sm:left-4 z-40 flex flex-col items-start gap-1.5 sm:gap-2 max-w-[calc(100vw-1.5rem)] sm:max-w-xs pointer-events-none select-none">
       {showVisitCard && lastVisit && (
         <ExpandableCard
           title="Previous clinic visit"

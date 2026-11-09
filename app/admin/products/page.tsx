@@ -80,7 +80,12 @@ import {
   Info,
   Layers,
   Sparkles,
+  Tag,
 } from "lucide-react";
+import {
+  CategoryAutocomplete,
+  FIXED_PRODUCT_CATEGORIES,
+} from "@/components/ui/category-autocomplete";
 import {
   productFormSchema,
   type ProductFormValues,
@@ -191,6 +196,7 @@ export default function ManageProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchName, setDebouncedSearchName] = useState("");
   const [filterType, setFilterType] = useState<string>("ALL");
+  const [filterCategory, setFilterCategory] = useState<string>("ALL");
 
   // Selection / Tab state
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -221,6 +227,27 @@ export default function ManageProductsPage() {
   });
 
   const { insurances, loading: insurancesLoading } = useInsurances();
+
+  // Distinct categories collected from catalog + fixed categories
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>(FIXED_PRODUCT_CATEGORIES);
+    products.forEach((p: Product) => {
+      const cat = (p.metadata as Record<string, unknown> | null | undefined)?.category;
+      if (typeof cat === "string" && cat.trim()) {
+        set.add(cat.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [products]);
+
+  // Client-side category filtering on loaded products
+  const displayedProducts = useMemo(() => {
+    if (filterCategory === "ALL") return products;
+    return products.filter((p: Product) => {
+      const cat = (p.metadata as Record<string, unknown> | null | undefined)?.category;
+      return typeof cat === "string" && cat.trim().toLowerCase() === filterCategory.toLowerCase();
+    });
+  }, [products, filterCategory]);
 
   // Infinite scroll observer setup
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -271,6 +298,7 @@ export default function ManageProductsPage() {
   const [settingsName, setSettingsName] = useState("");
   const [settingsCode, setSettingsCode] = useState("");
   const [settingsDescription, setSettingsDescription] = useState("");
+  const [settingsCategory, setSettingsCategory] = useState("");
   const [settingsType, setSettingsType] = useState<ProductTypeOption>("MEDICAL_ACT");
   const [settingsPrivatePrice, setSettingsPrivatePrice] = useState("");
   const [settingsClinicPrice, setSettingsClinicPrice] = useState("");
@@ -299,6 +327,7 @@ export default function ManageProductsPage() {
     defaultValues: {
       name: "",
       description: "",
+      category: "",
       type: "MEDICAL_ACT",
       privatePrice: "",
       clinicPrice: "",
@@ -306,6 +335,7 @@ export default function ManageProductsPage() {
     },
   });
   const watchedCreateType = watchCreate("type");
+  const watchedCreateCategory = watchCreate("category");
 
   // Quick Metrics stats
   const stats = useMemo(() => {
@@ -337,6 +367,8 @@ export default function ManageProductsPage() {
     setSettingsName(product.name || "");
     setSettingsCode(product.code || "");
     setSettingsDescription(product.description || "");
+    const incomingCategory = (product.metadata as Record<string, unknown> | null | undefined)?.category;
+    setSettingsCategory(typeof incomingCategory === "string" ? incomingCategory : "");
     const incomingType = String(
       product.type || "",
     ).toUpperCase() as ProductTypeOption;
@@ -394,6 +426,9 @@ export default function ManageProductsPage() {
         description: values.description || values.name,
         type: values.type as ProductTypeOption,
         unit: "PCS",
+        metadata: values.category?.trim()
+          ? { category: values.category.trim() }
+          : undefined,
         privateRhicPrice: Number(cleanPrivatePrice),
         clinicPrice: cleanClinicPrice
           ? Number(cleanClinicPrice)
@@ -439,6 +474,16 @@ export default function ManageProductsPage() {
 
     setSaving(true);
     try {
+      const currentMeta: Record<string, unknown> =
+        selectedProduct.metadata && typeof selectedProduct.metadata === "object"
+          ? { ...(selectedProduct.metadata as Record<string, unknown>) }
+          : {};
+      if (settingsCategory.trim()) {
+        currentMeta.category = settingsCategory.trim();
+      } else {
+        delete currentMeta.category;
+      }
+
       const updatedResp = await updateProduct(selectedProduct.id, {
         name: settingsName.trim(),
         code:
@@ -450,6 +495,7 @@ export default function ManageProductsPage() {
         description: settingsDescription.trim() || settingsName.trim(),
         type: settingsType,
         unit: selectedProduct.unit || "PCS",
+        metadata: currentMeta,
         privateRhicPrice: privPriceNum,
         clinicPrice: cleanClinicPrice
           ? Number(cleanClinicPrice)
@@ -471,6 +517,7 @@ export default function ManageProductsPage() {
                 code: settingsCode.trim() || prev.code,
                 description: settingsDescription.trim(),
                 type: settingsType as ProductType,
+                metadata: currentMeta,
                 privateRhicPrice: privPriceNum,
                 clinicPrice: cleanClinicPrice
                   ? Number(cleanClinicPrice)
@@ -700,7 +747,7 @@ export default function ManageProductsPage() {
             </div>
 
             {/* Search & Filter Bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-2xl mx-auto w-full">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-3 max-w-3xl mx-auto w-full">
               <div className="relative flex-1 w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -711,20 +758,39 @@ export default function ManageProductsPage() {
                 />
               </div>
 
-              <div className="w-full sm:w-56 shrink-0">
-                <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="rounded-xl bg-card shadow-xs">
-                    <SelectValue placeholder="Filter by Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All Types</SelectItem>
-                    {PRODUCT_TYPE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={opt}>
-                        {getProductTypeConfig(opt).shortLabel}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto shrink-0">
+                <div className="w-full sm:w-48 shrink-0">
+                  <Select value={filterType} onValueChange={setFilterType}>
+                    <SelectTrigger className="rounded-xl bg-card shadow-xs">
+                      <SelectValue placeholder="Filter by Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Types</SelectItem>
+                      {PRODUCT_TYPE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt} value={opt}>
+                          {getProductTypeConfig(opt).shortLabel}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="w-full sm:w-48 shrink-0">
+                  <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <SelectTrigger className="rounded-xl bg-card shadow-xs">
+                      <Tag className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                      <SelectValue placeholder="Filter by Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Categories</SelectItem>
+                      {availableCategories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
@@ -735,16 +801,16 @@ export default function ManageProductsPage() {
                   <ProductCardSkeleton key={idx} />
                 ))}
               </div>
-            ) : products.length === 0 ? (
+            ) : displayedProducts.length === 0 ? (
               <div className="text-center py-16 border border-dashed rounded-2xl bg-muted/10 space-y-3">
                 <Package className="h-10 w-10 text-muted-foreground mx-auto" />
                 <h3 className="text-base font-semibold">No products found</h3>
                 <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                  {searchQuery || filterType !== "ALL"
+                  {searchQuery || filterType !== "ALL" || filterCategory !== "ALL"
                     ? "No products match your search or filter criteria."
                     : "Get started by adding your first product to the clinic catalog."}
                 </p>
-                {!searchQuery && filterType === "ALL" && (
+                {!searchQuery && filterType === "ALL" && filterCategory === "ALL" && (
                   <Button
                     onClick={() => {
                       resetCreateForm();
@@ -756,16 +822,27 @@ export default function ManageProductsPage() {
                     <Plus className="h-4 w-4 mr-1.5" /> Add First Product
                   </Button>
                 )}
+                {filterCategory !== "ALL" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setFilterCategory("ALL")}
+                    size="sm"
+                    className="rounded-full mt-2"
+                  >
+                    Clear Category Filter
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {products.map((item: Product) => {
+                  {displayedProducts.map((item: Product) => {
                     const typeConfig = getProductTypeConfig(item.type);
                     const TypeIcon = typeConfig.icon;
                     const insuranceCount =
                       item.insuranceCoverages?.length || 0;
                     const isQuantifiable = item.quantifiable !== false;
+                    const itemCategory = (item.metadata as Record<string, unknown> | null | undefined)?.category;
 
                     return (
                       <div
@@ -853,6 +930,16 @@ export default function ManageProductsPage() {
                               <TypeIcon className="h-3 w-3" />
                               {typeConfig.shortLabel}
                             </Badge>
+
+                            {typeof itemCategory === "string" && itemCategory.trim() && (
+                              <Badge
+                                variant="secondary"
+                                className="text-[12px] gap-1 bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20"
+                              >
+                                <Tag className="h-3 w-3" />
+                                {itemCategory.trim()}
+                              </Badge>
+                            )}
 
                             <Badge
                               variant="secondary"
@@ -986,6 +1073,16 @@ export default function ManageProductsPage() {
                             <Icon className="h-3 w-3" />
                             {cfg.shortLabel}
                           </Badge>
+
+                          {Boolean((selectedProduct.metadata as Record<string, unknown> | null | undefined)?.category) && (
+                            <Badge
+                              variant="secondary"
+                              className="text-xs gap-1 bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/20"
+                            >
+                              <Tag className="h-3 w-3" />
+                              {String((selectedProduct.metadata as Record<string, unknown>).category)}
+                            </Badge>
+                          )}
 
                           <Badge
                             variant="secondary"
@@ -1127,6 +1224,22 @@ export default function ManageProductsPage() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+
+                      {/* Category */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold text-foreground">
+                          Category (Optional)
+                        </Label>
+                        <CategoryAutocomplete
+                          value={settingsCategory}
+                          onValueChange={setSettingsCategory}
+                          categories={availableCategories}
+                          placeholder="Search & select category..."
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Fixed standard category for catalog grouping, department profiles, and reporting.
+                        </p>
                       </div>
 
                       {/* Private Price */}
@@ -1486,6 +1599,18 @@ export default function ManageProductsPage() {
                       </div>
 
                       <div className="flex justify-between items-center py-2 border-b border-border/40 text-sm">
+                        <span className="text-muted-foreground">Category:</span>
+                        {(selectedProduct.metadata as Record<string, unknown> | null | undefined)?.category ? (
+                          <Badge variant="secondary" className="text-xs bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20 gap-1">
+                            <Tag className="h-3 w-3" />
+                            {String((selectedProduct.metadata as Record<string, unknown>).category)}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">None (Unassigned)</span>
+                        )}
+                      </div>
+
+                      <div className="flex justify-between items-center py-2 border-b border-border/40 text-sm">
                         <span className="text-muted-foreground">Quantifiable:</span>
                         <Badge
                           variant="secondary"
@@ -1616,6 +1741,20 @@ export default function ManageProductsPage() {
 
                   <div className="space-y-1">
                     <Label className="text-xs font-semibold text-muted-foreground">
+                      Category (Optional)
+                    </Label>
+                    <CategoryAutocomplete
+                      value={watchedCreateCategory}
+                      onValueChange={(val) => setCreateValue("category", val, { shouldValidate: true })}
+                      categories={availableCategories}
+                      placeholder="Search & select category..."
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-muted-foreground">
                       Private RHIC Price (RWF) *
                     </Label>
                     <Input
@@ -1639,7 +1778,7 @@ export default function ManageProductsPage() {
                     <FieldError message={createErrors.privatePrice?.message} />
                   </div>
 
-                  <div className="space-y-1 sm:col-span-2">
+                  <div className="space-y-1">
                     <Label className="text-xs font-semibold text-muted-foreground">
                       Clinic Internal Price (RWF, Optional)
                     </Label>

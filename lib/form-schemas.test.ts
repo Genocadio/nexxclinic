@@ -196,6 +196,32 @@ describe("productFormSchema", () => {
       expect(res.data.clinicPrice).toBe("3500");
     }
   });
+  it("accepts an optional category", () => {
+    const withCategory = productFormSchema.safeParse({
+      name: "Comprehensive Eye Exam",
+      description: "Slit lamp and retinal inspection",
+      category: "Ophthalmology",
+      type: "MEDICAL_ACT",
+      privatePrice: "15000",
+      clinicPrice: "",
+    });
+    expect(withCategory.success).toBe(true);
+    if (withCategory.success) {
+      expect(withCategory.data.category).toBe("Ophthalmology");
+    }
+
+    const withoutCategory = productFormSchema.safeParse({
+      name: "General Consultation",
+      description: "",
+      type: "MEDICAL_ACT",
+      privatePrice: "10000",
+      clinicPrice: "",
+    });
+    expect(withoutCategory.success).toBe(true);
+    if (withoutCategory.success) {
+      expect(withoutCategory.data.category).toBeUndefined();
+    }
+  });
 });
 
 describe("createUserFormSchema", () => {

@@ -3,6 +3,8 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/lib/auth-context"
+import { FontSizeProvider } from "@/lib/font-size-context"
+import { UserSettingsSync } from "@/components/user-settings-sync"
 import { ApolloWrapper } from "@/components/apollo-wrapper"
 import { AuthGate } from "@/components/auth-gate"
 import { ThemeProvider } from "@/lib/theme-context"
@@ -74,7 +76,18 @@ export default function RootLayout({
               } else {
                 root.classList.remove('dark');
               }
-                   root.style.colorScheme = mode;
+              root.style.colorScheme = mode;
+
+              const path = window.location.pathname || '';
+              const isAuthRoute = path === '/auth' || path.startsWith('/auth/') || path === '/register' || path === '/create-password';
+              const hasToken = !!localStorage.getItem('authToken');
+              const storedFont = localStorage.getItem('app_font_size');
+
+              if (!isAuthRoute && hasToken && storedFont) {
+                root.setAttribute('data-font-size', storedFont);
+              } else {
+                root.setAttribute('data-font-size', 'md');
+              }
             } catch (e) {
                    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
                    document.documentElement.classList.toggle('dark', prefersDark);
@@ -89,11 +102,14 @@ export default function RootLayout({
           <Providers>
             <ApolloWrapper>
               <AuthProvider>
-                <ClinicSseProvider>
-                  <NetworkStatusProvider>
-                    <AuthGate>{children}</AuthGate>
-                  </NetworkStatusProvider>
-                </ClinicSseProvider>
+                <FontSizeProvider>
+                  <ClinicSseProvider>
+                    <NetworkStatusProvider>
+                      <AuthGate>{children}</AuthGate>
+                      <UserSettingsSync />
+                    </NetworkStatusProvider>
+                  </ClinicSseProvider>
+                </FontSizeProvider>
               </AuthProvider>
             </ApolloWrapper>
           </Providers>

@@ -25,7 +25,7 @@ import {
   visitProductsFullySettled,
   isVisitStillUnderConsultation,
 } from "@/lib/visit-product-utils";
-import { Clock } from "lucide-react";
+import { Clock, Plus, Pill } from "lucide-react";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useSearchParams } from "@/lib/navigation";
@@ -68,8 +68,13 @@ import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { EMPTY_TOTALS } from "@/hooks/billing/use-billing-totals";
 import { Spinner } from "@/components/ui/spinner";
 import { PageLoading } from "@/components/ui/page-loading";
-import VisitNotesFloating from "@/components/visit-notes-floating";
-import { BillingPatientBar } from "@/components/billing/billing-patient-bar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { ConsultationPatientHeaderStrip } from "@/components/consultation/consultation-patient-header-strip";
 import { BillingStickySummary } from "@/components/billing/billing-sticky-summary";
 import { BillingConfirmSheet } from "@/components/billing/billing-confirm-sheet";
 import { BillingPreviewSheet } from "@/components/billing/billing-preview-sheet";
@@ -91,6 +96,10 @@ const PostBillingActionDialog = dynamic(
 );
 const AddDepartmentModal = dynamic(
   () => import("@/components/add-department-modal").then((m) => m.AddDepartmentModal),
+  { ssr: false }
+);
+const PatientHistorySidePane = dynamic(
+  () => import("@/components/patient-history-side-pane"),
   { ssr: false }
 );
 
@@ -147,12 +156,20 @@ export function BillingPageContent() {
     handleAmountPaidChange,
   } = useBillingPageState();
 
+  const topLevelBillingDepartments = useMemo(
+    () =>
+      (visit?.departments || []).filter(
+        (dept: any) => !dept.parentVisitDepartmentId,
+      ),
+    [visit?.departments],
+  );
+
   const activeVisitDepartment = useMemo(
     () =>
-      visit?.departments?.find(
+      topLevelBillingDepartments.find(
         (dept) => (dept.department?.name || "General") === activeService,
       ) || null,
-    [visit?.departments, activeService],
+    [topLevelBillingDepartments, activeService],
   );
 
   const activeDeptHasBilledProducts = useMemo(() => {
@@ -228,6 +245,7 @@ export function BillingPageContent() {
   const [departmentPendingCancellation, setDepartmentPendingCancellation] = useState<string | null>(null);
   const [cancellingDepartment, setCancellingDepartment] = useState(false);
   const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false);
+  const [patientHistoryOpen, setPatientHistoryOpen] = useState(false);
   // In-flight discharge — keeps the confirm dialog open with a spinner so the
   // completeVisit/department-status loop can't be triggered twice.
   const [discharging, setDischarging] = useState(false);
@@ -287,7 +305,20 @@ export function BillingPageContent() {
     );
   }, [visit?.linkedInsurances, activeVisitInsuranceIds]);
 
-  const isAlreadyBilled = Boolean(existingVisitBilling);
+  const activeInsuranceAcronym = useMemo(
+    () =>
+      activeVisitInsurances
+        .map(
+          (p) =>
+            p.insuranceProvider?.acronym ||
+            p.insuranceProvider?.insuranceName ||
+            p.insuranceProvider?.name ||
+            "Ins"
+        )
+        .join(", ") || null,
+    [activeVisitInsurances],
+  );
+
   // Derive edit mode from any department's DEPARTMENT_EDITING status
   // or local state. Reading from the persisted status means edit mode survives
   // page refreshes.
@@ -295,8 +326,6 @@ export function BillingPageContent() {
     (dept) => dept.status === "DEPARTMENT_EDITING"
   );
   const isEditMode = hasAnyDeptEditing || Boolean(isEditingBill);
-  // For UI purposes (item states, dock, etc.) treat billed visit as unbilled while in edit mode
-  const effectiveIsAlreadyBilled = isAlreadyBilled && !isEditMode;
 
   useEffect(() => {
     if (!visit) return;
@@ -384,12 +413,6 @@ export function BillingPageContent() {
     billingRemapNonce,
   ]);
 
-  useEffect(() => {
-    if (billingData?.items?.length) {
-      const firstDept = billingData.items[0].departmentName || "General";
-      setActiveService((prev) => prev || firstDept);
-    }
-  }, [billingData]);
 
   // Calculate totals for a given items subset (selected, unbilled lines only).
   // Delegates to the shared computeBillingTotals so every screen shows the
@@ -510,6 +533,40 @@ export function BillingPageContent() {
   const activeDeptHasUnbilled = selectedItems.some(
     (item) => item.paymentStatus !== "paid",
   );
+
+  // A department or visit is only considered billed if there are NO unbilled items remaining!
+  const isAlreadyBilled = Boolean(existingVisitBilling) && !activeDeptHasUnbilled;
+  // For UI purposes (item states, dock, etc.) treat billed visit as unbilled while in edit mode
+  const effectiveIsAlreadyBilled = isAlreadyBilled && !isEditMode;
+
+  // Never allow closing/cancelling edit mode if there are unbilled or newly added items
+  const hasUnbilledInEditMode = useMemo(() => {
+    if (!isEditMode) return false;
+    // 1. Check if any items in billingData were added / not in snapshot
+    if (editModeSnapshot) {
+      const snapshotIds = new Set(editModeSnapshot.map((s) => s.id));
+      const hasAdded = billingData?.items.some((item) => !snapshotIds.has(item.id));
+      if (hasAdded) return true;
+    }
+    // 2. Check if any items in billingData were not billed in existingVisitBilling
+    if (existingVisitBilling) {
+      const hasUnbilled = billingData?.items.some(
+        (item) => !isVisitDepartmentProductBilled(existingVisitBilling, item.id),
+      );
+      if (hasUnbilled) return true;
+    } else {
+      if (billingData?.items && billingData.items.length > 0) return true;
+    }
+    // 3. Check visit departments products for any unbilled product
+    const allDeptProducts = (visit?.departments || []).flatMap((d) => [
+      ...(d.products || []),
+      ...((d.childVisitDepartments || []).flatMap((c) => c.products || [])),
+    ]);
+    if (allDeptProducts.some((p) => String(p.status || "").toUpperCase() !== "BILLED")) {
+      return true;
+    }
+    return false;
+  }, [isEditMode, editModeSnapshot, billingData?.items, existingVisitBilling, visit?.departments]);
   const hasFinanceRole = useMemo(() => {
     if (!doctor?.roles) return false;
     return ((doctor.roles as string[]) || []).includes("FINANCE");
@@ -653,7 +710,8 @@ export function BillingPageContent() {
   const showBillingDock =
     canViewBilledReadOnly ||
     canEditBilling ||
-    (!effectiveIsAlreadyBilled && hasRemainingToBill);
+    isEditMode ||
+    hasRemainingToBill;
   const activeDepartmentCanAcceptProducts =
     Boolean(activeVisitDepartment?.id) &&
     !["COMPLETED", "FINALISED", "CANCELLED"].includes(
@@ -771,13 +829,28 @@ export function BillingPageContent() {
   );
 
 
-  // Get all service names from visit departments (not just those with items)
+  // Get all service names from top-level visit departments
   const allServiceNames = useMemo(
     () =>
-      visit?.departments?.map((dept) => dept.department?.name || "General") ||
-        [],
-    [visit?.departments],
+      topLevelBillingDepartments.map(
+        (dept) => dept.department?.name || "General",
+      ) || [],
+    [topLevelBillingDepartments],
   );
+
+  const topLevelDepartmentOptions = useMemo(() => {
+    return topLevelBillingDepartments.map((dept) => {
+      const name = dept.department?.name || "General";
+      const isBilled = billedDepartmentNames.has(name);
+      return {
+        id: String(dept.id),
+        name,
+        isBilled,
+        status: dept.status,
+        billingStatus: dept.billing?.status || (isBilled ? "BILLED" : undefined),
+      };
+    });
+  }, [topLevelBillingDepartments, billedDepartmentNames]);
 
   const serviceDepartmentIds = useMemo(
     () => {
@@ -898,11 +971,6 @@ export function BillingPageContent() {
     return dept?.department?.name || 'this department';
   }, [departmentPendingRemoval, visit]);
 
-  const topLevelBillingDepartments = useMemo(
-    () =>
-      visit?.departments || [],
-    [visit?.departments],
-  );
 
   const activeCatalogDepartment = useMemo(
     () =>
@@ -1219,14 +1287,29 @@ export function BillingPageContent() {
   });
 
 
+  const prevEditModeRef = useRef(isEditMode);
   useEffect(() => {
-    if (!billingData) return;
-    if (!activeService) {
-      setActiveService(
-        unbilledServiceNames[0] || allServiceNames[0] || "General",
-      );
+    if (!topLevelDepartmentOptions.length) {
+      if (!activeService && billingData?.items?.length) {
+        setActiveService(billingData.items[0].departmentName || "General");
+      }
+      return;
     }
-  }, [billingData, activeService, unbilledServiceNames, allServiceNames]);
+    const editModeJustChanged = prevEditModeRef.current !== isEditMode;
+    prevEditModeRef.current = isEditMode;
+
+    const firstUnbilled = topLevelDepartmentOptions.find((d) => !d.isBilled)?.name;
+    const defaultTarget = isEditMode
+      ? (topLevelDepartmentOptions[0]?.name || "General")
+      : (firstUnbilled || topLevelDepartmentOptions[0]?.name || "General");
+
+    setActiveService((prev) => {
+      if (!prev || editModeJustChanged || !topLevelDepartmentOptions.some((d) => d.name === prev)) {
+        return defaultTarget;
+      }
+      return prev;
+    });
+  }, [topLevelDepartmentOptions, isEditMode, billingData, setActiveService]);
 
   useEffect(() => {
     setBillJustCreated(false);
@@ -1235,7 +1318,8 @@ export function BillingPageContent() {
     setEditModeSnapshot(null);
     setBillingData(null);
     hasLocalEditsRef.current = false;
-  }, [visitId]);
+    setActiveService("");
+  }, [visitId, setActiveService]);
 
   useEffect(() => {
     if (!autoPrint || didAutoPrint || !existingVisitBilling || !billingData)
@@ -1303,26 +1387,92 @@ export function BillingPageContent() {
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       <Header doctor={doctor} />
 
-      <BillingPatientBar
-        visitId={visit.id || visitId || undefined}
-        patientName={billingData.patientName}
-        patientAge={billingData.patientAge}
-        gender={billingData.gender}
-        visitDate={billingData.visitDate}
-        patientIdentifier={visit.patient.patientIdentifier || undefined}
-        patientIdNumber={billingData.patientId_Number}
-        patientInsurances={patientInsurances}
-        activeInsuranceIds={visitInsuranceIds}
-        addingVisitInsurance={addingVisitInsurance}
-        billedInsuranceIds={billedInsuranceIds}
-        readOnly={effectiveIsAlreadyBilled && !isEditMode}
-        onToggleInsurance={(id, active) =>
-          active
-            ? handleAddInsuranceToVisit(id)
-            : handleRemoveInsuranceFromVisit(id)
-        }
-        onAddInsurance={() => setShowAddInsuranceModal(true)}
-      />
+      <div className="flex-shrink-0 px-3 sm:px-6 pt-2 pb-0.5 bg-background z-30 flex justify-center">
+        <ConsultationPatientHeaderStrip
+            patient={visit.patient}
+            patientLabel={billingData.patientName}
+            ageGenderSummary={`${billingData.patientAge}y, ${billingData.gender || "—"}`}
+            activeInsuranceAcronym={activeInsuranceAcronym}
+            visitInsurances={activeVisitInsurances}
+            departmentName={activeVisitDepartment?.department?.name}
+            departments={topLevelDepartmentOptions}
+            activeDepartmentName={activeService}
+            onSelectDepartment={setActiveService}
+            patientInsurances={patientInsurances}
+            activeInsuranceIds={visitInsuranceIds}
+            billedInsuranceIds={billedInsuranceIds}
+            onToggleInsurance={async (id, active) => {
+              if (active) {
+                await handleAddInsuranceToVisit(id);
+              } else {
+                await handleRemoveInsuranceFromVisit(id);
+              }
+            }}
+            onAddInsurance={() => setShowAddInsuranceModal(true)}
+            onAddDepartment={() => setAddDepartmentModalOpen(true)}
+            insuranceReadOnly={effectiveIsAlreadyBilled && !isEditMode}
+            addingVisitInsurance={addingVisitInsurance}
+            visitId={visit.id || visitId || undefined}
+            onToggleHistory={() => setPatientHistoryOpen((prev) => !prev)}
+            historyOpen={patientHistoryOpen}
+            actions={
+              <TooltipProvider delayDuration={2000}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddProductModal(true)}
+                      disabled={
+                        isUnderConsultation ||
+                        unreadBillingNotesCount > 0 ||
+                        !(isEditMode ? canEditBilling : canBill && activeDepartmentCanAcceptProducts)
+                      }
+                      aria-label="Add product to bill"
+                      className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border/60 bg-background text-foreground hover:bg-muted disabled:opacity-50 disabled:hover:bg-background transition-colors shrink-0 shadow-xs cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      <Pill className="h-4 w-4 text-primary shrink-0" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {isUnderConsultation
+                      ? "Visit is under consultation"
+                      : unreadBillingNotesCount > 0
+                        ? "Please read unread notes first"
+                        : "Add product to bill"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            }
+            notes={billingVisibleNotes}
+            allowedDisplayTypes={["PUBLIC", "BILLING"]}
+            noteTypes={["BILLING", "PUBLIC"]}
+            unreadNotesCount={unreadBillingNotesCount}
+            notesTitle="Billing Notes"
+            firstVisitDepartmentId={String(currentBillingDepartmentId || "")}
+            isTerminalVisit={isTerminalVisit}
+            onAddNote={async (noteType, content) => {
+              const visitDepartmentId = String(currentBillingDepartmentId || "");
+              if (!visitDepartmentId) {
+                throw new Error("No department selected for billing note");
+              }
+              const result = await addVisitDepartmentNote(
+                visitDepartmentId,
+                content,
+                noteType,
+              );
+              if (result?.status !== "SUCCESS") {
+                throw new Error(result?.message || "Failed to add note");
+              }
+              await refetchNotes();
+              await refetchVisit();
+            }}
+            onMarkNotesViewed={async () => {
+              await markNotesViewed(String(currentBillingDepartmentId || ""));
+              await refetchNotes();
+              await refetchVisit();
+            }}
+          />
+      </div>
 
       <div className="flex-1 flex flex-col min-h-0">
         {isUnderConsultation && (
@@ -1412,6 +1562,8 @@ export function BillingPageContent() {
             hasUnreadNotes={unreadBillingNotesCount > 0}
             loadingEditBilling={loadingEditBilling}
             loadingDoneEditing={loadingDoneEditing}
+            cannotCancelEdit={hasUnbilledInEditMode}
+            cannotCancelEditReason="Cannot cancel edit mode with unbilled items. Please complete the edit or remove added items first."
             // Outstanding is total - paid (authoritative) — the backend's
             // reported outstandingAmount can lag a full payment and otherwise
             // keep showing the Collect payment button after the bill is settled.
@@ -1494,6 +1646,12 @@ export function BillingPageContent() {
             }}
             onDoneEditing={async () => {
               if (loadingDoneEditing) return;
+              if (hasUnbilledInEditMode) {
+                toast.error(
+                  "Cannot cancel edit mode with unbilled items. Please complete the edit or remove added items first.",
+                );
+                return;
+              }
               setLoadingDoneEditing(true);
               try {
                 // Exit DEPARTMENT_EDITING mode on the backend for the active department
@@ -1547,38 +1705,6 @@ export function BillingPageContent() {
         disabled={addingVisitInsurance}
       />
 
-      {!isTerminalVisit && (
-        <VisitNotesFloating
-          title="Visit Notes"
-          notes={billingVisibleNotes}
-          allowedDisplayTypes={["PUBLIC", "BILLING"]}
-          noteTypes={["BILLING", "PUBLIC"]}
-          visitId={visit?.id}
-          visitDepartmentId={String(currentBillingDepartmentId || "")}
-          onAddNote={async (noteType, content) => {
-            const visitDepartmentId = String(currentBillingDepartmentId || "");
-            if (!visitDepartmentId) {
-              throw new Error("No department selected for billing note");
-            }
-
-            const result = await addVisitDepartmentNote(
-              visitDepartmentId,
-              content,
-              noteType,
-            );
-            if (result?.status !== "SUCCESS") {
-              throw new Error(result?.message || "Failed to add note");
-            }
-            await refetchNotes();
-            await refetchVisit();
-          }}
-          onMarkAsViewed={async (_noteId) => {
-            await markNotesViewed(String(currentBillingDepartmentId || ""));
-            await refetchNotes();
-            await refetchVisit();
-          }}
-        />
-      )}
 
       <BillingConfirmSheet
         open={showCompleteBillConfirm}
@@ -1802,6 +1928,16 @@ export function BillingPageContent() {
             setBillingRemapNonce((n) => n + 1);
             toast.success("Department added to visit successfully");
           }}
+        />
+      )}
+
+      {/* Patient History Side Pane */}
+      {patientHistoryOpen && visit?.patient?.id && (
+        <PatientHistorySidePane
+          patientId={visit.patient.id}
+          currentVisitId={visit.id}
+          currentVisitDepartmentId={activeVisitDepartment?.id || null}
+          onClose={() => setPatientHistoryOpen(false)}
         />
       )}
     </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo, useCallback, useEffect } from "react"
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useRouter } from "@/lib/navigation"
 import { useQuery, useMutation } from "@apollo/client"
 import { useAuth } from "@/lib/auth-context"
@@ -51,9 +51,30 @@ import {
 } from "@/components/ui/tooltip"
 import { ConsultationPreviewSheet } from "@/components/dashboard/consultation-preview-sheet"
 import { VisitSettingsPanel } from "@/components/manager/visit-settings-panel"
-import { ConsultationSidePanels } from "@/components/consultation/consultation-side-panels"
 import PatientHistorySidePane from "@/components/patient-history-side-pane"
-import DepartmentNotesFloating from "@/components/department-notes-floating"
+import {
+  ConsultationPatientHeaderStrip,
+  type HeaderDepartmentOption,
+} from "@/components/consultation/consultation-patient-header-strip"
+import { useRemoveVisitDepartment } from "@/hooks/visits/department-mutations"
+import {
+  useLinkVisitInsurances,
+  useUnlinkVisitInsurances,
+} from "@/hooks/visits/insurance"
+import {
+  useAddVisitDepartmentNote,
+  useMarkVisitDepartmentNotesViewed,
+} from "@/hooks/visits/notes"
+import dynamic from "next/dynamic"
+
+const AddDepartmentModal = dynamic(
+  () => import("@/components/add-department-modal").then((m) => m.AddDepartmentModal),
+  { ssr: false }
+)
+const AddPatientInsuranceModal = dynamic(
+  () => import("@/components/patient/add-patient-insurance-modal").then((m) => m.AddPatientInsuranceModal),
+  { ssr: false }
+)
 import { VisitPresenceBadge } from "@/components/visit-presence-badge"
 import {
   DropdownMenu,
@@ -89,6 +110,7 @@ import {
   Layers,
   CalendarClock,
   Loader2,
+  Trash2,
 } from "lucide-react"
 
 // ============================================
@@ -363,20 +385,20 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
   const [showSettingsPanel, setShowSettingsPanel] = useState(false)
   const [dischargeConfirmOpen, setDischargeConfirmOpen] = useState(false)
 
-  // Floating Patient/Vitals/History Side Panels
-  const [idPanel, setIdPanel] = useState<{ pinned: boolean; hover: boolean }>({
-    pinned: false,
-    hover: false,
-  })
-  const [vitalsPanel, setVitalsPanel] = useState<{ pinned: boolean; hover: boolean }>({
-    pinned: false,
-    hover: false,
-  })
-  const [historyPanel, setHistoryPanel] = useState<{ pinned: boolean; hover: boolean }>({
-    pinned: false,
-    hover: false,
-  })
+  // History Panel & Modals
   const [patientHistoryOpen, setPatientHistoryOpen] = useState(false)
+  const [addDeptModalOpen, setAddDeptModalOpen] = useState(false)
+  const [addInsuranceModalOpen, setAddInsuranceModalOpen] = useState(false)
+  const [updatingInsurance, setUpdatingInsurance] = useState(false)
+  const [deptPendingDeletion, setDeptPendingDeletion] = useState<{ id: string; name: string } | null>(null)
+  const [deletingDept, setDeletingDept] = useState(false)
+
+  // Department and Insurance mutations
+  const { removeVisitDepartment } = useRemoveVisitDepartment()
+  const { linkVisitInsurances } = useLinkVisitInsurances()
+  const { unlinkVisitInsurances } = useUnlinkVisitInsurances()
+  const { addVisitDepartmentNote } = useAddVisitDepartmentNote()
+  const { markNotesViewed } = useMarkVisitDepartmentNotesViewed()
 
   const [completeVisitMutation, { loading: discharging }] = useMutation(
     COMPLETE_VISIT_MUTATION,
@@ -541,12 +563,26 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
     return flattenedDepartments.find((item) => item.dept.id === selectedViewKey) || null
   }, [flattenedDepartments, selectedViewKey])
 
-  // Fallback to "VISIT" if selected department is no longer present in visit
+  // User manual view selection tracking
+  const userManuallySelectedViewRef = useRef(false)
+
+  // If we only have one department, default the dropdown/view to that department, not overview
+  useEffect(() => {
+    if (userManuallySelectedViewRef.current) return
+    if (flattenedDepartments.length === 1) {
+      const singleDeptId = flattenedDepartments[0].dept.id
+      if (selectedViewKey !== singleDeptId) {
+        setSelectedViewKey(singleDeptId)
+      }
+    }
+  }, [flattenedDepartments, selectedViewKey])
+
+  // Fallback if selected department is no longer present in visit
   useEffect(() => {
     if (selectedViewKey !== "VISIT" && flattenedDepartments.length > 0) {
       const exists = flattenedDepartments.some((item) => item.dept.id === selectedViewKey)
       if (!exists) {
-        setSelectedViewKey("VISIT")
+        setSelectedViewKey(flattenedDepartments.length === 1 ? flattenedDepartments[0].dept.id : "VISIT")
       }
     }
   }, [flattenedDepartments, selectedViewKey])
@@ -611,6 +647,178 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
     if (!activeDepartmentMeta) return []
     return getDepartmentAppliedInsurances(activeDepartmentMeta.dept, visit?.linkedInsurances)
   }, [activeDepartmentMeta, visit?.linkedInsurances])
+
+  // Patient & Header strip helpers
+  const patientAge = useMemo(() => {
+    if (!visit?.patient?.dateOfBirth) return null
+    const dob = new Date(visit.patient.dateOfBirth)
+    if (isNaN(dob.getTime())) return null
+    const diff = Date.now() - dob.getTime()
+    const ageDate = new Date(diff)
+    return Math.abs(ageDate.getUTCFullYear() - 1970)
+  }, [visit?.patient?.dateOfBirth])
+
+  const ageGenderSummary = useMemo(() => {
+    const parts: string[] = []
+    if (patientAge !== null) parts.push(`${patientAge}y`)
+    if (visit?.patient?.gender) parts.push(visit.patient.gender)
+    return parts.length > 0 ? parts.join(", ") : null
+  }, [patientAge, visit?.patient?.gender])
+
+  const activeVisitInsurances = useMemo(() => {
+    return (visit?.linkedInsurances || []) as PatientInsurance[]
+  }, [visit?.linkedInsurances])
+
+  const activeInsuranceAcronym = useMemo(() => {
+    if (!activeVisitInsurances || activeVisitInsurances.length === 0) return null
+    return getInsuranceDisplayName(activeVisitInsurances[0]?.insuranceProvider)
+  }, [activeVisitInsurances])
+
+  const patientInsurances = useMemo(() => {
+    return (visit?.patient?.patientInsurances || []) as PatientInsurance[]
+  }, [visit?.patient?.patientInsurances])
+
+  const linkedInsuranceIds = useMemo(() => {
+    return new Set(activeVisitInsurances.map((i: any) => String(i.id || "")))
+  }, [activeVisitInsurances])
+
+  const billedInsuranceIds = useMemo(() => {
+    const ids = new Set<string>()
+    const billingDepartments = visitBillingData?.visitBilling?.data?.departments || []
+    for (const d of billingDepartments) {
+      for (const ib of d.insuranceBillings || []) {
+        if (ib.patientInsurance?.id) {
+          ids.add(String(ib.patientInsurance.id))
+        }
+      }
+    }
+    return ids
+  }, [visitBillingData])
+
+  const canModify = !isTerminalVisit && visit?.status !== "COMPLETED" && visit?.status !== "FINALISED"
+
+  const headerDepartmentOptions = useMemo<HeaderDepartmentOption[]>(() => {
+    const overviewOption: HeaderDepartmentOption = {
+      id: "VISIT",
+      name: "Visit Overview",
+      status: isTerminalVisit ? "COMPLETED" : "IN_PROGRESS",
+    }
+    const deptOptions: HeaderDepartmentOption[] = flattenedDepartments.map(
+      ({ dept, isChild, parentName, index }) => {
+        const rawName = dept.department?.name || `Department ${index}`
+        const displayName = isChild && parentName ? `${parentName} → ${rawName}` : rawName
+        const isBilled =
+          Boolean(dept.billing) ||
+          String(dept.status || "").toUpperCase() === "BILLED" ||
+          dept.products?.some(
+            (p) => p.status === "BILLED" || p.billingState === "BILLED"
+          ) ||
+          (visitBillingData?.visitBilling?.data?.departments || []).some(
+            (b: any) =>
+              b.visitDepartment?.id === dept.id &&
+              (b.status === "BILLED" || b.status === "PAID")
+          )
+
+        return {
+          id: dept.id,
+          name: displayName,
+          isBilled,
+          status: dept.status,
+          billingStatus: dept.billing?.status,
+        }
+      }
+    )
+    return [overviewOption, ...deptOptions]
+  }, [flattenedDepartments, isTerminalVisit, visitBillingData])
+
+  const activeDepartmentOptionName = useMemo(() => {
+    if (selectedViewKey === "VISIT") return "Visit Overview"
+    const match = headerDepartmentOptions.find((d) => d.id === selectedViewKey)
+    return match ? match.name : undefined
+  }, [selectedViewKey, headerDepartmentOptions])
+
+  const currentDepartmentName = useMemo(() => {
+    if (selectedViewKey === "VISIT") return "Visit Overview"
+    return activeDepartmentMeta?.dept?.department?.name || "Department"
+  }, [selectedViewKey, activeDepartmentMeta])
+
+  const unreadNotesCount = useMemo(() => {
+    if (isTerminalVisit) return 0
+    return (departmentNotes || []).filter((note: any) => !note?.viewed).length
+  }, [isTerminalVisit, departmentNotes])
+
+  const canDeleteDepartment = useCallback(
+    (dept: VisitDepartment | null | undefined) => {
+      if (!dept) return false
+      if (isTerminalVisit || visit?.status === "COMPLETED" || visit?.status === "FINALISED") return false
+      const s = String(dept.status || "").toUpperCase()
+      if (s === "COMPLETED" || s === "FINALISED") return false
+      const isBilled =
+        Boolean(dept.billing) ||
+        s === "BILLED" ||
+        dept.products?.some(
+          (p) => p.status === "BILLED" || p.billingState === "BILLED"
+        ) ||
+        (visitBillingData?.visitBilling?.data?.departments || []).some(
+          (b: any) =>
+            b.visitDepartment?.id === dept.id &&
+            (b.status === "BILLED" || b.status === "PAID")
+        )
+      if (isBilled) return false
+      return true
+    },
+    [isTerminalVisit, visit?.status, visitBillingData]
+  )
+
+  const handleToggleInsurance = async (insuranceId: string, active: boolean) => {
+    if (!visit?.id || updatingInsurance) return
+    setUpdatingInsurance(true)
+    try {
+      if (active) {
+        const res = await linkVisitInsurances(visit.id, [insuranceId])
+        if (res?.status === "SUCCESS") {
+          toast.success("Insurance linked to visit")
+          await handleRefresh()
+        } else {
+          toast.error(res?.message || "Failed to link insurance")
+        }
+      } else {
+        const res = await unlinkVisitInsurances(visit.id, [insuranceId])
+        if (res?.status === "SUCCESS") {
+          toast.success("Insurance unlinked from visit")
+          await handleRefresh()
+        } else {
+          toast.error(res?.message || "Failed to unlink insurance")
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update visit insurance")
+    } finally {
+      setUpdatingInsurance(false)
+    }
+  }
+
+  const handleConfirmDeleteDepartment = async () => {
+    if (!deptPendingDeletion || deletingDept) return
+    setDeletingDept(true)
+    try {
+      const res = await removeVisitDepartment(deptPendingDeletion.id)
+      if (res?.status === "SUCCESS") {
+        toast.success(`Removed ${deptPendingDeletion.name} from visit`)
+        setDeptPendingDeletion(null)
+        if (selectedViewKey === deptPendingDeletion.id) {
+          setSelectedViewKey("VISIT")
+        }
+        await handleRefresh()
+      } else {
+        toast.error(res?.message || "Failed to remove department")
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to remove department")
+    } finally {
+      setDeletingDept(false)
+    }
+  }
 
 
   // If user is not Manager or Admin
@@ -697,220 +905,258 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
     <div className="h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 flex flex-col text-slate-900 dark:text-slate-100">
       <Header doctor={doctor} />
 
-      <main className="flex-1 min-h-0 min-w-0 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
-        {/* Top Navigation & Action Controls */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
-          <div className="flex items-center gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                  Manager Portal
-                </span>
-                <span className="text-slate-300 dark:text-slate-600">•</span>
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Visit &amp; Department Audit Monitor
-                </span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                {patientFullName}
-                <span className="text-sm font-normal text-slate-500 dark:text-slate-400">
-                  ({patient?.patientIdentifier || "No ID"})
-                </span>
-                <VisitPresenceBadge visitId={visit?.id || visitId} />
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex items-center flex-wrap gap-2.5">
-            {/* View / Department Selector Dropdown in Top Bar */}
-            <div className="w-full sm:w-auto min-w-[240px]">
-              <Select value={selectedViewKey} onValueChange={setSelectedViewKey}>
-                <SelectTrigger className="h-9 rounded-xl bg-white dark:bg-slate-900 border-indigo-200 dark:border-indigo-800 text-xs font-semibold text-slate-900 dark:text-white shadow-sm ring-1 ring-indigo-500/20">
-                  <SelectValue placeholder="Select View / Department" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl max-h-80">
-                  <SelectItem value="VISIT" className="text-xs font-semibold py-2">
-                    <div className="flex items-center gap-2">
-                      <CalendarClock className="w-4 h-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
-                      <span>Visit View (Overview)</span>
-                      <span className="text-[11px] text-slate-400 ml-auto font-normal">
-                        {flattenedDepartments.length} depts
-                      </span>
-                    </div>
-                  </SelectItem>
-                  {flattenedDepartments.map(({ dept, isChild, parentName, index }) => (
-                    <SelectItem key={dept.id} value={dept.id} className="text-xs py-2">
-                      <div className="flex items-center gap-2 w-full">
-                        {isChild ? (
-                          <CornerDownRight className="w-3.5 h-3.5 text-slate-400 ml-2 flex-shrink-0" />
-                        ) : (
-                          <span className="w-4 h-4 rounded-full bg-slate-100 dark:bg-slate-800 text-[11px] font-bold flex items-center justify-center text-slate-600 dark:text-slate-300 flex-shrink-0">
-                            {index}
-                          </span>
-                        )}
-                        <span className="font-medium truncate">
-                          {dept.department?.name || "Department"}
-                          {isChild && parentName ? ` (${parentName})` : ""}
-                        </span>
-                        <span
-                          className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ml-auto flex-shrink-0 ${
-                            dept.status === "COMPLETED" || dept.status === "FINALISED"
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                              : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                          }`}
+      {/* Top Patient Header Strip — floating directly on main background */}
+      <div className="flex-shrink-0 px-3 sm:px-6 pt-2 pb-0.5 z-30 flex justify-center">
+        <ConsultationPatientHeaderStrip
+          className="shadow-md"
+            patient={patient}
+            patientLabel={patientFullName}
+            ageGenderSummary={ageGenderSummary}
+            activeInsuranceAcronym={activeInsuranceAcronym}
+            visitInsurances={activeVisitInsurances}
+            departmentName={currentDepartmentName}
+            departments={headerDepartmentOptions}
+            activeDepartmentName={activeDepartmentOptionName}
+            onSelectDepartment={(name, id) => {
+              userManuallySelectedViewRef.current = true
+              if (id === "VISIT" || name === "Visit Overview") {
+                setSelectedViewKey("VISIT")
+              } else if (id) {
+                setSelectedViewKey(id)
+              } else {
+                const found = headerDepartmentOptions.find((o) => o.name === name)
+                if (found) setSelectedViewKey(found.id)
+              }
+            }}
+            patientInsurances={patientInsurances}
+            activeInsuranceIds={linkedInsuranceIds}
+            billedInsuranceIds={billedInsuranceIds}
+            onToggleInsurance={canModify ? handleToggleInsurance : undefined}
+            onAddInsurance={canModify ? () => setAddInsuranceModalOpen(true) : undefined}
+            onAddDepartment={canModify ? () => setAddDeptModalOpen(true) : undefined}
+            insuranceReadOnly={!canModify}
+            addingVisitInsurance={updatingInsurance}
+            visitId={visit?.id || visitId}
+            actions={
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                {/* Invoices & Receipts Button / Menu */}
+                {availableInvoices.length === 0 ? (
+                  <TooltipProvider delayDuration={2000}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => void handlePreviewInvoice()}
+                          disabled={generatingInvoice}
+                          className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border/60 bg-background text-purple-600 dark:text-purple-400 hover:bg-muted transition-colors shrink-0 shadow-xs cursor-pointer disabled:opacity-50"
+                          aria-label="Preview Invoice"
                         >
-                          {dept.status}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {availableInvoices.length === 0 ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handlePreviewInvoice()}
-                disabled={generatingInvoice}
-                className="h-9 rounded-xl shadow-sm text-xs bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 font-medium text-slate-800 dark:text-slate-200"
-                title="Preview Invoice"
-              >
-                {generatingInvoice ? (
-                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin text-purple-600 dark:text-purple-400" />
-                ) : (
-                  <ReceiptText className="w-3.5 h-3.5 mr-1.5 text-purple-600 dark:text-purple-400" />
-                )}
-                Preview Invoice
-              </Button>
-            ) : availableInvoices.length === 1 && !availableInvoices[0].isInsured ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handlePreviewInvoice(availableInvoices[0].id)}
-                disabled={generatingInvoice}
-                className="h-9 rounded-xl shadow-sm text-xs bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 font-medium text-slate-800 dark:text-slate-200"
-                title={`Download private self-pay invoice & receipt (Ref: #${availableInvoices[0].invoiceNo})`}
-              >
-                {generatingInvoice ? (
-                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin text-purple-600 dark:text-purple-400" />
-                ) : (
-                  <ReceiptText className="w-3.5 h-3.5 mr-1.5 text-purple-600 dark:text-purple-400" />
-                )}
-                Private Invoice & Receipt
-              </Button>
-            ) : (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={generatingInvoice}
-                    className="h-9 rounded-xl shadow-sm text-xs bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 font-medium text-slate-800 dark:text-slate-200"
-                  >
-                    {generatingInvoice ? (
-                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin text-purple-600 dark:text-purple-400" />
-                    ) : (
-                      <ReceiptText className="w-3.5 h-3.5 mr-1.5 text-purple-600 dark:text-purple-400" />
-                    )}
-                    Invoices & Receipts ({availableInvoices.length})
-                    <ChevronDown className="w-3 h-3 ml-1 opacity-70" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80">
-                  {availableInvoices.map((inv) => (
-                    <div key={inv.id} className="p-1.5 border-b last:border-b-0 border-border/50">
-                      <div className="px-2 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                        <span>{inv.isInsured ? `${inv.providerName} Insurance` : "Private Self-Pay"}{inv.deptName ? ` • ${inv.deptName}` : ""}</span>
-                        <span className="text-[10px] text-muted-foreground/70 font-normal lowercase">ref: #{inv.invoiceNo}</span>
-                      </div>
-                      {inv.isInsured ? (
-                        <>
-                          <DropdownMenuItem
-                            onClick={() => void handlePreviewInvoice(inv.id, "INSURANCE")}
-                            className="text-xs cursor-pointer gap-2 py-2"
-                          >
-                            <FileSpreadsheet className="w-4 h-4 text-blue-600 shrink-0" />
-                            <div className="min-w-0">
-                              <div className="font-medium truncate">{inv.providerName} Insurer Claim</div>
-                              <div className="text-[11px] text-muted-foreground">Contracted tariff reimbursement copy</div>
-                            </div>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => void handlePreviewInvoice(inv.id, "PATIENT")}
-                            className="text-xs cursor-pointer gap-2 py-2"
-                          >
-                            <ReceiptText className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <div className="min-w-0">
-                              <div className="font-medium truncate">Patient Co-pay Receipt</div>
-                              <div className="text-[11px] text-muted-foreground">Patient payment statement & co-pay</div>
-                            </div>
-                          </DropdownMenuItem>
-                        </>
-                      ) : (
-                        <DropdownMenuItem
-                          onClick={() => void handlePreviewInvoice(inv.id)}
-                          className="text-xs cursor-pointer gap-2 py-2"
+                          {generatingInvoice ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-purple-600 dark:text-purple-400" />
+                          ) : (
+                            <ReceiptText className="h-4 w-4" />
+                          )}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Preview Invoice</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : availableInvoices.length === 1 && !availableInvoices[0].isInsured ? (
+                  <TooltipProvider delayDuration={2000}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => void handlePreviewInvoice(availableInvoices[0].id)}
+                          disabled={generatingInvoice}
+                          className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border/60 bg-background text-purple-600 dark:text-purple-400 hover:bg-muted transition-colors shrink-0 shadow-xs cursor-pointer disabled:opacity-50"
+                          aria-label={`Preview Invoice & Receipt (#${availableInvoices[0].invoiceNo})`}
                         >
-                          <ReceiptText className="w-4 h-4 text-purple-600 shrink-0" />
-                          <div className="min-w-0">
-                            <div className="font-medium truncate">Private Invoice & Receipt</div>
-                            <div className="text-[11px] text-muted-foreground">Self-pay cash / mobile money receipt</div>
+                          {generatingInvoice ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-purple-600 dark:text-purple-400" />
+                          ) : (
+                            <ReceiptText className="h-4 w-4" />
+                          )}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Private Invoice & Receipt (#{availableInvoices[0].invoiceNo})</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <DropdownMenu>
+                    <TooltipProvider delayDuration={2000}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              disabled={generatingInvoice}
+                              className="relative inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border/60 bg-background text-purple-600 dark:text-purple-400 hover:bg-muted transition-colors shrink-0 shadow-xs cursor-pointer disabled:opacity-50"
+                              aria-label="Invoices & Receipts"
+                            >
+                              {generatingInvoice ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-purple-600 dark:text-purple-400" />
+                              ) : (
+                                <ReceiptText className="h-4 w-4" />
+                              )}
+                              {availableInvoices.length > 1 && (
+                                <span className="absolute -top-1 -right-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-purple-600 px-1 text-[9px] font-bold text-white shadow-xs">
+                                  {availableInvoices.length}
+                                </span>
+                              )}
+                            </button>
+                          </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">Invoices & Receipts ({availableInvoices.length})</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <DropdownMenuContent align="end" className="w-80">
+                      {availableInvoices.map((inv) => (
+                        <div key={inv.id} className="p-1.5 border-b last:border-b-0 border-border/50">
+                          <div className="px-2 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                            <span>{inv.isInsured ? `${inv.providerName} Insurance` : "Private Self-Pay"}{inv.deptName ? ` • ${inv.deptName}` : ""}</span>
+                            <span className="text-[10px] text-muted-foreground/70 font-normal lowercase">ref: #{inv.invoiceNo}</span>
                           </div>
-                        </DropdownMenuItem>
-                      )}
-                    </div>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-
-            {canDischargeVisit(visit) && (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => setDischargeConfirmOpen(true)}
-                disabled={discharging}
-                className="h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs font-semibold"
-              >
-                {discharging ? (
-                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                ) : (
-                  <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                          {inv.isInsured ? (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => void handlePreviewInvoice(inv.id, "INSURANCE")}
+                                className="text-xs cursor-pointer gap-2 py-2"
+                              >
+                                <FileSpreadsheet className="w-4 h-4 text-blue-600 shrink-0" />
+                                <div className="min-w-0">
+                                  <div className="font-medium truncate">{inv.providerName} Insurer Claim</div>
+                                  <div className="text-[11px] text-muted-foreground">Contracted tariff reimbursement copy</div>
+                                </div>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => void handlePreviewInvoice(inv.id, "PATIENT")}
+                                className="text-xs cursor-pointer gap-2 py-2"
+                              >
+                                <ReceiptText className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <div className="min-w-0">
+                                  <div className="font-medium truncate">Patient Co-pay Receipt</div>
+                                  <div className="text-[11px] text-muted-foreground">Patient payment statement & co-pay</div>
+                                </div>
+                              </DropdownMenuItem>
+                            </>
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={() => void handlePreviewInvoice(inv.id)}
+                              className="text-xs cursor-pointer gap-2 py-2"
+                            >
+                              <ReceiptText className="w-4 h-4 text-purple-600 shrink-0" />
+                              <div className="min-w-0">
+                                <div className="font-medium truncate">Private Invoice & Receipt</div>
+                                <div className="text-[11px] text-muted-foreground">Self-pay cash / mobile money receipt</div>
+                              </div>
+                            </DropdownMenuItem>
+                          )}
+                        </div>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
-                Discharge Patient
-              </Button>
-            )}
 
-            {consultationDeptWithAnswer?.answerId && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setPreviewConsultationAnswerId(consultationDeptWithAnswer.answerId || null)
-                  setPreviewConsultationDepartmentId(
-                    String(consultationDeptWithAnswer.id || ""),
-                  )
-                }}
-                className="h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs"
-              >
-                <Eye className="w-3.5 h-3.5 mr-1.5 text-slate-600 dark:text-slate-400" />
-                View Consultation
-              </Button>
-            )}
+                {/* View Consultation Answers */}
+                {consultationDeptWithAnswer?.answerId && (
+                  <TooltipProvider delayDuration={2000}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreviewConsultationAnswerId(consultationDeptWithAnswer.answerId || null)
+                            setPreviewConsultationDepartmentId(
+                              String(consultationDeptWithAnswer.id || ""),
+                            )
+                            setPreviewConsultationDepartment(consultationDeptWithAnswer)
+                          }}
+                          className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border/60 bg-background text-indigo-600 dark:text-indigo-400 hover:bg-muted transition-colors shrink-0 shadow-xs cursor-pointer"
+                          aria-label="View Consultation Answers"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">View Consultation Answers</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
 
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setShowSettingsPanel(true)}
-              className="h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm text-xs"
-            >
-              <Settings className="w-3.5 h-3.5 mr-1.5" />
-              Visit Actions
-            </Button>
-          </div>
-        </div>
+                {/* Discharge Patient */}
+                {canDischargeVisit(visit) && (
+                  <TooltipProvider delayDuration={2000}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => setDischargeConfirmOpen(true)}
+                          disabled={discharging}
+                          className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors shrink-0 shadow-xs cursor-pointer disabled:opacity-50"
+                          aria-label="Discharge Patient"
+                        >
+                          {discharging ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+                          ) : (
+                            <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                          )}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Discharge Patient</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+
+                {/* Visit Actions & Settings */}
+                <TooltipProvider delayDuration={2000}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => setShowSettingsPanel(true)}
+                        className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border/60 bg-background text-foreground hover:bg-muted transition-colors shrink-0 shadow-xs cursor-pointer"
+                        aria-label="Visit Settings & Actions"
+                      >
+                        <Settings className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Visit Settings & Actions</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            }
+            onToggleHistory={() => setPatientHistoryOpen((prev) => !prev)}
+            historyOpen={patientHistoryOpen}
+            notes={departmentNotes || []}
+            noteTypes={["PUBLIC", "CONSULTATION", "BILLING", "FORMS", "ADMIN"]}
+            allowedDisplayTypes={["PUBLIC", "CONSULTATION", "BILLING", "FORMS", "ADMIN"]}
+            unreadNotesCount={unreadNotesCount}
+            notesTitle="Visit Notes"
+            firstVisitDepartmentId={visit?.departments?.[0]?.id || ""}
+            isTerminalVisit={isTerminalVisit}
+            onAddNote={async (noteType, content) => {
+              const deptId = activeDepartmentMeta?.dept?.id || visit?.departments?.[0]?.id
+              if (!deptId) {
+                toast.error("No department available to attach note")
+                return
+              }
+              const res = await addVisitDepartmentNote(deptId, content, noteType)
+              if (res?.status !== "SUCCESS") {
+                throw new Error(res?.message || "Failed to add note")
+              }
+              await refetchNotes()
+            }}
+            onMarkNotesViewed={async () => {
+              const deptId = activeDepartmentMeta?.dept?.id || visit?.departments?.[0]?.id
+              if (deptId) {
+                await markNotesViewed(deptId)
+                await refetchNotes()
+              }
+            }}
+          />
+      </div>
+
+      <main className="flex-1 min-h-0 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-8 space-y-4 sm:space-y-5 overflow-y-auto">
 
 
 
@@ -1124,15 +1370,37 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                             )}
                           </div>
 
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedViewKey(dept.id)}
-                            className="h-8 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 self-start sm:self-auto"
-                          >
-                            Inspect Department Details &amp; Products
-                            <ChevronRight className="w-3.5 h-3.5 ml-1" />
-                          </Button>
+                          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                            {canDeleteDepartment(dept) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setDeptPendingDeletion({
+                                    id: dept.id,
+                                    name: dept.department?.name || `Department ${index}`,
+                                  })
+                                }
+                                className="h-8 text-xs font-semibold text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                title="Remove department from visit"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                Remove
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                userManuallySelectedViewRef.current = true
+                                setSelectedViewKey(dept.id)
+                              }}
+                              className="h-8 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
+                            >
+                              Inspect Department Details &amp; Products
+                              <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1319,6 +1587,25 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
                       </span>
                     </div>
                   </div>
+
+                  {/* Delete Department Button (if unbilled and not completed) */}
+                  {canDeleteDepartment(activeDepartmentMeta.dept) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setDeptPendingDeletion({
+                          id: activeDepartmentMeta.dept.id,
+                          name: activeDepartmentMeta.dept.department?.name || "Department",
+                        })
+                      }
+                      className="h-9 rounded-xl border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-semibold shadow-xs"
+                      title="Remove department from visit"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                      Remove Department
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -1729,29 +2016,44 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
         />
       )}
 
-      {/* Floating Department Notes Button (Accessible to Managers & Admins with All Notes, only for active/in-progress visits) */}
-      {!isTerminalVisit && (visit.departments?.length ?? 0) > 0 && (
-        <DepartmentNotesFloating
-          visitId={visit.id}
-          visitDepartments={visit.departments ?? []}
-          noteTypes={["PUBLIC", "CONSULTATION", "BILLING", "FORMS", "ADMIN"]}
-          allowedDisplayTypes={["PUBLIC", "CONSULTATION", "BILLING", "FORMS", "ADMIN"]}
+      {/* Department Deletion Confirmation Dialog */}
+      <ConfirmDeleteDialog
+        open={Boolean(deptPendingDeletion)}
+        onOpenChange={(open) => {
+          if (!open && !deletingDept) setDeptPendingDeletion(null)
+        }}
+        title="Remove department from visit?"
+        entityName={deptPendingDeletion?.name || "Department"}
+        extraWarning="This will remove the department from this visit. Any unbilled items associated with it will be cleared."
+        confirmLabel="Remove Department"
+        busy={deletingDept}
+        onConfirm={handleConfirmDeleteDepartment}
+      />
+
+      {/* Add Department Modal */}
+      {visit && addDeptModalOpen && (
+        <AddDepartmentModal
+          visit={visit}
+          isOpen={addDeptModalOpen}
+          onClose={() => setAddDeptModalOpen(false)}
+          onSuccess={async () => {
+            setAddDeptModalOpen(false)
+            await handleRefresh()
+          }}
         />
       )}
 
-      {/* Floating Side Panels (Identification, Vitals, History) */}
-      <ConsultationSidePanels
-        patient={(visit.patient || {}) as any}
-        vitals={visit?.vitalSigns || []}
-        visitInsurances={visit?.linkedInsurances || visit?.patient?.patientInsurances || []}
-        idPanel={idPanel}
-        vitalsPanel={vitalsPanel}
-        historyPanel={historyPanel}
-        setIdPanel={setIdPanel}
-        setVitalsPanel={setVitalsPanel}
-        setHistoryPanel={setHistoryPanel}
-        onOpenHistory={() => setPatientHistoryOpen(true)}
-      />
+      {/* Add Patient Insurance Modal */}
+      {visit?.patient?.id && (
+        <AddPatientInsuranceModal
+          open={addInsuranceModalOpen}
+          onOpenChange={setAddInsuranceModalOpen}
+          patientId={visit.patient.id}
+          patientDateOfBirth={visit.patient.dateOfBirth}
+          patientInsurances={patientInsurances}
+          onSuccess={() => void handleRefresh()}
+        />
+      )}
 
       {/* Patient History Side Pane */}
       {patientHistoryOpen && patient?.id && (

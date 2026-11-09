@@ -67,8 +67,16 @@ import {
   normalizeVisitVitalSigns,
 } from "@/hooks/auth-hooks";
 import { AddDepartmentModal } from "@/components/add-department-modal";
-// NEW: departmental notes wrapper
-import DepartmentNotesFloating from "@/components/department-notes-floating";
+import {
+  ConsultationPatientHeaderStrip,
+  type HeaderDepartmentOption,
+} from "@/components/consultation/consultation-patient-header-strip";
+import PatientHistorySidePane from "@/components/patient-history-side-pane";
+import {
+  useVisitDepartmentNotes,
+  useAddVisitDepartmentNote,
+  useMarkVisitDepartmentNotesViewed,
+} from "@/hooks/visits/hooks";
 import { VitalSignAlertBadge } from "@/components/vital-signs/vital-sign-alert-badge";
 import { VitalSignsMewsBanner } from "@/components/vital-signs/vital-signs-mews-banner";
 
@@ -153,7 +161,7 @@ function TriagePageInner() {
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [addDeptOpen, setAddDeptOpen] = useState(false);
   const [vitalIndex, setVitalIndex] = useState(0);
-  const [idPanel, setIdPanel] = useState({ pinned: true, hover: false });
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
   // Inline validation for the vitals dialog (shown under the rows, no toasts).
   const [vitalFormError, setVitalFormError] = useState("");
@@ -276,6 +284,91 @@ function TriagePageInner() {
     () => getAge(visit?.patient?.dateOfBirth),
     [visit?.patient?.dateOfBirth],
   );
+
+  // Notes management for the unified top strip
+  const { notes: allVisitNotes, refetch: refetchNotes } = useVisitDepartmentNotes(
+    visit?.id || "",
+    null
+  );
+  const { addVisitDepartmentNote } = useAddVisitDepartmentNote();
+  const { markNotesViewed } = useMarkVisitDepartmentNotesViewed();
+
+  const unreadNotesCount = useMemo(() => {
+    return (allVisitNotes || []).filter((n: any) => !n.viewed).length;
+  }, [allVisitNotes]);
+
+  const handleAddNote = async (noteType: string, content: string) => {
+    const deptId = selectedDeptId || visit?.departments?.[0]?.id;
+    if (!deptId) {
+      toast.error("No department found for this visit");
+      return;
+    }
+    const result = await addVisitDepartmentNote(deptId, content, noteType);
+    if (result?.status !== "SUCCESS") {
+      throw new Error(result?.message || "Failed to add note");
+    }
+    await refetchNotes();
+  };
+
+  const handleMarkNotesViewed = async (noteId?: string) => {
+    for (const d of visit?.departments || []) {
+      if (d.id) {
+        await markNotesViewed(d.id);
+      }
+    }
+    await refetchNotes();
+  };
+
+  const departmentOptions: HeaderDepartmentOption[] = useMemo(() => {
+    if (!visit?.departments) return [];
+    return visit.departments.map((dept: any) => {
+      const name = dept.department?.name || "Department";
+      const isBilled =
+        (dept.products || []).some(
+          (p: any) =>
+            p.status === "BILLED" ||
+            p.status === "EXEMPTED" ||
+            p.status === "PATIENT_SHARE_EXEMPTED"
+        ) || dept.billing?.status === "BILLED";
+      return {
+        id: String(dept.id),
+        name,
+        status: dept.status,
+        billingStatus: dept.billing?.status || (isBilled ? "BILLED" : undefined),
+        isBilled,
+      };
+    });
+  }, [visit?.departments]);
+
+  const activeDepartmentName = useMemo(() => {
+    const current = visit?.departments?.find((d: any) => d.id === selectedDeptId);
+    return current?.department?.name || departmentOptions[0]?.name || "";
+  }, [visit?.departments, selectedDeptId, departmentOptions]);
+
+  const handleSelectDepartment = (name: string) => {
+    const found = visit?.departments?.find((d: any) => d.department?.name === name);
+    if (found) {
+      setSelectedDeptId(found.id);
+    }
+  };
+
+  const activeInsuranceAcronym = useMemo(() => {
+    const insurances = visit?.patient?.patientInsurances || [];
+    const activeIns = insurances.find((ins: any) => isInsuranceActive(ins));
+    return activeIns?.insuranceProvider?.acronym || activeIns?.insuranceProvider?.insuranceName || null;
+  }, [visit]);
+
+  const patientLabel = visit
+    ? `${visit.patient.firstName} ${visit.patient.lastName || ""}`.trim()
+    : "Unknown patient";
+
+  const ageGenderSummary = useMemo(() => {
+    if (!visit?.patient) return null;
+    const parts: string[] = [];
+    if (patientAge !== null) parts.push(`${patientAge}y`);
+    if (visit.patient.gender) parts.push(visit.patient.gender);
+    return parts.length > 0 ? parts.join(", ") : "—";
+  }, [visit?.patient, patientAge]);
 
   const groupedEntries = useMemo(
     () => normalizeVisitVitalSigns(visit?.vitalSigns || []),
@@ -483,110 +576,48 @@ function TriagePageInner() {
     <div className="h-screen overflow-hidden flex flex-col bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.18),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.16),_transparent_28%),linear-gradient(180deg,_rgba(248,250,252,1)_0%,_rgba(241,245,249,1)_100%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.18),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.16),_transparent_28%),linear-gradient(180deg,_rgba(15,23,42,1)_0%,_rgba(15,23,42,1)_100%)]">
       <Header doctor={doctor} />
 
-      {/* Floating Left Identification Button */}
-      <div className="fixed left-6 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-2 bg-card/60 backdrop-blur-xl border border-border/50 rounded-full p-2 shadow-2xl">
-        <button
-          title="Identification"
-          className={`p-2 rounded-full transition-colors cursor-pointer ${
-            idPanel.pinned
-              ? "bg-primary/20 text-primary ring-2 ring-primary/40"
-              : "hover:bg-muted text-muted-foreground hover:text-foreground"
-          }`}
-          onMouseEnter={() =>
-            setIdPanel((prev) => ({ ...prev, hover: !prev.pinned }))
-          }
-          onMouseLeave={() => setIdPanel((prev) => ({ ...prev, hover: false }))}
-          onClick={() =>
-            setIdPanel((prev) => ({ ...prev, pinned: !prev.pinned, hover: false }))
-          }
-        >
-          <User className="w-5 h-5" />
-        </button>
+      {/* Top Patient Header Strip — floating on main triage background */}
+      <div className="flex-shrink-0 px-3 sm:px-6 pt-2 pb-0.5 z-30 flex justify-center">
+        <ConsultationPatientHeaderStrip
+          className="shadow-md"
+          patient={visit.patient}
+          patientLabel={patientLabel}
+          ageGenderSummary={ageGenderSummary}
+          activeInsuranceAcronym={activeInsuranceAcronym}
+          visitInsurances={visit.patient?.patientInsurances || []}
+          departmentName={activeDepartmentName}
+          departments={departmentOptions}
+          activeDepartmentName={activeDepartmentName}
+          onSelectDepartment={handleSelectDepartment}
+          onAddDepartment={() => setAddDeptOpen(true)}
+          visitId={visit.id}
+          historyOpen={historyOpen}
+          onToggleHistory={() => setHistoryOpen((prev) => !prev)}
+          notes={allVisitNotes}
+          noteTypes={["PUBLIC", "CONSULTATION", "BILLING", "ADMIN"]}
+          allowedDisplayTypes={["PUBLIC", "CONSULTATION", "BILLING", "ADMIN"]}
+          unreadNotesCount={unreadNotesCount}
+          notesTitle="Visit Notes"
+          firstVisitDepartmentId={selectedDeptId || visit.departments?.[0]?.id}
+          isTerminalVisit={visit.status === "COMPLETED" || visit.status === "CANCELLED" || visit.status === "FINALISED"}
+          onAddNote={handleAddNote}
+          onMarkNotesViewed={handleMarkNotesViewed}
+        />
       </div>
 
-      {/* Identification Panel */}
-      {(idPanel.pinned || idPanel.hover) && visit?.patient && (
-        <div
-          className="fixed z-40 w-80 bg-background border border-border rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
-          style={{ left: "5rem", top: "50%", transform: "translateY(-50%)" }}
-          onMouseEnter={() => setIdPanel((prev) => ({ ...prev, hover: true }))}
-          onMouseLeave={() => setIdPanel((prev) => ({ ...prev, hover: false }))}
-        >
-          <div className="flex items-center justify-between p-3 border-b border-border">
-            <p className="text-sm font-semibold">Identification</p>
-            {idPanel.pinned && (
-              <span className="text-xs bg-muted px-2 py-1 rounded font-medium">
-                Pinned
-              </span>
-            )}
-          </div>
-          <div className="p-4 space-y-2 text-sm">
-            <div className="font-medium text-foreground">
-              {visit.patient.firstName} {visit.patient.lastName || ""}
-            </div>
-            {visit.patient.patientIdentifier && (
-              <div className="text-muted-foreground">
-                ID: {visit.patient.patientIdentifier}
-              </div>
-            )}
-            <div className="text-muted-foreground">
-              DOB: {formatDateOnly(visit.patient.dateOfBirth)}
-              {getAge(visit.patient.dateOfBirth) !== null
-                ? ` (${getAge(visit.patient.dateOfBirth)}y)`
-                : ""}
-            </div>
-            {visit.patient.gender && (
-              <div className="text-muted-foreground">
-                Gender: {visit.patient.gender}
-              </div>
-            )}
-            {visit.patient.primaryPhoneNumber && (
-              <div className="text-muted-foreground">
-                Phone: {visit.patient.primaryPhoneNumber}
-              </div>
-            )}
-            <div className="pt-2 border-t border-border/40">
-              {visit.patient.patientInsurances && visit.patient.patientInsurances.length > 0 ? (
-                <div className="space-y-1">
-                  <div className="text-xs font-semibold text-foreground uppercase tracking-wide">
-                    Insurance
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {visit.patient.patientInsurances.map((ins: any) => {
-                      const active = isInsuranceActive(ins);
-                      return (
-                        <span
-                          key={ins.id}
-                          className={`inline-block px-2 py-1 rounded-full text-xs font-medium border ${
-                            active
-                              ? "bg-gradient-to-r from-primary/20 to-primary/10 text-primary border-primary/30"
-                              : "bg-gray-100 text-gray-400 border-gray-300 dark:bg-gray-800 dark:text-gray-500 dark:border-gray-700 opacity-60"
-                          }`}
-                          title={active ? ins.insuranceProvider?.insuranceName : insuranceStatusLabel(ins)}
-                        >
-                          {!active && <ShieldAlert className="inline h-3 w-3 mr-0.5 -mt-0.5" />}
-                          {ins.insuranceProvider?.acronym ||
-                            ins.insuranceProvider?.insuranceName}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-xs font-medium text-muted-foreground">
-                  <span className="inline-block bg-muted/40 px-2 py-1 rounded-full">
-                    Private
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* Patient History Side Pane */}
+      {historyOpen && (
+        <PatientHistorySidePane
+          patientId={visit.patient.id}
+          currentVisitId={visit.id}
+          currentVisitDepartmentId={selectedDeptId}
+          onClose={() => setHistoryOpen(false)}
+        />
       )}
 
-      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8 flex-1 min-h-0 min-w-0 overflow-y-auto">
+      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-2 pb-8 flex-1 min-h-0 min-w-0 overflow-y-auto">
         {/* Vital Signs Section (Centered Vertical Tables + Increased Height + Rightmost Circular Add Button) */}
-        <div className="flex justify-center w-full my-4">
+        <div className="flex justify-center w-full mt-2 mb-4">
           <div className="w-full max-w-5xl space-y-4">
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-2.5">
@@ -1213,21 +1244,6 @@ function TriagePageInner() {
             await refetch();
           }}
         />
-
-        {/*
-          ── Department notes (floating, right-side) ──────────────────────────
-          Rendered only when the visit is active and has at least 1 department.
-          Vitals above remain GLOBAL to the visit — this component only
-          handles notes, scoped per-department with tab switching.
-        */}
-        {visit.status !== "COMPLETED" && visit.status !== "FINALISED" && (visit.departments?.length ?? 0) > 0 && (
-          <DepartmentNotesFloating
-            visitId={visit.id}
-            visitDepartments={visit.departments ?? []}
-            noteTypes={["PUBLIC", "CONSULTATION"]}
-            allowedDisplayTypes={["PUBLIC", "CONSULTATION"]}
-          />
-        )}
       </main>
     </div>
   );

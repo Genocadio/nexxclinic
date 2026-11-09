@@ -23,6 +23,12 @@ import { toast } from "react-toastify";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth-context";
 import { hasRole } from "@/lib/role-utils";
 import { useVisitLiveness } from "@/hooks/use-visit-liveness";
@@ -74,6 +80,7 @@ export interface VisitNotesFloatingProps {
   visitId?: string;
   visitDepartmentId?: string;
   visitDepartments?: VisitDepartmentOption[];
+  variant?: "floating" | "dropdown";
 }
 
 const QUICK_TEMPLATES: Record<string, string[]> = {
@@ -221,6 +228,7 @@ export default function VisitNotesFloating({
   visitId,
   visitDepartmentId,
   visitDepartments,
+  variant = "floating",
 }: VisitNotesFloatingProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const { doctor } = useAuth();
@@ -556,7 +564,7 @@ export default function VisitNotesFloating({
     });
 
     if (blocks.length === 0) {
-      return <p className="text-xs text-muted-foreground">No content</p>;
+      return <p className="text-xs sm:text-sm text-muted-foreground">No content</p>;
     }
 
     return (
@@ -566,7 +574,7 @@ export default function VisitNotesFloating({
             return (
               <ul
                 key={`ul-${idx}`}
-                className="list-disc pl-4 text-xs text-foreground/90 space-y-0.5"
+                className="list-disc pl-4 text-xs sm:text-sm text-foreground/90 space-y-0.5"
               >
                 {block.items.map((item, itemIdx) => (
                   <li key={`ul-${idx}-${itemIdx}`}>{item}</li>
@@ -579,7 +587,7 @@ export default function VisitNotesFloating({
             return (
               <ol
                 key={`ol-${idx}`}
-                className="list-decimal pl-4 text-xs text-foreground/90 space-y-0.5"
+                className="list-decimal pl-4 text-xs sm:text-sm text-foreground/90 space-y-0.5"
               >
                 {block.items.map((item, itemIdx) => (
                   <li key={`ol-${idx}-${itemIdx}`}>{item}</li>
@@ -591,7 +599,7 @@ export default function VisitNotesFloating({
           return block.items.map((item, itemIdx) => (
             <p
               key={`p-${idx}-${itemIdx}`}
-              className="text-xs text-foreground/90 whitespace-pre-wrap leading-relaxed"
+              className="text-xs sm:text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed"
             >
               {item}
             </p>
@@ -628,33 +636,41 @@ export default function VisitNotesFloating({
         </div>
       )}
 
-      {/* Floating Notes Panel — Bottom sheet on mobile (< sm), compact side/corner window on laptop & desktop */}
+      {/* Notes Panel — Dropdown mode when variant="dropdown", or Floating panel / Bottom sheet */}
       {isOpen && (
         <>
-          <div
-            className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px] sm:hidden"
-            onClick={() => setOpenState(false)}
-            aria-hidden="true"
-          />
+          {variant !== "dropdown" && (
+            <div
+              className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px] sm:hidden"
+              onClick={() => setOpenState(false)}
+              aria-hidden="true"
+            />
+          )}
           <div
             role="region"
             aria-label={title}
-            className="fixed z-50 inset-x-0 bottom-0 top-auto translate-y-0 w-full max-w-none max-h-[78dvh] rounded-t-2xl rounded-b-none border-t border-border/80 sm:inset-x-auto sm:bottom-14 sm:right-12 lg:right-14 sm:w-[350px] xl:w-[380px] sm:max-h-[min(72dvh,520px)] sm:rounded-2xl sm:border flex flex-col bg-background/95 backdrop-blur-md shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-150"
+            className={
+              variant === "dropdown"
+                ? "w-full max-h-[75vh] flex flex-col bg-background/95 backdrop-blur-md overflow-hidden"
+                : "fixed z-50 inset-x-0 bottom-0 top-auto translate-y-0 w-full max-w-none max-h-[78dvh] rounded-t-2xl rounded-b-none border-t border-border/80 sm:inset-x-auto sm:bottom-14 sm:right-12 lg:right-14 sm:w-[350px] xl:w-[380px] sm:max-h-[min(72dvh,520px)] sm:rounded-2xl sm:border flex flex-col bg-background/95 backdrop-blur-md shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-150"
+            }
           >
             {/* Mobile drag handle indicator */}
-            <div className="flex justify-center pt-2 pb-0.5 sm:hidden">
-              <div className="h-1 w-9 rounded-full bg-muted-foreground/30" />
-            </div>
+            {variant !== "dropdown" && (
+              <div className="flex justify-center pt-2 pb-0.5 sm:hidden">
+                <div className="h-1 w-9 rounded-full bg-muted-foreground/30" />
+              </div>
+            )}
 
             {/* Header */}
-            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border/70 bg-muted/40">
+            <div className={`flex items-center justify-between border-b border-border/70 bg-muted/40 ${variant === "dropdown" ? "px-3 py-2" : "px-3.5 py-2.5"}`}>
               <div className="flex items-center gap-2 min-w-0">
-                <div className="h-7 w-7 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  <StickyNote className="h-3.5 w-3.5" />
+                <div className="h-6 w-6 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <StickyNote className="h-3 w-3" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs sm:text-sm font-semibold text-foreground leading-none truncate">
+                    <h3 className="text-xs font-semibold text-foreground leading-none truncate">
                       {title}
                     </h3>
                     {unreadNotesCount > 0 ? (
@@ -689,16 +705,18 @@ export default function VisitNotesFloating({
                   </Button>
                 )}
 
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground"
-                  onClick={() => setOpenState(false)}
-                  aria-label="Close notes"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
+                {variant !== "dropdown" && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground"
+                    onClick={() => setOpenState(false)}
+                    aria-label="Close notes"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -744,7 +762,7 @@ export default function VisitNotesFloating({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {/* Note Purpose Badge */}
                         <span
-                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-semibold tracking-wide ${config.badgeClass}`}
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-xs font-semibold tracking-wide ${config.badgeClass}`}
                         >
                           <NoteIcon className="h-3 w-3" />
                           {config.label}
@@ -752,17 +770,17 @@ export default function VisitNotesFloating({
 
                         {/* Department Badge */}
                         {noteDeptName && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-muted text-[10px] font-medium text-muted-foreground border border-border/50">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-muted text-xs font-medium text-muted-foreground border border-border/50">
                             {noteDeptName}
                           </span>
                         )}
 
                         {/* Author */}
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-foreground/80">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground/80">
                           <User className="h-2.5 w-2.5 text-muted-foreground" />
                           {authorName}
                           {authorRole && !isCurrentUser && (
-                            <span className="text-[10px] text-muted-foreground font-normal">
+                            <span className="text-xs text-muted-foreground font-normal">
                               ({authorRole})
                             </span>
                           )}
@@ -771,7 +789,7 @@ export default function VisitNotesFloating({
 
                       <div className="flex items-center gap-1.5">
                         {noteTime && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground whitespace-nowrap">
+                          <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground whitespace-nowrap">
                             <Clock className="h-2.5 w-2.5" />
                             {noteTime}
                           </span>
@@ -784,7 +802,7 @@ export default function VisitNotesFloating({
                               type="button"
                               size="sm"
                               variant="ghost"
-                              className="h-5 px-1.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 rounded-md"
+                              className="h-5 px-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 rounded-md"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (note.id) handleMarkAsViewed(note.id);
@@ -841,7 +859,7 @@ export default function VisitNotesFloating({
 
           {/* Composer Section */}
           {onAddNote && (
-            <div className="p-3 border-t border-border/70 bg-card space-y-2">
+            <div className={`border-t border-border/70 bg-card space-y-2 ${variant === "dropdown" ? "p-2.5" : "p-3"}`}>
               {/* Category Segmented Pills */}
               <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
                 {noteTypes.map((type) => {
@@ -962,7 +980,7 @@ export default function VisitNotesFloating({
                   }}
                   rows={2}
                   placeholder={activeTypeConfig.placeholder}
-                  className="bg-muted/40 border-border/80 focus-visible:ring-1 focus-visible:ring-primary text-xs resize-none min-h-14"
+                  className="bg-muted/40 border-border/80 focus-visible:ring-1 focus-visible:ring-primary text-xs sm:text-sm resize-none min-h-14"
                 />
               </div>
 
@@ -1011,21 +1029,29 @@ export default function VisitNotesFloating({
                     </Button>
                   )}
 
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-7 px-3 text-xs rounded-full gap-1"
-                    onClick={handleAdd}
-                    disabled={!hasDraft || submitting}
-                    title="Send note"
-                  >
-                    {submitting ? (
-                      <Check className="h-3.5 w-3.5 opacity-60 animate-pulse" />
-                    ) : (
-                      <Send className="h-3.5 w-3.5" />
-                    )}
-                    Send
-                  </Button>
+                  <TooltipProvider delayDuration={2000}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          size="icon"
+                          className="h-7 w-7 rounded-full shrink-0 cursor-pointer disabled:cursor-not-allowed shadow-xs"
+                          onClick={handleAdd}
+                          disabled={!hasDraft || submitting}
+                          aria-label="Send note (⌘↵)"
+                        >
+                          {submitting ? (
+                            <Check className="h-3.5 w-3.5 opacity-60 animate-pulse" />
+                          ) : (
+                            <Send className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        Send note (⌘↵)
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </div>
             </div>

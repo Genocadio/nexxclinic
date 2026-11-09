@@ -355,6 +355,18 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
 // CORE ENTITIES
 // ============================================
 
+export type FontSizePreference = 'sm' | 'md' | 'lg' | 'xl';
+
+export interface UserSetting {
+  id?: string | null;
+  workerId?: string | null;
+  fontSize?: FontSizePreference | string | null;
+  theme?: string | null;
+  settingsJson?: any;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
 /**
  * Worker - Represents a clinic staff member
  * Replaces legacy "User" type - aligned with GraphQL schema
@@ -372,6 +384,7 @@ export interface Worker {
   accountStatus: AccountStatus;
   roles: RoleName[];
   departments: Department[];
+  settings?: UserSetting | null;
   createdAt: string;
   updatedAt: string;
   // Legacy field compatibility
@@ -485,6 +498,26 @@ export interface PatientInsurance {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * Fixed standardized product categories for clinical inventory, act cataloging, and department alignment.
+ */
+export const FIXED_PRODUCT_CATEGORIES = [
+  "Consultations",
+  "Ophthalmology",
+  "Dental",
+  "Imaging / Radiology",
+  "Laboratory",
+  "Pharmacy / Medicines",
+  "Surgery / Procedures",
+  "Consumables & Devices",
+  "Physiotherapy & Rehabilitation",
+  "Maternity & Obstetrics",
+  "Emergency & Critical Care",
+  "General & Administrative",
+] as const;
+
+export type FixedProductCategory = (typeof FIXED_PRODUCT_CATEGORIES)[number];
 
 /**
  * Product - Medical product, drug, or consumable

@@ -19,6 +19,15 @@ export const ME_QUERY = gql`
           id
           name
         }
+        settings {
+          id
+          workerId
+          fontSize
+          theme
+          settingsJson
+          createdAt
+          updatedAt
+        }
         createdAt
         updatedAt
       }
@@ -73,6 +82,15 @@ export const GET_USERS_QUERY = gql`
         departments {
           id
           name
+        }
+        settings {
+          id
+          workerId
+          fontSize
+          theme
+          settingsJson
+          createdAt
+          updatedAt
         }
         createdAt
         updatedAt

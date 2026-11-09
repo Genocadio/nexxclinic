@@ -21,6 +21,8 @@ import {
   User,
   HeartPulse,
   History as HistoryIcon,
+  ChevronDown,
+  Shield,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useVisitLiveness, isViewerBilling } from "@/hooks/use-visit-liveness";
@@ -32,16 +34,24 @@ import { useConfirmVisitDepartmentProduct } from "@/hooks/billing/hooks";
 import type { Patient, Visit, VisitDepartment } from "@/lib/api-types";
 import type { FormAction } from "@/lib/form-storage";
 import type { SavedForm } from "@/lib/formbuilder-storage";
-import { formatRWF } from "@/lib/utils";
+import { formatRWF, cn } from "@/lib/utils";
 import { getInsuranceAwarePricing } from "@/lib/insurance-utils";
 import { ConsultationFormRenderer } from "@/components/formbuilder/form-renderer";
 import type { FormAnswers } from "@/components/formbuilder/form-renderer";
 import { ConsultationBottomDock } from "@/components/consultation/consultation-bottom-dock";
 import { ConsultationPreviousEncounters } from "@/components/consultation/consultation-previous-encounters";
-import { ConsultationSidePanels } from "@/components/consultation/consultation-side-panels";
 import { ConsultationPreviewSheet } from "@/components/dashboard/consultation-preview-sheet";
 import PatientHistorySidePane from "@/components/patient-history-side-pane";
 import VisitNotesFloating from "@/components/visit-notes-floating";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useHoverPin } from "@/hooks/use-hover-pin";
+import { PatientIdentificationDropdownContent } from "@/components/consultation/consultation-top-dropdowns";
+import { ConsultationPatientHeaderStrip } from "@/components/consultation/consultation-patient-header-strip";
+import { ConsultationVitalsTicker } from "@/components/consultation/consultation-vitals-ticker";
+import {
+  ConsultationLiveToasts,
+  type LiveToastItem,
+} from "@/components/consultation/consultation-live-toasts";
 import InlineTryAgain from "@/components/inline-try-again";
 import { Button } from "@/components/ui/button";
 import { PageLoading } from "@/components/ui/page-loading";
@@ -93,7 +103,6 @@ import { isVisitOrDepartmentClosedForProducts } from "@/lib/visit-product-lock";
 import { stripClinicalAnswers } from "@/components/formbuilder/extensions/consultation-visit/utils";
 import { normalizeVisitVitalSigns } from "@/hooks/visits/vital-signs";
 import { calculateAge } from "@/lib/validation-utils";
-import { VitalSignsMewsBanner } from "@/components/vital-signs/vital-signs-mews-banner";
 import { PatientInsuranceBadge } from "@/components/patient-insurance-badge";
 import { calculateAnthropometrics } from "@/lib/mews-utils";
 
@@ -178,11 +187,37 @@ export function StandaloneConsultationView({
   const refetchNotesRef = useRef<() => Promise<any> | void>(() => {});
   const refetchActiveChildNotesRef = useRef<() => Promise<any> | void>(() => {});
 
+  // Dedicated clinical real-time floating notifications (bottom-right)
+  const [liveToasts, setLiveToasts] = useState<LiveToastItem[]>([]);
+  const [dismissedPersistentIds, setDismissedPersistentIds] = useState<Set<string>>(new Set());
+
+  const addLiveToast = useCallback((toast: Omit<LiveToastItem, "id"> & { id?: string }) => {
+    const id = toast.id || `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setLiveToasts((prev) => {
+      const filtered = prev.filter((t) => t.id !== id);
+      return [...filtered, { ...toast, id }];
+    });
+
+    if (!toast.persistent) {
+      setTimeout(() => {
+        setLiveToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 6000);
+    }
+  }, []);
+
+  const handleDismissLiveToast = useCallback((id: string) => {
+    setLiveToasts((prev) => prev.filter((t) => t.id !== id));
+    setDismissedPersistentIds((prev) => new Set(prev).add(id));
+  }, []);
+
   // Real-time presence and SSE handling for consultation
   const { billingViewers, otherViewers, updateActivity } = useVisitLiveness(visit.id, {
     onBillingPersonnelOpened: (viewer) => {
-      toast.info(`Billing personnel (${viewer.name}) has opened this visit for billing.`, {
-        toastId: `billing-viewer-${viewer.workerId}`,
+      addLiveToast({
+        id: `billing-opened-${viewer.workerId}`,
+        variant: "presence",
+        title: "Billing Opened",
+        message: `${viewer.name} opened this visit for billing.`,
       });
       playNoteNotificationSound();
     },
@@ -200,8 +235,10 @@ export function StandaloneConsultationView({
       if (detail.type === "BILLING_COMPLETED") {
         if (!isSelfEvent) {
           const actor = detail.actorName ? ` by ${detail.actorName}` : "";
-          toast.info(`This visit has been billed${actor}.`, {
-            toastId: `billing-completed-${visit.id}`,
+          addLiveToast({
+            variant: "billing",
+            title: "Billing Completed",
+            message: `This visit has been billed${actor}.`,
           });
           playBillingNotificationSound();
         }
@@ -213,15 +250,19 @@ export function StandaloneConsultationView({
 
         if (deptStatus === "BILLING") {
           if (!isSelfEvent) {
-            toast.info(`This visit has been sent to billing${actor}.`, {
-              toastId: `dept-billing-${visit.id}`,
+            addLiveToast({
+              variant: "billing",
+              title: "Sent to Billing",
+              message: `This visit was sent to billing${actor}.`,
             });
           }
           setLiveDepartmentStatus("BILLING");
         } else if (deptStatus === "ACTIVE") {
           if (!isSelfEvent) {
-            toast.info(`Consultation resumed${actor}.`, {
-              toastId: `dept-active-${visit.id}`,
+            addLiveToast({
+              variant: "success",
+              title: "Consultation Resumed",
+              message: `Consultation resumed${actor}.`,
             });
           }
           setLiveDepartmentStatus("ACTIVE");
@@ -229,15 +270,19 @@ export function StandaloneConsultationView({
           setLocallyFinalised(false);
         } else if (deptStatus === "FINALISED") {
           if (!isSelfEvent) {
-            toast.info(`This visit department has been finalised${actor}.`, {
-              toastId: `dept-finalised-${visit.id}`,
+            addLiveToast({
+              variant: "finalised",
+              title: "Department Finalised",
+              message: `This visit department has been finalised${actor}.`,
             });
           }
           setLiveDepartmentStatus("FINALISED");
         } else if (deptStatus === "COMPLETED") {
           if (!isSelfEvent) {
-            toast.info(`Department completed${actor}.`, {
-              toastId: `dept-completed-${visit.id}`,
+            addLiveToast({
+              variant: "success",
+              title: "Department Completed",
+              message: `Department completed${actor}.`,
             });
           }
           setLiveDepartmentStatus("COMPLETED");
@@ -246,13 +291,23 @@ export function StandaloneConsultationView({
       } else if (detail.type === "VISIT_DISCHARGED") {
         if (!isSelfEvent) {
           const actor = detail.actorName ? ` by ${detail.actorName}` : "";
-          toast.info(`This visit has been finalised${actor}.`, {
-            toastId: `visit-finalised-${visit.id}`,
+          addLiveToast({
+            variant: "finalised",
+            title: "Visit Finalised",
+            message: `This visit has been finalised${actor}.`,
           });
         }
         setLiveVisitFinalised(true);
         onVisitRefetch?.();
       } else if (detail.type === "VISIT_PRODUCT_CHANGED") {
+        addLiveToast({
+          variant: "product",
+          title: "Orders Updated",
+          message: "Products or investigation requests updated.",
+          onClick: () => {
+            if (requestProductsEnabled) setRequestProductsOpen(true);
+          },
+        });
         onVisitRefetch?.();
       } else if (detail.type === "VISIT_NOTE_ADDED") {
         if (detail.actorId !== doctor?.id) {
@@ -260,8 +315,13 @@ export function StandaloneConsultationView({
             ? `${String(detail.metadata.noteType).toLowerCase()} `
             : "";
           const actor = detail.actorName ? ` by ${detail.actorName}` : "";
-          toast.info(`New ${typeLabel}note added${actor}.`, {
-            toastId: `note-added-${detail.metadata?.noteId || detail.eventId || Date.now()}`,
+          addLiveToast({
+            variant: "note",
+            title: "New Note Added",
+            message: `New ${typeLabel}note added${actor}. Click to view.`,
+            onClick: () => {
+              notesHoverPin.setPinned(true);
+            },
           });
           playNoteNotificationSound();
         }
@@ -270,15 +330,19 @@ export function StandaloneConsultationView({
         onVisitRefetch?.();
       } else if (detail.type === "VISIT_CANCELLED") {
         if (!isSelfEvent) {
-          toast.warn(`This visit has been cancelled.`, {
-            toastId: `visit-cancelled-${visit.id}`,
+          addLiveToast({
+            variant: "warning",
+            title: "Visit Cancelled",
+            message: `This visit has been cancelled.`,
           });
         }
         onVisitRefetch?.();
       } else if (detail.type === "VISIT_REOPENED") {
         if (!isSelfEvent) {
-          toast.info(`This visit has been reopened.`, {
-            toastId: `visit-reopened-${visit.id}`,
+          addLiveToast({
+            variant: "info",
+            title: "Visit Reopened",
+            message: `This visit has been reopened.`,
           });
         }
         setLiveVisitFinalised(false);
@@ -381,6 +445,104 @@ export function StandaloneConsultationView({
     { skip: !visit.id || !catalogDepartmentId },
   );
 
+  // Live product tracking for real-time notifications (product added / quantity updated)
+  const prevProductsRef = useRef<Array<{ id: string; name: string; quantity: number; billingState?: string }>>([]);
+
+  useEffect(() => {
+    const currentProducts = (visitDepartment.products || []).map((p: any) => ({
+      id: String(p.id || p.productId || ""),
+      name: String(p.product?.name || p.name || "Product"),
+      quantity: Number(p.quantity ?? 1),
+      billingState: String(p.billingState || "").toUpperCase(),
+    }));
+
+    if (prevProductsRef.current.length === 0 && currentProducts.length > 0) {
+      prevProductsRef.current = currentProducts;
+      return;
+    }
+
+    const prevMap = new Map(prevProductsRef.current.map((p) => [p.id, p]));
+
+    for (const curr of currentProducts) {
+      const prev = prevMap.get(curr.id);
+      if (!prev) {
+        addLiveToast({
+          id: `product-added-${curr.id}`,
+          variant: "product",
+          title: "Product Added",
+          message: `${curr.name} (Qty: ${curr.quantity}) added to visit.`,
+        });
+      } else if (prev.quantity !== curr.quantity) {
+        addLiveToast({
+          id: `product-qty-${curr.id}-${curr.quantity}`,
+          variant: "product",
+          title: "Quantity Updated",
+          message: `${curr.name}: quantity updated (${prev.quantity} → ${curr.quantity}).`,
+        });
+      }
+    }
+
+    prevProductsRef.current = currentProducts;
+  }, [visitDepartment.products, addLiveToast]);
+
+  // Merge live transient notifications with active persistent state toasts
+  const allLiveToasts = useMemo(() => {
+    const list: LiveToastItem[] = [...liveToasts];
+
+    // Presence: Billing viewers
+    if (billingViewers.length > 0 && !dismissedPersistentIds.has("presence-billing")) {
+      list.push({
+        id: "presence-billing",
+        title: "Billing Viewing Visit",
+        message: `${billingViewers.map((v) => v.name).join(", ")} is currently viewing this visit.`,
+        variant: "presence",
+        persistent: true,
+      });
+    }
+
+    // Presence: Colleague viewers
+    if (otherViewers && otherViewers.length > 0 && !dismissedPersistentIds.has("presence-others")) {
+      list.push({
+        id: "presence-others",
+        title: "Colleague Viewing",
+        message: `${otherViewers.map((v) => v.name).join(", ")} is currently viewing this visit.`,
+        variant: "presence",
+        persistent: true,
+      });
+    }
+
+    // Status: Visit In Billing
+    if (!isFinalised && isBilled && !dismissedPersistentIds.has("state-billing")) {
+      list.push({
+        id: "state-billing",
+        title: "Visit In Billing",
+        message: "Currently open or billed by finance. Products and records are locked.",
+        variant: "billing",
+        persistent: true,
+      });
+    }
+
+    // Status: Visit Finalised
+    if (isFinalised && !dismissedPersistentIds.has("state-finalised")) {
+      list.push({
+        id: "state-finalised",
+        title: "Visit Finalised",
+        message: "Consultation is finalised. Records and products are locked.",
+        variant: "finalised",
+        persistent: true,
+      });
+    }
+
+    return list;
+  }, [
+    liveToasts,
+    billingViewers,
+    otherViewers,
+    isBilled,
+    isFinalised,
+    dismissedPersistentIds,
+  ]);
+
   const [rendererForm, setRendererForm] = useState<SavedForm | null>(null);
   const [formVersionId, setFormVersionId] = useState<string | null>(null);
   const [initialAnswers, setInitialAnswers] = useState<FormAnswers>({});
@@ -403,7 +565,7 @@ export function StandaloneConsultationView({
 
     return Object.values(answers || {}).some(hasContent);
   }, [answers]);
-  const [notesOpen, setNotesOpen] = useState(false);
+  const notesHoverPin = useHoverPin({ graceMs: 180 });
   const [patientHistoryOpen, setPatientHistoryOpen] = useState(false);
   const [previewConsultationOpen, setPreviewConsultationOpen] = useState(false);
   const [previewConsultationContext, setPreviewConsultationContext] = useState<{
@@ -436,6 +598,17 @@ export function StandaloneConsultationView({
     return visit?.patient?.patientInsurances || [];
   }, [visit?.linkedInsurances, visit?.patient?.patientInsurances]);
 
+  const activeInsuranceAcronym = useMemo(() => {
+    if (!visitInsurances || visitInsurances.length === 0) return null;
+    const ins = visitInsurances[0];
+    return (
+      ins?.insuranceProvider?.acronym ||
+      ins?.insuranceProvider?.insuranceName ||
+      ins?.insuranceProvider?.name ||
+      "Insured"
+    );
+  }, [visitInsurances]);
+
   const [pendingRequestProducts, setPendingRequestProducts] = useState<
     Array<{
       id: string;
@@ -461,18 +634,8 @@ export function StandaloneConsultationView({
   const [requestErrorMessage, setRequestErrorMessage] = useState<string | null>(
     null,
   );
-  const [idPanel, setIdPanel] = useState<PanelState>({
-    pinned: false,
-    hover: false,
-  });
-  const [vitalsPanel, setVitalsPanel] = useState<PanelState>({
-    pinned: false,
-    hover: false,
-  });
-  const [historyPanel, setHistoryPanel] = useState<PanelState>({
-    pinned: false,
-    hover: false,
-  });
+  const patientHoverPin = useHoverPin({ graceMs: 180 });
+  const vitalsHoverPin = useHoverPin({ graceMs: 180 });
 
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hydratedRef = useRef(false);
@@ -807,24 +970,6 @@ export function StandaloneConsultationView({
   }, [loading, source, answer, defaultForm, catalogDepartmentId]);
 
   useEffect(() => {
-    // Only auto-pin vitals when they exist and the viewport is wide enough (>= 1536px / 2xl)
-    // so the floating card never covers the main consultation form on mobile, tablet, or laptops.
-    if (!visit?.vitalSigns?.length || autoPinnedVitalsRef.current) return;
-    autoPinnedVitalsRef.current = true;
-    if (typeof window !== "undefined" && window.innerWidth >= 1536) {
-      setVitalsPanel((current) =>
-        current.pinned ? current : { ...current, pinned: true, hover: false },
-      );
-    }
-  }, [visit?.vitalSigns?.length]);
-
-  useEffect(() => {
-    // If vitals are empty, force-hide the panel and prevent it from staying pinned.
-    if (visit?.vitalSigns?.length) return;
-    setVitalsPanel({ pinned: false, hover: false });
-  }, [visit?.vitalSigns?.length]);
-
-  useEffect(() => {
     const trimmed = productSearchQuery.trim();
     const timer = window.setTimeout(() => {
       setDebouncedProductSearchQuery(trimmed.length >= 2 ? trimmed : "");
@@ -837,12 +982,12 @@ export function StandaloneConsultationView({
   useEffect(() => {
     if (productSearchFocused || productSearchQuery.trim().length > 0) {
       updateActivity("searching_products");
-    } else if (notesOpen) {
+    } else if (notesHoverPin.isOpen) {
       updateActivity("typing_notes");
     } else {
       updateActivity("viewing");
     }
-  }, [productSearchFocused, productSearchQuery, notesOpen, updateActivity]);
+  }, [productSearchFocused, productSearchQuery, notesHoverPin.isOpen, updateActivity]);
 
   // Keep the latest persistAnswers in a ref so the autosave debounce effect can
   // depend only on `answers`. persistAnswers' identity changes whenever its deps
@@ -905,17 +1050,33 @@ export function StandaloneConsultationView({
   }, [answers, isFinalisedAnswer, isBilled]);
 
   // Keyboard shortcuts for fast clinical navigation:
+  // Alt+P: Toggle Patient Identification card
   // Alt+V: Toggle Vital Signs panel
+  // Alt+H: Toggle Patient History
   // Alt+I: Toggle Investigations / Lab Orders
   // Alt+N: Toggle Visit Notes
   // Cmd/Ctrl+S: Force immediate draft save
   // Cmd/Ctrl+Enter: Open Complete / Finalise dialog
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Alt+P — Toggle Patient Identification
+      if (event.altKey && !event.metaKey && !event.ctrlKey && event.code === "KeyP") {
+        event.preventDefault();
+        patientHoverPin.togglePin();
+        return;
+      }
+
       // Alt+V — Toggle Vital Signs
       if (event.altKey && !event.metaKey && !event.ctrlKey && event.code === "KeyV") {
         event.preventDefault();
-        setVitalsPanel((prev) => ({ pinned: !prev.pinned, hover: false }));
+        vitalsHoverPin.togglePin();
+        return;
+      }
+
+      // Alt+H — Toggle Patient History
+      if (event.altKey && !event.metaKey && !event.ctrlKey && event.code === "KeyH") {
+        event.preventDefault();
+        setPatientHistoryOpen((prev) => !prev);
         return;
       }
 
@@ -931,7 +1092,7 @@ export function StandaloneConsultationView({
       if (event.altKey && !event.metaKey && !event.ctrlKey && event.code === "KeyN") {
         if (isTerminalVisit) return;
         event.preventDefault();
-        setNotesOpen((prev) => !prev);
+        notesHoverPin.togglePin();
         return;
       }
 
@@ -975,7 +1136,7 @@ export function StandaloneConsultationView({
         if (isFinalised || isFinalising) return;
         if (unreadNotesCount > 0) {
           toast.warn("Please view the notes first before completing this visit.");
-          setNotesOpen(true);
+          notesHoverPin.setPinned(true);
           return;
         }
         setShowFinalizeConfirm(true);
@@ -990,8 +1151,11 @@ export function StandaloneConsultationView({
     isFinalised,
     isFinalising,
     isTerminalVisit,
+    notesHoverPin,
+    patientHoverPin,
     requestProductsEnabled,
     unreadNotesCount,
+    vitalsHoverPin,
   ]);
 
   const handleManualSave = async () => {
@@ -1035,7 +1199,7 @@ export function StandaloneConsultationView({
     }
     if (unreadNotesCount > 0) {
       toast.warn("Please view the notes first before completing this visit.");
-      setNotesOpen(true);
+      notesHoverPin.setPinned(true);
       return;
     }
 
@@ -1224,285 +1388,83 @@ export function StandaloneConsultationView({
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-5 lg:px-14 xl:px-8 py-3 sm:py-5 space-y-4 sm:space-y-5 pb-24">
-      {/* Sticky Compact Patient Header Strip on Scroll — keeps Patient Name, Age/Gender, Insurance, Save Status & Quick Actions visible at all times */}
-      <div className="sticky top-2 z-30 flex items-center justify-between gap-2 min-h-9 rounded-xl border border-border/70 bg-card/90 backdrop-blur-md px-2.5 py-1.5 shadow-sm overflow-x-auto scrollbar-none">
-        {/* Left: Patient Name • Age/Gender • Insurance Badge • Save Status */}
-        <div className="flex items-center gap-2 min-w-0 shrink-0 sm:shrink">
-          <button
-            type="button"
-            onClick={() =>
-              setIdPanel((prev) => ({ pinned: !prev.pinned, hover: false }))
-            }
-            className="flex items-center gap-1.5 min-w-0 text-left group"
-            title="Click to toggle full Patient Identification card"
-          >
-            <span className="font-semibold text-xs sm:text-sm text-foreground truncate max-w-36 sm:max-w-56 group-hover:text-primary transition-colors">
-              {patientLabel}
-            </span>
-            {ageGenderSummary && (
-              <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                {ageGenderSummary}
-              </span>
-            )}
-          </button>
-
-          <div className="hidden sm:flex items-center gap-1 shrink-0 border-l border-border/60 pl-2">
-            {visitInsurances && visitInsurances.length > 0 ? (
-              <PatientInsuranceBadge
-                insurance={visitInsurances[0] as any}
-                compact
-              />
-            ) : (
-              <span className="inline-block rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                Private
-              </span>
-            )}
-          </div>
-
-          {(hasAnyAnswerContent || isFinalised || isActuallyBilled) && (
-            <div
-              className="flex items-center gap-1.5 shrink-0 border-l border-border/60 pl-2"
-              title="Press Cmd/Ctrl+S to save draft immediately"
-            >
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  isFinalised
-                    ? "bg-blue-500"
-                    : saveStatus === "saving"
-                      ? "bg-orange-500 animate-pulse"
-                      : saveStatus === "dirty"
-                        ? "bg-amber-500"
-                        : "bg-emerald-500"
-                }`}
-              />
-              <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
-                {isFinalised
-                  ? "Finalised"
-                  : saveStatus === "saving"
-                    ? "Saving…"
-                    : saveStatus === "dirty"
-                      ? "Unsaved"
-                      : "Saved"}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Right: Quick-access buttons (all screens, with keyboard shortcut hints on desktop) */}
-        <div className="flex items-center gap-1 shrink-0">
-          <div className="flex lg:hidden items-center gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                const next = !idPanel.pinned;
-                setIdPanel({ pinned: next, hover: false });
-                if (next) {
-                  setVitalsPanel({ pinned: false, hover: false });
-                  setHistoryPanel({ pinned: false, hover: false });
-                }
-              }}
-              className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
-                idPanel.pinned
-                  ? "bg-primary/15 text-primary ring-1 ring-primary/30"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-              title="Patient Identification"
-            >
-              <User className="h-3.5 w-3.5 shrink-0" />
-              <span>ID</span>
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              const next = !vitalsPanel.pinned;
-              setVitalsPanel({ pinned: next, hover: false });
-              if (next && typeof window !== "undefined" && window.innerWidth < 1024) {
-                setIdPanel({ pinned: false, hover: false });
-                setHistoryPanel({ pinned: false, hover: false });
-              }
-            }}
-            className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
-              vitalsPanel.pinned
-                ? "bg-primary/15 text-primary ring-1 ring-primary/30"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
-            title={
-              visit?.vitalSigns?.length
-                ? "Vital Signs (Alt+V)"
-                : "Add vital signs (Alt+V)"
-            }
-          >
-            {visit?.vitalSigns?.length ? (
-              <HeartPulse className="h-3.5 w-3.5 shrink-0" />
-            ) : (
-              <Plus className="h-3.5 w-3.5 shrink-0" />
-            )}
-            <span>Vitals</span>
-            <kbd className="hidden xl:inline-block ml-0.5 rounded bg-muted px-1 py-0.2 text-[9px] font-mono text-muted-foreground">
-              ⌥V
-            </kbd>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPatientHistoryOpen(true)}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors whitespace-nowrap"
-            title="Patient History"
-          >
-            <HistoryIcon className="h-3.5 w-3.5 shrink-0" />
-            <span>History</span>
-          </button>
-
-          {requestProductsEnabled && (
-            <button
-              type="button"
-              onClick={() => setRequestProductsOpen(true)}
-              className="relative inline-flex items-center gap-1 rounded-lg border border-border/60 bg-background px-2 py-1 text-xs font-medium text-foreground hover:bg-muted transition-colors whitespace-nowrap"
-              title="Investigations / Lab Orders (Alt+I)"
-              aria-label="Open investigations"
-            >
-              <FlaskConical className="h-3.5 w-3.5 shrink-0 text-primary" />
-              <span className="hidden sm:inline">Orders</span>
-              <kbd className="hidden xl:inline-block rounded bg-muted px-1 py-0.2 text-[9px] font-mono text-muted-foreground">
-                ⌥I
-              </kbd>
-              {!requestProductsOpen && hasUnreadChildRequestNotes && (
-                <span className="ml-0.5 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-4 text-center">
-                  {childRequestUnreadNotesCount}
-                </span>
-              )}
-            </button>
-          )}
-
-          {!isTerminalVisit && (
-            <button
-              type="button"
-              onClick={() => setNotesOpen((prev) => !prev)}
-              className={`relative inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
-                notesOpen
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border/60 bg-background text-foreground hover:bg-muted"
-              }`}
-              title="Visit Notes (Alt+N)"
-              aria-label="Open notes"
-            >
-              <StickyNote className="h-3.5 w-3.5 shrink-0" />
-              <span className="hidden sm:inline">Notes</span>
-              <kbd className="hidden xl:inline-block rounded bg-muted px-1 py-0.2 text-[9px] font-mono text-muted-foreground">
-                ⌥N
-              </kbd>
-              {!notesOpen && unreadNotesCount > 0 && (
-                <span className="ml-0.5 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-4 text-center">
-                  {unreadNotesCount}
-                </span>
-              )}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Real-time status banners */}
-      {isFinalised && (
-        <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50/80 p-3.5 text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200 shadow-sm animate-in fade-in">
-          <Lock className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-blue-600 dark:text-blue-400" />
-          <div className="flex-1 text-xs sm:text-sm font-medium">
-            <span className="font-semibold">Visit Finalised:</span> This consultation is finalised. All clinical records, products, and actions are locked.
-          </div>
-        </div>
-      )}
-
-      {!isFinalised && isBilled && (
-        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200 shadow-sm animate-in fade-in">
-          <Receipt className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-          <div className="flex-1 text-xs sm:text-sm font-medium">
-            <span className="font-semibold">Visit In Billing:</span> This visit is currently open or billed by finance. Product orders and records are locked.
-          </div>
-        </div>
-      )}
-
-      {billingViewers.length > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/80 px-3.5 py-2 text-xs font-medium text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300 shadow-sm animate-in fade-in">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <Users className="w-3.5 h-3.5" />
-          <span>
-            Billing personnel ({billingViewers.map((v) => v.name).join(", ")}) is currently viewing this visit.
-          </span>
-        </div>
-      )}
-
-      {/* MEWS Early Warning / Clinical Vitals Alert Banner */}
-      {latestVitalsGroup?.measurements && latestVitalsGroup.measurements.length > 0 && (
-        <VitalSignsMewsBanner
-          measurements={latestVitalsGroup.measurements}
-          patientAge={patientAge}
-        />
-      )}
-
-      {/* Desktop right vertical pill (lg+) — compact & unobtrusive */}
-      <div className="hidden lg:flex fixed right-2.5 xl:right-4 top-1/2 z-40 -translate-y-1/2 flex-col items-center gap-1.5 rounded-full border border-border/60 bg-card/85 p-1 shadow-lg backdrop-blur-md">
-        {requestProductsEnabled && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="relative h-8 w-8 rounded-full border border-border/60 bg-background p-0 hover:bg-muted"
-            title="Investigations (Alt+I)"
-            aria-label="Open investigations"
-            onClick={() => setRequestProductsOpen(true)}
-          >
-            <FlaskConical className="h-4 w-4" />
-            {!requestProductsOpen && hasUnreadChildRequestNotes && (
-              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-4 text-center shadow ring-1 ring-background animate-bounce">
-                {childRequestUnreadNotesCount}
-              </span>
-            )}
-          </Button>
-        )}
-        {!isTerminalVisit && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setNotesOpen((prev) => !prev)}
-            className="relative h-8 w-8 rounded-full border border-border/60 bg-background p-0 hover:bg-muted"
-            title="Visit Notes (Alt+N)"
-            aria-label="Open notes"
-          >
-            <StickyNote className="h-4 w-4" />
-            {!notesOpen && unreadNotesCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-4 text-center shadow ring-1 ring-background animate-bounce">
-                {unreadNotesCount}
-              </span>
-            )}
-          </Button>
-        )}
-      </div>
-
-      <ConsultationSidePanels
-        patient={patient as any}
-        vitals={visit?.vitalSigns || []}
+    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-2.5 sm:py-4 space-y-3 sm:space-y-4 pb-24">
+      {/* Sticky Compact Patient Header Strip — shared consultation/billing component */}
+      <ConsultationPatientHeaderStrip
+        className="sticky top-2 z-30"
+        patient={patient}
+        patientLabel={patientLabel}
+        ageGenderSummary={ageGenderSummary}
+        activeInsuranceAcronym={activeInsuranceAcronym}
         visitInsurances={visitInsurances}
-        idPanel={idPanel}
-        vitalsPanel={vitalsPanel}
-        historyPanel={historyPanel}
-        setIdPanel={setIdPanel}
-        setVitalsPanel={setVitalsPanel}
-        setHistoryPanel={setHistoryPanel}
-        onOpenHistory={() => setPatientHistoryOpen(true)}
-        canAddVitals={canAddVitals}
-        onAddVitals={handleAddVitals}
+        departmentName={visitDepartment?.department?.name}
+        visitId={visit?.id}
+        historyOpen={patientHistoryOpen}
+        onToggleHistory={() => setPatientHistoryOpen((prev) => !prev)}
+        actions={
+          <>
+            <ConsultationVitalsTicker
+              vitals={visit?.vitalSigns || []}
+              canAddVitals={canAddVitals}
+              onAddVitals={handleAddVitals}
+              patientAge={patientAge}
+              hoverPin={vitalsHoverPin}
+            />
+            {requestProductsEnabled && (
+              <button
+                type="button"
+                onClick={() => setRequestProductsOpen(true)}
+                className="relative inline-flex items-center gap-1 rounded-lg border border-border/60 bg-background px-2 py-1 text-xs font-medium text-foreground hover:bg-muted transition-colors whitespace-nowrap"
+                title="Investigations / Lab Orders (Alt+I)"
+                aria-label="Open investigations"
+              >
+                <FlaskConical className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <span className="hidden sm:inline">Orders</span>
+                <kbd className="hidden xl:inline-block rounded bg-muted px-1 py-0.2 text-[9px] font-mono text-muted-foreground">
+                  ⌥I
+                </kbd>
+                {!requestProductsOpen && hasUnreadChildRequestNotes && (
+                  <span className="ml-0.5 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-4 text-center">
+                    {childRequestUnreadNotesCount}
+                  </span>
+                )}
+              </button>
+            )}
+          </>
+        }
+        notes={departmentNotes}
+        noteTypes={["BILLING", "FORMS", "CONSULTATION", "ADMIN", "PUBLIC"]}
+        unreadNotesCount={unreadNotesCount}
+        notesTitle="Consultation Notes"
+        firstVisitDepartmentId={firstVisitDepartmentId}
+        isTerminalVisit={isTerminalVisit}
+        onAddNote={async (noteType, content) => {
+          if (!firstVisitDepartmentId)
+            throw new Error("No department selected for consultation note");
+          const result = await addVisitDepartmentNote(
+            firstVisitDepartmentId,
+            content,
+            noteType,
+          );
+          if (result?.status !== "SUCCESS") {
+            throw new Error(result?.message || "Failed to add note");
+          }
+          await refetchNotes();
+          onVisitRefetch?.();
+        }}
+        onMarkNotesViewed={async () => {
+          await markNotesViewed(firstVisitDepartmentId);
+          await refetchNotes();
+          onVisitRefetch?.();
+        }}
       />
 
       <ConsultationPreviousEncounters
         data={previousEncounterData}
         patientName={patientLabel}
         currentDepartmentId={catalogDepartmentId}
+        currentVisitId={visit?.id}
+        currentVisitDepartmentId={firstVisitDepartmentId}
         hasAnsweredCurrentForm={hasAnyAnswerContent}
         onPreviewAnswerAction={({
           answerId,
@@ -1546,9 +1508,7 @@ export function StandaloneConsultationView({
         patientAge={patientAge}
         patientWeightKg={latestAnthropometrics.weightKg}
         patientBsaM2={latestAnthropometrics.bsaM2}
-        onOpenVitals={() =>
-          setVitalsPanel({ pinned: true, hover: false })
-        }
+        onOpenVitals={() => vitalsHoverPin.setPinned(true)}
         onVisitRefetch={onVisitRefetch}
       />
 
@@ -1568,7 +1528,7 @@ export function StandaloneConsultationView({
               toast.warn(
                 "Please view the notes first before completing this visit.",
               );
-              setNotesOpen(true);
+              notesHoverPin.setPinned(true);
               return;
             }
             setShowFinalizeConfirm(true);
@@ -2290,38 +2250,6 @@ export function StandaloneConsultationView({
         </SheetContent>
       </Sheet>
 
-      {!isTerminalVisit && (
-        <VisitNotesFloating
-          title="Consultation Notes"
-          notes={departmentNotes}
-          noteTypes={["BILLING", "FORMS", "CONSULTATION", "ADMIN", "PUBLIC"]}
-          open={notesOpen}
-          onOpenChange={setNotesOpen}
-          hideToggleButton
-          visitId={visit?.id}
-          visitDepartmentId={firstVisitDepartmentId}
-          onAddNote={async (noteType, content) => {
-            if (!firstVisitDepartmentId)
-              throw new Error("No department selected for consultation note");
-            const result = await addVisitDepartmentNote(
-              firstVisitDepartmentId,
-              content,
-              noteType,
-            );
-            if (result?.status !== "SUCCESS") {
-              throw new Error(result?.message || "Failed to add note");
-            }
-            await refetchNotes();
-            onVisitRefetch?.();
-          }}
-          onMarkAsViewed={async () => {
-            await markNotesViewed(firstVisitDepartmentId);
-            await refetchNotes();
-            onVisitRefetch?.();
-          }}
-        />
-      )}
-
       {patientHistoryOpen && (
         <PatientHistorySidePane
           patientId={patient.id}
@@ -2365,6 +2293,12 @@ export function StandaloneConsultationView({
         visitDepartmentId={previewConsultationContext?.visitDepartmentId}
         visitDepartment={previewConsultationContext?.visitDepartment ?? null}
         previewStartedAt={previewConsultationContext?.previewStartedAt || null}
+      />
+
+      {/* Floating Bottom-Right Clinical Live Updates (Presence, Billing, Products, Notes) */}
+      <ConsultationLiveToasts
+        toasts={allLiveToasts}
+        onDismiss={handleDismissLiveToast}
       />
     </div>
   );

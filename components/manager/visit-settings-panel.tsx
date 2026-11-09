@@ -19,6 +19,11 @@ import {
   FileText,
   Ban,
   RotateCcw,
+  Plus,
+  ChevronDown,
+  ChevronRight,
+  CornerDownRight,
+  SlidersHorizontal,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
@@ -65,6 +70,14 @@ import { useAuth } from "@/lib/auth-context"
 import { useDepartments } from "@/hooks/auth-hooks"
 import { hasRole } from "@/lib/role-utils"
 import type { DepartmentProfile as DepartmentProfileType } from "@/lib/api-types"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { AddDepartmentModal } from "@/components/add-department-modal"
+import { cn } from "@/lib/utils"
 
 function getRandomMinutes(min = 5, max = 10): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
@@ -104,6 +117,55 @@ function formatFullDateTime(val: unknown): string {
   } catch {
     return String(val)
   }
+}
+
+/** Reusable Icon-only action button with hover tooltip */
+function ActionIconButton({
+  tooltip,
+  icon,
+  onClick,
+  disabled,
+  className,
+  variant = "outline",
+}: {
+  tooltip: string
+  icon: React.ReactNode
+  onClick?: () => void
+  disabled?: boolean
+  className?: string
+  variant?: "outline" | "danger" | "warning" | "success" | "primary" | "ghost"
+}) {
+  const variantStyles = {
+    outline: "border-border bg-background hover:bg-muted text-foreground",
+    danger: "border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60",
+    warning: "border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/60",
+    success: "border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60",
+    primary: "border-primary/30 bg-primary/10 text-primary hover:bg-primary/20",
+    ghost: "border-transparent bg-transparent hover:bg-muted text-muted-foreground hover:text-foreground",
+  }[variant]
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          className={cn(
+            "inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs transition-colors shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0",
+            variantStyles,
+            className
+          )}
+          aria-label={tooltip}
+        >
+          {icon}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  )
 }
 
 const GET_VISIT_BILLING = gql`
@@ -215,9 +277,10 @@ export function VisitSettingsPanel({
   const isAdminOrManager = hasAdminRole || hasManagerRole || hasFinanceRole
 
   const [isRendered, setIsRendered] = useState(open)
-  const [activeTab, setActiveTab] = useState<"general" | "departments">(
-    "general",
-  )
+  const [addDeptOpen, setAddDeptOpen] = useState(false)
+  const [expandedDeptIds, setExpandedDeptIds] = useState<Record<string, boolean>>({})
+  const [showDateChangeDeptIds, setShowDateChangeDeptIds] = useState<Record<string, boolean>>({})
+
   // Confirmation dialog state
   const [deleteTarget, setDeleteTarget] = useState<
     { type: "visit" | "cancel-visit" | "department" | "finalise" | "cancel-department" | "discharge" | "re-enable-department" | "open-department"; id: string; name: string } | null
@@ -233,6 +296,19 @@ export function VisitSettingsPanel({
     date: string
   } | null>(null)
   const [applyingDate, setApplyingDate] = useState(false)
+
+  const isDateChangeOpen = (deptId: string) => {
+    if (pendingDepartmentEncounterDate?.visitDepartmentId === deptId) return true
+    if (pendingBillingDate?.visitDepartmentId === deptId) return true
+    return Boolean(showDateChangeDeptIds[deptId])
+  }
+
+  const toggleDateChange = (deptId: string) => {
+    setShowDateChangeDeptIds((prev) => ({
+      ...prev,
+      [deptId]: !isDateChangeOpen(deptId),
+    }))
+  }
 
   // Consultation preview sheet state
   const [consultationPreviewOpen, setConsultationPreviewOpen] = useState(false)
@@ -626,6 +702,7 @@ export function VisitSettingsPanel({
         }
       }
 
+      const targetDeptId = pendingDepartmentEncounterDate.visitDepartmentId
       for (const deptId of deptIdsToUpdate) {
         await updateDepartmentEncounterDate({
           variables: {
@@ -637,6 +714,7 @@ export function VisitSettingsPanel({
         })
       }
       setPendingDepartmentEncounterDate(null)
+      setShowDateChangeDeptIds((prev) => ({ ...prev, [targetDeptId]: false }))
       onVisitUpdated?.()
       void fetchLiveVisit({ variables: { id: visit.id } })
     } finally {
@@ -861,6 +939,7 @@ export function VisitSettingsPanel({
     if (!pendingBillingDate) return
     setApplyingDate(true)
     try {
+      const targetDeptId = pendingBillingDate.visitDepartmentId
       await updateBillingDate({
         variables: {
           input: {
@@ -870,6 +949,7 @@ export function VisitSettingsPanel({
         },
       })
       setPendingBillingDate(null)
+      setShowDateChangeDeptIds((prev) => ({ ...prev, [targetDeptId]: false }))
       onVisitUpdated?.()
       void fetchLiveVisit({ variables: { id: visit.id } })
     } finally {
@@ -955,7 +1035,6 @@ export function VisitSettingsPanel({
   useEffect(() => {
     if (open) {
       setIsRendered(true)
-      setActiveTab("general")
       return
     }
 
@@ -1048,13 +1127,83 @@ export function VisitSettingsPanel({
   const canCancelVisit = currentVisit.status !== "CANCELLED"
   const hasDeptEditing = (currentVisit.departments || []).some((d: any) => d.status === "DEPARTMENT_EDITING")
   const canDeleteVisit = !hasDeptEditing
-  const hasDepartments = currentVisit.departments && currentVisit.departments.length > 0
   const canDischarge = canDischargeVisit(currentVisit)
 
   // ── Derived billing state ──
   const billingDepartments = billingData?.visitBilling?.data?.departments
-  const hasBillingData = billingDepartments && billingDepartments.length > 0
   const isBillEditing = (currentVisit.departments || []).some((d) => d.status === "DEPARTMENT_EDITING")
+
+  // Check if visit is active (not cancelled or completed)
+  const isVisitActive =
+    currentVisit.status !== "CANCELLED" &&
+    currentVisit.status !== "COMPLETED" &&
+    currentVisit.status !== "FINALISED"
+
+  // ── Department Hierarchy & Tree Logic ──
+  // Child department IDs across the entire visit
+  const childDeptIds = useMemo(() => {
+    const ids = new Set<string>()
+    ;(currentVisit?.departments || []).forEach((d) => {
+      ;(d.childVisitDepartments || []).forEach((c) => {
+        if (c?.id) ids.add(c.id)
+      })
+    })
+    return ids
+  }, [currentVisit])
+
+  // Root departments (not listed as children of any other department)
+  const rootDepartments = useMemo(() => {
+    return (currentVisit?.departments || []).filter((d) => !childDeptIds.has(d.id))
+  }, [currentVisit, childDeptIds])
+
+  // Hierarchical flattened list with tree depth for rendering tree nodes
+  const flattenedDepartments = useMemo(() => {
+    const list: Array<{
+      dept: Visit["departments"][number]
+      isChild: boolean
+      parentName?: string
+      depth: number
+    }> = []
+
+    const visitDeptMap = new Map<string, Visit["departments"][number]>()
+    ;(currentVisit?.departments || []).forEach((d) => visitDeptMap.set(d.id, d))
+
+    const addNode = (
+      d: Visit["departments"][number],
+      isChild = false,
+      parentName?: string,
+      depth = 0
+    ) => {
+      const fullDept = visitDeptMap.get(d.id) || d
+      list.push({ dept: fullDept, isChild, parentName, depth })
+      ;(fullDept.childVisitDepartments || []).forEach((cd) => {
+        addNode(
+          cd as unknown as Visit["departments"][number],
+          true,
+          fullDept.department?.name,
+          depth + 1
+        )
+      })
+    }
+
+    rootDepartments.forEach((rd) => addNode(rd))
+    return list
+  }, [currentVisit, rootDepartments])
+
+  const isSingleDept = flattenedDepartments.length === 1
+
+  const isDeptExpanded = (deptId: string, index: number) => {
+    if (isSingleDept) return true
+    if (expandedDeptIds[deptId] !== undefined) return expandedDeptIds[deptId]
+    return index === 0
+  }
+
+  const toggleDeptExpanded = (deptId: string, index: number) => {
+    setExpandedDeptIds((prev) => ({
+      ...prev,
+      [deptId]: !isDeptExpanded(deptId, index),
+    }))
+  }
 
   if (!isRendered || typeof document === "undefined") return null
 
@@ -1083,947 +1232,942 @@ export function VisitSettingsPanel({
       : [];
 
   return (
-    <>
-    {createPortal(
-    <div className="fixed inset-0 z-[88]">
-      <div
-        className={`absolute inset-0 bg-slate-950/40 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}
-        onClick={() => onOpenChange(false)}
-        aria-hidden="true"
-      />
+    <TooltipProvider delayDuration={200}>
+      {createPortal(
+        <div className="fixed inset-0 z-[88]">
+          <div
+            className={`absolute inset-0 bg-slate-950/40 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}
+            onClick={() => onOpenChange(false)}
+            aria-hidden="true"
+          />
 
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-label="Visit Settings"
-        className={`absolute left-0 top-0 h-full w-[min(92vw,48rem)] border-r border-border bg-background dark:bg-slate-900 shadow-2xl transition-transform duration-200 ease-out ${open ? "translate-x-0" : "-translate-x-full"}`}
-      >
-        <div className="flex h-full flex-col">
-          {/* Header */}
-          <div className="border-b border-border/70 px-4 py-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Settings className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold text-foreground">
-                    Visit Settings
-                  </h2>
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {visit.patient.firstName} {visit.patient.lastName} • Visit #
-                  {visit.id.slice(-8)}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="Close settings"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex border-b border-border/70">
-            <button
-              type="button"
-              onClick={() => setActiveTab("general")}
-              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                activeTab === "general"
-                  ? "text-primary border-b-2 border-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              General
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("departments")}
-              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                activeTab === "departments"
-                  ? "text-primary border-b-2 border-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Departments
-            </button>
-          </div>
-
-          {/* Content */}
-          <ScrollArea className="flex-1 px-4 py-4">
-            <div className="space-y-6 pr-4">
-              {/* General Tab */}
-              {activeTab === "general" && (
-                <div className="space-y-6">
-                  {/* Visit Overview */}
-                  <div className="rounded-xl border border-border p-4 space-y-4 bg-muted/10">
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-label="Visit Settings"
+            className={`absolute left-0 top-0 h-full w-[min(92vw,48rem)] border-r border-border bg-background dark:bg-slate-900 shadow-2xl transition-transform duration-200 ease-out ${open ? "translate-x-0" : "-translate-x-full"}`}
+          >
+            <div className="flex h-full flex-col">
+              {/* Header */}
+              <div className="border-b border-border/70 px-4 py-3.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-primary" />
-                      <h3 className="font-medium text-foreground">
-                        Visit Overview
-                      </h3>
-                      <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium ${
-                        visit.status === "COMPLETED"
-                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                          : visit.status === "CANCELLED"
-                            ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
-                            : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
-                      }`}>
-                        {visit.status}
-                      </span>
+                      <Settings className="h-5 w-5 text-primary shrink-0" />
+                      <h2 className="text-base sm:text-lg font-semibold text-foreground truncate">
+                        Visit Settings & Actions
+                      </h2>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {visit.patient?.firstName} {visit.patient?.lastName} • Visit #{visit.id.slice(-8)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Add Department button when visit is active */}
+                    {isVisitActive && (
+                      <ActionIconButton
+                        tooltip="Add Department to Visit"
+                        variant="primary"
+                        icon={<Plus className="h-4 w-4" />}
+                        onClick={() => setAddDeptOpen(true)}
+                      />
+                    )}
+                    {isAdminOrManager && flattenedDepartments.length > 1 && (
+                      <ActionIconButton
+                        tooltip="Auto-Sync Department Times (5-Min Rule)"
+                        variant="outline"
+                        icon={applyingDate ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4 text-primary" />}
+                        disabled={applyingDate}
+                        onClick={() => void syncAllDepartmentTimes()}
+                      />
+                    )}
+                    <ActionIconButton
+                      tooltip="Close Settings"
+                      variant="ghost"
+                      icon={<X className="h-4 w-4" />}
+                      onClick={() => onOpenChange(false)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Scrollable Main Content */}
+              <ScrollArea className="flex-1 px-4 py-4">
+                <div className="space-y-4 pr-3 pb-6">
+                  {/* Top Visit Overview Strip */}
+                  <div className="rounded-xl border border-border p-3.5 space-y-3 bg-muted/10">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-primary" />
+                        <h3 className="font-semibold text-foreground text-sm">
+                          Visit Summary
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={cn(
+                          "text-xs px-2.5 py-0.5 rounded-full font-semibold",
+                          visit.status === "COMPLETED"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                            : visit.status === "CANCELLED"
+                              ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800"
+                              : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-300 dark:border-blue-800"
+                        )}>
+                          {visit.status}
+                        </span>
+                        {isBillEditing && (
+                          <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300">
+                            Billing Edit Mode
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      <div className="space-y-1">
-                        <span className="text-muted-foreground">Patient</span>
-                        <p className="font-semibold text-foreground text-sm">
-                          {visit.patient?.firstName} {visit.patient?.lastName}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-muted-foreground">Created At</span>
-                        <p className="font-medium text-foreground">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+                      <div className="space-y-0.5">
+                        <span className="text-muted-foreground">Visit Created</span>
+                        <p className="font-medium text-foreground truncate">
                           {formatFullDateTime(visit.createdAt)}
                         </p>
                       </div>
-                      <div className="space-y-1">
-                        <span className="text-muted-foreground">Total Departments</span>
-                        <p className="font-medium text-foreground">
-                          {visit.departments?.length || 0}
+                      <div className="space-y-0.5">
+                        <span className="text-muted-foreground">Encounter Date</span>
+                        <p className="font-medium text-foreground truncate">
+                          {formatFullDateTime(visit.visitDate)}
                         </p>
                       </div>
-                      {isBillEditing && (
-                        <div className="space-y-1">
-                          <span className="text-muted-foreground">Billing Edit Mode</span>
-                          <p className="font-semibold text-amber-600">Active</p>
-                        </div>
-                      )}
+                      <div className="space-y-0.5">
+                        <span className="text-muted-foreground">Departments</span>
+                        <p className="font-medium text-foreground">
+                          {flattenedDepartments.length} {flattenedDepartments.length === 1 ? "department" : "departments"}
+                        </p>
+                      </div>
                     </div>
-
-                    <p className="text-xs text-muted-foreground pt-2 border-t border-border/60">
-                      Encounter timestamps and billing dates are configured per department in the{" "}
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab("departments")}
-                        className="text-primary hover:underline font-medium"
-                      >
-                        Departments
-                      </button>{" "}
-                      tab.
-                    </p>
                   </div>
 
-                  {/* Discharge Patient Action */}
+                  {/* Ready for Discharge Alert Banner */}
                   {canDischarge && (
-                    <div className="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-4 space-y-3 shadow-xs">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                            <h3 className="font-semibold text-emerald-900 dark:text-emerald-200 text-sm">
-                              Ready for Patient Discharge
-                            </h3>
-                          </div>
+                    <div className="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-3.5 flex items-center justify-between gap-3 shadow-xs">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <div>
+                          <h4 className="font-semibold text-emerald-900 dark:text-emerald-200 text-sm">
+                            Ready for Patient Discharge
+                          </h4>
                           <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                            All departments are completed. You can discharge the patient and mark the visit as completed.
+                            All departments are completed. You can discharge the patient and finalize the visit.
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget({
-                            type: "discharge",
-                            id: visit.id,
-                            name: `${visit.patient?.firstName} ${visit.patient?.lastName}`.trim(),
-                          })}
-                          disabled={completingVisit}
-                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-center"
-                        >
-                          {completingVisit ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <CheckCircle className="h-3.5 w-3.5" />
-                          )}
-                          Discharge Patient
-                        </button>
                       </div>
+                      <ActionIconButton
+                        tooltip="Discharge Patient"
+                        variant="success"
+                        icon={completingVisit ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                        disabled={completingVisit}
+                        onClick={() => setDeleteTarget({
+                          type: "discharge",
+                          id: visit.id,
+                          name: `${visit.patient?.firstName} ${visit.patient?.lastName}`.trim(),
+                        })}
+                      />
                     </div>
                   )}
 
-                  {/* Danger Zone */}
-                  <div className="rounded-xl border border-red-200 bg-red-50/50 p-4 space-y-4">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-red-600" />
-                      <h3 className="font-medium text-red-700">
-                        Danger Zone
-                      </h3>
-                    </div>
-
-                    {/* Cancel Visit */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-foreground">
-                          Cancel Visit
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Mark this visit as cancelled
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleCancelVisit}
-                        disabled={!canCancelVisit || cancelling}
-                        className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-                      >
-                        {cancelling ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <AlertTriangle className="h-4 w-4" />
-                        )}
-                        Cancel Visit
-                      </button>
-                    </div>
-
-                    {/* Delete Visit */}
-                    <div className="flex items-center justify-between pt-4 border-t border-red-200">
-                      <div>
-                        <p className="font-medium text-foreground">
-                          Delete Visit
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Permanently delete this visit and all its data
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleDeleteVisit}
-                        disabled={!canDeleteVisit || deleting}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-                      >
-                        {deleting ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                        Delete Visit
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Departments Tab */}
-              {activeTab === "departments" && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+                  {/* Department Section Header (if multi-department) */}
+                  <div className="flex items-center justify-between gap-2 pt-1">
                     <div className="flex items-center gap-2">
                       <Building2 className="h-4 w-4 text-primary" />
-                      <h3 className="font-medium text-foreground">
-                        Visit Departments
+                      <h3 className="font-semibold text-foreground text-sm">
+                        {isSingleDept ? "Department Details & Actions" : `Departments (${flattenedDepartments.length})`}
                       </h3>
                     </div>
-                    {isAdminOrManager && currentVisit.departments && currentVisit.departments.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => void syncAllDepartmentTimes()}
-                        disabled={applyingDate}
-                        className="px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                        title="Auto-sync encounter and billing timestamps across all departments to follow the 5-minute rule"
-                      >
-                        {applyingDate ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <CalendarClock className="h-3.5 w-3.5" />
-                        )}
-                        Auto-Sync Department Times (5-Min Rule)
-                      </button>
+                    {isVisitActive && (
+                      <ActionIconButton
+                        tooltip="Add Department to Visit"
+                        variant="primary"
+                        icon={<Plus className="h-4 w-4" />}
+                        onClick={() => setAddDeptOpen(true)}
+                      />
                     )}
                   </div>
 
-                  {!hasDepartments ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>No departments assigned to this visit</p>
+                  {/* Department Tree / List */}
+                  {flattenedDepartments.length === 0 ? (
+                    <div className="text-center py-8 border border-dashed border-border rounded-xl text-muted-foreground">
+                      <Building2 className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                      <p className="text-sm font-medium">No departments assigned to this visit</p>
+                      {isVisitActive && (
+                        <button
+                          type="button"
+                          onClick={() => setAddDeptOpen(true)}
+                          className="mt-3 px-3 py-1.5 text-xs font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Add Department
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {currentVisit.departments.map((dept) => (
-                        <div
-                          key={dept.id}
-                          className="rounded-xl border border-border p-4 space-y-3"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium text-foreground">
-                                {dept.department?.name || "Unknown Department"}
-                              </p>
-                              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                                Status: <span className="font-semibold text-foreground">{dept.status}</span>
-                                {dept.status === "DEPARTMENT_EDITING" && (
-                                  <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300">
-                                    Editing Active
-                                  </span>
-                                )}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {/* Billing Editing Controls for Manager / Admin */}
-                              {isAdminOrManager && (
-                                <>
-                                  {dept.status === "DEPARTMENT_EDITING" ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleCancelBillEditing(dept.id)}
-                                      disabled={cancellingBillEdit}
-                                      className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow-xs"
-                                      title="Cancel billing edits and restore department status"
-                                    >
-                                      {cancellingBillEdit ? (
-                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                      ) : (
-                                        <X className="h-3 w-3" />
-                                      )}
-                                      Cancel Edit
-                                    </button>
-                                  ) : (
-                                    (dept.status === "COMPLETED" || dept.status === "FINALISED") && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleStartBillEditing(dept.id)}
-                                          disabled={startingBillEdit}
-                                          className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow-xs"
-                                          title="Enable billing editing mode on this department"
-                                        >
-                                          {startingBillEdit ? (
-                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                          ) : (
-                                            <ReceiptText className="h-3 w-3" />
-                                          )}
-                                          Enable Billing Edit
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleOpenDepartment(dept.id)}
-                                          disabled={openingDept}
-                                          className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 dark:hover:bg-sky-900/60 border border-sky-200 dark:border-sky-800 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow-xs"
-                                          title="Open the visit for adding new products without deleting existing products"
-                                        >
-                                          {openingDept ? (
-                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                          ) : (
-                                            <RotateCcw className="h-3 w-3" />
-                                          )}
-                                          Open Visit
-                                        </button>
-                                      </>
-                                    )
-                                  )}
-                                </>
-                              )}
+                      {flattenedDepartments.map(({ dept, isChild, parentName, depth }, index) => {
+                        const isExpanded = isDeptExpanded(dept.id, index)
+                        const isTerminal =
+                          dept.status === "COMPLETED" ||
+                          dept.status === "FINALISED" ||
+                          dept.status === "CANCELLED"
+                        const hasProducts = Boolean(dept.products && dept.products.length > 0)
+                        const isAssignedProcessor = Boolean(
+                          doctor?.id &&
+                            dept.processors?.some((p) => String(p.id) === String(doctor.id))
+                        )
 
-                              {dept.status === "COMPLETED" &&
-                                dept.hasFinalizedConsultationAnswers &&
-                                !dept.hasBillableProducts && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleFinaliseDepartment(dept.id)
-                                  }
-                                  disabled={finalisingDept}
-                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
-                                >
-                                  {finalisingDept ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <CheckCircle className="h-3 w-3" />
-                                  )}
-                                  Finalise
-                                </button>
-                              )}
-                              {dept.status === "COMPLETED" &&
-                                (!dept.hasFinalizedConsultationAnswers ||
-                                  dept.hasBillableProducts) && (
-                                <div className="relative group">
-                                  <Info className="h-4 w-4 text-amber-500 cursor-help" />
-                                  <div className="absolute right-0 top-6 z-[150] hidden group-hover:block w-56 p-3 bg-popover border border-border rounded-lg shadow-lg text-xs text-muted-foreground space-y-1">
-                                    <p className="font-medium text-foreground">
-                                      Cannot finalise yet:
-                                    </p>
-                                    {!dept.hasFinalizedConsultationAnswers && (
-                                      <p>• Consultation answers are not finalised</p>
-                                    )}
-                                    {dept.hasBillableProducts && (
-                                      <p>• Department has unbilled products</p>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                              {(() => {
-                                const isTerminal =
-                                  dept.status === "COMPLETED" ||
-                                  dept.status === "FINALISED" ||
-                                  dept.status === "CANCELLED";
-                                const hasProducts = Boolean(
-                                  dept.products && dept.products.length > 0
-                                );
-                                const isAdminOrManager =
-                                  hasAdminRole || hasManagerRole || hasFinanceRole;
-                                const isAssignedProcessor = Boolean(
-                                  doctor?.id &&
-                                    dept.processors?.some(
-                                      (p) => String(p.id) === String(doctor.id)
-                                    )
-                                );
+                        let canCancelDept = false
+                        if (!isTerminal) {
+                          if (dept.status === "ACTIVE") {
+                            canCancelDept = isAssignedProcessor || isAdminOrManager
+                          } else {
+                            canCancelDept = !hasProducts || isAssignedProcessor || isAdminOrManager
+                          }
+                        }
 
-                                let canCancelDept = false;
-                                if (!isTerminal) {
-                                  if (dept.status === "ACTIVE") {
-                                    canCancelDept = isAssignedProcessor || isAdminOrManager;
-                                  } else {
-                                    canCancelDept =
-                                      !hasProducts || isAssignedProcessor || isAdminOrManager;
-                                  }
-                                }
-                                const isVisitActive =
-                                  currentVisit.status !== "CANCELLED" &&
-                                  currentVisit.status !== "COMPLETED" &&
-                                  currentVisit.status !== "FINALISED";
-                                const canReEnableDept =
-                                  dept.status === "CANCELLED" &&
-                                  isVisitActive &&
-                                  (isAdminOrManager || hasReceptionistRole || hasNurseRole || hasClinicianRole);
-                                const canDeleteDept = (hasAdminRole || hasManagerRole) && dept.status !== "FINALISED";
+                        const canReEnableDept =
+                          dept.status === "CANCELLED" &&
+                          isVisitActive &&
+                          (isAdminOrManager || hasReceptionistRole || hasNurseRole || hasClinicianRole)
 
-                                return (
-                                  <>
-                                    {canReEnableDept && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleReEnableDepartment(dept.id)}
-                                        disabled={reEnablingDept}
-                                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                                      >
-                                        {reEnablingDept ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                          <RotateCcw className="h-3 w-3" />
-                                        )}
-                                        Re-enable
-                                      </button>
-                                    )}
-                                    {canCancelDept && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleCancelDepartment(dept.id)}
-                                        disabled={cancellingDept}
-                                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
-                                      >
-                                        {cancellingDept ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                          <Ban className="h-3 w-3" />
-                                        )}
-                                        Cancel
-                                      </button>
-                                    )}
-                                    {canDeleteDept && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveDepartment(dept.id)}
-                                        disabled={removingDept}
-                                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
-                                      >
-                                        {removingDept ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                          <Trash2 className="h-3 w-3" />
-                                        )}
-                                        Remove
-                                      </button>
-                                    )}
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                          {dept.products && dept.products.length > 0 && (
-                            <div className="text-xs text-muted-foreground">
-                              {dept.products.length} product
-                              {dept.products.length !== 1 ? "s" : ""} added
-                            </div>
-                          )}
+                        const canDeleteDept =
+                          (hasAdminRole || hasManagerRole) && dept.status !== "FINALISED"
 
-                          {/* Encounter Date & Time for this department */}
-                          <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
-                            <div className="flex items-center gap-1.5">
-                              <CalendarClock className="h-3.5 w-3.5 text-primary" />
-                              <span className="text-xs font-medium text-foreground">
-                                Encounter Date & Time
-                              </span>
-                            </div>
-                            {dept.status === "DEPARTMENT_EDITING" ? (
-                              <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-2">
-                                Encounter date editing is locked while billing edit mode is active for this department.
-                              </p>
-                            ) : (
-                            <div>
-                              <input
-                                type="datetime-local"
-                                key={`dept-encounter-${dept.id}-${dept.startedAt || dept.createdAt}`}
-                                defaultValue={
-                                  dept.startedAt
-                                    ? dept.startedAt.slice(0, 16)
-                                    : dept.createdAt
-                                      ? dept.createdAt.slice(0, 16)
-                                      : ""
-                                }
-                                onChange={(e) =>
-                                  handleDepartmentEncounterDateChange(dept.id, e)
-                                }
-                                disabled={visit.status === "CANCELLED" || dept.status === "CANCELLED"}
-                                className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                              />
-                              {pendingDepartmentEncounterDate?.visitDepartmentId === dept.id && (
-                                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                  <button
-                                    type="button"
-                                    onClick={() => void confirmDepartmentEncounterDateChange(false)}
-                                    disabled={applyingDate}
-                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1 shadow-xs"
-                                  >
-                                    {applyingDate ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
-                                    ) : (
-                                      <CheckCircle className="h-3 w-3" />
-                                    )}
-                                    Apply to This Dept
-                                  </button>
-                                  {dept.childVisitDepartments && dept.childVisitDepartments.length > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => void confirmDepartmentEncounterDateChange(true)}
-                                      disabled={applyingDate}
-                                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1 shadow-xs"
-                                      title={`Apply this encounter date to ${dept.department?.name || 'this department'} and all its ${dept.childVisitDepartments.length} child department(s)`}
-                                    >
-                                      {applyingDate ? (
-                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                      ) : (
-                                        <CalendarClock className="h-3 w-3" />
-                                      )}
-                                      Apply to All Child Departments ({dept.childVisitDepartments.length})
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => setPendingDepartmentEncounterDate(null)}
-                                    disabled={applyingDate}
-                                    className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-xs font-medium rounded-md transition-colors"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              )}
-                              <p className="text-[12px] text-muted-foreground mt-1">
-                                Sets the encounter timestamp for this department
-                              </p>
-                            </div>
+                        const deptBilling = billingDepartments?.find(
+                          (b: any) => b.visitDepartment?.id === dept.id,
+                        )
+                        const insBillings = (deptBilling?.insuranceBillings || []) as any[]
+
+                        const profileDept = profileDeptsByVisitDeptId.get(dept.id)
+                        const deptCatalog = departments.find(
+                          (d) => String(d.id) === String(dept.department?.id || dept.id),
+                        )
+                        const assignedProfile =
+                          profileDept?.assigned ??
+                          (dept.profile
+                            ? {
+                                id: dept.profile.id,
+                                name: dept.profile.name,
+                                encounterType: (dept as any).encounterType,
+                              }
+                            : null)
+                        const rawAvailable = (profileDept?.available?.length
+                          ? profileDept.available
+                          : deptCatalog?.profiles || (dept.department as any)?.profiles || []) as Array<{
+                          id: string
+                          name: string
+                          encounterType?: string
+                        }>
+                        const availableProfiles = rawAvailable.map((p) => ({
+                          id: p.id,
+                          name: p.name,
+                          encounterType: p.encounterType || "",
+                        }))
+                        const isSupportRequests = Boolean(
+                          deptCatalog?.supportRequests || (dept.department as any)?.supportRequests
+                        )
+                        const isProfileLocked =
+                          dept.status === "BILLING" ||
+                          dept.status === "COMPLETED" ||
+                          dept.status === "FINALISED" ||
+                          dept.status === "DEPARTMENT_EDITING"
+
+                        return (
+                          <div
+                            key={dept.id}
+                            className={cn(
+                              "rounded-xl border border-border bg-card transition-all shadow-xs",
+                              isChild && depth > 0 && "ml-4 sm:ml-6 border-l-4 border-l-primary/40 pl-1"
                             )}
-                          </div>
-
-                          {/* Billing Date & Time for this department */}
-                          {(() => {
-                            const deptBilling = billingDepartments?.find(
-                              (b: any) => b.visitDepartment?.id === dept.id,
-                            )
-                            const insBillings = deptBilling?.insuranceBillings || []
-                            if (dept.status === "DEPARTMENT_EDITING") {
-                              return (
-                                <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-3">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <ReceiptText className="h-3.5 w-3.5 text-amber-600" />
-                                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300">Billing Date</span>
-                                  </div>
-                                  <p className="text-xs text-amber-700 dark:text-amber-400">
-                                    Billing date editing is locked while billing edit mode is active for this department.
-                                  </p>
+                          >
+                            {/* Department Tree Header Row */}
+                            {isSingleDept ? (
+                              <div className="flex items-center justify-between gap-2 p-3 border-b border-border/60 bg-muted/20 rounded-t-xl">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Building2 className="h-4 w-4 text-primary shrink-0" />
+                                  <span className="font-semibold text-foreground text-sm truncate">
+                                    {dept.department?.name || "Unknown Department"}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground truncate">
+                                    ({dept.encounterType || "Encounter"})
+                                  </span>
+                                  <span className={cn(
+                                    "text-xs px-2 py-0.5 rounded-full font-medium shrink-0",
+                                    dept.status === "COMPLETED"
+                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                                      : dept.status === "CANCELLED"
+                                        ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                                        : dept.status === "ACTIVE"
+                                          ? "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300"
+                                          : dept.status === "DEPARTMENT_EDITING"
+                                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                                            : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300"
+                                  )}>
+                                    {dept.status}
+                                  </span>
                                 </div>
-                              )
-                            }
-                            return (
-                              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
-                                <div className="flex items-center gap-1.5">
-                                  <ReceiptText className="h-3.5 w-3.5 text-primary" />
-                                  <span className="text-xs font-medium text-foreground">
-                                    Department Billing Date & Time
+                              </div>
+                            ) : (
+                              <div
+                                className={cn(
+                                  "flex items-center justify-between gap-2 p-3 transition-colors cursor-pointer select-none",
+                                  isExpanded ? "border-b border-border/60 bg-muted/20 rounded-t-xl" : "hover:bg-muted/30 rounded-xl"
+                                )}
+                                onClick={() => toggleDeptExpanded(dept.id, index)}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <button
+                                    type="button"
+                                    className="p-1 -ml-1 text-muted-foreground hover:text-foreground rounded transition-colors"
+                                    aria-label={isExpanded ? "Collapse department" : "Expand department"}
+                                  >
+                                    {isExpanded ? (
+                                      <ChevronDown className="h-4 w-4 shrink-0 text-foreground" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4 shrink-0" />
+                                    )}
+                                  </button>
+                                  {isChild && (
+                                    <CornerDownRight className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                                  )}
+                                  <Building2 className="h-4 w-4 text-primary shrink-0" />
+                                  <span className="font-semibold text-foreground text-sm truncate">
+                                    {dept.department?.name || "Unknown Department"}
+                                  </span>
+                                  {isChild && parentName && (
+                                    <span className="text-xs text-muted-foreground hidden sm:inline truncate">
+                                      ({parentName})
+                                    </span>
+                                  )}
+                                  <span className="text-xs text-muted-foreground hidden md:inline truncate">
+                                    • {dept.encounterType || "Encounter"}
+                                  </span>
+                                  <span className={cn(
+                                    "text-xs px-2 py-0.5 rounded-full font-medium shrink-0",
+                                    dept.status === "COMPLETED"
+                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                                      : dept.status === "CANCELLED"
+                                        ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                                        : dept.status === "ACTIVE"
+                                          ? "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300"
+                                          : dept.status === "DEPARTMENT_EDITING"
+                                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                                            : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300"
+                                  )}>
+                                    {dept.status}
                                   </span>
                                 </div>
 
-                                {insBillings.length > 0 ? (
-                                  <div className="space-y-3">
-                                    {insBillings.map((ib: any) => (
-                                      <div
-                                        key={ib.id}
-                                        className="rounded-md border border-border/40 bg-background p-2.5 space-y-1.5"
-                                      >
-                                        <div className="flex items-center justify-between text-xs">
-                                          <span className="font-medium text-foreground">
-                                            {ib.insurance?.name || "Billing Record"}
-                                            {ib.insurance?.acronym ? ` (${ib.insurance.acronym})` : ""}
+                                {/* Quick Indicators when collapsed */}
+                                {!isExpanded && (
+                                  <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
+                                    {dept.answerId && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="p-1 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+                                            <FileText className="h-3.5 w-3.5" />
                                           </span>
-                                          <span className="text-muted-foreground">
-                                            {ib.totalAmount?.toLocaleString()} RWF
-                                            {ib.status && (
-                                              <span className={`ml-2 font-medium ${
-                                                ib.status === "PAID" ? "text-emerald-600" :
-                                                ib.status === "PARTIALLY_PAID" ? "text-amber-600" :
-                                                "text-muted-foreground"
-                                              }`}>
-                                                • {ib.status}
-                                              </span>
-                                            )}
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">Consultation Recorded</TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                    {insBillings.length > 0 && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="p-1 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium text-xs">
+                                            <ReceiptText className="h-3.5 w-3.5" />
+                                            <span>{insBillings.length}</span>
                                           </span>
-                                        </div>
-                                        <input
-                                          type="datetime-local"
-                                          key={`billing-date-${ib.id}-${ib.billingDate}`}
-                                          defaultValue={
-                                            ib.billingDate
-                                              ? ib.billingDate.slice(0, 16)
-                                              : ""
-                                          }
-                                          min={
-                                            dept.startedAt
-                                              ? dept.startedAt.slice(0, 16)
-                                              : dept.createdAt
-                                                ? dept.createdAt.slice(0, 16)
-                                                : undefined
-                                          }
-                                          onChange={(e) =>
-                                            handleBillingDateChange(ib.id, dept.id, dept, e)
-                                          }
-                                          disabled={visit.status === "CANCELLED" || dept.status === "CANCELLED"}
-                                          className="w-full px-3 py-1.5 bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                                        />
-                                        {pendingBillingDate?.billingId === ib.id && (
-                                          <div className="flex items-center gap-2 mt-1.5">
-                                            <button
-                                              type="button"
-                                              onClick={() => void confirmBillingDateChange()}
-                                              disabled={applyingDate}
-                                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1"
-                                            >
-                                              {applyingDate ? (
-                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                              ) : (
-                                                <CheckCircle className="h-3 w-3" />
-                                              )}
-                                              Apply Billing Date
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => setPendingBillingDate(null)}
-                                              disabled={applyingDate}
-                                              className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-xs font-medium rounded-md transition-colors"
-                                            >
-                                              Cancel
-                                            </button>
-                                          </div>
-                                        )}
-                                        <p className="text-[11px] text-muted-foreground">
-                                          Must be at least 5 minutes after this department&apos;s encounter date
-                                        </p>
-                                      </div>
-                                    ))}
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">{insBillings.length} Billing Record(s)</TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                    {hasProducts && (
+                                      <span className="hidden md:inline font-normal">
+                                        {dept.products.length} {dept.products.length === 1 ? "item" : "items"}
+                                      </span>
+                                    )}
                                   </div>
-                                ) : (
-                                  <p className="text-xs text-muted-foreground italic">
-                                    No billing records for this department yet
-                                  </p>
                                 )}
                               </div>
-                            )
-                          })()}
+                            )}
 
-                          {/* Clinic profile (assigned + available), with change/set/clear for managers & clinicians */}
-                          {(() => {
-                            const profileDept = profileDeptsByVisitDeptId.get(dept.id)
-                            const deptCatalog = departments.find(
-                              (d) => String(d.id) === String(dept.department?.id || dept.id),
-                            )
-                            const assigned = profileDept?.assigned ?? (dept.profile ? { id: dept.profile.id, name: dept.profile.name, encounterType: (dept as any).encounterType } : null)
-                            const rawAvailable = (profileDept?.available?.length ? profileDept.available : (deptCatalog?.profiles || (dept.department as any)?.profiles || [])) as Array<{ id: string; name: string; encounterType?: string }>
-                            const available = rawAvailable.map((p) => ({
-                              id: p.id,
-                              name: p.name,
-                              encounterType: p.encounterType || "",
-                            }))
-                            const isSupportRequests = Boolean(deptCatalog?.supportRequests || (dept.department as any)?.supportRequests)
-                            const loading = profilesLoading && !profileDept && !deptCatalog
-                            const isLocked = dept.status === "BILLING" || dept.status === "COMPLETED" || dept.status === "FINALISED" || dept.status === "DEPARTMENT_EDITING"
-
-                            if (isSupportRequests) {
-                              return (
-                                <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                                      <FileText className="h-3.5 w-3.5 text-primary" />
-                                      Clinic Profile
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    This department supports requests, so profiles cannot be applied.
-                                  </p>
-                                </div>
-                              )
-                            }
-
-                            if (!loading && available.length === 0) {
-                              return (
-                                <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                                      <FileText className="h-3.5 w-3.5 text-primary" />
-                                      Clinic Profile
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground italic">
-                                    No profiles configured for this department
-                                  </p>
-                                </div>
-                              )
-                            }
-
-                            return (
-                              <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                                    <FileText className="h-3.5 w-3.5 text-primary" />
-                                    Clinic Profile
+                            {/* Expanded Content / Actions */}
+                            {isExpanded && (
+                              <div className="p-3.5 space-y-4">
+                                {/* Actions Toolbar: Icon-only buttons with hover tooltips */}
+                                <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-border/60">
+                                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    Department Actions
                                   </span>
-                                  {loading && (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                                  )}
-                                </div>
-                                {assigned ? (
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="min-w-0">
-                                      <p className="text-sm font-medium text-foreground truncate">
-                                        {assigned.name}
-                                      </p>
-                                      <p className="text-[12px] text-muted-foreground truncate">
-                                        {assigned.encounterType || profileDept?.encounterType || "No encounter type"}
-                                      </p>
-                                    </div>
-                                    <span className="shrink-0 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-                                      Active
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <p className="text-xs text-muted-foreground">
-                                    No profile assigned
-                                    {profileDept?.encounterType
-                                      ? ` — encounter: ${profileDept.encounterType}`
-                                      : ""}
-                                  </p>
-                                )}
-                                {canManageProfile && !loading && !isLocked && (
-                                  <>
-                                    <Select
-                                      value={assigned?.id || "none"}
-                                      onValueChange={(value) =>
-                                        handleChangeDepartmentProfile(
-                                          dept.id,
-                                          value === "none" ? null : value,
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {/* Change Date Icon Button */}
+                                    <ActionIconButton
+                                      tooltip={isDateChangeOpen(dept.id) ? "Hide Dates Panel" : "Adjust Encounter & Billing Timestamps"}
+                                      variant={isDateChangeOpen(dept.id) ? "primary" : "outline"}
+                                      icon={<CalendarClock className="h-4 w-4 text-primary" />}
+                                      disabled={visit.status === "CANCELLED" || dept.status === "CANCELLED" || dept.status === "DEPARTMENT_EDITING"}
+                                      onClick={() => toggleDateChange(dept.id)}
+                                    />
+
+                                    {/* Consultation Preview Icon */}
+                                    {dept.answerId && (
+                                      <ActionIconButton
+                                        tooltip="Preview Consultation Answers"
+                                        variant="outline"
+                                        icon={<FileText className="h-4 w-4 text-blue-600" />}
+                                        onClick={() => handlePreviewConsultation(dept)}
+                                      />
+                                    )}
+
+                                    {/* Invoices & Receipts Download Icons */}
+                                    {insBillings.map((ib: any) => {
+                                      const isInsured = Boolean(
+                                        (ib.insuranceCoveredAmount && ib.insuranceCoveredAmount > 0) ||
+                                          ib.patientInsurance,
+                                      )
+                                      const invoiceNo = ib.id ? ib.id.slice(-8).toUpperCase() : ""
+                                      const providerName =
+                                        ib.patientInsurance?.insuranceProvider?.acronym ||
+                                        ib.patientInsurance?.insuranceProvider?.insuranceName ||
+                                        "Insurer"
+
+                                      if (isInsured) {
+                                        const claimKey = `${ib.id}-INSURANCE`
+                                        const receiptKey = `${ib.id}-PATIENT`
+                                        const isClaimLoading = previewingInvoiceKey === claimKey
+                                        const isReceiptLoading = previewingInvoiceKey === receiptKey
+
+                                        return (
+                                          <Fragment key={ib.id}>
+                                            <ActionIconButton
+                                              tooltip={`Download ${providerName} Claim (Insurer Ref: #${invoiceNo})`}
+                                              variant="primary"
+                                              icon={isClaimLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ReceiptText className="h-4 w-4 text-blue-600" />}
+                                              disabled={generatingInvoice}
+                                              onClick={() => handlePreviewInvoice(ib.id, "INSURANCE")}
+                                            />
+                                            <ActionIconButton
+                                              tooltip={`Download Patient Co-pay Receipt (${providerName} Ref: #${invoiceNo})`}
+                                              variant="success"
+                                              icon={isReceiptLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ReceiptText className="h-4 w-4 text-emerald-600" />}
+                                              disabled={generatingInvoice}
+                                              onClick={() => handlePreviewInvoice(ib.id, "PATIENT")}
+                                            />
+                                          </Fragment>
                                         )
                                       }
-                                    >
-                                      <SelectTrigger
-                                        disabled={changingProfile}
-                                        className="h-8 w-full text-xs"
-                                      >
-                                        <SelectValue
-                                          placeholder={assigned ? "Change profile..." : "Select and assign profile..."}
-                                        />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="none">
-                                          No profile
-                                        </SelectItem>
-                                        {available.map((p) => (
-                                          <SelectItem key={p.id} value={p.id}>
-                                            {p.name}
-                                            {p.encounterType
-                                              ? ` — ${p.encounterType}`
-                                              : ""}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    {assigned && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveDepartmentProfile(dept.id)}
-                                        disabled={removingProfile || changingProfile}
-                                        className="mt-1.5 px-2 py-1 text-[12px] font-medium text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                                      >
-                                        {removingProfile ? "Removing..." : "Remove profile"}
-                                      </button>
-                                    )}
-                                  </>
-                                )}
-                                {canManageProfile && !loading && (dept.status === "COMPLETED" || dept.status === "FINALISED") && (
-                                  <p className="text-[12px] text-muted-foreground mt-1">
-                                    Profile is locked on {dept.status.toLowerCase()} departments. Use
-                                    &quot;Edit Billing&quot; on the billing page to enter edit mode first.
-                                  </p>
-                                )}
-                                {canManageProfile && !loading && dept.status === "BILLING" && (
-                                  <p className="text-[12px] text-muted-foreground mt-1">
-                                    Profile is locked while the department is in billing.
-                                  </p>
-                                )}
-                                {canManageProfile && !loading && dept.status === "DEPARTMENT_EDITING" && (
-                                  <p className="text-[12px] text-muted-foreground mt-1">
-                                    Department is in billing edit mode.
-                                  </p>
-                                )}
-                              </div>
-                            )
-                          })()}
 
-                          {/* Preview buttons */}
-                          <div className="flex items-center gap-2 pt-2 border-t border-border/50">
-                            {dept.answerId && (
-                              <button
-                                type="button"
-                                onClick={() => handlePreviewConsultation(dept)}
-                                className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-blue-200"
-                              >
-                                <FileText className="h-3 w-3" />
-                                Preview Consultation
-                              </button>
-                            )}
-                            {(() => {
-                              const deptBilling = billingDepartments?.find(
-                                (b: any) => b.visitDepartment?.id === dept.id,
-                              )
-                              const insBillings = deptBilling?.insuranceBillings || []
-                              if (insBillings.length === 0) return null
-
-                              return (
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  {insBillings.map((ib: any) => {
-                                    const isInsured = Boolean(
-                                      (ib.insuranceCoveredAmount && ib.insuranceCoveredAmount > 0) ||
-                                        ib.patientInsurance,
-                                    )
-                                    const invoiceNo = ib.id ? ib.id.slice(-8).toUpperCase() : ""
-                                    const providerName =
-                                      ib.patientInsurance?.insuranceProvider?.acronym ||
-                                      ib.patientInsurance?.insuranceProvider?.insuranceName ||
-                                      "Insurer"
-
-                                    if (isInsured) {
-                                      const claimKey = `${ib.id}-INSURANCE`
-                                      const receiptKey = `${ib.id}-PATIENT`
-                                      const isClaimLoading =
-                                        previewingInvoiceKey === claimKey ||
-                                        (generatingInvoice && !previewingInvoiceKey)
-                                      const isReceiptLoading =
-                                        previewingInvoiceKey === receiptKey
+                                      const privKey = `${ib.id}-DEFAULT`
+                                      const isPrivLoading = previewingInvoiceKey === privKey
 
                                       return (
-                                        <Fragment key={ib.id}>
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              handlePreviewInvoice(
-                                                ib.id,
-                                                "INSURANCE",
-                                              )
-                                            }
-                                            disabled={generatingInvoice}
-                                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-blue-200 dark:border-blue-800 disabled:opacity-50"
-                                            title={`Download contracted insurer claim for ${providerName} (Ref: #${invoiceNo})`}
-                                          >
-                                            {isClaimLoading ? (
-                                              <Loader2 className="h-3 w-3 animate-spin" />
-                                            ) : (
-                                              <Eye className="h-3 w-3" />
-                                            )}
-                                            <span>{providerName} Claim <span className="text-[10px] opacity-75 font-normal">(Insurer)</span></span>
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              handlePreviewInvoice(
-                                                ib.id,
-                                                "PATIENT",
-                                              )
-                                            }
-                                            disabled={generatingInvoice}
-                                            className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-emerald-200 dark:border-emerald-800 disabled:opacity-50"
-                                            title={`Download patient co-pay receipt for ${providerName} (Ref: #${invoiceNo})`}
-                                          >
-                                            {isReceiptLoading ? (
-                                              <Loader2 className="h-3 w-3 animate-spin" />
-                                            ) : (
-                                              <Eye className="h-3 w-3" />
-                                            )}
-                                            <span>Patient Receipt <span className="text-[10px] opacity-75 font-normal">({providerName} Co-pay)</span></span>
-                                          </button>
-                                        </Fragment>
+                                        <ActionIconButton
+                                          key={ib.id}
+                                          tooltip={`Download Private Invoice & Receipt (Ref: #${invoiceNo})`}
+                                          variant="primary"
+                                          icon={isPrivLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ReceiptText className="h-4 w-4 text-purple-600" />}
+                                          disabled={generatingInvoice}
+                                          onClick={() => handlePreviewInvoice(ib.id)}
+                                        />
                                       )
-                                    }
+                                    })}
 
-                                    const privKey = `${ib.id}-DEFAULT`
-                                    const isPrivLoading =
-                                      previewingInvoiceKey === privKey ||
-                                      (generatingInvoice && !previewingInvoiceKey)
-
-                                    return (
-                                      <button
-                                        key={ib.id}
-                                        type="button"
-                                        onClick={() =>
-                                          handlePreviewInvoice(
-                                            ib.id,
-                                          )
-                                        }
-                                        disabled={generatingInvoice}
-                                        className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-medium rounded-md transition-colors flex items-center gap-1 border border-purple-200 dark:border-purple-800 disabled:opacity-50"
-                                        title={`Download private self-pay invoice & receipt (Ref: #${invoiceNo})`}
-                                      >
-                                        {isPrivLoading ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                    {/* Billing Edit controls for manager/admin */}
+                                    {isAdminOrManager && (
+                                      <>
+                                        {dept.status === "DEPARTMENT_EDITING" ? (
+                                          <ActionIconButton
+                                            tooltip="Cancel Billing Edit and restore department status"
+                                            variant="danger"
+                                            icon={cancellingBillEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                                            disabled={cancellingBillEdit}
+                                            onClick={() => handleCancelBillEditing(dept.id)}
+                                          />
                                         ) : (
-                                          <Eye className="h-3 w-3" />
+                                          (dept.status === "COMPLETED" || dept.status === "FINALISED") && (
+                                            <>
+                                              <ActionIconButton
+                                                tooltip="Enable Billing Editing Mode"
+                                                variant="outline"
+                                                icon={startingBillEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <ReceiptText className="h-4 w-4 text-indigo-600" />}
+                                                disabled={startingBillEdit}
+                                                onClick={() => handleStartBillEditing(dept.id)}
+                                              />
+                                              <ActionIconButton
+                                                tooltip="Open Visit for Adding New Products"
+                                                variant="outline"
+                                                icon={openingDept ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4 text-sky-600" />}
+                                                disabled={openingDept}
+                                                onClick={() => handleOpenDepartment(dept.id)}
+                                              />
+                                            </>
+                                          )
                                         )}
-                                        <span>Private Invoice & Receipt</span>
-                                      </button>
-                                    )
-                                  })}
+                                      </>
+                                    )}
+
+                                    {/* Finalise Department button */}
+                                    {dept.status === "COMPLETED" &&
+                                      dept.hasFinalizedConsultationAnswers &&
+                                      !dept.hasBillableProducts && (
+                                      <ActionIconButton
+                                        tooltip="Finalise Department"
+                                        variant="success"
+                                        icon={finalisingDept ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                                        disabled={finalisingDept}
+                                        onClick={() => handleFinaliseDepartment(dept.id)}
+                                      />
+                                    )}
+
+                                    {/* Re-enable Department */}
+                                    {canReEnableDept && (
+                                      <ActionIconButton
+                                        tooltip={`Re-enable ${dept.department?.name || 'Department'}`}
+                                        variant="success"
+                                        icon={reEnablingDept ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                                        disabled={reEnablingDept}
+                                        onClick={() => handleReEnableDepartment(dept.id)}
+                                      />
+                                    )}
+
+                                    {/* Cancel & Delete Department: ONLY for multi-department visits */}
+                                    {!isSingleDept && canCancelDept && (
+                                      <ActionIconButton
+                                        tooltip={`Cancel ${dept.department?.name || 'Department'}`}
+                                        variant="warning"
+                                        icon={cancellingDept ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+                                        disabled={cancellingDept}
+                                        onClick={() => handleCancelDepartment(dept.id)}
+                                      />
+                                    )}
+                                    {!isSingleDept && canDeleteDept && (
+                                      <ActionIconButton
+                                        tooltip={`Remove ${dept.department?.name || 'Department'}`}
+                                        variant="danger"
+                                        icon={removingDept ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                        disabled={removingDept}
+                                        onClick={() => handleRemoveDepartment(dept.id)}
+                                      />
+                                    )}
+                                  </div>
                                 </div>
-                              )
-                            })()}
+
+                                {/* Unified Encounter & Billing Timestamps Section: Minimised by default */}
+                                <div className="rounded-xl border border-border/70 bg-muted/20 p-2.5 transition-all space-y-2.5">
+                                  {/* Minimised Header Strip: Toggled via toolbar icon or click */}
+                                  <div
+                                    onClick={() => {
+                                      if (visit.status !== "CANCELLED" && dept.status !== "CANCELLED" && dept.status !== "DEPARTMENT_EDITING") {
+                                        toggleDateChange(dept.id)
+                                      }
+                                    }}
+                                    className="flex items-center justify-between gap-2 cursor-pointer hover:opacity-90 select-none"
+                                  >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                        <CalendarClock className="h-4 w-4 text-primary" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <p className="text-xs font-semibold text-foreground truncate">
+                                            Encounter & Billing Dates
+                                          </p>
+                                          {insBillings.length > 0 ? (
+                                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-medium shrink-0">
+                                              {insBillings.length} {insBillings.length === 1 ? "Billing" : "Billings"}
+                                            </span>
+                                          ) : (
+                                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-muted text-muted-foreground shrink-0">
+                                              Unbilled
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                                          Seen: {formatFullDateTime(dept.startedAt || dept.createdAt || currentVisit.visitDate)}
+                                          {insBillings.length > 0 && insBillings[0]?.billingDate && (
+                                            <span className="hidden sm:inline"> • Billed: {formatFullDateTime(insBillings[0].billingDate)}</span>
+                                          )}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0 text-muted-foreground">
+                                      {isDateChangeOpen(dept.id) ? (
+                                        <ChevronDown className="h-4 w-4 text-foreground" />
+                                      ) : (
+                                        <ChevronRight className="h-4 w-4" />
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Change Panel: Revealed on click */}
+                                  {isDateChangeOpen(dept.id) && (
+                                    <div className="pt-3 border-t border-border/60 space-y-3">
+                                      <div className="flex items-center justify-between pb-1">
+                                        <div>
+                                          <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                            <CalendarClock className="h-3.5 w-3.5 text-primary" />
+                                            Adjust Department Timestamps
+                                          </h4>
+                                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                                            Update encounter start time and synchronized invoice billing dates.
+                                          </p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setPendingDepartmentEncounterDate(null)
+                                            setPendingBillingDate(null)
+                                            setShowDateChangeDeptIds((prev) => ({ ...prev, [dept.id]: false }))
+                                          }}
+                                          className="text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 rounded hover:bg-muted transition-colors cursor-pointer"
+                                        >
+                                          Done
+                                        </button>
+                                      </div>
+
+                                      {dept.status === "DEPARTMENT_EDITING" ? (
+                                        <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-2">
+                                          Timestamp editing is locked while department billing edit mode is active.
+                                        </p>
+                                      ) : (
+                                        <div className="space-y-3">
+                                          {/* Step 1: Department Encounter Date */}
+                                          <div className="rounded-lg border border-border/70 bg-background p-3 space-y-2">
+                                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                                              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                                <span className="size-4 rounded-full bg-primary/10 text-primary font-bold text-[10px] flex items-center justify-center">1</span>
+                                                Department Encounter Date & Time
+                                              </span>
+                                              <span className="text-[11px] text-muted-foreground">
+                                                Current: {formatFullDateTime(dept.startedAt || dept.createdAt || currentVisit.visitDate)}
+                                              </span>
+                                            </div>
+
+                                            <input
+                                              type="datetime-local"
+                                              key={`dept-encounter-${dept.id}-${dept.startedAt || dept.createdAt}`}
+                                              defaultValue={
+                                                dept.startedAt
+                                                  ? dept.startedAt.slice(0, 16)
+                                                  : dept.createdAt
+                                                    ? dept.createdAt.slice(0, 16)
+                                                    : ""
+                                              }
+                                              onChange={(e) =>
+                                                handleDepartmentEncounterDateChange(dept.id, e)
+                                              }
+                                              disabled={visit.status === "CANCELLED" || dept.status === "CANCELLED"}
+                                              className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                                            />
+
+                                            {pendingDepartmentEncounterDate?.visitDepartmentId === dept.id && (
+                                              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => void confirmDepartmentEncounterDateChange(false)}
+                                                  disabled={applyingDate}
+                                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
+                                                >
+                                                  {applyingDate ? (
+                                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                                  ) : (
+                                                    <CheckCircle className="h-3 w-3" />
+                                                  )}
+                                                  Apply to This Dept
+                                                </button>
+                                                {dept.childVisitDepartments && dept.childVisitDepartments.length > 0 && (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => void confirmDepartmentEncounterDateChange(true)}
+                                                    disabled={applyingDate}
+                                                    className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
+                                                    title={`Apply this encounter date to ${dept.department?.name || 'this department'} and all its ${dept.childVisitDepartments.length} child department(s)`}
+                                                  >
+                                                    {applyingDate ? (
+                                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                                    ) : (
+                                                      <CalendarClock className="h-3 w-3" />
+                                                    )}
+                                                    Apply to All Child Departments ({dept.childVisitDepartments.length})
+                                                  </button>
+                                                )}
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setPendingDepartmentEncounterDate(null)}
+                                                  disabled={applyingDate}
+                                                  className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-xs font-medium rounded-md transition-colors cursor-pointer"
+                                                >
+                                                  Cancel
+                                                </button>
+                                              </div>
+                                            )}
+                                            <p className="text-[11px] text-muted-foreground">
+                                              Sets the official encounter attendance timestamp for this department.
+                                            </p>
+                                          </div>
+
+                                          {/* Step 2: Department Billing Timestamps (if applicable) */}
+                                          {insBillings.length > 0 && (
+                                            <div className="rounded-lg border border-border/70 bg-background p-3 space-y-2.5">
+                                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                                  <span className="size-4 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] flex items-center justify-center">2</span>
+                                                  Billing Invoices & Receipts Date & Time
+                                                </span>
+                                                <span className="text-[11px] text-muted-foreground">
+                                                  {insBillings.length} billing record{insBillings.length > 1 ? "s" : ""}
+                                                </span>
+                                              </div>
+
+                                              <div className="space-y-2">
+                                                {insBillings.map((ib: any) => (
+                                                  <div
+                                                    key={ib.id}
+                                                    className="rounded-md border border-border/60 bg-muted/20 p-2.5 space-y-1.5"
+                                                  >
+                                                    <div className="flex items-center justify-between text-xs">
+                                                      <span className="font-semibold text-foreground">
+                                                        {ib.patientInsurance?.insuranceProvider?.insuranceName || ib.insurance?.name || "Billing Record"}
+                                                        {ib.patientInsurance?.insuranceProvider?.acronym ? ` (${ib.patientInsurance.insuranceProvider.acronym})` : ""}
+                                                      </span>
+                                                      <span className="text-muted-foreground font-medium">
+                                                        {ib.totalAmount?.toLocaleString()} RWF
+                                                        {ib.status && (
+                                                          <span className={`ml-2 ${
+                                                            ib.status === "PAID" ? "text-emerald-600 font-semibold" :
+                                                            ib.status === "PARTIALLY_PAID" ? "text-amber-600 font-semibold" :
+                                                            "text-muted-foreground"
+                                                          }`}>
+                                                            • {ib.status}
+                                                          </span>
+                                                        )}
+                                                      </span>
+                                                    </div>
+                                                    <input
+                                                      type="datetime-local"
+                                                      key={`billing-date-${ib.id}-${ib.billingDate}`}
+                                                      defaultValue={
+                                                        ib.billingDate
+                                                          ? ib.billingDate.slice(0, 16)
+                                                          : ""
+                                                      }
+                                                      min={
+                                                        dept.startedAt
+                                                          ? dept.startedAt.slice(0, 16)
+                                                          : dept.createdAt
+                                                            ? dept.createdAt.slice(0, 16)
+                                                            : undefined
+                                                      }
+                                                      onChange={(e) =>
+                                                        handleBillingDateChange(ib.id, dept.id, dept, e)
+                                                      }
+                                                      disabled={visit.status === "CANCELLED" || dept.status === "CANCELLED"}
+                                                      className="w-full px-3 py-1.5 bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    />
+                                                    {pendingBillingDate?.billingId === ib.id && (
+                                                      <div className="flex items-center gap-2 mt-1.5">
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => void confirmBillingDateChange()}
+                                                          disabled={applyingDate}
+                                                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                                                        >
+                                                          {applyingDate ? (
+                                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                                          ) : (
+                                                            <CheckCircle className="h-3 w-3" />
+                                                          )}
+                                                          Apply Billing Date
+                                                        </button>
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => setPendingBillingDate(null)}
+                                                          disabled={applyingDate}
+                                                          className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-xs font-medium rounded-md transition-colors cursor-pointer"
+                                                        >
+                                                          Cancel
+                                                        </button>
+                                                      </div>
+                                                    )}
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                      Must be at least 5 minutes after encounter date
+                                                    </p>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Clinic Profile Section */}
+                                <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                      <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
+                                      Clinic Profile
+                                    </span>
+                                    {profilesLoading && !profileDept && !deptCatalog && (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                                    )}
+                                  </div>
+
+                                  {isSupportRequests ? (
+                                    <p className="text-xs text-muted-foreground">
+                                      This department supports requests, so profiles cannot be applied.
+                                    </p>
+                                  ) : availableProfiles.length === 0 ? (
+                                    <p className="text-xs text-muted-foreground italic">
+                                      No profiles configured for this department
+                                    </p>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {assignedProfile ? (
+                                        <div className="flex items-center justify-between gap-2 bg-background p-2 rounded-md border border-border/50">
+                                          <div className="min-w-0">
+                                            <p className="text-xs font-semibold text-foreground truncate">
+                                              {assignedProfile.name}
+                                            </p>
+                                            <p className="text-[11px] text-muted-foreground truncate">
+                                              {assignedProfile.encounterType || profileDept?.encounterType || "No encounter type"}
+                                            </p>
+                                          </div>
+                                          <span className="shrink-0 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                                            Active
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <p className="text-xs text-muted-foreground">
+                                          No profile currently assigned
+                                        </p>
+                                      )}
+
+                                      {canManageProfile && !isProfileLocked && (
+                                        <div className="flex items-center gap-2">
+                                          <Select
+                                            value={assignedProfile?.id || "none"}
+                                            onValueChange={(value) =>
+                                              handleChangeDepartmentProfile(
+                                                dept.id,
+                                                value === "none" ? null : value,
+                                              )
+                                            }
+                                          >
+                                            <SelectTrigger
+                                              disabled={changingProfile}
+                                              className="h-8 w-full text-xs"
+                                            >
+                                              <SelectValue
+                                                placeholder={assignedProfile ? "Change profile..." : "Select profile..."}
+                                              />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="none">
+                                                No profile
+                                              </SelectItem>
+                                              {availableProfiles.map((p) => (
+                                                <SelectItem key={p.id} value={p.id}>
+                                                  {p.name}
+                                                  {p.encounterType ? ` — ${p.encounterType}` : ""}
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                          {assignedProfile && (
+                                            <ActionIconButton
+                                              tooltip="Remove Assigned Profile"
+                                              variant="danger"
+                                              icon={removingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                              disabled={removingProfile || changingProfile}
+                                              onClick={() => handleRemoveDepartmentProfile(dept.id)}
+                                            />
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {isProfileLocked && (
+                                        <p className="text-[11px] text-muted-foreground">
+                                          Profile locked while department is {dept.status.toLowerCase()}.
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
-                </div>
-              )}
 
+                  {/* Danger Zone: Whole Visit Cancel & Delete */}
+                  <div className="rounded-xl border border-rose-200/60 dark:border-rose-900/40 bg-rose-50/40 dark:bg-rose-950/20 p-3.5 space-y-2 mt-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <AlertTriangle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                        <div>
+                          <h4 className="font-semibold text-rose-700 dark:text-rose-300 text-sm">
+                            Visit Danger Zone
+                          </h4>
+                          <p className="text-xs text-muted-foreground">
+                            {isSingleDept
+                              ? "Cancel or permanently delete this visit encounter."
+                              : "Actions apply to the entire visit across all departments."}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {canCancelVisit && (
+                          <ActionIconButton
+                            tooltip="Cancel Entire Visit"
+                            variant="warning"
+                            icon={cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+                            disabled={!canCancelVisit || cancelling}
+                            onClick={handleCancelVisit}
+                          />
+                        )}
+                        {canDeleteVisit && (
+                          <ActionIconButton
+                            tooltip="Permanently Delete Visit"
+                            variant="danger"
+                            icon={deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            disabled={!canDeleteVisit || deleting}
+                            onClick={handleDeleteVisit}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </ScrollArea>
             </div>
-          </ScrollArea>
-        </div>
-      </aside>
-    </div>,
-    document.body,
-  )}
+          </aside>
+        </div>,
+        document.body,
+      )}
+
+      {/* Add Department Modal */}
+      <AddDepartmentModal
+        visit={currentVisit}
+        isOpen={addDeptOpen}
+        onClose={() => setAddDeptOpen(false)}
+        onSuccess={() => {
+          onVisitUpdated?.()
+          void fetchLiveVisit({ variables: { id: visit.id } })
+          void fetchBilling({ variables: { visitId: visit.id } })
+          void fetchProfiles({ variables: { visitId: visit.id } })
+        }}
+      />
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
@@ -2036,13 +2180,15 @@ export function VisitSettingsPanel({
             ? "Delete Visit"
             : deleteTarget?.type === "cancel-visit"
               ? "Cancel Visit"
-              : deleteTarget?.type === "finalise"
-                ? "Finalise"
-                : deleteTarget?.type === "cancel-department"
-                  ? "Cancel Department"
-                  : deleteTarget?.type === "re-enable-department"
-                    ? "Re-enable Department"
-                    : "Remove Department"
+              : deleteTarget?.type === "discharge"
+                ? "Discharge"
+                : deleteTarget?.type === "finalise"
+                  ? "Finalise"
+                  : deleteTarget?.type === "cancel-department"
+                    ? "Cancel Department"
+                    : deleteTarget?.type === "re-enable-department"
+                      ? "Re-enable Department"
+                      : "Remove Department"
         }
         busy={cancelling || deleting || removingDept || finalisingDept || cancellingDept}
         onConfirm={() => void handleConfirmDelete()}
@@ -2058,6 +2204,7 @@ export function VisitSettingsPanel({
         visitDepartmentId={consultationPreviewContext?.visitDepartmentId}
         visitDepartment={consultationPreviewContext?.visitDepartment ?? null}
       />
-    </>
+    </TooltipProvider>
   )
 }
+

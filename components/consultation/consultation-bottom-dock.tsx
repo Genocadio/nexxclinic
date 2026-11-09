@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { CheckCircle, ArrowRightLeft, UserPlus, Search, Loader2, Grid2X2, Info, Pin } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { CheckCircle, ArrowRightLeft, UserPlus, Search, Loader2, Grid2X2, Info } from "lucide-react";
 import { toast } from "react-toastify";
+import { cn } from "@/lib/utils";
 
 interface SaveIndicatorState {
   visible: boolean;
@@ -57,9 +58,29 @@ export function ConsultationBottomDock({
   const { doctor } = useAuth();
   const [shareOpen, setShareOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [minimized, setMinimized] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(target) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(target)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [menuOpen]);
   const { workers, loading: workersLoading } = useSearchWorkers({
     name: query,
     role: "CLINICIAN",
@@ -199,8 +220,14 @@ export function ConsultationBottomDock({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
+                      ref={triggerRef}
                       size="icon"
-                      className="rounded-full h-9 w-9 sm:h-10 sm:w-10 border border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-md"
+                      className={cn(
+                        "rounded-full h-9 w-9 sm:h-10 sm:w-10 border shadow-md transition-colors",
+                        menuOpen
+                          ? "bg-blue-600 text-white border-blue-400"
+                          : "border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white"
+                      )}
                       onClick={() => setMenuOpen((open) => !open)}
                       aria-label="Consultation actions"
                     >
@@ -209,30 +236,16 @@ export function ConsultationBottomDock({
                   </TooltipTrigger>
                   <TooltipContent><p>Consultation actions</p></TooltipContent>
                 </Tooltip>
-                {menuOpen && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        className="rounded-full h-9 w-9 sm:h-10 sm:w-10 border border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-md"
-                        onClick={() => setMinimized((prev) => !prev)}
-                        aria-label={minimized ? "Maximize card" : "Minimize card"}
-                      >
-                        <Pin className={minimized ? "h-4 w-4 text-blue-400" : "h-4 w-4 text-white/90"} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{minimized ? "Maximize" : "Minimize"}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
               </>
             )}
           </div>
         </TooltipProvider>
       </div>
-      {menuOpen && !minimized && (
-        <div className="absolute bottom-13 left-1/2 -translate-x-1/2 min-w-52 rounded-xl border border-border bg-background p-1.5 shadow-xl">
+      {menuOpen && (
+        <div
+          ref={menuRef}
+          className="absolute bottom-13 left-1/2 -translate-x-1/2 min-w-52 rounded-xl border border-border bg-background p-1.5 shadow-xl"
+        >
           {departmentId && isCurrentProcessor && (
             <Button variant="ghost" className="w-full justify-start gap-2"
               disabled={isLockedState}
@@ -245,22 +258,12 @@ export function ConsultationBottomDock({
             <Button variant="ghost" className="w-full justify-start gap-2"
               disabled={profileChangeLocked}
               title={profileChangeLocked ? "Profile changes are locked for this visit" : "Change profile"}
-              onClick={() => setProfileOpen(true)}>
+              onClick={() => { setProfileOpen(true); setMenuOpen(false); }}>
               <ArrowRightLeft className="h-4 w-4" /> Change profile
               {profileChangeLocked && <Info className="ml-auto h-4 w-4 text-muted-foreground" />}
             </Button>
           )}
         </div>
-      )}
-      {menuOpen && minimized && (
-        <button
-          type="button"
-          onClick={() => setMinimized(false)}
-          aria-label="Maximize card"
-          className="absolute bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-border/70 bg-background/80 px-2 py-1 shadow-sm hover:bg-muted"
-        >
-          <Pin className="h-4 w-4 text-blue-400" />
-        </button>
       )}
       <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
         <DialogContent className="sm:max-w-md">

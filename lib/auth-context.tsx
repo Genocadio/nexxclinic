@@ -174,6 +174,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("doctor")
     localStorage.removeItem("dashboard_viewMode")
     localStorage.removeItem("dashboard_showMetrics")
+    localStorage.removeItem("app_font_size")
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-font-size", "md")
+    }
     void resetApolloCache()
     setDoctor(null)
   }

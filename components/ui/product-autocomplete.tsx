@@ -92,12 +92,18 @@ export function ProductAutocomplete({
 
   // If a product is selected, show a cleaner UI with just the name and clear button
   if (selectedProduct) {
+    const selectedCategory = (selectedProduct.metadata as Record<string, unknown> | null | undefined)?.category;
     return (
       <div className={cn('flex items-center gap-2 w-full', className)}>
-        <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border">
+        <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border min-w-0">
           <span className="text-sm font-medium truncate">{selectedProduct.name}</span>
           {selectedProduct.code && (
             <span className="text-xs text-muted-foreground truncate shrink-0">{selectedProduct.code}</span>
+          )}
+          {typeof selectedCategory === 'string' && selectedCategory.trim() && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 shrink-0 font-medium">
+              {selectedCategory.trim()}
+            </span>
           )}
           <Button
             variant="ghost"
@@ -159,9 +165,16 @@ export function ProductAutocomplete({
                   />
                   <div className="flex flex-col min-w-0">
                     <span className="truncate">{product.name}</span>
-                    {product.code && (
-                      <span className="text-xs text-muted-foreground truncate">{product.code}</span>
-                    )}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {product.code && (
+                        <span className="text-xs text-muted-foreground truncate">{product.code}</span>
+                      )}
+                      {typeof (product.metadata as any)?.category === 'string' && (product.metadata as any)?.category.trim() && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 font-medium">
+                          {String((product.metadata as any).category).trim()}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </CommandItem>
               ))}

@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { VisitBilling } from "@/lib/api-types";
 import { getVisitBillingTotals } from "@/lib/visit-billing-utils";
-import { formatRWF } from "@/lib/utils";
+import { cn, formatRWF } from "@/lib/utils";
 
 type BillingTotals = {
   subtotal: number;
@@ -52,6 +52,8 @@ type BillingStickySummaryProps = {
   onEditBilling: () => void;
   onDoneEditing: () => void;
   onCompleteVisit?: () => void;
+  cannotCancelEdit?: boolean;
+  cannotCancelEditReason?: string;
   invoiceBlockedUntilComplete?: boolean;
   onInvoiceBlockedClick?: () => void;
 };
@@ -73,6 +75,8 @@ export function BillingStickySummary({
   hasUnreadNotes = false,
   loadingEditBilling = false,
   loadingDoneEditing = false,
+  cannotCancelEdit = false,
+  cannotCancelEditReason,
   onCompleteBill,
   onPrint,
   onPrintInvoice,
@@ -213,26 +217,32 @@ export function BillingStickySummary({
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-9 rounded-full text-xs"
-                      disabled={loadingDoneEditing || creatingBill}
+                      className={cn(
+                        "h-9 rounded-full text-xs",
+                        cannotCancelEdit && "opacity-50 cursor-not-allowed",
+                      )}
+                      disabled={loadingDoneEditing || creatingBill || cannotCancelEdit}
                       onClick={onDoneEditing}
+                      title={
+                        cannotCancelEdit
+                          ? (cannotCancelEditReason || "Cannot cancel edit mode with unbilled items. Complete the edit or remove added items first.")
+                          : undefined
+                      }
                     >
                       {loadingDoneEditing ? "Cancelling…" : "Cancel"}
                     </Button>
-                    {hasEditChanges && (
-                      <Button
-                        size="sm"
-                        className="h-9 rounded-full text-xs px-4"
-                        disabled={creatingBill || hasUnreadNotes}
-                        onClick={onCompleteBill}
-                      >
-                        {creatingBill ? "Processing…" : "Complete Edit"}
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      className="h-9 rounded-full text-xs px-4"
+                      disabled={creatingBill || hasUnreadNotes}
+                      onClick={onCompleteBill}
+                    >
+                      {creatingBill ? "Processing…" : "Complete Edit"}
+                    </Button>
                   </>
                 )}
 
-                {!isEditingBill && hasRemainingToBill && !existingVisitBilling && (
+                {!isEditingBill && hasRemainingToBill && (
                   <Button
                     size="sm"
                     className="h-9 rounded-full text-xs px-4"
@@ -348,7 +358,7 @@ export function BillingStickySummary({
                   </>
                 )}
 
-                {existingVisitBilling && canCompleteVisit && !isEditingBill && (
+                {existingVisitBilling && canCompleteVisit && !isEditingBill && !hasRemainingToBill && (
                   <ActionButton
                     icon={CheckCircle}
                     label={

@@ -73,6 +73,7 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
       initialAnswers = {},
       edit = true,
       mode = "full",
+      hideSectionNav = false,
       extensions,
       controlledAnswers,
       onControlledAnswersChange,
@@ -223,7 +224,7 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
 
     // Build section jump-nav chips for full mode when the form has multiple logical sections
     const jumpSections = useMemo(() => {
-      if (mode !== "full") return [];
+      if (mode !== "full" || hideSectionNav || !edit) return [];
       const topBlocks = (form?.blocks ?? []).filter((b) =>
         shouldRenderBlock(b, answers, getBlockHandlers, form?.blocks),
       );
@@ -344,6 +345,82 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
         };
       });
     }, [mode, form?.blocks, answers, inlineAnswers, getBlockHandlers, showErrors]);
+
+    const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+
+    // Active section scroll tracking (captured across any scrollable ancestor or window)
+    useEffect(() => {
+      if (jumpSections.length === 0) return;
+
+      const handleScroll = () => {
+        // Check if user is scrolled near the bottom of their scroll container
+        let isAtBottom = false;
+        const container = scrollRef.current?.closest(".overflow-y-auto") as HTMLElement | null;
+        if (container) {
+          isAtBottom =
+            container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+        } else if (typeof window !== "undefined" && document.documentElement) {
+          isAtBottom =
+            window.innerHeight + window.scrollY >=
+            document.documentElement.scrollHeight - 50;
+        }
+
+        if (isAtBottom && jumpSections.length > 0) {
+          setActiveSectionId(jumpSections[jumpSections.length - 1].id);
+          return;
+        }
+
+        const triggerOffset = Math.max(120, window.innerHeight * 0.35);
+        let currentId = jumpSections[0]?.id;
+
+        for (const s of jumpSections) {
+          const el = document.getElementById(`block-${s.id}`);
+          if (!el) continue;
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= triggerOffset) {
+            currentId = s.id;
+          }
+        }
+
+        if (currentId) {
+          setActiveSectionId(currentId);
+        }
+      };
+
+      // Run immediately and after a short render delay
+      handleScroll();
+      const raf = requestAnimationFrame(handleScroll);
+
+      // Listen with capture: true on document so ANY scroll container (including overflow-y-auto divs) triggers it
+      document.addEventListener("scroll", handleScroll, { passive: true, capture: true });
+      window.addEventListener("resize", handleScroll, { passive: true });
+
+      return () => {
+        cancelAnimationFrame(raf);
+        document.removeEventListener("scroll", handleScroll, { capture: true });
+        window.removeEventListener("resize", handleScroll);
+      };
+    }, [jumpSections]);
+
+    const [timelineExpanded, setTimelineExpanded] = useState(false);
+    const timelineLeaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    const handleTimelineMouseEnter = useCallback(() => {
+      if (timelineLeaveTimerRef.current) {
+        clearTimeout(timelineLeaveTimerRef.current);
+        timelineLeaveTimerRef.current = null;
+      }
+      setTimelineExpanded(true);
+    }, []);
+
+    const handleTimelineMouseLeave = useCallback(() => {
+      if (timelineLeaveTimerRef.current) {
+        clearTimeout(timelineLeaveTimerRef.current);
+      }
+      timelineLeaveTimerRef.current = setTimeout(() => {
+        setTimelineExpanded(false);
+      }, 160);
+    }, []);
 
     const scrollToBlock = useCallback((blockId: string, highlightError = true) => {
       const el = document.getElementById(`block-${blockId}`);
@@ -488,55 +565,112 @@ export const FormRenderer = forwardRef<FormRendererHandle, FormRendererProps>(
             </div>
           )}
 
-          {mode === "full" && jumpSections.length >= 2 && (
-            <div className="mb-4 flex items-center gap-1.5 overflow-x-auto rounded-xl border border-border/60 bg-card/70 px-2.5 py-1.5 shadow-2xs backdrop-blur-xs scrollbar-none">
-              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground pr-1 border-r border-border/60">
-                Sections ({jumpSections.filter((s) => s.isComplete).length}/{jumpSections.length})
-              </span>
-              {jumpSections.map((section) => {
-                const targetBlockId =
-                  section.hasError && section.firstViolationId
-                    ? section.firstViolationId
-                    : section.id;
-                return (
-                  <button
-                    key={section.id}
-                    type="button"
-                    onClick={() =>
-                      scrollToBlock(targetBlockId, section.hasError)
-                    }
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors shrink-0",
-                      section.hasError
-                        ? "border-red-300 bg-red-50/90 text-red-700 hover:bg-red-100 dark:border-red-800/80 dark:bg-red-950/50 dark:text-red-300"
-                        : section.isComplete
-                          ? "border-emerald-300/80 bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100/80 dark:border-emerald-800/70 dark:bg-emerald-950/40 dark:text-emerald-300"
-                          : "border-border/60 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground",
-                    )}
-                    title={
-                      section.hasError
-                        ? `${section.title} — ${section.violationCount} required field(s) missing`
-                        : section.isComplete
-                          ? `${section.title} — Completed`
-                          : `Jump to ${section.title}`
-                    }
-                  >
-                    {section.hasError ? (
-                      <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white leading-none">
-                        !
-                      </span>
-                    ) : section.isComplete ? (
-                      <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white leading-none">
-                        ✓
-                      </span>
-                    ) : (
-                      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" />
-                    )}
-                    <span className="max-w-36 truncate">{section.title}</span>
-                  </button>
-                );
-              })}
-            </div>
+          {/* Vertical Section Timeline (Small hyphens, expands to show all sections on hover) */}
+          {mode === "full" && !hideSectionNav && edit && jumpSections.length >= 2 && (
+            <nav
+              aria-label="Form section timeline navigation"
+              onMouseEnter={handleTimelineMouseEnter}
+              onMouseLeave={handleTimelineMouseLeave}
+              className="fixed right-2 sm:right-3.5 top-1/2 -translate-y-1/2 z-30 select-none"
+            >
+              {!timelineExpanded ? (
+                /* Collapsed: Subtle, non-prominent hyphens — active is wider/bolder, missing reqs flagged, dull otherwise */
+                <div className="flex flex-col items-end gap-2 py-3 px-2 cursor-pointer transition-opacity duration-200">
+                  {jumpSections.map((section) => {
+                    const isActive = activeSectionId === section.id;
+                    return (
+                      <div
+                        key={section.id}
+                        className="flex items-center justify-end h-2.5"
+                      >
+                        <span
+                          className={cn(
+                            "rounded-full transition-all duration-300 ease-out",
+                            // Inactive is dull; Active is wider and bolder
+                            isActive ? "w-6 h-[3.5px]" : "w-3 h-[2px]",
+                            // Differentiate missing requirements vs filled vs no requirement
+                            section.hasError
+                              ? "bg-red-500 shadow-xs"
+                              : section.isComplete
+                                ? "bg-emerald-500/80"
+                                : isActive
+                                  ? "bg-primary shadow-xs"
+                                  : "bg-foreground/20 dark:bg-foreground/25"
+                          )}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Expanded on hover: Shows ALL section names simultaneously, status, and active position */
+                <div className="flex flex-col rounded-2xl border border-border/80 bg-card/95 dark:bg-card/90 backdrop-blur-md shadow-2xl p-2 min-w-[220px] max-w-[300px] animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center justify-between px-2 py-1 mb-1 border-b border-border/50 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span>Sections</span>
+                    <span>
+                      {jumpSections.filter((s) => s.isComplete).length}/{jumpSections.length} done
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1 max-h-[60vh] overflow-y-auto pr-0.5">
+                    {jumpSections.map((section) => {
+                      const isActive = activeSectionId === section.id;
+                      const targetBlockId =
+                        section.hasError && section.firstViolationId
+                          ? section.firstViolationId
+                          : section.id;
+
+                      return (
+                        <button
+                          key={section.id}
+                          type="button"
+                          onClick={() => {
+                            scrollToBlock(targetBlockId, section.hasError);
+                            setActiveSectionId(section.id);
+                            setTimelineExpanded(false);
+                          }}
+                          className={cn(
+                            "flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-left transition-all duration-150 cursor-pointer text-xs group",
+                            isActive
+                              ? "bg-primary/10 text-primary font-semibold ring-1 ring-primary/25"
+                              : "text-foreground/80 hover:bg-muted/70 hover:text-foreground"
+                          )}
+                        >
+                          {/* Bar/hyphen indicator matching status */}
+                          <span
+                            className={cn(
+                              "rounded-full shrink-0 transition-all duration-200",
+                              isActive ? "w-4 h-[3.5px]" : "w-2.5 h-[2px]",
+                              section.hasError
+                                ? "bg-red-500"
+                                : section.isComplete
+                                  ? "bg-emerald-500"
+                                  : isActive
+                                    ? "bg-primary"
+                                    : "bg-muted-foreground/40 group-hover:bg-foreground/60"
+                            )}
+                          />
+
+                          {/* Section title */}
+                          <span className="flex-1 truncate">{section.title}</span>
+
+                          {/* Status indicator on the right */}
+                          {section.hasError ? (
+                            <span className="shrink-0 flex items-center justify-center h-4 px-1.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 text-[10px] font-bold">
+                              ! {section.violationCount}
+                            </span>
+                          ) : section.isComplete ? (
+                            <span className="shrink-0 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                              ✓
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </nav>
           )}
 
           <div className="space-y-6" ref={scrollRef}>

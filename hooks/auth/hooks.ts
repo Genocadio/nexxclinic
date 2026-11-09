@@ -1,6 +1,6 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client'
 import { getErrorMessage } from '@/lib/error-utils'
-import { LOGIN_MUTATION, SET_INITIAL_PASSWORD_MUTATION, REGISTER_MUTATION, ADMIN_CREATE_USER_MUTATION, ADMIN_UPDATE_USER_MUTATION, ACTIVATE_USER_MUTATION, DEACTIVATE_USER_MUTATION, UPDATE_USER_ROLES_MUTATION, UPDATE_MY_PROFILE_MUTATION, CHANGE_PASSWORD_MUTATION, DELETE_USER_PASSWORD_MUTATION, UPDATE_CLINIC_PROFILE_MUTATION } from '../mutations'
+import { LOGIN_MUTATION, SET_INITIAL_PASSWORD_MUTATION, REGISTER_MUTATION, ADMIN_CREATE_USER_MUTATION, ADMIN_UPDATE_USER_MUTATION, ACTIVATE_USER_MUTATION, DEACTIVATE_USER_MUTATION, UPDATE_USER_ROLES_MUTATION, UPDATE_MY_PROFILE_MUTATION, CHANGE_PASSWORD_MUTATION, DELETE_USER_PASSWORD_MUTATION, UPDATE_CLINIC_PROFILE_MUTATION, UPDATE_MY_SETTINGS_MUTATION } from '../mutations'
 import { ME_QUERY, GET_USERS_QUERY, CLINIC_PROFILE_QUERY } from '../queries'
 import type { LoginResponse, UserAccount, UserResponse, RegisterResponse, Worker } from '../types'
 import type { ClinicContact, ClinicProfile } from '@/lib/api-types'
@@ -546,4 +546,34 @@ export function useDeleteUserPassword() {
   }
 
   return { deleteUserPassword, loading, error }
+}
+
+export function useUpdateMySettings() {
+  const [mutation, { loading, error }] = useMutation(UPDATE_MY_SETTINGS_MUTATION)
+
+  const updateMySettings = async (input: {
+    fontSize?: string
+    theme?: string
+    settingsJson?: any
+  }) => {
+    try {
+      const result = await mutation({ variables: { input } })
+      const payload = result.data?.updateMySettings
+      return {
+        status: payload?.status || 'ERROR',
+        message: payload?.message,
+        data: payload?.data,
+      }
+    } catch (err) {
+      console.error('Update my settings error:', err)
+      const errorMessage = getErrorMessage(err) || 'Unable to update settings'
+      return {
+        status: 'ERROR',
+        message: errorMessage,
+        data: null,
+      }
+    }
+  }
+
+  return { updateMySettings, loading, error }
 }

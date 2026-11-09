@@ -623,10 +623,11 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
   };
 
   const handleAddInsuranceToVisit = async (insuranceId: string) => {
-    if (!visitId) return;
+    const targetVisitId = visitId || visit?.id;
+    if (!targetVisitId) return;
 
     try {
-      const response = await linkVisitInsurances(visitId, [insuranceId]);
+      const response = await linkVisitInsurances(targetVisitId, [insuranceId]);
       if (response?.status === "SUCCESS") {
         setActiveVisitInsuranceIds((current) =>
           current.includes(insuranceId) ? current : [...current, insuranceId],
@@ -679,13 +680,14 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
   };
 
   const handleRemoveInsuranceFromVisit = async (insuranceId: string) => {
-    if (!visitId) return;
+    const targetVisitId = visitId || visit?.id;
+    if (!targetVisitId) return;
 
     // Frontend guard: check if any billed items use this insurance
     if (billingData) {
       const isUsedInBilledItem = billingData.items.some(
         (item) =>
-          item.selectedInsuranceId === insuranceId &&
+          String(item.selectedInsuranceId) === String(insuranceId) &&
           (item.paymentStatus === "paid" || item.paymentStatus === "exempted"),
       );
       if (isUsedInBilledItem) {
@@ -698,7 +700,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     }
 
     try {
-      const response = await unlinkVisitInsurances(visitId, [insuranceId]);
+      const response = await unlinkVisitInsurances(targetVisitId, [insuranceId]);
       if (response?.status === "SUCCESS") {
         setActiveVisitInsuranceIds((current) =>
           current.filter((id) => id !== insuranceId),

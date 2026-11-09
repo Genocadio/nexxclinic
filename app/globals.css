@@ -550,3 +550,34 @@
   background: linear-gradient(135deg, rgba(30, 58, 138, 0.9) 0%, rgba(15, 23, 42, 0.94) 100%) !important;
   color: #dbeafe !important;
 }
+
+/* ============================================================
+   Font Size Scaling (User Settings & WhatsApp Sizing Baseline)
+   ============================================================ */
+html[data-font-size="sm"] {
+  font-size: 14.5px;
+}
+html[data-font-size="md"] {
+  font-size: 16px;
+}
+html[data-font-size="lg"] {
+  font-size: 18px;
+}
+html[data-font-size="xl"] {
+  font-size: 20px;
+}
+
+/* WhatsApp baseline sizing: ensure no text in dropdowns, cards, notes, or badges
+   drops below WhatsApp minimum readability baseline (min ~11.5px on compact, ~12.5px on default)
+   and ensure all custom pixel font sizes scale proportionally with the user font size setting */
+.text-\[8px\],
+.text-\[9px\],
+.text-\[10px\] {
+  font-size: 0.775rem !important;
+  line-height: 1.35 !important;
+}
+
+.text-\[11px\] {
+  font-size: 0.825rem !important;
+  line-height: 1.4 !important;
+}

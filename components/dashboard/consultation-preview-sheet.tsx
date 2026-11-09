@@ -317,6 +317,7 @@ export function ConsultationPreviewSheet({
                     edit={false}
                     validate={false}
                     hideSubmit={true}
+                    hideSectionNav={true}
                     initialAnswers={previewAnswers}
                     className="mx-auto"
                     visitId={String(visitId || "")}
