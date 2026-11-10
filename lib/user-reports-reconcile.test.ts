@@ -1,8 +1,8 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, it } from "vitest"
 import { calculateUserReports, reconcileUserReportsData } from "./user-reports-calculator"
 
 describe("reconcileUserReportsData", () => {
-  test("lifts zero headline counts to match breakdown lists", () => {
+  it("lifts zero headline counts to match breakdown lists", () => {
     const base = calculateUserReports([], null, "today", "2026-01-01", "2026-01-01")
     const data = {
       ...base,

@@ -1,18 +1,20 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useFontSize } from "@/lib/font-size-context"
-import { useTheme, type ThemePreference } from "@/lib/theme-context"
+import { useTheme } from "@/lib/theme-context"
 import { FontSizePicker } from "@/components/font-size-picker"
+import { ThemePicker } from "@/components/theme-picker"
 import { Button } from "@/components/ui/button"
-import { Type, Sparkles, Sun, Moon, Monitor, Palette } from "lucide-react"
+import { Type, Sparkles, Palette, ArrowLeft, ArrowRight, Check } from "lucide-react"
 import { toast } from "react-toastify"
 
 export function FontSizeOnboardingDialog() {
   const { doctor, isAuthenticated } = useAuth()
   const { hasPersistedSetting, previewSize, applyDisplaySettings, isLoading } = useFontSize()
-  const { preference, setThemePreference } = useTheme()
+  const { preference } = useTheme()
+  const [step, setStep] = useState<1 | 2>(1)
 
   // Only show if user is authenticated and hasn't persisted their font size preference yet
   const shouldShow = isAuthenticated && doctor && !hasPersistedSetting
@@ -58,110 +60,88 @@ export function FontSizeOnboardingDialog() {
             id="font-size-onboarding-title"
             className="text-[20px] sm:text-[23px] font-bold tracking-tight text-foreground flex items-center justify-center gap-[8px]"
           >
-            <Type className="w-[22px] h-[22px] text-primary shrink-0" />
-            <span>Personalize Your Display & Theme</span>
+            {step === 1 ? (
+              <Type className="w-[22px] h-[22px] text-primary shrink-0" />
+            ) : (
+              <Palette className="w-[22px] h-[22px] text-primary shrink-0" />
+            )}
+            <span>{step === 1 ? "Choose Your Text Size" : "Choose Your Theme"}</span>
           </h2>
 
           <p className="text-[12px] sm:text-[13px] text-muted-foreground leading-[18px]">
-            Choose your preferred theme and interface sizing. The screen behind this window
-            updates live as you test different options.
+            {step === 1
+              ? "Pick the interface size that is most comfortable to read. The screen behind this window updates live."
+              : "Pick how the app looks. Each card previews the theme, and the screen behind this window updates live."}
           </p>
+
+          {/* Step indicator */}
+          <div className="flex items-center justify-center gap-[8px] pt-[4px]" aria-label={`Step ${step} of 2`}>
+            {[1, 2].map((n) => (
+              <div key={n} className="flex items-center gap-[8px]">
+                <div
+                  className={`w-[22px] h-[22px] rounded-full text-[11px] font-bold flex items-center justify-center ${
+                    n < step
+                      ? "bg-primary text-primary-foreground"
+                      : n === step
+                        ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
+                        : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {n < step ? <Check className="w-[12px] h-[12px] stroke-[3]" /> : n}
+                </div>
+                <span className={`text-[11.5px] ${n === step ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                  {n === 1 ? "Font size" : "Theme"}
+                </span>
+                {n === 1 && <div className="w-[28px] h-px bg-border" />}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Scrollable Content Body */}
-        <div className="overflow-y-auto space-y-[18px] pr-[4px]">
-          {/* Section 1: Color Theme Selector */}
-          <div className="p-[14px] rounded-[16px] bg-muted/30 border border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-[12px]">
-            <div className="flex items-center gap-[8px]">
-              <div className="w-[28px] h-[28px] rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <Palette className="w-[15px] h-[15px]" />
-              </div>
-              <div>
-                <p className="text-[13px] font-semibold text-foreground leading-tight">
-                  Color Theme
-                </p>
-                <p className="text-[11px] text-muted-foreground leading-tight mt-[2px]">
-                  Switch between light and dark modes
-                </p>
-              </div>
-            </div>
-
-            {/* Theme segmented buttons */}
-            <div className="flex items-center p-[3px] bg-muted/60 dark:bg-muted/40 rounded-[12px] border border-border/40 shrink-0 self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setThemePreference("light")}
-                className={`flex items-center gap-[6px] py-[5px] px-[12px] rounded-[9px] text-[12px] font-medium transition-all duration-150 cursor-pointer ${
-                  preference === "light"
-                    ? "bg-background text-foreground shadow-sm font-semibold"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                title="Light Theme"
-              >
-                <Sun className="w-[14px] h-[14px] text-amber-500" />
-                <span>Light</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setThemePreference("system")}
-                className={`flex items-center gap-[6px] py-[5px] px-[12px] rounded-[9px] text-[12px] font-medium transition-all duration-150 cursor-pointer ${
-                  preference === "system"
-                    ? "bg-background text-foreground shadow-sm font-semibold"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                title="System Theme"
-              >
-                <Monitor className="w-[14px] h-[14px]" />
-                <span>System</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setThemePreference("dark")}
-                className={`flex items-center gap-[6px] py-[5px] px-[12px] rounded-[9px] text-[12px] font-medium transition-all duration-150 cursor-pointer ${
-                  preference === "dark"
-                    ? "bg-background text-foreground shadow-sm font-semibold"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                title="Dark Theme"
-              >
-                <Moon className="w-[14px] h-[14px] text-indigo-400" />
-                <span>Dark</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Section 2: 4 Font Size Cards */}
-          <div>
-            <div className="mb-[8px] flex items-center justify-between">
-              <p className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Interface Font Size
-              </p>
-              <span className="text-[11px] text-muted-foreground">
-                Click any card to preview live
-              </span>
-            </div>
-
-            <FontSizePicker showApplyButton={false} />
-          </div>
+        <div className="overflow-y-auto pr-[4px]">
+          {step === 1 ? <FontSizePicker showApplyButton={false} /> : <ThemePicker />}
         </div>
 
-        {/* Footer: Non-dismissible Apply & Continue Button */}
+        {/* Footer: Step navigation (non-dismissible) */}
         <div className="pt-[14px] border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-[12px] shrink-0">
           <p className="text-[11.5px] text-muted-foreground text-center sm:text-left">
-            You can modify both theme and display sizes anytime from your User Profile.
+            You can change both anytime from My Account.
           </p>
 
-          <Button
-            type="button"
-            size="default"
-            onClick={handleApplyAndContinue}
-            disabled={isLoading}
-            className="w-full sm:w-auto h-[38px] px-[26px] rounded-full font-semibold shadow-md text-[13px]"
-          >
-            {isLoading ? "Saving Preferences..." : "Apply & Continue"}
-          </Button>
+          <div className="flex items-center gap-[10px] w-full sm:w-auto">
+            {step === 2 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStep(1)}
+                disabled={isLoading}
+                className="h-[38px] px-[18px] rounded-full text-[13px] gap-[6px]"
+              >
+                <ArrowLeft className="w-[14px] h-[14px]" />
+                Back
+              </Button>
+            )}
+            {step === 1 ? (
+              <Button
+                type="button"
+                onClick={() => setStep(2)}
+                className="flex-1 sm:flex-none h-[38px] px-[26px] rounded-full font-semibold shadow-md text-[13px] gap-[6px]"
+              >
+                Next: Theme
+                <ArrowRight className="w-[14px] h-[14px]" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={handleApplyAndContinue}
+                disabled={isLoading}
+                className="flex-1 sm:flex-none h-[38px] px-[26px] rounded-full font-semibold shadow-md text-[13px]"
+              >
+                {isLoading ? "Saving Preferences..." : "Save & Continue"}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "@/lib/navigation"
-import { ArrowLeft, Camera, Pencil, Loader2, AlertCircle, Sun, Moon, Monitor, Type } from "lucide-react"
+import { ArrowLeft, Camera, Pencil, Loader2, AlertCircle, Sun, Moon, Monitor, Type, Palette } from "lucide-react"
 import { toast } from "react-toastify"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -12,9 +12,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { FieldError } from "@/components/ui/field-error"
 import { FontSizePicker } from "@/components/font-size-picker"
+import { ThemePicker } from "@/components/theme-picker"
 import { useChangePassword, useUpdateMyProfile } from "@/hooks/auth-hooks"
 import { useAuth } from "@/lib/auth-context"
-import { useTheme } from "@/lib/theme-context"
 import { sanitizeEmailInput, sanitizePhoneInput } from "@/lib/validation-utils"
 import { getMediaUrl } from "@/lib/media-url"
 import { Gender } from "@/lib/api-types"
@@ -29,7 +29,7 @@ import {
 export default function AccountPage() {
   const router = useRouter()
   const { doctor } = useAuth()
-  const { preference, setThemePreference } = useTheme()
+  const [displayTab, setDisplayTab] = useState<"font" | "theme">("font")
   const { updateMyProfile, loading: updatingProfile } = useUpdateMyProfile()
   const { changePassword, loading: changingPassword } = useChangePassword()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -305,67 +305,53 @@ export default function AccountPage() {
           </form>
         </section>
 
-        {/* Display, Theme & Font Size Settings */}
-        <section className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-6">
+        {/* Display Settings: two steps (Font size, Theme) */}
+        <section className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <Type className="w-5 h-5 text-primary" />
-                <span>Display & Font Size</span>
+                <span>Display Settings</span>
               </h2>
               <p className="text-xs text-muted-foreground mt-1">
-                Customize your reading comfort and color theme. Selecting a card previews changes immediately.
+                Choose your text size and theme. Selecting an option previews it immediately.
               </p>
             </div>
 
-            {/* Theme switcher segmented control */}
-            <div className="flex items-center p-1 bg-muted/60 dark:bg-muted/40 rounded-xl border border-border/40 shrink-0 self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setThemePreference("light")}
-                className={`flex items-center gap-1.5 py-1 px-3 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
-                  preference === "light"
-                    ? "bg-background text-foreground shadow-sm font-semibold"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                title="Light Theme"
-              >
-                <Sun className="w-3.5 h-3.5 text-amber-500" />
-                <span>Light</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setThemePreference("system")}
-                className={`flex items-center gap-1.5 py-1 px-3 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
-                  preference === "system"
-                    ? "bg-background text-foreground shadow-sm font-semibold"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                title="System Theme"
-              >
-                <Monitor className="w-3.5 h-3.5" />
-                <span>System</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setThemePreference("dark")}
-                className={`flex items-center gap-1.5 py-1 px-3 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
-                  preference === "dark"
-                    ? "bg-background text-foreground shadow-sm font-semibold"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                title="Dark Theme"
-              >
-                <Moon className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Dark</span>
-              </button>
+            <div role="tablist" className="flex items-center p-1 bg-muted/60 dark:bg-muted/40 rounded-xl border border-border/40 shrink-0 self-start sm:self-auto">
+              {([
+                { id: "font", label: "1. Font size", icon: Type },
+                { id: "theme", label: "2. Theme", icon: Palette },
+              ] as const).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={displayTab === t.id}
+                  onClick={() => setDisplayTab(t.id)}
+                  className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
+                    displayTab === t.id
+                      ? "bg-background text-foreground shadow-sm font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <t.icon className="w-3.5 h-3.5" />
+                  <span>{t.label}</span>
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* 4 Cards Font Size Picker */}
-          <FontSizePicker />
+          {displayTab === "font" ? (
+            <FontSizePicker />
+          ) : (
+            <div className="space-y-3">
+              <ThemePicker />
+              <p className="text-[12px] text-muted-foreground">
+                Theme changes are saved automatically to your profile.
+              </p>
+            </div>
+          )}
         </section>
 
         <section className="bg-card/70 dark:bg-slate-900/70 backdrop-blur-xl border border-border/50 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
