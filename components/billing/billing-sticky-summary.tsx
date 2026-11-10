@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Printer, Pencil, CheckCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +9,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
+import { Spinner } from "@/components/ui/spinner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,7 +60,7 @@ type BillingStickySummaryProps = {
   onEditBilling: () => void;
   onDoneEditing: () => void;
   onCompleteVisit?: () => void;
-  onSendBack?: () => void;
+  onSendBack?: (reason: string) => Promise<void> | void;
   sendingBack?: boolean;
   cannotCancelEdit?: boolean;
   cannotCancelEditReason?: string;
@@ -259,17 +266,16 @@ export function BillingStickySummary({
                       {creatingBill ? "Processing…" : "Complete Bill"}
                     </Button>
                     {onSendBack && (
-                      <ActionButton
-                        icon={RotateCcw}
-                        label={sendingBack ? "Returning…" : "Return to service"}
-                        onClick={onSendBack}
+                      <ReturnToDoctorPopoverButton
                         disabled={!canAct || sendingBack}
+                        sendingBack={sendingBack}
+                        onConfirm={onSendBack}
                         tooltipOverride={
                           !canAct
                             ? "View unread notes before routing"
                             : sendingBack
                               ? "Returning to doctor…"
-                              : "Return patient back to doctor / previous service"
+                              : "Return patient back to doctor / consultation"
                         }
                       />
                     )}
@@ -400,17 +406,16 @@ export function BillingStickySummary({
                 )}
 
                 {existingVisitBilling && !isEditingBill && onSendBack && !hasRemainingToBill && (
-                  <ActionButton
-                    icon={RotateCcw}
-                    label={sendingBack ? "Returning…" : "Return to service"}
-                    onClick={onSendBack}
+                  <ReturnToDoctorPopoverButton
                     disabled={!canAct || sendingBack}
+                    sendingBack={sendingBack}
+                    onConfirm={onSendBack}
                     tooltipOverride={
                       !canAct
                         ? "View unread notes before routing"
                         : sendingBack
                           ? "Returning to doctor…"
-                          : "Return patient back to doctor / previous service with a notice"
+                          : "Return patient back to doctor / consultation"
                     }
                   />
                 )}
@@ -617,5 +622,135 @@ function ActionButton({
       </TooltipTrigger>
       <TooltipContent>{tooltipOverride || label}</TooltipContent>
     </Tooltip>
+  );
+}
+
+function ReturnToDoctorPopoverButton({
+  disabled,
+  sendingBack,
+  onConfirm,
+  tooltipOverride,
+}: {
+  disabled?: boolean;
+  sendingBack?: boolean;
+  onConfirm: (reason: string) => Promise<void> | void;
+  tooltipOverride?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!submitting && !sendingBack) {
+          setOpen(nextOpen);
+          if (!nextOpen) setReason("");
+        }
+      }}
+    >
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-9 w-9 rounded-full relative cursor-pointer",
+                open && "bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30"
+              )}
+              disabled={disabled}
+              aria-label="Return to doctor"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>{tooltipOverride || "Return patient to doctor / consultation"}</TooltipContent>
+      </Tooltip>
+
+      <PopoverContent
+        side="top"
+        align="end"
+        sideOffset={10}
+        className="w-80 p-3.5 rounded-2xl border border-border/80 bg-background/95 backdrop-blur-md shadow-2xl z-[150]"
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+            <RotateCcw className="w-3.5 h-3.5" />
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-xs font-semibold text-foreground">Return to Doctor</h4>
+            <p className="text-[10px] text-muted-foreground truncate">
+              Reason saved directly to consultation notes
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Textarea
+            placeholder="Reason for returning (e.g. clarify dosage, revise tariff)..."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
+            disabled={submitting || sendingBack}
+            className="resize-none text-xs min-h-[58px] p-2 rounded-lg placeholder:text-muted-foreground/60 border-muted-foreground/20 focus-visible:ring-1 focus-visible:ring-amber-500/50"
+            autoFocus
+          />
+          {!reason.trim() && (
+            <p className="text-[10px] text-muted-foreground/75 italic">
+              A return reason is required.
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 mt-2.5 pt-2 border-t border-border/40">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={submitting || sendingBack}
+            onClick={() => {
+              setOpen(false);
+              setReason("");
+            }}
+            className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!reason.trim() || submitting || sendingBack}
+            onClick={async () => {
+              const trimmed = reason.trim();
+              if (!trimmed) return;
+              setSubmitting(true);
+              try {
+                await onConfirm(trimmed);
+                setOpen(false);
+                setReason("");
+              } finally {
+                setSubmitting(false);
+              }
+            }}
+            className="h-7 px-3 text-xs font-medium gap-1.5 bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
+          >
+            {submitting || sendingBack ? (
+              <>
+                <Spinner className="w-3 h-3 text-white" />
+                <span>Returning…</span>
+              </>
+            ) : (
+              <>
+                <RotateCcw className="w-3 h-3" />
+                <span>Return</span>
+              </>
+            )}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

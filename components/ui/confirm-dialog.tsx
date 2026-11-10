@@ -2,6 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,17 +46,20 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="sm:max-w-md">
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
+      <AlertDialogContent className="sm:max-w-md p-5 sm:p-6">
+        <AlertDialogHeader className="space-y-1.5">
+          <AlertDialogTitle className="text-base font-semibold">{title}</AlertDialogTitle>
           {description ? (
-            <AlertDialogDescription>{description}</AlertDialogDescription>
+            <AlertDialogDescription className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              {description}
+            </AlertDialogDescription>
           ) : null}
         </AlertDialogHeader>
-        <AlertDialogFooter>
+        <AlertDialogFooter className="gap-2.5 sm:gap-3 pt-2">
           <AlertDialogCancel
             disabled={busy}
             onClick={() => onOpenChange(false)}
+            className="h-8.5 px-3.5 text-xs font-medium"
           >
             {cancelLabel}
           </AlertDialogCancel>
@@ -65,15 +69,16 @@ export function ConfirmDialog({
               e.preventDefault();
               onConfirm();
             }}
-            className={
+            className={cn(
+              "h-8.5 px-4 text-xs font-medium shadow-xs",
               destructive
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : undefined
-            }
+            )}
           >
             {busy ? (
               <>
-                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                 {confirmLabel}…
               </>
             ) : (

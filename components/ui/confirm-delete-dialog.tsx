@@ -95,8 +95,12 @@ export function ConfirmDeleteDialog({
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy} onClick={() => onOpenChange(false)}>
+        <AlertDialogFooter className="gap-2.5 sm:gap-3 pt-2">
+          <AlertDialogCancel
+            disabled={busy}
+            onClick={() => onOpenChange(false)}
+            className="h-8.5 px-3.5 text-xs font-medium"
+          >
             {cancelLabel}
           </AlertDialogCancel>
           <AlertDialogAction
@@ -105,11 +109,11 @@ export function ConfirmDeleteDialog({
               e.preventDefault();
               onConfirm();
             }}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className="h-8.5 px-4 text-xs font-medium shadow-xs bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {busy ? (
               <>
-                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                 {confirmLabel}…
               </>
             ) : (

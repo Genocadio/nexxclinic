@@ -1551,21 +1551,23 @@ export function StandaloneConsultationView({
       )}
 
       <Dialog open={showFinalizeConfirm} onOpenChange={setShowFinalizeConfirm}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="sm:max-w-md p-5 sm:p-6">
+          <DialogHeader className="space-y-1.5">
+            <DialogTitle className="text-base font-semibold">
               {isActuallyBilled || isDepartmentEditing ? "Save Answers" : "Send to Billing"}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
               {isActuallyBilled || isDepartmentEditing
                 ? "Save your consultation documentation. Since billing is already completed, answers will be saved without altering billing status."
                 : "Submit consultation documentation and send this visit to Billing for payment processing."}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2.5 sm:gap-3 pt-2">
             <Button
               type="button"
+              size="sm"
               variant="outline"
+              className="h-8.5 px-3.5 text-xs font-medium"
               disabled={isFinalising || savingDraft || isFinalised}
               onClick={() => {
                 setShowFinalizeConfirm(false);
@@ -1576,6 +1578,8 @@ export function StandaloneConsultationView({
             </Button>
             <Button
               type="button"
+              size="sm"
+              className="h-8.5 px-4 text-xs font-medium shadow-xs"
               disabled={unreadNotesCount > 0 || isFinalising || isFinalised}
               onClick={async () => {
                 if (finalisingRef.current || isFinalised) return;
