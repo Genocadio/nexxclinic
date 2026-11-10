@@ -1640,3 +1640,138 @@ export function calculateUserReports(
     allActivities,
   }
 }
+
+/**
+ * Reconciles headline counts with the detailed lists that came with the same payload.
+ *
+ * Backend-supplied summary counters can lag behind (or be zero) while the breakdown
+ * lists/tables already hold data. Counts never drop below what the lists prove exists.
+ */
+export function reconcileUserReportsData(data: UserReportsData): UserReportsData {
+  const reception = data.reception
+  const clinician = data.clinician
+  const nurse = data.nurse
+  const finance = data.finance
+
+  const receptionActs = reception?.activities ?? []
+  const clinicianActs = clinician?.activities ?? []
+  const nurseActs = nurse?.activities ?? []
+  const financeActs = finance?.activities ?? finance?.general?.activities ?? []
+  const encounters = clinician?.encountersList ?? []
+  const turnover = clinician?.money?.productTurnoverList ?? []
+
+  const merged = [...receptionActs, ...clinicianActs, ...nurseActs, ...financeActs]
+  const allActivities = data.allActivities?.length ? data.allActivities : merged
+
+  // Unique patients across everything we can see
+  const patientKeys = new Set<string>()
+  for (const a of merged) if (a.patientId) patientKeys.add(a.patientId)
+  for (const e of encounters) if (e.patientId) patientKeys.add(e.patientId)
+  for (const t of turnover) if (t.patientId) patientKeys.add(t.patientId)
+  for (const a of allActivities) if (a.patientId) patientKeys.add(a.patientId)
+
+  // Reception
+  const initiated = receptionActs.filter((a) => a.actionType === "Department Dispatched").length
+  const referrals = receptionActs.filter((a) => a.actionType === "Referral Dispatched").length
+  const receptionPatients = new Set(receptionActs.map((a) => a.patientId).filter(Boolean))
+
+  // Clinician
+  const completedEncounters = encounters.filter((e) => e.status === "COMPLETED").length
+  const consultationsCount = Math.max(clinician?.consultationsCount ?? 0, encounters.length)
+  const consultationsCompletedCount = Math.max(
+    clinician?.consultationsCompletedCount ?? 0,
+    completedEncounters,
+  )
+  const prescribed = clinicianActs.filter((a) => a.actionType === "Product / Prescription Ordered").length
+  const prescriptionsCount = Math.max(
+    clinician?.prescriptionsCount ?? 0,
+    prescribed,
+    turnover.length,
+  )
+
+  // Nurse
+  const vitals = nurseActs.filter((a) => a.actionType === "Vital Signs Recorded").length
+  const triage = nurseActs.filter((a) => a.actionType === "Triage Assessment").length
+  const acts = nurseActs.filter((a) => a.actionType === "Nursing Act / Consumable").length
+
+  // Demographics from encounters when the summary is empty
+  let demographics = data.demographics
+  const clinicianDemo = clinician?.demographics
+  const demoEmpty = (d?: ClinicianDemographicsReport) =>
+    !d || (d.totalPatientsCount === 0 && d.maleCount + d.femaleCount + d.otherGenderCount === 0)
+  if (demoEmpty(demographics) && encounters.length > 0) {
+    let male = 0, female = 0, other = 0, under18 = 0, adults = 0, seniors = 0
+    let ageSum = 0, ageN = 0
+    const seen = new Set<string>()
+    for (const e of encounters) {
+      const key = e.patientId || e.id
+      if (seen.has(key)) continue
+      seen.add(key)
+      const g = (e.gender ?? "").toUpperCase()
+      if (g.startsWith("M")) male++
+      else if (g.startsWith("F")) female++
+      else if (g) other++
+      const age = calculatePatientAge(e.dateOfBirth, e.age)
+      if (age != null) {
+        ageSum += age
+        ageN++
+        if (age < 18) under18++
+        else if (age <= 50) adults++
+        else seniors++
+      }
+    }
+    demographics = {
+      totalPatientsCount: seen.size,
+      maleCount: male,
+      femaleCount: female,
+      otherGenderCount: other,
+      averageAge: ageN > 0 ? Math.round((ageSum / ageN) * 10) / 10 : 0,
+      ageBrackets: { under18, adults18to50: adults, seniors50plus: seniors },
+      averageEncounterTimeMinutes: demographics?.averageEncounterTimeMinutes ?? 0,
+      peakActivityHour: demographics?.peakActivityHour ?? "N/A",
+      encountersByHour: demographics?.encountersByHour ?? {},
+    }
+  } else if (demographics && demographics.totalPatientsCount === 0 && patientKeys.size > 0) {
+    demographics = { ...demographics, totalPatientsCount: patientKeys.size }
+  }
+
+  return {
+    ...data,
+    allActivities,
+    totalInteractions: Math.max(data.totalInteractions ?? 0, allActivities.length),
+    uniquePatientsTouched: Math.max(data.uniquePatientsTouched ?? 0, patientKeys.size),
+    demographics,
+    reception: reception
+      ? {
+          ...reception,
+          visitsInitiatedCount: Math.max(reception.visitsInitiatedCount ?? 0, initiated),
+          departmentsDispatchedCount: Math.max(
+            reception.departmentsDispatchedCount ?? 0,
+            initiated + referrals,
+          ),
+          uniquePatientsCount: Math.max(reception.uniquePatientsCount ?? 0, receptionPatients.size),
+        }
+      : reception,
+    clinician: clinician
+      ? {
+          ...clinician,
+          consultationsCount,
+          consultationsCompletedCount: Math.min(consultationsCompletedCount, consultationsCount),
+          consultationsInProgressCount: Math.max(
+            clinician.consultationsInProgressCount ?? 0,
+            consultationsCount - Math.min(consultationsCompletedCount, consultationsCount),
+          ),
+          prescriptionsCount,
+          demographics: demoEmpty(clinicianDemo) && demographics ? demographics : clinicianDemo,
+        }
+      : clinician,
+    nurse: nurse
+      ? {
+          ...nurse,
+          vitalsRecordedCount: Math.max(nurse.vitalsRecordedCount ?? 0, vitals),
+          triageEncountersCount: Math.max(nurse.triageEncountersCount ?? 0, triage),
+          nursingActsCount: Math.max(nurse.nursingActsCount ?? 0, acts),
+        }
+      : nurse,
+  }
+}

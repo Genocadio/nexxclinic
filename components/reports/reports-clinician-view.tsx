@@ -1231,7 +1231,7 @@ function ReportsClinicianViewContent({
           {/* Turnover Breakdown Table with View Switcher, Fit/Expand and Continuous Scroll */}
           <div className={cn(
             "bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl shadow-sm flex flex-col transition-all overflow-hidden p-4 sm:p-5 gap-3",
-            isTableExpanded && "flex-1 min-h-0"
+            isTableExpanded && "fixed inset-x-3 sm:inset-x-16 top-3 bottom-3 z-30 shadow-2xl min-h-0"
           )}>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>

@@ -7,7 +7,7 @@ import Header from "@/components/header"
 import { AppLoadingState } from "@/components/ui/app-loading-state"
 import { useAuth } from "@/lib/auth-context"
 import { useUserReports } from "@/hooks/reports"
-import { calculateUserReports, type ReportPeriod, type UserReportsData } from "@/lib/user-reports-calculator"
+import { calculateUserReports, reconcileUserReportsData, type ReportPeriod, type UserReportsData } from "@/lib/user-reports-calculator"
 import { cn } from "@/lib/utils"
 import {
   ReportsClinicianSkeleton,
@@ -194,7 +194,7 @@ export default function ReportsPage() {
 
   // Calculate or fallback report metrics
   const reportData: UserReportsData = useMemo(() => {
-    if (backendReportData) return backendReportData
+    if (backendReportData) return reconcileUserReportsData(backendReportData)
     return calculateUserReports([], doctor, period, fromDate, toDate)
   }, [backendReportData, doctor, period, fromDate, toDate])
 
