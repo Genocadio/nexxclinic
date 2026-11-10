@@ -85,6 +85,8 @@ import {
 import {
   CategoryAutocomplete,
   FIXED_PRODUCT_CATEGORIES,
+  extractProductCategories,
+  buildProductCategoryMetadata,
 } from "@/components/ui/category-autocomplete";
 import {
   productFormSchema,
@@ -232,10 +234,8 @@ export default function ManageProductsPage() {
   const availableCategories = useMemo(() => {
     const set = new Set<string>(FIXED_PRODUCT_CATEGORIES);
     products.forEach((p: Product) => {
-      const cat = (p.metadata as Record<string, unknown> | null | undefined)?.category;
-      if (typeof cat === "string" && cat.trim()) {
-        set.add(cat.trim());
-      }
+      const cats = extractProductCategories(p);
+      cats.forEach((c) => set.add(c));
     });
     return Array.from(set).sort();
   }, [products]);
@@ -243,9 +243,13 @@ export default function ManageProductsPage() {
   // Client-side category filtering on loaded products
   const displayedProducts = useMemo(() => {
     if (filterCategory === "ALL") return products;
+    if (filterCategory === "__UNASSIGNED__") {
+      return products.filter((p: Product) => extractProductCategories(p).length === 0);
+    }
+    const target = filterCategory.toLowerCase();
     return products.filter((p: Product) => {
-      const cat = (p.metadata as Record<string, unknown> | null | undefined)?.category;
-      return typeof cat === "string" && cat.trim().toLowerCase() === filterCategory.toLowerCase();
+      const cats = extractProductCategories(p);
+      return cats.some((c) => c.toLowerCase() === target);
     });
   }, [products, filterCategory]);
 
@@ -298,7 +302,7 @@ export default function ManageProductsPage() {
   const [settingsName, setSettingsName] = useState("");
   const [settingsCode, setSettingsCode] = useState("");
   const [settingsDescription, setSettingsDescription] = useState("");
-  const [settingsCategory, setSettingsCategory] = useState("");
+  const [settingsCategories, setSettingsCategories] = useState<string[]>([]);
   const [settingsType, setSettingsType] = useState<ProductTypeOption>("MEDICAL_ACT");
   const [settingsPrivatePrice, setSettingsPrivatePrice] = useState("");
   const [settingsClinicPrice, setSettingsClinicPrice] = useState("");
@@ -328,6 +332,7 @@ export default function ManageProductsPage() {
       name: "",
       description: "",
       category: "",
+      categories: [],
       type: "MEDICAL_ACT",
       privatePrice: "",
       clinicPrice: "",
@@ -335,7 +340,7 @@ export default function ManageProductsPage() {
     },
   });
   const watchedCreateType = watchCreate("type");
-  const watchedCreateCategory = watchCreate("category");
+  const watchedCreateCategories = watchCreate("categories") || [];
 
   // Quick Metrics stats
   const stats = useMemo(() => {
@@ -367,8 +372,7 @@ export default function ManageProductsPage() {
     setSettingsName(product.name || "");
     setSettingsCode(product.code || "");
     setSettingsDescription(product.description || "");
-    const incomingCategory = (product.metadata as Record<string, unknown> | null | undefined)?.category;
-    setSettingsCategory(typeof incomingCategory === "string" ? incomingCategory : "");
+    setSettingsCategories(extractProductCategories(product));
     const incomingType = String(
       product.type || "",
     ).toUpperCase() as ProductTypeOption;
@@ -416,6 +420,14 @@ export default function ManageProductsPage() {
         ? sanitizePriceInput(values.clinicPrice)
         : undefined;
 
+      const categoriesToSave =
+        values.categories && values.categories.length > 0
+          ? values.categories
+          : values.category
+          ? [values.category]
+          : [];
+      const createMeta = buildProductCategoryMetadata(categoriesToSave);
+
       const createdResp = await createProduct({
         name: values.name,
         code:
@@ -426,9 +438,7 @@ export default function ManageProductsPage() {
         description: values.description || values.name,
         type: values.type as ProductTypeOption,
         unit: "PCS",
-        metadata: values.category?.trim()
-          ? { category: values.category.trim() }
-          : undefined,
+        metadata: Object.keys(createMeta).length > 0 ? createMeta : undefined,
         privateRhicPrice: Number(cleanPrivatePrice),
         clinicPrice: cleanClinicPrice
           ? Number(cleanClinicPrice)
@@ -474,15 +484,10 @@ export default function ManageProductsPage() {
 
     setSaving(true);
     try {
-      const currentMeta: Record<string, unknown> =
-        selectedProduct.metadata && typeof selectedProduct.metadata === "object"
-          ? { ...(selectedProduct.metadata as Record<string, unknown>) }
-          : {};
-      if (settingsCategory.trim()) {
-        currentMeta.category = settingsCategory.trim();
-      } else {
-        delete currentMeta.category;
-      }
+      const currentMeta = buildProductCategoryMetadata(
+        settingsCategories,
+        selectedProduct.metadata as Record<string, unknown> | null
+      );
 
       const updatedResp = await updateProduct(selectedProduct.id, {
         name: settingsName.trim(),
@@ -783,6 +788,7 @@ export default function ManageProductsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ALL">All Categories</SelectItem>
+                      <SelectItem value="__UNASSIGNED__">Unassigned (No Category)</SelectItem>
                       {availableCategories.map((cat) => (
                         <SelectItem key={cat} value={cat}>
                           {cat}
@@ -842,7 +848,7 @@ export default function ManageProductsPage() {
                     const insuranceCount =
                       item.insuranceCoverages?.length || 0;
                     const isQuantifiable = item.quantifiable !== false;
-                    const itemCategory = (item.metadata as Record<string, unknown> | null | undefined)?.category;
+                    const itemCategories = extractProductCategories(item);
 
                     return (
                       <div
@@ -931,15 +937,16 @@ export default function ManageProductsPage() {
                               {typeConfig.shortLabel}
                             </Badge>
 
-                            {typeof itemCategory === "string" && itemCategory.trim() && (
+                            {itemCategories.map((cat) => (
                               <Badge
+                                key={cat}
                                 variant="secondary"
                                 className="text-[12px] gap-1 bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20"
                               >
                                 <Tag className="h-3 w-3" />
-                                {itemCategory.trim()}
+                                {cat}
                               </Badge>
-                            )}
+                            ))}
 
                             <Badge
                               variant="secondary"
@@ -1074,15 +1081,16 @@ export default function ManageProductsPage() {
                             {cfg.shortLabel}
                           </Badge>
 
-                          {Boolean((selectedProduct.metadata as Record<string, unknown> | null | undefined)?.category) && (
+                          {extractProductCategories(selectedProduct).map((cat) => (
                             <Badge
+                              key={cat}
                               variant="secondary"
                               className="text-xs gap-1 bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/20"
                             >
                               <Tag className="h-3 w-3" />
-                              {String((selectedProduct.metadata as Record<string, unknown>).category)}
+                              {cat}
                             </Badge>
-                          )}
+                          ))}
 
                           <Badge
                             variant="secondary"
@@ -1226,19 +1234,27 @@ export default function ManageProductsPage() {
                         </Select>
                       </div>
 
-                      {/* Category */}
+                      {/* Categories */}
                       <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-foreground">
-                          Category (Optional)
-                        </Label>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-semibold text-foreground">
+                            Categories (Optional)
+                          </Label>
+                          {settingsCategories.length > 0 && (
+                            <span className="text-xs text-muted-foreground font-medium">
+                              {settingsCategories.length} selected
+                            </span>
+                          )}
+                        </div>
                         <CategoryAutocomplete
-                          value={settingsCategory}
-                          onValueChange={setSettingsCategory}
+                          multiple
+                          value={settingsCategories}
+                          onValueChange={setSettingsCategories}
                           categories={availableCategories}
-                          placeholder="Search & select category..."
+                          placeholder="Search & select categories (e.g. Consultations, Dental)..."
                         />
                         <p className="text-[11px] text-muted-foreground">
-                          Fixed standard category for catalog grouping, department profiles, and reporting.
+                          A product can belong to multiple categories (e.g. Consultations, Ophthalmology, Imaging) for department cataloging and reporting.
                         </p>
                       </div>
 
@@ -1599,12 +1615,20 @@ export default function ManageProductsPage() {
                       </div>
 
                       <div className="flex justify-between items-center py-2 border-b border-border/40 text-sm">
-                        <span className="text-muted-foreground">Category:</span>
-                        {(selectedProduct.metadata as Record<string, unknown> | null | undefined)?.category ? (
-                          <Badge variant="secondary" className="text-xs bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20 gap-1">
-                            <Tag className="h-3 w-3" />
-                            {String((selectedProduct.metadata as Record<string, unknown>).category)}
-                          </Badge>
+                        <span className="text-muted-foreground">Categories:</span>
+                        {extractProductCategories(selectedProduct).length > 0 ? (
+                          <div className="flex flex-wrap gap-1 justify-end max-w-[65%]">
+                            {extractProductCategories(selectedProduct).map((cat) => (
+                              <Badge
+                                key={cat}
+                                variant="secondary"
+                                className="text-xs bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20 gap-1"
+                              >
+                                <Tag className="h-3 w-3" />
+                                {cat}
+                              </Badge>
+                            ))}
+                          </div>
                         ) : (
                           <span className="text-xs text-muted-foreground italic">None (Unassigned)</span>
                         )}
@@ -1740,14 +1764,26 @@ export default function ManageProductsPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-xs font-semibold text-muted-foreground">
-                      Category (Optional)
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold text-muted-foreground">
+                        Categories (Optional)
+                      </Label>
+                      {watchedCreateCategories.length > 0 && (
+                        <span className="text-[11px] text-muted-foreground font-medium">
+                          {watchedCreateCategories.length} selected
+                        </span>
+                      )}
+                    </div>
                     <CategoryAutocomplete
-                      value={watchedCreateCategory}
-                      onValueChange={(val) => setCreateValue("category", val, { shouldValidate: true })}
+                      multiple
+                      value={watchedCreateCategories}
+                      onValueChange={(val) => {
+                        const arr = Array.isArray(val) ? val : val ? [val] : [];
+                        setCreateValue("categories", arr, { shouldValidate: true });
+                        setCreateValue("category", arr[0] || "", { shouldValidate: true });
+                      }}
                       categories={availableCategories}
-                      placeholder="Search & select category..."
+                      placeholder="Search & select categories..."
                     />
                   </div>
                 </div>

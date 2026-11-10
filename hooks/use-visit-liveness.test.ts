@@ -57,8 +57,8 @@ describe("isVisitOrDepartmentClosedForProducts", () => {
     expect(isVisitOrDepartmentClosedForProducts("COMPLETED", "ACTIVE")).toBe(true);
   });
 
-  it("locks products when department is BILLING", () => {
-    expect(isVisitOrDepartmentClosedForProducts("IN_PROGRESS", "BILLING")).toBe(true);
+  it("allows products when department is in BILLING status during continued consultation", () => {
+    expect(isVisitOrDepartmentClosedForProducts("IN_PROGRESS", "BILLING")).toBe(false);
   });
 
   it("locks products when department is FINALISED", () => {

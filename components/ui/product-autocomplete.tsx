@@ -8,6 +8,7 @@ import { Check, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Product as ApiProduct } from '@/lib/api-types'
 import { useProductSearch } from '@/hooks/auth-hooks'
+import { extractProductCategories } from '@/components/ui/category-autocomplete'
 
 interface ProductAutocompleteProps {
   products?: ApiProduct[]
@@ -92,19 +93,22 @@ export function ProductAutocomplete({
 
   // If a product is selected, show a cleaner UI with just the name and clear button
   if (selectedProduct) {
-    const selectedCategory = (selectedProduct.metadata as Record<string, unknown> | null | undefined)?.category;
+    const selectedCategories = extractProductCategories(selectedProduct)
     return (
       <div className={cn('flex items-center gap-2 w-full', className)}>
-        <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border min-w-0">
+        <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border min-w-0 flex-wrap">
           <span className="text-sm font-medium truncate">{selectedProduct.name}</span>
           {selectedProduct.code && (
             <span className="text-xs text-muted-foreground truncate shrink-0">{selectedProduct.code}</span>
           )}
-          {typeof selectedCategory === 'string' && selectedCategory.trim() && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 shrink-0 font-medium">
-              {selectedCategory.trim()}
+          {selectedCategories.map((cat) => (
+            <span
+              key={cat}
+              className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 shrink-0 font-medium"
+            >
+              {cat}
             </span>
-          )}
+          ))}
           <Button
             variant="ghost"
             size="sm"
@@ -169,11 +173,14 @@ export function ProductAutocomplete({
                       {product.code && (
                         <span className="text-xs text-muted-foreground truncate">{product.code}</span>
                       )}
-                      {typeof (product.metadata as any)?.category === 'string' && (product.metadata as any)?.category.trim() && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 font-medium">
-                          {String((product.metadata as any).category).trim()}
+                      {extractProductCategories(product).map((cat) => (
+                        <span
+                          key={cat}
+                          className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 font-medium"
+                        >
+                          {cat}
                         </span>
-                      )}
+                      ))}
                     </div>
                   </div>
                 </CommandItem>

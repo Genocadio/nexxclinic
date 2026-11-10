@@ -221,6 +221,23 @@ describe("productFormSchema", () => {
     if (withoutCategory.success) {
       expect(withoutCategory.data.category).toBeUndefined();
     }
+
+    const withMultipleCategories = productFormSchema.safeParse({
+      name: "Ophthalmic Surgery & Consultation",
+      description: "Complex procedure",
+      categories: ["Consultations", "Ophthalmology", "Surgery / Procedures"],
+      type: "MEDICAL_ACT",
+      privatePrice: "50000",
+      clinicPrice: "",
+    });
+    expect(withMultipleCategories.success).toBe(true);
+    if (withMultipleCategories.success) {
+      expect(withMultipleCategories.data.categories).toEqual([
+        "Consultations",
+        "Ophthalmology",
+        "Surgery / Procedures",
+      ]);
+    }
   });
 });
 
