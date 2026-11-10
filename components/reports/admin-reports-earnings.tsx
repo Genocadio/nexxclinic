@@ -87,7 +87,7 @@ export function AdminReportsEarnings({
       {/* 1. PRODUCT CATEGORY TURNOVER CARDS */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <h4 className="text-sm font-semibold text-foreground">Turnover by Clinical Product Category</h4>
+          <h4 className="text-sm font-semibold text-foreground">Revenue by Category</h4>
           <span className="text-xs text-muted-foreground">Total: {formatRwf(totalCatGross || overview.totalGrossBilled)}</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -127,7 +127,7 @@ export function AdminReportsEarnings({
         <div className="flex items-center justify-between pb-2 border-b border-border/50">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-primary" />
-            <h4 className="text-sm font-semibold text-foreground">Insurance Payers & Claim Settlements</h4>
+            <h4 className="text-sm font-semibold text-foreground">Payers & Claims</h4>
           </div>
           <Badge variant="outline" className="text-[11px] py-0 px-2 bg-muted/40 font-normal">
             {insuranceBreakdown.length} active payers
@@ -207,7 +207,7 @@ export function AdminReportsEarnings({
         <div className="flex items-center justify-between pb-2 border-b border-border/50">
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-primary" />
-            <h4 className="text-sm font-semibold text-foreground">Department Financial Performance</h4>
+            <h4 className="text-sm font-semibold text-foreground">Department Revenue</h4>
           </div>
           <Badge variant="outline" className="text-[11px] py-0 px-2 bg-muted/40 font-normal">
             {departmentBreakdown.length} departments
@@ -258,7 +258,7 @@ export function AdminReportsEarnings({
         <div className="flex items-center justify-between pb-2 border-b border-border/50">
           <div className="flex items-center gap-2">
             <Stethoscope className="h-4 w-4 text-primary" />
-            <h4 className="text-sm font-semibold text-foreground">Clinician Prescriptions & Turnover</h4>
+            <h4 className="text-sm font-semibold text-foreground">Clinician Revenue</h4>
           </div>
           <Badge variant="outline" className="text-[11px] py-0 px-2 bg-muted/40 font-normal">
             {verifiedClinicians.length} clinicians

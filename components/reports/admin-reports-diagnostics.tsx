@@ -896,21 +896,21 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
               </Tooltip>
             )}
 
-            {/* Download Button (Minimised with Icon & Tooltip) */}
+            {/* Download Button (Icon-only with Tooltip) */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="icon"
                   onClick={handleExportCsv}
                   disabled={groupByVisit ? searchedVisitGroups.length === 0 : searchedRows.length === 0}
-                  className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0 hover:border-emerald-500/40 hover:text-emerald-600 transition-colors"
+                  className="h-8 sm:h-9 w-8 sm:w-9 rounded-xl border-border/70 text-foreground hover:bg-muted/80 hover:border-emerald-500/40 hover:text-emerald-600 shrink-0 transition-colors"
+                  aria-label="Export CSV"
                 >
                   <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 shrink-0" />
-                  <span className="hidden sm:inline">Export CSV</span>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Download report as CSV</TooltipContent>
+              <TooltipContent side="bottom">Export CSV</TooltipContent>
             </Tooltip>
           </div>
         </div>

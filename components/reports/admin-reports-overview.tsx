@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo } from "react"
+import React, { useMemo, useState, useEffect } from "react"
 import {
   Users,
   Wallet,
@@ -19,9 +19,21 @@ import {
   Percent,
   Filter,
   ExternalLink,
+  Maximize2,
+  Minimize2,
+  ChevronDown,
+  ChevronUp,
+  X,
+  FileSpreadsheet,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Tooltip as UiTooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { ClinicReportsData } from "@/hooks/reports/use-clinic-reports"
 import {
@@ -81,6 +93,20 @@ export function AdminReportsOverview({
   isPrivateOnly = false,
 }: AdminReportsOverviewProps) {
   const { overview, financialBreakdown } = data
+
+  const [isTableExpanded, setIsTableExpanded] = useState(false)
+  const [expandedPayerId, setExpandedPayerId] = useState<string | null>(null)
+
+  // Prevent background scroll when table is full-screen expanded
+  useEffect(() => {
+    if (isTableExpanded) {
+      const originalOverflow = document.body.style.overflow
+      document.body.style.overflow = "hidden"
+      return () => {
+        document.body.style.overflow = originalOverflow
+      }
+    }
+  }, [isTableExpanded])
 
   // Private vs Insured Patient Share calculation
   const privateEntry = financialBreakdown.insuranceBreakdown.find((i: any) => {
@@ -204,42 +230,90 @@ export function AdminReportsOverview({
 
   return (
     <div className="space-y-4">
-      {/* 1. TOP FINANCIAL OVERVIEW TABLE (INSURANCE & PRIVATE IN ROWS, GRAND TOTALS FOOTER) */}
-      <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5">
+      {/* Expanded Table Modal Backdrop */}
+      {isTableExpanded && (
+        <div
+          className="fixed inset-0 z-[55] bg-background/80 backdrop-blur-sm transition-opacity"
+          onClick={() => setIsTableExpanded(false)}
+        />
+      )}
+
+      {/* 1. TOP FINANCIAL OVERVIEW TABLE (REVENUE BY PAYER) */}
+      <div
+        className={cn(
+          "bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5 transition-all",
+          isTableExpanded && "fixed inset-2 sm:inset-4 lg:inset-6 z-[60] bg-background border border-border shadow-2xl min-h-0 flex flex-col overflow-hidden"
+        )}
+      >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-border/50">
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-foreground tracking-tight">Financial Overview & Payer Breakdown</h3>
+              <h3 className="text-base font-bold text-foreground tracking-tight">Revenue by Payer</h3>
               <Badge variant="outline" className="text-[11px] py-0 px-2 bg-primary/10 text-primary border-primary/20 font-medium">
-                Accounting Reconciliation
+                Reconciliation
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Tabular breakdown of revenue channels showing earnings, absorbed giveaways, outstanding loans, and gross expected
+              Breakdown by insurance & private self-pay showing earnings, absorbed waivers, debt, and gross
             </p>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             {(selectedInsuranceIds?.length > 0 || isPrivateOnly) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onSelectPayer?.({ insuranceId: undefined, isPrivateOnly: false })}
-                className="h-7 px-2.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-lg gap-1 font-medium"
-              >
-                Clear Payer Filter ✕
-              </Button>
+              <TooltipProvider delayDuration={150}>
+                <UiTooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onSelectPayer?.({ insuranceId: undefined, isPrivateOnly: false })}
+                      className="h-8 w-8 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-xl"
+                      aria-label="Clear payer filter"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Clear Payer Filter</TooltipContent>
+                </UiTooltip>
+              </TooltipProvider>
             )}
+
             <Badge variant="outline" className="text-xs py-1 px-2.5 bg-muted/40 font-mono">
-              {payerRows.length} Payer Channels
+              {payerRows.length} Payers
             </Badge>
+
+            <TooltipProvider delayDuration={150}>
+              <UiTooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsTableExpanded((prev) => !prev)}
+                    className="h-8 w-8 rounded-xl border-border/80 text-foreground hover:bg-muted/80 shrink-0"
+                    aria-label={isTableExpanded ? "Fit normal view" : "Expand table full screen"}
+                  >
+                    {isTableExpanded ? (
+                      <Minimize2 className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Maximize2 className="h-4 w-4 text-primary" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {isTableExpanded ? "Fit Normal View" : "Expand Table"}
+                </TooltipContent>
+              </UiTooltip>
+            </TooltipProvider>
           </div>
         </div>
 
         {/* Tabular View */}
-        <div className="overflow-x-auto -mx-1 sm:mx-0">
+        <div className={cn(
+          "overflow-x-auto -mx-1 sm:mx-0",
+          isTableExpanded && "flex-1 min-h-0 overflow-y-auto"
+        )}>
           <table className="w-full text-xs text-left border-collapse min-w-[850px]">
-            <thead>
+            <thead className={cn(isTableExpanded && "sticky top-0 z-20 bg-background/95 backdrop-blur-xl shadow-xs")}>
               <tr className="border-b border-border/70 text-muted-foreground uppercase text-[10px] tracking-wider font-semibold bg-muted/20">
                 <th className="py-2.5 px-3 rounded-l-xl">Payer / Channel</th>
                 <th className="py-2.5 px-3 text-center">Visits</th>
@@ -259,129 +333,193 @@ export function AdminReportsOverview({
                 const earningsPct = grandTotals.totalEarnings > 0
                   ? Math.round((row.totalEarnings / grandTotals.totalEarnings) * 100)
                   : 0
+                const isRowOpen = expandedPayerId === row.id
                 return (
-                  <tr
-                    key={row.id}
-                    onClick={() => onSelectPayer?.({ insuranceId: row.isPrivate ? undefined : row.id, isPrivateOnly: row.isPrivate })}
-                    className={cn(
-                      "hover:bg-muted/30 transition-colors group cursor-pointer",
-                      row.isSelected && "bg-primary/10 border-l-4 border-l-primary"
-                    )}
-                    title={row.isSelected ? "Click to clear filter" : `Click to filter report by ${row.name}`}
-                  >
-                    {/* Payer / Channel */}
-                    <td className="py-3 px-3">
-                      <div className="flex items-center gap-2">
-                        <div className={cn(
-                          "h-7 w-7 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0",
-                          row.isPrivate
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                            : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
-                        )}>
-                          {row.isPrivate ? "PV" : initials}
-                        </div>
-                        <div className="min-w-0">
-                          <span className="font-semibold text-foreground text-xs block truncate">{row.name}</span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {row.isPrivate ? "Direct Patient Self-Pay" : "Third-Party Insurer"}
-                          </span>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-[9px] py-0 px-1.5 ml-1 shrink-0 font-medium",
+                  <React.Fragment key={row.id}>
+                    <tr
+                      onClick={() => onSelectPayer?.({ insuranceId: row.isPrivate ? undefined : row.id, isPrivateOnly: row.isPrivate })}
+                      className={cn(
+                        "hover:bg-muted/30 transition-colors group cursor-pointer",
+                        row.isSelected && "bg-primary/10 border-l-4 border-l-primary"
+                      )}
+                      title={row.isSelected ? "Click to clear filter" : `Click to filter report by ${row.name}`}
+                    >
+                      {/* Payer / Channel with accordion toggle */}
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setExpandedPayerId((prev) => (prev === row.id ? null : row.id))
+                            }}
+                            className="p-1 rounded-lg hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-transform"
+                            title={isRowOpen ? "Collapse row details" : "Expand row details"}
+                            aria-label="Toggle details"
+                          >
+                            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isRowOpen && "rotate-180 text-primary")} />
+                          </button>
+                          <div className={cn(
+                            "h-7 w-7 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0",
                             row.isPrivate
-                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
-                              : "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30"
-                          )}
-                        >
-                          {row.isPrivate ? "Private" : "Insurance"}
-                        </Badge>
-                      </div>
-                    </td>
-
-                    {/* Visits */}
-                    <td className="py-3 px-3 text-center">
-                      <span className="font-medium text-foreground">{row.visitsCount}</span>
-                      {grandTotals.visitsCount > 0 && (
-                        <span className="text-[10px] text-muted-foreground block">
-                          {Math.round((row.visitsCount / grandTotals.visitsCount) * 100)}%
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Insurance Share */}
-                    <td className="py-3 px-3 text-right">
-                      {row.isPrivate ? (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      ) : (
-                        <div>
-                          <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                            {formatRwf(row.insuranceShare)}
-                          </span>
-                          {row.totalExpected > 0 && (
-                            <span className="text-[10px] text-muted-foreground block">
-                              {Math.round((row.insuranceShare / row.totalExpected) * 100)}% covered
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                              : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
+                          )}>
+                            {row.isPrivate ? "PV" : initials}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-semibold text-foreground text-xs block truncate">{row.name}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {row.isPrivate ? "Direct Patient Self-Pay" : "Third-Party Insurer"}
                             </span>
-                          )}
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[9px] py-0 px-1.5 ml-1 shrink-0 font-medium",
+                              row.isPrivate
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                : "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30"
+                            )}
+                          >
+                            {row.isPrivate ? "Private" : "Insurance"}
+                          </Badge>
                         </div>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Patient Paid */}
-                    <td className="py-3 px-3 text-right">
-                      <div>
-                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                          {formatRwf(row.patientPaid)}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground block">
-                          {row.isPrivate ? "100% direct cash" : "Patient co-pay"}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Total Earnings / Money Made */}
-                    <td className="py-3 px-3 text-right bg-primary/5 dark:bg-primary/10">
-                      <div>
-                        <span className="font-bold text-foreground text-sm">
-                          {formatRwf(row.totalEarnings)}
-                        </span>
-                        <span className="text-[10px] text-primary font-medium block">
-                          {earningsPct}% of total
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Giveaways & Waivers */}
-                    <td className="py-3 px-3 text-right">
-                      {row.giveawaysAndWaivers > 0 ? (
-                        <span className="font-semibold text-purple-600 dark:text-purple-400">
-                          {formatRwf(row.giveawaysAndWaivers)}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </td>
-
-                    {/* Current Loans */}
-                    <td className="py-3 px-3 text-right">
-                      {row.currentLoans > 0 ? (
-                        <div>
-                          <span className="font-bold text-rose-600 dark:text-rose-400">
-                            {formatRwf(row.currentLoans)}
+                      {/* Visits */}
+                      <td className="py-3 px-3 text-center">
+                        <span className="font-medium text-foreground">{row.visitsCount}</span>
+                        {grandTotals.visitsCount > 0 && (
+                          <span className="text-[10px] text-muted-foreground block">
+                            {Math.round((row.visitsCount / grandTotals.visitsCount) * 100)}%
                           </span>
-                          <span className="text-[10px] text-rose-500 block">unpaid balance</span>
-                        </div>
-                      ) : (
-                        <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-medium">Settled ✓</span>
-                      )}
-                    </td>
+                        )}
+                      </td>
 
-                    {/* Total Expected / Gross */}
-                    <td className="py-3 px-3 text-right font-bold text-foreground">
-                      <span className="text-xs sm:text-sm">{formatRwf(row.totalExpected)}</span>
-                    </td>
-                  </tr>
+                      {/* Insurance Share */}
+                      <td className="py-3 px-3 text-right">
+                        {row.isPrivate ? (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        ) : (
+                          <div>
+                            <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                              {formatRwf(row.insuranceShare)}
+                            </span>
+                            {row.totalExpected > 0 && (
+                              <span className="text-[10px] text-muted-foreground block">
+                                {Math.round((row.insuranceShare / row.totalExpected) * 100)}% covered
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Patient Paid */}
+                      <td className="py-3 px-3 text-right">
+                        <div>
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                            {formatRwf(row.patientPaid)}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground block">
+                            {row.isPrivate ? "100% direct cash" : "Patient co-pay"}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Total Earnings / Money Made */}
+                      <td className="py-3 px-3 text-right bg-primary/5 dark:bg-primary/10">
+                        <div>
+                          <span className="font-bold text-foreground text-sm">
+                            {formatRwf(row.totalEarnings)}
+                          </span>
+                          <span className="text-[10px] text-primary font-medium block">
+                            {earningsPct}% of total
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Giveaways & Waivers */}
+                      <td className="py-3 px-3 text-right">
+                        {row.giveawaysAndWaivers > 0 ? (
+                          <span className="font-semibold text-purple-600 dark:text-purple-400">
+                            {formatRwf(row.giveawaysAndWaivers)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </td>
+
+                      {/* Current Loans */}
+                      <td className="py-3 px-3 text-right">
+                        {row.currentLoans > 0 ? (
+                          <div>
+                            <span className="font-bold text-rose-600 dark:text-rose-400">
+                              {formatRwf(row.currentLoans)}
+                            </span>
+                            <span className="text-[10px] text-rose-500 block">unpaid balance</span>
+                          </div>
+                        ) : (
+                          <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-medium">Settled ✓</span>
+                        )}
+                      </td>
+
+                      {/* Total Expected / Gross */}
+                      <td className="py-3 px-3 text-right font-bold text-foreground">
+                        <span className="text-xs sm:text-sm">{formatRwf(row.totalExpected)}</span>
+                      </td>
+                    </tr>
+
+                    {/* Accordion Row Details */}
+                    {isRowOpen && (
+                      <tr className="bg-muted/20 border-b border-border/50 animate-in fade-in duration-200">
+                        <td colSpan={8} className="py-3 px-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card/60 p-3 rounded-xl border border-border/50">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 flex-1">
+                              <div className="p-2 rounded-lg bg-background/80 border border-border/40">
+                                <span className="text-[10px] text-muted-foreground block">Revenue Share</span>
+                                <span className="text-xs font-bold text-primary">{earningsPct}% of all earnings</span>
+                              </div>
+                              <div className="p-2 rounded-lg bg-background/80 border border-border/40">
+                                <span className="text-[10px] text-muted-foreground block">Average / Visit</span>
+                                <span className="text-xs font-bold text-foreground">
+                                  {row.visitsCount > 0 ? formatRwf(row.totalEarnings / row.visitsCount) : "—"}
+                                </span>
+                              </div>
+                              <div className="p-2 rounded-lg bg-background/80 border border-border/40">
+                                <span className="text-[10px] text-muted-foreground block">Recovery Rate</span>
+                                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                  {row.totalExpected > 0 ? `${Math.round((row.totalEarnings / row.totalExpected) * 100)}%` : "100%"}
+                                </span>
+                              </div>
+                              <div className="p-2 rounded-lg bg-background/80 border border-border/40">
+                                <span className="text-[10px] text-muted-foreground block">Outstanding Debt</span>
+                                <span className={cn("text-xs font-bold", row.currentLoans > 0 ? "text-rose-600" : "text-emerald-600")}>
+                                  {formatRwf(row.currentLoans)}
+                                </span>
+                              </div>
+                            </div>
+
+                            {onTabChange && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onSelectPayer?.({ insuranceId: row.isPrivate ? undefined : row.id, isPrivateOnly: row.isPrivate })
+                                  onTabChange("detailed")
+                                }}
+                                className="h-8 px-3 text-xs rounded-xl border-border/70 gap-1.5 shrink-0 hover:bg-primary hover:text-primary-foreground transition-all"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                <span>View Encounters</span>
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 )
               })}
 
@@ -434,11 +572,11 @@ export function AdminReportsOverview({
         {/* Accounting Reconciliation Footnote */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2 border-t border-border/40 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-semibold text-foreground">Reconciliation Formula:</span>
-            <span>Total Earnings ({formatRwf(grandTotals.totalEarnings)})</span>
-            <span>+ Giveaways & Waivers ({formatRwf(grandTotals.giveawaysAndWaivers)})</span>
-            <span>+ Current Loans ({formatRwf(grandTotals.currentLoans)})</span>
-            <span>= <span className="font-semibold text-foreground">Total Expected ({formatRwf(grandTotals.totalExpected)})</span></span>
+            <span className="font-semibold text-foreground">Reconciliation:</span>
+            <span>Earnings ({formatRwf(grandTotals.totalEarnings)})</span>
+            <span>+ Waivers ({formatRwf(grandTotals.giveawaysAndWaivers)})</span>
+            <span>+ Loans ({formatRwf(grandTotals.currentLoans)})</span>
+            <span>= <span className="font-semibold text-foreground">Expected ({formatRwf(grandTotals.totalExpected)})</span></span>
           </div>
           <span className="text-xs text-muted-foreground font-mono">
             {payerRows.length} Payer Channels
@@ -450,7 +588,7 @@ export function AdminReportsOverview({
       <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 shadow-xs flex flex-col justify-between">
         <div className="flex items-center justify-between pb-2 border-b border-border/50">
           <div>
-            <h4 className="text-sm font-semibold text-foreground">Clinic Cashflow & Revenue Timeline</h4>
+            <h4 className="text-sm font-semibold text-foreground">Revenue Timeline</h4>
             <p className="text-[11px] text-muted-foreground">Distribution of gross billed, collections, loans & absorbed giveaways</p>
           </div>
           <Badge variant="outline" className="text-[11px] py-0 px-2 bg-primary/10 text-primary border-primary/20">
@@ -524,7 +662,7 @@ export function AdminReportsOverview({
           <div className="flex items-center justify-between pb-2 border-b border-border/50">
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-semibold text-foreground">Top Departments by Turnover</h4>
+              <h4 className="text-sm font-semibold text-foreground">Top Departments</h4>
             </div>
             <Badge variant="outline" className="text-[11px] py-0 px-2 bg-muted/40 font-normal">
               {financialBreakdown.departmentBreakdown.length} departments
@@ -562,7 +700,7 @@ export function AdminReportsOverview({
           <div className="flex items-center justify-between pb-2 border-b border-border/50">
             <div className="flex items-center gap-2">
               <Stethoscope className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-semibold text-foreground">Clinician Contributions</h4>
+              <h4 className="text-sm font-semibold text-foreground">Clinician Revenue</h4>
             </div>
             <Badge variant="outline" className="text-[11px] py-0 px-2 bg-muted/40 font-normal">
               {verifiedClinicians.length} clinicians
@@ -600,7 +738,7 @@ export function AdminReportsOverview({
 
       {/* 5. PAYMENT MODES COLLECTION TILES */}
       <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 shadow-xs space-y-3">
-        <h4 className="text-sm font-semibold text-foreground">Payment Collections by Channel</h4>
+        <h4 className="text-sm font-semibold text-foreground">Collections by Mode</h4>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="p-3 rounded-xl bg-muted/30 border border-border/50 flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">

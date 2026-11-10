@@ -317,7 +317,7 @@ export default function AdminReportsPage() {
               className="rounded-xl h-9 px-3 sm:px-4 text-xs font-medium gap-1.5"
             >
               <Layers className="h-4 w-4" />
-              Detailed Visits
+              Detailed
               {reportData && (
                 <Badge variant="secondary" className="py-0 px-1 text-[10px]">
                   {reportData.encountersList?.length || reportData.overview.totalVisits}
@@ -332,7 +332,7 @@ export default function AdminReportsPage() {
               className="rounded-xl h-9 px-3 sm:px-4 text-xs font-medium gap-1.5"
             >
               <Percent className="h-4 w-4" />
-              Waivers & Giveaways
+              Waivers
               {reportData && (
                 <Badge variant="secondary" className="py-0 px-1 text-[10px]">
                   {reportData.overview.waiverCount + reportData.overview.giveawayCount}
@@ -347,7 +347,7 @@ export default function AdminReportsPage() {
               className="rounded-xl h-9 px-3 sm:px-4 text-xs font-medium gap-1.5"
             >
               <HandCoins className="h-4 w-4" />
-              Current Loans & Debtors
+              Loans
               {reportData && (
                 <Badge variant="secondary" className="py-0 px-1 text-[10px]">
                   {reportData.overview.loanCount}

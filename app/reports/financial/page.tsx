@@ -315,7 +315,7 @@ export default function FinancialReportsPage() {
               className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
             >
               <Layers className="h-4 w-4 shrink-0" />
-              <span>Detailed Visits</span>
+              <span>Detailed</span>
               {reportData && (
                 <Badge variant="secondary" className="py-0 px-1 text-[10px]">
                   {reportData.encountersList?.length || reportData.overview.totalVisits}
@@ -330,7 +330,7 @@ export default function FinancialReportsPage() {
               className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
             >
               <TrendingUp className="h-4 w-4 shrink-0" />
-              <span>Earnings Deep Dive</span>
+              <span>Earnings</span>
             </Button>
 
             <Button
@@ -340,7 +340,7 @@ export default function FinancialReportsPage() {
               className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
             >
               <Percent className="h-4 w-4 shrink-0" />
-              <span>Waivers & Giveaways</span>
+              <span>Waivers</span>
               {reportData && (
                 <Badge variant="secondary" className="py-0 px-1 text-[10px]">
                   {reportData.overview.waiverCount + reportData.overview.giveawayCount}
@@ -355,7 +355,7 @@ export default function FinancialReportsPage() {
               className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
             >
               <SlidersHorizontal className="h-4 w-4 shrink-0" />
-              <span>Adjustments Only</span>
+              <span>Adjustments</span>
               {reportData && (
                 <Badge variant="secondary" className="py-0 px-1 text-[10px]">
                   {reportData.deepReports.adjustments.length}
@@ -370,7 +370,7 @@ export default function FinancialReportsPage() {
               className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
             >
               <HandCoins className="h-4 w-4 shrink-0" />
-              <span>Current Loans & Debtors</span>
+              <span>Loans</span>
               {reportData && (
                 <Badge variant="secondary" className="py-0 px-1 text-[10px]">
                   {reportData.overview.loanCount}
@@ -404,7 +404,29 @@ export default function FinancialReportsPage() {
         ) : reportData ? (
           <>
             {activeTab === "overview" && (
-              <AdminReportsOverview data={reportData} onTabChange={setActiveTab} />
+              <AdminReportsOverview
+                data={reportData}
+                onTabChange={setActiveTab}
+                onSelectPayer={({ insuranceId, isPrivateOnly: priv }) => {
+                  if (priv) {
+                    setIsPrivateOnly((prev) => !prev)
+                    setSelectedInsuranceIds([])
+                  } else if (insuranceId) {
+                    setIsPrivateOnly(false)
+                    setSelectedInsuranceIds((prev) =>
+                      prev.includes(insuranceId)
+                        ? prev.filter((id) => id !== insuranceId)
+                        : [insuranceId]
+                    )
+                  } else {
+                    setIsPrivateOnly(false)
+                    setSelectedInsuranceIds([])
+                  }
+                }}
+                cliniciansRoster={clinicians as any}
+                selectedInsuranceIds={selectedInsuranceIds}
+                isPrivateOnly={isPrivateOnly}
+              />
             )}
             {activeTab === "detailed" && (
               <AdminReportsDetailed

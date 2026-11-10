@@ -20,6 +20,12 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { useGenerateInvoice } from "@/hooks/billing/hooks"
 import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
 import {
@@ -119,6 +125,17 @@ export function AdminReportsDetailed({
   const [statusFilter, setStatusFilter] = useState<"ALL" | "BILLED" | "PENDING" | "EXEMPTED" | "LOAN">("ALL")
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT)
   const [isTableExpanded, setIsTableExpanded] = useState(false)
+
+  // Prevent background scroll when table is full-screen expanded
+  useEffect(() => {
+    if (isTableExpanded) {
+      const originalOverflow = document.body.style.overflow
+      document.body.style.overflow = "hidden"
+      return () => {
+        document.body.style.overflow = originalOverflow
+      }
+    }
+  }, [isTableExpanded])
 
   // Drawer & Invoice state for instant audit
   const [selectedAuditEncounter, setSelectedAuditEncounter] = useState<ClinicEncounterDetail | null>(null)
@@ -791,11 +808,19 @@ export function AdminReportsDetailed({
         </div>
       </div>
 
+      {/* Modal backdrop when full-screen expanded */}
+      {isTableExpanded && (
+        <div
+          className="fixed inset-0 z-[55] bg-background/80 backdrop-blur-sm transition-opacity"
+          onClick={toggleTableExpand}
+        />
+      )}
+
       {/* Main Breakdown Container matching Clinician View */}
       <div
         className={cn(
           "bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl shadow-sm flex flex-col transition-all overflow-hidden p-4 sm:p-5 gap-3",
-          isTableExpanded && "fixed inset-x-3 sm:inset-x-16 top-3 bottom-3 z-30 shadow-2xl min-h-0"
+          isTableExpanded && "fixed inset-2 sm:inset-4 lg:inset-6 z-[60] bg-background border border-border shadow-2xl min-h-0"
         )}
       >
         {/* Top bar: Title + View Switcher + Export + Expand */}
@@ -803,7 +828,7 @@ export function AdminReportsDetailed({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm sm:text-base font-semibold text-foreground">
-                Turnover & Prescriptions Breakdown
+                Encounter Breakdown
               </h3>
               <Badge variant="outline" className="text-[12px] bg-muted/40 font-mono">
                 {financeViewMode === "grouped"
@@ -819,80 +844,116 @@ export function AdminReportsDetailed({
           </div>
 
           {/* View Switcher, Export and Expand/Fit Controls */}
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            <div className="flex items-center p-1 rounded-xl bg-muted/60 border border-border/70">
-              <button
-                type="button"
-                onClick={() => {
-                  setFinanceViewMode("grouped")
-                  setVisibleCount(INITIAL_VISIBLE_COUNT)
-                }}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  financeViewMode === "grouped"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Layers className="h-3.5 w-3.5" />
-                Group by Encounter
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFinanceViewMode("detailed")
-                  setVisibleCount(INITIAL_VISIBLE_COUNT)
-                }}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  financeViewMode === "detailed"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <ListFilter className="h-3.5 w-3.5" />
-                Detailed View
-              </button>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center p-1 rounded-xl bg-muted/60 border border-border/70 shrink-0">
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFinanceViewMode("grouped")
+                        setVisibleCount(INITIAL_VISIBLE_COUNT)
+                      }}
+                      className={`h-7 px-2 sm:px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        financeViewMode === "grouped"
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      aria-label="Group by Encounter"
+                    >
+                      <Layers className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Encounters</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Group by Encounter (Visits)</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFinanceViewMode("detailed")
+                        setVisibleCount(INITIAL_VISIBLE_COUNT)
+                      }}
+                      className={`h-7 px-2 sm:px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        financeViewMode === "detailed"
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      aria-label="All Line Items"
+                    >
+                      <ListFilter className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Line Items</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">All Prescribed Line Items</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportCSV}
-              className="h-8 px-2.5 text-xs rounded-xl border-border/80 gap-1 text-foreground hover:bg-muted/80 shrink-0"
-            >
-              <FileSpreadsheet className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="hidden sm:inline">CSV</span>
-            </Button>
+            {/* Claim Bordereau Export - icon only with tooltip */}
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleExportClaimBordereau}
+                    className="h-8 w-8 rounded-xl border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 shrink-0 shadow-xs transition-all"
+                    aria-label="Export Claim Bordereau"
+                  >
+                    <Shield className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Export Claim Bordereau</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportClaimBordereau}
-              className="h-8 px-2.5 text-xs rounded-xl border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 gap-1.5 shrink-0 font-medium cursor-pointer shadow-xs transition-all"
-              title="Export official claim bordereau formatted for RSSB (RAMA), MMI, and private insurers"
-            >
-              <Shield className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Export Claim Bordereau</span>
-            </Button>
+            {/* CSV Export - icon only with tooltip */}
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleExportCSV}
+                    className="h-8 w-8 rounded-xl border-border/80 text-foreground hover:bg-muted/80 shrink-0"
+                    aria-label="Export CSV"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Export CSV</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleTableExpand}
-              title={isTableExpanded ? "Collapse to normal view" : "Expand table height to fit screen"}
-              className="h-8 px-2.5 text-xs rounded-xl border-border/80 gap-1.5 text-foreground hover:bg-muted/80 shrink-0"
-            >
-              {isTableExpanded ? (
-                <>
-                  <Minimize2 className="h-3.5 w-3.5 text-primary" />
-                  <span className="hidden sm:inline">Fit Normal</span>
-                </>
-              ) : (
-                <>
-                  <Maximize2 className="h-3.5 w-3.5 text-primary" />
-                  <span className="hidden sm:inline">Expand Table</span>
-                </>
-              )}
-            </Button>
+            {/* Expand / Fit Table - icon only with tooltip */}
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={toggleTableExpand}
+                    className="h-8 w-8 rounded-xl border-border/80 text-foreground hover:bg-muted/80 shrink-0"
+                    aria-label={isTableExpanded ? "Fit normal view" : "Expand table full screen"}
+                  >
+                    {isTableExpanded ? (
+                      <Minimize2 className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Maximize2 className="h-4 w-4 text-primary" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {isTableExpanded ? "Fit Normal View" : "Expand Table"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
 

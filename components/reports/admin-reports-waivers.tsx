@@ -224,7 +224,7 @@ export function AdminReportsWaivers({ data }: AdminReportsWaiversProps) {
       {/* 3. INTERACTIVE WAIVERS TABLE */}
       <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 shadow-xs space-y-3">
         <div className="flex items-center justify-between pb-2 border-b border-border/50">
-          <h4 className="text-sm font-semibold text-foreground">Detailed Waivers & Absorbed Giveaways Ledger</h4>
+          <h4 className="text-sm font-semibold text-foreground">Waivers & Giveaways</h4>
           <span className="text-xs text-muted-foreground">{filteredRecords.length} records found</span>
         </div>
 
