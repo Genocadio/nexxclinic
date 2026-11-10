@@ -48,6 +48,7 @@ import {
   isVisitDepartmentProductBilled,
   flattenVisitBillingItems,
 } from "@/lib/visit-billing-utils";
+import { isNoteUnreadForUser } from "@/lib/note-utils";
 import { formatRWF } from "@/lib/utils";
 import { useUpdateVisitDepartmentStatus } from "@/hooks/auth-hooks";
 import {
@@ -1089,13 +1090,25 @@ export function BillingPageContent() {
     },
   );
 
+  const userRoles = (doctor?.roles as string[]) || [];
+  const currentUserId = doctor?.id ? String(doctor.id) : undefined;
+
+  const isNoteUnread = useCallback(
+    (note: any) => {
+      const deptId = String(note?.visitDepartmentId || "");
+      const dept = visit?.departments?.find((d) => String(d.id) === deptId);
+      return isNoteUnreadForUser(note, userRoles, currentUserId, dept);
+    },
+    [visit?.departments, userRoles, currentUserId]
+  );
+
   // Whole-visit unread gate — mirrors the backend's countUnreadNotesForVisit
   // (any note type, any non-CANCELLED department, not self-created). This is
   // what actually blocks bill/edit/payment/invoice on the backend, so the UI
   // gates on exactly the same set.
   const unreadBillingNotesCount = (visitDepartmentNotes || []).filter(
     (note: any) =>
-      !note?.viewed &&
+      isNoteUnread(note) &&
       !cancelledVisitDepartmentIds.has(String(note?.visitDepartmentId || "")),
   ).length;
 
@@ -1105,7 +1118,7 @@ export function BillingPageContent() {
     const activeId = String(currentBillingDepartmentId || "");
     const counts = new Map<string, { name: string; count: number }>();
     for (const note of visitDepartmentNotes || []) {
-      if (note?.viewed) continue;
+      if (!isNoteUnread(note)) continue;
       const deptId = String(note?.visitDepartmentId || "");
       if (!deptId || deptId === activeId) continue;
       if (cancelledVisitDepartmentIds.has(deptId)) continue;
@@ -1121,6 +1134,7 @@ export function BillingPageContent() {
     currentBillingDepartmentId,
     cancelledVisitDepartmentIds,
     visit?.departments,
+    isNoteUnread,
   ]);
 
   const isUnderConsultation = visit ? isVisitStillUnderConsultation(visit) : false;

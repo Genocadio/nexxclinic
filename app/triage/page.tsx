@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/tooltip";
 import { toast } from "react-toastify";
 import { useAuth } from "@/lib/auth-context";
+import { isNoteUnreadForUser } from "@/lib/note-utils";
 import Header from "@/components/header";
 import InlineTryAgain from "@/components/inline-try-again";
 import { Button } from "@/components/ui/button";
@@ -293,9 +294,16 @@ function TriagePageInner() {
   const { addVisitDepartmentNote } = useAddVisitDepartmentNote();
   const { markNotesViewed } = useMarkVisitDepartmentNotesViewed();
 
+  const userRoles = doctor?.roles || [];
+  const currentUserId = doctor?.id;
+
   const unreadNotesCount = useMemo(() => {
-    return (allVisitNotes || []).filter((n: any) => !n.viewed).length;
-  }, [allVisitNotes]);
+    return (allVisitNotes || []).filter((n: any) => {
+      const deptId = String(n?.visitDepartmentId || "");
+      const dept = visit?.departments?.find((d) => String(d.id) === deptId);
+      return isNoteUnreadForUser(n, userRoles, currentUserId, dept);
+    }).length;
+  }, [allVisitNotes, userRoles, currentUserId, visit?.departments]);
 
   const handleAddNote = async (noteType: string, content: string) => {
     const deptId = selectedDeptId || visit?.departments?.[0]?.id;

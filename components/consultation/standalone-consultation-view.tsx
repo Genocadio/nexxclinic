@@ -48,6 +48,7 @@ import { useHoverPin } from "@/hooks/use-hover-pin";
 import { PatientIdentificationDropdownContent } from "@/components/consultation/consultation-top-dropdowns";
 import { ConsultationPatientHeaderStrip } from "@/components/consultation/consultation-patient-header-strip";
 import { ConsultationVitalsTicker } from "@/components/consultation/consultation-vitals-ticker";
+import { isNoteUnreadForUser } from "@/lib/note-utils";
 import {
   ConsultationLiveToasts,
   type LiveToastItem,
@@ -432,10 +433,12 @@ export function StandaloneConsultationView({
   const { notes: departmentNotes, refetch: refetchNotes } =
     useVisitDepartmentNotes(visit.id, firstVisitDepartmentId || null);
   refetchNotesRef.current = refetchNotes;
+  const userRoles = doctor?.roles || [];
+  const currentUserId = doctor?.id;
   const unreadNotesCount = isTerminalVisit
     ? 0
-    : (departmentNotes || []).filter(
-        (note: any) => !note?.viewed,
+    : (departmentNotes || []).filter((note: any) =>
+        isNoteUnreadForUser(note, userRoles, currentUserId, visitDepartment)
       ).length;
   const { data: previousEncounterData } = useLastPatientDepartmentVisit(
     visit.id,
@@ -2109,12 +2112,19 @@ export function StandaloneConsultationView({
                       No notes yet.
                     </p>
                   ) : (
-                    activeChildDepartmentNotes.map((note: any) => (
+                    activeChildDepartmentNotes.map((note: any) => {
+                      const isChildNoteUnread = isNoteUnreadForUser(
+                        note,
+                        userRoles,
+                        currentUserId,
+                        activeChildNotesDepartment
+                      );
+                      return (
                       <div
                         key={note.id}
                         className="rounded-lg border border-border/70 bg-card p-2"
                         onClick={async () => {
-                          if (!note?.viewed && activeChildNotesDepartmentId) {
+                          if (isChildNoteUnread && activeChildNotesDepartmentId) {
                             await markNotesViewed(activeChildNotesDepartmentId);
                             await refetchActiveChildNotes();
                             onVisitRefetch?.();
@@ -2124,7 +2134,7 @@ export function StandaloneConsultationView({
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                             {note.noteType || "CONSULTATION"}
-                            {!note.viewed && (
+                            {isChildNoteUnread && (
                               <span className="ml-1 rounded-full bg-primary px-1 text-[10px] text-primary-foreground animate-pulse">
                                 NEW
                               </span>
@@ -2140,7 +2150,8 @@ export function StandaloneConsultationView({
                           {note.content || ""}
                         </p>
                       </div>
-                    ))
+                    );
+                    })
                   )}
                 </div>
 

@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth-context";
 import { hasRole } from "@/lib/role-utils";
+import { canUserViewNote, isNoteUnreadForUser, isAdminOrManager } from "@/lib/note-utils";
 import { useVisitLiveness } from "@/hooks/use-visit-liveness";
 import { playNoteNotificationSound } from "@/lib/sound-notifications";
 
@@ -289,26 +290,39 @@ export default function VisitNotesFloating({
   }, [noteTypes, selectedType]);
 
   const userRoles = doctor?.roles || [];
-  const isManagerOrAdmin =
-    hasRole(userRoles, "MANAGER") || hasRole(userRoles, "ADMIN");
+  const currentUserId = doctor?.id;
+  const isManagerOrAdmin = isAdminOrManager(userRoles);
+
+  const currentDepartment = useMemo(() => {
+    if (!selectedDeptId) return null;
+    return validDepts.find((d) => d.id === selectedDeptId) || null;
+  }, [validDepts, selectedDeptId]);
 
   const visibleNotes = useMemo(() => {
-    if (isManagerOrAdmin) {
-      return notes || [];
-    }
+    const list = (notes || []).filter((note) =>
+      canUserViewNote(note, userRoles, currentUserId)
+    );
     if (!allowedDisplayTypes || allowedDisplayTypes.length === 0) {
-      return notes || [];
+      return list;
     }
 
     const allowed = new Set(allowedDisplayTypes.map((t) => t.toUpperCase()));
-    return (notes || []).filter(
+    return list.filter(
       (note) => note?.noteType && allowed.has(String(note.noteType).toUpperCase())
     );
-  }, [allowedDisplayTypes, notes, isManagerOrAdmin]);
+  }, [allowedDisplayTypes, notes, userRoles, currentUserId]);
 
   const unreadNotesCount = useMemo(
-    () => (visibleNotes || []).filter((note) => !note?.viewed).length,
-    [visibleNotes]
+    () =>
+      (visibleNotes || []).filter((note) => {
+        const noteDept =
+          (note as any).visitDepartment ||
+          ((note as any).visitDepartmentId
+            ? validDepts.find((d) => d.id === (note as any).visitDepartmentId)
+            : currentDepartment);
+        return isNoteUnreadForUser(note, userRoles, currentUserId, noteDept);
+      }).length,
+    [visibleNotes, userRoles, currentUserId, validDepts, currentDepartment]
   );
 
   // 1. Smart Auto-Expand on Open Visit if Unread Notes Exist
@@ -484,9 +498,14 @@ export default function VisitNotesFloating({
 
   const markAllAsRead = async () => {
     if (!onMarkAsViewed || markingRead) return;
-    const unread = (visibleNotes || []).filter(
-      (note) => !note?.viewed && note?.id
-    );
+    const unread = (visibleNotes || []).filter((note) => {
+      const noteDept =
+        (note as any).visitDepartment ||
+        ((note as any).visitDepartmentId
+          ? validDepts.find((d) => d.id === (note as any).visitDepartmentId)
+          : currentDepartment);
+      return isNoteUnreadForUser(note, userRoles, currentUserId, noteDept) && note?.id;
+    });
     if (unread.length === 0) return;
 
     setMarkingRead(true);
@@ -495,7 +514,7 @@ export default function VisitNotesFloating({
         unread.map((note) =>
           onMarkAsViewed(
             String(note.id),
-            note.visitDepartmentId || selectedDeptId || visitDepartmentId
+            (note as any).visitDepartmentId || selectedDeptId || visitDepartmentId
           )
         )
       );
@@ -734,7 +753,12 @@ export default function VisitNotesFloating({
               visibleNotes.map((note, idx) => {
                 const config = getNoteTypeConfig(note.noteType);
                 const NoteIcon = config.icon;
-                const isUnread = !note.viewed;
+                const noteDept =
+                  (note as any).visitDepartment ||
+                  ((note as any).visitDepartmentId
+                    ? validDepts.find((d) => d.id === (note as any).visitDepartmentId)
+                    : currentDepartment);
+                const isUnread = isNoteUnreadForUser(note, userRoles, currentUserId, noteDept);
                 const noteTime = formatRelativeTime(note.createdAt);
                 const noteDeptName =
                   note.visitDepartment?.department?.name ||

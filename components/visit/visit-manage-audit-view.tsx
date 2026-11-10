@@ -4,6 +4,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useRouter } from "@/lib/navigation"
 import { useQuery, useMutation } from "@apollo/client"
 import { useAuth } from "@/lib/auth-context"
+import { isNoteUnreadForUser } from "@/lib/note-utils"
 import { useVisit } from "@/hooks/auth-hooks"
 import { useVisitDepartmentNotes } from "@/hooks/visits/hooks"
 import { GET_BILL_BY_VISIT_QUERY } from "@/hooks/queries"
@@ -742,10 +743,17 @@ export function VisitManageAuditView({ visitId }: VisitManageAuditViewProps) {
     return activeDepartmentMeta?.dept?.department?.name || "Department"
   }, [selectedViewKey, activeDepartmentMeta])
 
+  const userRoles = doctor?.roles || []
+  const currentUserId = doctor?.id
+
   const unreadNotesCount = useMemo(() => {
     if (isTerminalVisit) return 0
-    return (departmentNotes || []).filter((note: any) => !note?.viewed).length
-  }, [isTerminalVisit, departmentNotes])
+    return (departmentNotes || []).filter((note: any) => {
+      const deptId = String(note?.visitDepartmentId || "")
+      const dept = visit?.departments?.find((d) => String(d.id) === deptId)
+      return isNoteUnreadForUser(note, userRoles, currentUserId, dept)
+    }).length
+  }, [isTerminalVisit, departmentNotes, userRoles, currentUserId, visit?.departments])
 
   const canDeleteDepartment = useCallback(
     (dept: VisitDepartment | null | undefined) => {
