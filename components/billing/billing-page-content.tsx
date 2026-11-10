@@ -60,6 +60,11 @@ import {
   useMarkVisitDepartmentNotesViewed,
   useRemoveVisitDepartment,
 } from "@/hooks/visits/hooks";
+import {
+  useDischargeVisit,
+  useSendBackVisit,
+  useSendVisitToNext,
+} from "@/hooks/visits/visit-mutations";
 import { useVisitLiveness } from "@/hooks/use-visit-liveness";
 import { playNoteNotificationSound } from "@/lib/sound-notifications";
 import { useBillingPageState } from "@/hooks/billing/use-billing-page-state";
@@ -1180,6 +1185,65 @@ export function BillingPageContent() {
     (!hasUnbilledItems(visit) || hasNoBillables(visit)),
   );
 
+  const { dischargeVisit, loading: dischargingVisit } = useDischargeVisit();
+  const { sendBackVisit, loading: sendingBackVisit } = useSendBackVisit();
+  const { sendVisitToNext, loading: sendingVisitToNext } = useSendVisitToNext();
+  const [sendBackConfirmOpen, setSendBackConfirmOpen] = useState(false);
+
+  const handleSendBackVisit = async () => {
+    if (!visitId) return;
+    const fromDeptId = String(
+      activeVisitDepartment?.id ||
+      (visit?.departments || []).find((d) => d.status === "BILLING")?.id ||
+      (visit?.departments || [])[0]?.id ||
+      ""
+    );
+    if (!fromDeptId) {
+      toast.error("Could not determine current department to send back from.");
+      return;
+    }
+    try {
+      const result = await sendBackVisit({
+        visitId,
+        fromDepartmentId: fromDeptId,
+      });
+      if (result.status === "SUCCESS") {
+        toast.success("Patient successfully returned to doctor");
+        await refetchVisit();
+        await refetchBill();
+        setSendBackConfirmOpen(false);
+        setPostBillingActionOpen(false);
+      } else {
+        toast.error(result.message || "Failed to return patient to doctor");
+      }
+    } catch (err) {
+      console.error("Send back error:", err);
+      toast.error("Failed to return patient to doctor");
+    }
+  };
+
+  const handleDischargePatient = async () => {
+    if (!visitId) return;
+    try {
+      const result = await dischargeVisit({
+        visitId,
+        departmentId: activeVisitDepartment?.id ? String(activeVisitDepartment.id) : undefined,
+      });
+      if (result.status === "SUCCESS") {
+        toast.success("Patient successfully discharged");
+        await refetchVisit();
+        await refetchBill();
+        setDischargeConfirmOpen(false);
+        setPostBillingActionOpen(false);
+      } else {
+        toast.error(result.message || "Failed to discharge patient");
+      }
+    } catch (err) {
+      console.error("Discharge error:", err);
+      toast.error("Failed to discharge patient");
+    }
+  };
+
   const [completeVisitConfirmOpen, setCompleteVisitConfirmOpen] =
     useState(false);
   const [invoiceCompletionPromptOpen, setInvoiceCompletionPromptOpen] =
@@ -1188,15 +1252,26 @@ export function BillingPageContent() {
   const handleCompleteVisit = async () => {
     if (!visitId) return;
     try {
-      const result = await completeVisit(visitId);
+      const result = await dischargeVisit({
+        visitId,
+        departmentId: activeVisitDepartment?.id ? String(activeVisitDepartment.id) : undefined,
+      });
       if (result?.status === "SUCCESS") {
-        toast.success("Visit completed successfully");
+        toast.success("Visit discharged successfully");
         await refetchVisit();
         await refetchBill();
       } else {
-        toast.error(
-          result?.message || "Failed to complete visit. Please try again.",
-        );
+        // Fallback to legacy completeVisit if dischargeVisit returned error
+        const legacyResult = await completeVisit(visitId);
+        if (legacyResult?.status === "SUCCESS") {
+          toast.success("Visit completed successfully");
+          await refetchVisit();
+          await refetchBill();
+        } else {
+          toast.error(
+            result?.message || legacyResult?.message || "Failed to complete visit. Please try again.",
+          );
+        }
       }
     } catch (err) {
       console.error("Complete visit error:", err);
@@ -1613,7 +1688,7 @@ export function BillingPageContent() {
               toast.info("Bill all unbilled products before printing an invoice.")
             }
             canCompleteVisit={canCompleteVisit}
-            completingVisit={completingVisit}
+            completingVisit={dischargingVisit || completingVisit}
             onCompleteVisit={() => {
               if (unreadBillingNotesCount > 0) {
                 toast.warn("Please view the notes first before completing this visit.");
@@ -1621,6 +1696,15 @@ export function BillingPageContent() {
               }
               setCompleteVisitConfirmOpen(true);
             }}
+            onSendBack={() => {
+              if (unreadBillingNotesCount > 0) {
+                toast.warn("Please view the notes first before routing.");
+                return;
+              }
+              setSendBackConfirmOpen(true);
+            }}
+            sendingBack={sendingBackVisit}
+            onSendToNext={() => setAddDepartmentModalOpen(true)}
             onEditBilling={async () => {
               if (unreadBillingNotesCount > 0) {
                 toast.warn("Please view the notes first before continuing.");
@@ -1906,6 +1990,20 @@ export function BillingPageContent() {
           }
         }}
       />
+      <ConfirmDialog
+        open={sendBackConfirmOpen}
+        onOpenChange={setSendBackConfirmOpen}
+        title="Return patient to doctor?"
+        description="The patient will be sent back to consultation and appear at the top of the clinician's 'Needs Me' queue with a 'Returned from Billing' badge."
+        confirmLabel="Return to Doctor"
+        busy={sendingBackVisit}
+        onConfirm={() => {
+          void handleSendBackVisit().finally(() => {
+            setSendBackConfirmOpen(false);
+          });
+        }}
+      />
+
       <PostBillingActionDialog
         open={postBillingActionOpen}
         onOpenChange={setPostBillingActionOpen}
@@ -1914,15 +2012,19 @@ export function BillingPageContent() {
             ? `${visit.patient.firstName || ""} ${visit.patient.lastName || ""}`.trim() || "the patient"
             : "the patient"
         }
-        discharging={completingVisit || discharging}
+        discharging={dischargingVisit || completingVisit || discharging}
+        sendingBack={sendingBackVisit}
         onDischarge={async () => {
           setDischarging(true);
           try {
-            await handleCompleteVisit();
+            await handleDischargePatient();
           } finally {
             setDischarging(false);
             setPostBillingActionOpen(false);
           }
+        }}
+        onSendBack={async () => {
+          await handleSendBackVisit();
         }}
         onAddDepartment={() => {
           setPostBillingActionOpen(false);

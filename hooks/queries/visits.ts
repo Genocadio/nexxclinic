@@ -75,9 +75,13 @@ const childVisitDepartmentFields = `
   id
   status
   completedAt
+  awaitingRole
+  awaitingSince
+  lastRoutingAction
   department {
     id
     name
+    kind
     requestsProducts
   }
   addedBy {
@@ -238,6 +242,7 @@ export const GET_VISIT_QUERY = gql`
           department {
             id
             name
+            kind
             insurancePolicyMode
             requestsProducts
             profiles {
@@ -323,6 +328,14 @@ export const GET_VISIT_QUERY = gql`
           answerId
           hasFinalizedConsultationAnswers
           hasBillableProducts
+          awaitingRole
+          awaitingSince
+          lastRoutingAction
+          previousDepartment {
+            id
+            name
+            kind
+          }
           createdAt
           updatedAt
         }
@@ -330,6 +343,12 @@ export const GET_VISIT_QUERY = gql`
         estimatedInsurancePay
         estimatedPatientPay
         quickBillEligible
+        currentLocations
+        activeEpisodeCount
+        isDischarged
+        hasReturnedFromBilling
+        hasPendingResults
+        lastFlowActivityAt
       }
     }
   }
@@ -412,6 +431,7 @@ export const VISITS_QUERY = gql`
           department {
             id
             name
+            kind
             profiles {
               id
               name
@@ -592,9 +612,13 @@ export const VISITS_QUERY = gql`
             answerId
             hasFinalizedConsultationAnswers
             hasBillableProducts
+            awaitingRole
+            awaitingSince
+            lastRoutingAction
             department {
               id
               name
+              kind
               profiles {
                 id
                 name
@@ -661,11 +685,25 @@ export const VISITS_QUERY = gql`
             totalNotes
             newNotes
           }
+          awaitingRole
+          awaitingSince
+          lastRoutingAction
+          previousDepartment {
+            id
+            name
+            kind
+          }
         }
         estimatedTotal
         estimatedInsurancePay
         estimatedPatientPay
         quickBillEligible
+        currentLocations
+        activeEpisodeCount
+        isDischarged
+        hasReturnedFromBilling
+        hasPendingResults
+        lastFlowActivityAt
       }
       pagination {
         total

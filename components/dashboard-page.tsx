@@ -134,6 +134,13 @@ import {
 } from "@/lib/patient-display-utils"
 import { canDischargeVisit as canDischargeVisitUtil } from "@/lib/visit-product-utils"
 import {
+  isClinicianNeedsMe,
+  isClinicianInCare,
+  isClinicianOnHold,
+  isVisitDischarged,
+  getVisitFlowBadges,
+} from "@/lib/visit-flow-utils"
+import {
   DashboardFilterPopover,
   type AnswersFilterType,
   type GenderFilterType,
@@ -483,15 +490,16 @@ export default function DashboardPage() {
   const availableTabs = useMemo(() => {
     if (isSingleRoleClinician) {
       return [
-        { id: "NEW", label: "New" },
-        { id: "IN_PROGRESS", label: "In Progress" },
+        { id: "NEEDS_ME", label: "Needs Me" },
+        { id: "IN_CARE", label: "In Care" },
+        { id: "ON_HOLD", label: "On Hold" },
         { id: "COMPLETED", label: "Discharged" },
       ]
     }
     if (isSingleRoleFinance) {
       return [
-        { id: "NEW", label: "New" },
-        { id: "IN_PROGRESS", label: "In Progress" },
+        { id: "NEW", label: "To Bill" },
+        { id: "IN_PROGRESS", label: "Outstanding" },
         { id: "COMPLETED", label: "Discharged" },
       ]
     }
@@ -509,10 +517,10 @@ export default function DashboardPage() {
       tabs.push({ id: "BILLING", label: "Billing" })
     }
     if (isMultiRoleWithClinician) {
-      tabs.push({ id: "CONSULTATION", label: "Consultation" })
+      tabs.push({ id: "NEEDS_ME", label: "Needs Me" })
     }
     tabs.push(
-      { id: "IN_PROGRESS", label: "In Progress" },
+      { id: "IN_CARE", label: "In Care" },
       { id: "COMPLETED", label: "Discharged" }
     )
     return tabs
@@ -1762,25 +1770,36 @@ export default function DashboardPage() {
   const filterCounts = useMemo(() => {
     const searchedList = applyGeneralFilters(combinedVisitsList)
 
+    const clinicianNeedsMeCount = searchedList.filter((v) =>
+      isClinicianNeedsMe(v, doctor?.id, userDepartmentIds)
+    ).length
+    const clinicianInCareCount = searchedList.filter((v) =>
+      isClinicianInCare(v, doctor?.id, userDepartmentIds)
+    ).length
+    const clinicianOnHoldCount = searchedList.filter(isClinicianOnHold).length
+
     const counts: Record<string, number> = {
       all: searchedList.filter((visit) => visit.status !== "CANCELLED").length,
+      NEEDS_ME: clinicianNeedsMeCount,
+      IN_CARE: clinicianInCareCount,
+      ON_HOLD: clinicianOnHoldCount,
       IN_PROGRESS: isSingleRoleClinician
-        ? searchedList.filter(isClinicianInProgress).length
+        ? clinicianInCareCount
         : isSingleRoleFinance
           ? searchedList.filter(isFinanceInProgress).length
           : isSingleRoleNurse
             ? searchedList.filter(isNurseInProgress).length
             : searchedList.filter(isVisitInProgress).length,
-      COMPLETED: searchedList.filter(isVisitCompleted).length,
+      COMPLETED: searchedList.filter(isVisitDischarged).length,
       NEW: isSingleRoleClinician
-        ? searchedList.filter(isClinicianNew).length
+        ? clinicianNeedsMeCount
         : isSingleRoleFinance
           ? searchedList.filter(isFinanceNew).length
           : isSingleRoleNurse
             ? searchedList.filter(isNurseNew).length
             : 0,
       BILLING: searchedList.filter(isVisitBilling).length,
-      CONSULTATION: searchedList.filter(isVisitConsultation).length,
+      CONSULTATION: clinicianNeedsMeCount,
     }
     return counts
   }, [
@@ -1806,20 +1825,22 @@ export default function DashboardPage() {
     const filtered = applyGeneralFilters(combinedVisitsList)
 
     if (isSingleRoleClinician) {
-      if (statusFilter === "NEW") {
-        return filtered.filter(isClinicianNew)
-      } else if (statusFilter === "IN_PROGRESS") {
-        return filtered.filter(isClinicianInProgress)
+      if (statusFilter === "NEEDS_ME" || statusFilter === "NEW") {
+        return filtered.filter((v) => isClinicianNeedsMe(v, doctor?.id, userDepartmentIds))
+      } else if (statusFilter === "IN_CARE" || statusFilter === "IN_PROGRESS") {
+        return filtered.filter((v) => isClinicianInCare(v, doctor?.id, userDepartmentIds))
+      } else if (statusFilter === "ON_HOLD") {
+        return filtered.filter(isClinicianOnHold)
       } else if (statusFilter === "COMPLETED") {
-        return filtered.filter(isVisitCompleted)
+        return filtered.filter(isVisitDischarged)
       }
     } else if (isSingleRoleFinance) {
-      if (statusFilter === "NEW") {
+      if (statusFilter === "NEW" || statusFilter === "TO_BILL") {
         return filtered.filter(isFinanceNew)
-      } else if (statusFilter === "IN_PROGRESS") {
+      } else if (statusFilter === "IN_PROGRESS" || statusFilter === "OUTSTANDING") {
         return filtered.filter(isFinanceInProgress)
       } else if (statusFilter === "COMPLETED") {
-        return filtered.filter(isVisitCompleted)
+        return filtered.filter(isVisitDischarged)
       }
     } else if (isSingleRoleNurse) {
       if (statusFilter === "NEW") {
@@ -1827,17 +1848,21 @@ export default function DashboardPage() {
       } else if (statusFilter === "IN_PROGRESS") {
         return filtered.filter(isNurseInProgress)
       } else if (statusFilter === "COMPLETED") {
-        return filtered.filter(isVisitCompleted)
+        return filtered.filter(isVisitDischarged)
       }
     } else {
       if (statusFilter === "BILLING") {
         return filtered.filter(isVisitBilling)
-      } else if (statusFilter === "CONSULTATION") {
-        return filtered.filter(isVisitConsultation)
+      } else if (statusFilter === "CONSULTATION" || statusFilter === "NEEDS_ME") {
+        return filtered.filter((v) => isClinicianNeedsMe(v, doctor?.id, userDepartmentIds))
+      } else if (statusFilter === "IN_CARE") {
+        return filtered.filter((v) => isClinicianInCare(v, doctor?.id, userDepartmentIds))
       } else if (statusFilter === "IN_PROGRESS") {
         return filtered.filter(isVisitInProgress)
+      } else if (statusFilter === "ON_HOLD") {
+        return filtered.filter(isClinicianOnHold)
       } else if (statusFilter === "COMPLETED") {
-        return filtered.filter(isVisitCompleted)
+        return filtered.filter(isVisitDischarged)
       } else if (statusFilter !== "all") {
         return filtered.filter((visit) => visit.status === statusFilter)
       }
@@ -2159,7 +2184,9 @@ export default function DashboardPage() {
                     const isCompletedTab = tab.id === "COMPLETED"
                     const isBillingTab = tab.id === "BILLING"
                     const isConsultationTab = tab.id === "CONSULTATION"
-                    const isNewTab = tab.id === "NEW"
+                    const isNeedsMeTab = tab.id === "NEEDS_ME" || tab.id === "NEW"
+                    const isInCareTab = tab.id === "IN_CARE"
+                    const isOnHoldTab = tab.id === "ON_HOLD"
 
                     return (
                       <button
@@ -2171,10 +2198,14 @@ export default function DashboardPage() {
                               ? "bg-emerald-600 text-white shadow-md scale-105"
                               : isBillingTab
                               ? "bg-amber-600 text-white shadow-md scale-105"
+                              : isNeedsMeTab
+                              ? "bg-indigo-600 text-white shadow-md scale-105"
+                              : isInCareTab
+                              ? "bg-violet-600 text-white shadow-md scale-105"
+                              : isOnHoldTab
+                              ? "bg-slate-600 text-white shadow-md scale-105"
                               : isConsultationTab
                               ? "bg-sky-600 text-white shadow-md scale-105"
-                              : isNewTab
-                              ? "bg-indigo-600 text-white shadow-md scale-105"
                               : "bg-primary text-primary-foreground shadow-md scale-105"
                             : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
                         }`}
@@ -2188,10 +2219,14 @@ export default function DashboardPage() {
                               ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                               : isBillingTab
                               ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                              : isNeedsMeTab
+                              ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400"
+                              : isInCareTab
+                              ? "bg-violet-500/15 text-violet-600 dark:text-violet-400"
+                              : isOnHoldTab
+                              ? "bg-slate-500/15 text-slate-600 dark:text-slate-400"
                               : isConsultationTab
                               ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
-                              : isNewTab
-                              ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400"
                               : "bg-muted-foreground/15 text-muted-foreground"
                           }`}
                         >
@@ -2718,7 +2753,7 @@ export default function DashboardPage() {
                                     )
 
                                     return (
-                                      <div className="mt-1.5 flex items-center">
+                                      <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                                         <Popover>
                                           <PopoverTrigger asChild>
                                             {pillButton}
@@ -3050,6 +3085,46 @@ export default function DashboardPage() {
                                             </div>
                                           </PopoverContent>
                                         </Popover>
+                                        {getVisitFlowBadges(visit).map((badge) => (
+                                          <span
+                                            key={badge.id}
+                                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shadow-2xs select-none ${
+                                              badge.variant === "amber"
+                                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                                                : badge.variant === "emerald"
+                                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                                                  : badge.variant === "sky"
+                                                    ? "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30"
+                                                    : badge.variant === "purple"
+                                                      ? "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30"
+                                                      : badge.variant === "teal"
+                                                        ? "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30"
+                                                        : badge.variant === "blue"
+                                                          ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30"
+                                                          : "bg-muted text-muted-foreground border-border/50"
+                                            }`}
+                                          >
+                                            {badge.iconName === "rotate-ccw" && (
+                                              <RotateCcw className="w-3 h-3" />
+                                            )}
+                                            {badge.iconName === "flask" && (
+                                              <Activity className="w-3 h-3" />
+                                            )}
+                                            {badge.iconName === "activity" && (
+                                              <Activity className="w-3 h-3" />
+                                            )}
+                                            {badge.iconName === "bed" && (
+                                              <Calendar className="w-3 h-3" />
+                                            )}
+                                            {badge.iconName === "receipt" && (
+                                              <ReceiptText className="w-3 h-3" />
+                                            )}
+                                            {badge.iconName === "check" && (
+                                              <CheckCircle className="w-3 h-3" />
+                                            )}
+                                            <span>{badge.label}</span>
+                                          </span>
+                                        ))}
                                       </div>
                                     )
                                   })()}

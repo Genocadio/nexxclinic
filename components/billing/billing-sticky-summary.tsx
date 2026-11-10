@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Printer, Pencil, CheckCircle } from "lucide-react";
+import { Printer, Pencil, CheckCircle, RotateCcw, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -52,6 +52,9 @@ type BillingStickySummaryProps = {
   onEditBilling: () => void;
   onDoneEditing: () => void;
   onCompleteVisit?: () => void;
+  onSendBack?: () => void;
+  sendingBack?: boolean;
+  onSendToNext?: () => void;
   cannotCancelEdit?: boolean;
   cannotCancelEditReason?: string;
   invoiceBlockedUntilComplete?: boolean;
@@ -83,6 +86,9 @@ export function BillingStickySummary({
   onEditBilling,
   onDoneEditing,
   onCompleteVisit,
+  onSendBack,
+  sendingBack = false,
+  onSendToNext,
   invoiceBlockedUntilComplete = false,
   onInvoiceBlockedClick,
 }: BillingStickySummaryProps) {
@@ -362,16 +368,46 @@ export function BillingStickySummary({
                   <ActionButton
                     icon={CheckCircle}
                     label={
-                      completingVisit ? "Completing…" : "Complete visit"
+                      completingVisit ? "Discharging…" : "Discharge patient"
                     }
                     onClick={() => onCompleteVisit?.()}
                     disabled={!canAct || completingVisit}
                     tooltipOverride={
                       !canAct
-                        ? "View unread notes to complete the visit"
+                        ? "View unread notes to discharge the patient"
                         : completingVisit
-                          ? "Completing visit…"
-                          : undefined
+                          ? "Discharging patient…"
+                          : "Finalize encounter and discharge patient"
+                    }
+                  />
+                )}
+
+                {existingVisitBilling && !isEditingBill && onSendBack && (
+                  <ActionButton
+                    icon={RotateCcw}
+                    label={sendingBack ? "Returning…" : "Send back"}
+                    onClick={onSendBack}
+                    disabled={!canAct || sendingBack}
+                    tooltipOverride={
+                      !canAct
+                        ? "View unread notes before routing"
+                        : sendingBack
+                          ? "Returning to doctor…"
+                          : "Return patient back to doctor with a notice"
+                    }
+                  />
+                )}
+
+                {existingVisitBilling && !isEditingBill && onSendToNext && (
+                  <ActionButton
+                    icon={Building2}
+                    label="Send to next"
+                    onClick={onSendToNext}
+                    disabled={!canAct}
+                    tooltipOverride={
+                      !canAct
+                        ? "View unread notes before routing"
+                        : "Forward patient to Lab, Imaging, Ward, or Pharmacy"
                     }
                   />
                 )}
