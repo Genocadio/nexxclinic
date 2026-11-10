@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/lib/auth-context"
 import type { Worker } from "@/lib/api-types"
-import { LogOut, Moon, Sun, UserCog, BarChart3, Monitor, Home, ArrowLeft, LayoutGrid, X, ShieldCheck, Sparkles, Landmark, Stethoscope, Volume2, VolumeX, BellRing } from "lucide-react"
+import { LogOut, Moon, Sun, UserCog, BarChart3, Monitor, Home, ArrowLeft, LayoutGrid, X, ShieldCheck, Sparkles, Landmark, Stethoscope, Volume2, VolumeX } from "lucide-react"
 import { useTheme } from "@/lib/theme-context"
 import { useRouter, usePathname } from "@/lib/navigation"
 import { useState, useEffect } from "react"
@@ -45,20 +45,13 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
     if (next) {
       testSoundNotification().then((running) => {
         if (running) {
-          toast.success("Sound alerts enabled and audio active")
+          toast.success("Audio alerts unmuted (sound active)")
+        } else {
+          toast.info("Audio alerts unmuted")
         }
       })
     } else {
-      toast.info("Sound alerts muted")
-    }
-  }
-
-  const handleTestSound = async () => {
-    const running = await testSoundNotification()
-    if (running) {
-      toast.success("Audio chime tested successfully! Browser autoplay verified.")
-    } else {
-      toast.warn("Audio was suspended. Clicked to resume and grant autoplay permission.")
+      toast.info("Audio alerts muted")
     }
   }
 
@@ -309,33 +302,38 @@ export default function FloatingHeader({ doctor }: FloatingHeaderProps) {
                     </button>
                   )}
 
-                  {/* Audio Alerts & Browser Autoplay Permission Test */}
-                  <div className="px-3 py-2 border-t border-border/30">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground px-1 pb-1.5">
-                      <span className="font-medium flex items-center gap-1.5 text-foreground">
-                        {soundOn ? (
-                          <Volume2 className="w-3.5 h-3.5 text-primary" />
-                        ) : (
-                          <VolumeX className="w-3.5 h-3.5 text-muted-foreground" />
-                        )}
-                        <span>Audio Alerts</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleToggleSound}
-                        className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
-                      >
-                        {soundOn ? "Mute" : "Enable"}
-                      </button>
-                    </div>
+                  {/* Audio Alerts: Speaker & Mute Toggle (unmuting plays alert chime) */}
+                  <div className="px-3 py-1.5 border-t border-border/30">
                     <button
                       type="button"
-                      onClick={handleTestSound}
-                      className="w-full flex items-center justify-center gap-1.5 py-1 px-2.5 rounded-lg text-xs font-medium bg-muted/60 hover:bg-muted dark:bg-muted/40 transition-colors border border-border/40 text-foreground cursor-pointer"
-                      title="Test Audio Alerts Chime and verify browser speakers"
+                      onClick={handleToggleSound}
+                      className={cn(
+                        "w-full flex items-center justify-between py-1.5 px-2.5 rounded-xl text-xs font-medium transition-all border cursor-pointer",
+                        soundOn
+                          ? "bg-primary/10 border-primary/30 text-foreground hover:bg-primary/15"
+                          : "bg-muted/40 border-border/40 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                      )}
+                      title={soundOn ? "Click to mute audio alerts" : "Click to unmute and play test alert"}
+                      aria-label={soundOn ? "Mute audio alerts" : "Unmute audio alerts"}
                     >
-                      <BellRing className="w-3.5 h-3.5 text-primary" />
-                      <span>Test Audio Alerts</span>
+                      <span className="flex items-center gap-2">
+                        {soundOn ? (
+                          <Volume2 className="w-4 h-4 text-primary shrink-0" />
+                        ) : (
+                          <VolumeX className="w-4 h-4 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="font-semibold text-foreground">Audio Alerts</span>
+                      </span>
+                      <span
+                        className={cn(
+                          "text-[10px] font-semibold px-2 py-0.5 rounded-md font-mono uppercase tracking-wider",
+                          soundOn
+                            ? "bg-primary text-primary-foreground shadow-2xs"
+                            : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {soundOn ? "Active" : "Muted"}
+                      </span>
                     </button>
                   </div>
 
