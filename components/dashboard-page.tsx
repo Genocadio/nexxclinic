@@ -114,8 +114,6 @@ import {
   Calendar,
   Package,
   Shield,
-  Building2,
-  HeartPulse,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
@@ -289,14 +287,19 @@ export default function DashboardPage() {
   const hasFinanceRole = roles.includes("FINANCE")
   const hasManagerRole = hasRole(roles, "MANAGER")
   const hasAdminRole = hasRole(roles, "ADMIN")
-  const isReceptionistOnly = hasReceptionistRole && roles.length === 1
-  const hasNurseRole = roles.includes("NURSE") || roles.includes("NURSING")
+  const hasNurseRole =
+    roles.includes("NURSE") || roles.includes("NURSING") || roles.includes("TRIAGE")
   const hasConsultationRole = roles.some((role) =>
     ["DOCTOR", "OPHTHALMOLOGIST", "SPECIALIST", "ADMIN"].includes(role),
   )
   const hasClinicianOrDoctorRole = roles.some((role) =>
     ["CLINICIAN", "DOCTOR"].includes(role),
   )
+  const isReceptionistOnly =
+    hasReceptionistRole &&
+    !hasClinicianOrDoctorRole &&
+    !hasFinanceRole &&
+    !hasNurseRole
   const canEditConsultationAnswers =
     hasClinicianOrDoctorRole && !hasManagerRole && !hasAdminRole
   const canViewPatientHistory = hasRole(roles, "CLINICIAN")
@@ -449,13 +452,25 @@ export default function DashboardPage() {
   }
 
   const isFinanceNew = (visit: Visit) => {
-    if (visit.status === "COMPLETED" || visit.status === "CANCELLED") return false
+    if (isVisitDischarged(visit) || visit.status === "CANCELLED") return false
     return visit.departments?.some((d) => d.status === "BILLING") || visitHasUnbilledProducts(visit)
   }
 
+  const isFinanceOutstanding = (visit: Visit) => {
+    if (isVisitDischarged(visit) || visit.status === "CANCELLED") return false
+    if (isFinanceNew(visit)) return false
+    const depts = visit.departments || []
+    const hasOutstandingAmt = depts.some((d) => {
+      const ibs = (d as any).billing?.insuranceBillings || []
+      const deptOutstanding = Number((d as any).billing?.outstandingAmount ?? 0)
+      return deptOutstanding > 0 || ibs.some((ib: any) => Number(ib.outstandingAmount ?? 0) > 0)
+    })
+    if (hasOutstandingAmt) return true
+    return visit.status === "IN_PROGRESS"
+  }
+
   const isFinanceInProgress = (visit: Visit) => {
-    if (visit.status === "COMPLETED" || visit.status === "CANCELLED") return false
-    return !isFinanceNew(visit) && (visit.status === "IN_PROGRESS" || visit.status === "CREATED")
+    return isFinanceOutstanding(visit)
   }
 
   const isVisitBilling = (visit: Visit) => {
@@ -467,128 +482,82 @@ export default function DashboardPage() {
   }
 
   const isNurseNew = (visit: Visit) => {
-    if (visit.status === "COMPLETED" || visit.status === "CANCELLED" || visit.status === "FINALISED") return false
-    const activeDepts = (visit.departments || []).filter((d) => d.status !== "CANCELLED")
-    return activeDepts.length === 0
+    if (isVisitDischarged(visit) || visit.status === "CANCELLED") return false
+    const activeDepts = (visit.departments || []).filter(
+      (d) => d.status !== "CANCELLED" && d.status !== "COMPLETED" && d.status !== "FINALISED",
+    )
+    if (activeDepts.length === 0) return true
+    return activeDepts.some((d) => {
+      const name = String(d?.department?.name || "").toLowerCase()
+      return name.includes("triage") || name.includes("nurs")
+    })
   }
 
   const isNurseInProgress = (visit: Visit) => {
-    if (visit.status === "COMPLETED" || visit.status === "CANCELLED" || visit.status === "FINALISED") return false
-    const activeDepts = (visit.departments || []).filter((d) => d.status !== "CANCELLED")
-    return activeDepts.length > 0
+    if (isVisitDischarged(visit) || visit.status === "CANCELLED") return false
+    if (isNurseNew(visit)) return false
+    return visit.status === "IN_PROGRESS" || visit.status === "CREATED"
   }
 
   const isVisitCompleted = (visit: Visit) => {
-    return visit.status === "COMPLETED" || visit.status === "FINALISED"
+    return isVisitDischarged(visit)
   }
 
   const isVisitInProgress = (visit: Visit) => {
-    if (visit.status === "COMPLETED" || visit.status === "CANCELLED" || visit.status === "FINALISED") return false
+    if (isVisitDischarged(visit) || visit.status === "CANCELLED") return false
     const activeDepts = (visit.departments || []).filter((d) => d.status !== "CANCELLED")
     if (activeDepts.length === 0) return false
     return visit.status === "CREATED" || visit.status === "IN_PROGRESS" || (visit.status as string) === "BILLING" || hasUnbilledItems(visit)
   }
 
-  const availablePerspectives = useMemo(() => {
-    const list: Array<{
-      id: "CLINICIAN" | "FINANCE" | "NURSE" | "RECEPTION"
-      label: string
-      icon: "stethoscope" | "receipt" | "heart-pulse" | "building"
-    }> = []
-    if (hasClinicianOrDoctorRole) {
-      list.push({ id: "CLINICIAN", label: "Clinician", icon: "stethoscope" })
-    }
-    if (hasFinanceRole) {
-      list.push({ id: "FINANCE", label: "Finance / Billing", icon: "receipt" })
-    }
-    if (hasNurseRole) {
-      list.push({ id: "NURSE", label: "Nurse / Triage", icon: "heart-pulse" })
-    }
-    if (hasReceptionistRole || hasAdminRole || hasManagerRole) {
-      list.push({ id: "RECEPTION", label: "Reception / All", icon: "building" })
-    }
-    return list
-  }, [hasClinicianOrDoctorRole, hasFinanceRole, hasNurseRole, hasReceptionistRole, hasAdminRole, hasManagerRole])
-
-  const defaultPerspective = useMemo<"CLINICIAN" | "FINANCE" | "NURSE" | "RECEPTION">(() => {
-    const hasConsultDept = userDepartments.some((d) => {
-      const name = String(d.name || "").toUpperCase()
-      return !name.includes("TRIAGE") && !name.includes("NURSING") && !name.includes("LAB")
-    })
-    if (hasClinicianOrDoctorRole && (hasConsultDept || userDepartments.length === 0)) {
-      return "CLINICIAN"
-    }
-    if (hasFinanceRole && !hasClinicianOrDoctorRole) {
-      return "FINANCE"
-    }
-    if (hasNurseRole && !hasClinicianOrDoctorRole) {
-      return "NURSE"
-    }
-    if (hasClinicianOrDoctorRole) return "CLINICIAN"
-    if (hasFinanceRole) return "FINANCE"
-    if (hasNurseRole) return "NURSE"
-    return "RECEPTION"
-  }, [userDepartments, hasClinicianOrDoctorRole, hasFinanceRole, hasNurseRole])
-
-  const [activePerspective, setActivePerspective] =
-    useState<"CLINICIAN" | "FINANCE" | "NURSE" | "RECEPTION">(defaultPerspective)
-
-  useEffect(() => {
-    if (
-      availablePerspectives.length > 0 &&
-      !availablePerspectives.some((p) => p.id === activePerspective)
-    ) {
-      setActivePerspective(defaultPerspective)
-    }
-  }, [availablePerspectives, defaultPerspective, activePerspective])
-
-  const handlePerspectiveChange = (
-    perspectiveId: "CLINICIAN" | "FINANCE" | "NURSE" | "RECEPTION",
-  ) => {
-    setActivePerspective(perspectiveId)
-    if (perspectiveId === "FINANCE") {
-      setStatusFilter("TO_BILL")
-    } else if (perspectiveId === "NURSE") {
-      setStatusFilter("NEW")
-    } else if (perspectiveId === "RECEPTION") {
-      setStatusFilter("all")
-    } else {
-      setStatusFilter("NEEDS_ME")
-    }
-  }
-
   const availableTabs = useMemo(() => {
-    switch (activePerspective) {
-      case "FINANCE":
-        return [
-          { id: "TO_BILL", label: "To Bill" },
-          { id: "OUTSTANDING", label: "Outstanding" },
-          { id: "COMPLETED", label: "Discharged" },
-        ]
-      case "NURSE":
-        return [
-          { id: "NEW", label: "New / Triage" },
-          { id: "IN_PROGRESS", label: "In Progress" },
-          { id: "COMPLETED", label: "Discharged" },
-        ]
-      case "RECEPTION":
-        return [
-          { id: "all", label: "All Visits" },
-          { id: "CONSULTATION", label: "Consultation" },
-          { id: "IN_CARE", label: "In Service" },
-          { id: "BILLING", label: "At Billing" },
-          { id: "COMPLETED", label: "Discharged" },
-        ]
-      case "CLINICIAN":
-      default:
-        return [
-          { id: "NEEDS_ME", label: "Needs Me" },
-          { id: "IN_CARE", label: "In Care" },
-          { id: "ON_HOLD", label: "On Hold" },
-          { id: "COMPLETED", label: "Discharged" },
-        ]
+    // Pure receptionist: reception only without clinical, nursing or finance privileges
+    // Reception should NOT have consultation or in service tabs
+    if (isReceptionistOnly) {
+      return [
+        { id: "all", label: "All Active" },
+        { id: "TRIAGE", label: "Waiting Triage" },
+        { id: "COMPLETED", label: "Discharged" },
+      ]
     }
-  }, [activePerspective])
+
+    const tabs: Array<{ id: string; label: string }> = []
+
+    // 1. Clinician Queue: if user is a Clinician / Doctor
+    if (hasClinicianOrDoctorRole) {
+      tabs.push({ id: "NEEDS_ME", label: "Needs Me" })
+      tabs.push({ id: "IN_CARE", label: "In Care" })
+    }
+
+    // 2. Nurse / Triage Queue: if user has Nurse role
+    if (hasNurseRole) {
+      tabs.push({ id: "TRIAGE", label: "Triage" })
+      if (!hasClinicianOrDoctorRole) {
+        tabs.push({ id: "IN_PROGRESS", label: "In Progress" })
+      }
+    }
+
+    // 3. Finance / Billing Queues: if user has Finance role
+    if (hasFinanceRole) {
+      tabs.push({ id: "TO_BILL", label: "To Bill" })
+      tabs.push({ id: "OUTSTANDING", label: "Outstanding" })
+    }
+
+    // 4. On Hold: clinician pause bucket
+    if (hasClinicianOrDoctorRole) {
+      tabs.push({ id: "ON_HOLD", label: "On Hold" })
+    }
+
+    // Fallback if user has no assigned role
+    if (tabs.length === 0) {
+      tabs.push({ id: "all", label: "All Active" })
+    }
+
+    // 5. Exactly ONE Discharged tab at the end! Never duplicated!
+    tabs.push({ id: "COMPLETED", label: "Discharged" })
+
+    return tabs
+  }, [hasClinicianOrDoctorRole, hasFinanceRole, hasNurseRole, isReceptionistOnly])
 
   useEffect(() => {
     if (availableTabs.length > 0 && !availableTabs.some((t) => t.id === statusFilter)) {
@@ -1842,32 +1811,24 @@ export default function DashboardPage() {
     ).length
     const clinicianOnHoldCount = searchedList.filter(isClinicianOnHold).length
     const financeNewCount = searchedList.filter(isFinanceNew).length
-    const financeInProgressCount = searchedList.filter(isFinanceInProgress).length
+    const financeOutstandingCount = searchedList.filter(isFinanceOutstanding).length
     const nurseNewCount = searchedList.filter(isNurseNew).length
     const nurseInProgressCount = searchedList.filter(isNurseInProgress).length
+    const dischargedCount = searchedList.filter(isVisitDischarged).length
+    const allActiveCount = searchedList.filter((v) => !isVisitDischarged(v) && v.status !== "CANCELLED").length
 
     const counts: Record<string, number> = {
-      all: searchedList.filter((visit) => visit.status !== "CANCELLED").length,
+      all: allActiveCount,
       NEEDS_ME: clinicianNeedsMeCount,
-      IN_CARE: activePerspective === "RECEPTION" ? searchedList.filter(isVisitInProgress).length : clinicianInCareCount,
+      IN_CARE: clinicianInCareCount,
+      IN_SERVICE: clinicianInCareCount,
       ON_HOLD: clinicianOnHoldCount,
       TO_BILL: financeNewCount,
-      OUTSTANDING: financeInProgressCount,
-      IN_PROGRESS: activePerspective === "CLINICIAN"
-        ? clinicianInCareCount
-        : activePerspective === "FINANCE"
-          ? financeInProgressCount
-          : activePerspective === "NURSE"
-            ? nurseInProgressCount
-            : searchedList.filter(isVisitInProgress).length,
-      COMPLETED: searchedList.filter(isVisitDischarged).length,
-      NEW: activePerspective === "CLINICIAN"
-        ? clinicianNeedsMeCount
-        : activePerspective === "FINANCE"
-          ? financeNewCount
-          : nurseNewCount,
       BILLING: financeNewCount,
-      CONSULTATION: clinicianNeedsMeCount,
+      OUTSTANDING: financeOutstandingCount,
+      TRIAGE: nurseNewCount,
+      IN_PROGRESS: nurseInProgressCount,
+      COMPLETED: dischargedCount,
     }
     return counts
   }, [
@@ -1881,7 +1842,6 @@ export default function DashboardPage() {
     customAgeMin,
     customAgeMax,
     dobFilter,
-    activePerspective,
     canQueryAnswerState,
     userDepartmentIds,
     doctor?.id,
@@ -1890,57 +1850,29 @@ export default function DashboardPage() {
   const allVisits = useMemo(() => {
     const filtered = applyGeneralFilters(combinedVisitsList)
 
-    switch (activePerspective) {
-      case "FINANCE":
-        if (statusFilter === "TO_BILL" || statusFilter === "NEW" || statusFilter === "BILLING") {
-          return filtered.filter(isFinanceNew)
-        } else if (statusFilter === "OUTSTANDING" || statusFilter === "IN_PROGRESS") {
-          return filtered.filter(isFinanceInProgress)
-        } else if (statusFilter === "COMPLETED") {
-          return filtered.filter(isVisitDischarged)
-        }
-        break
-      case "NURSE":
-        if (statusFilter === "NEW") {
-          return filtered.filter(isNurseNew)
-        } else if (statusFilter === "IN_PROGRESS") {
-          return filtered.filter(isNurseInProgress)
-        } else if (statusFilter === "COMPLETED") {
-          return filtered.filter(isVisitDischarged)
-        }
-        break
-      case "RECEPTION":
-        if (statusFilter === "BILLING" || statusFilter === "TO_BILL") {
-          return filtered.filter(isFinanceNew)
-        } else if (statusFilter === "CONSULTATION" || statusFilter === "NEEDS_ME") {
-          return filtered.filter((v) => isClinicianNeedsMe(v, doctor?.id, userDepartmentIds))
-        } else if (statusFilter === "IN_CARE") {
-          return filtered.filter((v) => isClinicianInCare(v, doctor?.id, userDepartmentIds) || isVisitInProgress(v))
-        } else if (statusFilter === "IN_PROGRESS") {
-          return filtered.filter(isVisitInProgress)
-        } else if (statusFilter === "ON_HOLD") {
-          return filtered.filter(isClinicianOnHold)
-        } else if (statusFilter === "COMPLETED") {
-          return filtered.filter(isVisitDischarged)
-        } else if (statusFilter !== "all") {
-          return filtered.filter((visit) => visit.status === statusFilter)
-        }
-        break
-      case "CLINICIAN":
+    switch (statusFilter) {
+      case "NEEDS_ME":
+        return filtered.filter((v) => isClinicianNeedsMe(v, doctor?.id, userDepartmentIds))
+      case "IN_CARE":
+      case "IN_SERVICE":
+        return filtered.filter((v) => isClinicianInCare(v, doctor?.id, userDepartmentIds))
+      case "ON_HOLD":
+        return filtered.filter(isClinicianOnHold)
+      case "TRIAGE":
+        return filtered.filter(isNurseNew)
+      case "TO_BILL":
+      case "BILLING":
+        return filtered.filter(isFinanceNew)
+      case "OUTSTANDING":
+        return filtered.filter(isFinanceOutstanding)
+      case "IN_PROGRESS":
+        return filtered.filter(isNurseInProgress)
+      case "COMPLETED":
+        return filtered.filter(isVisitDischarged)
+      case "all":
       default:
-        if (statusFilter === "NEEDS_ME" || statusFilter === "NEW") {
-          return filtered.filter((v) => isClinicianNeedsMe(v, doctor?.id, userDepartmentIds))
-        } else if (statusFilter === "IN_CARE" || statusFilter === "IN_PROGRESS") {
-          return filtered.filter((v) => isClinicianInCare(v, doctor?.id, userDepartmentIds))
-        } else if (statusFilter === "ON_HOLD") {
-          return filtered.filter(isClinicianOnHold)
-        } else if (statusFilter === "COMPLETED") {
-          return filtered.filter(isVisitDischarged)
-        }
-        break
+        return filtered.filter((v) => !isVisitDischarged(v) && v.status !== "CANCELLED")
     }
-
-    return filtered.filter((visit) => visit.status !== "CANCELLED")
   }, [
     combinedVisitsList,
     searchQuery,
@@ -1953,7 +1885,6 @@ export default function DashboardPage() {
     customAgeMax,
     dobFilter,
     statusFilter,
-    activePerspective,
     canQueryAnswerState,
     userDepartmentIds,
     doctor?.id,
@@ -2246,66 +2177,40 @@ export default function DashboardPage() {
           <div className="flex-1 min-h-0 bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl shadow-lg flex flex-col overflow-hidden">
             {/* Status filters & search controls (fixed at top of visit container) */}
             <div className="p-4 md:px-6 md:py-3.5 border-b border-border/30 shrink-0 bg-card/40 backdrop-blur-md">
-              {/* Workstation / Role perspective switcher for multi-role staff */}
-              {availablePerspectives.length > 1 && (
-                <div className="hidden md:flex items-center justify-center gap-1.5 p-1 mb-3 rounded-full bg-muted/40 border border-border/40 w-fit mx-auto backdrop-blur-md shadow-2xs">
-                  {availablePerspectives.map((p) => {
-                    const isSelected = activePerspective === p.id
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => handlePerspectiveChange(p.id)}
-                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                          isSelected
-                            ? "bg-primary text-primary-foreground shadow-sm scale-102"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                        }`}
-                      >
-                        {p.icon === "stethoscope" && <Stethoscope className="w-3.5 h-3.5" />}
-                        {p.icon === "receipt" && <ReceiptText className="w-3.5 h-3.5" />}
-                        {p.icon === "heart-pulse" && <HeartPulse className="w-3.5 h-3.5" />}
-                        {p.icon === "building" && <Building2 className="w-3.5 h-3.5" />}
-                        <span>{p.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-
               {/* Desktop filters - visible on md and up */}
               <div className="hidden md:flex gap-2 flex-wrap justify-center items-center">
                   {availableTabs.map((tab) => {
                     const isActive = statusFilter === tab.id
                     const count = filterCounts[tab.id] ?? 0
                     const isCompletedTab = tab.id === "COMPLETED"
-                    const isBillingTab = tab.id === "BILLING" || tab.id === "TO_BILL"
+                    const isToBillTab = tab.id === "TO_BILL" || tab.id === "BILLING"
                     const isOutstandingTab = tab.id === "OUTSTANDING"
-                    const isConsultationTab = tab.id === "CONSULTATION"
-                    const isNeedsMeTab = tab.id === "NEEDS_ME" || (tab.id === "NEW" && activePerspective === "CLINICIAN")
-                    const isInCareTab = tab.id === "IN_CARE"
+                    const isTriageTab = tab.id === "TRIAGE"
+                    const isNeedsMeTab = tab.id === "NEEDS_ME"
+                    const isInCareTab = tab.id === "IN_CARE" || tab.id === "IN_SERVICE"
                     const isOnHoldTab = tab.id === "ON_HOLD"
+                    const isInProgressTab = tab.id === "IN_PROGRESS"
 
                     return (
                       <button
                         key={tab.id}
                         onClick={() => setStatusFilter(tab.id)}
-                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer ${
                           isActive
                             ? isCompletedTab
                               ? "bg-emerald-600 text-white shadow-md scale-105"
-                              : isBillingTab
+                              : isToBillTab
                               ? "bg-amber-600 text-white shadow-md scale-105"
                               : isOutstandingTab
                               ? "bg-orange-600 text-white shadow-md scale-105"
+                              : isTriageTab
+                              ? "bg-rose-600 text-white shadow-md scale-105"
                               : isNeedsMeTab
                               ? "bg-indigo-600 text-white shadow-md scale-105"
-                              : isInCareTab
+                              : isInCareTab || isInProgressTab
                               ? "bg-violet-600 text-white shadow-md scale-105"
                               : isOnHoldTab
                               ? "bg-slate-600 text-white shadow-md scale-105"
-                              : isConsultationTab
-                              ? "bg-sky-600 text-white shadow-md scale-105"
                               : "bg-primary text-primary-foreground shadow-md scale-105"
                             : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
                         }`}
@@ -2317,18 +2222,18 @@ export default function DashboardPage() {
                               ? "bg-white/25 text-white"
                               : isCompletedTab
                               ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                              : isBillingTab
+                              : isToBillTab
                               ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
                               : isOutstandingTab
                               ? "bg-orange-500/15 text-orange-600 dark:text-orange-400"
+                              : isTriageTab
+                              ? "bg-rose-500/15 text-rose-600 dark:text-rose-400"
                               : isNeedsMeTab
                               ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400"
-                              : isInCareTab
+                              : isInCareTab || isInProgressTab
                               ? "bg-violet-500/15 text-violet-600 dark:text-violet-400"
                               : isOnHoldTab
                               ? "bg-slate-500/15 text-slate-600 dark:text-slate-400"
-                              : isConsultationTab
-                              ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
                               : "bg-muted-foreground/15 text-muted-foreground"
                           }`}
                         >
@@ -2340,32 +2245,6 @@ export default function DashboardPage() {
                 </div>
                 {/* Mobile filter, layout switch, and search controls */}
                 <div className="md:hidden px-11 sm:px-14 md:px-0">
-                  {/* Mobile perspective switcher */}
-                  {availablePerspectives.length > 1 && (
-                    <div className="flex items-center justify-center gap-1 p-0.5 mb-2.5 rounded-full bg-muted/40 border border-border/40 w-full overflow-x-auto">
-                      {availablePerspectives.map((p) => {
-                        const isSelected = activePerspective === p.id
-                        return (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => handlePerspectiveChange(p.id)}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                              isSelected
-                                ? "bg-primary text-primary-foreground shadow-sm"
-                                : "text-muted-foreground hover:text-foreground"
-                            }`}
-                          >
-                            {p.icon === "stethoscope" && <Stethoscope className="w-3 h-3" />}
-                            {p.icon === "receipt" && <ReceiptText className="w-3 h-3" />}
-                            {p.icon === "heart-pulse" && <HeartPulse className="w-3 h-3" />}
-                            {p.icon === "building" && <Building2 className="w-3 h-3" />}
-                            <span>{p.label}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
                   {!mobileSearchActive ? (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
