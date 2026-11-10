@@ -31,7 +31,6 @@ import {
 } from "@/components/ui/tooltip";
 import { PatientIdentificationDropdownContent } from "@/components/consultation/consultation-top-dropdowns";
 import VisitNotesFloating from "@/components/visit-notes-floating";
-import { VisitPresenceBadge } from "@/components/visit-presence-badge";
 
 export interface HeaderDepartmentOption {
   id: string;
@@ -206,12 +205,6 @@ export function ConsultationPatientHeaderStrip({
           </PopoverContent>
         </Popover>
 
-        {visitId && (
-          <VisitPresenceBadge
-            visitId={visitId}
-            className="hidden lg:inline-flex text-[10px] py-0 px-1.5 h-4"
-          />
-        )}
 
         {/* Active Visit Department Dropdown */}
         {((departments && departments.length > 0) || onAddDepartment) && (

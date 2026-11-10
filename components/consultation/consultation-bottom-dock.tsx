@@ -16,7 +16,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { VisitPresenceBadge } from "@/components/visit-presence-badge";
 import { useAuth } from "@/lib/auth-context";
 import { useSearchWorkers } from "@/hooks/workers/hooks";
 import { useAddVisitDepartmentProcessor } from "@/hooks/visits/department-mutations";
@@ -142,12 +141,6 @@ export function ConsultationBottomDock({
   return (
     <div className="fixed bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100dvw-1.5rem)]">
       <div className="glass-gray rounded-full shadow-lg px-2.5 py-1.5 flex items-center gap-1.5">
-        {visitId && (
-          <VisitPresenceBadge
-            visitId={visitId}
-            className="bg-white/10 text-white/95 border-white/20 text-[11px] py-0.5 px-2"
-          />
-        )}
         <TooltipProvider>
           <div className="flex items-center gap-1.5">
             {saveIndicator?.visible ? (

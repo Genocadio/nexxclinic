@@ -301,14 +301,20 @@ export function StandaloneConsultationView({
         setLiveVisitFinalised(true);
         onVisitRefetch?.();
       } else if (detail.type === "VISIT_PRODUCT_CHANGED") {
-        addLiveToast({
-          variant: "product",
-          title: "Orders Updated",
-          message: "Products or investigation requests updated.",
-          onClick: () => {
-            if (requestProductsEnabled) setRequestProductsOpen(true);
-          },
-        });
+        if (!isSelfEvent) {
+          const prodName = detail.metadata?.productName;
+          const actor = detail.actorName ? ` by ${detail.actorName}` : "";
+          addLiveToast({
+            variant: "product",
+            title: "Product Added",
+            message: prodName
+              ? `${prodName} added${actor}.`
+              : `Products updated${actor}.`,
+            onClick: () => {
+              if (requestProductsEnabled) setRequestProductsOpen(true);
+            },
+          });
+        }
         onVisitRefetch?.();
       } else if (detail.type === "VISIT_NOTE_ADDED") {
         if (detail.actorId !== doctor?.id) {
@@ -456,6 +462,7 @@ export function StandaloneConsultationView({
 
   // Live product tracking for real-time notifications (product added / quantity updated)
   const prevProductsRef = useRef<Array<{ id: string; name: string; quantity: number; billingState?: string }>>([]);
+  const selfSubmittedProductIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const currentProducts = (visitDepartment.products || []).map((p: any) => ({
@@ -475,12 +482,16 @@ export function StandaloneConsultationView({
     for (const curr of currentProducts) {
       const prev = prevMap.get(curr.id);
       if (!prev) {
-        addLiveToast({
-          id: `product-added-${curr.id}`,
-          variant: "product",
-          title: "Product Added",
-          message: `${curr.name} (Qty: ${curr.quantity}) added to visit.`,
-        });
+        if (selfSubmittedProductIdsRef.current.has(curr.id)) {
+          selfSubmittedProductIdsRef.current.delete(curr.id);
+        } else {
+          addLiveToast({
+            id: `product-added-${curr.id}`,
+            variant: "product",
+            title: "Product Added",
+            message: `${curr.name} (Qty: ${curr.quantity}) added to visit.`,
+          });
+        }
       } else if (prev.quantity !== curr.quantity) {
         addLiveToast({
           id: `product-qty-${curr.id}-${curr.quantity}`,
@@ -1361,6 +1372,7 @@ export function StandaloneConsultationView({
       }
 
       for (const product of pendingRequestProducts) {
+        selfSubmittedProductIdsRef.current.add(product.id);
         await addProduct(
           visit.id,
           targetVisitDepartmentId,
@@ -1370,7 +1382,25 @@ export function StandaloneConsultationView({
         );
       }
 
-      toast.success("Investigations updated");
+      const count = pendingRequestProducts.length;
+      const firstProd = pendingRequestProducts[0];
+      const targetDept = supportDepartments.find(
+        (d) => d.id === selectedRequestDepartmentId,
+      );
+      const isLab = /lab|investigat/i.test(targetDept?.name || "");
+      if (isLab) {
+        toast.success(
+          count === 1
+            ? `${firstProd?.name || "Investigation"} ordered`
+            : `${count} investigations ordered`,
+        );
+      } else {
+        toast.success(
+          count === 1
+            ? `${firstProd?.name || "Product"} added`
+            : `${count} products added`,
+        );
+      }
       setRequestProductsOpen(false);
       resetInvestigationComposer();
       onVisitRefetch?.();

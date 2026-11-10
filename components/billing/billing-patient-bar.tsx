@@ -11,7 +11,6 @@ import { Separator } from "@/components/ui/separator";
 import type { PatientInsurance } from "@/lib/api-types";
 import { isInsuranceActive, insuranceStatusLabel } from "@/lib/insurance-utils";
 import { PatientInsuranceBadge } from "@/components/patient-insurance-badge";
-import { VisitPresenceBadge } from "@/components/visit-presence-badge";
 
 type BillingPatientBarProps = {
   visitId?: string;
@@ -66,7 +65,6 @@ export function BillingPatientBar({
               <h1 className="text-sm font-semibold text-foreground truncate">
                 {patientName}
               </h1>
-              {visitId && <VisitPresenceBadge visitId={visitId} />}
               <Separator
                 orientation="vertical"
                 className="h-4 hidden sm:block"

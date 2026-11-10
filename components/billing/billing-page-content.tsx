@@ -67,6 +67,7 @@ import {
 } from "@/hooks/visits/visit-mutations";
 import { useVisitLiveness } from "@/hooks/use-visit-liveness";
 import { playNoteNotificationSound } from "@/lib/sound-notifications";
+import { VisitLiveToasts, type LiveToastItem } from "@/components/visit-live-toasts";
 import { useBillingPageState } from "@/hooks/billing/use-billing-page-state";
 import { useBillingPageActions } from "@/hooks/billing/use-billing-actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -1018,28 +1019,77 @@ export function BillingPageContent() {
     refetch: refetchNotes,
   } = useVisitDepartmentNotes(visitId, null);
 
+  // Dedicated real-time floating notifications (bottom-right)
+  const [liveToasts, setLiveToasts] = useState<LiveToastItem[]>([]);
+  const [dismissedPersistentIds, setDismissedPersistentIds] = useState<Set<string>>(new Set());
+
+  const addLiveToast = useCallback((toastItem: Omit<LiveToastItem, "id"> & { id?: string }) => {
+    const id = toastItem.id || `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setLiveToasts((prev) => {
+      const filtered = prev.filter((t) => t.id !== id);
+      return [...filtered, { ...toastItem, id }];
+    });
+
+    if (!toastItem.persistent) {
+      setTimeout(() => {
+        setLiveToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 6000);
+    }
+  }, []);
+
+  const handleDismissLiveToast = useCallback((id: string) => {
+    setLiveToasts((prev) => prev.filter((t) => t.id !== id));
+    setDismissedPersistentIds((prev) => new Set(prev).add(id));
+  }, []);
+
   // Real-time presence and SSE handling for billing
-  const { updateActivity } = useVisitLiveness(visitId, {
+  const { otherViewers, updateActivity } = useVisitLiveness(visitId, {
     onSseEvent: (detail) => {
       if (detail.visitId !== visitId) return;
 
+      const isSelfEvent = Boolean(
+        detail.actorId && doctor?.id && String(detail.actorId) === String(doctor.id)
+      );
+
       if (detail.type === "VISIT_NOTE_ADDED") {
-        if (detail.actorId !== doctor?.id) {
+        if (!isSelfEvent) {
           const typeLabel = detail.metadata?.noteType
             ? `${String(detail.metadata.noteType).toLowerCase()} `
             : "";
           const actor = detail.actorName ? ` by ${detail.actorName}` : "";
-          toast.info(`New ${typeLabel}note added${actor}.`, {
-            toastId: `note-added-${detail.metadata?.noteId || detail.eventId || Date.now()}`,
+          addLiveToast({
+            id: `note-added-${detail.metadata?.noteId || detail.eventId || Date.now()}`,
+            variant: "note",
+            title: "New Note Added",
+            message: `New ${typeLabel}note added${actor}.`,
           });
           playNoteNotificationSound();
         }
         void refetchNotes();
         void refetchVisit();
       } else if (detail.type === "VISIT_PRODUCT_CHANGED") {
+        if (!isSelfEvent) {
+          const prodName = detail.metadata?.productName || detail.metadata?.name;
+          const actor = detail.actorName ? ` by ${detail.actorName}` : "";
+          addLiveToast({
+            id: `prod-added-${detail.eventId || Date.now()}`,
+            variant: "product",
+            title: "Product Added",
+            message: prodName ? `${prodName} added${actor}.` : `Products updated${actor}.`,
+          });
+        }
         void refetchVisit();
         void refetchBill();
       } else if (detail.type === "VISIT_DEPARTMENT_STATE_CHANGED") {
+        const deptStatus = String(detail.departmentStatus || "").toUpperCase();
+        const actor = detail.actorName ? ` by ${detail.actorName}` : "";
+        if (!isSelfEvent && deptStatus === "FINALISED") {
+          addLiveToast({
+            variant: "finalised",
+            title: "Department Finalised",
+            message: `Department finalised${actor}.`,
+          });
+        }
         void refetchVisit();
         void refetchBill();
       } else if (
@@ -1047,11 +1097,37 @@ export function BillingPageContent() {
         detail.type === "VISIT_CANCELLED" ||
         detail.type === "VISIT_REOPENED"
       ) {
+        if (!isSelfEvent && detail.type === "VISIT_DISCHARGED") {
+          const actor = detail.actorName ? ` by ${detail.actorName}` : "";
+          addLiveToast({
+            variant: "finalised",
+            title: "Visit Finalised",
+            message: `This visit has been finalised${actor}.`,
+          });
+        }
         void refetchVisit();
         void refetchBill();
       }
     },
   });
+
+  // Merge live transient notifications with active persistent state toasts (presence)
+  const allLiveToasts = useMemo(() => {
+    const list: LiveToastItem[] = [...liveToasts];
+
+    // Presence: Colleague / clinician viewers
+    if (otherViewers && otherViewers.length > 0 && !dismissedPersistentIds.has("presence-others")) {
+      list.push({
+        id: "presence-others",
+        title: "Colleague Viewing",
+        message: `${otherViewers.map((v) => v.name).join(", ")} is currently viewing this visit.`,
+        variant: "presence",
+        persistent: true,
+      });
+    }
+
+    return list;
+  }, [liveToasts, otherViewers, dismissedPersistentIds]);
 
   // Sync real-time activity for billing (WhatsApp-style presence)
   useEffect(() => {
@@ -2096,6 +2172,12 @@ export function BillingPageContent() {
           onClose={() => setPatientHistoryOpen(false)}
         />
       )}
+
+      {/* Floating live alerts bottom right corner */}
+      <VisitLiveToasts
+        toasts={allLiveToasts}
+        onDismiss={handleDismissLiveToast}
+      />
     </div>
   );
 }
