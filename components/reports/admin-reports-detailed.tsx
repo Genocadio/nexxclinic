@@ -126,17 +126,6 @@ export function AdminReportsDetailed({
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT)
   const [isTableExpanded, setIsTableExpanded] = useState(false)
 
-  // Prevent background scroll when table is full-screen expanded
-  useEffect(() => {
-    if (isTableExpanded) {
-      const originalOverflow = document.body.style.overflow
-      document.body.style.overflow = "hidden"
-      return () => {
-        document.body.style.overflow = originalOverflow
-      }
-    }
-  }, [isTableExpanded])
-
   // Drawer & Invoice state for instant audit
   const [selectedAuditEncounter, setSelectedAuditEncounter] = useState<ClinicEncounterDetail | null>(null)
   const [previewingInvoiceKey, setPreviewingInvoiceKey] = useState<string | null>(null)
@@ -486,7 +475,13 @@ export function AdminReportsDetailed({
   }
 
   const toggleTableExpand = () => {
-    setIsTableExpanded((prev) => !prev)
+    setIsTableExpanded((prev) => {
+      const next = !prev
+      if (next && currentTotalCount > visibleCount) {
+        setVisibleCount(currentTotalCount)
+      }
+      return next
+    })
   }
 
   const formatTimestamp = (ts: string) => {
@@ -808,21 +803,8 @@ export function AdminReportsDetailed({
         </div>
       </div>
 
-      {/* Modal backdrop when full-screen expanded */}
-      {isTableExpanded && (
-        <div
-          className="fixed inset-0 z-[55] bg-background/80 backdrop-blur-sm transition-opacity"
-          onClick={toggleTableExpand}
-        />
-      )}
-
       {/* Main Breakdown Container matching Clinician View */}
-      <div
-        className={cn(
-          "bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl shadow-sm flex flex-col transition-all overflow-hidden p-4 sm:p-5 gap-3",
-          isTableExpanded && "fixed inset-2 sm:inset-4 lg:inset-6 z-[60] bg-background border border-border shadow-2xl min-h-0"
-        )}
-      >
+      <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl shadow-sm flex flex-col transition-all overflow-hidden p-4 sm:p-5 gap-3">
         {/* Top bar: Title + View Switcher + Export + Expand */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
@@ -950,7 +932,7 @@ export function AdminReportsDetailed({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  {isTableExpanded ? "Fit Normal View" : "Expand Table"}
+                  {isTableExpanded ? "Collapse Table" : "Expand Table (Show All Rows)"}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -1043,7 +1025,7 @@ export function AdminReportsDetailed({
 
         {/* MODE 1: Group by Encounter Table */}
         {financeViewMode === "grouped" && (
-          <div className={cn("flex flex-col gap-2", isTableExpanded && "flex-1 min-h-0")}>
+          <div className="flex flex-col gap-2">
             {searchFilteredEncounters.length === 0 ? (
               <div className="py-12 text-center flex flex-col items-center justify-center">
                 <div className="h-10 w-10 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground mb-2">
@@ -1058,8 +1040,8 @@ export function AdminReportsDetailed({
               <div
                 onScroll={handleTableScroll}
                 className={cn(
-                  "overflow-y-auto overflow-x-auto rounded-xl border border-border/60 transition-all relative scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent",
-                  isTableExpanded ? "flex-1 min-h-0 max-h-none" : "max-h-[520px] min-h-[320px]"
+                  "overflow-x-auto rounded-xl border border-border/60 transition-all relative scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent",
+                  isTableExpanded ? "max-h-none overflow-y-visible" : "max-h-[520px] min-h-[320px] overflow-y-auto"
                 )}
               >
                 <table className="w-full text-left text-xs border-collapse">
@@ -1294,7 +1276,7 @@ export function AdminReportsDetailed({
 
         {/* MODE 2: Detailed Line-by-Line Table */}
         {financeViewMode === "detailed" && (
-          <div className={cn("flex flex-col gap-2", isTableExpanded && "flex-1 min-h-0")}>
+          <div className="flex flex-col gap-2">
             {searchFilteredDetailedProducts.length === 0 ? (
               <div className="py-12 text-center flex flex-col items-center justify-center">
                 <div className="h-10 w-10 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground mb-2">
@@ -1309,8 +1291,8 @@ export function AdminReportsDetailed({
               <div
                 onScroll={handleTableScroll}
                 className={cn(
-                  "overflow-y-auto overflow-x-auto rounded-xl border border-border/60 transition-all relative scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent",
-                  isTableExpanded ? "flex-1 min-h-0 max-h-none" : "max-h-[520px] min-h-[320px]"
+                  "overflow-x-auto rounded-xl border border-border/60 transition-all relative scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent",
+                  isTableExpanded ? "max-h-none overflow-y-visible" : "max-h-[520px] min-h-[320px] overflow-y-auto"
                 )}
               >
                 <table className="w-full text-left text-xs border-collapse">

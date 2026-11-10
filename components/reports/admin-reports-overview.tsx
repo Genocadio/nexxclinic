@@ -97,17 +97,6 @@ export function AdminReportsOverview({
   const [isTableExpanded, setIsTableExpanded] = useState(false)
   const [expandedPayerId, setExpandedPayerId] = useState<string | null>(null)
 
-  // Prevent background scroll when table is full-screen expanded
-  useEffect(() => {
-    if (isTableExpanded) {
-      const originalOverflow = document.body.style.overflow
-      document.body.style.overflow = "hidden"
-      return () => {
-        document.body.style.overflow = originalOverflow
-      }
-    }
-  }, [isTableExpanded])
-
   // Private vs Insured Patient Share calculation
   const privateEntry = financialBreakdown.insuranceBreakdown.find((i: any) => {
     const n = (i.name || i.insuranceName || "").toLowerCase()
@@ -230,21 +219,8 @@ export function AdminReportsOverview({
 
   return (
     <div className="space-y-4">
-      {/* Expanded Table Modal Backdrop */}
-      {isTableExpanded && (
-        <div
-          className="fixed inset-0 z-[55] bg-background/80 backdrop-blur-sm transition-opacity"
-          onClick={() => setIsTableExpanded(false)}
-        />
-      )}
-
       {/* 1. TOP FINANCIAL OVERVIEW TABLE (REVENUE BY PAYER) */}
-      <div
-        className={cn(
-          "bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5 transition-all",
-          isTableExpanded && "fixed inset-2 sm:inset-4 lg:inset-6 z-[60] bg-background border border-border shadow-2xl min-h-0 flex flex-col overflow-hidden"
-        )}
-      >
+      <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5 transition-all">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-border/50">
           <div>
             <div className="flex items-center gap-2">
@@ -290,7 +266,7 @@ export function AdminReportsOverview({
                     size="icon"
                     onClick={() => setIsTableExpanded((prev) => !prev)}
                     className="h-8 w-8 rounded-xl border-border/80 text-foreground hover:bg-muted/80 shrink-0"
-                    aria-label={isTableExpanded ? "Fit normal view" : "Expand table full screen"}
+                    aria-label={isTableExpanded ? "Collapse table" : "Expand table"}
                   >
                     {isTableExpanded ? (
                       <Minimize2 className="h-4 w-4 text-primary" />
@@ -300,7 +276,7 @@ export function AdminReportsOverview({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  {isTableExpanded ? "Fit Normal View" : "Expand Table"}
+                  {isTableExpanded ? "Collapse Table" : "Expand Table"}
                 </TooltipContent>
               </UiTooltip>
             </TooltipProvider>
@@ -309,11 +285,11 @@ export function AdminReportsOverview({
 
         {/* Tabular View */}
         <div className={cn(
-          "overflow-x-auto -mx-1 sm:mx-0",
-          isTableExpanded && "flex-1 min-h-0 overflow-y-auto"
+          "overflow-x-auto -mx-1 sm:mx-0 transition-all",
+          isTableExpanded ? "max-h-none" : "max-h-[480px] overflow-y-auto"
         )}>
           <table className="w-full text-xs text-left border-collapse min-w-[850px]">
-            <thead className={cn(isTableExpanded && "sticky top-0 z-20 bg-background/95 backdrop-blur-xl shadow-xs")}>
+            <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur-xl shadow-xs">
               <tr className="border-b border-border/70 text-muted-foreground uppercase text-[10px] tracking-wider font-semibold bg-muted/20">
                 <th className="py-2.5 px-3 rounded-l-xl">Payer / Channel</th>
                 <th className="py-2.5 px-3 text-center">Visits</th>

@@ -292,9 +292,9 @@ export default function AdminReportsPage() {
           </div>
         </div>
 
-        {/* Centered Tab Switcher (Overview, Earnings, Waivers, Adjustments, Loans) */}
-        <div className="flex items-center justify-center w-full">
-          <div className="inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-card/80 backdrop-blur-xl border border-border/70 p-1.5 rounded-2xl shadow-sm flex-wrap">
+        {/* Centered Tab Switcher */}
+        <div className="flex items-center justify-center w-full overflow-x-auto py-1 scrollbar-none">
+          <div className="inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-card/80 backdrop-blur-xl border border-border/70 p-1.5 rounded-2xl shadow-sm flex-nowrap">
             <Button
               variant={activeTab === "overview" ? "default" : "ghost"}
               size="sm"

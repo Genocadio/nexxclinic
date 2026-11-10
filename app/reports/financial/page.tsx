@@ -14,6 +14,11 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
   Loader2,
   TrendingUp,
   Percent,
@@ -25,6 +30,8 @@ import {
   Stethoscope,
   Landmark,
   Layers,
+  Filter,
+  X,
 } from "lucide-react"
 
 import { ReportsPeriodSelector } from "@/components/reports/reports-period-selector"
@@ -191,12 +198,92 @@ export default function FinancialReportsPage() {
     selectedInsuranceIds.length > 0 ||
     isPrivateOnly
 
+  const activeFilterCount =
+    selectedDepartmentIds.length +
+    selectedClinicianIds.length +
+    selectedInsuranceIds.length +
+    (isPrivateOnly ? 1 : 0)
+
+  // Floating Filter Popover State
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
+
+  // Summary label for minimized floating filter button
+  const appliedFilterSummary = useMemo(() => {
+    if (activeFilterCount === 0) return "Filters"
+    const labels: string[] = []
+    if (selectedDepartmentIds.length > 0) {
+      const matched = departments.find((d) => d.id === selectedDepartmentIds[0])
+      labels.push(matched?.name || `${selectedDepartmentIds.length} Depts`)
+    }
+    if (selectedClinicianIds.length > 0) {
+      const matched = clinicians.find((c: any) => c.id === selectedClinicianIds[0])
+      labels.push((matched as any)?.fullName || (matched as any)?.name || `${selectedClinicianIds.length} Clinicians`)
+    }
+    if (isPrivateOnly) {
+      labels.push("Private")
+    } else if (selectedInsuranceIds.length > 0) {
+      const matched = insurances.find((i) => i.id === selectedInsuranceIds[0])
+      labels.push(matched?.acronym || matched?.name || `${selectedInsuranceIds.length} Payers`)
+    }
+    if (labels.length === 1) return labels[0]
+    return `${labels[0]} +${activeFilterCount - 1}`
+  }, [
+    activeFilterCount,
+    selectedDepartmentIds,
+    departments,
+    selectedClinicianIds,
+    clinicians,
+    isPrivateOnly,
+    selectedInsuranceIds,
+    insurances,
+  ])
+
   const handleResetFilters = () => {
     setSelectedDepartmentIds([])
     setSelectedClinicianIds([])
     setSelectedInsuranceIds([])
     setIsPrivateOnly(false)
   }
+
+  // Carousel dock tab items
+  const tabs = useMemo(() => [
+    {
+      id: "overview",
+      label: "Overview",
+      icon: LayoutDashboard,
+      count: reportData?.overview?.totalPatients,
+    },
+    {
+      id: "detailed",
+      label: "Detailed",
+      icon: Layers,
+      count: reportData ? (reportData.encountersList?.length || reportData.overview?.totalVisits) : undefined,
+    },
+    {
+      id: "earnings",
+      label: "Earnings",
+      icon: TrendingUp,
+      count: undefined,
+    },
+    {
+      id: "waivers",
+      label: "Waivers",
+      icon: Percent,
+      count: reportData ? (reportData.overview?.waiverCount + reportData.overview?.giveawayCount) : undefined,
+    },
+    {
+      id: "adjustments",
+      label: "Adjustments",
+      icon: SlidersHorizontal,
+      count: reportData?.deepReports?.adjustments?.length,
+    },
+    {
+      id: "loans",
+      label: "Loans",
+      icon: HandCoins,
+      count: reportData?.overview?.loanCount,
+    },
+  ], [reportData])
 
   if (!canAccess) {
     return (
@@ -230,153 +317,56 @@ export default function FinancialReportsPage() {
         "container w-full mx-auto px-4 sm:px-6 max-w-7xl transition-all flex-1 min-h-0 min-w-0",
         "py-3 sm:py-4 space-y-3 sm:space-y-3.5 overflow-y-auto"
       )}>
-        {/* Top Control Header: Page Title + Nav Switcher + Filters */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-card/80 backdrop-blur-xl border border-border/70 p-3 sm:p-3.5 rounded-2xl shadow-xs">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <Landmark className="h-4 w-4" />
-              </div>
-              <h2 className="text-base sm:text-lg font-bold text-foreground">Financial Reports</h2>
-              <Badge variant="outline" className="text-[11px] py-0 px-2 bg-primary/10 text-primary border-primary/20">
-                Revenue & Audit
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Period: <span className="font-medium text-foreground">{rangeDisplayLabel}</span>
-            </p>
-          </div>
+        {/* Single-line Carousel-dock Tab Switcher: horizontally scrollable, center/active expanded, others expand on hover */}
+        <div className="flex items-center justify-center w-full overflow-x-auto py-1 scrollbar-none">
+          <div className="inline-flex items-center gap-1 sm:gap-1.5 bg-card/85 backdrop-blur-xl border border-border/70 p-1 rounded-2xl shadow-xs flex-nowrap shrink-0 max-w-full">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id
+              const isCenterPrimary = ["overview", "detailed", "earnings"].includes(tab.id)
+              const Icon = tab.icon
 
-          {/* Filters */}
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            {/* Department Multi-Select Combobox with Search */}
-            <DepartmentFilterCombobox
-              departments={departments}
-              selectedIds={selectedDepartmentIds}
-              onChange={setSelectedDepartmentIds}
-            />
-
-            {/* Clinician Multi-Select Combobox with Search */}
-            <ClinicianFilterCombobox
-              clinicians={clinicians as any}
-              selectedIds={selectedClinicianIds}
-              onChange={setSelectedClinicianIds}
-              loading={usersLoading}
-            />
-
-            {/* Payer Multi-Select Combobox with Search */}
-            <PayerFilterCombobox
-              insurances={insurances}
-              selectedInsuranceIds={selectedInsuranceIds}
-              isPrivateOnly={isPrivateOnly}
-              onChange={({ insuranceIds, isPrivateOnly }) => {
-                setSelectedInsuranceIds(insuranceIds)
-                setIsPrivateOnly(isPrivateOnly)
-              }}
-            />
-
-            {/* Reset Filters button if any active */}
-            {hasActiveFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleResetFilters}
-                className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground rounded-xl"
-                title="Reset filters"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Tab Switcher: Overview, Earnings, Waivers, Adjustments, Loans */}
-        <div className="flex items-center justify-center w-full overflow-x-auto pb-1">
-          <div className="inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-card/80 backdrop-blur-xl border border-border/70 p-1.5 rounded-2xl shadow-sm flex-wrap max-w-full">
-            <Button
-              variant={activeTab === "overview" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveTab("overview")}
-              className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
-            >
-              <LayoutDashboard className="h-4 w-4 shrink-0" />
-              <span>Overview</span>
-              {reportData && (
-                <Badge variant="secondary" className="py-0 px-1 text-[10px]">
-                  {reportData.overview.totalPatients}
-                </Badge>
-              )}
-            </Button>
-
-            <Button
-              variant={activeTab === "detailed" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveTab("detailed")}
-              className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
-            >
-              <Layers className="h-4 w-4 shrink-0" />
-              <span>Detailed</span>
-              {reportData && (
-                <Badge variant="secondary" className="py-0 px-1 text-[10px]">
-                  {reportData.encountersList?.length || reportData.overview.totalVisits}
-                </Badge>
-              )}
-            </Button>
-
-            <Button
-              variant={activeTab === "earnings" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveTab("earnings")}
-              className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
-            >
-              <TrendingUp className="h-4 w-4 shrink-0" />
-              <span>Earnings</span>
-            </Button>
-
-            <Button
-              variant={activeTab === "waivers" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveTab("waivers")}
-              className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
-            >
-              <Percent className="h-4 w-4 shrink-0" />
-              <span>Waivers</span>
-              {reportData && (
-                <Badge variant="secondary" className="py-0 px-1 text-[10px]">
-                  {reportData.overview.waiverCount + reportData.overview.giveawayCount}
-                </Badge>
-              )}
-            </Button>
-
-            <Button
-              variant={activeTab === "adjustments" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveTab("adjustments")}
-              className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
-            >
-              <SlidersHorizontal className="h-4 w-4 shrink-0" />
-              <span>Adjustments</span>
-              {reportData && (
-                <Badge variant="secondary" className="py-0 px-1 text-[10px]">
-                  {reportData.deepReports.adjustments.length}
-                </Badge>
-              )}
-            </Button>
-
-            <Button
-              variant={activeTab === "loans" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveTab("loans")}
-              className="rounded-xl h-8.5 sm:h-9 px-2.5 sm:px-4 text-xs font-medium gap-1.5 whitespace-nowrap shrink-0"
-            >
-              <HandCoins className="h-4 w-4 shrink-0" />
-              <span>Loans</span>
-              {reportData && (
-                <Badge variant="secondary" className="py-0 px-1 text-[10px]">
-                  {reportData.overview.loanCount}
-                </Badge>
-              )}
-            </Button>
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  title={tab.label}
+                  className={cn(
+                    "group relative inline-flex items-center gap-1.5 rounded-xl h-8.5 sm:h-9 text-xs font-medium transition-all duration-300 ease-out shrink-0 cursor-pointer select-none",
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-xs px-3 sm:px-3.5"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/70 px-2 sm:px-2.5"
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
+                  <span
+                    className={cn(
+                      "transition-all duration-300 ease-out overflow-hidden whitespace-nowrap",
+                      isActive
+                        ? "max-w-[120px] opacity-100 font-semibold"
+                        : isCenterPrimary
+                        ? "max-w-0 md:max-w-[90px] md:opacity-100 group-hover:max-w-[90px] group-hover:opacity-100"
+                        : "max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100"
+                    )}
+                  >
+                    {tab.label}
+                  </span>
+                  {tab.count !== undefined && (
+                    <Badge
+                      variant={isActive ? "secondary" : "outline"}
+                      className={cn(
+                        "py-0 px-1 text-[10px] shrink-0 font-mono transition-colors",
+                        isActive
+                          ? "bg-primary-foreground/20 text-current border-transparent"
+                          : "bg-muted/40 text-muted-foreground border-border/60"
+                      )}
+                    >
+                      {tab.count}
+                    </Badge>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -455,6 +445,82 @@ export default function FinancialReportsPage() {
           </>
         ) : null}
       </main>
+
+      {/* Floating Filter Button (Bottom Left) */}
+      <div className="fixed bottom-6 left-6 z-40 animate-in fade-in duration-300">
+        <Popover open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant={hasActiveFilters ? "default" : "outline"}
+              className={cn(
+                "rounded-full shadow-lg border backdrop-blur-xl h-10 px-3.5 gap-2 text-xs font-semibold transition-all cursor-pointer",
+                hasActiveFilters
+                  ? "bg-primary text-primary-foreground shadow-primary/20 border-primary"
+                  : "bg-card/90 border-border/80 text-foreground hover:bg-card"
+              )}
+            >
+              <SlidersHorizontal className="h-4 w-4 shrink-0" />
+              <span className="max-w-[150px] truncate">{appliedFilterSummary}</span>
+              {hasActiveFilters && (
+                <Badge variant="secondary" className="h-5 px-1.5 text-[10px] rounded-full bg-background/20 text-current font-mono">
+                  {activeFilterCount}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="start" className="w-80 p-3.5 rounded-2xl shadow-2xl border border-border/80 bg-card/95 backdrop-blur-xl space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-border/50">
+              <div className="flex items-center gap-1.5">
+                <SlidersHorizontal className="h-4 w-4 text-primary" />
+                <span className="text-xs font-bold text-foreground">Filter Reports</span>
+              </div>
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetFilters}
+                  className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-destructive rounded-lg gap-1 cursor-pointer"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  <span>Reset</span>
+                </Button>
+              )}
+            </div>
+
+            <div className="space-y-2.5">
+              <div>
+                <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Department</label>
+                <DepartmentFilterCombobox
+                  departments={departments}
+                  selectedIds={selectedDepartmentIds}
+                  onChange={setSelectedDepartmentIds}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Clinician</label>
+                <ClinicianFilterCombobox
+                  clinicians={clinicians as any}
+                  selectedIds={selectedClinicianIds}
+                  onChange={setSelectedClinicianIds}
+                  loading={usersLoading}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Payer</label>
+                <PayerFilterCombobox
+                  insurances={insurances}
+                  selectedInsuranceIds={selectedInsuranceIds}
+                  isPrivateOnly={isPrivateOnly}
+                  onChange={({ insuranceIds, isPrivateOnly: priv }) => {
+                    setSelectedInsuranceIds(insuranceIds)
+                    setIsPrivateOnly(priv)
+                  }}
+                />
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
 
       {/* Floating Time Period Selector (Always accessible) */}
       <div className="fixed bottom-6 right-6 z-40 animate-in fade-in duration-300">
