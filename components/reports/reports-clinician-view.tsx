@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo, useEffect } from "react"
+import React, { useState, useMemo, useEffect, useRef } from "react"
 import {
   Stethoscope,
   CheckCircle2,
@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Building2,
   Search,
+  X,
+  Receipt,
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
@@ -43,6 +45,14 @@ import { formatHourRange } from "@/lib/user-reports-calculator"
 import { formatRWF, cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 import {
   Tooltip,
   TooltipContent,
@@ -125,6 +135,8 @@ function ReportsClinicianViewContent({
 
   // 6. Search and Continuous Pagination state
   const [searchTerm, setSearchTerm] = useState("")
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const INITIAL_VISIBLE_COUNT = 25
   const BATCH_SIZE = 25
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT)
@@ -350,6 +362,21 @@ function ReportsClinicianViewContent({
       productsCount,
     }
   }, [selectedDepartment, money, clinician.consultationsCount])
+
+  const statusFilterLabel = useMemo(() => {
+    switch (statusFilter) {
+      case "BILLED":
+        return "Billed"
+      case "PENDING":
+        return `Pending (${currentFinanceStats.pendingBillingCount})`
+      case "EXEMPTED":
+        return `Waivers (${currentFinanceStats.giveawayCount})`
+      case "LOAN":
+        return `Loans (${currentFinanceStats.loanCount})`
+      default:
+        return "All Items"
+    }
+  }, [statusFilter, currentFinanceStats])
 
   // Insurance Breakdown for "Which Insurance Used to Pay" on the selected department
   const currentInsuranceBreakdown = useMemo(() => {
@@ -1239,27 +1266,94 @@ function ReportsClinicianViewContent({
           })()}
 
           {/* Turnover Breakdown Table with View Switcher, Fit/Expand and Continuous Scroll */}
-          <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl shadow-sm flex flex-col transition-all overflow-hidden p-4 sm:p-5 gap-3">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm sm:text-base font-semibold text-foreground">Encounter Breakdown</h3>
-                  <Badge variant="outline" className="text-[12px] bg-muted/40 font-mono">
-                    {financeViewMode === "grouped"
-                      ? `${searchFilteredEncounters.length} Encounters`
-                      : `${searchFilteredDetailedProducts.length} Items`}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
+          <div className="bg-card/90 backdrop-blur-xl border border-border/70 rounded-2xl shadow-sm flex flex-col transition-all overflow-hidden p-3.5 sm:p-4 gap-2.5 sm:gap-3">
+            {/* Single-Row Unified Toolbar: Title + Search (Expandable) + Grouping + Status Dropdown + Actions */}
+            <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full min-w-0">
+              {/* Title & Badge (collapsed on mobile if search expanded) */}
+              <div className={cn("flex items-center gap-1.5 sm:gap-2 min-w-0", (isSearchExpanded || searchTerm) && "hidden md:flex")}>
+                <h3 className="text-xs sm:text-sm md:text-base font-semibold text-foreground truncate">
+                  Encounter Breakdown
+                </h3>
+                <Badge variant="outline" className="text-[11px] sm:text-[12px] bg-muted/40 font-mono shrink-0">
                   {financeViewMode === "grouped"
-                    ? "Grouped per patient encounter with products and insurance in same row"
-                    : "Item-by-item line breakdown of all approved drugs, acts, and supplies"}
-                </p>
+                    ? `${searchFilteredEncounters.length} Encounters`
+                    : `${searchFilteredDetailedProducts.length} Items`}
+                </Badge>
               </div>
 
-              {/* View Switcher, Export and Expand/Fit Controls */}
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap">
-                <div className="flex items-center p-1 rounded-xl bg-muted/60 border border-border/70 shrink-0">
+              {/* Action & Filter Controls (stays strictly on one line) */}
+              <div className={cn(
+                "flex items-center gap-1 sm:gap-1.5 shrink-0",
+                (isSearchExpanded || searchTerm) && "flex-1 md:flex-initial justify-end min-w-0"
+              )}>
+                {/* Expandable Inline Search Control */}
+                {isSearchExpanded || searchTerm ? (
+                  <div className="relative flex items-center transition-all duration-200 ease-in-out flex-1 md:w-56 lg:w-64 min-w-0 shrink-0">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                    <Input
+                      ref={searchInputRef}
+                      type="text"
+                      autoFocus
+                      placeholder={
+                        financeViewMode === "grouped"
+                          ? "Search patient, ID, product..."
+                          : "Search product, code, patient..."
+                      }
+                      value={searchTerm}
+                      onChange={handleSearchChange}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setSearchTerm("")
+                          setIsSearchExpanded(false)
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!searchTerm.trim()) {
+                          setIsSearchExpanded(false)
+                        }
+                      }}
+                      className="pl-8 pr-7 h-8 text-xs rounded-xl bg-background/80 border-border/70 w-full focus-visible:ring-1"
+                    />
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        setSearchTerm("")
+                        setIsSearchExpanded(false)
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-md hover:bg-muted/60 transition-colors cursor-pointer"
+                      title="Close search"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            setIsSearchExpanded(true)
+                            setTimeout(() => searchInputRef.current?.focus(), 50)
+                          }}
+                          className="h-8 w-8 rounded-xl border-border/80 text-foreground hover:bg-muted/80 shrink-0 cursor-pointer"
+                          aria-label="Search encounters"
+                        >
+                          <Search className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Search encounters, items or codes</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+
+                {/* Grouping Mode Switcher (Icon-only on small screen, hidden on mobile if search expanded) */}
+                <div className={cn(
+                  "flex items-center p-0.5 sm:p-1 rounded-xl bg-muted/60 border border-border/70 shrink-0",
+                  (isSearchExpanded || searchTerm) && "hidden md:flex"
+                )}>
                   <TooltipProvider delayDuration={150}>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -1269,15 +1363,16 @@ function ReportsClinicianViewContent({
                             setFinanceViewMode("grouped")
                             setVisibleCount(INITIAL_VISIBLE_COUNT)
                           }}
-                          className={`h-7 px-2 sm:px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          className={cn(
+                            "h-7 px-1.5 sm:px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer",
                             financeViewMode === "grouped"
-                              ? "bg-card text-foreground shadow-sm"
+                              ? "bg-card text-foreground shadow-xs"
                               : "text-muted-foreground hover:text-foreground"
-                          }`}
+                          )}
                           aria-label="Group by Encounter"
                         >
-                          <Layers className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Encounters</span>
+                          <Layers className="h-3.5 w-3.5 shrink-0" />
+                          <span className="hidden md:inline">Encounters</span>
                         </button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom">Group by Encounter (Visits)</TooltipContent>
@@ -1293,15 +1388,16 @@ function ReportsClinicianViewContent({
                             setFinanceViewMode("detailed")
                             setVisibleCount(INITIAL_VISIBLE_COUNT)
                           }}
-                          className={`h-7 px-2 sm:px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          className={cn(
+                            "h-7 px-1.5 sm:px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer",
                             financeViewMode === "detailed"
-                              ? "bg-card text-foreground shadow-sm"
+                              ? "bg-card text-foreground shadow-xs"
                               : "text-muted-foreground hover:text-foreground"
-                          }`}
+                          )}
                           aria-label="All Line Items"
                         >
-                          <ListFilter className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Line Items</span>
+                          <ListFilter className="h-3.5 w-3.5 shrink-0" />
+                          <span className="hidden md:inline">Line Items</span>
                         </button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom">All Prescribed Line Items</TooltipContent>
@@ -1309,25 +1405,89 @@ function ReportsClinicianViewContent({
                   </TooltipProvider>
                 </div>
 
-                {/* CSV Export - icon only with tooltip */}
-                <TooltipProvider delayDuration={150}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
+                {/* Status Filter Dropdown Menu (Hides on mobile if search expanded) */}
+                <div className={cn((isSearchExpanded || searchTerm) && "hidden md:flex")}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleExportCSV}
-                        className="h-8 w-8 rounded-xl border-border/80 text-foreground hover:bg-muted/80 shrink-0"
-                        aria-label="Export CSV"
+                        variant={statusFilter !== "ALL" ? "default" : "outline"}
+                        size="sm"
+                        className={cn(
+                          "h-8 px-2 sm:px-2.5 rounded-xl text-xs gap-1 sm:gap-1.5 font-medium shrink-0 cursor-pointer",
+                          statusFilter !== "ALL"
+                            ? "bg-primary text-primary-foreground border-primary shadow-xs font-semibold"
+                            : "border-border/80 text-foreground hover:bg-muted/80"
+                        )}
+                        aria-label={`Status: ${statusFilterLabel}`}
                       >
-                        <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
+                        <Receipt className="h-3.5 w-3.5 shrink-0" />
+                        <span className="hidden sm:inline truncate max-w-[90px]">{statusFilterLabel}</span>
+                        <ChevronDown className="h-3 w-3 opacity-60 ml-0.5 shrink-0 hidden sm:inline" />
                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">Export CSV</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 p-1 rounded-xl shadow-xl border border-border/80 bg-card/95 backdrop-blur-xl z-50">
+                      <DropdownMenuLabel className="text-[10px] uppercase font-bold text-muted-foreground px-2 py-1">
+                        Filter by Status
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator className="my-1 bg-border/50" />
+                      {[
+                        { id: "ALL", label: "All Items" },
+                        { id: "BILLED", label: "Billed" },
+                        { id: "PENDING", label: "Pending", count: currentFinanceStats.pendingBillingCount },
+                        { id: "EXEMPTED", label: "Waivers", count: currentFinanceStats.giveawayCount },
+                        { id: "LOAN", label: "Loans", count: currentFinanceStats.loanCount },
+                      ].map((item) => (
+                        <DropdownMenuItem
+                          key={item.id}
+                          onClick={() => {
+                            setStatusFilter(item.id as any)
+                            setVisibleCount(INITIAL_VISIBLE_COUNT)
+                          }}
+                          className={cn(
+                            "flex items-center justify-between px-2 py-1.5 text-xs rounded-lg cursor-pointer",
+                            statusFilter === item.id && "bg-primary/10 text-primary font-semibold"
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            {statusFilter === item.id ? (
+                              <Check className="h-3.5 w-3.5 text-primary" />
+                            ) : (
+                              <span className="w-3.5" />
+                            )}
+                            <span>{item.label}</span>
+                          </div>
+                          {item.count !== undefined && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 font-mono font-normal">
+                              {item.count}
+                            </Badge>
+                          )}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
 
-                {/* Expand / Fit Table - icon only with tooltip */}
+                {/* CSV Export - icon only (Hides on mobile if search expanded) */}
+                <div className={cn((isSearchExpanded || searchTerm) && "hidden md:flex")}>
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={handleExportCSV}
+                          className="h-8 w-8 rounded-xl border-border/80 text-foreground hover:bg-muted/80 shrink-0 cursor-pointer"
+                          aria-label="Export CSV"
+                        >
+                          <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Export CSV</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+
+                {/* Expand / Fit Table - icon only */}
                 <TooltipProvider delayDuration={150}>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -1335,7 +1495,7 @@ function ReportsClinicianViewContent({
                         variant="outline"
                         size="icon"
                         onClick={toggleTableExpand}
-                        className="h-8 w-8 rounded-xl border-border/80 text-foreground hover:bg-muted/80 shrink-0"
+                        className="h-8 w-8 rounded-xl border-border/80 text-foreground hover:bg-muted/80 shrink-0 cursor-pointer"
                         aria-label={isTableExpanded ? "Fit normal view" : "Expand table full screen"}
                       >
                         {isTableExpanded ? (
@@ -1350,48 +1510,6 @@ function ReportsClinicianViewContent({
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-              </div>
-            </div>
-
-            {/* Search & Status Filter Toolbar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by patient, ID, product, code, insurance, or department..."
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                  className="pl-9 h-8 text-xs rounded-xl bg-background/60 border-border/70 placeholder:text-muted-foreground/60"
-                />
-              </div>
-
-              <div className="flex items-center gap-1.5 flex-wrap shrink-0">
-                {(
-                  [
-                    { id: "ALL", label: "All Items" },
-                    { id: "BILLED", label: "Billed" },
-                    { id: "PENDING", label: `Pending (${currentFinanceStats.pendingBillingCount})` },
-                    { id: "EXEMPTED", label: `Waivers (${currentFinanceStats.giveawayCount})` },
-                    { id: "LOAN", label: `Loans (${currentFinanceStats.loanCount})` },
-                  ] as const
-                ).map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => {
-                      setStatusFilter(f.id)
-                      setVisibleCount(INITIAL_VISIBLE_COUNT)
-                    }}
-                    className={cn(
-                      "px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer border",
-                      statusFilter === f.id
-                        ? "bg-primary text-primary-foreground border-primary shadow-xs font-semibold"
-                        : "bg-muted/40 text-muted-foreground border-border/60 hover:text-foreground hover:bg-muted/70"
-                    )}
-                  >
-                    {f.label}
-                  </button>
-                ))}
               </div>
             </div>
 
@@ -1568,16 +1686,16 @@ function ReportsClinicianViewContent({
 
                 {/* Continuous Scroll Indicator / Load More Bar */}
                 {searchFilteredEncounters.length > 0 && (
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 px-1 text-xs text-muted-foreground shrink-0">
-                    <div className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-between gap-2 pt-2 px-1 text-xs text-muted-foreground shrink-0 flex-wrap sm:flex-nowrap">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <span>Showing</span>
                       <span className="font-semibold text-foreground">{visibleEncounters.length}</span>
                       <span>of</span>
                       <span className="font-semibold text-foreground">{searchFilteredEncounters.length}</span>
-                      <span>encounters</span>
+                      <span className="hidden sm:inline">encounters</span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       {hasMoreItems ? (
                         <Button
                           variant="ghost"
@@ -1759,16 +1877,16 @@ function ReportsClinicianViewContent({
 
                 {/* Continuous Scroll Indicator / Load More Bar */}
                 {searchFilteredDetailedProducts.length > 0 && (
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 px-1 text-xs text-muted-foreground shrink-0">
-                    <div className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-between gap-2 pt-2 px-1 text-xs text-muted-foreground shrink-0 flex-wrap sm:flex-nowrap">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <span>Showing</span>
                       <span className="font-semibold text-foreground">{visibleDetailedProducts.length}</span>
                       <span>of</span>
                       <span className="font-semibold text-foreground">{searchFilteredDetailedProducts.length}</span>
-                      <span>items</span>
+                      <span className="hidden sm:inline">items</span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       {hasMoreItems ? (
                         <Button
                           variant="ghost"
