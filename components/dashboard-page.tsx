@@ -1,5 +1,6 @@
 "use client"
 import { useState, useMemo, useEffect, useRef } from "react"
+import { cn } from "@/lib/utils"
 import { finishNavigationFeedback, notifyNavigationStart, useRouter } from "@/lib/navigation"
 import { useAuth } from "@/lib/auth-context"
 import {
@@ -114,6 +115,10 @@ import {
   Calendar,
   Package,
   Shield,
+  Users,
+  HandCoins,
+  Timer,
+  Flame,
 } from "lucide-react"
 import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
@@ -148,6 +153,45 @@ import {
   type AgeRangeType,
 } from "@/components/dashboard/dashboard-filter-card"
 import { useInsurances } from "@/hooks/insurances/hooks"
+
+const DASHBOARD_TAB_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  all: Users,
+  NEEDS_ME: Stethoscope,
+  IN_CARE: Activity,
+  IN_SERVICE: Activity,
+  TRIAGE: Flame,
+  IN_PROGRESS: Clock,
+  TO_BILL: ReceiptText,
+  BILLING: ReceiptText,
+  OUTSTANDING: HandCoins,
+  ON_HOLD: Timer,
+  COMPLETED: CheckCircle,
+}
+
+function getDashboardTabActiveClasses(tabId: string): string {
+  switch (tabId) {
+    case "COMPLETED":
+      return "bg-emerald-600 text-white shadow-xs"
+    case "TO_BILL":
+    case "BILLING":
+      return "bg-amber-600 text-white shadow-xs"
+    case "OUTSTANDING":
+      return "bg-orange-600 text-white shadow-xs"
+    case "TRIAGE":
+      return "bg-rose-600 text-white shadow-xs"
+    case "NEEDS_ME":
+      return "bg-indigo-600 text-white shadow-xs"
+    case "IN_CARE":
+    case "IN_SERVICE":
+    case "IN_PROGRESS":
+      return "bg-violet-600 text-white shadow-xs"
+    case "ON_HOLD":
+      return "bg-slate-600 text-white shadow-xs"
+    default:
+      return "bg-primary text-primary-foreground shadow-xs"
+  }
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const { doctor } = useAuth()
@@ -226,6 +270,7 @@ export default function DashboardPage() {
     setDobFilter("")
     setSearchAllHistorical(false)
   }
+  const [hoveredTabId, setHoveredTabId] = useState<string | null>(null)
   const [mobileSearchActive, setMobileSearchActive] = useState(false)
   const [showMobileActionSheet, setShowMobileActionSheet] = useState(false)
   useEffect(() => {
@@ -518,6 +563,7 @@ export default function DashboardPage() {
       return [
         { id: "all", label: "All Active" },
         { id: "TRIAGE", label: "Waiting Triage" },
+        { id: "ON_HOLD", label: "On Hold" },
         { id: "COMPLETED", label: "Discharged" },
       ]
     }
@@ -544,8 +590,8 @@ export default function DashboardPage() {
       tabs.push({ id: "OUTSTANDING", label: "Outstanding" })
     }
 
-    // 4. On Hold: clinician pause bucket
-    if (hasClinicianOrDoctorRole) {
+    // 4. On Hold: clinician/pause bucket
+    if (hasClinicianOrDoctorRole || hasManagerRole || hasAdminRole || isReceptionistOnly) {
       tabs.push({ id: "ON_HOLD", label: "On Hold" })
     }
 
@@ -558,7 +604,7 @@ export default function DashboardPage() {
     tabs.push({ id: "COMPLETED", label: "Discharged" })
 
     return tabs
-  }, [hasClinicianOrDoctorRole, hasFinanceRole, hasNurseRole, isReceptionistOnly])
+  }, [hasClinicianOrDoctorRole, hasFinanceRole, hasNurseRole, hasManagerRole, hasAdminRole, isReceptionistOnly])
 
   useEffect(() => {
     if (availableTabs.length > 0 && !availableTabs.some((t) => t.id === statusFilter)) {
@@ -2186,66 +2232,83 @@ export default function DashboardPage() {
 
           <div className="flex-1 min-h-0 bg-card/60 backdrop-blur-xl border border-border/50 rounded-3xl shadow-lg flex flex-col overflow-hidden">
             {/* Status filters & search controls (fixed at top of visit container) */}
-            <div className="p-4 md:px-6 md:py-3.5 border-b border-border/30 shrink-0 bg-card/40 backdrop-blur-md">
-              {/* Desktop filters - visible on md and up */}
-              <div className="hidden md:flex gap-2 flex-wrap justify-center items-center">
-                  {availableTabs.map((tab) => {
+            <div className="p-3 sm:p-3.5 md:px-5 md:py-3 border-b border-border/30 shrink-0 bg-card/40 backdrop-blur-md space-y-2 sm:space-y-2.5">
+              {/* Dynamic Carousel-Dock Tab Switcher: clearance from floating home (left) and profile (right), non-scrollable */}
+              <div className="w-full flex items-center justify-center px-12 sm:px-14 md:px-16 max-w-full">
+                <div
+                  onMouseLeave={() => setHoveredTabId(null)}
+                  className="inline-flex items-center gap-0.5 sm:gap-1 bg-card/85 backdrop-blur-xl border border-border/70 p-1 rounded-2xl shadow-xs flex-nowrap shrink-0 overflow-hidden"
+                >
+                  {availableTabs.map((tab, idx) => {
                     const isActive = statusFilter === tab.id
                     const count = filterCounts[tab.id] ?? 0
-                    const isCompletedTab = tab.id === "COMPLETED"
-                    const isToBillTab = tab.id === "TO_BILL" || tab.id === "BILLING"
-                    const isOutstandingTab = tab.id === "OUTSTANDING"
-                    const isTriageTab = tab.id === "TRIAGE"
-                    const isNeedsMeTab = tab.id === "NEEDS_ME"
-                    const isInCareTab = tab.id === "IN_CARE" || tab.id === "IN_SERVICE"
-                    const isOnHoldTab = tab.id === "ON_HOLD"
-                    const isInProgressTab = tab.id === "IN_PROGRESS"
+                    const activeIndex = availableTabs.findIndex((t) => t.id === statusFilter)
+                    const distance = Math.abs(idx - activeIndex)
+                    const isImmediateAdjacent = distance === 1
+                    const isSecondaryAdjacent = distance === 2
+                    const Icon = DASHBOARD_TAB_ICONS[tab.id] || Users
+
+                    const isHovered = hoveredTabId === tab.id
+                    const anyHovered = hoveredTabId !== null
+
+                    // When a tab is hovered, the hovered tab expands while pre-expanded ones minimise;
+                    // when idle, adjacent tabs on small screens or all tabs on xl: are expanded.
+                    const isExpanded = anyHovered
+                      ? isHovered
+                      : isImmediateAdjacent || isSecondaryAdjacent
 
                     return (
                       <button
                         key={tab.id}
+                        type="button"
                         onClick={() => setStatusFilter(tab.id)}
-                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer ${
+                        onMouseEnter={() => setHoveredTabId(tab.id)}
+                        title={`${tab.label} (${count})`}
+                        aria-label={`${tab.label} (${count})`}
+                        className={cn(
+                          "group relative inline-flex items-center gap-1 sm:gap-1.5 rounded-xl h-8 sm:h-8.5 text-xs font-medium transition-all duration-300 ease-out shrink-0 cursor-pointer select-none",
                           isActive
-                            ? isCompletedTab
-                              ? "bg-emerald-600 text-white shadow-md scale-105"
-                              : isToBillTab
-                              ? "bg-amber-600 text-white shadow-md scale-105"
-                              : isOutstandingTab
-                              ? "bg-orange-600 text-white shadow-md scale-105"
-                              : isTriageTab
-                              ? "bg-rose-600 text-white shadow-md scale-105"
-                              : isNeedsMeTab
-                              ? "bg-indigo-600 text-white shadow-md scale-105"
-                              : isInCareTab || isInProgressTab
-                              ? "bg-violet-600 text-white shadow-md scale-105"
-                              : isOnHoldTab
-                              ? "bg-slate-600 text-white shadow-md scale-105"
-                              : "bg-primary text-primary-foreground shadow-md scale-105"
-                            : "bg-muted/50 backdrop-blur-sm text-foreground hover:bg-muted/70 hover:scale-105"
-                        }`}
+                            ? getDashboardTabActiveClasses(tab.id)
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
+                          isExpanded ? "px-2 sm:px-2.5" : "px-1.5 sm:px-2"
+                        )}
                       >
-                        <span>{tab.label}</span>
+                        <Icon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
                         <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                          className={cn(
+                            "transition-all duration-300 ease-out overflow-hidden whitespace-nowrap",
+                            anyHovered
+                              ? isHovered
+                                ? "max-w-[120px] opacity-100 font-semibold"
+                                : "max-w-0 opacity-0"
+                              : cn(
+                                  // Large screens when idle: all tabs expand if there's enough width
+                                  "xl:max-w-[110px] xl:opacity-100",
+                                  // Smaller screens when idle: active tab NEVER expands unless we have enough width!
+                                  isActive
+                                    ? "max-w-0 opacity-0"
+                                    : isImmediateAdjacent
+                                    ? "max-w-[65px] sm:max-w-[95px] opacity-100"
+                                    : isSecondaryAdjacent
+                                    ? "max-w-0 sm:max-w-[95px] opacity-0 sm:opacity-100"
+                                    : "max-w-0 opacity-0"
+                                )
+                          )}
+                        >
+                          {tab.label}
+                        </span>
+                        <span
+                          className={cn(
+                            "text-[10px] py-0 px-1 rounded-full font-mono font-semibold shrink-0 transition-colors",
+                            anyHovered
+                              ? isHovered
+                                ? "inline-flex"
+                                : "hidden md:inline-flex"
+                              : "hidden md:inline-flex",
                             isActive
-                              ? "bg-white/25 text-white"
-                              : isCompletedTab
-                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                              : isToBillTab
-                              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                              : isOutstandingTab
-                              ? "bg-orange-500/15 text-orange-600 dark:text-orange-400"
-                              : isTriageTab
-                              ? "bg-rose-500/15 text-rose-600 dark:text-rose-400"
-                              : isNeedsMeTab
-                              ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400"
-                              : isInCareTab || isInProgressTab
-                              ? "bg-violet-500/15 text-violet-600 dark:text-violet-400"
-                              : isOnHoldTab
-                              ? "bg-slate-500/15 text-slate-600 dark:text-slate-400"
+                              ? "bg-white/25 text-white border-transparent"
                               : "bg-muted-foreground/15 text-muted-foreground"
-                          }`}
+                          )}
                         >
                           {count}
                         </span>
@@ -2253,172 +2316,87 @@ export default function DashboardPage() {
                     )
                   })}
                 </div>
-                {/* Mobile filter, layout switch, and search controls */}
-                <div className="md:hidden px-11 sm:px-14 md:px-0">
-                  {!mobileSearchActive ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="w-full px-3 py-2 rounded-full bg-primary text-primary-foreground border-none shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/50 font-medium appearance-none cursor-pointer text-sm"
-                            style={{
-                              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                              backgroundRepeat: "no-repeat",
-                              backgroundPosition: "right 0.75rem center",
-                              paddingRight: "2rem",
-                            }}
-                          >
-                            {availableTabs.map((tab) => (
-                              <option key={tab.id} value={tab.id}>
-                                {tab.label} ({filterCounts[tab.id] ?? 0})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="outline"
-                          className="rounded-full h-10 w-10 flex-shrink-0"
-                          onClick={() =>
-                            setViewMode((prev) =>
-                              prev === "list" ? "grid" : "list",
-                            )
-                          }
-                          title={
-                            viewMode === "list"
-                              ? "Switch to grid view"
-                              : "Switch to list view"
-                          }
-                          aria-label={
-                            viewMode === "list"
-                              ? "Switch to grid view"
-                              : "Switch to list view"
-                          }
-                        >
-                          {viewMode === "list" ? (
-                            <LayoutGrid className="w-4 h-4" />
-                          ) : (
-                            <List className="w-4 h-4" />
-                          )}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="outline"
-                          className="rounded-full h-10 w-10 flex-shrink-0"
-                          onClick={() => setMobileSearchActive(true)}
-                          title="Search"
-                          aria-label="Search"
-                        >
-                          <Search className="w-4 h-4" />
-                        </Button>
-                        <DashboardFilterPopover
-                          canQueryAnswerState={canQueryAnswerState}
-                          answersFilter={answersFilter}
-                          setAnswersFilter={setAnswersFilter}
-                          genderFilter={genderFilter}
-                          setGenderFilter={setGenderFilter}
-                          selectedInsuranceIds={selectedInsuranceIds}
-                          setSelectedInsuranceIds={setSelectedInsuranceIds}
-                          isPrivateOnly={isPrivateOnly}
-                          setIsPrivateOnly={setIsPrivateOnly}
-                          availableInsurances={availableInsurances}
-                          insurancesLoading={insurancesLoading}
-                          ageRange={ageRange}
-                          setAgeRange={setAgeRange}
-                          customAgeMin={customAgeMin}
-                          setCustomAgeMin={setCustomAgeMin}
-                          customAgeMax={customAgeMax}
-                          setCustomAgeMax={setCustomAgeMax}
-                          dobFilter={dobFilter}
-                          setDobFilter={setDobFilter}
-                          searchAllHistorical={searchAllHistorical}
-                          setSearchAllHistorical={setSearchAllHistorical}
-                          showDatabaseSearch={statusFilter === "COMPLETED"}
-                          activeFilterCount={activeFilterCount}
-                          handleResetFilters={handleResetFilters}
-                          loadingHistoricalSearch={loadingHistoricalSearch}
-                          matchCount={filterCounts.all}
-                        />
-                      </div>
-                    </div>
-                  ) : null}
+              </div>
+
+              {/* Search, Filter Popover, and Layout Switcher Controls */}
+              <div className="flex items-center gap-2 max-w-full">
+                <div className="relative flex-1 min-w-0">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search visits by patient name, identifier..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-8 h-8 sm:h-9 bg-background/80 dark:bg-slate-900/70 border border-border/70 rounded-full text-foreground text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 shadow-2xs transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-0.5"
+                      title="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
 
-                {/* Search bar - Desktop and expanded mobile */}
-                {!mobileSearchActive ? (
-                  <div className="hidden md:flex mt-3 gap-3 items-center">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-4 top-2.5 w-4 h-4 text-muted-foreground" />
-                      <input
-                        type="text"
-                        placeholder="Search by patient name..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-11 pr-4 py-2 bg-card/80 dark:bg-slate-900/70 backdrop-blur-sm border border-border/50 dark:border-slate-800 rounded-full text-foreground dark:text-slate-100 placeholder-muted-foreground dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 shadow-sm text-sm"
-                      />
-                    </div>
-                    <DashboardFilterPopover
-                      canQueryAnswerState={canQueryAnswerState}
-                      answersFilter={answersFilter}
-                      setAnswersFilter={setAnswersFilter}
-                      genderFilter={genderFilter}
-                      setGenderFilter={setGenderFilter}
-                      selectedInsuranceIds={selectedInsuranceIds}
-                      setSelectedInsuranceIds={setSelectedInsuranceIds}
-                      isPrivateOnly={isPrivateOnly}
-                      setIsPrivateOnly={setIsPrivateOnly}
-                      availableInsurances={availableInsurances}
-                      insurancesLoading={insurancesLoading}
-                      ageRange={ageRange}
-                      setAgeRange={setAgeRange}
-                      customAgeMin={customAgeMin}
-                      setCustomAgeMin={setCustomAgeMin}
-                      customAgeMax={customAgeMax}
-                      setCustomAgeMax={setCustomAgeMax}
-                      dobFilter={dobFilter}
-                      setDobFilter={setDobFilter}
-                      searchAllHistorical={searchAllHistorical}
-                      setSearchAllHistorical={setSearchAllHistorical}
-                      showDatabaseSearch={statusFilter === "COMPLETED"}
-                      activeFilterCount={activeFilterCount}
-                      handleResetFilters={handleResetFilters}
-                      loadingHistoricalSearch={loadingHistoricalSearch}
-                      matchCount={filterCounts.all}
-                    />
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="outline"
-                      className="rounded-full h-9 w-9 flex-shrink-0"
-                      onClick={() =>
-                        setViewMode((prev) =>
-                          prev === "list" ? "grid" : "list",
-                        )
-                      }
-                      title={
-                        viewMode === "list"
-                          ? "Switch to grid view"
-                          : "Switch to list view"
-                      }
-                      aria-label={
-                        viewMode === "list"
-                          ? "Switch to grid view"
-                          : "Switch to list view"
-                      }
-                    >
-                      {viewMode === "list" ? (
-                        <LayoutGrid className="w-4 h-4" />
-                      ) : (
-                        <List className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
-                ) : null}
+                <DashboardFilterPopover
+                  canQueryAnswerState={canQueryAnswerState}
+                  answersFilter={answersFilter}
+                  setAnswersFilter={setAnswersFilter}
+                  genderFilter={genderFilter}
+                  setGenderFilter={setGenderFilter}
+                  selectedInsuranceIds={selectedInsuranceIds}
+                  setSelectedInsuranceIds={setSelectedInsuranceIds}
+                  isPrivateOnly={isPrivateOnly}
+                  setIsPrivateOnly={setIsPrivateOnly}
+                  availableInsurances={availableInsurances}
+                  insurancesLoading={insurancesLoading}
+                  ageRange={ageRange}
+                  setAgeRange={setAgeRange}
+                  customAgeMin={customAgeMin}
+                  setCustomAgeMin={setCustomAgeMin}
+                  customAgeMax={customAgeMax}
+                  setCustomAgeMax={setCustomAgeMax}
+                  dobFilter={dobFilter}
+                  setDobFilter={setDobFilter}
+                  searchAllHistorical={searchAllHistorical}
+                  setSearchAllHistorical={setSearchAllHistorical}
+                  showDatabaseSearch={statusFilter === "COMPLETED"}
+                  activeFilterCount={activeFilterCount}
+                  handleResetFilters={handleResetFilters}
+                  loadingHistoricalSearch={loadingHistoricalSearch}
+                  matchCount={filterCounts.all}
+                />
+
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className="rounded-full h-8 w-8 sm:h-9 sm:w-9 shrink-0 border-border/80 text-foreground hover:bg-muted/80 cursor-pointer shadow-2xs"
+                  onClick={() =>
+                    setViewMode((prev) => (prev === "list" ? "grid" : "list"))
+                  }
+                  title={
+                    viewMode === "list"
+                      ? "Switch to grid view"
+                      : "Switch to list view"
+                  }
+                  aria-label={
+                    viewMode === "list"
+                      ? "Switch to grid view"
+                      : "Switch to list view"
+                  }
+                >
+                  {viewMode === "list" ? (
+                    <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  ) : (
+                    <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  )}
+                </Button>
               </div>
+            </div>
 
               {/* Visits list - scrollable inside the container */}
               <div
