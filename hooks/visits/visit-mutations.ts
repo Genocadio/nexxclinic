@@ -20,6 +20,9 @@ import {
   CANCEL_VISIT_MUTATION,
   COMPLETE_CONSULTATION_VISIT_MUTATION,
   REOPEN_VISIT_MUTATION,
+  DISCHARGE_VISIT_MUTATION,
+  SEND_BACK_VISIT_MUTATION,
+  SEND_VISIT_TO_NEXT_MUTATION,
 } from "../mutations";
 import type { Visit, ApiResponse } from "../types";
 import { mapGqlVisit, type GqlVisit } from "@/lib/gql-mappers";
@@ -487,4 +490,90 @@ export function useCompleteConsultationVisit() {
   };
 
   return { completeConsultationVisit, loading, error };
+}
+
+export function useDischargeVisit() {
+  const [mutation, { loading, error }] = useMutation(DISCHARGE_VISIT_MUTATION);
+
+  const dischargeVisit = async (input: {
+    visitId: string;
+    departmentId?: string | null;
+    note?: string | null;
+  }): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({ variables: { input } });
+      const payload = result.data?.dischargeVisit;
+      return {
+        status: payload?.status || "ERROR",
+        message: payload?.message,
+        messages: payload?.message
+          ? [{ text: payload.message, type: payload.status || "ERROR" }]
+          : undefined,
+        data: payload?.data,
+      };
+    } catch (err) {
+      console.error("Discharge visit error:", err);
+      throw err;
+    }
+  };
+
+  return { dischargeVisit, loading, error };
+}
+
+export function useSendBackVisit() {
+  const [mutation, { loading, error }] = useMutation(SEND_BACK_VISIT_MUTATION);
+
+  const sendBackVisit = async (input: {
+    visitId: string;
+    fromDepartmentId: string;
+    targetDepartmentId?: string | null;
+    note?: string | null;
+  }): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({ variables: { input } });
+      const payload = result.data?.sendBackVisit;
+      return {
+        status: payload?.status || "ERROR",
+        message: payload?.message,
+        messages: payload?.message
+          ? [{ text: payload.message, type: payload.status || "ERROR" }]
+          : undefined,
+        data: payload?.data,
+      };
+    } catch (err) {
+      console.error("Send back visit error:", err);
+      throw err;
+    }
+  };
+
+  return { sendBackVisit, loading, error };
+}
+
+export function useSendVisitToNext() {
+  const [mutation, { loading, error }] = useMutation(SEND_VISIT_TO_NEXT_MUTATION);
+
+  const sendVisitToNext = async (input: {
+    visitId: string;
+    fromDepartmentId: string;
+    targetDepartmentId: string;
+    note?: string | null;
+  }): Promise<ApiResponse<any>> => {
+    try {
+      const result = await mutation({ variables: { input } });
+      const payload = result.data?.sendVisitToNext;
+      return {
+        status: payload?.status || "ERROR",
+        message: payload?.message,
+        messages: payload?.message
+          ? [{ text: payload.message, type: payload.status || "ERROR" }]
+          : undefined,
+        data: payload?.data,
+      };
+    } catch (err) {
+      console.error("Send visit to next error:", err);
+      throw err;
+    }
+  };
+
+  return { sendVisitToNext, loading, error };
 }

@@ -1474,3 +1474,72 @@ export const FINALISE_VISIT_DEPARTMENT_MUTATION = gql`
     }
   }
 `;
+
+export const DISCHARGE_VISIT_MUTATION = gql`
+  mutation DischargeVisit($input: DischargeVisitInput!) {
+    dischargeVisit(input: $input) {
+      status
+      message
+      data {
+        id
+        status
+        isDischarged
+        activeEpisodeCount
+        hasReturnedFromBilling
+        currentLocations
+        departments {
+          id
+          status
+          lastRoutingAction
+          awaitingRole
+        }
+      }
+    }
+  }
+`;
+
+export const SEND_BACK_VISIT_MUTATION = gql`
+  mutation SendBackVisit($input: SendBackVisitInput!) {
+    sendBackVisit(input: $input) {
+      status
+      message
+      data {
+        id
+        status
+        isDischarged
+        activeEpisodeCount
+        hasReturnedFromBilling
+        currentLocations
+        departments {
+          id
+          status
+          lastRoutingAction
+          awaitingRole
+        }
+      }
+    }
+  }
+`;
+
+export const SEND_VISIT_TO_NEXT_MUTATION = gql`
+  mutation SendVisitToNext($input: SendVisitToNextInput!) {
+    sendVisitToNext(input: $input) {
+      status
+      message
+      data {
+        id
+        status
+        isDischarged
+        activeEpisodeCount
+        hasReturnedFromBilling
+        currentLocations
+        departments {
+          id
+          status
+          lastRoutingAction
+          awaitingRole
+        }
+      }
+    }
+  }
+`;

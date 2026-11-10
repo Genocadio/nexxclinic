@@ -4,6 +4,7 @@
 
 import {
   DepartmentInsurancePolicyMode,
+  DepartmentKind,
   EncounterType,
   Gender,
   VisitBillingStatus,
@@ -39,6 +40,7 @@ function emptyVisitDepartmentStub(id = "", name?: string | null): VisitDepartmen
     department: {
       id: "",
       name: name || "",
+      kind: DepartmentKind.CONSULTATION,
       insurancePolicyMode: DepartmentInsurancePolicyMode.ALL,
       insurancePolicies: [],
       profiles: [],

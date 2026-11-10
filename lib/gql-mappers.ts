@@ -7,6 +7,7 @@ import {
   AccountStatus,
   type BillingState,
   DepartmentInsurancePolicyMode,
+  DepartmentKind,
   EncounterType,
   type ExemptionType,
   Gender,
@@ -553,6 +554,7 @@ export function mapGqlDepartmentSummary(
   return {
     id: department.id,
     name: department.name,
+    kind: ((department as any).kind as DepartmentKind) || DepartmentKind.CONSULTATION,
     insurancePolicyMode:
       (department.insurancePolicyMode as DepartmentInsurancePolicyMode) ||
       DepartmentInsurancePolicyMode.ALL,
@@ -582,6 +584,7 @@ export function mapGqlVisitDepartment(
     : {
         id: "",
         name: "",
+        kind: DepartmentKind.CONSULTATION,
         insurancePolicyMode: DepartmentInsurancePolicyMode.ALL,
         insurancePolicies: [],
         profiles: [],
@@ -688,6 +691,10 @@ export function mapGqlVisitDepartment(
     answerId: dept.answerId ?? null,
     hasFinalizedConsultationAnswers: dept.hasFinalizedConsultationAnswers ?? null,
     hasBillableProducts: dept.hasBillableProducts ?? null,
+    awaitingRole: (dept as any).awaitingRole ?? null,
+    awaitingSince: (dept as any).awaitingSince ?? null,
+    lastRoutingAction: (dept as any).lastRoutingAction ?? null,
+    previousDepartment: (dept as any).previousDepartment ? mapGqlDepartmentSummary((dept as any).previousDepartment) : null,
     createdAt: dept.createdAt || EMPTY_TIMESTAMP,
     updatedAt: dept.updatedAt || EMPTY_TIMESTAMP,
   };
@@ -746,6 +753,12 @@ export function mapGqlVisit(
     estimatedInsurancePay: visit.estimatedInsurancePay ?? null,
     estimatedPatientPay: visit.estimatedPatientPay ?? null,
     quickBillEligible: visit.quickBillEligible ?? null,
+    currentLocations: (visit as any).currentLocations ?? null,
+    activeEpisodeCount: (visit as any).activeEpisodeCount ?? null,
+    isDischarged: (visit as any).isDischarged ?? null,
+    hasReturnedFromBilling: (visit as any).hasReturnedFromBilling ?? null,
+    hasPendingResults: (visit as any).hasPendingResults ?? null,
+    lastFlowActivityAt: (visit as any).lastFlowActivityAt ?? null,
   };
 }
 

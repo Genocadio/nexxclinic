@@ -16,6 +16,7 @@ export interface ClinicSseEvent {
     | "VISIT_DEPARTMENT_STATE_CHANGED"
     | "BILLING_COMPLETED"
     | "VISIT_DISCHARGED"
+    | "VISIT_ROUTED"
     | "VISIT_CANCELLED"
     | "VISIT_REOPENED"
     | "VISIT_PRODUCT_CHANGED"
@@ -146,10 +147,11 @@ export function useClinicSse() {
               }
               if (
                 eventType === "VISIT_DISCHARGED" ||
+                eventType === "VISIT_ROUTED" ||
                 eventType === "VISIT_CANCELLED" ||
                 eventType === "VISIT_REOPENED"
               ) {
-                queriesToRefetch.push("GetVisit")
+                queriesToRefetch.push("GetVisit", "GetVisits")
               }
             }
 
@@ -171,6 +173,7 @@ export function useClinicSse() {
           "VISIT_DEPARTMENT_STATE_CHANGED",
           "BILLING_COMPLETED",
           "VISIT_DISCHARGED",
+          "VISIT_ROUTED",
           "VISIT_CANCELLED",
           "VISIT_REOPENED",
           "VISIT_PRODUCT_CHANGED",

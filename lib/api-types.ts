@@ -109,6 +109,17 @@ export enum DepartmentInsurancePolicyMode {
   EXCEPT = "EXCEPT",
 }
 
+export enum DepartmentKind {
+  CONSULTATION = "CONSULTATION",
+  TRIAGE = "TRIAGE",
+  LABORATORY = "LABORATORY",
+  IMAGING = "IMAGING",
+  WARD = "WARD",
+  PHARMACY = "PHARMACY",
+  PROCEDURE_ROOM = "PROCEDURE_ROOM",
+  OTHER = "OTHER",
+}
+
 export enum VisitStatus {
   CREATED = "CREATED",
   IN_PROGRESS = "IN_PROGRESS",
@@ -443,6 +454,7 @@ export interface DepartmentProfile {
 export interface Department {
   id: string;
   name: string;
+  kind: DepartmentKind;
   insurancePolicyMode: DepartmentInsurancePolicyMode;
   insurancePolicies: InsuranceProvider[];
   profiles: DepartmentProfile[];
@@ -576,6 +588,12 @@ export interface Visit {
   estimatedInsurancePay?: number | null;
   estimatedPatientPay?: number | null;
   quickBillEligible?: boolean | null;
+  currentLocations?: string | null;
+  activeEpisodeCount?: number | null;
+  isDischarged?: boolean | null;
+  hasReturnedFromBilling?: boolean | null;
+  hasPendingResults?: boolean | null;
+  lastFlowActivityAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -637,6 +655,10 @@ export interface VisitDepartment {
   notes?: VisitDepartmentNotesSummary | null;
   billing?: VisitDepartmentBilling | null;
   answerId?: string | null;
+  awaitingRole?: string | null;
+  awaitingSince?: string | null;
+  lastRoutingAction?: string | null;
+  previousDepartment?: Department | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1030,6 +1052,26 @@ export interface AuditLog {
   action: string;
   details?: string | null;
   timestamp: string;
+}
+
+export interface DischargeVisitInput {
+  visitId: string;
+  departmentId?: string | null;
+  note?: string | null;
+}
+
+export interface SendBackVisitInput {
+  visitId: string;
+  fromDepartmentId: string;
+  targetDepartmentId?: string | null;
+  note?: string | null;
+}
+
+export interface SendVisitToNextInput {
+  visitId: string;
+  fromDepartmentId: string;
+  targetDepartmentId: string;
+  note?: string | null;
 }
 
 // ============================================

@@ -6,6 +6,7 @@ import {
 } from "./visit-manage-audit-view"
 import {
   DepartmentInsurancePolicyMode,
+  DepartmentKind,
   EncounterType,
   VisitDepartmentStatus,
   VisitProductStatus,
@@ -62,6 +63,7 @@ describe("resolveProductBillingSummary", () => {
     department: {
       id: "dept-1",
       name: "Dental",
+      kind: DepartmentKind.CONSULTATION,
       insurancePolicyMode: DepartmentInsurancePolicyMode.ALL,
       insurancePolicies: [],
       profiles: [],
@@ -257,6 +259,7 @@ describe("getDepartmentAppliedInsurances", () => {
       department: {
         id: "dept-1",
         name: "Dental",
+        kind: DepartmentKind.CONSULTATION,
         insurancePolicyMode: DepartmentInsurancePolicyMode.ALL,
         insurancePolicies: [],
         profiles: [],
@@ -290,6 +293,7 @@ describe("getDepartmentAppliedInsurances", () => {
       department: {
         id: "dept-1",
         name: "Dental",
+        kind: DepartmentKind.CONSULTATION,
         insurancePolicyMode: DepartmentInsurancePolicyMode.ONLY,
         insurancePolicies: [{ id: "ins-1" } as any],
         profiles: [],
@@ -320,6 +324,7 @@ describe("getDepartmentAppliedInsurances", () => {
       department: {
         id: "dept-1",
         name: "Dental",
+        kind: DepartmentKind.CONSULTATION,
         insurancePolicyMode: DepartmentInsurancePolicyMode.EXCEPT,
         insurancePolicies: [{ id: "ins-1" } as any],
         profiles: [],

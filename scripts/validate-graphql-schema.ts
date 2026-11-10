@@ -142,7 +142,8 @@ for (const [name, schemaFields] of schemaObjectTypes) {
   const tsFields = tsInterfaces.get(name);
   if (!tsFields) continue; // no 1:1 TS interface — skip
   for (const [fieldName, field] of schemaFields) {
-    if (field.args.length > 0) continue; // resolvers/connections — skip
+    if (!field || !field.type) continue;
+    if (field.args && field.args.length > 0) continue; // resolvers/connections — skip
     // Only warn for leaf fields (scalar/enum). Object-typed and list fields are
     // allowed to be flattened/denormalized in the TS mapping layer.
     const namedType = getNamedType(field.type);

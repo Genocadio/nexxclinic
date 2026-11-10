@@ -6,10 +6,9 @@ import {
   REMOVE_DEPARTMENT_PROFILE_MUTATION,
 } from '../mutations'
 import type { Department, DepartmentProfile, Product } from '../types'
-import { EncounterType } from '@/lib/api-types'
+import { EncounterType, DepartmentKind, DepartmentInsurancePolicyMode } from '@/lib/api-types'
 import { mapGqlInsuranceProvider, mapGqlProduct } from '@/lib/gql-mappers'
 import type { GqlInsuranceCoverage } from '@/lib/gql-mappers'
-import { DepartmentInsurancePolicyMode } from '@/lib/api-types'
 
 export interface GqlInsurance {
   id: string
@@ -171,6 +170,7 @@ export const mapDepartmentProfileFromApi = (
 const mapDepartmentFromApi = (department: GqlDepartment): Department => ({
   id: department.id,
   name: department.name,
+  kind: ((department as any).kind as DepartmentKind) || DepartmentKind.CONSULTATION,
   insurancePolicyMode:
     (department.insurancePolicyMode as DepartmentInsurancePolicyMode) ||
     DepartmentInsurancePolicyMode.ALL,
