@@ -451,7 +451,7 @@ export function ConsultationPatientHeaderStrip({
               sideOffset={6}
               onMouseEnter={notesHoverPin.onMouseEnter}
               onMouseLeave={notesHoverPin.onMouseLeave}
-              className="w-[360px] sm:w-[410px] p-0 rounded-2xl shadow-2xl border border-border/80 bg-background/95 backdrop-blur-md overflow-hidden"
+              className="w-[320px] sm:w-[350px] p-0 rounded-2xl shadow-2xl border border-border/80 bg-background/95 backdrop-blur-md overflow-hidden"
             >
               <VisitNotesFloating
                 title={notesTitle}

@@ -20,6 +20,7 @@ import {
   ListOrdered,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -324,6 +325,8 @@ export default function VisitNotesFloating({
       }).length,
     [visibleNotes, userRoles, currentUserId, validDepts, currentDepartment]
   );
+
+  const hasNotes = visibleNotes.length > 0;
 
   // 1. Auto-Expand and keep open if Unread Notes Exist until marked as read
   useEffect(() => {
@@ -679,76 +682,46 @@ export default function VisitNotesFloating({
               </div>
             )}
 
-            {/* Header */}
-            <div className={`flex items-center justify-between border-b border-border/70 bg-muted/40 ${variant === "dropdown" ? "px-3 py-2" : "px-3.5 py-2.5"}`}>
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="h-6 w-6 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  <StickyNote className="h-3 w-3" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs font-semibold text-foreground leading-none truncate">
-                      {title}
-                    </h3>
-                    {unreadNotesCount > 0 ? (
-                      <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-bold leading-none animate-pulse shrink-0">
-                        {unreadNotesCount} new
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground shrink-0">
-                        ({visibleNotes.length})
-                      </span>
-                    )}
+            {/* When there are existing notes */}
+            {hasNotes ? (
+              <>
+                {/* Slim unread strip / Close button */}
+                {unreadNotesCount > 0 && onMarkAsViewed ? (
+                  <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/70 bg-muted/40 shrink-0">
+                    <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      {unreadNotesCount} unread note{unreadNotesCount > 1 ? "s" : ""}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-5 px-2 text-[10px] rounded-full border-border/70 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-300 font-semibold"
+                      onClick={markAllAsRead}
+                      disabled={markingRead}
+                      title="Mark all notes as read"
+                    >
+                      <CheckCheck className="h-3 w-3 mr-1 text-emerald-600" />
+                      Mark read ({unreadNotesCount})
+                    </Button>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                    Real-time handover & visit notices
-                  </p>
-                </div>
-              </div>
+                ) : variant !== "dropdown" ? (
+                  <div className="flex justify-end p-1.5 shrink-0">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground"
+                      onClick={() => setOpenState(false)}
+                      aria-label="Close notes"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : null}
 
-              <div className="flex items-center gap-1 shrink-0">
-                {unreadNotesCount > 0 && onMarkAsViewed && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2 text-[10px] rounded-full border-border/70 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-300"
-                    onClick={markAllAsRead}
-                    disabled={markingRead}
-                    title="Mark all notes as read"
-                  >
-                    <CheckCheck className="h-3 w-3 mr-1 text-emerald-600" />
-                    Mark read ({unreadNotesCount})
-                  </Button>
-                )}
-
-                {variant !== "dropdown" && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground"
-                    onClick={() => setOpenState(false)}
-                    aria-label="Close notes"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Notes Feed */}
-            <div className="flex-1 overflow-y-auto overscroll-contain p-2.5 space-y-2 max-h-[210px] min-h-[100px] bg-muted/15">
-            {visibleNotes.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-                <MessageSquare className="h-8 w-8 stroke-1 text-muted-foreground/50 mb-2" />
-                <p className="text-xs font-medium">No notes recorded yet</p>
-                <p className="text-[11px] text-muted-foreground/80 mt-0.5">
-                  Choose a category below to leave instructions or handover
-                </p>
-              </div>
-            ) : (
-              visibleNotes.map((note, idx) => {
+                {/* Notes Feed */}
+                <div className="flex-1 overflow-y-auto overscroll-contain p-2.5 space-y-2 max-h-[220px] bg-muted/15">
+                  {visibleNotes.map((note, idx) => {
                 const config = getNoteTypeConfig(note.noteType);
                 const NoteIcon = config.icon;
                 const noteDept =
@@ -851,60 +824,87 @@ export default function VisitNotesFloating({
                     {formatLineBlocks(note.content || "")}
                   </div>
                 );
-              })
-            )}
+              })}
+            </div>
 
             {/* Targeted Typing Indicator */}
             {activeTypingViewers.length > 0 && (
-              <div className="flex items-center justify-between gap-2 rounded-xl bg-primary/10 border border-primary/20 px-3 py-1.5 text-xs text-primary animate-in fade-in slide-in-from-bottom-1 duration-200">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <Pencil className="h-3.5 w-3.5 animate-pulse text-primary shrink-0" />
-                  <p className="truncate text-[11px]">
-                    <span className="font-semibold">
-                      {activeTypingViewers.map((v) => v.viewer.name).join(", ")}
-                    </span>{" "}
-                    <span className="text-muted-foreground">
-                      {activeTypingViewers.length === 1
-                        ? `is typing a ${activeTypingViewers[0].noteType.toLowerCase()} note...`
-                        : "are typing notes..."}
-                    </span>
-                  </p>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" />
+              <div className="px-2.5 py-1.5 bg-muted/15 border-t border-border/50">
+                <div className="flex items-center justify-between gap-2 rounded-xl bg-primary/10 border border-primary/20 px-3 py-1 text-xs text-primary animate-in fade-in slide-in-from-bottom-1 duration-200">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Pencil className="h-3.5 w-3.5 animate-pulse text-primary shrink-0" />
+                    <p className="truncate text-[11px]">
+                      <span className="font-semibold">
+                        {activeTypingViewers.map((v) => v.viewer.name).join(", ")}
+                      </span>{" "}
+                      <span className="text-muted-foreground">
+                        {activeTypingViewers.length === 1
+                          ? `is typing a ${activeTypingViewers[0].noteType.toLowerCase()} note...`
+                          : "are typing notes..."}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" />
+                  </div>
                 </div>
               </div>
             )}
-          </div>
+          </>
+        ) : (
+          /* If no notes yet: in floating mode show close button */
+          variant !== "dropdown" && (
+            <div className="flex justify-end p-1.5 shrink-0">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground"
+                onClick={() => setOpenState(false)}
+                aria-label="Close notes"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )
+        )}
 
-          {/* Composer Section */}
-          {onAddNote && (
-            <div className={`border-t border-border/70 bg-card space-y-2 ${variant === "dropdown" ? "p-2.5" : "p-3"}`}>
+        {/* Composer Section */}
+        {onAddNote && (
+          <div
+            className={cn(
+              "bg-card space-y-2",
+              hasNotes && "border-t border-border/70",
+              variant === "dropdown" ? "p-2.5" : "p-3"
+            )}
+          >
               {/* Category Segmented Pills */}
-              <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
-                {noteTypes.map((type) => {
-                  const cfg = getNoteTypeConfig(type);
-                  const Icon = cfg.icon;
-                  const isSelected = selectedType === type;
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setSelectedType(type)}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all shrink-0 ${
-                        isSelected
-                          ? cfg.pillActive
-                          : `bg-muted/70 ${cfg.pillInactive}`
-                      }`}
-                    >
-                      <Icon className="h-3 w-3" />
-                      {cfg.label}
-                    </button>
-                  );
-                })}
-              </div>
+              {noteTypes.length > 1 && (
+                <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
+                  {noteTypes.map((type) => {
+                    const cfg = getNoteTypeConfig(type);
+                    const Icon = cfg.icon;
+                    const isSelected = selectedType === type;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setSelectedType(type)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all shrink-0 ${
+                          isSelected
+                            ? cfg.pillActive
+                            : `bg-muted/70 ${cfg.pillInactive}`
+                        }`}
+                      >
+                        <Icon className="h-3 w-3" />
+                        {cfg.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Department selection (shown when visit has multiple departments) */}
               {validDepts.length > 1 && (
@@ -1001,8 +1001,12 @@ export default function VisitNotesFloating({
                     }
                   }}
                   rows={2}
-                  placeholder={activeTypeConfig.placeholder}
-                  className="bg-muted/40 border-border/80 focus-visible:ring-1 focus-visible:ring-primary text-xs sm:text-sm resize-none min-h-14"
+                  placeholder={
+                    hasNotes
+                      ? activeTypeConfig.placeholder
+                      : `Write a note... (⌘↵ to send)`
+                  }
+                  className="bg-muted/40 border-border/80 focus-visible:ring-1 focus-visible:ring-primary text-xs resize-none min-h-12 py-1.5 px-2.5"
                 />
               </div>
 
@@ -1013,7 +1017,7 @@ export default function VisitNotesFloating({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+                    className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
                     onClick={addBulletPrefix}
                     title="Insert bullet list item"
                   >
@@ -1024,7 +1028,7 @@ export default function VisitNotesFloating({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+                    className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
                     onClick={addNumberPrefix}
                     title="Insert numbered list item"
                   >
@@ -1032,7 +1036,7 @@ export default function VisitNotesFloating({
                     Numbered
                   </Button>
                   <span className="hidden sm:inline text-[10px] text-muted-foreground/60 ml-1">
-                    ⌘+Enter to send
+                    ⌘↵ to send
                   </span>
                 </div>
 
