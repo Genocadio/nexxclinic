@@ -35,9 +35,7 @@ import {
 } from "lucide-react"
 
 import { ReportsPeriodSelector } from "@/components/reports/reports-period-selector"
-import { DepartmentFilterCombobox } from "@/components/reports/department-filter-combobox"
-import { ClinicianFilterCombobox } from "@/components/reports/clinician-filter-combobox"
-import { PayerFilterCombobox } from "@/components/reports/payer-filter-combobox"
+import { ReportsInMenuFilter } from "@/components/reports/reports-in-menu-filter"
 import { AdminReportsOverview } from "@/components/reports/admin-reports-overview"
 import { AdminReportsEarnings } from "@/components/reports/admin-reports-earnings"
 import { AdminReportsWaivers } from "@/components/reports/admin-reports-waivers"
@@ -192,59 +190,6 @@ export default function FinancialReportsPage() {
     skip: !canAccess,
   })
 
-  // Has active filters
-  const hasActiveFilters =
-    selectedDepartmentIds.length > 0 ||
-    selectedClinicianIds.length > 0 ||
-    selectedInsuranceIds.length > 0 ||
-    isPrivateOnly
-
-  const activeFilterCount =
-    selectedDepartmentIds.length +
-    selectedClinicianIds.length +
-    selectedInsuranceIds.length +
-    (isPrivateOnly ? 1 : 0)
-
-  // Floating Filter Popover State
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
-
-  // Summary label for minimized floating filter button
-  const appliedFilterSummary = useMemo(() => {
-    if (activeFilterCount === 0) return "Filters"
-    const labels: string[] = []
-    if (selectedDepartmentIds.length > 0) {
-      const matched = departments.find((d) => d.id === selectedDepartmentIds[0])
-      labels.push(matched?.name || `${selectedDepartmentIds.length} Depts`)
-    }
-    if (selectedClinicianIds.length > 0) {
-      const matched = clinicians.find((c: any) => c.id === selectedClinicianIds[0])
-      labels.push((matched as any)?.fullName || (matched as any)?.name || `${selectedClinicianIds.length} Clinicians`)
-    }
-    if (isPrivateOnly) {
-      labels.push("Private")
-    } else if (selectedInsuranceIds.length > 0) {
-      const matched = insurances.find((i) => i.id === selectedInsuranceIds[0])
-      labels.push(matched?.acronym || matched?.name || `${selectedInsuranceIds.length} Payers`)
-    }
-    if (labels.length === 1) return labels[0]
-    return `${labels[0]} +${activeFilterCount - 1}`
-  }, [
-    activeFilterCount,
-    selectedDepartmentIds,
-    departments,
-    selectedClinicianIds,
-    clinicians,
-    isPrivateOnly,
-    selectedInsuranceIds,
-    insurances,
-  ])
-
-  const handleResetFilters = () => {
-    setSelectedDepartmentIds([])
-    setSelectedClinicianIds([])
-    setSelectedInsuranceIds([])
-    setIsPrivateOnly(false)
-  }
 
   // Carousel dock tab items
   const tabs = useMemo(() => [
@@ -482,83 +427,27 @@ export default function FinancialReportsPage() {
       </main>
 
       {/* Floating Filter Button (Bottom Left) */}
-      <div className="fixed bottom-6 left-6 z-40 animate-in fade-in duration-300">
-        <Popover open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant={hasActiveFilters ? "default" : "outline"}
-              className={cn(
-                "rounded-full shadow-lg border backdrop-blur-xl h-10 px-3.5 gap-2 text-xs font-semibold transition-all cursor-pointer",
-                hasActiveFilters
-                  ? "bg-primary text-primary-foreground shadow-primary/20 border-primary"
-                  : "bg-card/90 border-border/80 text-foreground hover:bg-card"
-              )}
-            >
-              <SlidersHorizontal className="h-4 w-4 shrink-0" />
-              <span className="max-w-[150px] truncate">{appliedFilterSummary}</span>
-              {hasActiveFilters && (
-                <Badge variant="secondary" className="h-5 px-1.5 text-[10px] rounded-full bg-background/20 text-current font-mono">
-                  {activeFilterCount}
-                </Badge>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent side="top" align="start" className="w-80 p-3.5 rounded-2xl shadow-2xl border border-border/80 bg-card/95 backdrop-blur-xl space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-border/50">
-              <div className="flex items-center gap-1.5">
-                <SlidersHorizontal className="h-4 w-4 text-primary" />
-                <span className="text-xs font-bold text-foreground">Filter Reports</span>
-              </div>
-              {hasActiveFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleResetFilters}
-                  className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-destructive rounded-lg gap-1 cursor-pointer"
-                >
-                  <RotateCcw className="h-3 w-3" />
-                  <span>Reset</span>
-                </Button>
-              )}
-            </div>
-
-            <div className="space-y-2.5">
-              <div>
-                <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Department</label>
-                <DepartmentFilterCombobox
-                  departments={departments}
-                  selectedIds={selectedDepartmentIds}
-                  onChange={setSelectedDepartmentIds}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Clinician</label>
-                <ClinicianFilterCombobox
-                  clinicians={clinicians as any}
-                  selectedIds={selectedClinicianIds}
-                  onChange={setSelectedClinicianIds}
-                  loading={usersLoading}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Payer</label>
-                <PayerFilterCombobox
-                  insurances={insurances}
-                  selectedInsuranceIds={selectedInsuranceIds}
-                  isPrivateOnly={isPrivateOnly}
-                  onChange={({ insuranceIds, isPrivateOnly: priv }) => {
-                    setSelectedInsuranceIds(insuranceIds)
-                    setIsPrivateOnly(priv)
-                  }}
-                />
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
+      <div className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 z-40 animate-in fade-in duration-300">
+        <ReportsInMenuFilter
+          departments={departments}
+          selectedDepartmentIds={selectedDepartmentIds}
+          onDepartmentChange={setSelectedDepartmentIds}
+          clinicians={clinicians as any}
+          selectedClinicianIds={selectedClinicianIds}
+          onClinicianChange={setSelectedClinicianIds}
+          loadingClinicians={usersLoading}
+          insurances={insurances}
+          selectedInsuranceIds={selectedInsuranceIds}
+          isPrivateOnly={isPrivateOnly}
+          onPayerChange={({ insuranceIds, isPrivateOnly: priv }) => {
+            setSelectedInsuranceIds(insuranceIds)
+            setIsPrivateOnly(priv)
+          }}
+        />
       </div>
 
-      {/* Floating Time Period Selector (Always accessible) */}
-      <div className="fixed bottom-6 right-6 z-40 animate-in fade-in duration-300">
+      {/* Floating Time Period Selector (Always accessible, Bottom Right) */}
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 animate-in fade-in duration-300">
         <ReportsPeriodSelector
           period={period}
           setPeriod={setPeriod}

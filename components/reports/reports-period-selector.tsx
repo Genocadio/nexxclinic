@@ -151,18 +151,20 @@ export function ReportsPeriodSelector({
         <Button
           variant="outline"
           size="sm"
+          title={rangeDisplayLabel}
+          aria-label={rangeDisplayLabel}
           className={cn(
-            "h-9 px-3.5 text-xs rounded-full bg-card/95 backdrop-blur-xl border-border/80 text-foreground font-medium flex items-center gap-2 shadow-md hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer shrink-0",
+            "group h-9 w-9 sm:w-auto p-0 sm:px-3.5 text-xs rounded-full bg-card/95 backdrop-blur-xl border-border/80 text-foreground font-semibold flex items-center justify-center sm:justify-start gap-2 shadow-md hover:shadow-lg hover:border-primary/50 hover:text-primary transition-all cursor-pointer shrink-0 select-none",
             className
           )}
         >
-          <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+          <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0 transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
             <Clock className="h-3 w-3" />
           </div>
-          <span className="font-semibold truncate max-w-[220px] sm:max-w-[320px]">
+          <span className="hidden sm:inline font-semibold truncate max-w-[220px] sm:max-w-[320px]">
             {rangeDisplayLabel}
           </span>
-          <ChevronDown className="h-3 w-3 opacity-60 ml-0.5 shrink-0" />
+          <ChevronDown className="hidden sm:inline h-3 w-3 opacity-60 ml-0.5 shrink-0 transition-colors group-hover:text-primary" />
         </Button>
       </PopoverTrigger>
 
