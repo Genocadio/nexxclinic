@@ -401,11 +401,19 @@ export function StandaloneConsultationView({
     effectiveDepartmentStatus === "DEPARTMENT_EDITING" ||
     visitDepartment.status === "DEPARTMENT_EDITING";
 
+  const isReturnedFromBilling = Boolean(
+    visit?.hasReturnedFromBilling ||
+    visitDepartment?.lastRoutingAction === "SENT_BACK" ||
+    (visitDepartment?.status === "ACTIVE" && visit?.hasReturnedFromBilling)
+  );
+
   // A department is only locked for products if finance has actually billed/settled products (hasBilledProducts or liveBilled)
-  // while not in DEPARTMENT_EDITING status. Unbilled products in BILLING status remain editable during continued consultation.
+  // while not in DEPARTMENT_EDITING status AND NOT returned from billing.
+  // Unbilled products in BILLING status and visits returned from billing remain editable during continued consultation.
   const isLockedInBilling =
     (hasBilledProducts || liveBilled) &&
-    !isDepartmentEditing;
+    !isDepartmentEditing &&
+    !isReturnedFromBilling;
   const isActuallyBilled = isLockedInBilling;
   const isBilled = isLockedInBilling;
 
@@ -1222,13 +1230,25 @@ export function StandaloneConsultationView({
       }
 
       // State transition rules:
-      // 1. If in edit mode (DEPARTMENT_EDITING) or visit is already billed: keep the state intact (sendToBilling: false).
-      // 2. If unbilled products exist: backend transitions departments to BILLING so finance can collect payment.
+      // 1. If in edit mode (DEPARTMENT_EDITING): keep the state intact (sendToBilling: false).
+      // 2. If unbilled products exist or visit was returned from billing: sendToBilling = true so it goes back to billing!
       // 3. If visit is already billed / no unbilled products and not in edit mode: backend marks department as FINALISED.
-      const shouldSendToBilling = !isDepartmentEditing && !isBilled;
+      const shouldSendToBilling = (!isDepartmentEditing && !isBilled) || isReturnedFromBilling;
       await persistAnswers(answers, "FINAL", { skipDuplicateCheck: true, sendToBilling: shouldSendToBilling });
 
-      toast.success(shouldSendToBilling ? "Sent to billing successfully" : "Consultation answers saved successfully");
+      if (isReturnedFromBilling && visitDepartment?.id) {
+        if (effectiveDepartmentStatus !== "BILLING") {
+          await updateDepartmentStatus(String(visitDepartment.id), "BILLING");
+        }
+      }
+
+      toast.success(
+        isReturnedFromBilling
+          ? "Sent back to billing successfully"
+          : shouldSendToBilling
+            ? "Sent to billing successfully"
+            : "Consultation answers saved successfully",
+      );
       router.push("/");
     } catch (err: unknown) {
       toast.error(
@@ -1554,12 +1574,18 @@ export function StandaloneConsultationView({
         <DialogContent className="sm:max-w-md p-5 sm:p-6">
           <DialogHeader className="space-y-1.5">
             <DialogTitle className="text-base font-semibold">
-              {isActuallyBilled || isDepartmentEditing ? "Save Answers" : "Send to Billing"}
+              {isActuallyBilled || isDepartmentEditing
+                ? "Save Answers"
+                : isReturnedFromBilling
+                  ? "Send back to Billing"
+                  : "Send to Billing"}
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
               {isActuallyBilled || isDepartmentEditing
                 ? "Save your consultation documentation. Since billing is already completed, answers will be saved without altering billing status."
-                : "Submit consultation documentation and send this visit to Billing for payment processing."}
+                : isReturnedFromBilling
+                  ? "Save your consultation documentation and send this patient back to Billing."
+                  : "Submit consultation documentation and send this visit to Billing for payment processing."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2.5 sm:gap-3 pt-2">
@@ -1600,7 +1626,9 @@ export function StandaloneConsultationView({
                 ? "Submitting…"
                 : isActuallyBilled || isDepartmentEditing
                   ? "Save Answers"
-                  : "Send to Billing"}
+                  : isReturnedFromBilling
+                    ? "Send back to Billing"
+                    : "Send to Billing"}
             </Button>
           </DialogFooter>
         </DialogContent>

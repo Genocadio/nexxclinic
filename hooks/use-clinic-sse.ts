@@ -35,6 +35,7 @@ export interface ClinicSseEvent {
   departmentName?: string
   departmentStatus?: string
   visitStatus?: string
+  action?: string
   actorId?: string
   actorName?: string
   metadata?: Record<string, unknown>
@@ -131,9 +132,23 @@ export function useClinicSse() {
                   playNewVisitNotificationSound()
                 }
               }
+              if (eventType === "VISIT_ROUTED") {
+                queriesToRefetch.push("GetVisit", "GetVisits")
+                if (data.actorId !== doctor?.id) {
+                  playNewVisitNotificationSound()
+                }
+              }
+              if (eventType === "VISIT_DEPARTMENT_STATE_CHANGED") {
+                queriesToRefetch.push("GetVisitBilling", "GetVisitDepartmentBilling", "GetVisit")
+                if (
+                  data.actorId !== doctor?.id &&
+                  (data.departmentStatus === "ACTIVE" || data.departmentStatus === "PENDING" || data.action === "SEND_BACK")
+                ) {
+                  playNewVisitNotificationSound()
+                }
+              }
               if (
                 eventType === "BILLING_COMPLETED" ||
-                eventType === "VISIT_DEPARTMENT_STATE_CHANGED" ||
                 eventType === "VISIT_PRODUCT_CHANGED" ||
                 eventType === "VISIT_INSURANCE_CHANGED"
               ) {
@@ -141,13 +156,15 @@ export function useClinicSse() {
               }
               if (eventType === "VISIT_NOTE_ADDED") {
                 queriesToRefetch.push("GetVisitDepartmentNotes", "GetVisit")
+                if (data.actorId !== doctor?.id) {
+                  playNoteNotificationSound()
+                }
               }
               if (eventType === "VISIT_VITALS_CHANGED") {
                 queriesToRefetch.push("GetVisit")
               }
               if (
                 eventType === "VISIT_DISCHARGED" ||
-                eventType === "VISIT_ROUTED" ||
                 eventType === "VISIT_CANCELLED" ||
                 eventType === "VISIT_REOPENED"
               ) {
