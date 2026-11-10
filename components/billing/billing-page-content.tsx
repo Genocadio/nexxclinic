@@ -25,7 +25,7 @@ import {
   visitProductsFullySettled,
   isVisitStillUnderConsultation,
 } from "@/lib/visit-product-utils";
-import { Clock, Plus, Pill } from "lucide-react";
+import { Clock, Plus, Pill, RotateCcw } from "lucide-react";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useSearchParams } from "@/lib/navigation";
@@ -71,6 +71,16 @@ import { useBillingPageState } from "@/hooks/billing/use-billing-page-state";
 import { useBillingPageActions } from "@/hooks/billing/use-billing-actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { EMPTY_TOTALS } from "@/hooks/billing/use-billing-totals";
 import { Spinner } from "@/components/ui/spinner";
 import { PageLoading } from "@/components/ui/page-loading";
@@ -1190,9 +1200,17 @@ export function BillingPageContent() {
   const { sendBackVisit, loading: sendingBackVisit } = useSendBackVisit();
   const { sendVisitToNext, loading: sendingVisitToNext } = useSendVisitToNext();
   const [sendBackConfirmOpen, setSendBackConfirmOpen] = useState(false);
+  const [returnReason, setReturnReason] = useState("");
+  const [sendingBackWithNote, setSendingBackWithNote] = useState(false);
 
   const handleSendBackVisit = async () => {
     if (!visitId) return;
+    const trimmedReason = returnReason.trim();
+    if (!trimmedReason) {
+      toast.error("Please enter a return reason for the doctor.");
+      return;
+    }
+
     const fromDeptId = String(
       activeVisitDepartment?.id ||
       (visit?.departments || []).find((d) => d.status === "BILLING")?.id ||
@@ -1203,23 +1221,51 @@ export function BillingPageContent() {
       toast.error("Could not determine current department to send back from.");
       return;
     }
+
+    // Attach note to consultation department so clinicians are notified
+    const consultationDept = (visit?.departments || []).find((d) => {
+      const kind = String(d.department?.kind || "").toUpperCase();
+      const name = String(d.department?.name || "").toUpperCase();
+      return kind === "CONSULTATION" || name.includes("CONSULT") || name.includes("DOCTOR");
+    }) || activeVisitDepartment || (visit?.departments || [])[0];
+
+    const targetDeptId = String(consultationDept?.id || fromDeptId);
+
+    setSendingBackWithNote(true);
     try {
+      // 1. Add dedicated CONSULTATION note to notify clinician
+      const noteResult = await addVisitDepartmentNote(
+        targetDeptId,
+        `Return reason: ${trimmedReason}`,
+        "CONSULTATION",
+      );
+      if (noteResult && (noteResult as any).status === "ERROR") {
+        toast.error((noteResult as any).message || "Failed to record consultation note");
+        return;
+      }
+
+      // 2. Perform visit send back
       const result = await sendBackVisit({
         visitId,
         fromDepartmentId: fromDeptId,
       });
+
       if (result.status === "SUCCESS") {
-        toast.success("Patient successfully returned to doctor");
-        await refetchVisit();
-        await refetchBill();
+        toast.success("Patient successfully returned to doctor with consultation note");
+        setReturnReason("");
         setSendBackConfirmOpen(false);
         setPostBillingActionOpen(false);
+        await refetchVisit();
+        await refetchBill();
+        await refetchNotes();
       } else {
         toast.error(result.message || "Failed to return patient to doctor");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Send back error:", err);
-      toast.error("Failed to return patient to doctor");
+      toast.error(err?.message || "Failed to return patient to doctor");
+    } finally {
+      setSendingBackWithNote(false);
     }
   };
 
@@ -2042,19 +2088,89 @@ export function BillingPageContent() {
           }
         }}
       />
-      <ConfirmDialog
+      {/* Return to Doctor with Mandatory Consultation Note Dialog */}
+      <Dialog
         open={sendBackConfirmOpen}
-        onOpenChange={setSendBackConfirmOpen}
-        title="Return patient to doctor?"
-        description="The patient will be sent back to consultation and appear at the top of the clinician's 'Needs Me' queue with a 'Returned from Billing' badge."
-        confirmLabel="Return to Doctor"
-        busy={sendingBackVisit}
-        onConfirm={() => {
-          void handleSendBackVisit().finally(() => {
-            setSendBackConfirmOpen(false);
-          });
+        onOpenChange={(open) => {
+          if (!sendingBackWithNote && !sendingBackVisit) {
+            setSendBackConfirmOpen(open);
+            if (!open) setReturnReason("");
+          }
         }}
-      />
+      >
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader className="space-y-2">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <RotateCcw className="w-5 h-5" />
+              </div>
+              <DialogTitle className="text-lg font-semibold">
+                Return Patient to Doctor
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              Enter the reason for returning this patient to consultation. This note will be recorded directly into the clinician&apos;s consultation notes to alert the doctor.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2">
+            <label className="text-xs font-semibold text-foreground/80 flex items-center justify-between">
+              <span>
+                Return Reason <span className="text-destructive">*</span>
+              </span>
+              <span className="text-[11px] font-normal text-muted-foreground">
+                Mandatory for clinician review
+              </span>
+            </label>
+            <Textarea
+              placeholder="e.g. Please clarify medication dosage, revise billable tariff, or verify insurance pre-authorization..."
+              value={returnReason}
+              onChange={(e) => setReturnReason(e.target.value)}
+              rows={4}
+              disabled={sendingBackWithNote || sendingBackVisit}
+              className="resize-none text-sm placeholder:text-muted-foreground/60 focus-visible:ring-amber-500/40"
+              autoFocus
+            />
+            {!returnReason.trim() && (
+              <p className="text-[11px] text-muted-foreground/75 italic">
+                A non-empty reason is required to return the visit.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={sendingBackWithNote || sendingBackVisit}
+              onClick={() => {
+                setSendBackConfirmOpen(false);
+                setReturnReason("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="gap-2 bg-amber-600 hover:bg-amber-700 text-white font-medium"
+              disabled={!returnReason.trim() || sendingBackWithNote || sendingBackVisit}
+              onClick={() => void handleSendBackVisit()}
+            >
+              {sendingBackWithNote || sendingBackVisit ? (
+                <>
+                  <Spinner className="w-4 h-4 text-white" />
+                  <span>Returning...</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Return to Doctor</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {visit && addDepartmentModalOpen && (
         <AddDepartmentModal
