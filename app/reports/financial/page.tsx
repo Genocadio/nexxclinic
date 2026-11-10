@@ -317,67 +317,70 @@ export default function FinancialReportsPage() {
         "container w-full mx-auto px-4 sm:px-6 max-w-7xl transition-all flex-1 min-h-0 min-w-0",
         "py-3 sm:py-4 space-y-3 sm:space-y-3.5 overflow-y-auto"
       )}>
-        {/* Dynamic Carousel-Dock Tab Switcher: clearance from floating home (left) and profile (right) */}
-        <div className="w-full flex items-center justify-center px-12 sm:px-16 md:px-20 max-w-full">
-          <div className="overflow-x-auto scrollbar-none py-1 max-w-full flex items-center justify-center">
-            <div className="inline-flex items-center gap-1 sm:gap-1.5 bg-card/85 backdrop-blur-xl border border-border/70 p-1 rounded-2xl shadow-xs flex-nowrap shrink-0">
-              {tabs.map((tab, idx) => {
-                const isActive = activeTab === tab.id
-                const activeIndex = tabs.findIndex((t) => t.id === activeTab)
-                const distance = Math.abs(idx - activeIndex)
-                // Expand 2 icons on left and right from active tab on smaller screens
-                const isAdjacentExpanded = distance >= 1 && distance <= 2
-                const Icon = tab.icon
+        {/* Dynamic Carousel-Dock Tab Switcher: clearance from floating home (left) and profile (right), non-scrollable */}
+        <div className="w-full flex items-center justify-center px-12 sm:px-14 md:px-16 max-w-full">
+          <div className="inline-flex items-center gap-0.5 sm:gap-1 bg-card/85 backdrop-blur-xl border border-border/70 p-1 rounded-2xl shadow-xs flex-nowrap shrink-0">
+            {tabs.map((tab, idx) => {
+              const isActive = activeTab === tab.id
+              const activeIndex = tabs.findIndex((t) => t.id === activeTab)
+              const distance = Math.abs(idx - activeIndex)
+              const isImmediateAdjacent = distance === 1
+              const isSecondaryAdjacent = distance === 2
+              const Icon = tab.icon
 
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    title={tab.label}
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  title={tab.label}
+                  className={cn(
+                    "group relative inline-flex items-center gap-1 sm:gap-1.5 rounded-xl h-8 sm:h-8.5 text-xs font-medium transition-all duration-300 ease-out shrink-0 cursor-pointer select-none",
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-xs px-2 sm:px-2.5"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/70 px-1.5 sm:px-2",
+                    isImmediateAdjacent && !isActive && "px-2 sm:px-2.5",
+                    isSecondaryAdjacent && !isActive && "px-1.5 sm:px-2.5"
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
+                  <span
                     className={cn(
-                      "group relative inline-flex items-center gap-1.5 rounded-xl h-8.5 sm:h-9 text-xs font-medium transition-all duration-300 ease-out shrink-0 cursor-pointer select-none",
+                      "transition-all duration-300 ease-out overflow-hidden whitespace-nowrap",
+                      // Large screens: expand all tabs
+                      "lg:max-w-[105px] lg:opacity-100",
+                      // Hover: always expands smoothly on hover
+                      "group-hover:max-w-[105px] group-hover:opacity-100",
+                      // Smaller screens: active tab is minimised unless hovered; immediate adjacent expanded on mobile, secondary on sm+
                       isActive
-                        ? "bg-primary text-primary-foreground shadow-xs px-2.5 sm:px-3"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/70 px-2 sm:px-2.5",
-                      isAdjacentExpanded && !isActive && "px-2.5 sm:px-3"
+                        ? "max-w-0 opacity-0"
+                        : isImmediateAdjacent
+                        ? "max-w-[65px] sm:max-w-[90px] opacity-100"
+                        : isSecondaryAdjacent
+                        ? "max-w-0 sm:max-w-[90px] opacity-0 sm:opacity-100"
+                        : "max-w-0 opacity-0"
                     )}
                   >
-                    <Icon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
-                    <span
+                    {tab.label}
+                  </span>
+                  {tab.count !== undefined && (
+                    <Badge
+                      variant={isActive ? "secondary" : "outline"}
                       className={cn(
-                        "transition-all duration-300 ease-out overflow-hidden whitespace-nowrap",
-                        // Large screens: expand all tabs
-                        "lg:max-w-[110px] lg:opacity-100",
-                        // Hover: always expands on hover
-                        "group-hover:max-w-[110px] group-hover:opacity-100",
-                        // Smaller screens: active tab is minimised unless hovered; 2 adjacent on left and right are expanded
+                        "py-0 px-1 text-[10px] shrink-0 font-mono transition-colors",
+                        // Hide counts on small screens to prevent overflow, reveal on md: or hover
+                        "hidden md:inline-flex group-hover:inline-flex",
                         isActive
-                          ? "max-w-0 opacity-0"
-                          : isAdjacentExpanded
-                          ? "max-w-[110px] opacity-100"
-                          : "max-w-0 opacity-0"
+                          ? "bg-primary-foreground/20 text-current border-transparent"
+                          : "bg-muted/40 text-muted-foreground border-border/60"
                       )}
                     >
-                      {tab.label}
-                    </span>
-                    {tab.count !== undefined && (
-                      <Badge
-                        variant={isActive ? "secondary" : "outline"}
-                        className={cn(
-                          "py-0 px-1 text-[10px] shrink-0 font-mono transition-colors",
-                          isActive
-                            ? "bg-primary-foreground/20 text-current border-transparent"
-                            : "bg-muted/40 text-muted-foreground border-border/60"
-                        )}
-                      >
-                        {tab.count}
-                      </Badge>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
+                      {tab.count}
+                    </Badge>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
 
