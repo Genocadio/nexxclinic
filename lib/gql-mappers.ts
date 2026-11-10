@@ -757,6 +757,7 @@ export function mapGqlVisit(
     activeEpisodeCount: (visit as any).activeEpisodeCount ?? null,
     isDischarged: (visit as any).isDischarged ?? null,
     hasReturnedFromBilling: (visit as any).hasReturnedFromBilling ?? null,
+    lastReturnReason: (visit as any).lastReturnReason ?? null,
     hasPendingResults: (visit as any).hasPendingResults ?? null,
     lastFlowActivityAt: (visit as any).lastFlowActivityAt ?? null,
   };

@@ -592,6 +592,7 @@ export interface Visit {
   activeEpisodeCount?: number | null;
   isDischarged?: boolean | null;
   hasReturnedFromBilling?: boolean | null;
+  lastReturnReason?: string | null;
   hasPendingResults?: boolean | null;
   lastFlowActivityAt?: string | null;
   createdAt?: string;

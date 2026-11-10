@@ -1486,6 +1486,7 @@ export const DISCHARGE_VISIT_MUTATION = gql`
         isDischarged
         activeEpisodeCount
         hasReturnedFromBilling
+        lastReturnReason
         currentLocations
         departments {
           id
@@ -1509,6 +1510,7 @@ export const SEND_BACK_VISIT_MUTATION = gql`
         isDischarged
         activeEpisodeCount
         hasReturnedFromBilling
+        lastReturnReason
         currentLocations
         departments {
           id
@@ -1532,6 +1534,7 @@ export const SEND_VISIT_TO_NEXT_MUTATION = gql`
         isDischarged
         activeEpisodeCount
         hasReturnedFromBilling
+        lastReturnReason
         currentLocations
         departments {
           id

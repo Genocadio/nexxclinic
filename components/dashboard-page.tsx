@@ -138,6 +138,7 @@ import {
   isClinicianInCare,
   isClinicianOnHold,
   isVisitDischarged,
+  isVisitReturnedFromBilling,
   getVisitFlowBadges,
 } from "@/lib/visit-flow-utils"
 import {
@@ -1851,8 +1852,17 @@ export default function DashboardPage() {
     const filtered = applyGeneralFilters(combinedVisitsList)
 
     switch (statusFilter) {
-      case "NEEDS_ME":
-        return filtered.filter((v) => isClinicianNeedsMe(v, doctor?.id, userDepartmentIds))
+      case "NEEDS_ME": {
+        const needsMeList = filtered.filter((v) => isClinicianNeedsMe(v, doctor?.id, userDepartmentIds))
+        return needsMeList.sort((a, b) => {
+          const aRet = isVisitReturnedFromBilling(a) ? 1 : 0
+          const bRet = isVisitReturnedFromBilling(b) ? 1 : 0
+          if (aRet !== bRet) return bRet - aRet
+          const aTime = a.lastFlowActivityAt ? new Date(a.lastFlowActivityAt).getTime() : 0
+          const bTime = b.lastFlowActivityAt ? new Date(b.lastFlowActivityAt).getTime() : 0
+          return bTime - aTime
+        })
+      }
       case "IN_CARE":
       case "IN_SERVICE":
         return filtered.filter((v) => isClinicianInCare(v, doctor?.id, userDepartmentIds))
@@ -3092,46 +3102,87 @@ export default function DashboardPage() {
                                             </div>
                                           </PopoverContent>
                                         </Popover>
-                                        {getVisitFlowBadges(visit).map((badge) => (
-                                          <span
-                                            key={badge.id}
-                                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shadow-2xs select-none ${
-                                              badge.variant === "amber"
-                                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
-                                                : badge.variant === "emerald"
-                                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
-                                                  : badge.variant === "sky"
-                                                    ? "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30"
-                                                    : badge.variant === "purple"
-                                                      ? "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30"
-                                                      : badge.variant === "teal"
-                                                        ? "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30"
-                                                        : badge.variant === "blue"
-                                                          ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30"
-                                                          : "bg-muted text-muted-foreground border-border/50"
-                                            }`}
-                                          >
-                                            {badge.iconName === "rotate-ccw" && (
-                                              <RotateCcw className="w-3 h-3" />
-                                            )}
-                                            {badge.iconName === "flask" && (
-                                              <Activity className="w-3 h-3" />
-                                            )}
-                                            {badge.iconName === "activity" && (
-                                              <Activity className="w-3 h-3" />
-                                            )}
-                                            {badge.iconName === "bed" && (
-                                              <Calendar className="w-3 h-3" />
-                                            )}
-                                            {badge.iconName === "receipt" && (
-                                              <ReceiptText className="w-3 h-3" />
-                                            )}
-                                            {badge.iconName === "check" && (
-                                              <CheckCircle className="w-3 h-3" />
-                                            )}
-                                            <span>{badge.label}</span>
-                                          </span>
-                                        ))}
+                                        {getVisitFlowBadges(visit).map((badge) => {
+                                          if (badge.id === "returned_from_billing") {
+                                            const returnReason = (visit as any).lastReturnReason?.trim() || ""
+                                            return (
+                                              <Tooltip key={badge.id}>
+                                                <TooltipTrigger asChild>
+                                                  <span
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shadow-2xs select-none bg-amber-500/20 text-amber-800 dark:text-amber-200 border-amber-500/40 ring-1 ring-amber-500/20 animate-in fade-in cursor-help"
+                                                  >
+                                                    <RotateCcw className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                                                    <span>{badge.label}</span>
+                                                    {returnReason && (
+                                                      <span className="hidden sm:inline-block max-w-[150px] truncate text-[10px] font-normal text-amber-700 dark:text-amber-300 opacity-90 border-l border-amber-500/30 pl-1.5 ml-0.5">
+                                                        “{returnReason}”
+                                                      </span>
+                                                    )}
+                                                  </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="top" className="max-w-xs text-xs p-2.5 z-[150] bg-popover/95 backdrop-blur-md">
+                                                  <div className="space-y-1">
+                                                    <p className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                                      <RotateCcw className="w-3.5 h-3.5" />
+                                                      Returned from Billing
+                                                    </p>
+                                                    {returnReason ? (
+                                                      <p className="text-foreground text-[11px] leading-relaxed">
+                                                        <span className="font-medium text-muted-foreground">Reason: </span>
+                                                        {returnReason}
+                                                      </p>
+                                                    ) : (
+                                                      <p className="text-muted-foreground text-[11px]">
+                                                        Patient was returned to consultation for order or prescription adjustment.
+                                                      </p>
+                                                    )}
+                                                  </div>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            )
+                                          }
+
+                                          return (
+                                            <span
+                                              key={badge.id}
+                                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shadow-2xs select-none ${
+                                                badge.variant === "amber"
+                                                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                                                  : badge.variant === "emerald"
+                                                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                                                    : badge.variant === "sky"
+                                                      ? "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30"
+                                                      : badge.variant === "purple"
+                                                        ? "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30"
+                                                        : badge.variant === "teal"
+                                                          ? "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30"
+                                                          : badge.variant === "blue"
+                                                            ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30"
+                                                            : "bg-muted text-muted-foreground border-border/50"
+                                              }`}
+                                            >
+                                              {badge.iconName === "rotate-ccw" && (
+                                                <RotateCcw className="w-3 h-3" />
+                                              )}
+                                              {badge.iconName === "flask" && (
+                                                <Activity className="w-3 h-3" />
+                                              )}
+                                              {badge.iconName === "activity" && (
+                                                <Activity className="w-3 h-3" />
+                                              )}
+                                              {badge.iconName === "bed" && (
+                                                <Calendar className="w-3 h-3" />
+                                              )}
+                                              {badge.iconName === "receipt" && (
+                                                <ReceiptText className="w-3 h-3" />
+                                              )}
+                                              {badge.iconName === "check" && (
+                                                <CheckCircle className="w-3 h-3" />
+                                              )}
+                                              <span>{badge.label}</span>
+                                            </span>
+                                          )
+                                        })}
                                       </div>
                                     )
                                   })()}

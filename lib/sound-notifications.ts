@@ -38,6 +38,31 @@ export function setSoundEnabled(enabled: boolean): void {
 }
 
 /**
+ * Explicit user-action test to resume AudioContext (granting browser autoplay permission)
+ * and play a test notification chime.
+ */
+export async function testSoundNotification(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return false;
+    if (!audioCtx) {
+      audioCtx = new AudioContextClass();
+    }
+    if (audioCtx.state === "suspended") {
+      await audioCtx.resume();
+    }
+    playNewVisitNotificationSound();
+    return audioCtx.state === "running";
+  } catch (err) {
+    console.warn("Failed to test audio chime:", err);
+    return false;
+  }
+}
+
+/**
  * Soft, gentle dual-chime for incoming clinical or billing notes (D5 -> A5).
  */
 export function playNoteNotificationSound(): void {

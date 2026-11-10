@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Building2,
   Check,
@@ -123,6 +123,13 @@ export function ConsultationPatientHeaderStrip({
 }: ConsultationPatientHeaderStripProps) {
   const patientHoverPin = useHoverPin({ graceMs: 180 });
   const notesHoverPin = useHoverPin({ graceMs: 180 });
+
+  // Auto-open unread dedicated notes until they are marked as read
+  useEffect(() => {
+    if (unreadNotesCount > 0) {
+      notesHoverPin.setPinned(true);
+    }
+  }, [unreadNotesCount]);
 
   return (
     <div
@@ -404,7 +411,11 @@ export function ConsultationPatientHeaderStrip({
           <Popover
             open={notesHoverPin.isOpen}
             onOpenChange={(open) => {
-              if (!open) notesHoverPin.close();
+              if (open) {
+                notesHoverPin.setPinned(true);
+              } else if (unreadNotesCount === 0) {
+                notesHoverPin.close();
+              }
             }}
           >
             <TooltipProvider delayDuration={2000}>
@@ -456,7 +467,11 @@ export function ConsultationPatientHeaderStrip({
                 allowedDisplayTypes={allowedDisplayTypes}
                 open={notesHoverPin.isOpen}
                 onOpenChange={(open) => {
-                  if (!open) notesHoverPin.close();
+                  if (open) {
+                    notesHoverPin.setPinned(true);
+                  } else if (unreadNotesCount === 0) {
+                    notesHoverPin.close();
+                  }
                 }}
                 hideToggleButton
                 variant="dropdown"

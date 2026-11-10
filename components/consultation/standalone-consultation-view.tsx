@@ -575,6 +575,13 @@ export function StandaloneConsultationView({
     return Object.values(answers || {}).some(hasContent);
   }, [answers]);
   const notesHoverPin = useHoverPin({ graceMs: 180 });
+
+  // Auto-open unread dedicated notes until marked as read
+  useEffect(() => {
+    if (unreadNotesCount > 0) {
+      notesHoverPin.setPinned(true);
+    }
+  }, [unreadNotesCount, notesHoverPin]);
   const [patientHistoryOpen, setPatientHistoryOpen] = useState(false);
   const [previewConsultationOpen, setPreviewConsultationOpen] = useState(false);
   const [previewConsultationContext, setPreviewConsultationContext] = useState<{

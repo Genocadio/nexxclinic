@@ -8,6 +8,7 @@ import {
   playNoteNotificationSound,
   playBillingNotificationSound,
 } from "@/lib/sound-notifications"
+import { toast } from "react-toastify"
 
 export interface ClinicSseEvent {
   eventId: string
@@ -134,13 +135,47 @@ export function useClinicSse() {
               }
               if (eventType === "VISIT_ROUTED") {
                 queriesToRefetch.push("GetVisit", "GetVisits")
-                if (data.actorId !== doctor?.id) {
+                const userRoles = doctor?.roles || []
+                const isFinance = userRoles.some(
+                  (r) => r === "FINANCE" || r === "ADMIN" || r === "MANAGER" || r === "CLINIC_ADMIN"
+                )
+                const actionType = (data.metadata?.actionType as string) || data.action
+                const targetDeptKind = (data.metadata?.targetDepartmentKind as string) || ""
+
+                if (
+                  data.actorId !== doctor?.id &&
+                  isFinance &&
+                  (targetDeptKind === "BILLING" || actionType === "SEND_TO_BILLING" || actionType === "BILLING")
+                ) {
+                  playBillingNotificationSound()
+                  const patientLabel = data.patientName || "Patient"
+                  toast.info(`Patient ${patientLabel} returned from consultation with revised orders.`, {
+                    toastId: `revised-orders-${data.visitId || data.eventId}`,
+                    autoClose: 6000,
+                  })
+                } else if (data.actorId !== doctor?.id) {
                   playNewVisitNotificationSound()
                 }
               }
               if (eventType === "VISIT_DEPARTMENT_STATE_CHANGED") {
                 queriesToRefetch.push("GetVisitBilling", "GetVisitDepartmentBilling", "GetVisit")
+                const userRoles = doctor?.roles || []
+                const isFinance = userRoles.some(
+                  (r) => r === "FINANCE" || r === "ADMIN" || r === "MANAGER" || r === "CLINIC_ADMIN"
+                )
+
                 if (
+                  data.actorId !== doctor?.id &&
+                  isFinance &&
+                  data.departmentStatus === "BILLING"
+                ) {
+                  playBillingNotificationSound()
+                  const patientLabel = data.patientName || "Patient"
+                  toast.info(`Patient ${patientLabel} returned from consultation with revised orders.`, {
+                    toastId: `revised-orders-${data.visitId || data.eventId}`,
+                    autoClose: 6000,
+                  })
+                } else if (
                   data.actorId !== doctor?.id &&
                   (data.departmentStatus === "ACTIVE" || data.departmentStatus === "PENDING" || data.action === "SEND_BACK")
                 ) {

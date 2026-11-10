@@ -347,6 +347,7 @@ export const GET_VISIT_QUERY = gql`
         activeEpisodeCount
         isDischarged
         hasReturnedFromBilling
+        lastReturnReason
         hasPendingResults
         lastFlowActivityAt
       }
@@ -702,6 +703,7 @@ export const VISITS_QUERY = gql`
         activeEpisodeCount
         isDischarged
         hasReturnedFromBilling
+        lastReturnReason
         hasPendingResults
         lastFlowActivityAt
       }

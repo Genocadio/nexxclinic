@@ -325,11 +325,9 @@ export default function VisitNotesFloating({
     [visibleNotes, userRoles, currentUserId, validDepts, currentDepartment]
   );
 
-  // 1. Smart Auto-Expand on Open Visit if Unread Notes Exist
-  const hasAutoExpandedRef = useRef(false);
+  // 1. Auto-Expand and keep open if Unread Notes Exist until marked as read
   useEffect(() => {
-    if (!hasAutoExpandedRef.current && unreadNotesCount > 0) {
-      hasAutoExpandedRef.current = true;
+    if (unreadNotesCount > 0) {
       setOpenState(true);
     }
   }, [unreadNotesCount, setOpenState]);
