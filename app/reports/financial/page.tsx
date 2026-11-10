@@ -71,6 +71,7 @@ export default function FinancialReportsPage() {
 
   // Active Tab for Financial Reports: overview, earnings, waivers, adjustments, loans
   const [activeTab, setActiveTab] = useState<string>("overview")
+  const [hoveredTabId, setHoveredTabId] = useState<string | null>(null)
 
   // Load auxiliary lists for filters
   const { departments = [] } = useDepartments({ skip: !canAccess })
@@ -319,7 +320,10 @@ export default function FinancialReportsPage() {
       )}>
         {/* Dynamic Carousel-Dock Tab Switcher: clearance from floating home (left) and profile (right), non-scrollable */}
         <div className="w-full flex items-center justify-center px-12 sm:px-14 md:px-16 max-w-full">
-          <div className="inline-flex items-center gap-0.5 sm:gap-1 bg-card/85 backdrop-blur-xl border border-border/70 p-1 rounded-2xl shadow-xs flex-nowrap shrink-0">
+          <div
+            onMouseLeave={() => setHoveredTabId(null)}
+            className="inline-flex items-center gap-0.5 sm:gap-1 bg-card/85 backdrop-blur-xl border border-border/70 p-1 rounded-2xl shadow-xs flex-nowrap shrink-0"
+          >
             {tabs.map((tab, idx) => {
               const isActive = activeTab === tab.id
               const activeIndex = tabs.findIndex((t) => t.id === activeTab)
@@ -328,37 +332,50 @@ export default function FinancialReportsPage() {
               const isSecondaryAdjacent = distance === 2
               const Icon = tab.icon
 
+              const isHovered = hoveredTabId === tab.id
+              const anyHovered = hoveredTabId !== null
+
+              // When a tab is hovered, the hovered tab expands while pre-expanded ones minimise;
+              // when idle, adjacent tabs on small screens or all tabs on lg: are expanded.
+              const isExpanded = anyHovered
+                ? isHovered
+                : isImmediateAdjacent || isSecondaryAdjacent
+
               return (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
+                  onMouseEnter={() => setHoveredTabId(tab.id)}
                   title={tab.label}
                   className={cn(
                     "group relative inline-flex items-center gap-1 sm:gap-1.5 rounded-xl h-8 sm:h-8.5 text-xs font-medium transition-all duration-300 ease-out shrink-0 cursor-pointer select-none",
                     isActive
-                      ? "bg-primary text-primary-foreground shadow-xs px-2 sm:px-2.5"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/70 px-1.5 sm:px-2",
-                    isImmediateAdjacent && !isActive && "px-2 sm:px-2.5",
-                    isSecondaryAdjacent && !isActive && "px-1.5 sm:px-2.5"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
+                    isExpanded ? "px-2 sm:px-2.5" : "px-1.5 sm:px-2"
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
                   <span
                     className={cn(
                       "transition-all duration-300 ease-out overflow-hidden whitespace-nowrap",
-                      // Large screens: expand all tabs
-                      "lg:max-w-[105px] lg:opacity-100",
-                      // Hover: always expands smoothly on hover
-                      "group-hover:max-w-[105px] group-hover:opacity-100",
-                      // Smaller screens: active tab is minimised unless hovered; immediate adjacent expanded on mobile, secondary on sm+
-                      isActive
-                        ? "max-w-0 opacity-0"
-                        : isImmediateAdjacent
-                        ? "max-w-[65px] sm:max-w-[90px] opacity-100"
-                        : isSecondaryAdjacent
-                        ? "max-w-0 sm:max-w-[90px] opacity-0 sm:opacity-100"
-                        : "max-w-0 opacity-0"
+                      anyHovered
+                        ? isHovered
+                          ? "max-w-[110px] opacity-100 font-semibold"
+                          : "max-w-0 opacity-0"
+                        : cn(
+                            // Large screens when idle: expand all tabs
+                            "lg:max-w-[105px] lg:opacity-100",
+                            // Smaller screens when idle: active tab is minimised; immediate adjacent expanded on mobile, secondary on sm+
+                            isActive
+                              ? "max-w-0 opacity-0"
+                              : isImmediateAdjacent
+                              ? "max-w-[65px] sm:max-w-[90px] opacity-100"
+                              : isSecondaryAdjacent
+                              ? "max-w-0 sm:max-w-[90px] opacity-0 sm:opacity-100"
+                              : "max-w-0 opacity-0"
+                          )
                     )}
                   >
                     {tab.label}
@@ -368,8 +385,12 @@ export default function FinancialReportsPage() {
                       variant={isActive ? "secondary" : "outline"}
                       className={cn(
                         "py-0 px-1 text-[10px] shrink-0 font-mono transition-colors",
-                        // Hide counts on small screens to prevent overflow, reveal on md: or hover
-                        "hidden md:inline-flex group-hover:inline-flex",
+                        // Hide counts on small screens to prevent overflow, reveal on md: or when hovered
+                        anyHovered
+                          ? isHovered
+                            ? "inline-flex"
+                            : "hidden md:inline-flex"
+                          : "hidden md:inline-flex",
                         isActive
                           ? "bg-primary-foreground/20 text-current border-transparent"
                           : "bg-muted/40 text-muted-foreground border-border/60"
