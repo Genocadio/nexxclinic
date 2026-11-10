@@ -1232,6 +1232,8 @@ export function BillingPageContent() {
       const result = await sendBackVisit({
         visitId,
         fromDepartmentId: fromDeptId,
+        targetDepartmentId: targetDeptId,
+        note: trimmedReason,
       });
 
       if (result.status === "SUCCESS") {
