@@ -7,6 +7,7 @@ import { ChevronDown, X, Calendar, Filter, ChevronRight } from "lucide-react";
 import type { Visit, VisitDepartment } from "@/lib/api-types";
 import { toast } from "react-toastify";
 import { useDepartments } from "@/hooks/departments/hooks";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface PatientHistorySidePaneProps {
   patientId: string;
@@ -348,20 +349,30 @@ export default function PatientHistorySidePane({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
         <div>
-          <h2 className="text-lg font-semibold text-card-foreground">
-            {patient
-              ? `${patient.firstName || ""} ${patient.lastName || ""}`.trim() ||
-                "Name of patient"
-              : "Name of patient"}
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {patient
-              ? `${formatPatientAge(patient.dateOfBirth)} • ${patient.gender || "Unknown sex"}`
-              : "Unknown age • Unknown sex"}
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {filteredVisits.length} of {visits.length} visits
-          </p>
+          {historyLoading && !patient ? (
+            <div className="space-y-1.5 py-0.5">
+              <Skeleton className="h-5 w-40 rounded-md" />
+              <Skeleton className="h-3.5 w-28 rounded-md" />
+              <Skeleton className="h-3 w-20 rounded-md" />
+            </div>
+          ) : (
+            <>
+              <h2 className="text-lg font-semibold text-card-foreground">
+                {patient
+                  ? `${patient.firstName || ""} ${patient.lastName || ""}`.trim() ||
+                    "Name of patient"
+                  : "Name of patient"}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {patient
+                  ? `${formatPatientAge(patient.dateOfBirth)} • ${patient.gender || "Unknown sex"}`
+                  : "Unknown age • Unknown sex"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {filteredVisits.length} of {visits.length} visits
+              </p>
+            </>
+          )}
         </div>
         <button
           onClick={onClose}
@@ -400,9 +411,10 @@ export default function PatientHistorySidePane({
             </label>
             <div className="space-y-2 max-h-[150px] overflow-y-auto">
               {clinicDepartmentsLoading ? (
-                <p className="text-xs text-muted-foreground">
-                  Loading departments...
-                </p>
+                <div className="space-y-1.5 py-1">
+                  <Skeleton className="h-4 w-32 rounded-md" />
+                  <Skeleton className="h-4 w-24 rounded-md" />
+                </div>
               ) : allDepartments.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
                   No departments found
@@ -702,8 +714,32 @@ export default function PatientHistorySidePane({
       {/* Visits List */}
       <div className="flex-1 overflow-y-auto">
         {historyLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-sm text-muted-foreground">Loading history...</p>
+          <div className="p-3 space-y-2.5">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="border border-border/70 rounded-xl p-3 bg-card space-y-2.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1.5 flex-1">
+                    <Skeleton className="h-4 w-28 rounded-md" />
+                    <Skeleton className="h-3 w-36 rounded-md" />
+                    <Skeleton className="h-2.5 w-24 rounded-md" />
+                  </div>
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                </div>
+                <div className="pt-2 border-t border-border/40 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-3.5 w-28 rounded-md" />
+                    <Skeleton className="h-3 w-12 rounded-md" />
+                  </div>
+                  <div className="flex gap-1.5 pt-0.5">
+                    <Skeleton className="h-5 w-20 rounded-md" />
+                    <Skeleton className="h-5 w-24 rounded-md" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredVisits.length === 0 ? (
           <div className="flex items-center justify-center h-full px-4">

@@ -14,7 +14,6 @@ export function isVisitOrDepartmentClosedForProducts(
     normalizedVisitStatus === 'FINALISED' ||
     normalizedDepartmentStatus === 'COMPLETED' ||
     normalizedDepartmentStatus === 'CANCELLED' ||
-    normalizedDepartmentStatus === 'FINALISED' ||
-    normalizedDepartmentStatus === 'BILLING'
+    normalizedDepartmentStatus === 'FINALISED'
   )
 }

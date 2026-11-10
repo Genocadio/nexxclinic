@@ -400,12 +400,10 @@ export function StandaloneConsultationView({
     effectiveDepartmentStatus === "DEPARTMENT_EDITING" ||
     visitDepartment.status === "DEPARTMENT_EDITING";
 
-  // A department is only locked in billing if its status is BILLING or finance just completed billing (liveBilled)
-  // while not in ACTIVE status and not in DEPARTMENT_EDITING status. Pre-billed products (e.g. registration fee
-  // or consultation fee paid at reception) must never lock the active consultation room.
+  // A department is only locked for products if finance has actually billed/settled products (hasBilledProducts or liveBilled)
+  // while not in DEPARTMENT_EDITING status. Unbilled products in BILLING status remain editable during continued consultation.
   const isLockedInBilling =
-    (isDepartmentBilling || liveBilled) &&
-    effectiveDepartmentStatus !== "ACTIVE" &&
+    (hasBilledProducts || liveBilled) &&
     !isDepartmentEditing;
   const isActuallyBilled = isLockedInBilling;
   const isBilled = isLockedInBilling;
@@ -1603,8 +1601,8 @@ export function StandaloneConsultationView({
         <SheetContent
           side="right"
           showCloseButton={false}
-          overlayClassName="z-[95] top-16 bottom-0 left-0 right-0"
-          className="z-[100] top-16 bottom-0 h-auto w-full gap-0 border-l p-0 sm:max-w-lg flex flex-col"
+          overlayClassName="z-[95] inset-0"
+          className="z-[100] inset-y-0 right-0 h-full w-full gap-0 border-l p-0 sm:max-w-lg flex flex-col"
         >
           <SheetHeader className="relative shrink-0 border-b border-border px-12 py-4">
             <button
