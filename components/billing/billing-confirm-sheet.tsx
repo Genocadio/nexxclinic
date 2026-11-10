@@ -54,6 +54,10 @@ type BillingConfirmSheetProps = {
   onConfirm: () => void;
   onConfirmAndContinue?: () => void;
   onConfirmAndComplete?: () => void;
+  canDischarge?: boolean;
+  nextRouteLabel?: string;
+  onBillAndRoute?: () => void;
+  onBillAndDischarge?: () => void;
   editWarning?: string | null;
 };
 
@@ -128,6 +132,10 @@ export function BillingConfirmSheet({
   onConfirm,
   onConfirmAndContinue,
   onConfirmAndComplete,
+  canDischarge = true,
+  nextRouteLabel,
+  onBillAndRoute,
+  onBillAndDischarge,
   editWarning = null,
 }: BillingConfirmSheetProps) {
   const itemsToBill = items.filter((item) => item.paymentStatus !== "paid");
@@ -538,25 +546,29 @@ export function BillingConfirmSheet({
               <Button
                 type="button"
                 variant="outline"
-                className="flex-1"
+                className="flex-1 cursor-pointer"
                 disabled={creatingBill || (noteRequired && !billingNotes?.trim())}
-                onClick={onConfirmAndContinue || onConfirm}
+                onClick={onBillAndRoute || onConfirmAndContinue || onConfirm}
               >
-                {creatingBill ? "Processing…" : "Confirm & Continue"}
+                {creatingBill
+                  ? "Processing…"
+                  : nextRouteLabel || "Bill & Return to Service"}
               </Button>
-              <Button
-                type="button"
-                className="flex-1"
-                disabled={creatingBill || (noteRequired && !billingNotes?.trim())}
-                onClick={onConfirmAndComplete || onConfirm}
-              >
-                {creatingBill ? "Processing…" : "Confirm & Complete"}
-              </Button>
+              {canDischarge && (
+                <Button
+                  type="button"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm"
+                  disabled={creatingBill || (noteRequired && !billingNotes?.trim())}
+                  onClick={onBillAndDischarge || onConfirmAndComplete || onConfirm}
+                >
+                  {creatingBill ? "Processing…" : "Bill & Discharge"}
+                </Button>
+              )}
             </>
           ) : (
             <Button
               type="button"
-              className="flex-1"
+              className="flex-1 cursor-pointer"
               disabled={creatingBill || (noteRequired && !billingNotes?.trim())}
               onClick={onConfirm}
             >

@@ -506,21 +506,15 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           updatedVisit?.status !== "COMPLETED" &&
           updatedVisit?.status !== "CANCELLED";
 
-        if (isLastDepartment) {
-          toast.success(
-            existingVisitBilling
-              ? "Bill updated successfully!"
-              : "Department billed successfully!",
-          );
-          setPostBillingActionOpen(true);
-        } else {
+        toast.success(
+          existingVisitBilling
+            ? "Bill updated successfully!"
+            : "Department billed successfully!",
+        );
+        if (completeDepartment) {
           await handlePreviewBilling();
-          toast.success(
-            existingVisitBilling
-              ? "Bill updated successfully!"
-              : "Department billed successfully!",
-          );
         }
+        return true;
       } else {
         const errorMsg =
           response.messages?.map((m) => m.text).join(", ") ||
@@ -528,6 +522,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
             ? "Failed to update bill"
             : "Failed to create bill");
         toast.error(errorMsg);
+        return false;
       }
     } catch (err) {
       console.error(
@@ -539,6 +534,7 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
           ? "Failed to update bill. Please try again."
           : "Failed to create bill. Please try again.",
       );
+      return false;
     }
   };
 

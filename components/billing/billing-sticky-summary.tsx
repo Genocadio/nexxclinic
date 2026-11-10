@@ -37,6 +37,7 @@ type BillingStickySummaryProps = {
   canEditBilling: boolean;
   hasRemainingToBill: boolean;
   canCompleteVisit?: boolean;
+  canDischarge?: boolean;
   completingVisit?: boolean;
   creatingBill: boolean;
   generatingInvoice: boolean;
@@ -70,6 +71,7 @@ export function BillingStickySummary({
   canEditBilling,
   hasRemainingToBill,
   canCompleteVisit = false,
+  canDischarge = true,
   completingVisit = false,
   creatingBill,
   generatingInvoice,
@@ -249,14 +251,33 @@ export function BillingStickySummary({
                 )}
 
                 {!isEditingBill && hasRemainingToBill && (
-                  <Button
-                    size="sm"
-                    className="h-9 rounded-full text-xs px-4"
-                    disabled={creatingBill || hasUnreadNotes}
-                    onClick={onCompleteBill}
-                  >
-                    {creatingBill ? "Processing…" : "Complete Bill"}
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      className="h-9 rounded-full text-xs px-4 cursor-pointer shadow-xs"
+                      disabled={creatingBill || hasUnreadNotes}
+                      onClick={onCompleteBill}
+                    >
+                      {creatingBill ? "Processing…" : "Complete Bill"}
+                    </Button>
+                    {onSendBack && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-9 rounded-full text-xs px-3.5 inline-flex items-center gap-1.5 cursor-pointer border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+                        disabled={!canAct || sendingBack}
+                        onClick={onSendBack}
+                        title={
+                          !canAct
+                            ? "View unread notes before routing"
+                            : "Return patient back to doctor / previous service"
+                        }
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>{sendingBack ? "Returning…" : "Return to Service"}</span>
+                      </Button>
+                    )}
+                  </>
                 )}
 
                 {existingVisitBilling && !isEditingBill && !invoiceBlockedUntilComplete && (
@@ -364,7 +385,7 @@ export function BillingStickySummary({
                   </>
                 )}
 
-                {existingVisitBilling && canCompleteVisit && !isEditingBill && !hasRemainingToBill && (
+                {existingVisitBilling && canCompleteVisit && canDischarge && !isEditingBill && !hasRemainingToBill && (
                   <ActionButton
                     icon={CheckCircle}
                     label={
@@ -382,10 +403,10 @@ export function BillingStickySummary({
                   />
                 )}
 
-                {existingVisitBilling && !isEditingBill && onSendBack && (
+                {existingVisitBilling && !isEditingBill && onSendBack && !hasRemainingToBill && (
                   <ActionButton
                     icon={RotateCcw}
-                    label={sendingBack ? "Returning…" : "Send back"}
+                    label={sendingBack ? "Returning…" : "Return to Service"}
                     onClick={onSendBack}
                     disabled={!canAct || sendingBack}
                     tooltipOverride={
@@ -393,7 +414,7 @@ export function BillingStickySummary({
                         ? "View unread notes before routing"
                         : sendingBack
                           ? "Returning to doctor…"
-                          : "Return patient back to doctor with a notice"
+                          : "Return patient back to doctor / previous service with a notice"
                     }
                   />
                 )}

@@ -1,4 +1,5 @@
 import { DepartmentKind, type Visit, type VisitDepartment } from "@/lib/api-types";
+import { flattenVisitDepartments } from "@/lib/visit-product-utils";
 
 export interface ParsedLocationSummary {
   id?: string;
@@ -385,4 +386,93 @@ export function getVisitFlowBadges(visit: Visit): VisitFlowBadge[] {
   }
 
   return badges;
+}
+
+/**
+ * Check if the visit has any other active or unbilled departments (top-level or child).
+ * If true, discharging the visit must be suppressed.
+ */
+export function hasOtherActiveOrUnbilledDepartments(
+  visit: Visit,
+  currentDepartmentId?: string | null,
+): boolean {
+  const allDepts = flattenVisitDepartments(visit.departments || []);
+  return allDepts.some((dept) => {
+    if (currentDepartmentId && String(dept.id) === String(currentDepartmentId)) {
+      return false;
+    }
+    const status = String(dept.status || "").toUpperCase();
+    if (status === "CANCELLED") return false;
+    // If not completed or finalised, it is still active/pending/in-service/billing
+    if (status !== "COMPLETED" && status !== "FINALISED") return true;
+    // Check if it has any unbilled products
+    const products = dept.products || [];
+    const hasUnbilled = products.some((p) => {
+      const bState = String(p.billingState || "").toUpperCase();
+      const pStatus = String(p.status || "").toUpperCase();
+      return bState === "UNBILLED" || pStatus === "PENDING";
+    });
+    return hasUnbilled;
+  });
+}
+
+export interface NextDestinationInfo {
+  type: "CHILD_DEPT" | "NEXT_DEPT" | "REFERRING_DOCTOR";
+  targetDepartment?: VisitDepartment;
+  label: string;
+}
+
+/**
+ * Resolves the next destination for a patient after billing:
+ * 1. An active child department (e.g. Lab, Imaging) ordered under the current department.
+ * 2. Another pending/active department in the visit.
+ * 3. Fallback: Return to referring doctor / consultation.
+ */
+export function resolveNextDestination(
+  visit: Visit,
+  currentDepartmentId?: string | null,
+): NextDestinationInfo {
+  const depts = visit.departments || [];
+  const currentDept = depts.find(
+    (d) => String(d.id) === String(currentDepartmentId),
+  );
+
+  // 1. Check if current department has pending/active child departments (e.g. Lab, Imaging)
+  if (currentDept && currentDept.childVisitDepartments?.length) {
+    const activeChild = currentDept.childVisitDepartments.find((child) => {
+      const status = String(child.status || "").toUpperCase();
+      return status !== "CANCELLED" && status !== "COMPLETED" && status !== "FINALISED";
+    });
+    if (activeChild) {
+      const name = activeChild.department?.name || "Child Service";
+      return {
+        type: "CHILD_DEPT",
+        targetDepartment: activeChild,
+        label: `Bill & Route to ${name}`,
+      };
+    }
+  }
+
+  // 2. Check if there is another pending or active department in the visit
+  const nextDept = depts.find((d) => {
+    if (currentDepartmentId && String(d.id) === String(currentDepartmentId)) {
+      return false;
+    }
+    const status = String(d.status || "").toUpperCase();
+    return status !== "CANCELLED" && status !== "COMPLETED" && status !== "FINALISED";
+  });
+  if (nextDept) {
+    const name = nextDept.department?.name || "Next Service";
+    return {
+      type: "NEXT_DEPT",
+      targetDepartment: nextDept,
+      label: `Bill & Route to ${name}`,
+    };
+  }
+
+  // 3. Fallback: Return to referring doctor / consultation
+  return {
+    type: "REFERRING_DOCTOR",
+    label: "Bill & Return to Service",
+  };
 }

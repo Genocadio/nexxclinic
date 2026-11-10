@@ -96,10 +96,10 @@ const AddVisitDepartmentProductModal = dynamic(
   () => import("@/components/visit/add-visit-department-product-modal").then((m) => m.AddVisitDepartmentProductModal),
   { ssr: false }
 );
-const PostBillingActionDialog = dynamic(
-  () => import("@/components/billing/post-billing-action-dialog").then((m) => m.PostBillingActionDialog),
-  { ssr: false }
-);
+import {
+  hasOtherActiveOrUnbilledDepartments,
+  resolveNextDestination,
+} from "@/lib/visit-flow-utils";
 const AddDepartmentModal = dynamic(
   () => import("@/components/add-department-modal").then((m) => m.AddDepartmentModal),
   { ssr: false }
@@ -1308,6 +1308,16 @@ export function BillingPageContent() {
     await handlePrintBillingInvoice();
   };
 
+  const canDischargePatient = useMemo(() => {
+    if (!visit) return false;
+    return !hasOtherActiveOrUnbilledDepartments(visit, activeVisitDepartment?.id);
+  }, [visit, activeVisitDepartment?.id]);
+
+  const nextDestination = useMemo(() => {
+    if (!visit) return { type: "REFERRING_DOCTOR", label: "Bill & Return to Service" } as const;
+    return resolveNextDestination(visit, activeVisitDepartment?.id);
+  }, [visit, activeVisitDepartment?.id]);
+
   const {
     handleDownloadInvoice,
     handleChangeProfile,
@@ -1688,6 +1698,7 @@ export function BillingPageContent() {
               toast.info("Bill all unbilled products before printing an invoice.")
             }
             canCompleteVisit={canCompleteVisit}
+            canDischarge={canDischargePatient}
             completingVisit={dischargingVisit || completingVisit}
             onCompleteVisit={() => {
               if (unreadBillingNotesCount > 0) {
@@ -1832,13 +1843,40 @@ export function BillingPageContent() {
           setBillingNotesByDepartment((current) => ({ ...current, [departmentId]: note }));
         }}
         editWarning={confirmSheetMode === "edit" ? editModeWarning : null}
+        canDischarge={canDischargePatient}
+        nextRouteLabel={nextDestination.label}
         onConfirm={async () => {
           setShowCompleteBillConfirm(false);
           if (confirmSheetMode === "complete" || confirmSheetMode === "edit") {
-            // Both flows call handleGenerateBill — the function itself decides
-            // whether to call billVisit or editBillVisit based on existingVisitBilling.
             await handleGenerateBill(true);
           }
+        }}
+        onBillAndRoute={async () => {
+          setShowCompleteBillConfirm(false);
+          const success = await handleGenerateBill(false);
+          if (!success) return;
+
+          if (nextDestination.type === "CHILD_DEPT" && nextDestination.targetDepartment?.id) {
+            if (nextDestination.targetDepartment.status === "PENDING") {
+              await updateDepartmentStatus(String(nextDestination.targetDepartment.id), "ACTIVE");
+              await refetchVisit();
+            }
+            toast.success(`Routed to ${nextDestination.targetDepartment.department?.name || "Service"}`);
+          } else if (nextDestination.type === "NEXT_DEPT" && nextDestination.targetDepartment?.id) {
+            if (nextDestination.targetDepartment.status === "PENDING") {
+              await updateDepartmentStatus(String(nextDestination.targetDepartment.id), "ACTIVE");
+              await refetchVisit();
+            }
+            toast.success(`Routed to ${nextDestination.targetDepartment.department?.name || "Service"}`);
+          } else {
+            await handleSendBackVisit();
+          }
+        }}
+        onBillAndDischarge={async () => {
+          setShowCompleteBillConfirm(false);
+          const success = await handleGenerateBill(false);
+          if (!success) return;
+          await handleDischargePatient();
         }}
         onConfirmAndContinue={async () => {
           setShowCompleteBillConfirm(false);
@@ -2001,34 +2039,6 @@ export function BillingPageContent() {
           void handleSendBackVisit().finally(() => {
             setSendBackConfirmOpen(false);
           });
-        }}
-      />
-
-      <PostBillingActionDialog
-        open={postBillingActionOpen}
-        onOpenChange={setPostBillingActionOpen}
-        patientName={
-          visit?.patient
-            ? `${visit.patient.firstName || ""} ${visit.patient.lastName || ""}`.trim() || "the patient"
-            : "the patient"
-        }
-        discharging={dischargingVisit || completingVisit || discharging}
-        sendingBack={sendingBackVisit}
-        onDischarge={async () => {
-          setDischarging(true);
-          try {
-            await handleDischargePatient();
-          } finally {
-            setDischarging(false);
-            setPostBillingActionOpen(false);
-          }
-        }}
-        onSendBack={async () => {
-          await handleSendBackVisit();
-        }}
-        onAddDepartment={() => {
-          setPostBillingActionOpen(false);
-          setAddDepartmentModalOpen(true);
         }}
       />
 

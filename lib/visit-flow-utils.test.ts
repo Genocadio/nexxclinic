@@ -8,6 +8,8 @@ import {
   isClinicianInCare,
   isClinicianOnHold,
   getVisitFlowBadges,
+  hasOtherActiveOrUnbilledDepartments,
+  resolveNextDestination,
 } from "./visit-flow-utils";
 import { type Visit, VisitStatus, DepartmentKind } from "@/lib/api-types";
 
@@ -132,5 +134,98 @@ describe("visit-flow-utils", () => {
     const badges = getVisitFlowBadges(visit);
     expect(badges.some((b) => b.id === "returned_from_billing")).toBe(true);
     expect(badges.some((b) => b.label === "At Laboratory")).toBe(true);
+  });
+
+  describe("discharge suppression & next destination routing", () => {
+    it("suppresses discharge if other active departments exist", () => {
+      const visitWithLab: Visit = {
+        ...baseVisit,
+        departments: [
+          { id: "vd-consult", status: "COMPLETED", products: [] } as any,
+          { id: "vd-lab", status: "PENDING", products: [] } as any,
+        ],
+      };
+      // Currently billing consult -> lab is still pending -> cannot discharge
+      expect(hasOtherActiveOrUnbilledDepartments(visitWithLab, "vd-consult")).toBe(true);
+
+      // Both completed -> can discharge
+      const visitFinished: Visit = {
+        ...baseVisit,
+        departments: [
+          { id: "vd-consult", status: "COMPLETED", products: [] } as any,
+          { id: "vd-lab", status: "COMPLETED", products: [{ billingState: "BILLED" }] } as any,
+        ],
+      };
+      expect(hasOtherActiveOrUnbilledDepartments(visitFinished, "vd-consult")).toBe(false);
+    });
+
+    it("suppresses discharge if child department is active", () => {
+      const visitWithChildLab: Visit = {
+        ...baseVisit,
+        departments: [
+          {
+            id: "vd-consult",
+            status: "BILLING",
+            products: [],
+            childVisitDepartments: [
+              { id: "vd-child-lab", status: "PENDING", products: [] } as any,
+            ],
+          } as any,
+        ],
+      };
+      expect(hasOtherActiveOrUnbilledDepartments(visitWithChildLab, "vd-consult")).toBe(true);
+    });
+
+    it("resolves child department destination first", () => {
+      const visitWithChild: Visit = {
+        ...baseVisit,
+        departments: [
+          {
+            id: "vd-consult",
+            status: "BILLING",
+            products: [],
+            childVisitDepartments: [
+              {
+                id: "vd-child-lab",
+                status: "PENDING",
+                department: { id: "dept-lab", name: "Laboratory" },
+              } as any,
+            ],
+          } as any,
+        ],
+      };
+      const dest = resolveNextDestination(visitWithChild, "vd-consult");
+      expect(dest.type).toBe("CHILD_DEPT");
+      expect(dest.label).toBe("Bill & Route to Laboratory");
+    });
+
+    it("resolves next department when no child department exists", () => {
+      const visitWithNext: Visit = {
+        ...baseVisit,
+        departments: [
+          { id: "vd-consult", status: "BILLING", products: [] } as any,
+          {
+            id: "vd-pharmacy",
+            status: "PENDING",
+            department: { id: "dept-pharm", name: "Pharmacy" },
+          } as any,
+        ],
+      };
+      const dest = resolveNextDestination(visitWithNext, "vd-consult");
+      expect(dest.type).toBe("NEXT_DEPT");
+      expect(dest.label).toBe("Bill & Route to Pharmacy");
+    });
+
+    it("falls back to referring doctor when no child or next department exists", () => {
+      const singleDeptVisit: Visit = {
+        ...baseVisit,
+        departments: [
+          { id: "vd-consult", status: "BILLING", products: [] } as any,
+        ],
+      };
+      const dest = resolveNextDestination(singleDeptVisit, "vd-consult");
+      expect(dest.type).toBe("REFERRING_DOCTOR");
+      expect(dest.label).toBe("Bill & Return to Service");
+    });
   });
 });

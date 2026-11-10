@@ -1222,13 +1222,13 @@ export function StandaloneConsultationView({
       }
 
       // State transition rules:
-      // 1. If in edit mode (DEPARTMENT_EDITING): keep the state intact (sendToBilling: false).
+      // 1. If in edit mode (DEPARTMENT_EDITING) or visit is already billed: keep the state intact (sendToBilling: false).
       // 2. If unbilled products exist: backend transitions departments to BILLING so finance can collect payment.
       // 3. If visit is already billed / no unbilled products and not in edit mode: backend marks department as FINALISED.
-      const shouldSendToBilling = !isDepartmentEditing;
+      const shouldSendToBilling = !isDepartmentEditing && !isBilled;
       await persistAnswers(answers, "FINAL", { skipDuplicateCheck: true, sendToBilling: shouldSendToBilling });
 
-      toast.success("Consultation completed");
+      toast.success(shouldSendToBilling ? "Sent to billing successfully" : "Consultation answers saved successfully");
       router.push("/");
     } catch (err: unknown) {
       toast.error(
@@ -1542,6 +1542,7 @@ export function StandaloneConsultationView({
                 ? `Unread notes: ${unreadNotesCount}. Open notes to read them first.`
                 : undefined
           }
+          isBilled={isActuallyBilled || isDepartmentEditing}
           saveIndicator={{
             visible: hasAnyAnswerContent || isFinalised || isActuallyBilled,
             status: isFinalised ? "saved" : saveStatus,
@@ -1552,13 +1553,16 @@ export function StandaloneConsultationView({
       <Dialog open={showFinalizeConfirm} onOpenChange={setShowFinalizeConfirm}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Complete Visit</DialogTitle>
+            <DialogTitle>
+              {isActuallyBilled || isDepartmentEditing ? "Save Answers" : "Send to Billing"}
+            </DialogTitle>
             <DialogDescription>
-              Choose whether to save this visit for later editing or finalise it
-              now.
+              {isActuallyBilled || isDepartmentEditing
+                ? "Save your consultation documentation. Since billing is already completed, answers will be saved without altering billing status."
+                : "Submit consultation documentation and send this visit to Billing for payment processing."}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
@@ -1568,7 +1572,7 @@ export function StandaloneConsultationView({
                 void handleManualSave();
               }}
             >
-              {savingDraft ? "Saving…" : "Complete Visit Edit Later"}
+              {savingDraft ? "Saving…" : "Save as Draft"}
             </Button>
             <Button
               type="button"
@@ -1580,7 +1584,7 @@ export function StandaloneConsultationView({
                 if (!valid) {
                   // keep dialog open so user sees why they can't finalise
                   toast.error(
-                    "Please complete required fields before finalising",
+                    "Please complete required fields before submitting",
                   );
                   return;
                 }
@@ -1588,7 +1592,11 @@ export function StandaloneConsultationView({
                 void handleComplete();
               }}
             >
-              {isFinalising ? "Finalising…" : "Finalise and Complete"}
+              {isFinalising
+                ? "Submitting…"
+                : isActuallyBilled || isDepartmentEditing
+                  ? "Save Answers"
+                  : "Send to Billing"}
             </Button>
           </DialogFooter>
         </DialogContent>

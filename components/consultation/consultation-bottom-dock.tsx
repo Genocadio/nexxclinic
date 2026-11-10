@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { CheckCircle, ArrowRightLeft, UserPlus, Search, Loader2, Grid2X2, Info } from "lucide-react";
+import { CheckCircle, ArrowRightLeft, UserPlus, Search, Loader2, Grid2X2, Info, ReceiptText } from "lucide-react";
 import { toast } from "react-toastify";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +37,7 @@ interface ConsultationBottomDockProps {
   profiles?: Array<{ id: string; name: string; isDefault?: boolean; products?: Array<{ id: string; name: string }> }>;
   activeProfileId?: string | null;
   visitDepartmentStatus?: string;
+  isBilled?: boolean;
   products?: Array<{ source?: string | null; billingState?: string | null }>;
 }
 
@@ -53,6 +54,7 @@ export function ConsultationBottomDock({
   profiles = [],
   activeProfileId,
   visitDepartmentStatus,
+  isBilled = false,
   products = [],
 }: ConsultationBottomDockProps) {
   const { doctor } = useAuth();
@@ -173,20 +175,26 @@ export function ConsultationBottomDock({
                 <span>
                   <Button
                     size="icon"
-                    className="rounded-full h-9 w-9 sm:h-10 sm:w-10 border border-white/30 bg-transparent text-white/90 hover:bg-blue-600 hover:text-white shadow-md"
+                    className="rounded-full h-9 w-9 sm:h-10 sm:w-10 border border-white/30 bg-transparent text-white/90 hover:bg-emerald-600 hover:text-white shadow-md cursor-pointer"
                     onClick={onComplete}
-                    aria-label="Complete"
+                    aria-label={isBilled ? "Save Answers" : "Send to Billing"}
                     disabled={completeDisabled}
                   >
-                    <CheckCircle className="h-4 w-4" />
+                    {isBilled ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : (
+                      <ReceiptText className="h-4 w-4" />
+                    )}
                   </Button>
                 </span>
               </TooltipTrigger>
               <TooltipContent>
                 <p>
                   {completeDisabled
-                    ? completeDisabledReason || "Complete (⌘+Enter)"
-                    : "Complete (⌘+Enter)"}
+                    ? completeDisabledReason || (isBilled ? "Save Answers (⌘+Enter)" : "Send to Billing (⌘+Enter)")
+                    : isBilled
+                      ? "Save Answers (⌘+Enter)"
+                      : "Send to Billing (⌘+Enter)"}
                 </p>
               </TooltipContent>
             </Tooltip>
