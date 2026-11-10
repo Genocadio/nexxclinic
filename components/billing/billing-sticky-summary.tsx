@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Printer, Pencil, CheckCircle, RotateCcw, Building2 } from "lucide-react";
+import { Printer, Pencil, CheckCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -55,7 +55,6 @@ type BillingStickySummaryProps = {
   onCompleteVisit?: () => void;
   onSendBack?: () => void;
   sendingBack?: boolean;
-  onSendToNext?: () => void;
   cannotCancelEdit?: boolean;
   cannotCancelEditReason?: string;
   invoiceBlockedUntilComplete?: boolean;
@@ -90,7 +89,6 @@ export function BillingStickySummary({
   onCompleteVisit,
   onSendBack,
   sendingBack = false,
-  onSendToNext,
   invoiceBlockedUntilComplete = false,
   onInvoiceBlockedClick,
 }: BillingStickySummaryProps) {
@@ -261,21 +259,19 @@ export function BillingStickySummary({
                       {creatingBill ? "Processing…" : "Complete Bill"}
                     </Button>
                     {onSendBack && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-9 rounded-full text-xs px-3.5 inline-flex items-center gap-1.5 cursor-pointer border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
-                        disabled={!canAct || sendingBack}
+                      <ActionButton
+                        icon={RotateCcw}
+                        label={sendingBack ? "Returning…" : "Return to service"}
                         onClick={onSendBack}
-                        title={
+                        disabled={!canAct || sendingBack}
+                        tooltipOverride={
                           !canAct
                             ? "View unread notes before routing"
-                            : "Return patient back to doctor / previous service"
+                            : sendingBack
+                              ? "Returning to doctor…"
+                              : "Return patient back to doctor / previous service"
                         }
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>{sendingBack ? "Returning…" : "Return to Service"}</span>
-                      </Button>
+                      />
                     )}
                   </>
                 )}
@@ -406,7 +402,7 @@ export function BillingStickySummary({
                 {existingVisitBilling && !isEditingBill && onSendBack && !hasRemainingToBill && (
                   <ActionButton
                     icon={RotateCcw}
-                    label={sendingBack ? "Returning…" : "Return to Service"}
+                    label={sendingBack ? "Returning…" : "Return to service"}
                     onClick={onSendBack}
                     disabled={!canAct || sendingBack}
                     tooltipOverride={
@@ -415,20 +411,6 @@ export function BillingStickySummary({
                         : sendingBack
                           ? "Returning to doctor…"
                           : "Return patient back to doctor / previous service with a notice"
-                    }
-                  />
-                )}
-
-                {existingVisitBilling && !isEditingBill && onSendToNext && (
-                  <ActionButton
-                    icon={Building2}
-                    label="Send to next"
-                    onClick={onSendToNext}
-                    disabled={!canAct}
-                    tooltipOverride={
-                      !canAct
-                        ? "View unread notes before routing"
-                        : "Forward patient to Lab, Imaging, Ward, or Pharmacy"
                     }
                   />
                 )}

@@ -196,7 +196,8 @@ describe("visit-flow-utils", () => {
       };
       const dest = resolveNextDestination(visitWithChild, "vd-consult");
       expect(dest.type).toBe("CHILD_DEPT");
-      expect(dest.label).toBe("Bill & Route to Laboratory");
+      expect(dest.label).toBe("Bill & Continue");
+      expect(dest.hasUncompletedChild).toBe(true);
     });
 
     it("resolves next department when no child department exists", () => {
@@ -213,7 +214,8 @@ describe("visit-flow-utils", () => {
       };
       const dest = resolveNextDestination(visitWithNext, "vd-consult");
       expect(dest.type).toBe("NEXT_DEPT");
-      expect(dest.label).toBe("Bill & Route to Pharmacy");
+      expect(dest.label).toBe("Bill & Continue");
+      expect(dest.hasUncompletedChild).toBe(false);
     });
 
     it("falls back to referring doctor when no child or next department exists", () => {

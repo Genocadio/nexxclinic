@@ -420,6 +420,7 @@ export interface NextDestinationInfo {
   type: "CHILD_DEPT" | "NEXT_DEPT" | "REFERRING_DOCTOR";
   targetDepartment?: VisitDepartment;
   label: string;
+  hasUncompletedChild: boolean;
 }
 
 /**
@@ -444,11 +445,11 @@ export function resolveNextDestination(
       return status !== "CANCELLED" && status !== "COMPLETED" && status !== "FINALISED";
     });
     if (activeChild) {
-      const name = activeChild.department?.name || "Child Service";
       return {
         type: "CHILD_DEPT",
         targetDepartment: activeChild,
-        label: `Bill & Route to ${name}`,
+        label: "Bill & Continue",
+        hasUncompletedChild: true,
       };
     }
   }
@@ -462,11 +463,11 @@ export function resolveNextDestination(
     return status !== "CANCELLED" && status !== "COMPLETED" && status !== "FINALISED";
   });
   if (nextDept) {
-    const name = nextDept.department?.name || "Next Service";
     return {
       type: "NEXT_DEPT",
       targetDepartment: nextDept,
-      label: `Bill & Route to ${name}`,
+      label: "Bill & Continue",
+      hasUncompletedChild: false,
     };
   }
 
@@ -474,5 +475,6 @@ export function resolveNextDestination(
   return {
     type: "REFERRING_DOCTOR",
     label: "Bill & Return to Service",
+    hasUncompletedChild: false,
   };
 }

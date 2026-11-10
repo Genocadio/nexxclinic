@@ -55,6 +55,7 @@ type BillingConfirmSheetProps = {
   onConfirmAndContinue?: () => void;
   onConfirmAndComplete?: () => void;
   canDischarge?: boolean;
+  hasUncompletedChild?: boolean;
   nextRouteLabel?: string;
   onBillAndRoute?: () => void;
   onBillAndDischarge?: () => void;
@@ -133,6 +134,7 @@ export function BillingConfirmSheet({
   onConfirmAndContinue,
   onConfirmAndComplete,
   canDischarge = true,
+  hasUncompletedChild = false,
   nextRouteLabel,
   onBillAndRoute,
   onBillAndDischarge,
@@ -542,29 +544,40 @@ export function BillingConfirmSheet({
 
         <SheetFooter className="px-4 py-3 border-t border-border gap-2 sm:flex-row">
           {showItemsReview ? (
-            <>
+            hasUncompletedChild ? (
               <Button
                 type="button"
-                variant="outline"
-                className="flex-1 cursor-pointer"
+                className="flex-1 bg-primary text-primary-foreground cursor-pointer shadow-sm"
                 disabled={creatingBill || (noteRequired && !billingNotes?.trim())}
                 onClick={onBillAndRoute || onConfirmAndContinue || onConfirm}
               >
-                {creatingBill
-                  ? "Processing…"
-                  : nextRouteLabel || "Bill & Return to Service"}
+                {creatingBill ? "Processing…" : "Bill & Continue"}
               </Button>
-              {canDischarge && (
+            ) : (
+              <>
                 <Button
                   type="button"
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm"
+                  variant="outline"
+                  className="flex-1 cursor-pointer"
                   disabled={creatingBill || (noteRequired && !billingNotes?.trim())}
-                  onClick={onBillAndDischarge || onConfirmAndComplete || onConfirm}
+                  onClick={onBillAndRoute || onConfirmAndContinue || onConfirm}
                 >
-                  {creatingBill ? "Processing…" : "Bill & Discharge"}
+                  {creatingBill
+                    ? "Processing…"
+                    : nextRouteLabel || "Bill & Return to Service"}
                 </Button>
-              )}
-            </>
+                {canDischarge && (
+                  <Button
+                    type="button"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm"
+                    disabled={creatingBill || (noteRequired && !billingNotes?.trim())}
+                    onClick={onBillAndDischarge || onConfirmAndComplete || onConfirm}
+                  >
+                    {creatingBill ? "Processing…" : "Bill & Discharge"}
+                  </Button>
+                )}
+              </>
+            )
           ) : (
             <Button
               type="button"

@@ -99,6 +99,7 @@ const AddVisitDepartmentProductModal = dynamic(
 import {
   hasOtherActiveOrUnbilledDepartments,
   resolveNextDestination,
+  type NextDestinationInfo,
 } from "@/lib/visit-flow-utils";
 const AddDepartmentModal = dynamic(
   () => import("@/components/add-department-modal").then((m) => m.AddDepartmentModal),
@@ -1313,8 +1314,13 @@ export function BillingPageContent() {
     return !hasOtherActiveOrUnbilledDepartments(visit, activeVisitDepartment?.id);
   }, [visit, activeVisitDepartment?.id]);
 
-  const nextDestination = useMemo(() => {
-    if (!visit) return { type: "REFERRING_DOCTOR", label: "Bill & Return to Service" } as const;
+  const nextDestination = useMemo<NextDestinationInfo>(() => {
+    if (!visit)
+      return {
+        type: "REFERRING_DOCTOR",
+        label: "Bill & Return to Service",
+        hasUncompletedChild: false,
+      };
     return resolveNextDestination(visit, activeVisitDepartment?.id);
   }, [visit, activeVisitDepartment?.id]);
 
@@ -1715,7 +1721,6 @@ export function BillingPageContent() {
               setSendBackConfirmOpen(true);
             }}
             sendingBack={sendingBackVisit}
-            onSendToNext={() => setAddDepartmentModalOpen(true)}
             onEditBilling={async () => {
               if (unreadBillingNotesCount > 0) {
                 toast.warn("Please view the notes first before continuing.");
@@ -1844,6 +1849,7 @@ export function BillingPageContent() {
         }}
         editWarning={confirmSheetMode === "edit" ? editModeWarning : null}
         canDischarge={canDischargePatient}
+        hasUncompletedChild={nextDestination.hasUncompletedChild}
         nextRouteLabel={nextDestination.label}
         onConfirm={async () => {
           setShowCompleteBillConfirm(false);
@@ -1857,17 +1863,25 @@ export function BillingPageContent() {
           if (!success) return;
 
           if (nextDestination.type === "CHILD_DEPT" && nextDestination.targetDepartment?.id) {
-            if (nextDestination.targetDepartment.status === "PENDING") {
-              await updateDepartmentStatus(String(nextDestination.targetDepartment.id), "ACTIVE");
-              await refetchVisit();
+            const childDept = nextDestination.targetDepartment;
+            const childDeptId = String(childDept.id);
+            const childDeptName = childDept.department?.name || "Service";
+            if (childDept.status === "PENDING" || childDept.status === "BILLING") {
+              await updateDepartmentStatus(childDeptId, "ACTIVE");
             }
-            toast.success(`Routed to ${nextDestination.targetDepartment.department?.name || "Service"}`);
+            toast.success(`Bill complete · Patient automatically routed to ${childDeptName}`);
+            await refetchVisit();
+            await refetchBill();
           } else if (nextDestination.type === "NEXT_DEPT" && nextDestination.targetDepartment?.id) {
-            if (nextDestination.targetDepartment.status === "PENDING") {
-              await updateDepartmentStatus(String(nextDestination.targetDepartment.id), "ACTIVE");
-              await refetchVisit();
+            const nextDept = nextDestination.targetDepartment;
+            const nextDeptId = String(nextDept.id);
+            const nextDeptName = nextDept.department?.name || "Service";
+            if (nextDept.status === "PENDING" || nextDept.status === "BILLING") {
+              await updateDepartmentStatus(nextDeptId, "ACTIVE");
             }
-            toast.success(`Routed to ${nextDestination.targetDepartment.department?.name || "Service"}`);
+            toast.success(`Bill complete · Patient automatically routed to ${nextDeptName}`);
+            await refetchVisit();
+            await refetchBill();
           } else {
             await handleSendBackVisit();
           }
