@@ -117,6 +117,7 @@ import {
 } from "lucide-react"
 import { toast } from "react-toastify"
 import { hasRole } from "@/lib/role-utils"
+import { getDashboardQueueTabs } from "@/lib/dashboard-queue-tabs"
 import { openInvoicePreview, resolveInvoiceUrl } from "@/lib/invoice-utils"
 const BillingPreviewSheet = dynamic(
   () => import("@/components/billing/billing-preview-sheet").then((m) => m.BillingPreviewSheet),
@@ -512,53 +513,13 @@ export default function DashboardPage() {
   }
 
   const availableTabs = useMemo(() => {
-    // Pure receptionist: reception only without clinical, nursing or finance privileges
-    // Reception should NOT have consultation or in service tabs
-    if (isReceptionistOnly) {
-      return [
-        { id: "all", label: "All Active" },
-        { id: "TRIAGE", label: "Waiting Triage" },
-        { id: "COMPLETED", label: "Discharged" },
-      ]
-    }
-
-    const tabs: Array<{ id: string; label: string }> = []
-
-    // 1. Clinician Queue: if user is a Clinician / Doctor
-    if (hasClinicianOrDoctorRole) {
-      tabs.push({ id: "NEEDS_ME", label: "Needs Me" })
-      tabs.push({ id: "IN_CARE", label: "In Care" })
-    }
-
-    // 2. Nurse / Triage Queue: if user has Nurse role
-    if (hasNurseRole) {
-      tabs.push({ id: "TRIAGE", label: "Triage" })
-      if (!hasClinicianOrDoctorRole) {
-        tabs.push({ id: "IN_PROGRESS", label: "In Progress" })
-      }
-    }
-
-    // 3. Finance / Billing Queues: if user has Finance role
-    if (hasFinanceRole) {
-      tabs.push({ id: "TO_BILL", label: "To Bill" })
-      tabs.push({ id: "OUTSTANDING", label: "Outstanding" })
-    }
-
-    // 4. On Hold: clinician pause bucket
-    if (hasClinicianOrDoctorRole) {
-      tabs.push({ id: "ON_HOLD", label: "On Hold" })
-    }
-
-    // Fallback if user has no assigned role
-    if (tabs.length === 0) {
-      tabs.push({ id: "all", label: "All Active" })
-    }
-
-    // 5. Exactly ONE Discharged tab at the end! Never duplicated!
-    tabs.push({ id: "COMPLETED", label: "Discharged" })
-
-    return tabs
-  }, [hasClinicianOrDoctorRole, hasFinanceRole, hasNurseRole, isReceptionistOnly])
+    return getDashboardQueueTabs({
+      hasReceptionistRole,
+      hasNurseRole,
+      hasFinanceRole,
+      hasClinicianOrDoctorRole,
+    })
+  }, [hasClinicianOrDoctorRole, hasFinanceRole, hasNurseRole, hasReceptionistRole])
 
   useEffect(() => {
     if (availableTabs.length > 0 && !availableTabs.some((t) => t.id === statusFilter)) {
