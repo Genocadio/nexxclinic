@@ -34,6 +34,8 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { ReportsSectionDock } from "@/components/reports/reports-section-dock"
+import { cn } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -678,6 +680,25 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
 
   return (
     <div className="space-y-4">
+      <ReportsSectionDock
+        items={[
+          {
+            id: "conditions",
+            label: "Conditions",
+            icon: Stethoscope,
+            count: searchedRows.length,
+          },
+          {
+            id: "visits",
+            label: "Visits",
+            icon: Calendar,
+            count: searchedVisitGroups.length,
+          },
+        ]}
+        activeId={groupByVisit ? "visits" : "conditions"}
+        onSelect={(id) => setGroupByVisit(id === "visits")}
+      />
+
       {/* KPI Cards / Header Highlights */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-card/70 border border-border/70 rounded-2xl p-4 shadow-sm backdrop-blur-md">
@@ -739,31 +760,36 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
       <div className="bg-card/70 border border-border/70 rounded-2xl p-3 sm:p-4 shadow-sm backdrop-blur-md space-y-3">
         {/* Row 1: Expandable Search + View & Diagnosis Filters + Actions */}
         <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-2.5">
-          {/* Expandable Search Control (Fixed size, never varies between disease or visit mode) */}
+          {/* Inline search on larger screens; expand from an icon on small screens. */}
           <div className="flex items-center shrink-0">
-            {isSearchExpanded || searchQuery ? (
-              <div className="relative flex items-center transition-all duration-200 ease-in-out w-56 sm:w-64 shrink-0">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                <Input
-                  ref={searchInputRef}
-                  type="text"
-                  autoFocus
-                  placeholder="Search diseases, visits, codes..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      setSearchQuery("")
-                      setIsSearchExpanded(false)
-                    }
-                  }}
-                  onBlur={() => {
-                    if (!searchQuery.trim()) {
-                      setIsSearchExpanded(false)
-                    }
-                  }}
-                  className="pl-8 pr-7 h-8 sm:h-9 text-xs rounded-xl bg-background/80 border-border/70 w-full focus-visible:ring-1"
-                />
+            <div
+              className={cn(
+                "relative flex items-center transition-all duration-200 ease-in-out w-[min(14rem,calc(100vw-2rem))] sm:w-64 shrink-0",
+                !isSearchExpanded && !searchQuery && "hidden sm:flex"
+              )}
+            >
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                ref={searchInputRef}
+                type="text"
+                autoFocus={isSearchExpanded}
+                placeholder="Search diseases, visits, codes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setSearchQuery("")
+                    setIsSearchExpanded(false)
+                  }
+                }}
+                onBlur={() => {
+                  if (!searchQuery.trim()) {
+                    setIsSearchExpanded(false)
+                  }
+                }}
+                className="pl-8 pr-7 h-8 sm:h-9 text-xs rounded-xl bg-background/80 border-border/70 w-full focus-visible:ring-1"
+              />
+              {(isSearchExpanded || searchQuery) && (
                 <button
                   type="button"
                   onMouseDown={(e) => {
@@ -773,28 +799,32 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
                   }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-md hover:bg-muted/60 transition-colors"
                   title="Close search"
+                  aria-label="Clear search"
                 >
                   <X className="h-3 w-3" />
                 </button>
+              )}
+            </div>
+            {!isSearchExpanded && !searchQuery && (
+              <div className="sm:hidden">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setIsSearchExpanded(true)
+                        setTimeout(() => searchInputRef.current?.focus(), 50)
+                      }}
+                      className="h-8 sm:h-9 w-8 sm:w-9 p-0 rounded-xl border-border/70 hover:bg-muted/80 text-muted-foreground hover:text-foreground shrink-0"
+                      aria-label="Search diagnoses"
+                    >
+                      <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Search diseases, codes or visits</TooltipContent>
+                </Tooltip>
               </div>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsSearchExpanded(true)
-                      setTimeout(() => searchInputRef.current?.focus(), 50)
-                    }}
-                    className="h-8 sm:h-9 w-8 sm:w-9 p-0 rounded-xl border-border/70 hover:bg-muted/80 text-muted-foreground hover:text-foreground shrink-0"
-                    aria-label="Search diagnoses"
-                  >
-                    <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Search diseases, codes or visits</TooltipContent>
-              </Tooltip>
             )}
           </div>
 
@@ -807,51 +837,26 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
                 size="sm"
                 onClick={() => setDiagnosisTypeFilter("FINAL_ONLY")}
                 title="Show final confirmed diagnoses only"
+                aria-label="Show final confirmed diagnoses only"
+                aria-pressed={diagnosisTypeFilter === "FINAL_ONLY"}
                 className="rounded-lg h-7 sm:h-8 px-2 sm:px-2.5 text-xs font-medium whitespace-nowrap"
               >
+                <CheckCircle2 className="h-3.5 w-3.5 sm:hidden" />
                 <span className="hidden sm:inline">Final Diagnoses Only</span>
-                <span className="sm:hidden">Final Only</span>
               </Button>
               <Button
                 variant={diagnosisTypeFilter === "ALL" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setDiagnosisTypeFilter("ALL")}
                 title="Include preliminary hypothesis and final diagnoses"
+                aria-label="Include preliminary and final diagnoses"
+                aria-pressed={diagnosisTypeFilter === "ALL"}
                 className="rounded-lg h-7 sm:h-8 px-2 sm:px-2.5 text-xs font-medium whitespace-nowrap"
               >
+                <Activity className="h-3.5 w-3.5 sm:hidden" />
                 <span className="hidden sm:inline">Hypothesis + Final</span>
-                <span className="sm:hidden">All Types</span>
               </Button>
             </div>
-
-            {/* Visit vs Disease Grouping: Single Switcher Toggle Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setGroupByVisit((prev) => !prev)}
-                  className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0 hover:bg-muted/80 transition-all"
-                >
-                  {groupByVisit ? (
-                    <>
-                      <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
-                      <span>Group by Visit</span>
-                    </>
-                  ) : (
-                    <>
-                      <Stethoscope className="h-3.5 w-3.5 text-primary shrink-0" />
-                      <span>By Disease</span>
-                    </>
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {groupByVisit
-                  ? "Click to switch to disease aggregate breakdown (By Disease)"
-                  : "Click to switch to chronological visit breakdown (Group by Visit)"}
-              </TooltipContent>
-            </Tooltip>
 
             {/* Actions: Groups, Age Brackets & CSV Export */}
             <Tooltip>
@@ -861,10 +866,10 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
                   size="sm"
                   onClick={() => setIsManageGroupsModalOpen(true)}
                   className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0"
+                  aria-label="Manage disease groups"
                 >
                   <Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-indigo-500 shrink-0" />
-                  <span className="hidden md:inline">Disease Groups</span>
-                  <span className="md:hidden">Groups</span>
+                  <span className="hidden sm:inline">Disease Groups</span>
                   {diseaseGroups.length > 0 && (
                     <Badge variant="secondary" className="px-1.5 py-0 text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
                       {diseaseGroups.length}
@@ -883,10 +888,10 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
                     size="sm"
                     onClick={handleOpenBracketModal}
                     className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0"
+                    aria-label="Configure age ranges"
                   >
                     <SlidersHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
-                    <span className="hidden lg:inline">Configure Age Ranges</span>
-                    <span className="lg:hidden">Age Ranges</span>
+                    <span className="hidden sm:inline">Configure Age Ranges</span>
                     <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
                       {ageBrackets.length}
                     </Badge>
