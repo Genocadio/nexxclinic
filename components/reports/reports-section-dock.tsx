@@ -37,10 +37,9 @@ export function ReportsSectionDock({
           const distance = Math.abs(index - activeIndex)
           const isHovered = hoveredItemId === item.id
           const anyHovered = hoveredItemId !== null
+          const isOnlyItem = items.length === 1
           const Icon = item.icon
-          const isExpanded = anyHovered
-            ? isHovered
-            : distance === 1 || distance === 2
+          const isExpanded = isOnlyItem || (anyHovered ? isHovered : distance === 1 || distance === 2)
 
           return (
             <button
@@ -72,7 +71,9 @@ export function ReportsSectionDock({
                     ? isHovered
                       ? "max-w-[110px] opacity-100 font-semibold"
                       : "max-w-0 opacity-0"
-                    : isActive
+                    : isOnlyItem
+                      ? "max-w-[105px] opacity-100"
+                      : isActive
                       ? "max-w-0 opacity-0"
                       : distance === 1
                         ? "max-w-[65px] sm:max-w-[90px] opacity-100"

@@ -34,7 +34,6 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ReportsSectionDock } from "@/components/reports/reports-section-dock"
 import { cn } from "@/lib/utils"
 import {
   Dialog,
@@ -79,9 +78,15 @@ const LOCAL_STORAGE_GROUPS_KEY = "nexxclinic_diagnostic_report_disease_groups_v1
 
 interface AdminReportsDiagnosticsProps {
   data: ClinicReportsData | DiagnosticReportsData
+  groupByVisit: boolean
+  onGroupByVisitChange: (groupByVisit: boolean) => void
 }
 
-export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) {
+export function AdminReportsDiagnostics({
+  data,
+  groupByVisit,
+  onGroupByVisitChange,
+}: AdminReportsDiagnosticsProps) {
   // Retrieve diagnostic records from either top-level or deepReports
   const rawRecords: ClinicDiagnosticRecord[] = useMemo(() => {
     return (
@@ -93,7 +98,6 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
 
   // Local state for UI controls
   const [diagnosisTypeFilter, setDiagnosisTypeFilter] = useState<"FINAL_ONLY" | "ALL">("FINAL_ONLY")
-  const [groupByVisit, setGroupByVisit] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [isSearchExpanded, setIsSearchExpanded] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -679,26 +683,7 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
     selectableVisibleRows.every((r) => selectedItemKeys.has(r.rowKey))
 
   return (
-    <div className="space-y-4">
-      <ReportsSectionDock
-        items={[
-          {
-            id: "conditions",
-            label: "Conditions",
-            icon: Stethoscope,
-            count: searchedRows.length,
-          },
-          {
-            id: "visits",
-            label: "Visits",
-            icon: Calendar,
-            count: searchedVisitGroups.length,
-          },
-        ]}
-        activeId={groupByVisit ? "visits" : "conditions"}
-        onSelect={(id) => setGroupByVisit(id === "visits")}
-      />
-
+    <div className="space-y-3">
       {/* KPI Cards / Header Highlights */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-card/70 border border-border/70 rounded-2xl p-4 shadow-sm backdrop-blur-md">
@@ -830,6 +815,34 @@ export function AdminReportsDiagnostics({ data }: AdminReportsDiagnosticsProps) 
 
           {/* Filter Toggles & Action Buttons Container (Wrapping gracefully, no overflow) */}
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={groupByVisit ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => onGroupByVisitChange(!groupByVisit)}
+                  className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl border-border/70 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0"
+                  aria-label={groupByVisit ? "Group by visit" : "Group by condition"}
+                  aria-pressed={groupByVisit}
+                >
+                  {groupByVisit ? (
+                    <>
+                      <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span className="hidden sm:inline">Group by Visit</span>
+                    </>
+                  ) : (
+                    <>
+                      <Stethoscope className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span className="hidden sm:inline">By Condition</span>
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {groupByVisit ? "Switch to conditions" : "Group results by visit"}
+              </TooltipContent>
+            </Tooltip>
+
             {/* Diagnosis Type Segmented Control */}
             <div className="inline-flex items-center bg-muted/40 p-0.5 sm:p-1 rounded-xl border border-border/50 shrink-0">
               <Button

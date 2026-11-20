@@ -63,7 +63,8 @@ export interface ReportsInMenuFilterProps {
   insurances: InsuranceOption[]
   selectedInsuranceIds: string[]
   isPrivateOnly: boolean
-  onPayerChange: (params: { insuranceIds: string[]; isPrivateOnly: boolean }) => void
+  onPayerChange?: (params: { insuranceIds: string[]; isPrivateOnly: boolean }) => void
+  showPayers?: boolean
 
   className?: string
 }
@@ -82,6 +83,7 @@ export function ReportsInMenuFilter({
   selectedInsuranceIds = [],
   isPrivateOnly = false,
   onPayerChange,
+  showPayers = true,
   className,
 }: ReportsInMenuFilterProps) {
   const [isOpen, setIsOpen] = useState(false)
@@ -145,7 +147,18 @@ export function ReportsInMenuFilter({
   const handleResetAll = () => {
     onDepartmentChange([])
     onClinicianChange([])
-    onPayerChange({ insuranceIds: [], isPrivateOnly: false })
+    updatePayerFilters({ insuranceIds: [], isPrivateOnly: false })
+  }
+
+  const updatePayerFilters = (params: { insuranceIds: string[]; isPrivateOnly: boolean }) => {
+    if (!onPayerChange) {
+      if (showPayers) {
+        throw new Error("Payer filters require an onPayerChange handler.")
+      }
+      return
+    }
+
+    onPayerChange(params)
   }
 
   // Filtered lists based on category and in-menu search
@@ -207,12 +220,12 @@ export function ReportsInMenuFilter({
 
   const toggleInsurance = (id: string) => {
     if (selectedInsuranceIds.includes(id)) {
-      onPayerChange({
+      updatePayerFilters({
         insuranceIds: selectedInsuranceIds.filter((item) => item !== id),
         isPrivateOnly: false,
       })
     } else {
-      onPayerChange({
+      updatePayerFilters({
         insuranceIds: [...selectedInsuranceIds, id],
         isPrivateOnly: false,
       })
@@ -220,7 +233,7 @@ export function ReportsInMenuFilter({
   }
 
   const togglePrivateOnly = () => {
-    onPayerChange({
+    updatePayerFilters({
       insuranceIds: [],
       isPrivateOnly: !isPrivateOnly,
     })
@@ -306,7 +319,10 @@ export function ReportsInMenuFilter({
         </div>
 
         {/* Category Segmented Navigation */}
-        <div className="grid grid-cols-3 gap-1 bg-muted/60 p-0.5 rounded-xl border border-border/50 text-[11px] font-medium">
+        <div className={cn(
+          "grid gap-1 bg-muted/60 p-0.5 rounded-xl border border-border/50 text-[11px] font-medium",
+          showPayers ? "grid-cols-3" : "grid-cols-2"
+        )}>
           <button
             type="button"
             onClick={() => {
@@ -357,30 +373,32 @@ export function ReportsInMenuFilter({
             )}
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setActiveCategory("payers")
-              setSearchQuery("")
-            }}
-            className={cn(
-              "flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg transition-all cursor-pointer truncate",
-              activeCategory === "payers"
-                ? "bg-card text-foreground font-bold shadow-2xs border border-border/60"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <CreditCard className="h-3 w-3 shrink-0" />
-            <span className="truncate">Payers</span>
-            {(selectedInsuranceIds.length > 0 || isPrivateOnly) && (
-              <Badge
-                variant="secondary"
-                className="h-3.5 px-1 text-[9px] rounded-full bg-primary/15 text-primary font-mono ml-0.5"
-              >
-                {selectedInsuranceIds.length + (isPrivateOnly ? 1 : 0)}
-              </Badge>
-            )}
-          </button>
+          {showPayers && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveCategory("payers")
+                setSearchQuery("")
+              }}
+              className={cn(
+                "flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg transition-all cursor-pointer truncate",
+                activeCategory === "payers"
+                  ? "bg-card text-foreground font-bold shadow-2xs border border-border/60"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <CreditCard className="h-3 w-3 shrink-0" />
+              <span className="truncate">Payers</span>
+              {(selectedInsuranceIds.length > 0 || isPrivateOnly) && (
+                <Badge
+                  variant="secondary"
+                  className="h-3.5 px-1 text-[9px] rounded-full bg-primary/15 text-primary font-mono ml-0.5"
+                >
+                  {selectedInsuranceIds.length + (isPrivateOnly ? 1 : 0)}
+                </Badge>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Integrated In-Menu Search Input */}
