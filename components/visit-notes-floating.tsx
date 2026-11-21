@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
   StickyNote,
+  Plus,
   Send,
   X,
   Check,
   CheckCheck,
-  Eye,
   Pencil,
   ReceiptText,
   Stethoscope,
@@ -32,9 +32,29 @@ import {
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth-context";
 import { hasRole } from "@/lib/role-utils";
-import { canUserViewNote, isNoteUnreadForUser, isAdminOrManager } from "@/lib/note-utils";
+import {
+  canUserViewNote,
+  filterNotesByDisplayTypes,
+  isNoteUnreadForUser,
+  isAdminOrManager,
+} from "@/lib/note-utils";
 import { useVisitLiveness } from "@/hooks/use-visit-liveness";
 import { playNoteNotificationSound } from "@/lib/sound-notifications";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export interface VisitNoteItem {
   id?: string;
@@ -63,6 +83,9 @@ export interface VisitDepartmentOption {
   id: string;
   name?: string;
   status?: string | null;
+  completedAt?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
   department?: {
     id?: string;
     name?: string;
@@ -78,6 +101,7 @@ export interface VisitNotesFloatingProps {
   onMarkAsViewed?: (noteId?: string, visitDepartmentId?: string) => Promise<void>;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  onAddNoteDialogOpenChange?: (open: boolean) => void;
   hideToggleButton?: boolean;
   visitId?: string;
   visitDepartmentId?: string;
@@ -226,6 +250,7 @@ export default function VisitNotesFloating({
   onMarkAsViewed,
   open,
   onOpenChange,
+  onAddNoteDialogOpenChange,
   hideToggleButton = false,
   visitId,
   visitDepartmentId,
@@ -247,12 +272,17 @@ export default function VisitNotesFloating({
     },
     [controlled, onOpenChange]
   );
-
   const [text, setText] = useState("");
   const [selectedType, setSelectedType] = useState(noteTypes[0] || "PUBLIC");
   const [submitting, setSubmitting] = useState(false);
   const [markingRead, setMarkingRead] = useState(false);
+  const [addNoteOpen, setAddNoteOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const setAddNoteDialogState = (isOpen: boolean) => {
+    setAddNoteOpen(isOpen);
+    onAddNoteDialogOpenChange?.(isOpen);
+  };
 
   const validDepts = useMemo(
     () => (visitDepartments || []).filter((d) => Boolean(d.id)),
@@ -276,10 +306,12 @@ export default function VisitNotesFloating({
   useEffect(() => {
     if (visitDepartmentId) {
       setSelectedDeptId(visitDepartmentId);
-    } else if (validDepts.length > 0 && !selectedDeptId) {
-      setSelectedDeptId(validDepts[0].id);
+    } else if (validDepts.length > 0) {
+      setSelectedDeptId((current) =>
+        validDepts.some((dept) => dept.id === current) ? current : validDepts[0].id,
+      );
     }
-  }, [visitDepartmentId, validDepts, selectedDeptId]);
+  }, [visitDepartmentId, validDepts]);
 
   // Liveness & Presence hook
   const { otherViewers, updateActivity } = useVisitLiveness(visitId);
@@ -303,14 +335,7 @@ export default function VisitNotesFloating({
     const list = (notes || []).filter((note) =>
       canUserViewNote(note, userRoles, currentUserId)
     );
-    if (!allowedDisplayTypes || allowedDisplayTypes.length === 0) {
-      return list;
-    }
-
-    const allowed = new Set(allowedDisplayTypes.map((t) => t.toUpperCase()));
-    return list.filter(
-      (note) => note?.noteType && allowed.has(String(note.noteType).toUpperCase())
-    );
+    return filterNotesByDisplayTypes(list, allowedDisplayTypes);
   }, [allowedDisplayTypes, notes, userRoles, currentUserId]);
 
   const unreadNotesCount = useMemo(
@@ -470,6 +495,7 @@ export default function VisitNotesFloating({
     try {
       await onAddNote(selectedType, trimmed, selectedDeptId || visitDepartmentId);
       setText("");
+      setAddNoteDialogState(false);
     } catch (error: any) {
       const message = error?.message || "Failed to save note";
       toast.error(message);
@@ -685,39 +711,57 @@ export default function VisitNotesFloating({
             {/* When there are existing notes */}
             {hasNotes ? (
               <>
-                {/* Slim unread strip / Close button */}
-                {unreadNotesCount > 0 && onMarkAsViewed ? (
-                  <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/70 bg-muted/40 shrink-0">
-                    <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                      {unreadNotesCount} unread note{unreadNotesCount > 1 ? "s" : ""}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-5 px-2 text-[10px] rounded-full border-border/70 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-300 font-semibold"
-                      onClick={markAllAsRead}
-                      disabled={markingRead}
-                      title="Mark all notes as read"
-                    >
-                      <CheckCheck className="h-3 w-3 mr-1 text-emerald-600" />
-                      Mark read ({unreadNotesCount})
-                    </Button>
+                <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/70 bg-muted/40 shrink-0">
+                  <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    {unreadNotesCount > 0
+                      ? `${unreadNotesCount} unread note${unreadNotesCount > 1 ? "s" : ""}`
+                      : `${visibleNotes.length} note${visibleNotes.length === 1 ? "" : "s"}`}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {unreadNotesCount > 0 && onMarkAsViewed && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-5 px-2 text-[10px] rounded-full border-border/70 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-300 font-semibold"
+                        onClick={markAllAsRead}
+                        disabled={markingRead}
+                        title="Mark all notes as read"
+                      >
+                        <CheckCheck className="h-3 w-3 mr-1 text-emerald-600" />
+                        Mark read ({unreadNotesCount})
+                      </Button>
+                    )}
+                    {onAddNote && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          setOpenState(true);
+                          setAddNoteDialogState(true);
+                        }}
+                        aria-label="Add note"
+                        title="Add note"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {variant !== "dropdown" && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground"
+                        onClick={() => setOpenState(false)}
+                        aria-label="Close notes"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
-                ) : variant !== "dropdown" ? (
-                  <div className="flex justify-end p-1.5 shrink-0">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground"
-                      onClick={() => setOpenState(false)}
-                      aria-label="Close notes"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                ) : null}
+                </div>
 
                 {/* Notes Feed */}
                 <div className="flex-1 overflow-y-auto overscroll-contain p-2.5 space-y-2 max-h-[220px] bg-muted/15">
@@ -872,7 +916,7 @@ export default function VisitNotesFloating({
         )}
 
         {/* Composer Section */}
-        {onAddNote && (
+        {onAddNote && !hasNotes && (
           <div
             className={cn(
               "bg-card space-y-2",
@@ -1083,6 +1127,92 @@ export default function VisitNotesFloating({
             </div>
           )}
           </div>
+          {onAddNote && (
+            <Dialog open={addNoteOpen} onOpenChange={setAddNoteDialogState}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Add a visit note</DialogTitle>
+                  <DialogDescription>
+                    Add a note for the selected department.
+                  </DialogDescription>
+                </DialogHeader>
+
+                {noteTypes.length > 1 && (
+                  <div className="flex flex-wrap gap-2">
+                    {noteTypes.map((type) => {
+                      const config = getNoteTypeConfig(type);
+                      const TypeIcon = config.icon;
+                      return (
+                        <Button
+                          key={type}
+                          type="button"
+                          size="sm"
+                          variant={selectedType === type ? "default" : "outline"}
+                          className="rounded-full"
+                          onClick={() => setSelectedType(type)}
+                        >
+                          <TypeIcon className="mr-1.5 h-3.5 w-3.5" />
+                          {config.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {validDepts.length > 1 && (
+                  <Select
+                    value={selectedDeptId || ""}
+                    onValueChange={setSelectedDeptId}
+                  >
+                    <SelectTrigger aria-label="Department for note">
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {validDepts.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                          {dept.department?.name || dept.name || "Department"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                <Textarea
+                  ref={textareaRef}
+                  value={text}
+                  onChange={(event) => setText(event.target.value)}
+                  onKeyDown={(event) => {
+                    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                      event.preventDefault();
+                      void handleAdd();
+                    }
+                  }}
+                  rows={5}
+                  autoFocus
+                  placeholder="Write a note..."
+                  className="resize-y"
+                />
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAddNoteDialogState(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => void handleAdd()}
+                    disabled={!hasDraft || submitting}
+                  >
+                    <Send className="mr-2 h-4 w-4" />
+                    {submitting ? "Adding..." : "Add note"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </>
       )}
     </>

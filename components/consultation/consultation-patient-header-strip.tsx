@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Building2,
   Check,
@@ -30,7 +30,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { PatientIdentificationDropdownContent } from "@/components/consultation/consultation-top-dropdowns";
-import VisitNotesFloating from "@/components/visit-notes-floating";
+import VisitNotesFloating, {
+  type VisitDepartmentOption,
+} from "@/components/visit-notes-floating";
 
 export interface HeaderDepartmentOption {
   id: string;
@@ -82,9 +84,17 @@ export interface ConsultationPatientHeaderStripProps {
   unreadNotesCount?: number;
   notesTitle?: string;
   firstVisitDepartmentId?: string;
+  noteDepartments?: VisitDepartmentOption[];
   isTerminalVisit?: boolean;
-  onAddNote?: (noteType: string, content: string) => Promise<void>;
-  onMarkNotesViewed?: (noteId?: string) => Promise<void>;
+  onAddNote?: (
+    noteType: string,
+    content: string,
+    visitDepartmentId?: string,
+  ) => Promise<void>;
+  onMarkNotesViewed?: (
+    noteId?: string,
+    visitDepartmentId?: string,
+  ) => Promise<void>;
 
   className?: string;
 }
@@ -119,6 +129,7 @@ export function ConsultationPatientHeaderStrip({
   unreadNotesCount = 0,
   notesTitle = "Visit Notes",
   firstVisitDepartmentId,
+  noteDepartments,
   isTerminalVisit = false,
   onAddNote,
   onMarkNotesViewed,
@@ -126,6 +137,7 @@ export function ConsultationPatientHeaderStrip({
 }: ConsultationPatientHeaderStripProps) {
   const patientHoverPin = useHoverPin({ graceMs: 180 });
   const notesHoverPin = useHoverPin({ graceMs: 180 });
+  const [addNoteDialogOpen, setAddNoteDialogOpen] = useState(false);
 
   // Auto-open unread dedicated notes until they are marked as read
   useEffect(() => {
@@ -468,7 +480,7 @@ export function ConsultationPatientHeaderStrip({
                 onOpenChange={(open) => {
                   if (open) {
                     notesHoverPin.setPinned(true);
-                  } else if (unreadNotesCount === 0) {
+                  } else if (unreadNotesCount === 0 && !addNoteDialogOpen) {
                     notesHoverPin.close();
                   }
                 }}
@@ -476,6 +488,8 @@ export function ConsultationPatientHeaderStrip({
                 variant="dropdown"
                 visitId={visitId}
                 visitDepartmentId={firstVisitDepartmentId}
+                visitDepartments={noteDepartments}
+                onAddNoteDialogOpenChange={setAddNoteDialogOpen}
                 onAddNote={onAddNote}
                 onMarkAsViewed={onMarkNotesViewed}
               />

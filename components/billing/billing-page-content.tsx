@@ -25,7 +25,7 @@ import {
   visitProductsFullySettled,
   isVisitStillUnderConsultation,
 } from "@/lib/visit-product-utils";
-import { Clock, Plus, Pill, RotateCcw } from "lucide-react";
+import { Clock, Pill } from "lucide-react";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useSearchParams } from "@/lib/navigation";
@@ -40,13 +40,20 @@ import {
   useCompleteBillEditing,
   useCancelBillEditing,
 } from "@/hooks/auth-hooks";
-import type { PatientInsurance, Visit, VisitBilling } from "@/lib/api-types";
+import type {
+  PatientInsurance,
+  Visit,
+  VisitBilling,
+} from "@/lib/api-types";
 import {
   getVisitBillingTotals,
   isVisitDepartmentProductBilled,
   flattenVisitBillingItems,
 } from "@/lib/visit-billing-utils";
-import { isNoteUnreadForUser } from "@/lib/note-utils";
+import {
+  filterNotesByDisplayTypes,
+  isNoteUnreadForUser,
+} from "@/lib/note-utils";
 import { formatRWF } from "@/lib/utils";
 import { useUpdateVisitDepartmentStatus } from "@/hooks/auth-hooks";
 import {
@@ -55,6 +62,7 @@ import {
   useUnlinkVisitInsurances,
   useVisitDepartmentNotes,
   useAddVisitDepartmentNote,
+  useMarkVisitDepartmentNoteViewed,
   useMarkVisitDepartmentNotesViewed,
   useRemoveVisitDepartment,
 } from "@/hooks/visits/hooks";
@@ -72,7 +80,6 @@ import { useDeletePatientInsurance } from "@/hooks/patients/hooks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { EMPTY_TOTALS } from "@/hooks/billing/use-billing-totals";
-import { Spinner } from "@/components/ui/spinner";
 import { PageLoading } from "@/components/ui/page-loading";
 import {
   Tooltip,
@@ -243,6 +250,7 @@ export function BillingPageContent() {
   const { addProduct } = useAddProductToVisitDepartment();
   const { updateDepartmentStatus } = useUpdateVisitDepartmentStatus();
   const { addVisitDepartmentNote } = useAddVisitDepartmentNote();
+  const { markNoteViewed } = useMarkVisitDepartmentNoteViewed();
   const { markNotesViewed } = useMarkVisitDepartmentNotesViewed();
   const { completeVisit, loading: completingVisit } = useCompleteVisit();
   const { removeVisitDepartment } = useRemoveVisitDepartment();
@@ -333,7 +341,17 @@ export function BillingPageContent() {
   const isEditMode = hasAnyDeptEditing || Boolean(isEditingBill);
 
   useEffect(() => {
-    if (!visit) return;
+    setBillJustCreated(false);
+    setBillingNotesByDepartment({});
+    setIsEditingBill(false);
+    setEditModeSnapshot(null);
+    setBillingData(null);
+    hasLocalEditsRef.current = false;
+    setActiveService("");
+  }, [visitId, setActiveService]);
+
+  useEffect(() => {
+    if (!visit || (visitId && String(visit.id) !== String(visitId))) return;
     // In edit mode pass editMode:true so the mapper forces all items to
     // "pending" regardless of their backend BILLED status, giving a clean
     // slate identical to first-time billing.
@@ -407,8 +425,8 @@ export function BillingPageContent() {
       setBillingData(mapped);
     }
   }, [
-    visit?.id,
-    visit?.status,
+    visit,
+    visitId,
     isEditMode,
     isEditingBill,
     existingVisitBilling?.id,
@@ -1149,38 +1167,38 @@ export function BillingPageContent() {
     }
   }, [showAddProductModal, addingBillingItem, updateActivity]);
 
-  // Notes dedicated to the department currently being billed (floating panel).
-  const billingDepartmentNotes = useMemo(
+  const noteDepartments = useMemo(
     () =>
-      (visitDepartmentNotes || []).filter(
-        (note: any) =>
-          String(note?.visitDepartmentId || "") ===
-          String(currentBillingDepartmentId || ""),
+      flattenVisitDepartmentsForBilling(visit?.departments || []).map(
+        (department) => ({
+          id: String(department.id),
+          name: department.department?.name || "Department",
+          status: department.status,
+          completedAt: department.completedAt,
+          updatedAt: department.updatedAt,
+          createdAt: department.createdAt,
+          department: department.department,
+        }),
       ),
-    [visitDepartmentNotes, currentBillingDepartmentId],
+    [visit?.departments],
   );
 
   // CANCELLED departments are excluded from the unread gate on the backend.
   const cancelledVisitDepartmentIds = useMemo(
     () =>
       new Set(
-        (visit?.departments || [])
+        noteDepartments
           .filter((dept) => dept?.status === "CANCELLED")
           .map((dept) => String(dept.id)),
       ),
-    [visit?.departments],
+    [noteDepartments],
   );
 
-  // In the Billing UI the notes panel must surface every note that can block a
-  // billing operation on this department: PUBLIC inter-department communications
-  // and BILLING financial annotations (outstanding/exemption justification).
-  // Hiding BILLING notes left finance users blocked by a note they could never
-  // see or mark as read.
-  const billingVisibleNotes = (billingDepartmentNotes || []).filter(
-    (note: any) => {
-      const type = String(note?.noteType || "");
-      return type === "PUBLIC" || type === "BILLING";
-    },
+  // Show readable billing and public notes from every visit department so
+  // unread notes are visible even when they belong to a different department.
+  const billingVisibleNotes = filterNotesByDisplayTypes(
+    visitDepartmentNotes || [],
+    ["PUBLIC", "BILLING"],
   );
 
   const userRoles = (doctor?.roles as string[]) || [];
@@ -1189,10 +1207,10 @@ export function BillingPageContent() {
   const isNoteUnread = useCallback(
     (note: any) => {
       const deptId = String(note?.visitDepartmentId || "");
-      const dept = visit?.departments?.find((d) => String(d.id) === deptId);
+      const dept = noteDepartments.find((d) => d.id === deptId);
       return isNoteUnreadForUser(note, userRoles, currentUserId, dept);
     },
-    [visit?.departments, userRoles, currentUserId]
+    [noteDepartments, userRoles, currentUserId]
   );
 
   // Whole-visit unread gate — mirrors the backend's countUnreadNotesForVisit
@@ -1205,8 +1223,8 @@ export function BillingPageContent() {
       !cancelledVisitDepartmentIds.has(String(note?.visitDepartmentId || "")),
   ).length;
 
-  // Unread notes that live on OTHER non-cancelled departments — the user must
-  // switch to those departments and read them before billing can proceed.
+  // Identify unread notes on other departments so the whole-visit billing gate
+  // can point the user to the notes panel above.
   const unreadNotesOnOtherDepartments = useMemo(() => {
     const activeId = String(currentBillingDepartmentId || "");
     const counts = new Map<string, { name: string; count: number }>();
@@ -1215,8 +1233,8 @@ export function BillingPageContent() {
       const deptId = String(note?.visitDepartmentId || "");
       if (!deptId || deptId === activeId) continue;
       if (cancelledVisitDepartmentIds.has(deptId)) continue;
-      const dept = visit?.departments?.find((d) => String(d.id) === deptId);
-      const name = dept?.department?.name || "another department";
+      const dept = noteDepartments.find((d) => d.id === deptId);
+      const name = dept?.department?.name || dept?.name || "another department";
       const entry = counts.get(deptId) || { name, count: 0 };
       entry.count++;
       counts.set(deptId, entry);
@@ -1226,7 +1244,7 @@ export function BillingPageContent() {
     visitDepartmentNotes,
     currentBillingDepartmentId,
     cancelledVisitDepartmentIds,
-    visit?.departments,
+    noteDepartments,
     isNoteUnread,
   ]);
 
@@ -1532,16 +1550,6 @@ export function BillingPageContent() {
   }, [topLevelDepartmentOptions, isEditMode, billingData, setActiveService]);
 
   useEffect(() => {
-    setBillJustCreated(false);
-    setBillingNotesByDepartment({});
-    setIsEditingBill(false);
-    setEditModeSnapshot(null);
-    setBillingData(null);
-    hasLocalEditsRef.current = false;
-    setActiveService("");
-  }, [visitId, setActiveService]);
-
-  useEffect(() => {
     if (!autoPrint || didAutoPrint || !existingVisitBilling || !billingData)
       return;
     setDidAutoPrint(true);
@@ -1669,14 +1677,17 @@ export function BillingPageContent() {
             unreadNotesCount={unreadBillingNotesCount}
             notesTitle="Billing Notes"
             firstVisitDepartmentId={String(currentBillingDepartmentId || "")}
+            noteDepartments={noteDepartments}
             isTerminalVisit={isTerminalVisit}
-            onAddNote={async (noteType, content) => {
-              const visitDepartmentId = String(currentBillingDepartmentId || "");
-              if (!visitDepartmentId) {
+            onAddNote={async (noteType, content, requestedDepartmentId) => {
+              const targetDepartmentId = String(
+                requestedDepartmentId || currentBillingDepartmentId || "",
+              );
+              if (!noteDepartments.some((dept) => dept.id === targetDepartmentId)) {
                 throw new Error("No department selected for billing note");
               }
               const result = await addVisitDepartmentNote(
-                visitDepartmentId,
+                targetDepartmentId,
                 content,
                 noteType,
               );
@@ -1686,8 +1697,24 @@ export function BillingPageContent() {
               await refetchNotes();
               await refetchVisit();
             }}
-            onMarkNotesViewed={async () => {
-              await markNotesViewed(String(currentBillingDepartmentId || ""));
+            onMarkNotesViewed={async (noteId, departmentId) => {
+              if (noteId) {
+                const result = await markNoteViewed(noteId);
+                if (result?.status !== "SUCCESS") {
+                  throw new Error(result?.message || "Failed to mark note as read");
+                }
+              } else {
+                const targetDepartmentId = String(
+                  departmentId || currentBillingDepartmentId || "",
+                );
+                if (!targetDepartmentId) {
+                  throw new Error("No department selected for marking notes as read");
+                }
+                const result = await markNotesViewed(targetDepartmentId);
+                if (result?.status !== "SUCCESS") {
+                  throw new Error(result?.message || "Failed to mark notes as read");
+                }
+              }
               await refetchNotes();
               await refetchVisit();
             }}
@@ -1713,7 +1740,7 @@ export function BillingPageContent() {
                     `${dept.name} (${dept.count} unread)`,
                 )
                 .join(", ")}
-              . Switch to that department and read them first.
+              . Open Visit Notes above and mark them as read.
             </span>
           </div>
         )}

@@ -23,6 +23,20 @@ export interface DepartmentLike {
   createdAt?: string | null;
 }
 
+export function filterNotesByDisplayTypes<T extends { noteType?: string | null }>(
+  notes: T[],
+  allowedDisplayTypes?: string[],
+): T[] {
+  if (!allowedDisplayTypes || allowedDisplayTypes.length === 0) {
+    return notes;
+  }
+
+  const allowed = new Set(allowedDisplayTypes.map((type) => type.toUpperCase()));
+  return notes.filter((note) =>
+    allowed.has(String(note.noteType || "PUBLIC").toUpperCase())
+  );
+}
+
 /**
  * Checks whether the user roles include billing privileges (FINANCE, ADMIN, MANAGER, CLINIC_ADMIN).
  */
