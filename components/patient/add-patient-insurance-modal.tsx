@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useApolloClient } from '@apollo/client'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { PatientInsurance } from '@/lib/api-types'
@@ -8,6 +9,7 @@ import { getBasePatientSharePercentage } from '@/lib/api-types'
 import { useInsurances } from '@/hooks/auth-hooks'
 import { useInsuranceCoverages } from '@/hooks/insurances/coverage-rules'
 import { useSavePatientInsurance } from '@/hooks/patients/use-save-patient-insurance'
+import { CHECK_PATIENT_INSURANCE_CARD_NUMBER_QUERY } from '@/hooks/queries/patients'
 import { isDominantMemberRequired, calculateAge, sanitizePhoneInput } from '@/lib/validation-utils'
 import { splitWorkerName } from '@/lib/patient-display-utils'
 import {
@@ -64,6 +66,15 @@ type AddPatientInsuranceModalProps = {
   disabled?: boolean
 }
 
+type CardNumberCheckState = {
+  value: string
+  status: 'idle' | 'waiting' | 'checking' | 'available' | 'duplicate' | 'error'
+  message?: string
+}
+
+const normalizeCardNumber = (cardNumber: string) =>
+  cardNumber.trim().toUpperCase()
+
 export function AddPatientInsuranceModal({
   open,
   onOpenChange,
@@ -75,6 +86,7 @@ export function AddPatientInsuranceModal({
   context = 'billing',
   disabled = false,
 }: AddPatientInsuranceModalProps) {
+  const apolloClient = useApolloClient()
   const { insurances: availableInsurances, loading: insurancesLoading } = useInsurances()
   const { savePatientInsurance, loading } = useSavePatientInsurance()
 
@@ -82,6 +94,11 @@ export function AddPatientInsuranceModal({
   const [selectedInsuranceId, setSelectedInsuranceId] = useState('')
   const [selectedInsuranceName, setSelectedInsuranceName] = useState('')
   const [providerSelectionDirty, setProviderSelectionDirty] = useState(false)
+  const [cardNumberCheck, setCardNumberCheck] = useState<CardNumberCheckState>({
+    value: '',
+    status: 'idle',
+  })
+  const [cardNumberCheckRetry, setCardNumberCheckRetry] = useState(0)
 
   const selectableInsurances = useMemo(
     () => availableInsurances || [],
@@ -170,11 +187,101 @@ export function AddPatientInsuranceModal({
   }, [loading, setIsBusy])
 
   const watchIsSelf = watch('isSelf') ?? isAdult
+  const cardNumberValue = watch('insuranceCardNumber') ?? ''
+  const normalizedCardNumber = normalizeCardNumber(cardNumberValue)
+  const originalCardNumber = normalizeCardNumber(editingInsurance?.insuranceCardNumber || '')
+  const editingInsuranceId = editingInsurance ? String(editingInsurance.id) : ''
+  const cardNumberCheckRequired =
+    Boolean(editingInsuranceId) &&
+    normalizedCardNumber !== originalCardNumber
+  const currentCardNumberCheckStatus =
+    cardNumberCheck.value === normalizedCardNumber
+      ? cardNumberCheck.status
+      : cardNumberCheckRequired
+        ? 'waiting'
+        : 'idle'
+  const cardNumberCheckPassed =
+    !cardNumberCheckRequired ||
+    (cardNumberCheck.value === normalizedCardNumber &&
+      cardNumberCheck.status === 'available')
   const patientShareDefault = getPatientShareDefaultInfo({
     patientSharePercentage: watch('patientSharePercentage'),
     patientShareCoverageId: watch('patientShareCoverageId'),
     insuranceProvider: { coverages },
   })
+
+  useEffect(() => {
+    if (
+      !open ||
+      !editingInsuranceId ||
+      !normalizedCardNumber ||
+      normalizedCardNumber === originalCardNumber
+    ) {
+      setCardNumberCheck({ value: normalizedCardNumber, status: 'idle' })
+      return
+    }
+
+    let cancelled = false
+    setCardNumberCheck({ value: normalizedCardNumber, status: 'waiting' })
+    const timeoutId = setTimeout(() => {
+      setCardNumberCheck({ value: normalizedCardNumber, status: 'checking' })
+      void apolloClient
+        .query<{
+          patientInsuranceCardNumberAvailable: {
+            status: string
+            message?: string | null
+            data?: boolean | null
+          } | null
+        }>({
+          query: CHECK_PATIENT_INSURANCE_CARD_NUMBER_QUERY,
+          variables: {
+            patientId,
+            patientInsuranceId: editingInsuranceId,
+            insuranceCardNumber: normalizedCardNumber,
+          },
+          fetchPolicy: 'no-cache',
+        })
+        .then(({ data }) => {
+          if (cancelled) return
+          const response = data.patientInsuranceCardNumberAvailable
+          if (response?.status !== 'SUCCESS' || typeof response.data !== 'boolean') {
+            setCardNumberCheck({
+              value: normalizedCardNumber,
+              status: 'error',
+              message: response?.message || 'Could not verify this card number.',
+            })
+            return
+          }
+          setCardNumberCheck({
+            value: normalizedCardNumber,
+            status: response.data ? 'available' : 'duplicate',
+            message: response.message || undefined,
+          })
+        })
+        .catch((error: unknown) => {
+          if (cancelled) return
+          console.error('Insurance card number check failed:', error)
+          setCardNumberCheck({
+            value: normalizedCardNumber,
+            status: 'error',
+            message: 'Could not verify this card number. Try again.',
+          })
+        })
+    }, 500)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timeoutId)
+    }
+  }, [
+    apolloClient,
+    cardNumberCheckRetry,
+    editingInsuranceId,
+    normalizedCardNumber,
+    open,
+    originalCardNumber,
+    patientId,
+  ])
 
   useDebouncedValidation({ control, trigger })
 
@@ -274,6 +381,20 @@ export function AddPatientInsuranceModal({
   }, [coverages, selectedInsuranceId, getValues, setValue])
 
   const handleSave = async (values: PatientInsuranceFormValues) => {
+    const submittedCardNumber = normalizeCardNumber(values.insuranceCardNumber)
+    const requiresCardNumberCheck =
+      Boolean(editingInsuranceId) &&
+      submittedCardNumber !== originalCardNumber
+    if (
+      requiresCardNumberCheck &&
+      !(
+        cardNumberCheck.value === submittedCardNumber &&
+        cardNumberCheck.status === 'available'
+      )
+    ) {
+      return
+    }
+
     const rawDominantName = values.dominantName || [values.dominantFirstName, values.dominantLastName].filter(Boolean).join(' ')
     const resolvedDominant = rawDominantName ? splitWorkerName(rawDominantName) : { firstName: '', lastName: '' }
     const result = await savePatientInsurance({
@@ -448,6 +569,49 @@ export function AddPatientInsuranceModal({
                       className={formErrors.insuranceCardNumber ? 'border-red-500 focus-visible:ring-red-300' : ''}
                     />
                     <FieldError message={formErrors.insuranceCardNumber?.message} />
+                    {editingInsurance && normalizedCardNumber && cardNumberCheckRequired && (
+                      <div className="flex items-center justify-between gap-2 text-[11px]">
+                        <p
+                          role={
+                            currentCardNumberCheckStatus === 'duplicate' ||
+                            currentCardNumberCheckStatus === 'error'
+                              ? 'alert'
+                              : 'status'
+                          }
+                          className={
+                            currentCardNumberCheckStatus === 'available'
+                              ? 'text-emerald-700 dark:text-emerald-300'
+                              : currentCardNumberCheckStatus === 'duplicate' ||
+                                  currentCardNumberCheckStatus === 'error'
+                                ? 'text-destructive'
+                                : 'text-muted-foreground'
+                          }
+                        >
+                          {currentCardNumberCheckStatus === 'waiting'
+                            ? 'Waiting to check card number...'
+                            : currentCardNumberCheckStatus === 'checking'
+                              ? 'Checking card number...'
+                              : currentCardNumberCheckStatus === 'available'
+                                ? 'Card number is available.'
+                                : currentCardNumberCheckStatus === 'duplicate'
+                                  ? cardNumberCheck.message ||
+                                    'This patient already has an insurance with this card number.'
+                                  : currentCardNumberCheckStatus === 'error'
+                                    ? cardNumberCheck.message ||
+                                      'Could not verify this card number.'
+                                    : null}
+                        </p>
+                        {currentCardNumberCheckStatus === 'error' && (
+                          <button
+                            type="button"
+                            className="shrink-0 font-medium text-primary underline-offset-2 hover:underline"
+                            onClick={() => setCardNumberCheckRetry((retry) => retry + 1)}
+                          >
+                            Retry
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <label className="block text-xs font-medium text-foreground">
@@ -664,6 +828,7 @@ export function AddPatientInsuranceModal({
                   !selectedInsuranceId ||
                   loading ||
                   disabled ||
+                  !cardNumberCheckPassed ||
                   (Boolean(editingInsurance) && !isDirty && !providerSelectionDirty)
                 }
               >

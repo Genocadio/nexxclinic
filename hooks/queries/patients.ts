@@ -135,3 +135,21 @@ export const GET_PATIENT_QUERY = gql`
     }
   }
 `;
+
+export const CHECK_PATIENT_INSURANCE_CARD_NUMBER_QUERY = gql`
+  query PatientInsuranceCardNumberAvailable(
+    $patientId: ID!
+    $patientInsuranceId: ID
+    $insuranceCardNumber: String!
+  ) {
+    patientInsuranceCardNumberAvailable(
+      patientId: $patientId
+      patientInsuranceId: $patientInsuranceId
+      insuranceCardNumber: $insuranceCardNumber
+    ) {
+      status
+      message
+      data
+    }
+  }
+`;

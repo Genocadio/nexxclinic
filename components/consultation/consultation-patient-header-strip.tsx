@@ -190,7 +190,7 @@ export function ConsultationPatientHeaderStrip({
             sideOffset={6}
             onMouseEnter={patientHoverPin.onMouseEnter}
             onMouseLeave={patientHoverPin.onMouseLeave}
-            className="w-80 sm:w-96 p-0 rounded-2xl shadow-2xl border border-border/80 bg-background/95 backdrop-blur-md overflow-hidden"
+            className="z-[90] w-80 sm:w-96 p-0 rounded-2xl shadow-2xl border border-border/80 bg-background/95 backdrop-blur-md overflow-hidden"
           >
             <PatientIdentificationDropdownContent
               patient={patient}
