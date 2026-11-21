@@ -138,7 +138,7 @@ export function getPatientShareDefaultInfo(insurance: {
     return {
       percentage: selectedPercentage,
       source: "Patient default",
-      tierLabel: scope || "Base / General",
+      tierLabel: scope || undefined,
     }
   }
 
@@ -163,7 +163,6 @@ export function getPatientShareDefaultInfo(insurance: {
     return {
       percentage: basePercentage,
       source: "Provider base",
-      tierLabel: "Base / General",
     }
   }
 

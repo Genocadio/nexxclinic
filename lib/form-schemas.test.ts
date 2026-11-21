@@ -481,7 +481,7 @@ describe("createPatientInsuranceFormSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("requires dominant-member details when isSelf is false for an adult", () => {
+  it("allows adults to omit optional dominant-member details when isSelf is false", () => {
     const result = createPatientInsuranceFormSchema({
       dominantRequired: false,
     }).safeParse({
@@ -491,11 +491,6 @@ describe("createPatientInsuranceFormSchema", () => {
       dominantLastName: "",
       dominantPhone: "",
     });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues.some((i) => i.path.includes("dominantFirstName"))).toBe(true);
-      expect(result.error.issues.some((i) => i.path.includes("dominantLastName"))).toBe(true);
-      expect(result.error.issues.some((i) => i.path.includes("dominantPhone"))).toBe(true);
-    }
+    expect(result.success).toBe(true);
   });
 });

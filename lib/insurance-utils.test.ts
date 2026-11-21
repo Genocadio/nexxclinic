@@ -48,7 +48,6 @@ describe("getPatientShareDefaultInfo", () => {
     ).toEqual({
       percentage: 35,
       source: "Provider base",
-      tierLabel: "Base / General",
     })
   })
 

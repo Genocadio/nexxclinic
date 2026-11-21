@@ -2,7 +2,6 @@
 
 import React from "react";
 import { Minus, Plus, Trash2, Pencil, X } from "lucide-react";
-import { toast } from "react-toastify";
 import {
   BillingItem,
   applyInsuranceSelectionToItem,
@@ -209,13 +208,6 @@ export function BillingItemRow({
         <p className="text-[11px] text-muted-foreground mt-0.5">
           {item.doneBy.name}
         </p>
-        {item.basePrice !== undefined &&
-          item.price !== item.basePrice &&
-          !item.insuranceNotCovered && (
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Private: {formatRWF(item.basePrice)}
-            </p>
-          )}
       </td>
       {!hideTypeColumn && (
         <td className="py-2 px-3 text-center">
@@ -637,12 +629,6 @@ export function BillingItemRow({
           <Select
             value={exemptionType}
             onValueChange={(value) => {
-              if (!editMode && item.source === "PROFILE") {
-                toast.info(
-                  "Profile products cannot be exempted individually — change the visit department's profile instead.",
-                );
-                return;
-              }
               const updated = {
                 ...item,
                 exemptionType: value as typeof item.exemptionType,
@@ -659,29 +645,19 @@ export function BillingItemRow({
               }
               onItemChange(updated);
             }}
-            disabled={isPaidLocked || (!editMode && item.source === "PROFILE")}
+            disabled={isPaidLocked}
           >
             <SelectTrigger className="h-7 text-[11px] w-[7.5rem]">
               <SelectValue placeholder="Exemption" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">
-                {!editMode && item.source === "PROFILE"
-                  ? "Profile product"
-                  : "No exemption"}
-              </SelectItem>
+              <SelectItem value="none">No exemption</SelectItem>
               {isInsurancePaid ? (
-                <SelectItem
-                  value="patient-share"
-                  disabled={!editMode && item.source === "PROFILE"}
-                >
+                <SelectItem value="patient-share">
                   Waive patient share
                 </SelectItem>
               ) : (
-                <SelectItem
-                  value="full"
-                  disabled={!editMode && item.source === "PROFILE"}
-                >
+                <SelectItem value="full">
                   Full exemption
                 </SelectItem>
               )}

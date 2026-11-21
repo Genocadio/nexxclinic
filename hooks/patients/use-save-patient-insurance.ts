@@ -74,7 +74,6 @@ export function validateSavePatientInsuranceInput(
 
   const mustFillDominant =
     dominantRequired ||
-    input.isSelf === false ||
     Boolean(input.dominantName?.trim() || firstName || lastName || input.dominantPhone?.trim())
 
   if (
@@ -82,7 +81,7 @@ export function validateSavePatientInsuranceInput(
     && (!firstName || !lastName || !input.dominantPhone?.trim())
   ) {
     errors.dominant = dominantRequired
-      ? 'Principal member full name and phone are required for patients 18 years or younger.'
+      ? 'Principal member full name and phone are required for patients under 18 years.'
       : 'Principal member full name and phone are required when patient is not the principal policyholder.'
   }
 
@@ -128,6 +127,7 @@ export function useSavePatientInsurance() {
       insuranceProviderId: input.insuranceProviderId,
       insuranceCardNumber: input.insuranceCardNumber,
       providingCompanyOrEmployer: input.providingCompanyOrEmployer || null,
+      principalMember: Boolean(input.isSelf),
       dominantMember,
       patientSharePercentage: input.patientSharePercentage ?? null,
       patientShareCoverageId: input.patientShareCoverageId ?? null,

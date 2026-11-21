@@ -395,7 +395,7 @@ export function createPatientInsuranceFormSchema(options: {
       }
 
       // ── Dominant-member rules ──
-      // Required if patient is <=18, OR isSelf is explicitly false, OR any dominant field is typed
+      // Required for minors, or when any optional adult details are entered.
       const hasAnyDominant = Boolean(
         data.dominantName ||
         data.dominantFirstName ||
@@ -404,7 +404,6 @@ export function createPatientInsuranceFormSchema(options: {
       );
       const mustFillDominant =
         options.dominantRequired ||
-        data.isSelf === false ||
         hasAnyDominant;
 
       if (mustFillDominant) {

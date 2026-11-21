@@ -145,7 +145,7 @@ const getDominantMemberPayload = (
   const fullName = rawName || ([firstName, lastName].filter(Boolean).join(" ") || null);
 
   return {
-    principalMember: !hasDominantMemberData,
+    principalMember: isSelf === false ? false : !hasDominantMemberData,
     principalMemberName: hasDominantMemberData ? fullName : null,
     principalMemberPhoneNumber: hasDominantMemberData ? phone || null : null,
   };
@@ -204,6 +204,7 @@ export interface PatientInsuranceMutationInput {
   insuranceProviderId: string;
   insuranceCardNumber: string;
   providingCompanyOrEmployer?: string | null;
+  principalMember?: boolean;
   dominantMember?: {
     firstName?: string | null;
     lastName?: string | null;
@@ -238,9 +239,10 @@ export function useCreatePatientInsurance() {
             insuranceCardNumber: input.insuranceCardNumber,
             providingCompanyOrEmployer: input.providingCompanyOrEmployer,
             principalMember:
-              !input.dominantMember?.firstName?.trim() &&
-              !input.dominantMember?.lastName?.trim() &&
-              !input.dominantMember?.phone?.trim(),
+              input.principalMember ??
+              (!input.dominantMember?.firstName?.trim() &&
+                !input.dominantMember?.lastName?.trim() &&
+                !input.dominantMember?.phone?.trim()),
             principalMemberName:
               [input.dominantMember?.firstName, input.dominantMember?.lastName]
                 .filter(Boolean)
@@ -301,9 +303,10 @@ export function useUpdatePatientInsurance() {
             insuranceCardNumber: input.insuranceCardNumber,
             providingCompanyOrEmployer: input.providingCompanyOrEmployer,
             principalMember:
-              !input.dominantMember?.firstName?.trim() &&
-              !input.dominantMember?.lastName?.trim() &&
-              !input.dominantMember?.phone?.trim(),
+              input.principalMember ??
+              (!input.dominantMember?.firstName?.trim() &&
+                !input.dominantMember?.lastName?.trim() &&
+                !input.dominantMember?.phone?.trim()),
             principalMemberName:
               [input.dominantMember?.firstName, input.dominantMember?.lastName]
                 .filter(Boolean)

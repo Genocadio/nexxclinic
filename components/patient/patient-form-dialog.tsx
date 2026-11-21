@@ -737,8 +737,7 @@ export default function PatientFormDialog({
     for (const { insurance, index } of insuranceRowsToSave) {
       const missing = (value?: string | null) => !value?.trim()
       const prefix = `insurance.${index}`
-      const isAdult = calculateAge(formData.dateOfBirth) >= 18
-      const isSelf = isAdult ? insurance.isSelf !== false : false
+      const isMinor = calculateAge(formData.dateOfBirth) < 18
 
       if (!insurance.insuranceId || String(insurance.insuranceId) === "0") {
         insuranceErrors[`${prefix}.provider`] = "Select an insurance provider"
@@ -750,7 +749,13 @@ export default function PatientFormDialog({
         insuranceErrors[`${prefix}.employer`] = "Providing company or employer is required"
       }
 
-      if (!isSelf) {
+      const hasDominantInfo = Boolean(
+        insurance.dominantMember?.name?.trim() ||
+        insurance.dominantMember?.firstName?.trim() ||
+        insurance.dominantMember?.lastName?.trim() ||
+        insurance.dominantMember?.phone?.trim(),
+      )
+      if (isMinor || hasDominantInfo) {
         const phone = insurance.dominantMember?.phone?.trim()
         if (phone && !/^\+?\d{7,15}$/.test(phone.replace(/\s+/g, ""))) {
           insuranceErrors[`${prefix}.dominant`] =
@@ -767,9 +772,8 @@ export default function PatientFormDialog({
           (dmResolved.firstName && dmResolved.lastName)
         )
         if (!hasDmName || missing(insurance.dominantMember?.phone)) {
-          insuranceErrors[`${prefix}.dominant`] = isAdult
-            ? "Principal member full name and phone are required when patient is not the principal policyholder"
-            : "Principal member full name and phone are required for patients 18 years or younger"
+          insuranceErrors[`${prefix}.dominant`] =
+            "Principal member full name and phone are required for patients under 18 or when details are provided"
         }
       }
     }

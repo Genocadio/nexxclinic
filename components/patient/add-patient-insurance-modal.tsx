@@ -26,7 +26,6 @@ import { useDebouncedValidation } from '@/hooks/use-debounced-validation'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -44,7 +43,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Check, ChevronsUpDown, ArrowLeft } from 'lucide-react'
+import { Check, ChevronsUpDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'react-toastify'
 import {
@@ -65,22 +64,6 @@ type AddPatientInsuranceModalProps = {
   disabled?: boolean
 }
 
-const DESCRIPTIONS = {
-  billing: (
-    <>
-      This saves insurance on the patient&apos;s profile, not directly on the visit. After saving,
-      open <span className="font-medium text-foreground">Patient insurances</span> in the billing
-      header and check it to use for billing on this visit.
-    </>
-  ),
-  reception: (
-    <>
-      Saves insurance on the patient profile. You can then select it when creating the visit or
-      enable it later from billing.
-    </>
-  ),
-}
-
 export function AddPatientInsuranceModal({
   open,
   onOpenChange,
@@ -95,7 +78,6 @@ export function AddPatientInsuranceModal({
   const { insurances: availableInsurances, loading: insurancesLoading } = useInsurances()
   const { savePatientInsurance, loading } = useSavePatientInsurance()
 
-  const [step, setStep] = useState<'select' | 'card' | 'details'>('select')
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [selectedInsuranceId, setSelectedInsuranceId] = useState('')
   const [selectedInsuranceName, setSelectedInsuranceName] = useState('')
@@ -111,7 +93,7 @@ export function AddPatientInsuranceModal({
     [selectableInsurances, selectedInsuranceId],
   )
 
-  const { rules: selectedProviderRules, loading: rulesLoading } = useInsuranceCoverages(
+  const { rules: selectedProviderRules } = useInsuranceCoverages(
     selectedInsuranceId ? { insuranceProviderId: selectedInsuranceId } : undefined,
   )
 
@@ -130,7 +112,7 @@ export function AddPatientInsuranceModal({
       const formatted = typeName.charAt(0).toUpperCase() + typeName.slice(1)
       return `${formatted} (${cov.patientSharePercentage}%)`
     }
-    return `Base / General (${cov.patientSharePercentage}%)`
+    return `${cov.patientSharePercentage}%`
   }
 
   const isAdult = calculateAge(patientDateOfBirth) >= 18
@@ -207,7 +189,6 @@ export function AddPatientInsuranceModal({
   )
 
   const resetForm = () => {
-    setStep('select')
     setSelectedInsuranceId('')
     setSelectedInsuranceName('')
     setProviderSelectionDirty(false)
@@ -227,7 +208,6 @@ export function AddPatientInsuranceModal({
           editingInsurance.insuranceProvider.acronym ||
           'Insurance',
       )
-      setStep('card')
       setProviderSelectionDirty(false)
       reset({
         insuranceCardNumber: editingInsurance.insuranceCardNumber || '',
@@ -270,7 +250,6 @@ export function AddPatientInsuranceModal({
       setValue('patientSharePercentage', '', { shouldDirty: true })
     }
     setPopoverOpen(false)
-    setStep('card')
   }
 
   useEffect(() => {
@@ -293,10 +272,6 @@ export function AddPatientInsuranceModal({
       }
     }
   }, [coverages, selectedInsuranceId, getValues, setValue])
-
-  const handleProceedToDetails = () => {
-    setStep('details')
-  }
 
   const handleSave = async (values: PatientInsuranceFormValues) => {
     const rawDominantName = values.dominantName || [values.dominantFirstName, values.dominantLastName].filter(Boolean).join(' ')
@@ -363,411 +338,348 @@ export function AddPatientInsuranceModal({
 
   return (
     <>
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (nextOpen) {
-          onOpenChange(true)
-        } else {
-          requestClose()
-        }
-      }}
-    >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            {(step === 'card' || step === 'details') && (
-              <button
-                type="button"
-                onClick={() => setStep(step === 'details' ? 'card' : 'select')}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </button>
-            )}
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (nextOpen) {
+            onOpenChange(true)
+          } else {
+            requestClose()
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="sm:max-w-lg"
+        >
+          <DialogHeader className="text-center sm:text-center">
             <DialogTitle className="text-base">
-              {editingInsurance
-                ? 'Update patient insurance'
-                : step === 'select'
-                  ? 'Select insurance provider'
-                  : step === 'card'
-                    ? 'Enter card number'
-                    : 'Insurance details'}
+              {editingInsurance ? 'Edit patient insurance' : 'Add patient insurance'}
             </DialogTitle>
-          </div>
-          {/* Step indicator */}
-          <div className="flex items-center gap-2 mt-2">
-            {['Provider', 'Card #', 'Details'].map((label, idx) => {
-              const stepKey = (['select', 'card', 'details'] as const)[idx]
-              const isActive = step === stepKey
-              const isDone = (step === 'card' && idx === 0) || (step === 'details' && idx <= 1)
-              return (
-                <div key={label} className="flex items-center gap-1.5">
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold ${
-                    isActive ? 'bg-primary text-primary-foreground' :
-                    isDone ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {isDone && !isActive ? '✓' : idx + 1}
-                  </div>
-                  <span className={`text-[11px] ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                    {label}
-                  </span>
-                  {idx < 2 && <div className="w-4 h-px bg-border/60 mx-0.5" />}
-                </div>
-              )
-            })}
-          </div>
-          <DialogDescription className="text-sm text-muted-foreground">
-            {DESCRIPTIONS[context]}
-          </DialogDescription>
-        </DialogHeader>
+          </DialogHeader>
 
-        <div className="space-y-3">
-          {/* Step 1: Select provider */}
-          {step === 'select' && (
-            <div className="space-y-1">
-              <p className="text-[12px] text-muted-foreground">Insurance Provider</p>
-              <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={popoverOpen}
-                    className="w-full justify-between h-10 text-sm font-normal"
-                    disabled={insurancesLoading}
-                  >
-                    {selectedInsuranceName
-                      ? selectedInsuranceName
-                      : insurancesLoading
-                        ? 'Loading insurances...'
-                        : 'Search insurance...'}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                  <Command>
-                    <CommandInput placeholder="Search insurance..." />
-                    <CommandList>
-                      <CommandEmpty>No insurance found.</CommandEmpty>
-                      <CommandGroup>
-                        {selectableInsurances.map((insurance) => {
-                          const isAlreadyAdded = alreadyAddedInsuranceIds.has(String(insurance.id))
-                          return (
-                            <CommandItem
-                              key={insurance.id}
-                              value={`${insurance.insuranceName} ${insurance.acronym || ''}`}
-                              disabled={isAlreadyAdded}
-                              onSelect={() => {
-                                if (!isAlreadyAdded) {
-                                  handleProviderSelect(
-                                    String(insurance.id),
-                                    `${insurance.insuranceName} (${insurance.acronym || ''})`,
-                                  )
-                                }
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  'mr-2 h-4 w-4',
-                                  selectedInsuranceId === String(insurance.id)
-                                    ? 'opacity-100'
-                                    : 'opacity-0',
-                                )}
-                              />
-                              <span className={isAlreadyAdded ? 'opacity-50' : ''}>
-                                {insurance.insuranceName}
-                                {insurance.acronym && ` (${insurance.acronym})`}
-                                {' — '}{getBasePatientSharePercentage(insurance)}%
-                                {isAlreadyAdded && ' (Already Added)'}
-                              </span>
-                            </CommandItem>
-                          )
-                        })}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-          )}
-
-          {/* Step 2: Enter card number */}
-          {step === 'card' && (
-            <>
-              <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-sm">
-                <span className="text-muted-foreground text-xs">Provider</span>
-                <p className="font-medium">{selectedInsuranceName}</p>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-[12px] text-muted-foreground">Insurance Card Number</p>
-                <Input
-                  {...register('insuranceCardNumber')}
-                  placeholder="Card number"
-                  autoFocus
-                  className={formErrors.insuranceCardNumber ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                />
-                <FieldError message={formErrors.insuranceCardNumber?.message} />
-              </div>
-            </>
-          )}
-
-          {/* Step 3: Details (employer, dominant member, etc.) */}
-          {step === 'details' && (
-            <>
-              <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-sm">
-                <span className="text-muted-foreground text-xs">Provider</span>
-                <p className="font-medium">{selectedInsuranceName}</p>
-                {selectedProvider && (
-                  <p className="text-xs text-muted-foreground">
-                    Default patient share: {getBasePatientSharePercentage(selectedProvider)}%
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-[12px] text-muted-foreground">Insurance Card Number</p>
-                <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2 text-sm font-mono">
-                  {getValues('insuranceCardNumber') || ''}
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-[12px] text-muted-foreground">Providing Company / Employer (required)</p>
-                <Input
-                  {...register('providingCompanyOrEmployer')}
-                  placeholder="Employer or company name"
-                  className={formErrors.providingCompanyOrEmployer ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                />
-                <FieldError message={formErrors.providingCompanyOrEmployer?.message} />
-              </div>
-
-              {coverages.length > 1 ? (
-                <div className="space-y-1.5 p-3 rounded-xl border border-border/60 bg-muted/20">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-medium text-foreground">
-                      Default Patient Share / Coverage Tier
-                    </p>
-                    <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60">
-                      {coverages.length} tiers available
-                    </span>
-                  </div>
-                  <p className="text-[12px] text-muted-foreground">
-                    Patient share is the portion paid by the patient. Select
-                    the default tier for this patient, or leave it unset to use
-                    service billing rules:
-                  </p>
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {coverages.map((cov) => {
-                      const currentCoverageId = watch('patientShareCoverageId')
-                      const isSelected = currentCoverageId === cov.id
-                      return (
-                        <button
-                          key={cov.id}
-                          type="button"
-                          onClick={() => {
-                            if (isSelected) {
-                              setValue('patientShareCoverageId', null, { shouldValidate: true, shouldDirty: true })
-                              setValue('patientSharePercentage', '', { shouldValidate: true, shouldDirty: true })
-                            } else {
-                              setValue('patientShareCoverageId', cov.id, { shouldValidate: true, shouldDirty: true })
-                              setValue('patientSharePercentage', String(cov.patientSharePercentage), { shouldValidate: true, shouldDirty: true })
-                            }
-                          }}
-                          className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
-                            isSelected
-                              ? 'bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white border-transparent shadow-sm'
-                              : 'bg-white dark:bg-slate-900 border-border/60 hover:border-primary/50 text-foreground'
-                          }`}
-                        >
-                          {getCoverageLabel(cov)}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <input type="hidden" {...register('patientShareCoverageId')} />
-                  <input type="hidden" {...register('patientSharePercentage')} />
-                </div>
-              ) : coverages.length === 1 && coverages[0] ? (
-                <div className="p-2.5 rounded-xl border border-border/40 bg-muted/20 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-medium text-foreground">Available coverage: </span>
-                    <span className="text-muted-foreground">{getCoverageLabel(coverages[0])}</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold text-[12px]">
-                    {formatPatientShareDefaultInfo(patientShareDefault)}
-                  </span>
-                  <input type="hidden" {...register('patientShareCoverageId')} />
-                  <input type="hidden" {...register('patientSharePercentage')} />
-                </div>
-              ) : (
-                <div className="space-y-1.5 p-3 rounded-xl border border-border/60 bg-muted/20">
-                  <label className="block text-xs font-medium text-foreground">
-                    Patient share default (%)
-                  </label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step="any"
-                    {...register('patientSharePercentage')}
-                    placeholder="Leave blank to use billing rules"
-                  />
-                  <FieldError message={formErrors.patientSharePercentage?.message} />
-                  <p className="text-[11px] text-muted-foreground">
-                    This is the patient&apos;s share of covered costs; the
-                    insurer pays the remainder. Leave blank to use service
-                    billing rules.
-                  </p>
-                </div>
-              )}
-
-              {isAdult ? (
-                <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-3">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="isSelf"
-                      checked={Boolean(watchIsSelf)}
-                      onCheckedChange={(checked) => {
-                        setValue('isSelf', Boolean(checked), { shouldValidate: true, shouldDirty: true })
-                        if (checked) {
-                          setValue('dominantName', '')
-                          setValue('dominantFirstName', '')
-                          setValue('dominantLastName', '')
-                          setValue('dominantPhone', '')
-                          clearErrors(['dominantName', 'dominantFirstName', 'dominantLastName', 'dominantPhone'])
-                        }
-                      }}
-                    />
-                    <label
-                      htmlFor="isSelf"
-                      className="text-xs font-medium text-foreground cursor-pointer select-none"
+          <form
+            className="space-y-4"
+            onSubmit={handleSubmit(handleSave)}
+          >
+            {!editingInsurance ? (
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-foreground">
+                  Insurance provider
+                </label>
+                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={popoverOpen}
+                      className="h-10 w-full justify-between rounded-xl text-sm font-normal"
+                      disabled={insurancesLoading}
                     >
-                      Self (Patient is the principal policyholder)
-                    </label>
-                  </div>
+                      {selectedInsuranceName ||
+                        (insurancesLoading
+                          ? 'Loading insurances...'
+                          : 'Search insurance providers')}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search insurance..." />
+                      <CommandList>
+                        <CommandEmpty>No insurance found.</CommandEmpty>
+                        <CommandGroup>
+                          {selectableInsurances.map((insurance) => {
+                            const isAlreadyAdded = alreadyAddedInsuranceIds.has(String(insurance.id))
+                            return (
+                              <CommandItem
+                                key={insurance.id}
+                                value={`${insurance.insuranceName} ${insurance.acronym || ''}`}
+                                disabled={isAlreadyAdded}
+                                onSelect={() => {
+                                  if (!isAlreadyAdded) {
+                                    handleProviderSelect(
+                                      String(insurance.id),
+                                      `${insurance.insuranceName}${insurance.acronym ? ` (${insurance.acronym})` : ''}`,
+                                    )
+                                  }
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    'mr-2 h-4 w-4',
+                                    selectedInsuranceId === String(insurance.id)
+                                      ? 'opacity-100'
+                                      : 'opacity-0',
+                                  )}
+                                />
+                                <span className={isAlreadyAdded ? 'opacity-50' : ''}>
+                                  {insurance.insuranceName}
+                                  {insurance.acronym && ` (${insurance.acronym})`}
+                                  {' — '}{getBasePatientSharePercentage(insurance)}%
+                                  {isAlreadyAdded && ' (Already Added)'}
+                                </span>
+                              </CommandItem>
+                            )
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2">
+                <span className="text-xs text-muted-foreground">Insurance provider</span>
+                <p className="text-sm font-medium text-foreground">{selectedInsuranceName}</p>
+              </div>
+            )}
 
-                  {!watchIsSelf && (
-                    <div className="space-y-2 pt-2 border-t border-border/40">
-                      <p className="text-[12px] font-medium text-foreground">
-                        Principal Member Information <span className="text-red-500">*</span>
-                      </p>
+            {selectedInsuranceId && (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-medium text-foreground">
+                      Insurance card number
+                    </label>
+                    <Input
+                      {...register('insuranceCardNumber')}
+                      placeholder="Card number"
+                      className={formErrors.insuranceCardNumber ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                    />
+                    <FieldError message={formErrors.insuranceCardNumber?.message} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-medium text-foreground">
+                      Employer / scheme
+                    </label>
+                    <Input
+                      {...register('providingCompanyOrEmployer')}
+                      placeholder="Employer or company name"
+                      className={formErrors.providingCompanyOrEmployer ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                    />
+                    <FieldError message={formErrors.providingCompanyOrEmployer?.message} />
+                  </div>
+                </div>
+
+                {coverages.length > 1 ? (
+                  <div className="space-y-2 rounded-xl border border-border/60 bg-muted/20 p-3">
+                    <p className="text-xs font-medium text-foreground">
+                      Patient share default
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Patient share is the portion paid by the patient. Choose
+                      a default tier, or use service billing rules.
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {coverages.map((cov) => {
+                        const currentCoverageId = watch('patientShareCoverageId')
+                        const isSelected = currentCoverageId === cov.id
+                        return (
+                          <button
+                            key={cov.id}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setValue('patientShareCoverageId', null, { shouldValidate: true, shouldDirty: true })
+                                setValue('patientSharePercentage', '', { shouldValidate: true, shouldDirty: true })
+                              } else {
+                                setValue('patientShareCoverageId', cov.id, { shouldValidate: true, shouldDirty: true })
+                                setValue('patientSharePercentage', String(cov.patientSharePercentage), { shouldValidate: true, shouldDirty: true })
+                              }
+                            }}
+                            className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                              isSelected
+                                ? 'border-primary bg-primary/10 text-primary'
+                                : 'border-border/60 bg-background text-foreground hover:border-primary/50'
+                            }`}
+                          >
+                            {getCoverageLabel(cov)}
+                          </button>
+                        )
+                      })}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setValue('patientShareCoverageId', null, { shouldValidate: true, shouldDirty: true })
+                          setValue('patientSharePercentage', '', { shouldValidate: true, shouldDirty: true })
+                        }}
+                        className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                          !watch('patientShareCoverageId')
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border/60 bg-background text-foreground hover:border-primary/50'
+                        }`}
+                      >
+                        Use service rules
+                      </button>
+                    </div>
+                    <input type="hidden" {...register('patientShareCoverageId')} />
+                    <input type="hidden" {...register('patientSharePercentage')} />
+                  </div>
+                ) : coverages.length === 1 && coverages[0] ? (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-muted-foreground">Patient share default:</span>
+                    <span className="font-semibold text-foreground">
+                      {patientShareDefault.percentage != null
+                        ? `${patientShareDefault.percentage}%`
+                        : formatPatientShareDefaultInfo(patientShareDefault)}
+                    </span>
+                    <input type="hidden" {...register('patientShareCoverageId')} />
+                    <input type="hidden" {...register('patientSharePercentage')} />
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 rounded-xl border border-border/60 bg-muted/20 p-3">
+                    <label className="block text-xs font-medium text-foreground">
+                      Patient share default (%)
+                    </label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="any"
+                      {...register('patientSharePercentage')}
+                      placeholder="Leave blank to use billing rules"
+                    />
+                    <FieldError message={formErrors.patientSharePercentage?.message} />
+                    <p className="text-[11px] text-muted-foreground">
+                      This is the patient&apos;s share of covered costs. Leave
+                      blank to use service billing rules.
+                    </p>
+                  </div>
+                )}
+
+                {isAdult ? (
+                  <div className="space-y-2 rounded-xl border border-border/60 bg-muted/20 p-3">
+                    <label className="flex items-center gap-2 text-xs font-medium text-foreground">
+                      <Checkbox
+                        id="isSelf"
+                        checked={Boolean(watchIsSelf)}
+                        onCheckedChange={(checked) => {
+                          setValue('isSelf', Boolean(checked), { shouldValidate: true, shouldDirty: true })
+                          if (checked) {
+                            setValue('dominantName', '')
+                            setValue('dominantFirstName', '')
+                            setValue('dominantLastName', '')
+                            setValue('dominantPhone', '')
+                            clearErrors(['dominantName', 'dominantFirstName', 'dominantLastName', 'dominantPhone'])
+                          }
+                        }}
+                      />
+                      Patient is the principal policyholder
+                    </label>
+                    {!watchIsSelf && (
+                      <div className="grid gap-3 border-t border-border/40 pt-2 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <label className="block text-xs font-medium text-foreground">
+                            Principal member name <span className="text-muted-foreground">(optional)</span>
+                          </label>
+                          <Input
+                            {...register('dominantName', {
+                              onChange: (event) => {
+                                const split = splitWorkerName(event.target.value)
+                                setValue('dominantFirstName', split.firstName)
+                                setValue('dominantLastName', split.lastName || '')
+                              },
+                            })}
+                            placeholder="Full name"
+                            className={formErrors.dominantName || formErrors.dominantFirstName || formErrors.dominantLastName ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                          />
+                          <FieldError message={formErrors.dominantName?.message || formErrors.dominantFirstName?.message || formErrors.dominantLastName?.message} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-xs font-medium text-foreground">
+                            Principal member phone <span className="text-muted-foreground">(optional)</span>
+                          </label>
+                          <Input
+                            {...register('dominantPhone', {
+                              onChange: (event) => {
+                                setValue('dominantPhone', sanitizePhoneInput(event.target.value), { shouldValidate: true })
+                              },
+                            })}
+                            placeholder="Phone number"
+                            className={formErrors.dominantPhone ? 'border-red-500 focus-visible:ring-red-300' : ''}
+                          />
+                          <FieldError message={formErrors.dominantPhone?.message} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2 rounded-xl border border-border/60 bg-muted/20 p-3">
+                    <p className="text-xs font-medium text-foreground">
+                      Principal member information <span className="text-destructive">*</span>
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1">
+                        <label className="block text-xs font-medium text-foreground">
+                          Principal member full name <span className="text-destructive">*</span>
+                        </label>
                         <Input
                           {...register('dominantName', {
-                            onChange: (e) => {
-                              const split = splitWorkerName(e.target.value)
+                            onChange: (event) => {
+                              const split = splitWorkerName(event.target.value)
                               setValue('dominantFirstName', split.firstName)
                               setValue('dominantLastName', split.lastName || '')
                             },
                           })}
-                          placeholder="Principal member full name (e.g. John Doe)"
+                          placeholder="Full name"
                           className={formErrors.dominantName || formErrors.dominantFirstName || formErrors.dominantLastName ? 'border-red-500 focus-visible:ring-red-300' : ''}
                         />
                         <FieldError message={formErrors.dominantName?.message || formErrors.dominantFirstName?.message || formErrors.dominantLastName?.message} />
                       </div>
                       <div className="space-y-1">
+                        <label className="block text-xs font-medium text-foreground">
+                          Principal member phone <span className="text-destructive">*</span>
+                        </label>
                         <Input
                           {...register('dominantPhone', {
-                            onChange: (e) => {
-                              setValue('dominantPhone', sanitizePhoneInput(e.target.value), { shouldValidate: true })
+                            onChange: (event) => {
+                              setValue('dominantPhone', sanitizePhoneInput(event.target.value), { shouldValidate: true })
                             },
                           })}
-                          placeholder="Phone (e.g. 0788 123 456 or +250 788 123 456)"
+                          placeholder="Phone number"
                           className={formErrors.dominantPhone ? 'border-red-500 focus-visible:ring-red-300' : ''}
                         />
                         <FieldError message={formErrors.dominantPhone?.message} />
                       </div>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2 rounded-xl border border-border/60 bg-muted/20 p-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[12px] font-medium text-foreground">
-                      Principal Member Information <span className="text-red-500">*</span>
-                    </p>
-                    <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60">
-                      Required for patients ≤18 years
-                    </span>
                   </div>
-                  <div className="space-y-1">
-                    <Input
-                      {...register('dominantName', {
-                        onChange: (e) => {
-                          const split = splitWorkerName(e.target.value)
-                          setValue('dominantFirstName', split.firstName)
-                          setValue('dominantLastName', split.lastName || '')
-                        },
-                      })}
-                      placeholder="Principal member full name (e.g. John Doe)"
-                      className={formErrors.dominantName || formErrors.dominantFirstName || formErrors.dominantLastName ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                    />
-                    <FieldError message={formErrors.dominantName?.message || formErrors.dominantFirstName?.message || formErrors.dominantLastName?.message} />
-                  </div>
-                  <div className="space-y-1">
-                    <Input
-                      {...register('dominantPhone', {
-                        onChange: (e) => {
-                          setValue('dominantPhone', sanitizePhoneInput(e.target.value), { shouldValidate: true })
-                        },
-                      })}
-                      placeholder="Phone (e.g. 0788 123 456 or +250 788 123 456)"
-                      className={formErrors.dominantPhone ? 'border-red-500 focus-visible:ring-red-300' : ''}
-                    />
-                    <FieldError message={formErrors.dominantPhone?.message} />
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+                )}
+              </>
+            )}
 
-        <DialogFooter className="gap-2">
-          {step === 'select' && (
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-          )}
-          {step === 'card' && (
-            <>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleProceedToDetails}>
-                Next
-              </Button>
-            </>
-          )}
-          {step === 'details' && (
-            <>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <DialogFooter className="flex-row justify-center gap-2 sm:justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                className="min-w-28 rounded-full"
+                onClick={() => requestClose()}
+              >
                 Cancel
               </Button>
               <Button
-                onClick={() => {
-                  if (!selectedInsuranceId) {
-                    toast.error("Please select an insurance provider")
-                    return
-                  }
-                  void handleSubmit(handleSave)()
-                }}
-                disabled={!selectedInsuranceId || loading || disabled}
+                type="submit"
+                className="min-w-32 rounded-full"
+                disabled={
+                  !selectedInsuranceId ||
+                  loading ||
+                  disabled ||
+                  (Boolean(editingInsurance) && !isDirty && !providerSelectionDirty)
+                }
               >
-                {editingInsurance ? 'Update insurance' : 'Save to patient record'}
+                {editingInsurance ? 'Update insurance' : 'Save insurance'}
               </Button>
-            </>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-    <UnsavedChangesDialog
-      open={confirmOpen}
-      onOpenChange={handleConfirmOpenChange}
-      onDiscard={handleConfirmDiscard}
-      title="Discard insurance changes?"
-      description="Your insurance details have not been saved. Discard these changes and close?"
-    />
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <UnsavedChangesDialog
+        open={confirmOpen}
+        onOpenChange={handleConfirmOpenChange}
+        onDiscard={handleConfirmDiscard}
+        title="Discard insurance changes?"
+        description="Your insurance details have not been saved. Discard these changes and close?"
+      />
     </>
   )
 }

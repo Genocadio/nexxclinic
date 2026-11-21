@@ -5,6 +5,7 @@ import {
   formatPhoneNumber,
   getInputType,
   isDominantMemberRequired,
+  isInsuranceEntryComplete,
   normalizePhoneNumber,
   parseRwandaNationalId,
   sanitizeEmailInput,
@@ -146,13 +147,30 @@ describe("isDominantMemberRequired", () => {
   it("is false without insurance", () => {
     expect(isDominantMemberRequired("2010-01-01", false)).toBe(false);
   });
-  it("is true for patients 18 or younger with insurance", () => {
+  it("is true only for patients under 18 with insurance", () => {
     expect(isDominantMemberRequired(yearsAgo(17), true)).toBe(true);
-    expect(isDominantMemberRequired(yearsAgo(18), true)).toBe(true);
+    expect(isDominantMemberRequired(yearsAgo(18), true)).toBe(false);
   });
   it("is false for adults with insurance", () => {
     expect(isDominantMemberRequired(yearsAgo(20), true)).toBe(false);
     expect(isDominantMemberRequired("2000-01-01", true)).toBe(false);
+  });
+});
+
+describe("isInsuranceEntryComplete", () => {
+  const insurance = {
+    insuranceId: "provider-1",
+    insuranceCardNumber: "CARD-1",
+    providingCompanyOrEmployer: "Acme Ltd",
+    isSelf: false,
+  };
+
+  it("allows adults to omit principal member information", () => {
+    expect(isInsuranceEntryComplete(insurance, yearsAgo(18))).toBe(true);
+  });
+
+  it("continues to require principal member information for minors", () => {
+    expect(isInsuranceEntryComplete(insurance, yearsAgo(17))).toBe(false);
   });
 });
 

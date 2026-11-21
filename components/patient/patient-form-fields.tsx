@@ -1057,7 +1057,7 @@ export default function PatientFormFields({
                     const formatted = typeName.charAt(0).toUpperCase() + typeName.slice(1)
                     return `${formatted} (${cov.patientSharePercentage}%)`
                   }
-                  return `Base / General (${cov.patientSharePercentage}%)`
+                  return `${cov.patientSharePercentage}%`
                 }
                 const shareDefault = getPatientShareDefaultInfo({
                   patientSharePercentage: insurance.patientSharePercentage,
@@ -1169,15 +1169,15 @@ export default function PatientFormFields({
                 }
 
                 if (coverages.length === 1 && coverages[0]) {
-                  const singleCov = coverages[0]
                   return (
-                    <div className="mt-2 sm:mt-4 p-2.5 rounded-xl border border-border/40 bg-muted/20 flex items-center justify-between text-xs">
-                      <div>
-                        <span className="font-medium text-foreground">Available coverage: </span>
-                        <span className="text-muted-foreground">{getCoverageLabel(singleCov)}</span>
-                      </div>
-                      <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold text-[12px]">
-                        {formatPatientShareDefaultInfo(shareDefault)}
+                    <div className="mt-2 flex items-center gap-1.5 text-xs">
+                      <span className="text-muted-foreground">
+                        Patient share default:
+                      </span>
+                      <span className="font-semibold text-foreground">
+                        {shareDefault.percentage != null
+                          ? `${shareDefault.percentage}%`
+                          : formatPatientShareDefaultInfo(shareDefault)}
                       </span>
                     </div>
                   )
@@ -1245,12 +1245,13 @@ export default function PatientFormFields({
                       {!isSelf && (
                         <div className="pt-2 border-t border-border/40 space-y-2">
                           <h5 className="text-xs sm:text-sm font-medium text-foreground">
-                            Principal Member Information <span className="text-red-500">*</span>
+                            Principal Member Information{" "}
+                            <span className="text-muted-foreground">(optional)</span>
                           </h5>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
                             <div className="md:col-span-2">
                               <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
-                                Principal Member Full Name <span className="text-red-500">*</span>
+                                Principal Member Full Name
                               </label>
                               <Input
                                 type="text"
@@ -1264,12 +1265,11 @@ export default function PatientFormFields({
                                 }
                                 placeholder="Enter principal member name"
                                 className={solidFieldClass}
-                                required
                               />
                             </div>
                             <div>
                               <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
-                                Phone <span className="text-red-500">*</span>
+                                Phone
                               </label>
                               <Input
                                 type="tel"
@@ -1283,7 +1283,6 @@ export default function PatientFormFields({
                                 }
                                 placeholder="Phone number"
                                 className={solidFieldClass}
-                                required
                               />
                             </div>
                           </div>
@@ -1300,9 +1299,6 @@ export default function PatientFormFields({
                       <h5 className="text-xs sm:text-sm font-medium text-foreground">
                         Principal Member Information <span className="text-red-500">*</span>
                       </h5>
-                      <span className="text-[12px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60">
-                        Required for patients &lt;18 years
-                      </span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
                       <div className="md:col-span-2">

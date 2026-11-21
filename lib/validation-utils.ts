@@ -121,7 +121,7 @@ export function calculateAge(dateOfBirth: string): number {
 
 export function isDominantMemberRequired(dateOfBirth: string, hasInsurance: boolean): boolean {
   if (!hasInsurance) return false
-  return calculateAge(dateOfBirth) <= 18
+  return calculateAge(dateOfBirth) < 18
 }
 
 /**
@@ -285,10 +285,8 @@ export function isInsuranceEntryComplete(
     return false
   }
 
-  const isAdult = calculateAge(dateOfBirth || "") >= 18
-  const isSelf = isAdult ? ins.isSelf !== false : false
-
-  if (!isSelf) {
+  const isMinor = calculateAge(dateOfBirth || "") < 18
+  if (isMinor) {
     if (
       !ins.dominantMember?.firstName?.trim() ||
       !ins.dominantMember?.lastName?.trim() ||
