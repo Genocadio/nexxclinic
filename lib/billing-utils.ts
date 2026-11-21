@@ -249,7 +249,7 @@ export function resolvePatientSharePercentage(
   // dept-level rule (e.g. Dental/OUTPATIENT → 20%) silently overrides the
   // patient's personal rate (e.g. 10%), mismatching the displayed vs billed %.
   // Mirrors the updated BillingPricingCalculator layer ordering.
-  if (patientSharePercentage != null && patientSharePercentage > 0) {
+  if (patientSharePercentage != null) {
     return clampPct(patientSharePercentage);
   }
 

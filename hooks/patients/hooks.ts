@@ -96,6 +96,7 @@ export interface RegisterPatientInput {
   } | null;
   insurances?: Array<{
     id?: string;
+    clientId?: string;
     insuranceId?: string | null;
     insuranceCardNumber: string;
     providingCompanyOrEmployer: string;
@@ -208,13 +209,17 @@ export interface PatientInsuranceMutationInput {
     lastName?: string | null;
     phone?: string | null;
   } | null;
-  validFrom: string;
-  validUntil: string;
+  validFrom?: string;
+  validUntil?: string;
   /** Optional patient-specific default patient share percentage (0-100). */
   patientSharePercentage?: number | null;
   /** Reference to an InsuranceCoverage record. Takes precedence over patientSharePercentage. */
   patientShareCoverageId?: string | null;
 }
+
+export type CreatePatientInsuranceMutationInput =
+  PatientInsuranceMutationInput &
+  Required<Pick<PatientInsuranceMutationInput, "validFrom" | "validUntil">>;
 
 export function useCreatePatientInsurance() {
   const [createPatientInsuranceMutation, { loading, error }] = useMutation(
@@ -222,7 +227,7 @@ export function useCreatePatientInsurance() {
   );
 
   const createPatientInsurance = async (
-    input: PatientInsuranceMutationInput,
+    input: CreatePatientInsuranceMutationInput,
   ): Promise<ApiResponse<PatientInsurance>> => {
     try {
       const result = await createPatientInsuranceMutation({
@@ -245,6 +250,7 @@ export function useCreatePatientInsurance() {
             validFrom: input.validFrom,
             validUntil: input.validUntil,
             patientSharePercentage: input.patientSharePercentage ?? null,
+            patientShareCoverageId: input.patientShareCoverageId ?? null,
           },
         },
       });
@@ -304,8 +310,12 @@ export function useUpdatePatientInsurance() {
                 .join(" ") || null,
             principalMemberPhoneNumber:
               input.dominantMember?.phone?.trim() || null,
-            validFrom: input.validFrom,
-            validUntil: input.validUntil,
+            ...(input.validFrom !== undefined
+              ? { validFrom: input.validFrom }
+              : {}),
+            ...(input.validUntil !== undefined
+              ? { validUntil: input.validUntil }
+              : {}),
             patientSharePercentage: input.patientSharePercentage ?? null,
             patientShareCoverageId: input.patientShareCoverageId ?? null,
           },

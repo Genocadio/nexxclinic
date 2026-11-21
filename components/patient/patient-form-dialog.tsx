@@ -8,6 +8,15 @@ import {
   useInsurances,
 } from "@/hooks/auth-hooks"
 import { useSavePatientInsurance } from "@/hooks/patients/use-save-patient-insurance"
+import { useDeletePatientInsurance } from "@/hooks/patients/hooks"
+import {
+  getChangedInsuranceRows,
+  getInsuranceSaveKey,
+  getInsuranceSnapshot,
+  persistInsuranceChanges,
+  type FormInsurance,
+  type SavedInsuranceEntry,
+} from "@/components/patient/patient-insurance-save"
 import type { Patient, Gender, Visit, PatientInsurance } from "@/lib/api-types"
 import type { UpdatePatientInput } from "@/lib/api-input-types"
 import type { RegisterPatientInput } from "@/hooks/patients/hooks"
@@ -17,7 +26,6 @@ import {
   sanitizePhoneInput,
   sanitizeNationalIdInput,
   parseRwandaNationalId,
-  isDominantMemberRequired,
   calculateAge,
   validateDateOfBirth,
   isInsuranceEntryComplete,
@@ -38,6 +46,9 @@ import PatientFormFields from "@/components/patient/patient-form-fields"
 interface PatientFormDialogProps {
   isOpen: boolean
   onClose: () => void
+  onRequestClose?: () => void
+  onDirtyChange?: (dirty: boolean) => void
+  onBusyChange?: (busy: boolean) => void
   mode: "create" | "edit"
   patient?: Patient | null
   onPatientSaved?: (
@@ -116,6 +127,9 @@ const nestedToFlat = (nested: RegisterPatientInput): UpdatePatientInput => {
   }
 }
 
+const getPatientDetailsSnapshot = (formData: RegisterPatientInput) =>
+  JSON.stringify(nestedToFlat(formData))
+
 const EMPTY_FORM: RegisterPatientInput = {
   name: "",
   firstName: "",
@@ -148,6 +162,9 @@ const EMPTY_FORM: RegisterPatientInput = {
 export default function PatientFormDialog({
   isOpen,
   onClose,
+  onRequestClose,
+  onDirtyChange,
+  onBusyChange,
   mode,
   patient,
   onPatientSaved,
@@ -157,17 +174,25 @@ export default function PatientFormDialog({
   const { registerPatient, loading: registerLoading } = useRegisterPatient()
   const { updatePatient, loading: updateLoading } = useUpdatePatient()
   const { savePatientInsurance } = useSavePatientInsurance()
+  const { deletePatientInsurance } = useDeletePatientInsurance()
   const { insurances } = useInsurances()
 
   const [error, setError] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [formData, setFormData] = useState<RegisterPatientInput>(EMPTY_FORM)
-  const [savingInsurances, setSavingInsurances] = useState<Set<number>>(new Set())
+  const [savingChanges, setSavingChanges] = useState(false)
+  const [insuranceSaveErrors, setInsuranceSaveErrors] = useState<Record<string, string>>({})
   const hasInteractedRef = useRef(false)
+  const savedInsuranceEntriesRef = useRef<Map<string, SavedInsuranceEntry>>(new Map())
+  const initialFormSnapshotRef = useRef(JSON.stringify(EMPTY_FORM))
+  const initialPatientDetailsSnapshotRef = useRef(
+    getPatientDetailsSnapshot(EMPTY_FORM),
+  )
+  const nextInsuranceClientIdRef = useRef(0)
+  const formRef = useRef<HTMLFormElement>(null)
+  const initializingFormRef = useRef(false)
 
   const isEdit = mode === "edit"
-  const savePatientInsuranceRef = useRef(savePatientInsurance)
-  savePatientInsuranceRef.current = savePatientInsurance
 
   /**
    * Convert existing PatientInsurance records from the API into the form's
@@ -185,6 +210,8 @@ export default function PatientFormDialog({
           insuranceId: pi.insuranceProvider.id,
           insuranceCardNumber: pi.insuranceCardNumber,
           providingCompanyOrEmployer: pi.providingCompanyOrEmployer || "",
+          patientShareCoverageId: pi.patientShareCoverageId || "",
+          patientSharePercentage: pi.patientSharePercentage ?? "",
           isSelf: isPrincipal,
           dominantMember: isPrincipal
             ? { name: "", firstName: "", lastName: "", phone: "" }
@@ -197,11 +224,6 @@ export default function PatientFormDialog({
         }
       })
   }
-
-  /** Tracks which insurance entries the user has actually modified (via
-   * updateInsurance).  Existing insurances loaded from the DB start with an
-   * `id` — we skip auto-saving them until the user touches a field. */
-  const touchedInsuranceIndices = useRef<Set<number>>(new Set())
 
   // Pre-fill form in edit mode (including existing insurances)
   useEffect(() => {
@@ -228,15 +250,45 @@ export default function PatientFormDialog({
       })
       // Populate insurance from existing patient records
       nested.insurances = mapExistingInsurances(patient.patientInsurances || [])
+      savedInsuranceEntriesRef.current = new Map<string, SavedInsuranceEntry>(
+        nested.insurances
+          .filter((insurance) => insurance.id)
+          .map((insurance, index) => [
+            String(insurance.id),
+            {
+              snapshot: getInsuranceSnapshot(insurance),
+              insurance,
+              index,
+            },
+          ] as const),
+      )
+      initialFormSnapshotRef.current = JSON.stringify(nested)
+      initialPatientDetailsSnapshotRef.current =
+        getPatientDetailsSnapshot(nested)
+      initializingFormRef.current = true
       setFormData(nested)
-      touchedInsuranceIndices.current = new Set()
     } else if (!isEdit) {
+      initialFormSnapshotRef.current = JSON.stringify(EMPTY_FORM)
+      initialPatientDetailsSnapshotRef.current =
+        getPatientDetailsSnapshot(EMPTY_FORM)
+      initializingFormRef.current = true
       setFormData(EMPTY_FORM)
+      savedInsuranceEntriesRef.current = new Map()
     }
     setError("")
     setFieldErrors({})
-    setSavingInsurances(new Set())
+    setInsuranceSaveErrors({})
   }, [isOpen, isEdit, patient])
+
+  useEffect(() => {
+    if (!isOpen) return
+    if (initializingFormRef.current) {
+      initializingFormRef.current = false
+      onDirtyChange?.(false)
+      return
+    }
+    onDirtyChange?.(JSON.stringify(formData) !== initialFormSnapshotRef.current)
+  }, [formData, isOpen, onDirtyChange])
 
   const handleInputChange = (field: string, value: string) => {
     hasInteractedRef.current = true
@@ -329,6 +381,7 @@ export default function PatientFormDialog({
       insurances: [
         ...(prev.insurances || []),
         {
+          clientId: `local-insurance-${nextInsuranceClientIdRef.current++}`,
           insuranceId: "0",
           insuranceCardNumber: "",
           providingCompanyOrEmployer: "",
@@ -351,7 +404,16 @@ export default function PatientFormDialog({
     value: string | number | boolean,
   ) => {
     hasInteractedRef.current = true
-    touchedInsuranceIndices.current.add(index)
+    const insurance = formData.insurances?.[index]
+    if (insurance) {
+      const errorKey = getInsuranceSaveKey(insurance, index)
+      setInsuranceSaveErrors((previous) => {
+        if (!(errorKey in previous)) return previous
+        const next = { ...previous }
+        delete next[errorKey]
+        return next
+      })
+    }
     setFormData((prev) => ({
       ...prev,
       insurances: (prev.insurances || []).map((insurance, i) => {
@@ -389,89 +451,26 @@ export default function PatientFormDialog({
 
   const removeInsurance = (index: number) => {
     hasInteractedRef.current = true
+    const remainingInsurances = (formData.insurances || []).filter(
+      (_, currentIndex) => currentIndex !== index,
+    )
+    setInsuranceSaveErrors((previous) => {
+      const next: Record<string, string> = {}
+      remainingInsurances.forEach((insurance, newIndex) => {
+        const oldIndex = newIndex < index ? newIndex : newIndex + 1
+        const previousError =
+          previous[getInsuranceSaveKey(insurance, oldIndex)]
+        if (previousError) {
+          next[getInsuranceSaveKey(insurance, newIndex)] = previousError
+        }
+      })
+      return next
+    })
     setFormData((prev) => ({
       ...prev,
       insurances: (prev.insurances || []).filter((_, i) => i !== index),
     }))
   }
-
-  // In edit mode, auto-save insurance when all required fields are filled.
-  // Existing insurances (those with an `id`) are only saved once the user
-  // has actually modified them (tracked via touchedInsuranceIndices).
-  const pendingSaveRef = useRef<Set<number>>(new Set())
-  useEffect(() => {
-    if (!isEdit || !patient?.id) return
-    const insurances = formData.insurances || []
-    for (let i = 0; i < insurances.length; i++) {
-      const ins = insurances[i]
-      // Skip existing insurances the user hasn't touched yet
-      const isExistingSaved = Boolean(ins.id)
-      if (isExistingSaved && !touchedInsuranceIndices.current.has(i)) continue
-
-      if (
-        ins.insuranceId &&
-        String(ins.insuranceId) !== "0" &&
-        ins.insuranceCardNumber?.trim() &&
-        ins.providingCompanyOrEmployer?.trim() &&
-        !savingInsurances.has(i) &&
-        !pendingSaveRef.current.has(i)
-      ) {
-        const isAdult = calculateAge(formData.dateOfBirth) >= 18
-        const isSelf = isAdult ? (ins.isSelf !== false) : false
-        const dominantRequired = isDominantMemberRequired(formData.dateOfBirth, true)
-        const dmResolved = ins.dominantMember?.name
-          ? splitFullName(ins.dominantMember.name)
-          : {
-              firstName: ins.dominantMember?.firstName?.trim() || "",
-              lastName: ins.dominantMember?.lastName?.trim() || "",
-            }
-        const hasDmName = Boolean(
-          ins.dominantMember?.name?.trim() ||
-          (dmResolved.firstName && dmResolved.lastName)
-        )
-        const dominantValid = isSelf
-          ? true
-          : Boolean(
-              hasDmName &&
-              ins.dominantMember?.phone?.trim() &&
-              /^\+?\d{7,15}$/.test(ins.dominantMember.phone.trim().replace(/\s+/g, ""))
-            )
-
-        if (dominantValid) {
-          pendingSaveRef.current.add(i)
-          setSavingInsurances((prev) => new Set(prev).add(i))
-
-          savePatientInsuranceRef.current({
-            patientId: patient.id,
-            patientDateOfBirth: patient.dateOfBirth,
-            insuranceProviderId: String(ins.insuranceId),
-            insuranceCardNumber: ins.insuranceCardNumber,
-            providingCompanyOrEmployer: ins.providingCompanyOrEmployer,
-            isSelf,
-            dominantName: ins.dominantMember?.name || undefined,
-            dominantFirstName: isSelf ? undefined : (dmResolved.firstName || undefined),
-            dominantLastName: isSelf ? undefined : (dmResolved.lastName || undefined),
-            dominantPhone: isSelf ? undefined : (ins.dominantMember?.phone || undefined),
-            existingPatientInsurances: patient.patientInsurances,
-          })
-            .then(() => {
-              toast.success(isExistingSaved ? "Insurance updated" : "Insurance saved to patient record")
-            })
-            .catch(() => {
-              toast.error("Failed to save insurance")
-            })
-            .finally(() => {
-              pendingSaveRef.current.delete(i)
-              setSavingInsurances((prev) => {
-                const next = new Set(prev)
-                next.delete(i)
-                return next
-              })
-            })
-        }
-      }
-    }
-  }, [isEdit, patient?.id, formData])
 
   const handleCountryChange = (country: string) => {
     hasInteractedRef.current = true
@@ -686,7 +685,17 @@ export default function PatientFormDialog({
     }
   }, [formData, onFormChange])
 
-  const loading = isEdit ? updateLoading : registerLoading
+  const loading = isEdit
+    ? updateLoading || savingChanges
+    : registerLoading
+
+  const scrollToFirstFieldError = () => {
+    requestAnimationFrame(() => {
+      formRef.current
+        ?.querySelector<HTMLElement>("[data-field-error]")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" })
+    })
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -713,8 +722,64 @@ export default function PatientFormDialog({
 
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors)
+      scrollToFirstFieldError()
       return
     }
+
+    const insuranceRows = formData.insurances || []
+    const insuranceRowsToSave = getChangedInsuranceRows(
+      insuranceRows,
+      isEdit,
+      savedInsuranceEntriesRef.current,
+    )
+
+    const insuranceErrors: Record<string, string> = {}
+    for (const { insurance, index } of insuranceRowsToSave) {
+      const missing = (value?: string | null) => !value?.trim()
+      const prefix = `insurance.${index}`
+      const isAdult = calculateAge(formData.dateOfBirth) >= 18
+      const isSelf = isAdult ? insurance.isSelf !== false : false
+
+      if (!insurance.insuranceId || String(insurance.insuranceId) === "0") {
+        insuranceErrors[`${prefix}.provider`] = "Select an insurance provider"
+      }
+      if (missing(insurance.insuranceCardNumber)) {
+        insuranceErrors[`${prefix}.card`] = "Insurance card number is required"
+      }
+      if (missing(insurance.providingCompanyOrEmployer)) {
+        insuranceErrors[`${prefix}.employer`] = "Providing company or employer is required"
+      }
+
+      if (!isSelf) {
+        const phone = insurance.dominantMember?.phone?.trim()
+        if (phone && !/^\+?\d{7,15}$/.test(phone.replace(/\s+/g, ""))) {
+          insuranceErrors[`${prefix}.dominant`] =
+            "Enter a valid phone number (7-15 digits, optional leading +)"
+        }
+        const dmResolved = insurance.dominantMember?.name
+          ? splitFullName(insurance.dominantMember.name)
+          : {
+              firstName: insurance.dominantMember?.firstName?.trim() || "",
+              lastName: insurance.dominantMember?.lastName?.trim() || "",
+            }
+        const hasDmName = Boolean(
+          insurance.dominantMember?.name?.trim() ||
+          (dmResolved.firstName && dmResolved.lastName)
+        )
+        if (!hasDmName || missing(insurance.dominantMember?.phone)) {
+          insuranceErrors[`${prefix}.dominant`] = isAdult
+            ? "Principal member full name and phone are required when patient is not the principal policyholder"
+            : "Principal member full name and phone are required for patients 18 years or younger"
+        }
+      }
+    }
+
+    if (Object.keys(insuranceErrors).length > 0) {
+      setFieldErrors(insuranceErrors)
+      scrollToFirstFieldError()
+      return
+    }
+    setFieldErrors({})
 
     if (isEdit) {
       if (!patient?.id) {
@@ -722,79 +787,182 @@ export default function PatientFormDialog({
         return
       }
 
+      const updateInput = nestedToFlat(formData)
+      const patientDetailsSnapshot = JSON.stringify(updateInput)
+      const patientDetailsChanged =
+        patientDetailsSnapshot !== initialPatientDetailsSnapshotRef.current
+      setSavingChanges(true)
+      onBusyChange?.(true)
       try {
-        const updateInput = nestedToFlat(formData)
-        const result = await updatePatient(patient.id, updateInput)
-        if (result.status === "SUCCESS") {
-          toast.success(result.message || "Patient updated successfully!")
-          if (onPatientSaved && result.data) {
-            onPatientSaved(patient.id, [], false, undefined, result.data)
+        let updatedPatient: Patient | undefined
+        let updateMessage: string | undefined
+        if (patientDetailsChanged) {
+          const result = await updatePatient(patient.id, updateInput)
+          if (result.status !== "SUCCESS") {
+            const message =
+              (result as any).message ||
+              (result as any).messages?.[0]?.text ||
+              "Patient update failed"
+            toast.error(message)
+            return
           }
-          onClose()
-        } else {
-          const message = (result as any).message || (result as any).messages?.[0]?.text || "Patient update failed"
-          toast.error(message)
+          initialPatientDetailsSnapshotRef.current = patientDetailsSnapshot
+          updatedPatient = result.data
+          updateMessage = result.message
         }
+
+        const persistence = await persistInsuranceChanges({
+          insuranceRows,
+          savedEntries: savedInsuranceEntriesRef.current,
+          saveInsurance: async (insurance: FormInsurance) => {
+            const isAdult = calculateAge(formData.dateOfBirth) >= 18
+            const isSelf = isAdult ? insurance.isSelf !== false : false
+            const dmResolved = insurance.dominantMember?.name
+              ? splitFullName(insurance.dominantMember.name)
+              : {
+                  firstName: insurance.dominantMember?.firstName?.trim() || "",
+                  lastName: insurance.dominantMember?.lastName?.trim() || "",
+                }
+            const saveResult = await savePatientInsurance({
+              patientId: patient.id,
+              patientDateOfBirth: formData.dateOfBirth,
+              insuranceProviderId: String(insurance.insuranceId),
+              insuranceCardNumber: insurance.insuranceCardNumber,
+              providingCompanyOrEmployer: insurance.providingCompanyOrEmployer,
+              isSelf,
+              dominantName: insurance.dominantMember?.name || undefined,
+              dominantFirstName: isSelf ? undefined : (dmResolved.firstName || undefined),
+              dominantLastName: isSelf ? undefined : (dmResolved.lastName || undefined),
+              dominantPhone: isSelf ? undefined : (insurance.dominantMember?.phone || undefined),
+              patientSharePercentage:
+                insurance.patientSharePercentage !== "" &&
+                insurance.patientSharePercentage != null
+                  ? Number(insurance.patientSharePercentage)
+                  : null,
+              patientShareCoverageId: insurance.patientShareCoverageId || null,
+              existingPatientInsuranceId: insurance.id,
+              existingPatientInsurances: patient.patientInsurances,
+            })
+            return {
+              status: saveResult.status,
+              id: saveResult.response?.data?.id,
+              message: saveResult.response?.message,
+            }
+          },
+          deleteInsurance: async (id) => {
+            const deleteResult = await deletePatientInsurance(id)
+            return {
+              status: deleteResult.status,
+              data: deleteResult.data,
+              message: deleteResult.message,
+            }
+          },
+        })
+        savedInsuranceEntriesRef.current = persistence.savedEntries
+
+        const failedDeletes = persistence.failures
+          .filter((failure) => failure.kind === "delete")
+          .sort((a, b) => a.index - b.index)
+        const nextInsuranceRows = insuranceRows.map((insurance, index) => {
+          const id = persistence.newIds.get(index)
+          return id ? { ...insurance, id } : insurance
+        })
+        for (const failure of failedDeletes) {
+          if (
+            nextInsuranceRows.some(
+              (insurance) =>
+                String(insurance.id || "") ===
+                String(failure.insurance.id || ""),
+            )
+          ) {
+            continue
+          }
+          nextInsuranceRows.splice(
+            Math.min(failure.index, nextInsuranceRows.length),
+            0,
+            failure.insurance,
+          )
+        }
+
+        const nextInsuranceErrors: Record<string, string> = {}
+        for (const failure of persistence.failures) {
+          const index = failure.insurance.id
+            ? nextInsuranceRows.findIndex(
+                (insurance) =>
+                  String(insurance.id || "") ===
+                  String(failure.insurance.id || ""),
+              )
+            : nextInsuranceRows.indexOf(failure.insurance)
+          const row = nextInsuranceRows[index]
+          nextInsuranceErrors[
+            row ? getInsuranceSaveKey(row, index) : failure.key
+          ] = failure.message
+        }
+        setInsuranceSaveErrors(nextInsuranceErrors)
+
+        const committedInsuranceRows = nextInsuranceRows.flatMap(
+          (insurance) => {
+            const id = insurance.id && String(insurance.id)
+            const savedEntry = id
+              ? persistence.savedEntries.get(id)
+              : undefined
+            return savedEntry ? [savedEntry.insurance] : []
+          },
+        )
+        const currentFormSnapshot = JSON.stringify({
+          ...formData,
+          insurances: nextInsuranceRows,
+        })
+        initialFormSnapshotRef.current = JSON.stringify({
+          ...formData,
+          insurances: committedInsuranceRows,
+        })
+        onDirtyChange?.(
+          currentFormSnapshot !== initialFormSnapshotRef.current,
+        )
+
+        if (persistence.newIds.size > 0 || failedDeletes.length > 0) {
+          setFormData((previous) => ({
+            ...previous,
+            insurances: nextInsuranceRows,
+          }))
+        }
+
+        if (persistence.failures.length > 0) {
+          toast.error(
+            patientDetailsChanged
+              ? "Patient details saved. Review the insurance entries marked below and try again."
+              : "Review the insurance entries marked below and try again.",
+          )
+          return
+        }
+
+        toast.success(
+          updateMessage || "Patient changes saved successfully!",
+        )
+        if (onPatientSaved) {
+          onPatientSaved(
+            patient.id,
+            [],
+            false,
+            undefined,
+            updatedPatient ?? patient,
+          )
+        }
+        onClose()
       } catch {
         toast.error("Network error occurred")
+      } finally {
+        setSavingChanges(false)
+        onBusyChange?.(false)
       }
     } else {
-      const hasInsurance = (formData.insurances?.length ?? 0) > 0
-      const dominantMemberRequired = isDominantMemberRequired(
-        formData.dateOfBirth,
-        hasInsurance,
-      )
-
-      const insuranceErrors: Record<string, string> = {}
-      for (let i = 0; i < (formData.insurances?.length || 0); i++) {
-        const insurance = formData.insurances![i]
-        const missing = (v?: string | null) => !v?.trim()
-        const prefix = `insurance.${i}`
-
-        if (missing(String(insurance.insuranceId)) || String(insurance.insuranceId) === "0") {
-          insuranceErrors[`${prefix}.provider`] = "Select an insurance provider"
-        }
-        if (missing(insurance.insuranceCardNumber)) {
-          insuranceErrors[`${prefix}.card`] = "Insurance card number is required"
-        }
-        if (missing(insurance.providingCompanyOrEmployer)) {
-          insuranceErrors[`${prefix}.employer`] = "Providing company or employer is required"
-        }
-        const isAdult = calculateAge(formData.dateOfBirth) >= 18
-        const isSelf = isAdult ? (insurance.isSelf !== false) : false
-
-        if (!isSelf) {
-          const phone = insurance.dominantMember?.phone?.trim()
-          if (phone && !/^\+?\d{7,15}$/.test(phone.replace(/\s+/g, ""))) {
-            insuranceErrors[`${prefix}.dominant`] =
-              "Enter a valid phone number (7-15 digits, optional leading +)"
-          }
-          const dmResolved = insurance.dominantMember?.name
-            ? splitFullName(insurance.dominantMember.name)
-            : {
-                firstName: insurance.dominantMember?.firstName?.trim() || "",
-                lastName: insurance.dominantMember?.lastName?.trim() || "",
-              }
-          const hasDmName = Boolean(
-            insurance.dominantMember?.name?.trim() ||
-            (dmResolved.firstName && dmResolved.lastName)
-          )
-          if (!hasDmName || missing(insurance.dominantMember?.phone)) {
-            insuranceErrors[`${prefix}.dominant`] = isAdult
-              ? "Principal member full name and phone are required when patient is not the principal policyholder"
-              : "Principal member full name and phone are required for patients 18 years or younger"
-          }
-        }
-      }
-
-      if (Object.keys(insuranceErrors).length > 0) {
-        setFieldErrors(insuranceErrors)
-        return
-      }
-
+      onBusyChange?.(true)
       try {
         const result = await registerPatient(formData)
         if (result.status === "SUCCESS") {
+          initialFormSnapshotRef.current = JSON.stringify(EMPTY_FORM)
+          onDirtyChange?.(false)
           toast.success(result.message || "Patient registered successfully!")
           if (onPatientSaved && result.data?.patient?.id) {
             onPatientSaved(
@@ -815,6 +983,8 @@ export default function PatientFormDialog({
         }
       } catch {
         toast.error("Network error occurred")
+      } finally {
+        onBusyChange?.(false)
       }
     }
   }
@@ -837,24 +1007,32 @@ export default function PatientFormDialog({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-2" noValidate>
-        <PatientFormFields
-          formData={formData}
-          onFieldChange={handleInputChange}
-          onFieldBlur={onFieldBlur}
-          onCountryChange={handleCountryChange}
-          onProvinceChange={handleProvinceChange}
-          onDistrictChange={handleDistrictChange}
-          onSectorChange={handleSectorChange}
-          onCellChange={handleCellChange}
-          onVillageChange={handleVillageChange}
-          onUpdateInsurance={updateInsurance}
-          onRemoveInsurance={removeInsurance}
-          availableInsurances={insurances}
-          loading={loading}
-          fieldErrors={fieldErrors}
-          dateError={fieldErrors["dateOfBirth"]}
-        />
+      <form
+        ref={formRef}
+        onSubmit={handleSubmit}
+        className="space-y-2"
+        noValidate
+      >
+        <fieldset disabled={loading} className="min-w-0 w-full border-0 p-0">
+          <PatientFormFields
+            formData={formData}
+            onFieldChange={handleInputChange}
+            onFieldBlur={onFieldBlur}
+            onCountryChange={handleCountryChange}
+            onProvinceChange={handleProvinceChange}
+            onDistrictChange={handleDistrictChange}
+            onSectorChange={handleSectorChange}
+            onCellChange={handleCellChange}
+            onVillageChange={handleVillageChange}
+            onUpdateInsurance={updateInsurance}
+            onRemoveInsurance={removeInsurance}
+            availableInsurances={insurances}
+            loading={loading}
+            fieldErrors={fieldErrors}
+            insuranceSaveErrors={insuranceSaveErrors}
+            dateError={fieldErrors["dateOfBirth"]}
+          />
+        </fieldset>
 
         {/* Pinned actions: sticky so Add Insurance / Cancel / Register stay
             visible whenever the form scrolls (small heights); settles at the
@@ -863,7 +1041,7 @@ export default function PatientFormDialog({
           <button
             type="button"
             onClick={addInsurance}
-            disabled={!canAddInsurance}
+            disabled={!canAddInsurance || loading}
             title={
               !canAddInsurance
                 ? "Please complete all required fields on the current insurance first"
@@ -881,7 +1059,8 @@ export default function PatientFormDialog({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <button
               type="button"
-              onClick={onClose}
+              onClick={onRequestClose || onClose}
+              disabled={loading}
               className="rounded-full px-5 py-2 bg-background dark:bg-gray-900 border border-border/70 text-foreground hover:bg-muted/40 dark:hover:bg-muted/50 shadow-lg text-sm flex-1 sm:flex-none"
             >
               Cancel

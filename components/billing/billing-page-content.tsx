@@ -36,8 +36,6 @@ import {
   useVisitDepartmentBilling,
   useGenerateInvoice,
   useCompleteVisit,
-  useDepartments,
-  useChangeVisitDepartmentProfile,
   useStartBillEditing,
   useCompleteBillEditing,
   useCancelBillEditing,
@@ -106,11 +104,6 @@ const AddDepartmentModal = dynamic(
   () => import("@/components/add-department-modal").then((m) => m.AddDepartmentModal),
   { ssr: false }
 );
-const PatientHistorySidePane = dynamic(
-  () => import("@/components/patient-history-side-pane"),
-  { ssr: false }
-);
-
 export function BillingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -243,17 +236,12 @@ export function BillingPageContent() {
   const { addVisitDepartmentNote } = useAddVisitDepartmentNote();
   const { markNotesViewed } = useMarkVisitDepartmentNotesViewed();
   const { completeVisit, loading: completingVisit } = useCompleteVisit();
-  const { departments: catalogDepartments } = useDepartments({
-    skip: !visitId,
-  });
-  const { changeVisitDepartmentProfile } = useChangeVisitDepartmentProfile();
   const { removeVisitDepartment } = useRemoveVisitDepartment();
   const [departmentPendingRemoval, setDepartmentPendingRemoval] = useState<string | null>(null);
   const [removingDepartment, setRemovingDepartment] = useState(false);
   const [departmentPendingCancellation, setDepartmentPendingCancellation] = useState<string | null>(null);
   const [cancellingDepartment, setCancellingDepartment] = useState(false);
   const [addDepartmentModalOpen, setAddDepartmentModalOpen] = useState(false);
-  const [patientHistoryOpen, setPatientHistoryOpen] = useState(false);
   // In-flight discharge — keeps the confirm dialog open with a spinner so the
   // completeVisit/department-status loop can't be triggered twice.
   const [discharging, setDischarging] = useState(false);
@@ -704,12 +692,6 @@ export function BillingPageContent() {
       roles.includes("CLINIC_ADMIN")
     );
   }, [doctor?.roles]);
-  const hasClinicianRole = useMemo(() => {
-    if (!doctor?.roles) return false;
-    const roles = (doctor.roles as string[]) || [];
-    return roles.includes("CLINICIAN") || roles.includes("DOCTOR");
-  }, [doctor?.roles]);
-
   const canEditBilling = hasManagerRole;
   const canBill = hasFinanceRole || hasCashierRole || hasManagerRole;
 
@@ -978,18 +960,6 @@ export function BillingPageContent() {
     const dept = visit.departments?.find((d) => d.id === departmentPendingRemoval);
     return dept?.department?.name || 'this department';
   }, [departmentPendingRemoval, visit]);
-
-
-  const activeCatalogDepartment = useMemo(
-    () =>
-      catalogDepartments.find(
-        (dept) =>
-          String(dept.id) === String(activeVisitDepartment?.department?.id),
-      ) || null,
-    [catalogDepartments, activeVisitDepartment],
-  );
-
-
 
 
   const unbilledServiceNames = useMemo(
@@ -1432,7 +1402,6 @@ export function BillingPageContent() {
 
   const {
     handleDownloadInvoice,
-    handleChangeProfile,
     handlePreviewBilling,
     handleGenerateBill,
     handlePrintBillingInvoice,
@@ -1473,7 +1442,6 @@ export function BillingPageContent() {
     startBillEditing,
     completeBillEditing,
     cancelBillEditing,
-    changeVisitDepartmentProfile,
     updateDepartmentStatus,
     completeVisit,
     linkVisitInsurances,
@@ -1624,8 +1592,6 @@ export function BillingPageContent() {
             insuranceReadOnly={effectiveIsAlreadyBilled && !isEditMode}
             addingVisitInsurance={addingVisitInsurance}
             visitId={visit.id || visitId || undefined}
-            onToggleHistory={() => setPatientHistoryOpen((prev) => !prev)}
-            historyOpen={patientHistoryOpen}
             actions={
               <TooltipProvider delayDuration={2000}>
                 <Tooltip>
@@ -1731,10 +1697,6 @@ export function BillingPageContent() {
           (isEditMode ? canEditBillingItems && canEditBilling : canBill && activeDeptHasUnbilled)
           }
           visitInsuranceOptions={visitInsuranceOptions}
-          activeProfile={activeVisitDepartment?.profile ?? null}
-          availableProfiles={activeCatalogDepartment?.profiles || []}
-          canChangeProfile={!isAlreadyBilled && (hasManagerRole || hasClinicianRole)}
-          onChangeProfile={(profileId) => void handleChangeProfile(profileId)}
           onServiceChange={setActiveService}
           onAddItem={() => setShowAddProductModal(true)}
           onItemChange={trackLocalEdit}
@@ -2160,16 +2122,6 @@ export function BillingPageContent() {
             setBillingRemapNonce((n) => n + 1);
             toast.success("Department added to visit successfully");
           }}
-        />
-      )}
-
-      {/* Patient History Side Pane */}
-      {patientHistoryOpen && visit?.patient?.id && (
-        <PatientHistorySidePane
-          patientId={visit.patient.id}
-          currentVisitId={visit.id}
-          currentVisitDepartmentId={activeVisitDepartment?.id || null}
-          onClose={() => setPatientHistoryOpen(false)}
         />
       )}
 

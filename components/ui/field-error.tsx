@@ -14,6 +14,7 @@ export function FieldError({
   return (
     <p
       role="alert"
+      data-field-error
       className={`mt-1.5 text-xs font-medium text-red-600 dark:text-red-400 ${
         className ?? ""
       }`}

@@ -38,8 +38,7 @@ export function useBillingPageState() {
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [addingBillingItem, setAddingBillingItem] = useState(false);
   const [showExemptionsWindow, setShowExemptionsWindow] = useState(false);
-  // Bumped to force billingData to be remapped from a freshly refetched visit
-  // (e.g. after changeVisitDepartmentProfile swaps PROFILE products).
+  // Bumped to remap billing data after visit changes that need fresh visit data.
   const [billingRemapNonce, setBillingRemapNonce] = useState(0);
 
   const { updateQuantity: updateProductQuantity, loading: updatingQuantity } =

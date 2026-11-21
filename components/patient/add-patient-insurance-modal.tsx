@@ -10,6 +10,10 @@ import { useInsuranceCoverages } from '@/hooks/insurances/coverage-rules'
 import { useSavePatientInsurance } from '@/hooks/patients/use-save-patient-insurance'
 import { isDominantMemberRequired, calculateAge, sanitizePhoneInput } from '@/lib/validation-utils'
 import { splitWorkerName } from '@/lib/patient-display-utils'
+import {
+  formatPatientShareDefaultInfo,
+  getPatientShareDefaultInfo,
+} from '@/lib/insurance-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -153,10 +157,16 @@ export function AddPatientInsuranceModal({
       dominantLastName: '',
       dominantPhone: '',
       patientSharePercentage: '',
+      patientShareCoverageId: null,
     },
   })
 
   const watchIsSelf = watch('isSelf') ?? isAdult
+  const patientShareDefault = getPatientShareDefaultInfo({
+    patientSharePercentage: watch('patientSharePercentage'),
+    patientShareCoverageId: watch('patientShareCoverageId'),
+    insuranceProvider: { coverages },
+  })
 
   useDebouncedValidation({ control, trigger })
 
@@ -205,6 +215,10 @@ export function AddPatientInsuranceModal({
           ? String(editingInsurance.patientSharePercentage)
           : '',
       )
+      setValue(
+        'patientShareCoverageId',
+        editingInsurance.patientShareCoverageId || null,
+      )
     }
   }, [open, editingInsurance, isAdult, setValue])
 
@@ -231,7 +245,14 @@ export function AddPatientInsuranceModal({
   }
 
   useEffect(() => {
-    if (!selectedInsuranceId || getValues('patientShareCoverageId')) return
+    const patientSharePercentage = getValues('patientSharePercentage')
+    if (
+      !selectedInsuranceId ||
+      getValues('patientShareCoverageId') ||
+      (patientSharePercentage !== '' && patientSharePercentage != null)
+    ) {
+      return
+    }
     if (coverages.length === 1 && coverages[0]) {
       setValue('patientShareCoverageId', coverages[0].id, { shouldValidate: true })
       setValue('patientSharePercentage', String(coverages[0].patientSharePercentage), { shouldValidate: true })
@@ -482,7 +503,9 @@ export function AddPatientInsuranceModal({
                     </span>
                   </div>
                   <p className="text-[12px] text-muted-foreground">
-                    This insurance has multiple coverage conditions. Select the default tier for this patient:
+                    Patient share is the portion paid by the patient. Select
+                    the default tier for this patient, or leave it unset to use
+                    service billing rules:
                   </p>
                   <div className="flex flex-wrap gap-2 pt-1">
                     {coverages.map((cov) => {
@@ -518,16 +541,36 @@ export function AddPatientInsuranceModal({
               ) : coverages.length === 1 && coverages[0] ? (
                 <div className="p-2.5 rounded-xl border border-border/40 bg-muted/20 flex items-center justify-between text-xs">
                   <div>
-                    <span className="font-medium text-foreground">Default Coverage: </span>
+                    <span className="font-medium text-foreground">Available coverage: </span>
                     <span className="text-muted-foreground">{getCoverageLabel(coverages[0])}</span>
                   </div>
                   <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold text-[12px]">
-                    {coverages[0].patientSharePercentage}% Patient Share
+                    {formatPatientShareDefaultInfo(patientShareDefault)}
                   </span>
                   <input type="hidden" {...register('patientShareCoverageId')} />
                   <input type="hidden" {...register('patientSharePercentage')} />
                 </div>
-              ) : null}
+              ) : (
+                <div className="space-y-1.5 p-3 rounded-xl border border-border/60 bg-muted/20">
+                  <label className="block text-xs font-medium text-foreground">
+                    Patient share default (%)
+                  </label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="any"
+                    {...register('patientSharePercentage')}
+                    placeholder="Leave blank to use billing rules"
+                  />
+                  <FieldError message={formErrors.patientSharePercentage?.message} />
+                  <p className="text-[11px] text-muted-foreground">
+                    This is the patient&apos;s share of covered costs; the
+                    insurer pays the remainder. Leave blank to use service
+                    billing rules.
+                  </p>
+                </div>
+              )}
 
               {isAdult ? (
                 <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-3">

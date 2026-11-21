@@ -230,11 +230,10 @@ export function mapVisitToBillingData(
 
   let patientContributionCents = 0;
   items.forEach((item) => {
-    const selectedInsurance = linkedInsurances.find(
-      (ins) => String(ins.id) === item.selectedInsuranceId,
+    const coveragePct = getCoveragePercentageForBillingItem(
+      item,
+      activeLinkedInsurances,
     );
-    const coveragePct =
-      (selectedInsurance?.insuranceProvider ? getBasePatientSharePercentage(selectedInsurance.insuranceProvider) : 0);
     const { patientAmount, skip } = getItemInsuranceSplit(item, coveragePct);
     if (skip) return;
     patientContributionCents += toCents(patientAmount);
@@ -290,6 +289,7 @@ export function mapPatientInsurancesForBilling(insurances: PatientInsurance[]) {
     acronym: ins.insuranceProvider.acronym || "",
     coveragePercentage: getBasePatientSharePercentage(ins.insuranceProvider),
     patientSharePercentage: ins.patientSharePercentage ?? null,
+    patientShareCoverageId: ins.patientShareCoverageId ?? null,
     coverages: ins.insuranceProvider.coverages.map((c) => ({
       coverageId: String(c.id),
       departmentId: c.departmentId || null,

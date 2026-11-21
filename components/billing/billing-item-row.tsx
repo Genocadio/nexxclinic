@@ -8,7 +8,6 @@ import {
   applyInsuranceSelectionToItem,
   calculateItemTotal,
   filterMatchingCoverages,
-  findBestMatchingCoverage,
   getItemInsuranceSplit,
   resolvePatientSharePercentage,
 } from "@/lib/billing-utils";
@@ -40,6 +39,7 @@ export type InsuranceOption = {
   acronym: string;
   coveragePercentage: number;
   patientSharePercentage?: number | null;
+  patientShareCoverageId?: string | null;
   coverages: InsuranceCoverageTier[];
 };
 
@@ -339,7 +339,18 @@ export function BillingItemRow({
               providerId,
             );
             // Default to patient insurance % without setting an artificial override
-            updated = { ...updated, selectedCoverageId: undefined };
+            const patientDefaultCoverageId =
+              selectedOpt?.patientShareCoverageId &&
+              selectedOpt.coverages.some(
+                (coverage) =>
+                  coverage.coverageId === selectedOpt.patientShareCoverageId,
+              )
+                ? selectedOpt.patientShareCoverageId
+                : undefined;
+            updated = {
+              ...updated,
+              selectedCoverageId: patientDefaultCoverageId,
+            };
             setIsEditingTier(false);
             onItemChange(normalizeWaiver(updated));
           }}
@@ -411,21 +422,18 @@ export function BillingItemRow({
               item.departmentId,
               item.encounterType,
             );
-            const bestMatch = findBestMatchingCoverage(
-              allTiers,
-              item.departmentId,
-              item.encounterType,
-            );
             const patientCustomPct =
               selectedIns?.patientSharePercentage ?? null;
-            const hasPatientCustom =
-              patientCustomPct != null && patientCustomPct > 0;
-            const patientDiffersFromMatch =
-              hasPatientCustom &&
-              patientCustomPct !== bestMatch?.patientSharePercentage;
+            const hasPatientCustom = patientCustomPct != null;
+            const patientDefaultCoverageIsApplicable =
+              selectedIns?.patientShareCoverageId != null &&
+              tiers.some(
+                (tier) =>
+                  tier.coverageId === selectedIns.patientShareCoverageId,
+              );
             const allDisplayTiers = [
               ...tiers,
-              ...(patientDiffersFromMatch && bestMatch
+              ...(hasPatientCustom && !patientDefaultCoverageIsApplicable
                 ? [
                     {
                       coverageId: `__patient_${patientCustomPct}`,
@@ -440,7 +448,11 @@ export function BillingItemRow({
 
             const hasMultipleTiers = allDisplayTiers.length > 1;
             const activeId = item.selectedCoverageId || "";
-            const noExplicitOverride = !item.selectedCoverageId;
+            const noExplicitOverride =
+              !item.selectedCoverageId ||
+              !tiers.some(
+                (tier) => tier.coverageId === item.selectedCoverageId,
+              );
 
             return (
               <div className="mt-1">

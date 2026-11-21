@@ -98,8 +98,9 @@ export const GET_PATIENT_QUERY = gql`
         id
         insuranceCardNumber
         providingCompanyOrEmployer
-          patientSharePercentage
-          deactivated
+        patientSharePercentage
+        patientShareCoverageId
+        deactivated
         principalMember
         principalMemberName
         principalMemberPhoneNumber

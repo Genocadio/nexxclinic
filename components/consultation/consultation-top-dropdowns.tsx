@@ -22,7 +22,12 @@ import {
 } from "lucide-react";
 import { formatDateOnly, cn } from "@/lib/utils";
 import type { Patient, PatientInsurance } from "@/lib/api-types";
-import { isInsuranceActive, insuranceStatusLabel } from "@/lib/insurance-utils";
+import {
+  formatPatientShareDefaultInfo,
+  getPatientShareDefaultInfo,
+  isInsuranceActive,
+  insuranceStatusLabel,
+} from "@/lib/insurance-utils";
 import { PatientInsuranceBadge } from "@/components/patient-insurance-badge";
 import { normalizeVisitVitalSigns } from "@/hooks/visits/vital-signs";
 import { calculateAnthropometrics } from "@/lib/mews-utils";
@@ -217,11 +222,13 @@ export function PatientIdentificationDropdownContent({
           </div>
 
           {appliedInsurances.length > 0 ? (
-            appliedInsurances.map((activeInsurance: any) => (
-              <div
-                key={activeInsurance.id || activeInsurance.insuranceCardNumber || "active-ins"}
-                className="rounded-xl border border-primary/30 bg-primary/5 p-2.5 space-y-1.5"
-              >
+            appliedInsurances.map((activeInsurance: any) => {
+              const shareDefault = getPatientShareDefaultInfo(activeInsurance)
+              return (
+                <div
+                  key={activeInsurance.id || activeInsurance.insuranceCardNumber || "active-ins"}
+                  className="rounded-xl border border-primary/30 bg-primary/5 p-2.5 space-y-1.5"
+                >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-bold text-xs sm:text-sm text-foreground">
                     {activeInsurance.insuranceProvider?.acronym ||
@@ -307,6 +314,14 @@ export function PatientIdentificationDropdownContent({
                       {activeInsurance.principalMember ? "Principal Member" : "Dependent"}
                     </span>
                   </div>
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground block text-xs">
+                      Patient share default
+                    </span>
+                    <span className="font-medium text-foreground">
+                      {formatPatientShareDefaultInfo(shareDefault)}
+                    </span>
+                  </div>
                   {activeInsurance.providingCompanyOrEmployer && (
                     <div className="col-span-2">
                       <span className="text-muted-foreground block text-xs">Employer / Scheme</span>
@@ -320,8 +335,9 @@ export function PatientIdentificationDropdownContent({
                     </div>
                   )}
                 </div>
-              </div>
-            ))
+                </div>
+              )
+            })
           ) : (
             <div className="rounded-xl border border-border/60 bg-muted/40 p-2.5">
               <span className="inline-block rounded-full bg-muted/80 px-2 py-0.5 text-xs font-semibold text-foreground mb-1">
@@ -340,20 +356,25 @@ export function PatientIdentificationDropdownContent({
                 Other Registered Policies (Not applied)
               </p>
               <div className="space-y-1.5">
-                {nonAppliedInsurances.map((ins: any) => (
-                  <div
-                    key={ins.id}
-                    className="flex items-center justify-between gap-2 p-2 rounded-lg border border-dashed border-border/70 bg-muted/30 opacity-60 hover:opacity-100 transition-all text-xs"
-                    title="Registered on patient record, but not selected for this visit."
-                  >
-                    <div className="min-w-0">
-                      <span className="font-semibold text-foreground/80 block">
-                        {ins.insuranceProvider?.acronym || ins.insuranceProvider?.name || "Insurance"}
-                      </span>
-                      <span className="text-muted-foreground text-[10px] font-mono truncate block">
-                        {ins.insuranceCardNumber || "No card number"}
-                      </span>
-                    </div>
+                {nonAppliedInsurances.map((ins: any) => {
+                  const shareDefault = getPatientShareDefaultInfo(ins)
+                  return (
+                    <div
+                      key={ins.id}
+                      className="flex items-center justify-between gap-2 p-2 rounded-lg border border-dashed border-border/70 bg-muted/30 opacity-60 hover:opacity-100 transition-all text-xs"
+                      title="Registered on patient record, but not selected for this visit."
+                    >
+                      <div className="min-w-0">
+                        <span className="font-semibold text-foreground/80 block">
+                          {ins.insuranceProvider?.acronym || ins.insuranceProvider?.name || "Insurance"}
+                        </span>
+                        <span className="text-muted-foreground text-[10px] font-mono truncate block">
+                          {ins.insuranceCardNumber || "No card number"}
+                        </span>
+                        <span className="text-muted-foreground text-[10px] block">
+                          Patient share default: {formatPatientShareDefaultInfo(shareDefault)}
+                        </span>
+                      </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <Badge variant="outline" className="text-xs py-0.5 px-2 text-muted-foreground border-border/60 bg-muted/50">
                         Not applied
@@ -413,8 +434,9 @@ export function PatientIdentificationDropdownContent({
                         );
                       })()}
                     </div>
-                  </div>
-                ))}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -439,6 +461,9 @@ export function InsuranceDropdownContent({
   onClose,
 }: InsuranceDropdownContentProps) {
   const activeInsurance = visitInsurances[0];
+  const activeShareDefault = activeInsurance
+    ? getPatientShareDefaultInfo(activeInsurance)
+    : null;
   const otherPatientInsurances = useMemo(() => {
     if (!activeInsurance) return patientInsurances;
     return patientInsurances.filter((pi) => pi.id !== activeInsurance.id);
@@ -511,6 +536,16 @@ export function InsuranceDropdownContent({
                   {activeInsurance.principalMember ? "Principal Member" : "Dependent"}
                 </span>
               </div>
+              {activeShareDefault && (
+                <div className="col-span-2">
+                  <span className="text-muted-foreground block text-xs">
+                    Patient share default
+                  </span>
+                  <span className="font-medium text-foreground">
+                    {formatPatientShareDefaultInfo(activeShareDefault)}
+                  </span>
+                </div>
+              )}
               {activeInsurance.principalMemberName && !activeInsurance.principalMember && (
                 <div className="col-span-2">
                   <span className="text-muted-foreground block text-xs">Principal Name</span>
@@ -565,6 +600,12 @@ export function InsuranceDropdownContent({
                     </span>
                     <span className="text-muted-foreground text-[10px] block font-mono truncate">
                       {ins.insuranceCardNumber || "No card number"}
+                    </span>
+                    <span className="text-muted-foreground text-[10px] block">
+                      Patient share default:{" "}
+                      {formatPatientShareDefaultInfo(
+                        getPatientShareDefaultInfo(ins),
+                      )}
                     </span>
                   </div>
                   <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 shrink-0 text-muted-foreground">

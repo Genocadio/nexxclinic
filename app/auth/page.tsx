@@ -20,7 +20,6 @@ import { useDebouncedValidation } from "@/hooks/use-debounced-validation";
 
 /* ---- helpers ---------------------------------------------------------- */
 import { getClinicDisplayName, getClinicLogoUrl } from "@/lib/clinic-profile";
-import { getPostLoginPath } from "@/lib/role-utils";
 import {
   sanitizeEmailInput,
   sanitizeEmailOrPhoneInput,
@@ -50,8 +49,6 @@ export function AuthPageContent() {
   /* 1️⃣  Use the AuthProvider ------------------------------------------------- */
   /* --------------------------------------------------------------------- */
   const {
-    isAuthenticated,
-    doctor,
     clinicProfile,            // <- real profile (may be null until set)
     login,
     register,
@@ -130,14 +127,6 @@ useEffect(() => {
     registerForm.clearErrors();
   }, [initialMode]);
 
-  // Redirect after login
-  useEffect(() => {
-    if (isAuthenticated) {
-      const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[];
-      router.replace(getPostLoginPath(roles));
-    }
-  }, [doctor, isAuthenticated, router]);
-
   const switchMode = (next: "login" | "register") => {
     setMode(next);
     loginForm.clearErrors();
@@ -205,19 +194,6 @@ useEffect(() => {
     return "Doctor";
   };
 
-  const getStoredRoles = () => {
-    if (typeof window === "undefined") return [] as string[];
-
-    try {
-      const storedDoctor = localStorage.getItem("doctor");
-      if (!storedDoctor) return [];
-      const parsedDoctor = JSON.parse(storedDoctor) as { roles?: string[] } | null;
-      return parsedDoctor?.roles || [];
-    } catch {
-      return [];
-    }
-  };
-
   /* ---- Submit handlers ------------------------------------------------- */
   const handleLogin = async (values: LoginFormValues) => {
     setIsLoadingForm(true);
@@ -236,7 +212,6 @@ useEffect(() => {
           closeButton: false,
           className: "nexx-toast-welcome",
         });
-        router.replace(getPostLoginPath(getStoredRoles()));
         return;
       }
 

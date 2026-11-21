@@ -8,7 +8,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { isInsuranceActive, insuranceStatusLabel } from "@/lib/insurance-utils";
+import {
+  formatPatientShareDefaultInfo,
+  getPatientShareDefaultInfo,
+  isInsuranceActive,
+  insuranceStatusLabel,
+} from "@/lib/insurance-utils";
 
 type PatientInsuranceBadgeProps = {
   insurance: {
@@ -17,7 +22,16 @@ type PatientInsuranceBadgeProps = {
       acronym?: string | null;
       insuranceName?: string | null;
       name?: string | null;
+      coverages?: Array<{
+        id: string;
+        departmentId?: string | null;
+        departmentName?: string | null;
+        encounterType?: string | null;
+        patientSharePercentage: number;
+      }>;
     } | null;
+    patientSharePercentage?: number | null;
+    patientShareCoverageId?: string | null;
     insuranceCardNumber?: string | null;
     providingCompanyOrEmployer?: string | null;
     principalMember?: boolean;
@@ -54,6 +68,7 @@ export function PatientInsuranceBadge({
     deactivated: Boolean(insurance.deactivated),
   };
   const active = isInsuranceActive(normalizedInsurance);
+  const shareDefault = getPatientShareDefaultInfo(insurance);
   const memberName =
     insurance.principalMemberName ||
     (insurance.principalMember ? "Principal member" : "Dependent");
@@ -86,6 +101,14 @@ export function PatientInsuranceBadge({
             <p className="text-muted-foreground">
               Status: {active ? "Active" : insuranceStatusLabel(normalizedInsurance)}
             </p>
+            <p>
+              Patient share default: {formatPatientShareDefaultInfo(shareDefault)}
+            </p>
+            {shareDefault.source === "Patient default" && shareDefault.tierLabel && (
+              <p className="text-muted-foreground">
+                Default coverage tier: {shareDefault.tierLabel}
+              </p>
+            )}
             <div className="border-t border-border/50 pt-1.5">
               <p>Card number: {insurance.insuranceCardNumber || "—"}</p>
               <p>Member: {memberName}</p>

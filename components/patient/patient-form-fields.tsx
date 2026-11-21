@@ -29,6 +29,11 @@ import { Button } from "@/components/ui/button"
 import { FieldError } from "@/components/ui/field-error"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { getInsuranceSaveKey } from "@/components/patient/patient-insurance-save"
+import {
+  formatPatientShareDefaultInfo,
+  getPatientShareDefaultInfo,
+} from "@/lib/insurance-utils"
 import {
   sanitizePhoneInput,
   calculateAge,
@@ -67,6 +72,7 @@ export interface PatientFormFieldsProps {
   dateError?: string
   /** Inline field errors keyed by dotted path, e.g. `firstName`, `insurance.0.card`. */
   fieldErrors?: Record<string, string>
+  insuranceSaveErrors?: Record<string, string>
   /** Fired when a field loses focus, with the field path and its current value. */
   onFieldBlur?: (field: string, value: string) => void
 }
@@ -85,10 +91,11 @@ export default function PatientFormFields({
   availableInsurances,
   dateError,
   fieldErrors = {},
+  insuranceSaveErrors = {},
   onFieldBlur,
 }: PatientFormFieldsProps) {
   const [insurancePopoverOpen, setInsurancePopoverOpen] = useState<{
-    [key: number]: boolean
+    [key: string]: boolean
   }>({})
   const [countryPopoverOpen, setCountryPopoverOpen] = useState(false)
   const [provincePopoverOpen, setProvincePopoverOpen] = useState(false)
@@ -238,7 +245,9 @@ export default function PatientFormFields({
             </p>
           )}
           {dateError && (
-            <p className="text-xs text-destructive mt-1">{dateError}</p>
+            <p data-field-error className="text-xs text-destructive mt-1">
+              {dateError}
+            </p>
           )}
         </div>
         <div>
@@ -861,7 +870,10 @@ export default function PatientFormFields({
         className={`${solidPanelClass} border-t p-2 sm:p-3`}
       >
         <div className="mb-1 sm:mb-2">
-          <h3 className="text-sm sm:text-lg font-semibold">Insurance: Private</h3>
+          <h3 className="text-sm sm:text-lg font-semibold">Insurance</h3>
+          <p className="text-[12px] text-muted-foreground mt-0.5">
+            No insurance means private billing. Changes are saved when you submit this form.
+          </p>
           {!canAddInsurance && (formData.insurances?.length ?? 0) > 0 && (
             <p className="text-[12px] text-amber-600 dark:text-amber-400 mt-0.5">
               Complete existing insurance details before adding another
@@ -870,13 +882,18 @@ export default function PatientFormFields({
         </div>
 
         {formData.insurances?.map((insurance, index) => {
+          const insuranceKey =
+            insurance.clientId || insurance.id || `new-${index}`
           const hasProvider =
             insurance.insuranceId &&
             String(insurance.insuranceId) !== "0"
+          const saveError = insuranceSaveErrors[
+            getInsuranceSaveKey(insurance, index)
+          ]
 
           return (
             <div
-              key={index}
+              key={insuranceKey}
               className="border border-border/60 rounded-xl sm:rounded-2xl p-2 sm:p-4 mb-2 sm:mb-4 bg-background dark:bg-gray-900 shadow-sm"
             >
               <div className="flex justify-between items-start mb-2 sm:mb-4">
@@ -891,6 +908,14 @@ export default function PatientFormFields({
                   Remove
                 </button>
               </div>
+              {saveError && (
+                <p
+                  role="alert"
+                  className="mb-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                >
+                  {saveError}
+                </p>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
                 <div>
@@ -899,11 +924,11 @@ export default function PatientFormFields({
                   </label>
                   <FieldError message={fieldErrors[`insurance.${index}.provider`]} />
                   <Popover
-                    open={insurancePopoverOpen[index] || false}
+                    open={insurancePopoverOpen[insuranceKey] || false}
                     onOpenChange={(open) =>
                       setInsurancePopoverOpen((prev) => ({
                         ...prev,
-                        [index]: open,
+                        [insuranceKey]: open,
                       }))
                     }
                   >
@@ -911,7 +936,7 @@ export default function PatientFormFields({
                       <Button
                         variant="outline"
                         role="combobox"
-                        aria-expanded={insurancePopoverOpen[index]}
+                        aria-expanded={insurancePopoverOpen[insuranceKey]}
                         className="w-full justify-between bg-background dark:bg-gray-900 border-border/70"
                       >
                         {getInsuranceName(insurance.insuranceId ?? "") || insurance.insuranceId}
@@ -932,6 +957,8 @@ export default function PatientFormFields({
                                 key={ins.id}                                value={ins.acronym || ins.name || ins.id} 
                                 onSelect={() => {
                                   onUpdateInsurance(index, "insuranceId", ins.id)
+                                  onUpdateInsurance(index, "patientShareCoverageId", "")
+                                  onUpdateInsurance(index, "patientSharePercentage", "")
                                   const covs = ins.coverages || []
                                   if (covs.length === 1 && covs[0]) {
                                     onUpdateInsurance(index, "patientShareCoverageId", covs[0].id)
@@ -945,7 +972,7 @@ export default function PatientFormFields({
                                   }
                                   setInsurancePopoverOpen((prev) => ({
                                     ...prev,
-                                    [index]: false,
+                                    [insuranceKey]: false,
                                   }))
                                 }}
                               >
@@ -1032,49 +1059,112 @@ export default function PatientFormFields({
                   }
                   return `Base / General (${cov.patientSharePercentage}%)`
                 }
+                const shareDefault = getPatientShareDefaultInfo({
+                  patientSharePercentage: insurance.patientSharePercentage,
+                  patientShareCoverageId: insurance.patientShareCoverageId,
+                  insuranceProvider: selectedProvider,
+                })
 
                 if (coverages.length > 1) {
+                  const patientCoverageIdExists = coverages.some(
+                    (coverage) =>
+                      String(coverage.id) ===
+                      String(insurance.patientShareCoverageId),
+                  )
+                  const percentageMatches =
+                    !patientCoverageIdExists &&
+                    insurance.patientSharePercentage != null &&
+                    insurance.patientSharePercentage !== ""
+                      ? coverages.filter(
+                          (coverage) =>
+                            Number(coverage.patientSharePercentage) ===
+                            Number(insurance.patientSharePercentage),
+                        )
+                      : []
+                  const selectedCoverageId =
+                    (patientCoverageIdExists
+                      ? insurance.patientShareCoverageId
+                      : "") ||
+                    (percentageMatches.length === 1
+                      ? percentageMatches[0].id
+                      : "")
+                  const hasExplicitCoverage =
+                    Boolean(selectedCoverageId) ||
+                    (insurance.patientSharePercentage != null &&
+                      insurance.patientSharePercentage !== "")
+                  const hasUnmatchedSavedPercentage =
+                    !patientCoverageIdExists &&
+                    insurance.patientSharePercentage != null &&
+                    insurance.patientSharePercentage !== "" &&
+                    percentageMatches.length !== 1
                   return (
-                    <div className="mt-2 sm:mt-4 p-3 rounded-xl border border-border/60 bg-muted/20">
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <label className="block text-xs sm:text-sm font-medium text-foreground">
-                          Default Patient Share / Coverage Tier
-                        </label>
+                    <fieldset className="mt-2 sm:mt-4 p-3 rounded-xl border border-border/60 bg-muted/20">
+                      <legend className="text-xs sm:text-sm font-medium text-foreground">
+                        Patient share default
+                      </legend>
+                      <div className="flex items-center justify-end gap-2 mb-1.5">
                         <span className="text-[12px] text-muted-foreground">
-                          {coverages.length} tiers available
+                          {coverages.length} tiers
                         </span>
                       </div>
                       <p className="text-[12px] text-muted-foreground mb-2">
-                        This insurance has multiple coverage conditions. Select the default tier for this patient:
+                        Patient share is the portion paid by the patient. Choose
+                        a default tier, or let billing select the matching tier
+                        for each service.
                       </p>
                       <div className="flex flex-wrap gap-2">
+                        {hasUnmatchedSavedPercentage && (
+                          <span className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs sm:text-sm font-medium text-primary">
+                            Saved patient share: {insurance.patientSharePercentage}%
+                          </span>
+                        )}
                         {coverages.map((cov) => {
-                          const isSelected = insurance.patientShareCoverageId === cov.id
+                          const isSelected =
+                            String(selectedCoverageId) === String(cov.id)
                           return (
-                            <button
+                            <label
                               key={cov.id}
-                              type="button"
-                              onClick={() => {
-                                if (isSelected) {
-                                  onUpdateInsurance(index, "patientShareCoverageId", "")
-                                  onUpdateInsurance(index, "patientSharePercentage", "")
-                                } else {
-                                  onUpdateInsurance(index, "patientShareCoverageId", cov.id)
-                                  onUpdateInsurance(index, "patientSharePercentage", cov.patientSharePercentage)
-                                }
-                              }}
-                              className={`px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-medium transition-all ${
+                              className={`cursor-pointer rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium transition-all focus-within:ring-2 focus-within:ring-primary ${
                                 isSelected
                                   ? "bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white border-transparent shadow-sm"
                                   : "bg-white dark:bg-slate-900 border-border/60 hover:border-primary/50 text-foreground"
                               }`}
                             >
+                              <input
+                                type="radio"
+                                name={`insurance-${index}-coverage`}
+                                className="sr-only"
+                                checked={isSelected}
+                                onChange={() => {
+                                  onUpdateInsurance(index, "patientShareCoverageId", cov.id)
+                                  onUpdateInsurance(index, "patientSharePercentage", cov.patientSharePercentage)
+                                }}
+                              />
                               {getCoverageLabel(cov)}
-                            </button>
+                            </label>
                           )
                         })}
+                        <label
+                          className={`cursor-pointer rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium transition-all focus-within:ring-2 focus-within:ring-primary ${
+                            !hasExplicitCoverage
+                              ? "bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white border-transparent shadow-sm"
+                              : "bg-white dark:bg-slate-900 border-border/60 hover:border-primary/50 text-foreground"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`insurance-${index}-coverage`}
+                            className="sr-only"
+                            checked={!hasExplicitCoverage}
+                            onChange={() => {
+                              onUpdateInsurance(index, "patientShareCoverageId", "")
+                              onUpdateInsurance(index, "patientSharePercentage", "")
+                            }}
+                          />
+                          Use billing rules
+                        </label>
                       </div>
-                    </div>
+                    </fieldset>
                   )
                 }
 
@@ -1083,17 +1173,45 @@ export default function PatientFormFields({
                   return (
                     <div className="mt-2 sm:mt-4 p-2.5 rounded-xl border border-border/40 bg-muted/20 flex items-center justify-between text-xs">
                       <div>
-                        <span className="font-medium text-foreground">Default Coverage: </span>
+                        <span className="font-medium text-foreground">Available coverage: </span>
                         <span className="text-muted-foreground">{getCoverageLabel(singleCov)}</span>
                       </div>
                       <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold text-[12px]">
-                        {singleCov.patientSharePercentage}% Patient Share
+                        {formatPatientShareDefaultInfo(shareDefault)}
                       </span>
                     </div>
                   )
                 }
 
-                return null
+                return (
+                  <div className="mt-2 sm:mt-4 p-3 rounded-xl border border-border/60 bg-muted/20 space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-medium text-foreground">
+                      Patient share default (%)
+                    </label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="any"
+                      value={insurance.patientSharePercentage ?? ""}
+                      onChange={(event) => {
+                        onUpdateInsurance(index, "patientShareCoverageId", "")
+                        onUpdateInsurance(
+                          index,
+                          "patientSharePercentage",
+                          event.target.value,
+                        )
+                      }}
+                      placeholder="Leave blank to use billing rules"
+                      className={solidFieldClass}
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      This is the patient&apos;s share of covered costs; the
+                      insurer pays the remainder. Leave blank to use service
+                      billing rules.
+                    </p>
+                  </div>
+                )
               })()}
 
               {hasProvider && (() => {

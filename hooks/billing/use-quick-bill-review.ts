@@ -70,6 +70,7 @@ export function useQuickBillReview(options?: {
       activeVisitInsurances.map((ins) => ({
         id: String(ins.id),
         providerId: String(ins.insuranceProvider.id),
+        patientShareCoverageId: ins.patientShareCoverageId ?? null,
         coverages: ins.insuranceProvider.coverages.map((c): CoverageTier => ({
           coverageId: String(c.id),
           departmentId: c.departmentId || null,

@@ -76,10 +76,6 @@ export interface BillingActionsContext {
   startBillEditing: (visitDepartmentId: string) => Promise<{ status: string; message?: string }>;
   completeBillEditing: (visitDepartmentId: string) => Promise<{ status: string; message?: string }>;
   cancelBillEditing: (visitDepartmentId: string, addedProductIds?: string[]) => Promise<{ status: string; message?: string }>;
-  changeVisitDepartmentProfile: (
-    visitDepartmentId: string,
-    profileId?: string | null,
-  ) => Promise<ApiResponse<any>>;
   updateDepartmentStatus: (
     visitDepartmentId: string,
     status: "ACTIVE" | "PENDING" | "COMPLETED",
@@ -155,7 +151,6 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     startBillEditing,
     completeBillEditing,
     cancelBillEditing,
-    changeVisitDepartmentProfile,
     updateDepartmentStatus,
     completeVisit,
     linkVisitInsurances,
@@ -197,32 +192,6 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
       copyType,
     );
     openInvoicePreview(invoiceUrl);
-  };
-
-  const handleChangeProfile = async (profileId: string | null) => {
-    if (!activeVisitDepartment) return;
-    try {
-      const response = await changeVisitDepartmentProfile(
-        activeVisitDepartment.id,
-        profileId,
-      );
-      if (response?.status === "SUCCESS") {
-        await refetchVisit();
-        await refetchBill();
-        // Force billingData to re-map so the new PROFILE products appear.
-        setBillingRemapNonce((nonce) => nonce + 1);
-        toast.success("Department profile updated");
-      } else {
-        toast.error(
-          response?.message || "Failed to update the department profile",
-        );
-      }
-    } catch (err) {
-      console.error("Change profile error:", err);
-      toast.error(
-        err instanceof Error ? err.message : "Failed to update the profile",
-      );
-    }
   };
 
   const [dischargeConfirmOpen, setDischargeConfirmOpen] = useState(false);
@@ -1111,7 +1080,6 @@ export function useBillingPageActions(ctx: BillingActionsContext) {
     requestDischarge,
     handleDischargeVisit,
     handleDownloadInvoice,
-    handleChangeProfile,
     handlePreviewBilling,
     handleGenerateBill,
     handlePrintBillingInvoice,

@@ -422,6 +422,17 @@ describe("resolvePatientSharePercentage", () => {
     expect(pct).toBe(35);
   });
 
+  it("honors a zero patient-specific default over provider coverage rules", () => {
+    const pct = resolvePatientSharePercentage({
+      departmentId: "dept-a",
+      encounterType: "OUTPATIENT",
+      patientSharePercentage: 0,
+      coverages: makeTiers(tier("base", 25)),
+    });
+
+    expect(pct).toBe(0);
+  });
+
   it("uses the patient-specific default when no coverage rule matches", () => {
     const coverages = makeTiers(tier("dept-other", 15, "dept-other"));
     const pct = resolvePatientSharePercentage({

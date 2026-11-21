@@ -81,6 +81,98 @@ export function getInsuranceDisplayName(
   return "Insurance"
 }
 
+export interface PatientShareDefaultInfo {
+  percentage: number | null
+  source: "Patient default" | "Provider base" | "Service rules" | "Not configured"
+  tierLabel?: string
+}
+
+export function formatPatientShareDefaultInfo(
+  info: PatientShareDefaultInfo,
+): string {
+  if (info.percentage === null) return info.source
+
+  const source =
+    info.source === "Patient default" ? "" : ` (${info.source.toLowerCase()})`
+  const tier = info.tierLabel ? ` · ${info.tierLabel}` : ""
+  return `${info.percentage}%${source}${tier}`
+}
+
+export function getPatientShareDefaultInfo(insurance: {
+  patientSharePercentage?: number | string | null
+  patientShareCoverageId?: string | null
+  insuranceProvider?: {
+    coverages?: Array<{
+      id?: string | null
+      departmentId?: string | null
+      departmentName?: string | null
+      encounterType?: string | null
+      patientSharePercentage?: number | string | null
+    }> | null
+  } | null
+}): PatientShareDefaultInfo {
+  const coverages = insurance.insuranceProvider?.coverages ?? []
+  const selectedCoverage = insurance.patientShareCoverageId
+    ? coverages.find(
+        (coverage) =>
+          String(coverage.id) === String(insurance.patientShareCoverageId),
+      )
+    : undefined
+  const selectedPercentage = Number(selectedCoverage?.patientSharePercentage)
+
+  if (
+    selectedCoverage?.patientSharePercentage != null &&
+    Number.isFinite(selectedPercentage)
+  ) {
+    const scope = [
+      selectedCoverage.departmentName ||
+        (selectedCoverage.departmentId ? "Department-specific" : null),
+      selectedCoverage.encounterType
+        ?.replace(/_/g, " ")
+        .toLowerCase()
+        .replace(/\b\w/g, (letter) => letter.toUpperCase()),
+    ]
+      .filter(Boolean)
+      .join(" / ")
+
+    return {
+      percentage: selectedPercentage,
+      source: "Patient default",
+      tierLabel: scope || "Base / General",
+    }
+  }
+
+  if (
+    insurance.patientSharePercentage != null &&
+    insurance.patientSharePercentage !== ""
+  ) {
+    const percentage = Number(insurance.patientSharePercentage)
+    if (Number.isFinite(percentage)) {
+      return { percentage, source: "Patient default" }
+    }
+  }
+
+  const baseCoverage = coverages.find(
+    (coverage) =>
+      !coverage.departmentId &&
+      !coverage.encounterType &&
+      coverage.patientSharePercentage != null,
+  )
+  const basePercentage = Number(baseCoverage?.patientSharePercentage)
+  if (baseCoverage && Number.isFinite(basePercentage)) {
+    return {
+      percentage: basePercentage,
+      source: "Provider base",
+      tierLabel: "Base / General",
+    }
+  }
+
+  return {
+    percentage: null,
+    source: coverages.length > 0 ? "Service rules" : "Not configured",
+  }
+}
+
 export interface ProductInsurancePricingResult {
   price: number
   coverage: any | null

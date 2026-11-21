@@ -3,6 +3,10 @@ import type { PatientInsurance } from '@/lib/api-types'
 import { isDominantMemberRequired } from '@/lib/validation-utils'
 import { splitFullName } from '@/lib/patient-display-utils'
 import { useCreatePatientInsurance, useUpdatePatientInsurance } from '@/hooks/patients/hooks'
+import {
+  getDefaultPatientInsuranceValidityDates,
+  getExistingPatientInsuranceValidityDates,
+} from '@/hooks/patients/patient-insurance-dates'
 
 export type SavePatientInsuranceInput = {
   patientId: string
@@ -15,6 +19,7 @@ export type SavePatientInsuranceInput = {
   dominantFirstName?: string
   dominantLastName?: string
   dominantPhone?: string
+  existingPatientInsuranceId?: string
   existingPatientInsurances?: PatientInsurance[]
   /** Optional patient-specific default patient share percentage (0-100). */
   patientSharePercentage?: number | null
@@ -111,9 +116,12 @@ export function useSavePatientInsurance() {
           }
         : undefined
 
-    const existingInsurance = (input.existingPatientInsurances || []).find(
-      (ins) => String(ins.insuranceProvider.id) === input.insuranceProviderId,
-    )
+    const existingInsuranceId = input.existingPatientInsuranceId
+    const existingInsurance = existingInsuranceId
+      ? input.existingPatientInsurances?.find(
+          (insurance) => String(insurance.id) === String(existingInsuranceId),
+        )
+      : undefined
 
     const commonPayload = {
       patientId: input.patientId,
@@ -121,19 +129,19 @@ export function useSavePatientInsurance() {
       insuranceCardNumber: input.insuranceCardNumber,
       providingCompanyOrEmployer: input.providingCompanyOrEmployer || null,
       dominantMember,
-      validFrom: new Date().toISOString().slice(0, 10),
-      validUntil: new Date(
-        new Date().getFullYear() + 1,
-        new Date().getMonth(),
-        new Date().getDate(),
-      ).toISOString().slice(0, 10),
       patientSharePercentage: input.patientSharePercentage ?? null,
       patientShareCoverageId: input.patientShareCoverageId ?? null,
     }
 
-    const response = existingInsurance
-      ? await updatePatientInsurance(existingInsurance.id, commonPayload)
-      : await createPatientInsurance(commonPayload)
+    const response = existingInsuranceId
+      ? await updatePatientInsurance(existingInsuranceId, {
+          ...commonPayload,
+          ...getExistingPatientInsuranceValidityDates(existingInsurance),
+        })
+      : await createPatientInsurance({
+          ...commonPayload,
+          ...getDefaultPatientInsuranceValidityDates(),
+        })
 
     return { status: response?.status || 'ERROR', response, fieldErrors: {} as SavePatientInsuranceFieldErrors }
   }, [createPatientInsurance, updatePatientInsurance])

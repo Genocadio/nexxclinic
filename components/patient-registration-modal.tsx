@@ -13,6 +13,10 @@ import { isInsuranceActive, insuranceStatusLabel } from "@/lib/insurance-utils"
 import { toast } from "react-toastify"
 import { calculateAge } from "@/lib/validation-utils"
 import PatientFormDialog from "@/components/patient/patient-form-dialog"
+import {
+  UnsavedChangesDialog,
+  useUnsavedChangesGuard,
+} from "@/components/patient/use-unsaved-changes-guard"
 import dynamic from "next/dynamic"
 
 const PatientEditModal = dynamic(
@@ -41,6 +45,14 @@ export default function PatientRegistrationModal({
   const [editPatientModal, setEditPatientModal] = useState(false)
   const [selectedPatientForEdit, setSelectedPatientForEdit] =
     useState<Patient | null>(null)
+  const {
+    setHasUnsavedChanges,
+    setIsBusy,
+    requestClose,
+    confirmOpen,
+    handleConfirmDiscard,
+    handleConfirmOpenChange,
+  } = useUnsavedChangesGuard(onClose)
 
   // ── Duplicate-detection search ────────────────────────────────────────────
   const [searchFilters, setSearchFilters] = useState<SearchPatientsInput>({})
@@ -121,7 +133,12 @@ export default function PatientRegistrationModal({
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) requestClose()
+        }}
+      >
         <DialogContent
           showCloseButton={false}
           className={`max-w-full ${dialogWidthClass} max-h-[calc(100dvh-2rem)] overflow-hidden backdrop-blur-2xl bg-card/95 dark:bg-card/95 text-card-foreground border border-border/80 rounded-3xl shadow-2xl p-2 sm:p-4`}
@@ -141,6 +158,9 @@ export default function PatientRegistrationModal({
               <PatientFormDialog
                 isOpen={isOpen}
                 onClose={onClose}
+                onRequestClose={requestClose}
+                onDirtyChange={setHasUnsavedChanges}
+                onBusyChange={setIsBusy}
                 mode="create"                onFormChange={(data: RegisterPatientInput) => {
                   dataRef.current = data
                   formDataRef.current = data
@@ -213,17 +233,18 @@ export default function PatientRegistrationModal({
                           variant="default"
                           size="sm"
                           onClick={() => {
-                            toast.success(
-                              `Selected existing patient: ${patient.firstName} ${patient.lastName}`,
-                            )
-                            onClose()
-                            if (onPatientRegistered) {
-                              onPatientRegistered(
-                                patient.id.toString(),
-                                patient.patientInsurances || [],
-                                true,
+                            requestClose(() => {
+                              toast.success(
+                                `Selected existing patient: ${patient.firstName} ${patient.lastName}`,
                               )
-                            }
+                              if (onPatientRegistered) {
+                                onPatientRegistered(
+                                  patient.id.toString(),
+                                  patient.patientInsurances || [],
+                                  true,
+                                )
+                              }
+                            })
                           }}
                           className="rounded-full bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] hover:opacity-90 text-white shadow-md"
                         >
@@ -319,6 +340,12 @@ export default function PatientRegistrationModal({
         </DialogContent>
       </Dialog>
 
+      <UnsavedChangesDialog
+        open={confirmOpen}
+        onOpenChange={handleConfirmOpenChange}
+        onDiscard={handleConfirmDiscard}
+      />
+
       <PatientEditModal
         isOpen={editPatientModal}
         onClose={() => {
@@ -329,14 +356,15 @@ export default function PatientRegistrationModal({
         onPatientUpdated={(updatedPatient) => {
           setEditPatientModal(false)
           setSelectedPatientForEdit(null)
-          onClose()
-          if (onPatientRegistered) {
-            onPatientRegistered(
-              updatedPatient.id.toString(),
-              updatedPatient.patientInsurances || [],
-              true,
-            )
-          }
+          requestClose(() => {
+            if (onPatientRegistered) {
+              onPatientRegistered(
+                updatedPatient.id.toString(),
+                updatedPatient.patientInsurances || [],
+                true,
+              )
+            }
+          })
         }}
       />
     </>

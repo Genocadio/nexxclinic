@@ -14,12 +14,10 @@ import { Button } from "@/components/ui/button"
 import {
   Loader2,
   ShieldAlert,
-  Stethoscope,
 } from "lucide-react"
 
 import { ReportsPeriodSelector } from "@/components/reports/reports-period-selector"
 import { ReportsInMenuFilter } from "@/components/reports/reports-in-menu-filter"
-import { ReportsSectionDock } from "@/components/reports/reports-section-dock"
 import { AdminReportsDiagnostics } from "@/components/reports/admin-reports-diagnostics"
 
 function formatLocalDate(date: Date): string {
@@ -193,12 +191,6 @@ export default function MedicalReportsPage() {
         "container w-full mx-auto px-4 sm:px-6 max-w-7xl transition-all flex-1 min-h-0 min-w-0",
         "py-2 sm:py-3 space-y-2 sm:space-y-3 overflow-y-auto"
       )}>
-        <ReportsSectionDock
-          items={[{ id: "conditions", label: "Conditions", icon: Stethoscope }]}
-          activeId={groupByVisit ? "" : "conditions"}
-          onSelect={() => setGroupByVisit(false)}
-        />
-
         {/* Loading Indicator for refetching */}
         {reportsLoading && reportData && (
           <div className="flex items-center justify-center p-2.5 bg-card/60 backdrop-blur-md rounded-xl border border-border/50 animate-pulse">

@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { BillingItem, BillingTotals, calculateItemTotal, getItemInsuranceSplit } from "@/lib/billing-utils";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 type PaymentMethod =
   | "CASH"
   | "MOBILE_MONEY"
@@ -29,6 +29,7 @@ type PaymentMethod =
   | "MIXED"
   | "NONE";
 import { formatRWF } from "@/lib/utils";
+import { parsePaidAmountInput } from "@/lib/billing-paid-amount";
 
 type BillingConfirmSheetProps = {
   open: boolean;
@@ -140,6 +141,20 @@ export function BillingConfirmSheet({
   onBillAndDischarge,
   editWarning = null,
 }: BillingConfirmSheetProps) {
+  const [amountPaidInput, setAmountPaidInput] = useState(
+    amountPaid === 0 ? "" : String(amountPaid),
+  );
+  const isEditingAmountPaidRef = useRef(false);
+  const previousAmountPaidRef = useRef(amountPaid);
+
+  useEffect(() => {
+    if (previousAmountPaidRef.current === amountPaid) return;
+    previousAmountPaidRef.current = amountPaid;
+    if (!isEditingAmountPaidRef.current) {
+      setAmountPaidInput(amountPaid === 0 ? "" : String(amountPaid));
+    }
+  }, [amountPaid]);
+
   const itemsToBill = items.filter((item) => item.paymentStatus !== "paid");
   const outstanding = Math.max(0, totals.totalAmount - amountPaid);
   const hasExemptions = itemsToBill.some(
@@ -407,14 +422,27 @@ export function BillingConfirmSheet({
                 type="number"
                 min={0}
                 max={totals.totalAmount}
-                value={amountPaid}
+                value={amountPaidInput}
+                onFocus={() => {
+                  isEditingAmountPaidRef.current = true;
+                }}
+                onBlur={() => {
+                  isEditingAmountPaidRef.current = false;
+                  if (amountPaidInput === "") {
+                    setAmountPaidInput("0");
+                    onAmountPaidChange(0);
+                    onPaymentMethodChange("NONE");
+                  }
+                }}
                 onChange={(e) => {
-                  const val = Math.min(
+                  const parsed = parsePaidAmountInput(
+                    e.target.value,
                     totals.totalAmount,
-                    Math.max(0, Number(e.target.value || 0)),
                   );
-                  onAmountPaidChange(val);
-                  if (val === 0) {
+                  if (!parsed) return;
+                  setAmountPaidInput(parsed.displayValue);
+                  onAmountPaidChange(parsed.amount);
+                  if (parsed.amount === 0) {
                     onPaymentMethodChange("NONE");
                   } else if (paymentMethod === "NONE" || !paymentMethod) {
                     onPaymentMethodChange("MOBILE_MONEY");

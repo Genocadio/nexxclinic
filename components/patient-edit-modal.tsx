@@ -6,6 +6,10 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import PatientFormDialog from "@/components/patient/patient-form-dialog"
 import { usePatient } from "@/hooks/patients/hooks"
 import { Loader2 } from "lucide-react"
+import {
+  UnsavedChangesDialog,
+  useUnsavedChangesGuard,
+} from "@/components/patient/use-unsaved-changes-guard"
 
 interface PatientEditModalProps {
   isOpen: boolean
@@ -22,6 +26,14 @@ export default function PatientEditModal({
 }: PatientEditModalProps) {
   const patientId = isOpen && patient?.id ? String(patient.id) : null
   const { patient: loadedPatient, loading } = usePatient(patientId)
+  const {
+    setHasUnsavedChanges,
+    setIsBusy,
+    requestClose,
+    confirmOpen,
+    handleConfirmDiscard,
+    handleConfirmOpenChange,
+  } = useUnsavedChangesGuard(onClose)
 
   // Merge loaded patient (which has complete patientInsurances) with initial prop
   const effectivePatient = useMemo(() => {
@@ -38,29 +50,44 @@ export default function PatientEditModal({
   }, [patient, loadedPatient])
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        showCloseButton={false}
-        className="max-w-full sm:max-w-[1180px] max-h-[calc(100dvh-2rem)] overflow-hidden backdrop-blur-2xl bg-card/95 dark:bg-card/95 text-card-foreground border border-border/80 rounded-3xl shadow-2xl p-2 sm:p-4"
+    <>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) requestClose()
+        }}
       >
-        <DialogTitle className="sr-only">Edit Patient</DialogTitle>
-        {loading && (
-          <Loader2 className="pointer-events-none absolute right-4 top-4 z-10 h-4 w-4 animate-spin text-muted-foreground" />
-        )}
-        <div className="max-h-[calc(100dvh-4rem)] min-h-0 overflow-y-auto scrollbar-hide px-1">
-          <PatientFormDialog
-            isOpen={isOpen}
-            onClose={onClose}
-            mode="edit"
-            patient={effectivePatient}
-            onPatientSaved={(_id, _insurances, _proceed, _visit, updatedPatient) => {
-              if (updatedPatient && onPatientUpdated) {
-                onPatientUpdated(updatedPatient)
-              }
-            }}
-          />
-        </div>
-      </DialogContent>
-    </Dialog>
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-full sm:max-w-[1180px] max-h-[calc(100dvh-2rem)] overflow-hidden backdrop-blur-2xl bg-card/95 dark:bg-card/95 text-card-foreground border border-border/80 rounded-3xl shadow-2xl p-2 sm:p-4"
+        >
+          <DialogTitle className="sr-only">Edit Patient</DialogTitle>
+          {loading && (
+            <Loader2 className="pointer-events-none absolute right-4 top-4 z-10 h-4 w-4 animate-spin text-muted-foreground" />
+          )}
+          <div className="max-h-[calc(100dvh-4rem)] min-h-0 overflow-y-auto scrollbar-hide px-1">
+            <PatientFormDialog
+              isOpen={isOpen}
+              onClose={onClose}
+              onRequestClose={requestClose}
+              onDirtyChange={setHasUnsavedChanges}
+              onBusyChange={setIsBusy}
+              mode="edit"
+              patient={effectivePatient}
+              onPatientSaved={(_id, _insurances, _proceed, _visit, updatedPatient) => {
+                if (updatedPatient && onPatientUpdated) {
+                  onPatientUpdated(updatedPatient)
+                }
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+      <UnsavedChangesDialog
+        open={confirmOpen}
+        onOpenChange={handleConfirmOpenChange}
+        onDiscard={handleConfirmDiscard}
+      />
+    </>
   )
 }

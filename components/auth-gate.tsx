@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { usePathname, useRouter } from "@/lib/navigation"
 
 import { useAuth } from "@/lib/auth-context"
@@ -16,9 +16,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const { isAuthenticated, isLoading, doctor } = useAuth()
+  const redirectTargetRef = useRef<string | null>(null)
 
   const isPublicRoute = pathname ? publicRoutes.has(pathname) : false
-  const roles = ((doctor as unknown as { roles?: string[] } | null)?.roles || []) as string[]
+  const roles = useMemo(() => doctor?.roles ?? [], [doctor])
   const isAdminRoute = pathname?.startsWith("/admin") || false
   const canAccessAdmin = hasAdminAccess(roles)
 
@@ -27,19 +28,25 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       return
     }
 
+    let redirectTarget: string | null = null
+
     if (!isPublicRoute && !isAuthenticated) {
-      router.replace("/auth")
+      redirectTarget = "/auth"
+    } else if (isAuthenticated && isAdminRoute && !canAccessAdmin) {
+      // Admin paths are restricted to ADMIN role only.
+      redirectTarget = "/"
+    } else if ((pathname === "/auth" || pathname === "/create-password") && isAuthenticated) {
+      redirectTarget = getPostLoginPath(roles)
+    }
+
+    if (!redirectTarget) {
+      redirectTargetRef.current = null
       return
     }
 
-    // Admin paths are restricted to ADMIN role only
-    if (isAuthenticated && isAdminRoute && !canAccessAdmin) {
-      router.replace("/")
-      return
-    }
-
-    if ((pathname === "/auth" || pathname === "/create-password") && isAuthenticated) {
-      router.replace(getPostLoginPath(roles))
+    if (redirectTargetRef.current !== redirectTarget) {
+      redirectTargetRef.current = redirectTarget
+      router.replace(redirectTarget)
     }
   }, [canAccessAdmin, isAdminRoute, isAuthenticated, isLoading, isPublicRoute, pathname, roles, router])
 
