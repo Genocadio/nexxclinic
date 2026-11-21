@@ -56,17 +56,21 @@ export function UnsavedChangesDialog({
   open,
   onOpenChange,
   onDiscard,
+  title = "Discard unsaved changes?",
+  description = "Some changes may already have been saved. Any remaining unsaved changes will be lost if you leave.",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onDiscard: () => void
+  title?: string
+  description?: string
 }) {
   return (
     <ConfirmDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Discard unsaved changes?"
-      description="Some changes may already have been saved. Any remaining unsaved changes will be lost if you leave."
+      title={title}
+      description={description}
       confirmLabel="Discard changes"
       cancelLabel="Keep editing"
       destructive

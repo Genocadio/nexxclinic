@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { PatientInsurance } from '@/lib/api-types'
@@ -47,6 +47,10 @@ import {
 import { Check, ChevronsUpDown, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'react-toastify'
+import {
+  UnsavedChangesDialog,
+  useUnsavedChangesGuard,
+} from '@/components/patient/use-unsaved-changes-guard'
 
 type AddPatientInsuranceModalProps = {
   open: boolean
@@ -95,6 +99,7 @@ export function AddPatientInsuranceModal({
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [selectedInsuranceId, setSelectedInsuranceId] = useState('')
   const [selectedInsuranceName, setSelectedInsuranceName] = useState('')
+  const [providerSelectionDirty, setProviderSelectionDirty] = useState(false)
 
   const selectableInsurances = useMemo(
     () => availableInsurances || [],
@@ -136,13 +141,13 @@ export function AddPatientInsuranceModal({
     handleSubmit,
     setError,
     clearErrors,
-    reset: resetFormErrors,
+    reset,
     control,
     trigger,
     setValue,
     watch,
     getValues,
-    formState: { errors: formErrors },
+    formState: { errors: formErrors, isDirty },
   } = useForm<PatientInsuranceFormValues>({
     resolver: zodResolver(createPatientInsuranceFormSchema({ dominantRequired })),
     // Dominant-member rules are conditional (superRefine), so live validation
@@ -160,6 +165,27 @@ export function AddPatientInsuranceModal({
       patientShareCoverageId: null,
     },
   })
+
+  const closeInsuranceDialog = useCallback(
+    () => onOpenChange(false),
+    [onOpenChange],
+  )
+  const {
+    setHasUnsavedChanges,
+    setIsBusy,
+    confirmOpen,
+    requestClose,
+    handleConfirmDiscard,
+    handleConfirmOpenChange,
+  } = useUnsavedChangesGuard(closeInsuranceDialog)
+
+  useEffect(() => {
+    setHasUnsavedChanges(isDirty || providerSelectionDirty)
+  }, [isDirty, providerSelectionDirty, setHasUnsavedChanges])
+
+  useEffect(() => {
+    setIsBusy(loading)
+  }, [loading, setIsBusy])
 
   const watchIsSelf = watch('isSelf') ?? isAdult
   const patientShareDefault = getPatientShareDefaultInfo({
@@ -184,7 +210,8 @@ export function AddPatientInsuranceModal({
     setStep('select')
     setSelectedInsuranceId('')
     setSelectedInsuranceName('')
-    resetFormErrors()
+    setProviderSelectionDirty(false)
+    reset()
   }
 
   useEffect(() => {
@@ -201,44 +228,46 @@ export function AddPatientInsuranceModal({
           'Insurance',
       )
       setStep('card')
-      setValue('insuranceCardNumber', editingInsurance.insuranceCardNumber || '')
-      setValue(
-        'providingCompanyOrEmployer',
-        editingInsurance.providingCompanyOrEmployer || '',
-      )
-      setValue('isSelf', editingInsurance.principalMember ?? isAdult)
-      setValue('dominantName', editingInsurance.principalMemberName || '')
-      setValue('dominantPhone', editingInsurance.principalMemberPhoneNumber || '')
-      setValue(
-        'patientSharePercentage',
-        editingInsurance.patientSharePercentage != null
-          ? String(editingInsurance.patientSharePercentage)
-          : '',
-      )
-      setValue(
-        'patientShareCoverageId',
-        editingInsurance.patientShareCoverageId || null,
-      )
+      setProviderSelectionDirty(false)
+      reset({
+        insuranceCardNumber: editingInsurance.insuranceCardNumber || '',
+        providingCompanyOrEmployer:
+          editingInsurance.providingCompanyOrEmployer || '',
+        isSelf: editingInsurance.principalMember ?? isAdult,
+        dominantName: editingInsurance.principalMemberName || '',
+        dominantFirstName: '',
+        dominantLastName: '',
+        dominantPhone: editingInsurance.principalMemberPhoneNumber || '',
+        patientSharePercentage:
+          editingInsurance.patientSharePercentage != null
+            ? String(editingInsurance.patientSharePercentage)
+            : '',
+        patientShareCoverageId:
+          editingInsurance.patientShareCoverageId || null,
+      })
+    } else {
+      resetForm()
     }
-  }, [open, editingInsurance, isAdult, setValue])
+  }, [open, editingInsurance, isAdult, reset])
 
   const handleProviderSelect = (id: string, name: string) => {
     setSelectedInsuranceId(id)
     setSelectedInsuranceName(name)
+    setProviderSelectionDirty(true)
     const prov = selectableInsurances.find((ins) => String(ins.id) === id)
     const covs = (prov?.coverages || []).filter((r) => r.patientSharePercentage != null)
     if (covs.length === 1 && covs[0]) {
-      setValue('patientShareCoverageId', covs[0].id, { shouldValidate: true })
-      setValue('patientSharePercentage', String(covs[0].patientSharePercentage), { shouldValidate: true })
+      setValue('patientShareCoverageId', covs[0].id, { shouldValidate: true, shouldDirty: true })
+      setValue('patientSharePercentage', String(covs[0].patientSharePercentage), { shouldValidate: true, shouldDirty: true })
     } else if (covs.length > 1) {
       const base = covs.find((c) => !c.departmentId && !c.encounterType) || covs[0]
       if (base) {
-        setValue('patientShareCoverageId', base.id, { shouldValidate: true })
-        setValue('patientSharePercentage', String(base.patientSharePercentage), { shouldValidate: true })
+        setValue('patientShareCoverageId', base.id, { shouldValidate: true, shouldDirty: true })
+        setValue('patientSharePercentage', String(base.patientSharePercentage), { shouldValidate: true, shouldDirty: true })
       }
     } else {
-      setValue('patientShareCoverageId', null)
-      setValue('patientSharePercentage', '')
+      setValue('patientShareCoverageId', null, { shouldDirty: true })
+      setValue('patientSharePercentage', '', { shouldDirty: true })
     }
     setPopoverOpen(false)
     setStep('card')
@@ -284,8 +313,15 @@ export function AddPatientInsuranceModal({
       dominantLastName: resolvedDominant.lastName,
       dominantPhone: values.dominantPhone,
       existingPatientInsurances: patientInsurances,
-      patientSharePercentage: values.patientSharePercentage ? Number(values.patientSharePercentage) : null,
+      patientSharePercentage:
+        values.patientSharePercentage !== "" &&
+        values.patientSharePercentage != null
+          ? Number(values.patientSharePercentage)
+          : null,
       patientShareCoverageId: values.patientShareCoverageId || null,
+      existingPatientInsuranceId: editingInsurance
+        ? String(editingInsurance.id)
+        : undefined,
     })
 
     if (result.status === 'VALIDATION_ERROR') {
@@ -300,14 +336,24 @@ export function AddPatientInsuranceModal({
     }
 
     if (result.status === 'SUCCESS') {
-      await onSuccess?.()
+      setHasUnsavedChanges(false)
       onOpenChange(false)
       resetForm()
       toast.success(
-        context === 'billing'
-          ? 'Insurance saved on patient record. Check it under Patient insurances to use on this visit.'
-          : 'Insurance saved on patient record.',
+        editingInsurance
+          ? 'Insurance updated on patient record.'
+          : context === 'billing'
+            ? 'Insurance saved on patient record. Check it under Patient insurances to use on this visit.'
+            : 'Insurance saved on patient record.',
       )
+      try {
+        await onSuccess?.()
+      } catch (error) {
+        console.error('Insurance saved, but refreshing the patient visit failed:', error)
+        toast.error(
+          'Insurance was saved, but the billing panel could not refresh. Please refresh the page to see the latest details.',
+        )
+      }
       return
     }
 
@@ -316,11 +362,15 @@ export function AddPatientInsuranceModal({
   }
 
   return (
+    <>
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
-        onOpenChange(nextOpen)
-        if (!nextOpen) resetForm()
+        if (nextOpen) {
+          onOpenChange(true)
+        } else {
+          requestClose()
+        }
       }}
     >
       <DialogContent className="sm:max-w-md">
@@ -444,7 +494,7 @@ export function AddPatientInsuranceModal({
           {/* Step 2: Enter card number */}
           {step === 'card' && (
             <>
-              <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+              <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-sm">
                 <span className="text-muted-foreground text-xs">Provider</span>
                 <p className="font-medium">{selectedInsuranceName}</p>
               </div>
@@ -465,7 +515,7 @@ export function AddPatientInsuranceModal({
           {/* Step 3: Details (employer, dominant member, etc.) */}
           {step === 'details' && (
             <>
-              <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+              <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-sm">
                 <span className="text-muted-foreground text-xs">Provider</span>
                 <p className="font-medium">{selectedInsuranceName}</p>
                 {selectedProvider && (
@@ -477,7 +527,7 @@ export function AddPatientInsuranceModal({
 
               <div className="space-y-1">
                 <p className="text-[12px] text-muted-foreground">Insurance Card Number</p>
-                <div className="rounded-lg border bg-muted/20 px-3 py-2 text-sm font-mono">
+                <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2 text-sm font-mono">
                   {getValues('insuranceCardNumber') || ''}
                 </div>
               </div>
@@ -517,14 +567,14 @@ export function AddPatientInsuranceModal({
                           type="button"
                           onClick={() => {
                             if (isSelected) {
-                              setValue('patientShareCoverageId', null, { shouldValidate: true })
-                              setValue('patientSharePercentage', '', { shouldValidate: true })
+                              setValue('patientShareCoverageId', null, { shouldValidate: true, shouldDirty: true })
+                              setValue('patientSharePercentage', '', { shouldValidate: true, shouldDirty: true })
                             } else {
-                              setValue('patientShareCoverageId', cov.id, { shouldValidate: true })
-                              setValue('patientSharePercentage', String(cov.patientSharePercentage), { shouldValidate: true })
+                              setValue('patientShareCoverageId', cov.id, { shouldValidate: true, shouldDirty: true })
+                              setValue('patientSharePercentage', String(cov.patientSharePercentage), { shouldValidate: true, shouldDirty: true })
                             }
                           }}
-                          className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
                             isSelected
                               ? 'bg-gradient-to-r from-[#25D2D8] via-[#5F77E8] to-[#3CAAD8] text-white border-transparent shadow-sm'
                               : 'bg-white dark:bg-slate-900 border-border/60 hover:border-primary/50 text-foreground'
@@ -579,7 +629,7 @@ export function AddPatientInsuranceModal({
                       id="isSelf"
                       checked={Boolean(watchIsSelf)}
                       onCheckedChange={(checked) => {
-                        setValue('isSelf', Boolean(checked), { shouldValidate: true })
+                        setValue('isSelf', Boolean(checked), { shouldValidate: true, shouldDirty: true })
                         if (checked) {
                           setValue('dominantName', '')
                           setValue('dominantFirstName', '')
@@ -711,5 +761,13 @@ export function AddPatientInsuranceModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <UnsavedChangesDialog
+      open={confirmOpen}
+      onOpenChange={handleConfirmOpenChange}
+      onDiscard={handleConfirmDiscard}
+      title="Discard insurance changes?"
+      description="Your insurance details have not been saved. Discard these changes and close?"
+    />
+    </>
   )
 }

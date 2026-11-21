@@ -59,6 +59,8 @@ export interface ConsultationPatientHeaderStripProps {
   activeInsuranceIds?: Set<string>;
   onToggleInsurance?: (insuranceId: string, active: boolean) => void;
   onAddInsurance?: () => void;
+  onEditInsurance?: (insurance: PatientInsurance) => void;
+  onDeleteInsurance?: (insurance: PatientInsurance) => void;
   billedInsuranceIds?: Set<string>;
   insuranceReadOnly?: boolean;
   addingVisitInsurance?: boolean;
@@ -102,6 +104,8 @@ export function ConsultationPatientHeaderStrip({
   activeInsuranceIds,
   onToggleInsurance,
   onAddInsurance,
+  onEditInsurance,
+  onDeleteInsurance,
   billedInsuranceIds,
   insuranceReadOnly = false,
   addingVisitInsurance = false,
@@ -198,6 +202,8 @@ export function ConsultationPatientHeaderStrip({
               activeInsuranceIds={activeInsuranceIds}
               onToggleInsurance={onToggleInsurance}
               onAddInsurance={onAddInsurance}
+              onEditInsurance={onEditInsurance}
+              onDeleteInsurance={onDeleteInsurance}
               billedInsuranceIds={billedInsuranceIds}
               readOnly={insuranceReadOnly}
               addingVisitInsurance={addingVisitInsurance}

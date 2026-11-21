@@ -19,6 +19,8 @@ import {
   Loader2,
   Check,
   Info,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { formatDateOnly, cn } from "@/lib/utils";
 import type { Patient, PatientInsurance } from "@/lib/api-types";
@@ -58,6 +60,8 @@ export interface PatientIdentificationDropdownContentProps {
   activeInsuranceIds?: Set<string>;
   onToggleInsurance?: (insuranceId: string, active: boolean) => void;
   onAddInsurance?: () => void;
+  onEditInsurance?: (insurance: PatientInsurance) => void;
+  onDeleteInsurance?: (insurance: PatientInsurance) => void;
   billedInsuranceIds?: Set<string>;
   readOnly?: boolean;
   addingVisitInsurance?: boolean;
@@ -76,6 +80,8 @@ export function PatientIdentificationDropdownContent({
   activeInsuranceIds,
   onToggleInsurance,
   onAddInsurance,
+  onEditInsurance,
+  onDeleteInsurance,
   billedInsuranceIds,
   readOnly = false,
   addingVisitInsurance = false,
@@ -123,6 +129,52 @@ export function PatientIdentificationDropdownContent({
   const nonAppliedInsurances = useMemo(() => {
     return allPatientInsurances.filter((pi) => !isApplied(pi));
   }, [allPatientInsurances, isApplied]);
+
+  const renderInsuranceActions = (
+    insurance: PatientInsurance,
+    isUsedInBilling: boolean,
+  ) => {
+    if (
+      readOnly ||
+      isUsedInBilling ||
+      (!onEditInsurance && !onDeleteInsurance)
+    ) {
+      return null;
+    }
+
+    return (
+      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100">
+        {onEditInsurance && (
+          <button
+            type="button"
+            aria-label="Edit patient insurance"
+            title="Edit patient insurance"
+            className="h-6 w-6 rounded-md border border-border/70 bg-background text-foreground hover:bg-muted flex items-center justify-center transition-colors shrink-0"
+            onClick={(event) => {
+              event.stopPropagation();
+              onEditInsurance(insurance);
+            }}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {onDeleteInsurance && (
+          <button
+            type="button"
+            aria-label="Remove patient insurance"
+            title="Remove patient insurance"
+            className="h-6 w-6 rounded-md border border-destructive/40 bg-background text-destructive hover:bg-destructive/10 flex items-center justify-center transition-colors shrink-0"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDeleteInsurance(insurance);
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col bg-background text-foreground text-xs sm:text-sm">
@@ -224,10 +276,19 @@ export function PatientIdentificationDropdownContent({
           {appliedInsurances.length > 0 ? (
             appliedInsurances.map((activeInsurance: any) => {
               const shareDefault = getPatientShareDefaultInfo(activeInsurance)
+              const patientInsurance =
+                allPatientInsurances.find(
+                  (insurance) =>
+                    String(insurance.id) === String(activeInsurance.id),
+                ) || activeInsurance;
+              const isUsedInBilling = Boolean(
+                billedInsuranceIds?.has(String(activeInsurance.id)) ||
+                  billedInsuranceIds?.has(activeInsurance.id),
+              );
               return (
                 <div
                   key={activeInsurance.id || activeInsurance.insuranceCardNumber || "active-ins"}
-                  className="rounded-xl border border-primary/30 bg-primary/5 p-2.5 space-y-1.5"
+                  className="group rounded-xl border border-primary/30 bg-primary/5 p-2.5 space-y-1.5"
                 >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-bold text-xs sm:text-sm text-foreground">
@@ -237,15 +298,11 @@ export function PatientIdentificationDropdownContent({
                       "Insurance"}
                   </span>
                   <div className="flex items-center gap-1.5">
+                    {renderInsuranceActions(patientInsurance, isUsedInBilling)}
                     <Badge variant="default" className="text-xs py-0.5 px-2 font-normal bg-emerald-600 text-white">
                       Applied To Visit
                     </Badge>
                     {onToggleInsurance && (() => {
-                      const isUsedInBilling = billedInsuranceIds != null && (
-                        billedInsuranceIds.has(String(activeInsurance.id)) ||
-                        billedInsuranceIds.has(activeInsurance.id)
-                      );
-
                       if (isUsedInBilling || readOnly) {
                         return (
                           <TooltipProvider delayDuration={150}>
@@ -255,7 +312,7 @@ export function PatientIdentificationDropdownContent({
                                   role="button"
                                   tabIndex={0}
                                   aria-label="Insurance locked"
-                                  className="h-6 w-6 rounded-md border border-border/70 bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors shrink-0 shadow-xs cursor-help"
+                                  className="h-6 w-6 rounded-md border border-border/70 bg-muted/70 text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors shrink-0 shadow-xs cursor-help"
                                 >
                                   <Info className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                                 </div>
@@ -263,7 +320,7 @@ export function PatientIdentificationDropdownContent({
                               <TooltipContent side="top" className="max-w-xs text-xs">
                                 {readOnly
                                   ? "Visit is already billed. Insurance cannot be changed."
-                                  : "Insurance is locked because it is used in billed items. Remove or change products first to unapply."}
+                                  : "Insurance is used by billed items and cannot be changed here."}
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -277,7 +334,8 @@ export function PatientIdentificationDropdownContent({
                               <button
                                 type="button"
                                 aria-label="Unapply insurance from this visit"
-                                className="h-6 w-6 rounded-md border border-destructive/40 bg-background hover:bg-destructive/10 text-destructive flex items-center justify-center transition-colors shrink-0 shadow-xs cursor-pointer"
+                                title="Unapply insurance from this visit"
+                                className="h-6 w-6 rounded-md border border-destructive/40 bg-background hover:bg-destructive/10 text-destructive flex items-center justify-center transition-all shrink-0 shadow-xs cursor-pointer opacity-0 group-hover:opacity-100 focus-visible:opacity-100 max-sm:opacity-100"
                                 disabled={addingVisitInsurance}
                                 onClick={async (e) => {
                                   e.stopPropagation();
@@ -358,10 +416,14 @@ export function PatientIdentificationDropdownContent({
               <div className="space-y-1.5">
                 {nonAppliedInsurances.map((ins: any) => {
                   const shareDefault = getPatientShareDefaultInfo(ins)
+                  const isUsedInBilling = Boolean(
+                    billedInsuranceIds?.has(String(ins.id)) ||
+                      billedInsuranceIds?.has(ins.id),
+                  );
                   return (
                     <div
                       key={ins.id}
-                      className="flex items-center justify-between gap-2 p-2 rounded-lg border border-dashed border-border/70 bg-muted/30 opacity-60 hover:opacity-100 transition-all text-xs"
+                      className="group flex items-center justify-between gap-2 p-2 rounded-xl border border-dashed border-border/70 bg-muted/30 opacity-60 hover:opacity-100 transition-all text-xs"
                       title="Registered on patient record, but not selected for this visit."
                     >
                       <div className="min-w-0">
@@ -376,6 +438,7 @@ export function PatientIdentificationDropdownContent({
                         </span>
                       </div>
                     <div className="flex items-center gap-1.5 shrink-0">
+                        {renderInsuranceActions(ins, isUsedInBilling)}
                       <Badge variant="outline" className="text-xs py-0.5 px-2 text-muted-foreground border-border/60 bg-muted/50">
                         Not applied
                       </Badge>

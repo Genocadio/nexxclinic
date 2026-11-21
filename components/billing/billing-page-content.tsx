@@ -40,7 +40,7 @@ import {
   useCompleteBillEditing,
   useCancelBillEditing,
 } from "@/hooks/auth-hooks";
-import type { Visit, VisitBilling } from "@/lib/api-types";
+import type { PatientInsurance, Visit, VisitBilling } from "@/lib/api-types";
 import {
   getVisitBillingTotals,
   isVisitDepartmentProductBilled,
@@ -68,6 +68,7 @@ import { playNoteNotificationSound } from "@/lib/sound-notifications";
 import { VisitLiveToasts, type LiveToastItem } from "@/components/visit-live-toasts";
 import { useBillingPageState } from "@/hooks/billing/use-billing-page-state";
 import { useBillingPageActions } from "@/hooks/billing/use-billing-actions";
+import { useDeletePatientInsurance } from "@/hooks/patients/hooks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { EMPTY_TOTALS } from "@/hooks/billing/use-billing-totals";
@@ -110,6 +111,14 @@ export function BillingPageContent() {
   const visitId = searchParams.get("visitId");
   const autoPrint = searchParams.get("autoprint") === "1";
   const { visit, loading, error, refetch: refetchVisit } = useVisit(visitId);
+  const {
+    deletePatientInsurance,
+    loading: deletingPatientInsurance,
+  } = useDeletePatientInsurance();
+  const [editingPatientInsurance, setEditingPatientInsurance] =
+    useState<PatientInsurance | null>(null);
+  const [patientInsurancePendingRemoval, setPatientInsurancePendingRemoval] =
+    useState<PatientInsurance | null>(null);
   const { createBill, loading: creatingBill } = useCreateBill();
   const { editBill, loading: editingBill } = useEditBill();
   const { generateInvoice, loading: generatingInvoice } = useGenerateInvoice();
@@ -432,6 +441,38 @@ export function BillingPageContent() {
     () => visit?.patient.patientInsurances || [],
     [visit?.patient.patientInsurances],
   );
+  const handleAddPatientInsurance = () => {
+    setEditingPatientInsurance(null);
+    setShowAddInsuranceModal(true);
+  };
+  const handleEditPatientInsurance = (insurance: PatientInsurance) => {
+    setEditingPatientInsurance(insurance);
+    setShowAddInsuranceModal(true);
+  };
+  const handleDeletePatientInsurance = async () => {
+    if (!patientInsurancePendingRemoval) return;
+
+    const response = await deletePatientInsurance(
+      patientInsurancePendingRemoval.id,
+    );
+    if (response.status !== "SUCCESS" || !response.data) {
+      toast.error(
+        response.messages?.[0]?.text ||
+          response.message ||
+          "Failed to remove patient insurance.",
+      );
+      return;
+    }
+
+    toast.success(response.message || "Patient insurance removed.");
+    setPatientInsurancePendingRemoval(null);
+    try {
+      await refetchVisit();
+    } catch (error) {
+      console.error("Failed to refresh billing after removing insurance:", error);
+      toast.error("Insurance was removed, but the billing view could not refresh.");
+    }
+  };
   const visitInsuranceIds = useMemo(
     () => new Set(activeVisitInsuranceIds),
     [activeVisitInsuranceIds],
@@ -1587,7 +1628,9 @@ export function BillingPageContent() {
                 await handleRemoveInsuranceFromVisit(id);
               }
             }}
-            onAddInsurance={() => setShowAddInsuranceModal(true)}
+            onAddInsurance={handleAddPatientInsurance}
+            onEditInsurance={handleEditPatientInsurance}
+            onDeleteInsurance={setPatientInsurancePendingRemoval}
             onAddDepartment={() => setAddDepartmentModalOpen(true)}
             insuranceReadOnly={effectiveIsAlreadyBilled && !isEditMode}
             addingVisitInsurance={addingVisitInsurance}
@@ -1878,13 +1921,35 @@ export function BillingPageContent() {
 
       <AddPatientInsuranceModal
         open={showAddInsuranceModal}
-        onOpenChange={setShowAddInsuranceModal}
+        onOpenChange={(open) => {
+          setShowAddInsuranceModal(open);
+          if (!open) setEditingPatientInsurance(null);
+        }}
         patientId={visit.patient.id}
         patientDateOfBirth={visit.patient.dateOfBirth}
         patientInsurances={patientInsurances}
-        onSuccess={() => void refetchVisit()}
+        editingInsurance={editingPatientInsurance}
+        onSuccess={async () => {
+          const result = await refetchVisit();
+          if (result.error) throw result.error;
+        }}
         context="billing"
         disabled={addingVisitInsurance}
+      />
+      <ConfirmDeleteDialog
+        open={Boolean(patientInsurancePendingRemoval)}
+        onOpenChange={(open) => {
+          if (!open) setPatientInsurancePendingRemoval(null);
+        }}
+        entityName={
+          patientInsurancePendingRemoval?.insuranceProvider.acronym ||
+          patientInsurancePendingRemoval?.insuranceProvider.insuranceName ||
+          "patient insurance"
+        }
+        extraWarning="If this policy is linked to a visit or billing record, it will be deactivated instead of permanently deleted so the audit trail is preserved."
+        confirmLabel="Remove insurance"
+        busy={deletingPatientInsurance}
+        onConfirm={() => void handleDeletePatientInsurance()}
       />
 
 
